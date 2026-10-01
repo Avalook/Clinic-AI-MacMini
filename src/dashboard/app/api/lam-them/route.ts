@@ -59,6 +59,10 @@ export async function POST(request: Request) {
   switch (than?.thao_tac) {
     case "dat":
       return proxyJsonToBackend("POST", "/api/v1/lam-them/dat", than?.du_lieu ?? {});
+    case "dong-dich-vu":
+      return proxyJsonToBackend("POST", "/api/v1/lam-them/dong-dich-vu", than?.du_lieu ?? {});
+    case "hoan-tac-dich-vu":
+      return proxyJsonToBackend("POST", "/api/v1/lam-them/hoan-tac-dich-vu", than?.du_lieu ?? {});
     case "luu-muc":
       if (!MA_RE.test(ma)) break;
       return proxyJsonToBackend(

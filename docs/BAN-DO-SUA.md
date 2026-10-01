@@ -151,6 +151,14 @@ dưới chip tick: `D/_lam-viec/NhapKetQuaLamThem.tsx` (ghép `PhieuKetQua` + `K
 đường lưu / hoàn tất / tải tệp có sẵn) ← `LamThemTaiQuay.tsx` ← khối `ket_qua` của
 `S/lam_them_tai_quay_service.py` (`_ket_qua_cac_don`; `nhap_duoc` = quyền
 `result.form.fill`). Test: `T/services/test_ket_qua_chung_lam_them_db.py`.
+**Hoàn tất kết quả ở quầy = dịch vụ làm thêm XONG (phương án A, Tuyền 01/10):**
+`S/lam_them_dong_dich_vu.py` (`dong_tai_quay`, `hoan_tac_tai_quay`, cửa tiền
+`finance_gate.can_start` — dây `thu_truoc_khi_lam`, chưa thu thì nói rõ không đóng) gọi
+lệnh `bat_dau` + `xong` CÓ SẴN của `S/service_execution_service.py`; lệnh mới
+`hoan_tac_xong_tai_quay` (về chờ làm, lý do `RESULT_UNDONE`, migration
+`20261002700000_hoan_tac_xong_tai_quay.sql`). Móc ở `S/form_engine_service.py`
+(`hoan_tat`, `mo_sua`, `huy_sua`); nút [Đóng dịch vụ] / [Hoàn tác] ở `NhapKetQuaLamThem.tsx`
+→ `/api/lam-them` (`dong-dich-vu`, `hoan-tac-dich-vu`).
 
 ## 5. Tư vấn · Bàn khám · phiếu khám
 

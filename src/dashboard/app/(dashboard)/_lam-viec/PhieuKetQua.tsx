@@ -158,6 +158,8 @@ export default function PhieuKetQua({
     laLanSua: boolean;
     /** Tên các ô còn trống — chỉ để nhắc. */
     conTrong: string[];
+    /** Câu máy chủ nói vì sao dịch vụ CHƯA đóng (làm thêm tại quầy: chưa thu…). */
+    dichVuCau?: string | null;
   }) => void;
 }) {
   const [chonMau, setChonMau] = useState<string | null>(
@@ -293,7 +295,7 @@ export default function PhieuKetQua({
       con_trong: string[];
       revision: number;
       la_lan_sua?: boolean;
-      dich_vu?: { da_dong: boolean; vi_sao: string | null };
+      dich_vu?: { da_dong: boolean; vi_sao: string | null; cau?: string | null };
     }>({
       thao_tac: "hoan-tat",
       phieu_id: phieu.id,
@@ -323,6 +325,7 @@ export default function PhieuKetQua({
       daDongDichVu: kq.data.dich_vu?.da_dong ?? false,
       viSao: kq.data.dich_vu?.vi_sao ?? null,
       laLanSua: kq.data.la_lan_sua ?? false,
+      dichVuCau: kq.data.dich_vu?.cau ?? null,
       conTrong: (Array.isArray(kq.data.con_trong) ? kq.data.con_trong : []).filter(
         (x): x is string => typeof x === "string",
       ),

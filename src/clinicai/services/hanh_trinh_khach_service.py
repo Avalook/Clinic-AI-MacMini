@@ -246,6 +246,8 @@ def _the_dich_vu(
         # Làm thêm tại quầy (01/10/2026): "Làm thêm tại quầy tiếp đón"; None =
         # bác sĩ chỉ định.
         "lam_them": tung.get("lam_them"),
+        # Dịch vụ làm thêm do QUẦY đóng (Hoàn tất kết quả tại quầy): ai đóng.
+        "xong_boi": tung.get("xong_boi"),
         "trang_thai": tt,
         # Vào hàng của phòng — lần gần nhất KHÔNG muộn hơn giờ bắt đầu.
         "vao": lan[-1]["vao"] if lan else _vao_truoc(ds_vao, bat_dau),

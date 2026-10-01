@@ -44,6 +44,11 @@ from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.audit import record_event
 from clinicai.services.hang_cho import cap_nhat_vi_tri
+from clinicai.services.lam_them_dong_dich_vu import (
+    chan_dong_neu_co,
+    dong_tai_quay,
+    hoan_tac_tai_quay,
+)
 from clinicai.services.lam_them_tai_quay_config import LamThemCauHinhMixin
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
@@ -52,6 +57,7 @@ from clinicai.services.lenh_kham_core import (
     khoa_luot,
 )
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
+from clinicai.services.service_execution_service import GHI_CHU_TAI_QUAY
 
 ORIGIN = "api:lam-them-tai-quay"
 
@@ -369,8 +375,9 @@ class LamThemTaiQuayService(LamThemCauHinhMixin):
         # (trang_thai, form_id) — phiếu ĐÃ HOÀN TẤT đứng đầu: mở lại ra đúng mẫu
         # người ta đã điền, không nhảy về mẫu mặc định.
         phieu: dict[str, list[tuple[str, str]]] = {}
+        dang_sua: set[str] = set()
         for r in await conn.fetch(
-            "SELECT service_order_id::text AS id, trang_thai, form_id"
+            "SELECT service_order_id::text AS id, trang_thai, form_id, dang_sua"
             "  FROM form_instance"
             " WHERE clinic_id = $1::uuid AND service_order_id = ANY($2::uuid[])"
             "   AND NOT (form_id = ANY($3::text[]))"
@@ -380,6 +387,24 @@ class LamThemTaiQuayService(LamThemCauHinhMixin):
             list(FORM_IDS),
         ):
             phieu.setdefault(r["id"], []).append((r["trang_thai"], r["form_id"]))
+            if r["dang_sua"]:
+                dang_sua.add(r["id"])
+        # Lần làm gần nhất của từng chỉ định — ai đóng, lúc nào, có phải QUẦY đóng.
+        lan_cuoi = {
+            r["id"]: r
+            for r in await conn.fetch(
+                "SELECT DISTINCT ON (a.service_order_id)"
+                "       a.service_order_id::text AS id, a.status, a.ghi_chu,"
+                "       a.completed_at, s.full_name AS xong_boi"
+                "  FROM service_execution_attempt a"
+                "  LEFT JOIN staff s ON s.id = a.completed_by"
+                " WHERE a.clinic_id = $1::uuid"
+                "   AND a.service_order_id = ANY($2::uuid[])"
+                " ORDER BY a.service_order_id, a.attempt_no DESC",
+                cid,
+                ids,
+            )
+        }
         so_tep = {
             r["id"]: int(r["n"])
             for r in await conn.fetch(
@@ -406,7 +431,39 @@ class LamThemTaiQuayService(LamThemCauHinhMixin):
         ra: dict[str, dict[str, Any]] = {}
         for o in don:
             cua = phieu.get(o["id"], [])
+            lan = lan_cuoi.get(o["id"])
+            xong = (o.get("execution_status") or "PENDING") == "COMPLETED"
+            xong_quay = bool(xong and lan and lan["ghi_chu"] == GHI_CHU_TAI_QUAY)
+            chan = None
+            if (
+                not xong
+                and (o.get("execution_status") or "PENDING") == "PENDING"
+                and any(t == "READY" for t, _ in cua)
+                and o["id"] not in dang_sua
+            ):
+                chan = await chan_dong_neu_co(conn, identity, o["id"])
             ra[o["id"]] = {
+                # DỊCH VỤ (phương án A, Tuyền 01/10): Hoàn tất kết quả ở quầy =
+                # dịch vụ xong. `chan` = vì sao CHƯA đóng được (chưa thu, chưa xếp
+                # phòng, thiếu quyền…) — màn hiện nguyên câu, kèm [Đóng dịch vụ].
+                "dich_vu": {
+                    "trang_thai": o.get("execution_status") or "PENDING",
+                    "xong_tai_quay": xong_quay,
+                    "xong_boi": lan["xong_boi"] if xong_quay and lan else None,
+                    "xong_luc": (
+                        lan["completed_at"].isoformat()
+                        if xong_quay and lan and lan["completed_at"]
+                        else None
+                    ),
+                    "chan": chan,
+                    "co_the_dong": bool(
+                        chan is None
+                        and not xong
+                        and any(t == "READY" for t, _ in cua)
+                        and o["id"] not in dang_sua
+                        and (o.get("execution_status") or "PENDING") == "PENDING"
+                    ),
+                },
                 "nhap_duoc": nhap_duoc,
                 "trang_thai": (
                     "CO_KET_QUA"
@@ -434,6 +491,36 @@ class LamThemTaiQuayService(LamThemCauHinhMixin):
                 "mac_dinh": mau[o["service_code"]]["mac_dinh"],
             }
         return ra
+
+    # ── Dịch vụ quầy: [Đóng dịch vụ] / [Hoàn tác] (phương án A, 01/10/2026) ─
+
+    async def dong_dich_vu(
+        self, *, identity: StaffIdentity, order_id: Any
+    ) -> dict[str, Any]:
+        """Đóng dịch vụ làm thêm khi kết quả ĐÃ Hoàn tất mà trước đó chưa đóng
+        được (chưa thu / chưa xếp phòng…). Cùng luật với Hoàn tất phiếu."""
+        oid = _uuid(order_id, "Mã chỉ định")
+        async with self._pool.acquire() as conn:
+            co_phieu = await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM form_instance"
+                " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+                "   AND trang_thai = 'READY' AND NOT dang_sua)",
+                identity.clinic_id,
+                oid,
+            )
+        if not co_phieu:
+            raise ValidationError(
+                "Kết quả chưa Hoàn tất — Hoàn tất rồi mới đóng dịch vụ."
+            )
+        kq = await dong_tai_quay(self._pool, order_id=oid, identity=identity)
+        return {"ok": True, **kq}
+
+    async def hoan_tac_dich_vu(
+        self, *, identity: StaffIdentity, order_id: Any
+    ) -> dict[str, Any]:
+        """[Hoàn tác] — mở lại dịch vụ do quầy đóng (về chờ làm ở phòng)."""
+        oid = _uuid(order_id, "Mã chỉ định")
+        return await hoan_tac_tai_quay(self._pool, order_id=oid, identity=identity)
 
     # ── Lệnh tick / bỏ tick ─────────────────────────────────────────────────
 
