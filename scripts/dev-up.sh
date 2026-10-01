@@ -397,23 +397,17 @@ cd src/dashboard
 # A production build, not `next dev`: dev mode did not hydrate client components
 # under headless Chromium during this work, and a board whose buttons do nothing
 # is worse than one that is honestly still building.
-NEXT_PUBLIC_SUPABASE_URL="$PUBLIC_SUPABASE_URL" \
-NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
-SUPABASE_URL="http://127.0.0.1:${SUPABASE_API_PORT}" \
-SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-CLINIC_API_URL="http://127.0.0.1:${API_PORT}" \
-BACKEND_API_KEY="${BACKEND_API_KEY:-staging-local-api-key}" \
-    npx next build >"$LOG_DIR/web-build.log" 2>&1 || {
+# (Sửa giao diện mà muốn thấy ngay thì dùng scripts/dev-giao-dien.sh — next dev,
+# trình duyệt thật chạy bình thường; headless mới là chỗ không hydrate.)
+# Bộ biến môi trường web: MỘT nguồn với dev-nap-lai.sh / dev-giao-dien.sh.
+# shellcheck source=scripts/lib/moi-truong-web.sh
+. "$REPO/scripts/lib/moi-truong-web.sh"
+xuat_moi_truong_web
+npx next build >"$LOG_DIR/web-build.log" 2>&1 || {
         red "  build failed — see $LOG_DIR/web-build.log"
         grep -m5 -E "Error|error" "$LOG_DIR/web-build.log" | sed 's/^/    /'; exit 1; }
 
-NEXT_PUBLIC_SUPABASE_URL="$PUBLIC_SUPABASE_URL" \
-NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
-SUPABASE_URL="http://127.0.0.1:${SUPABASE_API_PORT}" \
-SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-CLINIC_API_URL="http://127.0.0.1:${API_PORT}" \
-BACKEND_API_KEY="${BACKEND_API_KEY:-staging-local-api-key}" \
-    nohup npx next start -p "$WEB_PORT" >"$LOG_DIR/web.log" 2>&1 &
+nohup npx next start -p "$WEB_PORT" >"$LOG_DIR/web.log" 2>&1 &
 cd "$REPO"
 
 wait_for_http "http://127.0.0.1:${WEB_PORT}/login" "dashboard" \

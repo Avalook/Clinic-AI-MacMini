@@ -5,7 +5,7 @@
 | **Status** | Accepted |
 | **Date** | 2026-07-30 |
 | **Deciders** | Quang — "dựng hết nhé" |
-| **Liên quan** | `docs/ClinicAI-Tong-Quan-He-Thong.md` §4, §13 (37 node); ADR-0001, ADR-0002, ADR-0009 |
+| **Liên quan** | `docs/legacy/ClinicAI-Tong-Quan-He-Thong.md` §4, §13 (37 node); ADR-0001, ADR-0002, ADR-0009 |
 
 ## Context
 Tài liệu §4/§13 mô tả trái tim sản phẩm: 37 node nghiệp vụ, mỗi node có vai trò /

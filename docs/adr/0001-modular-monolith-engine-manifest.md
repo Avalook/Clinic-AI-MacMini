@@ -7,7 +7,7 @@
 | **Date** | 2026-07-18 |
 | **Deciders** | Quang |
 | **Liên quan** | Design doc v5 §5.2–5.3 |
-| **Affected decisions (canon 06)** | Supersedes: D006 + A-9 (Golden Record single-writer qua event bus), kiến trúc tầng 0A–0C của final_canon 00 §5.1. Giữ nguyên intent: "một bảng một writer" — chuyển từ single-writer-process sang **single-writer-module** enforce bằng manifest + CI checker |
+| **Affected decisions (canon 06)** | Supersedes: D006 + A-9 (Golden Record single-writer qua event bus), kiến trúc tầng 0A–0C của final_canon 00 §5.1 (nay ở `docs/legacy/final_canon/`). Giữ nguyên intent: "một bảng một writer" — chuyển từ single-writer-process sang **single-writer-module** enforce bằng manifest + CI checker |
 
 ## Context
 Peak traffic ~1 RPS, 1 team, 1 node Mac mini. Nhu cầu thật là **ranh giới nghiệp vụ rõ**

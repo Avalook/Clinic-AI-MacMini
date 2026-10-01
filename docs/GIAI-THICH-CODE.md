@@ -65,7 +65,8 @@ Người đọc mục tiêu: **chủ hệ thống** — hiểu phòng khám vậ
 > **Nguồn sự thật khi tài liệu mâu thuẫn nhau:** code + migration đang chạy → `docs/SO-LUAT.md`
 > → ADR → tài liệu tổng quan → chat. Trong repo có những tài liệu viết từ tháng 7/2026 còn
 > nói "chạy trên Mac mini + Supabase cloud". **Đó là dấu vết lịch sử**, không phải hiện trạng.
-> Hiện trạng: chạy trên **VPS Vietnix**, Postgres **tự dựng trên chính máy đó** (từ 07/08/2026).
+> Hiện trạng: chạy trên **VPS `clinic-vps-moi`** (dựng lại 16/09/2026, sau khi VPS Vietnix hết hạn),
+> Postgres **tự dựng trên chính máy đó**.
 
 ---
 
@@ -81,7 +82,7 @@ Quy mô thật (đo được, `docs/SO-LUAT.md` Phần 1):
 | Lượt khám | ~50–80 bệnh nhân/ngày |
 | Người dùng | 40 nhân sự, đỉnh vài chục thao tác/phút |
 | Tải đo được | **~1 lượt gọi/giây** |
-| Máy chủ | 1 VPS Vietnix · 4 lõi · 8 GB · 50 GB đĩa |
+| Máy chủ | 1 VPS (`clinic-vps-moi`) · 4 lõi · 8 GB · 48 GB đĩa |
 | Đội phát triển | **1 người + AI** |
 
 > **Hai con số ấy quyết định gần hết kiến trúc: 1 lượt gọi/giây và 1 người vận hành.**
@@ -140,7 +141,7 @@ Nguồn: `src/dashboard/lib/roles.ts` (13 mã) + `src/clinicai/api/identity.py`.
 | `MANAGEMENT` | Quản lý | Tài khoản, luật đặt lịch, bảng giá, báo cáo | `/settings`, `/ops`, `/reports` |
 | `DISPLAY` | Màn hình phòng chờ | **Không phải người** — cái TV treo tường | `/display` |
 
-⚠️ **Tài liệu `docs/ClinicAI-Tong-Quan-He-Thong.md` §7.1 vẫn ghi "11 mã".** `PHARMACIST` và
+⚠️ **Tài liệu `docs/legacy/ClinicAI-Tong-Quan-He-Thong.md` §7.1 vẫn ghi "11 mã".** `PHARMACIST` và
 `DISPLAY` là hai vai thêm sau. `DISPLAY` có ghi chú thẳng trong `roles.ts`: *backend từ chối
 vai này ở **mọi** endpoint trừ bảng gọi số.*
 
@@ -627,6 +628,11 @@ bỏ được hẳn nhịp hỏi lại.
 
 ### 1.3. Luồng triển khai — từ máy Quang tới khách
 
+> ⚠️ **Bước 2 (CI) và 4–6 (CD, staging 8080, nút bấm GitHub) dưới đây là thiết kế cũ.**
+> Từ 25/09/2026 GitHub Actions hỏng thanh toán và runner VPS cũ đã chết: CI chạy trên máy
+> dev (`./scripts/ci-may.sh --bao-github`, y hệt `ci.yml`), deploy prod làm tay trên VPS
+> theo `CLAUDE.md` mục "Đưa code lên máy chủ" (ghim SHA đã soát). Bước 7 vẫn đúng.
+
 ```
 1. Viết code ở nhánh riêng, tên tiếng Việt nói ra việc
    (bat-sentry, bang-gia-qua-api, fix-gach-ngang)
@@ -679,13 +685,13 @@ Ba điều đáng nhớ về luồng này:
 - **Luật 2.4 — Lùi bản là trỏ lại ảnh cũ, không phải dựng lại code cũ.** Dựng lại thì ảnh
   nền có thể đã đổi giữa hai lần.
 - **Migration KHÔNG chạy trong lúc deploy.** Script chỉ *cảnh báo* nếu database tụt sau
-  file. Đổi lược đồ là một bước riêng, có người xem (`supabase db push`).
+  file. Đổi lược đồ là một bước riêng, có người xem (`scripts/apply-pending-migrations.sh --apply`;
+  **không** dùng `supabase db push`).
 - ⚠️ **Bẫy giờ:** máy chủ chạy giờ quốc tế; "1h sáng" của nó là **8h sáng** của mình —
   đúng giờ đông khách nhất. Giờ vì thế bị ghim `Asia/Ho_Chi_Minh` trong chính workflow.
 
-⚠️ **Hiện trạng CD:** file `cd.yml` đã viết đúng, nhưng đang `disabled_manually` **vì chưa
-đăng ký runner** trên VPS (`docs/DANG-LAM.md`). Deploy thật hiện làm tay qua SSH.
-Đây **không phải bug**.
+⚠️ **Hiện trạng CD (01/10/2026):** CD tự động đã chết hẳn — `cd.yml` đã gỡ khỏi repo.
+Deploy thật làm tay trên VPS. Đây **không phải bug**.
 
 ### 1.4. Luồng thông báo Telegram
 
@@ -754,7 +760,7 @@ trả về **con số**, không tên, không số điện thoại.
 ├── docs/SO-LUAT.md        ★ SỔ LUẬT — mọi luật của hệ thống, kèm ngưỡng để lật lại
 ├── README.md              Chạy thử trong 1 lệnh + tài khoản mẫu
 ├── DESIGN.md              "Hiến pháp giao diện" — thang kích thước/màu/bo góc (15/08)
-├── AGENTS.md · CHANGELOG.md
+├── AGENTS.md
 │
 ├── docker-compose.yml           10 service của ứng dụng (xem Phần 3)
 ├── docker-compose.supabase.yml  Supabase TỰ DỰNG: db · auth · rest · realtime · gateway
@@ -809,17 +815,16 @@ trả về **con số**, không tên, không số điện thoại.
 │  ├── backup-db.sh · restore-db.sh · restore-drill.sh · verify-backup.sh
 │  ├── tests/              ★ tenant-scope-audit.py (cổng CI ngưỡng 0) ·
 │  │                          test-infra-safety.sh · e2e-*.sh · do-*.py (đo độ trễ)
-│  └── systemd/ · launchdaemons/ · maintenance/
+│  └── systemd/ · maintenance/
 │
 ├── monitoring/monitors.json  cấu hình Uptime Kuma dạng file (gắn read-only vào container)
 ├── docs/
-│  ├── SO-LUAT.md · DANG-LAM.md · OPS-RUNBOOK.md · legacy/ (tài liệu thời hạ tầng cũ)
-│  ├── ClinicAI-Tong-Quan-He-Thong.md   tổng quan theo vai (⚠️ có phần đã cũ)
+│  ├── SO-LUAT.md · DANG-LAM.md · VAN-HANH-MAY-CHU.md
+│  ├── legacy/             tài liệu thời hạ tầng cũ (cả final_canon/, CHANGELOG, tổng quan 06/08)
 │  ├── adr/                ★ 13 quyết định kiến trúc — xem 2.3
 │  ├── database/ERD.md · design/ · forms/
 ├── context/                 trạng thái đang làm giữa các phiên
-├── final_canon/             12 tài liệu thiết kế gốc (nhiều chỗ đã bị ADR thay)
-└── .github/workflows/       ci.yml (5 job) · cd.yml
+└── .github/workflows/       ci.yml (5 job — GitHub không chạy, scripts/ci-may.sh chạy y hệt)
 ```
 
 ### 2.2. Khi nào bạn cần mở thư mục nào
@@ -842,8 +847,8 @@ trả về **con số**, không tên, không số điện thoại.
 | `scripts/tests/` | Cổng CI + kịch bản đo | Thêm một luật muốn "có người canh" |
 | `scripts/` | Deploy, backup, khôi phục | Vận hành máy chủ |
 | `caddy/` + `docker-compose*.yml` | Hình dạng hạ tầng | Đổi cổng, thêm service, đổi giới hạn RAM |
-| `.github/workflows/` | CI 5 job + CD | Thêm một cổng chặn hoặc đổi cách deploy |
-| `final_canon/` | Thiết kế gốc | ⚠️ Đọc **cùng** ADR — nhiều chỗ đã bị ADR thay thế |
+| `.github/workflows/` | CI 5 job (chạy bằng `scripts/ci-may.sh`) | Thêm một cổng chặn |
+| `docs/legacy/final_canon/` | Thiết kế gốc tháng 5 | ⚠️ Lỗi thời — chỉ tra lịch sử, ADR + SO-LUAT thay thế |
 
 ### 2.3. Mười ba ADR — quyết định gì, vì sao
 
@@ -7845,7 +7850,11 @@ schema `auth` + `auth.uid()` mà mọi RLS policy gọi; ba role `authenticated/
 bốn extension `unaccent, pg_trgm, btree_gist, pgcrypto`. Supabase thật có sẵn hết, Postgres
 trần thì không — drill tự cài từ chính file trong repo và **nói ra**.
 
-### 12.18. `.github/workflows/cd.yml` — hai đường khác nhau
+### 12.18. `.github/workflows/cd.yml` — hai đường khác nhau (ĐÃ GỠ 01/10/2026)
+
+> ⚠️ **Lịch sử.** CD đã chết (runner VPS cũ chết, GitHub Actions hỏng thanh toán) và `cd.yml`
+> đã gỡ khỏi repo 01/10/2026; xem lại bằng `git show 29f49827:.github/workflows/cd.yml`.
+> Khoá xếp hàng deploy giờ nằm ở `scripts/deploy-backend.sh` (`CLINIC_DEPLOY_LOCK`).
 
 ```
 tag staging-*  → staging, TỰ ĐỘNG

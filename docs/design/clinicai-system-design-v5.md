@@ -7,7 +7,7 @@
 | **Ngày** | 2026-07-18 |
 | **Thay thế** | Hợp nhất `docs/design/clinicai-module-map-v3.html` (luồng BN) + `clinicai-system-map-v4.html` (toàn hệ) + `clinicai-as-is-map.html` (hiện trạng) thành MỘT tài liệu markdown — hết phụ thuộc JS render |
 | **ADR liên quan** | ADR-0001 … ADR-0008 (`docs/adr/`) — mỗi ADR có mục **Affected decisions (canon 06)** ghi tường minh chuỗi supersede |
-| **Nguồn sự thật phân tầng** | HARD DECISIONS `final_canon/06` (kiểm chứng lại từng D trước khi viện dẫn) → docs/legacy/HANDOFF.md §2 (quyết định đã chốt với Quang) → code hiện tại (as-is map 17-07 + khảo sát 18-07) → docs/legacy/spec-clinic.md (khung phase hạ tầng) |
+| **Nguồn sự thật phân tầng** | HARD DECISIONS `docs/legacy/final_canon/06` (kiểm chứng lại từng D trước khi viện dẫn) → docs/legacy/HANDOFF.md §2 (quyết định đã chốt với Quang) → code hiện tại (as-is map 17-07 + khảo sát 18-07) → docs/legacy/spec-clinic.md (khung phase hạ tầng) |
 
 ---
 

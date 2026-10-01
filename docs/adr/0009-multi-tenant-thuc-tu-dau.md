@@ -5,7 +5,7 @@
 | **Status** | Accepted |
 | **Date** | 2026-07-30 |
 | **Deciders** | Quang — "multi-tenant là thật luôn, làm sản phẩm cuối từ giờ luôn chứ không giai đoạn dài dòng" |
-| **Liên quan** | ADR-0004 (auth/RLS), ADR-0012 (hợp đồng backend), Design doc v5, `docs/ClinicAI-Tong-Quan-He-Thong.md` §3 |
+| **Liên quan** | ADR-0004 (auth/RLS), ADR-0012 (hợp đồng backend), Design doc v5, `docs/legacy/ClinicAI-Tong-Quan-He-Thong.md` §3 |
 
 ## Context
 Tài liệu §3 mô tả ClinicAI là sản phẩm nhiều phòng khám, Dr4Women là tenant #1. Nhưng
