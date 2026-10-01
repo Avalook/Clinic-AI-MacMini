@@ -6,7 +6,7 @@
 // hai URL khác nhau, bắt buộc phải khác:
 //
 //   máy chủ    SUPABASE_URL             http://clinicai_supabase_gateway:8000
-//   trình duyệt NEXT_PUBLIC_SUPABASE_URL http://222.255.215.219
+//   trình duyệt URL công khai (PUBLIC_SUPABASE_URL) http://222.255.215.219
 //
 // Để mặc định thì server action đăng nhập ghi cookie
 // `sb-clinicai_supabase_gateway-auth-token`, còn proxy và trình duyệt đi tìm
@@ -38,6 +38,8 @@
 // đúng bằng chuỗi cũ. Chỉ staging đổi tên — và ở staging thì đăng xuất một lần
 // là cái giá đúng phải trả.
 
+import { cauHinhCongKhai } from "./cau-hinh-cong-khai.ts";
+
 /** Hậu tố phân biệt môi trường, suy từ CỔNG mà trình duyệt gọi tới.
  *
  *  Cổng mặc định (rỗng, 80, 443) → không hậu tố, giữ nguyên tên lịch sử.
@@ -56,13 +58,11 @@ export function hauToTheoCong(url: string | undefined): string {
   return `-${cong}`;
 }
 
-// PHẢI viết nguyên văn `process.env.NEXT_PUBLIC_SUPABASE_URL` ở đây. Next chỉ
-// thay giá trị vào bundle trình duyệt khi thấy đúng dạng truy cập thuộc tính
-// này; gán qua biến trung gian thì phía trình duyệt nhận `undefined`, tên cookie
-// hai bên lệch nhau, và ta quay lại đúng lỗi "đăng nhập xong bị đá về /login"
-// mô tả ở đầu tệp.
-//
-// Giá trị có ở CẢ hai nơi: build arg (nung vào bundle) và env_file lúc chạy
-// (cho phía máy chủ) — xem docker-compose.yml. Hai bên vì thế luôn ra cùng tên.
-export const SUPABASE_COOKIE_NAME =
-  "clinicai-auth" + hauToTheoCong(process.env.NEXT_PUBLIC_SUPABASE_URL);
+// HAI PHÍA PHẢI RA CÙNG MỘT TÊN. Từ 01/10/2026 URL công khai không còn nung
+// vào bundle lúc build mà đọc LÚC CHẠY (lib/cau-hinh-cong-khai.ts): máy chủ đọc
+// env của container, trình duyệt nhận đúng giá trị ấy qua layout gốc. Một nguồn
+// cho cả hai phía nên tên khớp nhau. Là HÀM (không phải hằng cấp module) vì phía
+// trình duyệt module có thể được nạp trước khi cấu hình được đặt.
+export function tenCookieSupabase(): string {
+  return "clinicai-auth" + hauToTheoCong(cauHinhCongKhai().supabaseUrl);
+}

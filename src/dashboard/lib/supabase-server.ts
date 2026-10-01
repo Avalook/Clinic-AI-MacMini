@@ -6,20 +6,22 @@ import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { ganKiemPhienTaiCho } from "./kiem-phien-tai-cho";
-import { SUPABASE_COOKIE_NAME } from "./supabase-cookie";
+import { cauHinhCongKhai } from "./cau-hinh-cong-khai";
+import { tenCookieSupabase } from "./supabase-cookie";
 
 // Địa chỉ Supabase cho phía SERVER. Khác địa chỉ trình duyệt dùng.
 //
-// Cùng một biến NEXT_PUBLIC_SUPABASE_URL không phục vụ được cả hai vị trí mạng:
+// Cùng một URL công khai không phục vụ được cả hai vị trí mạng:
 // trong container, 127.0.0.1 là chính container đó, nên server action đăng nhập
 // chết với ECONNREFUSED; còn host.docker.internal thì trình duyệt không phân
 // giải nổi. Sửa một đầu là hỏng đầu kia — đã xảy ra đúng như vậy.
 //
-// SUPABASE_URL là địa chỉ container tới được; NEXT_PUBLIC_SUPABASE_URL là địa
-// chỉ trình duyệt tới được. Chạy ngoài container thì hai cái trùng nhau nên
-// fallback vẫn đúng.
-const SERVER_SUPABASE_URL =
-  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
+// SUPABASE_URL là địa chỉ container tới được; URL công khai
+// (cauHinhCongKhai().supabaseUrl) là địa chỉ trình duyệt tới được. Chạy ngoài
+// container thì hai cái trùng nhau nên fallback vẫn đúng. Đọc LÚC GỌI.
+function serverSupabaseUrl(): string {
+  return process.env.SUPABASE_URL || cauHinhCongKhai().supabaseUrl;
+}
 
 // `cache()` = MỘT client cho cả lượt dựng trang. Layout, page và các server
 // component con đều gọi hàm này; không gói thì mỗi nơi tự dựng một client và
@@ -34,12 +36,12 @@ const SERVER_SUPABASE_URL =
 export const getSupabaseServer = cache(async () => {
   const cookieStore = await cookies();
   return ganKiemPhienTaiCho(createServerClient(
-    SERVER_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    serverSupabaseUrl(),
+    cauHinhCongKhai().supabaseAnonKey,
     {
       // Máy chủ và trình duyệt dùng hai URL khác nhau; không ghim tên thì mỗi
       // bên đọc một cookie khác. Xem `lib/supabase-cookie.ts`.
-      cookieOptions: { name: SUPABASE_COOKIE_NAME },
+      cookieOptions: { name: tenCookieSupabase() },
       cookies: {
         getAll() {
           return cookieStore.getAll();

@@ -7,12 +7,13 @@
  * Dải này luôn nằm trên cùng, không bấm trúng được (pointer-events-none) để
  * không che nút của header, và không in ra giấy.
  *
- * Bật bằng NEXT_PUBLIC_APP_ENV=staging — nung vào bundle lúc dựng ảnh (compose
- * lấy từ APP_ENV của chính môi trường). Prod dựng với "production" → không hiện.
+ * Bật bằng APP_ENV=staging của container — đọc LÚC CHẠY ở layout gốc (một ảnh
+ * dùng chung staging + prod, xem lib/cau-hinh-cong-khai.ts). Prod "production"
+ * → không hiện.
  * Màu: cặp token warning sẵn có (DESIGN.md §2), chữ bậc `meta`.
  */
-export function DaiStaging() {
-  if (process.env.NEXT_PUBLIC_APP_ENV !== "staging") return null;
+export function DaiStaging({ appEnv }: { appEnv: string }) {
+  if (appEnv !== "staging") return null;
   return (
     <div
       role="note"

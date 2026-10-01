@@ -260,7 +260,8 @@ test("proxy đang sống chỉ kiểm đăng nhập, không gác bằng vai", ()
 });
 
 test("công tắc mở quyền tạm thời: thiếu biến thì TẮT (hỏng thì đóng)", () => {
-  assert.match(roles, /NEXT_PUBLIC_MO_QUYEN_TAM_THOI \?\? "0"/);
-  assert.match(doc("../Dockerfile.dashboard"), /ARG NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0/);
-  assert.match(doc("../../../docker-compose.yml"), /\$\{MO_QUYEN_TAM_THOI:-0\}/);
+  // Đọc lúc chạy (01/10/2026): thiếu biến → "0" → TẮT.
+  assert.match(doc("../lib/cau-hinh-cong-khai.ts"), /"MO_QUYEN_TAM_THOI", "NEXT_PUBLIC_MO_QUYEN_TAM_THOI"\) \?\? "0"/);
+  assert.match(roles, /cauHinhCongKhai\(\)\.moQuyenTamThoi/);
+  assert.match(doc("../../../docker-compose.yml"), /MO_QUYEN_TAM_THOI: \$\{MO_QUYEN_TAM_THOI:-0\}/);
 });

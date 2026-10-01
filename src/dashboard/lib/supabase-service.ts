@@ -4,11 +4,12 @@
 // NEVER import this from a client component.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { cauHinhCongKhai } from "./cau-hinh-cong-khai";
 
 /** Returns a service-role client, or null if the key is not configured. */
 export function getSupabaseService(): SupabaseClient | null {
   const url = // service-role client chạy phía server → dùng địa chỉ container tới được.
-  (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL);
+  (process.env.SUPABASE_URL || cauHinhCongKhai().supabaseUrl);
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   return createClient(url, key, {

@@ -7,7 +7,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { ganKiemPhienTaiCho } from "./lib/kiem-phien-tai-cho";
 import { laRouteDaTat } from "./lib/route-da-tat";
-import { SUPABASE_COOKIE_NAME } from "./lib/supabase-cookie";
+import { cauHinhCongKhai } from "./lib/cau-hinh-cong-khai";
+import { tenCookieSupabase } from "./lib/supabase-cookie";
 
 const PUBLIC_PATHS = ["/login", "/auth", "/forgot-password", "/reset-password"];
 
@@ -28,7 +29,7 @@ export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   // ĐỊA CHỈ NỘI BỘ TRƯỚC. Proxy này chạy TRONG container và gọi Supabase cho
-  // MỌI request. `NEXT_PUBLIC_SUPABASE_URL` là địa chỉ dành cho TRÌNH DUYỆT —
+  // MỌI request. URL công khai (cauHinhCongKhai) là địa chỉ dành cho TRÌNH DUYỆT —
   // từ trong container nó phải đi vòng ra IP công cộng rồi quay lại.
   //
   // Prod sống sót vì địa chỉ công cộng của nó ở cổng 80, và cổng 80 đi vòng
@@ -42,10 +43,10 @@ export async function proxy(request: NextRequest) {
   // Kiểm JWT tại chỗ khi còn hạn (lib/kiem-phien-tai-cho.ts, 30/09/2026): proxy
   // chạy cho MỌI request, trước đây mỗi lần là một lời gọi GoTrue.
   const supabase = ganKiemPhienTaiCho(createServerClient(
-    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_URL || cauHinhCongKhai().supabaseUrl,
+    cauHinhCongKhai().supabaseAnonKey,
     {
-      cookieOptions: { name: SUPABASE_COOKIE_NAME },
+      cookieOptions: { name: tenCookieSupabase() },
       cookies: {
         getAll() {
           return request.cookies.getAll();

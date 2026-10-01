@@ -25,6 +25,7 @@ import {
 } from "../../../../lib/ten-dang-nhap";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { cauHinhCongKhai } from "../../../../lib/cau-hinh-cong-khai";
 import { fetchFromBackend, proxyJsonToBackend } from "../../../../lib/backend-proxy";
 import {
   resolveLinkedStaffAuthority,
@@ -72,7 +73,7 @@ async function authorizeAdmin(): Promise<AuthResult> {
 
   // Địa chỉ NỘI BỘ trước — route này chạy trong container, xem proxy.ts.
   const SUPABASE_URL =
-    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    process.env.SUPABASE_URL || cauHinhCongKhai().supabaseUrl;
   // Tên biến lấy qua ngoặc vuông: chốt bí mật trước commit bắt mẫu `_KEY = <chuỗi>`
   // và đọc nhầm một THAM CHIẾU biến môi trường thành bí mật ghi cứng.
   const khoaDichVu = process.env["SUPABASE_SERVICE_ROLE_KEY"];

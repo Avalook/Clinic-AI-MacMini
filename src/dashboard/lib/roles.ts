@@ -1,5 +1,7 @@
 // Pure role logic — NO next/headers import, so it is safe to use from both
 // Server Components and Client Components (e.g. Nav.tsx).
+import { cauHinhCongKhai } from "./cau-hinh-cong-khai.ts";
+
 //
 // Roles are derived server-side from the authenticated user's linked staff
 // row. These pure helpers only transform/check the already-authoritative role.
@@ -550,18 +552,17 @@ export function hienTrenThanhBen(
 // đủ: thanh bên vẫn ẩn màn, và người dùng không có đường nào bấm tới cái cửa
 // vừa mở.
 //
-// ⚠️ ĐÂY LÀ BIẾN LÚC DỰNG ẢNH, không phải lúc chạy. Next nhét thẳng giá trị
-// `NEXT_PUBLIC_*` vào mã trình duyệt khi build, nên đổi nó phải DỰNG LẠI ảnh
-// dashboard — khác với backend, chỉ cần khởi động lại container. Khác biệt ấy
-// đáng nhớ: tắt một nửa là quyền lệch nhau giữa hai tầng.
+// ĐỌC LÚC CHẠY (01/10/2026): cùng biến MO_QUYEN_TAM_THOI của container với
+// backend (lib/cau-hinh-cong-khai.ts) — đổi .env rồi khởi động lại là cả hai
+// tầng cùng đổi, không phải dựng lại ảnh như thời còn `NEXT_PUBLIC_*`.
 //
 // MẶC ĐỊNH TẮT (kiểm toán 27/09/2026, Tuyền: "xử lý đi, đừng để vậy"): thiếu
 // biến thì ĐÓNG, không mở. Trước đó mặc định "1" — biến rơi rụng lúc chuyển máy
 // là cả hệ tự mở quyền trong im lặng. Prod đã đặt 0 từ 26/09 nên không đổi hành
 // vi prod. Chỉ đúng "1" / "true" / "yes" mới bật.
-const MO_QUYEN_TAM_THOI = ["1", "true", "yes"].includes(
-  (process.env.NEXT_PUBLIC_MO_QUYEN_TAM_THOI ?? "0").trim().toLowerCase(),
-);
+function moQuyenTamThoi(): boolean {
+  return cauHinhCongKhai().moQuyenTamThoi;
+}
 
 //: Màn KHÔNG mở theo công tắc. Không phải vì bí mật — backend vẫn gác chúng —
 //: mà vì chúng không phải "thao tác" của ai cả: cổng quản trị, cấu hình hệ
@@ -580,7 +581,7 @@ const KHONG_MO_THEO_CONG_TAC = [
 ];
 
 function moTheoCongTac(href: string): boolean {
-  if (!MO_QUYEN_TAM_THOI) return false;
+  if (!moQuyenTamThoi()) return false;
   return !KHONG_MO_THEO_CONG_TAC.some(
     (p) => href === p || href.startsWith(`${p}/`),
   );

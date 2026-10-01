@@ -39,19 +39,23 @@ test("URL thiếu hoặc hỏng thì KHÔNG bịa hậu tố", () => {
   assert.equal(hauToTheoCong("222.255.215.219:8080"), "", "thiếu scheme");
 });
 
-test("đọc biến môi trường ĐÚNG DẠNG Next thay được vào bundle", () => {
-  // Next chỉ thay giá trị vào bundle trình duyệt khi thấy nguyên văn
-  // `process.env.NEXT_PUBLIC_...`. Gán qua biến trung gian thì phía trình duyệt
-  // nhận undefined, tên cookie hai bên lệch nhau, và cả phòng khám không đăng
-  // nhập được — đúng lỗi đã mô tả ở đầu lib/supabase-cookie.ts.
+test("hai phía lấy URL từ CÙNG một nguồn lúc chạy, tên cũ giữ nguyên", async () => {
+  // Từ 01/10/2026 URL công khai không nung vào bundle (một ảnh chạy cả staging
+  // lẫn prod). Máy chủ và trình duyệt cùng đọc cauHinhCongKhai() — lệch nguồn
+  // là tên cookie hai bên lệch nhau, cả phòng khám không đăng nhập được.
   const ma = readFileSync(
     new URL("../lib/supabase-cookie.ts", import.meta.url),
     "utf8",
   ).replace(/\/\/.*$/gm, "");
-  assert.match(
-    ma,
-    /process\.env\.NEXT_PUBLIC_SUPABASE_URL/,
-    "phải truy cập nguyên văn, không qua biến trung gian",
-  );
+  assert.match(ma, /hauToTheoCong\(cauHinhCongKhai\(\)\.supabaseUrl\)/);
   assert.match(ma, /"clinicai-auth"\s*\+/, "tiền tố phải giữ nguyên chuỗi cũ");
+
+  const { tenCookieSupabase } = await import("../lib/supabase-cookie.ts");
+  const cu = process.env.PUBLIC_SUPABASE_URL;
+  process.env.PUBLIC_SUPABASE_URL = "https://dr4women.io.vn";
+  assert.equal(tenCookieSupabase(), "clinicai-auth", "prod: tên cũ, không ai bị đăng xuất");
+  process.env.PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+  assert.equal(tenCookieSupabase(), "clinicai-auth-54321", "đọc LÚC GỌI, không chụp lúc nạp");
+  if (cu === undefined) delete process.env.PUBLIC_SUPABASE_URL;
+  else process.env.PUBLIC_SUPABASE_URL = cu;
 });

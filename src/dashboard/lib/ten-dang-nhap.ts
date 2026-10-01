@@ -13,10 +13,14 @@
 // quản trị, quản lý đặt được nick trần rồi nhân viên gõ đúng nick ấy vào màn
 // đăng nhập và bị từ chối — tệ hơn hẳn so với trước khi nới.
 
-/** Đuôi gắn thêm khi người dùng gõ tên trần. Đổi được bằng biến môi trường để
- *  phòng khám khác không phải sửa code; mặc định theo Dr4Women. */
-export const DUOI_TEN_DANG_NHAP =
-  process.env.NEXT_PUBLIC_DUOI_TEN_DANG_NHAP?.trim() || "dr4women.vn";
+import { cauHinhCongKhai } from "./cau-hinh-cong-khai.ts";
+
+/** Đuôi gắn thêm khi người dùng gõ tên trần. Đổi được bằng biến môi trường
+ *  DUOI_TEN_DANG_NHAP (đọc LÚC CHẠY — lib/cau-hinh-cong-khai.ts) để phòng khám
+ *  khác không phải sửa code; mặc định theo Dr4Women. */
+export function duoiTenDangNhap(): string {
+  return cauHinhCongKhai().duoiTenDangNhap;
+}
 
 /** Tên đăng nhập → địa chỉ GoTrue thật.
  *
@@ -26,7 +30,7 @@ export const DUOI_TEN_DANG_NHAP =
 export function emailTuTenDangNhap(nick: string): string {
   const s = (nick ?? "").trim().toLowerCase();
   if (!s) return "";
-  return s.includes("@") ? s : `${s}@${DUOI_TEN_DANG_NHAP}`;
+  return s.includes("@") ? s : `${s}@${duoiTenDangNhap()}`;
 }
 
 /** Tên đăng nhập có hợp lệ không (sau khi đã gắn đuôi). `null` = hợp lệ.
@@ -56,6 +60,6 @@ export function loiTenDangNhap(nick: string): string | null {
  *  người. */
 export function tenHienThi(email: string | null | undefined): string {
   const s = (email ?? "").trim();
-  const duoi = `@${DUOI_TEN_DANG_NHAP}`;
+  const duoi = `@${duoiTenDangNhap()}`;
   return s.toLowerCase().endsWith(duoi) ? s.slice(0, -duoi.length) : s;
 }

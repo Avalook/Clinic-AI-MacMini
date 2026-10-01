@@ -14,7 +14,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  DUOI_TEN_DANG_NHAP,
+  duoiTenDangNhap,
   emailTuTenDangNhap,
   loiTenDangNhap,
   tenHienThi,
@@ -190,7 +190,7 @@ export default function AccountActions({
             value={email}
             autoFocus
             onChange={(e) => setEmail(e.target.value)}
-            placeholder={`vd: bacsithanh (tự thêm @${DUOI_TEN_DANG_NHAP})`}
+            placeholder={`vd: bacsithanh (tự thêm @${duoiTenDangNhap()})`}
             autoComplete="off"
             className="w-full rounded-control border border-line bg-surface px-2 py-2 text-base text-ink outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-200 sm:w-64 sm:py-1 sm:text-xs"
           />

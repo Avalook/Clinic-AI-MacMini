@@ -4,7 +4,7 @@ import test from "node:test";
 // Công tắc MỞ QUYỀN TẠM THỜI ở tầng giao diện (Tuyền chốt 16/09/2026).
 //
 // Bộ kiểm chạy ở chế độ SIẾT (xem package.json: mọi lệnh test đều ghim
-// NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0), để các luật phân quyền gốc tiếp tục được
+// MO_QUYEN_TAM_THOI=0), để các luật phân quyền gốc tiếp tục được
 // canh. Bài này là ngoại lệ: nó tự bật công tắc rồi nạp lại module.
 //
 // `lib/roles.ts` đọc biến môi trường một lần lúc nạp module, nên phải đổi biến
@@ -12,7 +12,9 @@ import test from "node:test";
 // đệm module của Node.
 
 async function napRoles(bat: boolean) {
-  process.env.NEXT_PUBLIC_MO_QUYEN_TAM_THOI = bat ? "1" : "0";
+  // Từ 01/10/2026 đọc LÚC GỌI (lib/cau-hinh-cong-khai.ts) — cùng tên biến với
+  // backend; nạp lại module vẫn giữ để bài không phụ thuộc thứ tự chạy.
+  process.env.MO_QUYEN_TAM_THOI = bat ? "1" : "0";
   return import(`../lib/roles.ts?mo=${bat}-${Math.random()}`);
 }
 

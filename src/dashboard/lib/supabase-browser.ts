@@ -1,13 +1,14 @@
 // Browser-side Supabase client (client components, hooks).
 // Uses ANON key (public, RLS-gated). Do NOT introduce service_role here.
+// URL + khoá anon đọc LÚC CHẠY (lib/cau-hinh-cong-khai.ts) — không nung vào ảnh.
 
 import { createBrowserClient } from "@supabase/ssr";
-import { SUPABASE_COOKIE_NAME } from "./supabase-cookie";
+import { cauHinhCongKhai } from "./cau-hinh-cong-khai";
+import { tenCookieSupabase } from "./supabase-cookie";
 
 export function getSupabaseBrowser() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookieOptions: { name: SUPABASE_COOKIE_NAME } },
-  );
+  const c = cauHinhCongKhai();
+  return createBrowserClient(c.supabaseUrl, c.supabaseAnonKey, {
+    cookieOptions: { name: tenCookieSupabase() },
+  });
 }
