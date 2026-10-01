@@ -1,0 +1,23 @@
+# SITE STAGING TRÊN CADDY PROD — mẫu. scripts/staging-dung-lan-dau.sh thay
+# __STAGING_TEN_MIEN__ rồi ghi ra caddy/them/staging.caddy (không vào git).
+#
+# Caddy prod chỉ giữ TLS (Let's Encrypt cho tên miền staging) và chuyển MỌI
+# request sang Caddy của staging qua mạng cầu `clinicai_staging_edge`. Định tuyến
+# /auth/v1 · /rest/v1 · /realtime/v1 nằm ở caddy/Caddyfile.staging — Caddy prod
+# không biết tên container nào của staging ngoài `clinicai-staging-cong`.
+#
+# Staging tắt thì site này trả 502 — prod không ảnh hưởng.
+__STAGING_TEN_MIEN__ {
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp \?.*$ ?…
+				request>headers>Referer regexp \?.*$ ?…
+			}
+		}
+	}
+	header X-Robots-Tag "noindex, nofollow, noarchive"
+	reverse_proxy clinicai-staging-cong:80
+}

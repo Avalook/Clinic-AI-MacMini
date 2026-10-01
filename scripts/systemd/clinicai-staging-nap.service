@@ -1,0 +1,24 @@
+[Unit]
+Description=ClinicAI STAGING — nạp bản sao lưu prod mới nhất + che dữ liệu khách
+Documentation=file://@STAGING_DIR@/docs/STAGING.md
+After=docker.service
+Requires=docker.service
+
+# MẪU — scripts/staging-dung-lan-dau.sh thay @STAGING_DIR@ / @USER@ /
+# @STAGING_KIEU@ rồi chép vào /etc/systemd/system/.
+
+[Service]
+Type=oneshot
+User=@USER@
+WorkingDirectory=@STAGING_DIR@
+Environment=STAGING_KIEU=@STAGING_KIEU@
+# Staging nhường prod: ưu tiên CPU/đĩa thấp nhất, và kernel giết nó trước.
+Nice=19
+IOSchedulingClass=idle
+OOMScoreAdjust=900
+ExecStart=@STAGING_DIR@/scripts/staging-nap-ban-sao.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

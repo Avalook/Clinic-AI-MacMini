@@ -1,0 +1,70 @@
+# Lớp chồng cho ỨNG DỤNG STAGING (01/10/2026) — xem docs/STAGING.md.
+#
+#   CLINIC_ENV_FILE=.env.staging docker compose --env-file .env.staging \
+#     -f docker-compose.yml -f docker-compose.staging.yml -p clinicai_staging up -d
+#
+# Dùng script, đừng gõ tay: scripts/deploy-staging.sh.
+#
+# CHỐT BẢO VỆ PROD (staging chạy chung máy với phòng khám đang đón khách):
+#   mem_limit      trần cứng; cộng cả ứng dụng ≈ 0,9G (+ bộ Supabase ≈ 0,6G)
+#   oom_score_adj  800 — máy hết RAM thì kernel giết staging trước (prod = 0)
+#   cpu_shares     256 — tranh CPU thì prod (1024) được gấp 4 lần
+#
+# CÁI GÌ KHÁC PROD:
+#   caddy     Caddy RIÊNG của staging, file caddy/Caddyfile.staging.
+#             Kiểu `chung`: chỉ nghe 127.0.0.1:8080 + mạng cầu `clinicai_staging_edge`;
+#             Caddy của prod giữ TLS cho tên miền staging rồi chuyển hết sang đây.
+#             Kiểu `rieng` (VPS riêng): nghe 0.0.0.0:80/443, tự xin TLS.
+#   day-tep   TẮT — staging không đẩy tệp sang kho Viettel CFS.
+#   uptime-kuma, dozzle  TẮT — theo dõi là việc của prod.
+
+x-staging-bao-ve: &staging-bao-ve
+  oom_score_adj: 800
+  cpu_shares: 256
+
+services:
+  caddy:
+    <<: *staging-bao-ve
+    mem_limit: ${CADDY_MEMORY_LIMIT:-64m}
+    networks:
+      staging_edge:
+        aliases:
+          # Tên DUY NHẤT Caddy của prod dùng để gọi sang staging. Không dùng tên
+          # dịch vụ (`caddy`, `dashboard`): Caddy prod nối vào mạng này nên tên
+          # trùng ở đây có thể làm nó gọi nhầm.
+          - clinicai-staging-cong
+
+  dashboard:
+    <<: *staging-bao-ve
+    mem_limit: ${DASHBOARD_MEMORY_LIMIT:-320m}
+    environment:
+      # Một tiến trình Next.js là đủ cho vài người thử (prod chạy 4).
+      NEXT_WORKERS: ${NEXT_WORKERS:-1}
+
+  api:
+    <<: *staging-bao-ve
+    mem_limit: ${API_MEMORY_LIMIT:-384m}
+
+  su-kien:
+    <<: *staging-bao-ve
+    mem_limit: ${SU_KIEN_MEMORY_LIMIT:-160m}
+
+  media-quyen:
+    <<: *staging-bao-ve
+
+  day-tep:
+    profiles: ["tat-o-staging"]
+
+  uptime-kuma:
+    profiles: ["tat-o-staging"]
+
+  dozzle:
+    profiles: ["tat-o-staging"]
+
+networks:
+  # Mạng cầu: CHỈ Caddy staging + Caddy prod (nối bằng `docker network connect`,
+  # không alias). Không database, không api nào của hai bên nằm trên mạng này.
+  # Script tạo nó trước khi `up` (staging-dung-lan-dau.sh / deploy-staging.sh).
+  staging_edge:
+    external: true
+    name: ${STAGING_EDGE_NETWORK:-clinicai_staging_edge}

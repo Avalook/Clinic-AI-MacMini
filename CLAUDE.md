@@ -45,17 +45,24 @@ khách → Caddy (TLS Let's Encrypt) → dashboard (Next.js, chỉ giao diện)
   (`/mnt/viettel-cfs`).
 - Chi tiết "cái gì được phép ở frontend": `docs/SO-LUAT.md` Phần 3.
 
-## Môi trường: chỉ có prod
+## Môi trường: prod + staging online (chung VPS)
 
 Trên VPS (`ssh clinic-vps-moi`):
 
-| | Thư mục | Đứng ở | Cổng |
+| | Thư mục | Đứng ở | Địa chỉ |
 |---|---|---|---|
-| **prod** — đang đón bệnh nhân | `/home/clinicai/clinicai` | nhánh `main` | 80/443 |
+| **prod** — đang đón bệnh nhân | `/home/clinicai/clinicai` | nhánh `main` | https://dr4women.io.vn |
+| **staging** — bản thử (01/10/2026) | `/home/clinicai/clinicai-staging` | tách rời ở nhánh/PR đang thử | https://staging.dr4women.io.vn |
 
-**Không có staging** (từ khi dựng lại trên VPS mới 16/09/2026). Thử trên máy dev:
-`scripts/dev-up.sh` dựng cả stack local bằng chính `docker-compose.supabase.yml`.
-Nghiệm thu giao diện làm trên local, rồi mới lên prod.
+Staging: project compose / database / env / ảnh / khoá deploy RIÊNG; dữ liệu =
+bản sao lưu prod nạp lại mỗi đêm 03:30, **dữ liệu khách đã che**; đăng nhập bằng
+tài khoản prod. Đưa PR lên thử: `./scripts/deploy-staging.sh <số PR>` (trong
+thư mục staging). Mọi thứ — chốt bảo vệ prod, cách tắt, rủi ro — ở
+**`docs/STAGING.md`**. Staging cũ cổng 8080 (`dung-staging.sh`) đã gỡ.
+
+Thử trên máy dev: `scripts/dev-up.sh` dựng cả stack local bằng chính
+`docker-compose.supabase.yml`. Nghiệm thu giao diện: local hoặc staging, rồi mới
+lên prod.
 
 ## Nhánh: chỉ có `main`
 

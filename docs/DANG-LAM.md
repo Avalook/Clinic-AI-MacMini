@@ -2,6 +2,15 @@
 
 Cập nhật: **29/09/2026** — ngày bàn giao, chuẩn hoá lõi (mục "29/09" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm).
 
+## 01/10/2026 — STAGING ONLINE (nhánh `claude/staging-online`, PR chờ merge)
+
+https://staging.dr4women.io.vn chung VPS prod, tách project/DB/env/ảnh/khoá; nạp
+bản sao prod mỗi đêm 03:30 + CHE dữ liệu khách; đăng nhập bằng tài khoản prod.
+Toàn bộ: `docs/STAGING.md`. **Thứ tự lên:** merge → deploy prod (bản có
+`caddy/them` + mạng cầu) → lệnh dựng lần đầu trong `docs/STAGING.md`. **Chờ
+Tuyền:** DNS A `staging` → 222.255.214.133; chọn giờ dựng (Caddy prod khởi động
+lại ~1–2 giây một lần).
+
 ## 29/09/2026 — NGÀY BÀN GIAO: CHUẨN HOÁ LÕI (nhánh `claude/doi-nguoi-trong-ca`)
 
 Quyết định Tuyền: memory `quyet-dinh-2909-doi-nguoi-lay-mau`. Đã gộp (mỗi mục đã test; bấm thật ở local — database chép `doi_nguoi`, API :8110, web :3110):

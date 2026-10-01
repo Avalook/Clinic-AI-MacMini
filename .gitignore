@@ -57,6 +57,9 @@ out/
 .ops-status/
 # Ổ VPS của tệp kết quả (tải lên lưu trước, đẩy sang CFS sau — 01/10/2026).
 .media-vps/
+# Site phụ của Caddy prod do script máy chủ viết ra (caddy/them/README.md).
+caddy/them/*.caddy
+caddy/them/*.bak.*
 
 # Editor / OS
 .vscode/

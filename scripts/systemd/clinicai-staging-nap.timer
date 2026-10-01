@@ -1,0 +1,11 @@
+[Unit]
+Description=Nạp lại dữ liệu STAGING mỗi đêm (sau sao lưu prod 02:15)
+
+[Timer]
+# 03:30 — sao lưu đêm 02:15 (+ đẩy Viettel) đã xong từ lâu; ca sáng chưa vào.
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

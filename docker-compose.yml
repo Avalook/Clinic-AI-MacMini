@@ -65,6 +65,10 @@ services:
       # Đường dẫn theo biến để staging dùng được Caddyfile riêng (có ổ khoá
       # HTTP) mà prod không đổi gì. Không đặt CADDY_FILE thì vẫn là bản chung.
       - ${CADDY_FILE:-./caddy/Caddyfile}:/etc/caddy/Caddyfile:ro
+      # Site phụ (01/10/2026) — gắn cả THƯ MỤC, không gắn từng file: tệp mới
+      # viết vào đây container thấy ngay (gắn một file thì git/script thay file
+      # là inode mới, container vẫn đọc bản cũ). Thư mục có sẵn trong git.
+      - ./caddy/them:/etc/caddy/them:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -104,6 +108,8 @@ services:
         # .env.prod là tắt cả hai nửa — thanh bên/cửa trang và cửa gác API.
         # Thiếu biến thì TẮT (27/09/2026 — hỏng thì đóng, cùng mặc định máy chủ).
         NEXT_PUBLIC_MO_QUYEN_TAM_THOI: ${MO_QUYEN_TAM_THOI:-0}
+        # "staging" → dải "STAGING — bản thử" ở đầu mọi trang (01/10/2026).
+        NEXT_PUBLIC_APP_ENV: ${APP_ENV:-production}
     image: clinicai-dashboard:${IMAGE_TAG:-latest}
     restart: unless-stopped
     # 4 tiến trình × ~85MiB đo được lúc tải + phần dựng trang. 512m cũ vừa đủ

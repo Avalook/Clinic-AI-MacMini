@@ -159,3 +159,9 @@ http://localhost, http://127.0.0.1 {
 		reverse_proxy dashboard:3000
 	}
 }
+
+# SITE PHỤ (01/10/2026): mọi `*.caddy` trong caddy/them/ — hiện chỉ có site
+# staging do scripts/staging-dung-lan-dau.sh viết ra (không vào git). Thư mục
+# rỗng thì mẫu glob không khớp gì và Caddy chạy y như trước. Xem
+# caddy/them/README.md.
+import /etc/caddy/them/*.caddy

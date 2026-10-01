@@ -1,0 +1,59 @@
+# Lớp chồng cho bộ Supabase CỦA STAGING (01/10/2026) — xem docs/STAGING.md.
+#
+#   docker compose --env-file .env.staging \
+#     -f docker-compose.supabase.yml -f docker-compose.supabase.staging.yml \
+#     -p clinicai_stg_db up -d db auth rest gateway auth-guard
+#
+# Staging chạy CHUNG máy với phòng khám đang đón bệnh nhân. Ba chốt để khi máy
+# hết RAM, staging chết trước — prod không bao giờ phải nhường:
+#   mem_limit      trần cứng từng container (cộng cả bộ ≈ 0,6G)
+#   oom_score_adj  900 — kernel chọn giết container staging trước (prod = 0)
+#   cpu_shares     256 — khi tranh CPU, prod (1024) được gấp 4 lần
+#
+# REALTIME TẮT. Từ 27/09/2026 tin thời gian thực đi kênh của mình (Postgres
+# LISTEN/NOTIFY → FastAPI SSE); frontend không còn mở `supabase.channel` nào
+# (grep 01/10/2026: 0 chỗ). Dựng nó là tốn ~175MB cho một dịch vụ không ai gọi.
+
+x-staging-bao-ve: &staging-bao-ve
+  oom_score_adj: 900
+  cpu_shares: 256
+
+services:
+  db:
+    <<: *staging-bao-ve
+    mem_limit: ${STG_DB_MEMORY_LIMIT:-448m}
+    # Bỏ wal_level=logical (chỉ Realtime cần). shared_buffers nhỏ cho vừa trần.
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - max_connections=60
+
+  auth:
+    <<: *staging-bao-ve
+    mem_limit: ${STG_AUTH_MEMORY_LIMIT:-64m}
+    environment:
+      API_EXTERNAL_URL: ${SITE_URL:-http://localhost}/auth/v1
+
+  rest:
+    <<: *staging-bao-ve
+    mem_limit: ${STG_REST_MEMORY_LIMIT:-96m}
+
+  realtime:
+    profiles: ["realtime-tat-o-staging"]
+
+  gateway:
+    <<: *staging-bao-ve
+    mem_limit: ${STG_GATEWAY_MEMORY_LIMIT:-48m}
+    # Bỏ realtime khỏi depends_on (nó đã tắt). Đường /realtime/v1 vẫn còn trong
+    # Caddyfile của gateway; gọi tới thì 502 — đúng là "không có dịch vụ này".
+    depends_on: !override
+      - auth
+      - rest
+
+  auth-guard:
+    <<: *staging-bao-ve
+    mem_limit: ${STG_AUTH_GUARD_MEMORY_LIMIT:-32m}
