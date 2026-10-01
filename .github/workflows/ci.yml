@@ -71,6 +71,10 @@ jobs:
         # required before a second clinic is onboarded (ADR-0009).
         run: python3 scripts/tests/tenant-scope-audit.py --check
 
+      - name: Bản đồ code khớp code (docs/BAN-DO-CODE.md)
+        # Sinh từ code; lệch = đổi màn/route/router mà quên sinh lại.
+        run: python3 scripts/ban-do-code.py --kiem
+
       - name: Disposable test database (migrations + seed)
         env:
           PGPASSWORD: postgres

@@ -6,6 +6,11 @@ trên chính máy đó. Luật: **`docs/SO-LUAT.md`**.
 Giải thích code từ A tới Z (từng file, từng hàm, kèm những bẫy đã cắn thật):
 `docs/GIAI-THICH-CODE.md`. Kiểm toán gần nhất: `docs/KIEM-TOAN-HE-THONG-2709.md`.
 
+**Tìm chỗ sửa — trước khi grep:** đọc `docs/BAN-DO-SUA.md` (muốn sửa gì → màn
+hay file + hàm + test; việc dữ liệu thì làm trên màn), rồi tìm route trong
+`docs/BAN-DO-CODE.md` (sinh bởi `scripts/ban-do-code.py`, CI canh không lệch).
+Giao việc cho AI khác theo `docs/MAU-GIAO-VIEC.md`.
+
 > Tên thư mục còn chữ "MacMini" là dấu vết lịch sử. Máy Mac **không chạy gì**
 > của hệ thống — nó chỉ là chỗ **nhận bản sao lưu**, và đó là chủ ý: bản sao phải
 > nằm ở máy khác với thứ nó sao lưu. Sao lưu đêm 02:15 trên VPS → Viettel CFS;

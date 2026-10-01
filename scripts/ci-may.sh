@@ -87,6 +87,9 @@ job_backend() {
   "$VENV/ruff" format --check src/
   "$VENV/mypy" src/
   python3 scripts/tests/tenant-scope-audit.py --check
+  # docs/BAN-DO-CODE.md sinh từ code (~2 giây): lệch = đổi màn/route/router mà
+  # quên chạy `python3 scripts/ban-do-code.py`.
+  python3 scripts/ban-do-code.py --kiem
   DB_CONTAINER=ci_may_test DB_PORT="$CONG_TEST" ./scripts/tests/dung-db-kiem.sh
   # PYTEST SONG SONG (28/09/2026): trước chạy tuần tự trên 1 nhân (~250–700s,
   # nhân ấy chỉ bận ~30% — còn lại chờ database). Mỗi worker một DATABASE nhân
