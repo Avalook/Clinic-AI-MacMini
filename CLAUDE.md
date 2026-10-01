@@ -11,6 +11,41 @@ hay file + hàm + test; việc dữ liệu thì làm trên màn), rồi tìm rou
 `docs/BAN-DO-CODE.md` (sinh bởi `scripts/ban-do-code.py`, CI canh không lệch).
 Giao việc cho AI khác theo `docs/MAU-GIAO-VIEC.md`.
 
+## QUY TRÌNH LÀM VIỆC CHUẨN — mọi phiên, mọi AI làm theo (Tuyền chốt 01/10/2026)
+
+Đây là cách nhanh nhất, ít tốn thời gian nhất Tuyền chọn. Không tự đổi.
+
+1. **Nhận việc → tra `docs/BAN-DO-SUA.md`.** Việc DỮ LIỆU (giá, phòng, lịch,
+   dây nối, quyền…) → chỉ Tuyền tự làm trên màn, không code. Việc CODE → giao theo
+   `docs/MAU-GIAO-VIEC.md` (việc · ở đâu · kết quả cần đạt · cách kiểm · không đụng).
+2. **Nhiều việc làm SONG SONG:** mỗi việc một agent · một worktree · một nhánh ·
+   một PR. Mỗi việc một dải giờ migration riêng và cổng web/API riêng (32xx/82xx)
+   để không đè nhau. Giữ phạm vi; đụng chung file thì sửa tối thiểu.
+3. **CODE TRƯỚC, TEST SAU — dùng chung, không dựng riêng:**
+   - pytest: DB chung `chung_test_db` (`postgresql://postgres:postgres@127.0.0.1:55600/postgres`),
+     áp migration của nhánh bằng `CLINIC_DB_CONTAINER=chung_test_db ./scripts/apply-pending-migrations.sh --apply`.
+     Không tự dựng container DB, không reset DB chung.
+   - bấm thật: stack local chung (`clinicai_thu_db`, khách `DEMO-*`, tài khoản
+     `@dr4women.local`), API/web CỦA NHÁNH chạy ở cổng riêng trỏ vào đó.
+   - CI cuối: `./scripts/ci-may.sh --bao-github` (có khoá xếp hàng — chạy lần lượt).
+4. **Một PR được coi là xong khi:** CI xanh · đã bấm thật local ở 375 và 1280 ·
+   có **kịch bản bấm thử cho người thật** trong thân PR · có bảng "nút/link đã đụng".
+5. **GOM ĐỢT LÊN STAGING** (https://staging.dr4women.io.vn, dữ liệu khách đã che,
+   đăng nhập tài khoản prod): các PR đã xanh lên cùng một đợt
+   (`scripts/len-staging.sh` khi có; tạm thời `scripts/deploy-staging.sh <nhánh đợt>`
+   + áp migration lên DB staging). Người thật bấm theo kịch bản.
+6. **ĐẠT → merge cả đợt → deploy prod MỘT lần**, ghim đúng SHA đã thử trên staging
+   (`scripts/len-prod.sh` khi có; tạm thời quy trình sao lưu → diễn tập migration →
+   áp → deploy ở mục "Đưa code lên máy chủ"). Việc nào lỗi thì tách ra sửa, không
+   giữ cả đợt. Lệnh ghi lên VPS (merge, deploy) do Tuyền chạy; AI soạn sẵn lệnh.
+7. **Không bao giờ:** đẩy thẳng `main` · lên prod khi chưa qua staging (trừ sửa
+   khẩn — ghi lý do trong PR) · mở đường hầm (cloudflared…) từ Mac khi DB local là
+   bản sao prod · để thao tác nào **khoá cứng**: mọi thao tác nhân viên bấm phải
+   **hoàn tác được** và cập nhật ngay ở mọi màn liên quan (Tuyền 01/10, sau buổi
+   thực nghiệm thật).
+8. **Tài nguyên:** Docker local (Colima) 8 CPU / 16 GB / 100 GB; container thử dùng
+   xong phải xoá; không chạy CI theo cách khác `ci-may.sh`; VPS chỉ đọc khi làm việc.
+
 > Tên thư mục còn chữ "MacMini" là dấu vết lịch sử. Máy Mac **không chạy prod**.
 > Nó là máy dev — stack thử (`scripts/dev-up.sh`), staging local từ bản sao lưu
 > (`scripts/staging-tu-ban-sao.sh`), CI (`scripts/ci-may.sh`) — và là chỗ **nhận
