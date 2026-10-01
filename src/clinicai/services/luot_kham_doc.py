@@ -297,16 +297,17 @@ class BangLuotKham:
                 """,
                 cid,
             )
+            # Ô "Chỉ định thêm" của Bàn khám: MỌI dịch vụ đang bán trừ phí khám
+            # (01/10/2026 — trước chỉ nhóm DICHVU-*, dịch vụ chưa nhóm việc lọt
+            # mất). Cùng hàm `danh_muc_dich_vu` với danh mục chỉ định phiếu khám.
             dich_vu = await conn.fetch(
                 """
-                SELECT DISTINCT ON (s.service_code)
-                       s.service_code, s.name, s.node_code, n.actor_roles
-                  FROM service_price s
-                  JOIN node_definition n
-                    ON n.clinic_id = s.clinic_id AND n.code = s.node_code
-                 WHERE s.clinic_id = $1::uuid AND s.active
-                   AND s.node_code LIKE 'DICHVU-%'
-                 ORDER BY s.service_code, (s."group" = 'dich_vu') DESC
+                SELECT d.service_code, d.name, d.node_code, n.actor_roles
+                  FROM public.danh_muc_dich_vu($1::uuid) d
+                  LEFT JOIN node_definition n
+                    ON n.clinic_id = $1::uuid AND n.code = d.node_code
+                 WHERE d.active AND NOT d.la_phi_kham
+                 ORDER BY d.name
                 """,
                 cid,
             )

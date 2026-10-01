@@ -3740,3 +3740,6 @@ SELECT public.them_dau_do_bio();
 -- Phòng làm theo dịch vụ (20261001210000) — SAU danh mục KiotViet: Ghế ĐTT,
 -- máy Bio, Vật lý trị liệu chỉ ở Phòng Sàn chậu; thêm SP000083, SP000077.
 SELECT public.nap_phong_lam_theo_dich_vu();
+-- Danh mục dịch vụ chuẩn 01/10/2026 (20261002100000) — SAU mọi bước trên: tên,
+-- nhóm, giá theo file phòng khám gửi; thêm dòng còn thiếu; XN thu hộ 0đ.
+SELECT * FROM public.dong_bo_danh_muc_dich_vu('kiot_0110');

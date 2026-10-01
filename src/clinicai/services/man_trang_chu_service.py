@@ -35,6 +35,7 @@ import asyncpg
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.trang_thai_lich import trang_thai_hien_thi
+from clinicai.services.danh_muc_dich_vu_service import dem_chua_co_phong
 from clinicai.services.hanh_trinh_khach_service import doc_hanh_trinh_khach
 from clinicai.services.nhan_vai import gan_nhan_vai
 from clinicai.services.visit_progress_service import VisitProgressService
@@ -218,6 +219,10 @@ class ManTrangChuService:
                 """,
                 clinic_id,
             )
+            # DỊCH VỤ ĐANG BÁN CHƯA CÓ PHÒNG (01/10/2026): đếm bằng cùng hàm với
+            # màn Bảng giá dịch vụ & phòng (trừ phí khám, việc đối tác làm trọn).
+            # Trang chủ chỉ bày dòng này cho người giữ lego Cài đặt phòng khám.
+            so_dich_vu_chua_phong = await dem_chua_co_phong(conn, clinic_id)
             # Lịch làm việc tuần — kèm staff.full_name để frontend đồng bộ tên
             # (thay truy vấn `staff` phụ của dongBoTenTrucNhat), và VAI của
             # người đứng (27/09/2026 đợt 3, A9: "tên nhân sự kèm vai trò").
@@ -364,6 +369,7 @@ class ManTrangChuService:
                 {"ma": "khach_tre", "so": so_khach_tre, "phut": _PHUT_TRE},
                 {"ma": "chua_xep_bac_si", "so": so_chua_xep_bac_si},
                 {"ma": "viec_qua_han", "so": so_viec_qua_han},
+                {"ma": "dich_vu_chua_phong", "so": so_dich_vu_chua_phong},
             ],
             "roster": [gan_nhan_vai(dict(r)) for r in roster],
             "dong_ca": [dict(r) for r in dong_ca],

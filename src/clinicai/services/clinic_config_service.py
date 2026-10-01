@@ -40,6 +40,7 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.permissions import cache
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
+from clinicai.services.danh_muc_dich_vu_service import dong_danh_muc
 
 logger = structlog.get_logger()
 
@@ -942,6 +943,110 @@ class ClinicConfigService:
             payload={"services": ma},
         )
         return {"ok": True, "room_code": room["code"], "service_codes": ma}
+
+    async def set_service_rooms(
+        self, *, identity: StaffIdentity, service_code: str, room_ids: list[str]
+    ) -> dict[str, Any]:
+        """MỘT dịch vụ làm ở những phòng nào (01/10/2026, màn Bảng giá dịch vụ
+        & phòng) — chiều ngược của `set_room_services`, cùng bảng
+        `clinic_room_service`, cùng luật `phong_lam_duoc`.
+
+        Danh sách ĐẦY ĐỦ: phòng có trong danh sách → dịch vụ CHỈ làm ở các phòng
+        ấy. Danh sách RỖNG = bỏ gán riêng, dịch vụ về theo nhóm việc (mọi phòng
+        có nhóm việc của nó) — không có trạng thái "không phòng nào" vì bảng
+        trống nghĩa là theo nhóm việc.
+
+        Dịch vụ CHƯA có nhóm việc (chỉ định không xếp được — SERVICE_NOT_MAPPED)
+        thì lấy nhóm việc dịch vụ của phòng đầu tiên được gắn, để gắn xong là
+        chỉ định được ngay.
+        """
+        await self._duoc_cau_hinh(identity)
+        ma = (service_code or "").strip()
+        if not ma:
+            raise ValidationError("Thiếu mã dịch vụ.")
+        phong = list(dict.fromkeys(str(r).strip() for r in room_ids if str(r).strip()))
+        async with self._pool.acquire() as conn, conn.transaction():
+            dv = await conn.fetchrow(
+                "SELECT id, name, node_code FROM public.service_price"
+                " WHERE clinic_id = $1::uuid AND \"group\" = 'dich_vu'"
+                "   AND service_code = $2 FOR UPDATE",
+                identity.clinic_id,
+                ma,
+            )
+            if dv is None:
+                raise ValidationError(f"Không có dịch vụ {ma} trong bảng giá.")
+            co = await conn.fetch(
+                "SELECT id::text AS id, node_code FROM public.clinic_room"
+                " WHERE clinic_id = $1::uuid AND id::text = ANY($2::text[])",
+                identity.clinic_id,
+                phong,
+            )
+            tim = {r["id"]: r for r in co}
+            la = [p for p in phong if p not in tim]
+            if la:
+                raise ValidationError("Có phòng không thuộc phòng khám này.")
+            node_moi = None
+            if phong and not dv["node_code"]:
+                node_moi = await conn.fetchval(
+                    """
+                    SELECT n FROM (
+                        SELECT r.node_code AS n, 0 AS uu_tien
+                          FROM public.clinic_room r
+                         WHERE r.id = $1::uuid AND r.node_code LIKE 'DICHVU-%'
+                        UNION ALL
+                        SELECT rn.node_code, 1
+                          FROM public.clinic_room_node rn
+                         WHERE rn.room_id = $1::uuid
+                           AND rn.node_code LIKE 'DICHVU-%'
+                    ) x ORDER BY uu_tien, n LIMIT 1
+                    """,
+                    phong[0],
+                )
+                if node_moi is None:
+                    raise ValidationError(
+                        "Dịch vụ chưa có nhóm việc và phòng này không làm nhóm"
+                        " dịch vụ nào — chọn nhóm việc cho dịch vụ trước."
+                    )
+                await conn.execute(
+                    "UPDATE public.service_price SET node_code = $2,"
+                    " updated_at = now() WHERE id = $1::uuid",
+                    dv["id"],
+                    node_moi,
+                )
+            await conn.execute(
+                "DELETE FROM public.clinic_room_service"
+                " WHERE clinic_id = $1::uuid AND service_code = $2"
+                "   AND NOT (room_id::text = ANY($3::text[]))",
+                identity.clinic_id,
+                ma,
+                phong,
+            )
+            if phong:
+                await conn.executemany(
+                    "INSERT INTO public.clinic_room_service"
+                    " (clinic_id, room_id, service_code, created_by)"
+                    " VALUES ($1::uuid, $2::uuid, $3, $4::uuid)"
+                    " ON CONFLICT DO NOTHING",
+                    [(identity.clinic_id, p, ma, identity.staff_id) for p in phong],
+                )
+            sau = await conn.fetchrow(
+                "SELECT * FROM public.danh_muc_dich_vu($1::uuid)"
+                " WHERE service_code = $2",
+                identity.clinic_id,
+                ma,
+            )
+        logger.info("service_rooms_set", service=ma, n=len(phong))
+        await self._ghi_nhat_ky(
+            identity,
+            loai="service_rooms",
+            doi_tuong_id=str(dv["id"]),
+            payload={
+                "service_code": ma,
+                "rooms": phong,
+                **({"node_code": node_moi} if node_moi else {}),
+            },
+        )
+        return {"ok": True, "dich_vu": dong_danh_muc(sau) if sau else None}
 
     async def set_staff_nodes(
         self, *, identity: StaffIdentity, staff_id: str, node_codes: list[str]

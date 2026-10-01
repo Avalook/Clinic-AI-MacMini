@@ -25,9 +25,11 @@ rather than a second row nobody notices.
 from __future__ import annotations
 
 import builtins
+import hashlib
 import json
 import math
 import re
+import unicodedata
 from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
@@ -1526,6 +1528,31 @@ def _ma_kiotviet(v: str | None) -> str | None:
     return ma
 
 
+def khoa_ten_dich_vu(ten: str) -> str:
+    """Tên chuẩn hoá — y hệt hàm SQL `khoa_ten_dich_vu` (NFC, thường, gộp khoảng
+    trắng). Hàm thuần."""
+    return " ".join(unicodedata.normalize("NFC", ten or "").split()).lower()
+
+
+def ma_dich_vu_theo_ten(ten: str) -> str:
+    """Mã nội bộ `DV_<10 ký tự md5 của tên chuẩn hoá>` — hàm thuần."""
+    return "DV_" + hashlib.md5(khoa_ten_dich_vu(ten).encode()).hexdigest()[:10].upper()
+
+
+def _nhom_hang(v: str | None) -> str | None:
+    """Nhóm hàng (01/10/2026): gộp khoảng trắng; rỗng → None; quá 120 → 422.
+
+    Viết "Siêu âm › Siêu âm thai" hay "Siêu âm>>Siêu âm thai" đều lưu dạng
+    KiotViet (">>") — cùng dạng với danh mục chuẩn đã nạp."""
+    s = " ".join((v or "").split())
+    if not s:
+        return None
+    s = ">>".join(p.strip() for p in s.replace("›", ">>").split(">>") if p.strip())
+    if len(s) > 120:
+        raise ValidationError("Nhóm hàng tối đa 120 ký tự.")
+    return s or None
+
+
 class PriceListService:
     """Maintain the service and medicine price list."""
 
@@ -1609,11 +1636,19 @@ class PriceListService:
         ma_kiotviet: str | None = None,
         node_code: str | None = None,
         billing_owner: str | None = None,
+        nhom: str | None = None,
     ) -> str:
         ma_kv = _ma_kiotviet(ma_kiotviet)
+        nhom_hang = _nhom_hang(nhom)
         ben_chon = doc_ben_thu(billing_owner)
-        code = (service_code or "").strip() or (f"KV_{ma_kv}" if ma_kv else "")
         label = (name or "").strip()
+        code = (
+            (service_code or "").strip()
+            or (f"KV_{ma_kv}" if ma_kv else "")
+            # Dịch vụ không mã phòng khám (01/10/2026): mã nội bộ ổn định từ tên
+            # — cùng cách migration danh mục chuẩn sinh `DV_<md5 tên>`.
+            or (ma_dich_vu_theo_ten(label) if group == "dich_vu" and label else "")
+        )
         if not code or not label:
             raise ValidationError("Thiếu mã hoặc tên dịch vụ")
 
@@ -1630,8 +1665,8 @@ class PriceListService:
                     INSERT INTO service_price
                         (clinic_id, service_code, name, "group", unit_price,
                          ma_kiotviet, node_code, billing_owner,
-                         billing_owner_chon_tay)
-                    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
+                         billing_owner_chon_tay, category)
+                    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                     RETURNING id
                     """,
                     identity.clinic_id,
@@ -1643,6 +1678,7 @@ class PriceListService:
                     node,
                     ben_thu,
                     ben_chon is not None,
+                    nhom_hang,
                 )
             except asyncpg.UniqueViolationError as exc:
                 raise ConflictError(
@@ -1684,8 +1720,13 @@ class PriceListService:
         ma_kiotviet_provided: bool = False,
         node_code: str | None = None,
         billing_owner: str | None = None,
+        nhom: str | None = None,
+        nhom_provided: bool = False,
     ) -> None:
         patch: dict[str, Any] = {}
+        if nhom_provided:
+            # Nhóm hàng (01/10/2026) — gom danh mục chỉ định; rỗng = bỏ nhóm.
+            patch["category"] = _nhom_hang(nhom)
         ben_chon = doc_ben_thu(billing_owner)
         if ben_chon is not None:
             # CHỌN TAY (Tuyền 29/09/2026): bên thu thuộc từng dịch vụ, và từ nay

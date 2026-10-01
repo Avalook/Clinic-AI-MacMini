@@ -23,6 +23,7 @@
 // được ở lần mới (vd siêu âm lại sau thủ thuật) — tên tô brand đậm + "đã chỉ
 // định ở lần n" (bản mẫu `.da-truoc`). Số lần do máy chủ gán.
 
+import { Search } from "lucide-react";
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
@@ -30,7 +31,9 @@ import Chip from "@/components/ui/Chip";
 import NganGap from "@/components/ui/NganGap";
 import {
   chipMauDanhMuc,
+  gomTheoNhomGoc,
   tachDanhMucKhac,
+  timDanhMucChiDinh,
   tienVn,
   type ChiDinhVaKetQua,
   tongPhongKham,
@@ -66,6 +69,10 @@ export default function DanhMucChiDinh({
   const [moThem, setMoThem] = useState(false);
   // DỊCH VỤ BẮT BUỘC (Tuyền 25/09/2026): mặc định KHÔNG tick.
   const [batBuoc, setBatBuoc] = useState<string[]>([]);
+  // TÌM (01/10/2026): gõ "PRP", "NIPT", "liên cầu" ra ngay mọi dịch vụ đang
+  // bán, kể cả mục trong ngăn "Dịch vụ khác trong bảng giá".
+  const [tim, setTim] = useState("");
+  const ketQuaTim = timDanhMucChiDinh(nhom, tim);
 
   const { chinh, khac } = tachDanhMucKhac(nhom);
   const moiMuc = [...chinh.flatMap((n) => n.muc), ...khac];
@@ -115,17 +122,19 @@ export default function DanhMucChiDinh({
     const dangChon = ma ? chon.includes(ma) : false;
     const lan = ma ? lanCua.get(ma) : undefined;
     const mau = chipMauDanhMuc(m);
+    // Máy chủ khoá ô (vd dịch vụ chưa gắn nhóm việc — chỉ định không xếp được).
+    const khoa = chiDoc || !ma || Boolean(m.khoa);
     return (
       <li key={`${m.nhan}-${ma ?? ""}`} className="border-b border-hairline">
         <label
           className={`grid min-h-10 grid-cols-[1.25rem_minmax(0,1fr)_auto] items-center gap-1.5 py-1 sm:min-h-8 ${
             dangChon ? "bg-surface-selected" : ""
-          } ${chiDoc || !ma ? "" : "cursor-pointer"}`}
+          } ${khoa ? "" : "cursor-pointer"}`}
         >
           <input
             type="checkbox"
             className="m-0 size-4 accent-brand-600"
-            disabled={chiDoc || !ma}
+            disabled={khoa}
             checked={dangChon}
             onChange={(e) => ma && bat(ma, e.target.checked)}
           />
@@ -137,6 +146,7 @@ export default function DanhMucChiDinh({
               </span>
             ) : null}
             {phu ? <span className="block text-meta text-ink-faint">{phu}</span> : null}
+            {m.khoa ? <span className="block text-meta text-warning">{m.khoa}</span> : null}
           </span>
           <span className="flex flex-col items-end gap-0.5 whitespace-nowrap text-right text-meta text-ink-muted">
             {!ma ? (
@@ -183,6 +193,34 @@ export default function DanhMucChiDinh({
         </p>
       ) : null}
       {hienDanhMuc ? (
+        <label className="flex min-h-10 items-center gap-2 rounded-control border border-line bg-surface px-2.5 focus-within:border-brand-500 sm:min-h-8">
+          <Search aria-hidden className="size-4 shrink-0 text-ink-muted" />
+          <span className="sr-only">Tìm dịch vụ để chỉ định</span>
+          <input
+            type="search"
+            value={tim}
+            onChange={(e) => setTim(e.target.value)}
+            placeholder="Tìm dịch vụ — vd “PRP”, “NIPT”, “liên cầu”, “siêu âm thai”"
+            className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-faint"
+          />
+        </label>
+      ) : null}
+      {hienDanhMuc && tim.trim() ? (
+        ketQuaTim.length === 0 ? (
+          <p className="text-meta text-ink-muted">Không thấy dịch vụ nào khớp “{tim.trim()}”.</p>
+        ) : (
+          <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {ketQuaTim.map((n) => (
+              <div key={n.nhom} className="min-w-0">
+                <h4 className="mb-1 text-label font-semibold uppercase tracking-wide text-ink-muted">
+                  {n.nhom}
+                </h4>
+                <ul>{n.muc.map((m) => dong(m, m.ma_kiotviet ?? undefined))}</ul>
+              </div>
+            ))}
+          </div>
+        )
+      ) : hienDanhMuc ? (
         <>
           <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
             {chinh.map((n) => (
@@ -199,9 +237,16 @@ export default function DanhMucChiDinh({
               tieuDe={`Dịch vụ khác trong bảng giá — không có trên phiếu giấy (${khac.length})`}
               chip={chonTrongKhac > 0 ? <Chip tone="brand">{chonTrongKhac} đang chọn</Chip> : null}
             >
-              <ul>
-                {khac.map((m) => dong(m, [m.nhom_goc, m.ma_kiotviet].filter(Boolean).join(" · ")))}
-              </ul>
+              <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {gomTheoNhomGoc(khac).map(([ten, ds]) => (
+                  <div key={ten} className="min-w-0">
+                    <h4 className="mb-1 text-label font-semibold uppercase tracking-wide text-ink-muted">
+                      {ten}
+                    </h4>
+                    <ul>{ds.map((m) => dong(m, m.ma_kiotviet ?? undefined))}</ul>
+                  </div>
+                ))}
+              </div>
             </NganGap>
           ) : null}
         </>

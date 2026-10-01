@@ -38,6 +38,7 @@ from clinicai.services.config_service import (
     RosterService,
     Shift,
 )
+from clinicai.services.danh_muc_dich_vu_service import DanhMucDichVuService
 
 router = APIRouter()
 
@@ -101,6 +102,8 @@ class PriceCreateRequest(BaseModel):
     #: Bên thu chọn tay (29/09/2026): CLINIC | EXTERNAL_PARTNER; bỏ trống = theo
     #: phòng làm. Máy chủ đọc (rác → 422 có câu).
     billing_owner: str | None = Field(default=None, max_length=32)
+    #: Nhóm hàng (Siêu âm, Thủ thuật, XN thu hộ…) — gom danh mục chỉ định (01/10/2026).
+    nhom: str | None = Field(default=None, max_length=120)
 
 
 class PriceUpdateRequest(BaseModel):
@@ -111,6 +114,8 @@ class PriceUpdateRequest(BaseModel):
     node_code: str | None = Field(default=None, max_length=64)
     #: Chọn tay bên thu (29/09/2026) — từ đó đổi phòng làm không ghi đè.
     billing_owner: str | None = Field(default=None, max_length=32)
+    #: Nhóm hàng — rỗng = bỏ nhóm (01/10/2026).
+    nhom: str | None = Field(default=None, max_length=120)
 
 
 class DisplayZoneToggle(BaseModel):
@@ -374,6 +379,16 @@ async def list_phong_lam(
     return await PriceListService(pool).phong_lam(identity=identity)
 
 
+@router.get("/service-prices/danh-muc")
+async def danh_muc_dich_vu(
+    identity: StaffIdentity = Depends(_PRICE_READ_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bảng giá dịch vụ & phòng (01/10/2026): mọi dịch vụ kèm nhóm hàng, bên
+    thu, phòng làm được, cờ chưa có phòng — máy chủ quyết, màn chỉ vẽ."""
+    return await DanhMucDichVuService(pool).doc(identity=identity)
+
+
 @router.get("/service-prices", response_model=list[PriceRow])
 async def list_prices(
     group: PriceGroup = Query(..., description="thuoc | dich_vu"),
@@ -406,6 +421,7 @@ async def add_price(
         ma_kiotviet=body.ma_kiotviet,
         node_code=body.node_code,
         billing_owner=body.billing_owner,
+        nhom=body.nhom,
     )
     return {"ok": True, "id": price_id}
 
@@ -430,6 +446,8 @@ async def update_price(
         ma_kiotviet_provided="ma_kiotviet" in body.model_fields_set,
         node_code=body.node_code,
         billing_owner=body.billing_owner,
+        nhom=body.nhom,
+        nhom_provided="nhom" in body.model_fields_set,
     )
     return {"ok": True}
 

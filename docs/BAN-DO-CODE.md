@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-01 12:31. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-01 14:28. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -61,21 +61,21 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - page: `src/dashboard/app/(dashboard)/cashier/board/page.tsx` · quyền: ?
 - gọi API: (không thấy — màn tĩnh, hoặc gọi qua lối không suy được ?)
 
-### `/cashier/dich-vu` — Bảng giá dịch vụ
+### `/cashier/dich-vu` — Bảng giá dịch vụ & phòng
 - page: `src/dashboard/app/(dashboard)/cashier/dich-vu/page.tsx` · quyền: lego `bang_gia` (Bảng giá · mặc định: Thu ngân, QL)
-- thành phần: app/(dashboard)/cashier/CashierView.tsx
-- gọi API Next: `/api/service-price`
-- gọi thẳng backend (server): `/api/v1/service-prices`
-- service: PriceListService.{phong_lam, add, update, remove, +1}
-- test: test_lay_mau_doi_tac_db.py, test_gia_thuoc_hai_nguon_khop_db.py, test_doi_tac_tu_thu_db.py, test_mau_gui_doi_tac_db.py
+- thành phần: app/(dashboard)/cashier/DanhMucDichVuPhong.tsx
+- gọi API Next: `/api/service-price`, `/api/clinic-config`
+- gọi thẳng backend (server): `/api/v1/service-prices/danh-muc`
+- service: DanhMucDichVuService.doc · PriceListService.{phong_lam, add, update, remove} · ClinicConfigService.{overview, set_service_rooms, create_location, create_room}
+- test: test_danh_muc_dich_vu_chuan_db.py, test_gia_thuoc_hai_nguon_khop_db.py, test_phong_la_tai_nguyen_db.py, test_doi_tac_tu_thu_db.py, test_lay_mau_doi_tac_db.py (+2)
 
 ### `/cashier/thuoc` — Bảng giá thuốc
 - page: `src/dashboard/app/(dashboard)/cashier/thuoc/page.tsx` · quyền: ?
 - thành phần: app/(dashboard)/cashier/CashierView.tsx
 - gọi API Next: `/api/service-price`
 - gọi thẳng backend (server): `/api/v1/service-prices`
-- service: PriceListService.{phong_lam, add, update, remove, +1}
-- test: test_lay_mau_doi_tac_db.py, test_gia_thuoc_hai_nguon_khop_db.py, test_doi_tac_tu_thu_db.py, test_mau_gui_doi_tac_db.py
+- service: DanhMucDichVuService.doc · PriceListService.{phong_lam, add, update, remove, +1}
+- test: test_danh_muc_dich_vu_chuan_db.py, test_gia_thuoc_hai_nguon_khop_db.py, test_doi_tac_tu_thu_db.py, test_lay_mau_doi_tac_db.py, test_mau_gui_doi_tac_db.py
 
 ### `/console` — Bảng điều khiển
 - page: `src/dashboard/app/console/page.tsx` · quyền: ?
@@ -307,7 +307,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/phieu-kham`
 - gọi thẳng backend (server): `/api/v1/phieu/in/{order}`
 - service: khung · PhieuKhamService.{tham_chieu_that, khung_theo_ban, doc_luot, lich_su, +8} · y_khoa · FormEngineService.in_ket_qua
-- test: test_phieu_kham_db.py, test_phieu_kham_lich_su_db.py, test_phieu_kham_luot_db.py, test_clinical_read_and_legacy_boundaries.py, test_danh_muc_kiotviet_db.py (+9)
+- test: test_phieu_kham_db.py, test_phieu_kham_lich_su_db.py, test_phieu_kham_luot_db.py, test_clinical_read_and_legacy_boundaries.py, test_danh_muc_dich_vu_chuan_db.py (+9)
 
 ### `/print/ket-qua/[orderId]`
 - page: `src/dashboard/app/print/ket-qua/[orderId]/page.tsx` · quyền: ?
@@ -405,7 +405,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/clinic-config`, `/api/day-noi`, `/api/roster`
 - gọi thẳng backend (server): `/api/v1/clinic-config/overview`, `/api/v1/clinic-config/staff`, `/api/v1/clinic-config/services`
 - service: ClinicConfigService.{staff, services, overview, set_room_floor, +10} · LichPhongService.tuan · thu_ky_bac_si · DayNoiService.{doc, tao_vi_tri} · RosterService.{applied_weeks, tram_cho_nhan_vien, bac_si_trong_ngay, apply_week, +3}
-- test: test_phong_la_tai_nguyen_db.py, test_clinic_config.py, test_clinical_cluster.py, test_service_execution_db.py, test_pham_vi_vi_tri_lich_truc.py (+8)
+- test: test_phong_la_tai_nguyen_db.py, test_clinic_config.py, test_clinical_cluster.py, test_pham_vi_vi_tri_lich_truc.py, test_phong_lam_theo_dich_vu_db.py (+9)
 
 ### `/settings/day-noi` — Dây nối nghiệp vụ
 - page: `src/dashboard/app/(dashboard)/settings/day-noi/page.tsx` · quyền: lego `cai_dat` (Cài đặt phòng khám · mặc định: Quản lý)
@@ -644,6 +644,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [room-active] PUT `/api/v1/clinic-config/room-active` → `src/clinicai/api/v1/routers/clinic_config.py:set_room_active` → ClinicConfigService.set_room_active
 - [room-nodes] PUT `/api/v1/clinic-config/room-nodes` → `src/clinicai/api/v1/routers/clinic_config.py:set_room_nodes` → ClinicConfigService.set_room_nodes
 - [room-services] PUT `/api/v1/clinic-config/room-services` → `src/clinicai/api/v1/routers/clinic_config.py:set_room_services` → ClinicConfigService.set_room_services
+- [service-rooms] PUT `/api/v1/clinic-config/service-rooms` → `src/clinicai/api/v1/routers/clinic_config.py:set_service_rooms` → ClinicConfigService.set_service_rooms
 - [staff-nodes] PUT `/api/v1/clinic-config/staff-nodes` → `src/clinicai/api/v1/routers/clinic_config.py:set_staff_nodes` → ClinicConfigService.set_staff_nodes
 - [service-form] PUT `/api/v1/clinic-config/service-form` → `src/clinicai/api/v1/routers/clinic_config.py:set_service_form` → ClinicConfigService.set_service_form
 - [service-type] PUT `/api/v1/clinic-config/service-type` → `src/clinicai/api/v1/routers/clinic_config.py:update_service_type` → ClinicConfigService.update_service_type
@@ -651,8 +652,8 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [location] PUT `/api/v1/clinic-config/location` → `src/clinicai/api/v1/routers/clinic_config.py:update_location` → ClinicConfigService.update_location
 - POST `/api/v1/clinic-config/locations` → `src/clinicai/api/v1/routers/clinic_config.py:create_location` → ClinicConfigService.create_location
 - POST `/api/v1/clinic-config/rooms` → `src/clinicai/api/v1/routers/clinic_config.py:create_room` → ClinicConfigService.create_room
-- test: src/tests/services/test_phong_la_tai_nguyen_db.py, src/tests/services/test_clinic_config.py, src/tests/services/test_phong_lam_theo_dich_vu_db.py (+4)
-- màn dùng: /settings/clinic-config
+- test: src/tests/services/test_phong_la_tai_nguyen_db.py, src/tests/services/test_clinic_config.py, src/tests/services/test_phong_lam_theo_dich_vu_db.py (+5)
+- màn dùng: /cashier/dich-vu, /settings/clinic-config
 
 #### `/api/clinical-form` · `src/dashboard/app/api/clinical-form/route.ts`
 - GET `/api/v1/clinical-forms` → `src/clinicai/api/v1/routers/clinical_forms.py:read_clinical_form` → ClinicalFormService.get_form, ghi_mo_ho_so
@@ -1155,11 +1156,12 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - màn dùng: (không màn nào gọi thấy được ?)
 
 #### `/api/service-price` · `src/dashboard/app/api/service-price/route.ts`
+- GET `/api/v1/service-prices/danh-muc` → `src/clinicai/api/v1/routers/config.py:danh_muc_dich_vu` → DanhMucDichVuService.doc
 - GET `/api/v1/service-prices/phong-lam` → `src/clinicai/api/v1/routers/config.py:list_phong_lam` → PriceListService.phong_lam
 - POST `/api/v1/service-prices` → `src/clinicai/api/v1/routers/config.py:add_price` → PriceListService.add
 - PATCH `/api/v1/service-prices/{price_id}` → `src/clinicai/api/v1/routers/config.py:update_price` → PriceListService.update
 - DELETE `/api/v1/service-prices/{price_id}` → `src/clinicai/api/v1/routers/config.py:remove_price` → PriceListService.remove
-- test: src/tests/services/test_lay_mau_doi_tac_db.py, src/tests/services/test_gia_thuoc_hai_nguon_khop_db.py, src/tests/services/test_doi_tac_tu_thu_db.py
+- test: src/tests/services/test_danh_muc_dich_vu_chuan_db.py, src/tests/services/test_gia_thuoc_hai_nguon_khop_db.py, src/tests/services/test_doi_tac_tu_thu_db.py (+1)
 - màn dùng: /cashier/dich-vu, /cashier/thuoc
 
 #### `/api/sono` · `src/dashboard/app/api/sono/route.ts`
@@ -1273,7 +1275,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/api/test_visit_work_items_read.py, src/tests/test_work_item_service.py
 - màn dùng: /viec-can-xu-ly
 
-## 3. Service → màn (143)
+## 3. Service → màn (144)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1305,7 +1307,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `ClinicalFormService` | `src/clinicai/services/clinical_form_service.py` | /ban-kham, /ban-kham/[phong], /patient-list, /tu-van |
 | `ClinicalRecordService` | `src/clinicai/services/clinical_record_service.py` | /ban-kham, /ban-kham/[phong], /patient-list, /tu-van |
 | `ClinicalSignService` | `src/clinicai/services/clinical_sign_service.py` | /ban-kham, /ban-kham/[phong], /patient-list, /tu-van |
-| `ClinicConfigService` | `src/clinicai/services/clinic_config_service.py` | /nhan-su, /settings/clinic-config |
+| `ClinicConfigService` | `src/clinicai/services/clinic_config_service.py` | /cashier/dich-vu, /nhan-su, /settings/clinic-config |
 | `ClinicSettingsService` | `src/clinicai/services/clinic_settings_service.py` | /settings, /settings/booking-policy |
 | `ConsentService` | `src/clinicai/services/consent_service.py` | — (chỉ API/worker) |
 | `ConsoleService` | `src/clinicai/services/console_service.py` | /console |
@@ -1315,6 +1317,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `cskh_service` | `src/clinicai/services/cskh_service.py` | — (chỉ API/worker) |
 | `CskhService` | `src/clinicai/services/cskh_service.py` | /appointments, /patients/new |
 | `danh_sach_khach_cskh` | `src/clinicai/services/danh_sach_khach_cskh.py` | /customers |
+| `DanhMucDichVuService` | `src/clinicai/services/danh_muc_dich_vu_service.py` | /cashier/dich-vu, /cashier/thuoc |
 | `DanhSachBenhNhanService` | `src/clinicai/services/danh_sach_benh_nhan_service.py` | /patient-list |
 | `day_tep` | `src/clinicai/services/day_tep.py` | /ops |
 | `DayNoiService` | `src/clinicai/services/day_noi_service.py` | /settings/clinic-config, /settings/day-noi |
@@ -1472,6 +1475,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `consultation_note` | `20260911000001_luot_kham_lat_1.sql` | 1 |
 | `cskh_action` | `20260714000001_baseline_schema.sql` | 0 |
 | `cskh_log` | `20260714000001_baseline_schema.sql` | 1 |
+| `danh_muc_dich_vu_nguon` | `20261002100000_danh_muc_dich_vu_chuan_0110.sql` | 0 |
 | `day_nghiep_vu` | `20260924000005_day_nghiep_vu_nhac_viec.sql` | 0 |
 | `day_nhan_thong_bao` | `20260924000004_ket_qua_chuong_doi_lich.sql` | 0 |
 | `dich_vu_mau_ket_qua` | `20260923000004_mau_ket_qua.sql` | 2 |

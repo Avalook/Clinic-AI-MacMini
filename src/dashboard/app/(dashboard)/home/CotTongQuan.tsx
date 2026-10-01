@@ -35,6 +35,7 @@ const NHAN_CAN_XU_LY: Record<string, (r: CanXuLyRow) => string> = {
   khach_tre: (r) => `${r.so} khách trễ quá ${r.phut ?? 15}′ chưa check-in`,
   chua_xep_bac_si: (r) => `${r.so} lịch chưa xếp bác sĩ`,
   viec_qua_han: (r) => `${r.so} việc quá hạn`,
+  dich_vu_chua_phong: (r) => `${r.so} dịch vụ đang bán chưa có phòng làm`,
 };
 
 const O = "rounded-card border border-line bg-surface p-4 shadow-card";

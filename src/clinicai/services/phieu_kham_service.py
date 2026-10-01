@@ -54,6 +54,13 @@ from clinicai.phieu_kham.khung import (
 from clinicai.phieu_kham.mang_sang import doc_dau_phieu
 from clinicai.services import hen_tai_kham_service as htk
 from clinicai.services.cskh_service import clinic_today
+from clinicai.services.danh_muc_dich_vu_service import (
+    ly_do_khoa_chi_dinh,
+    nhom_hang_hien,
+)
+from clinicai.services.danh_muc_dich_vu_service import (
+    thu_tu_nhom_hang as _thu_tu_nhom_hang,
+)
 from clinicai.services.thai_ky_service import dong_bo_tu_phieu, thai_ky_cua_luot
 
 logger = structlog.get_logger()
@@ -535,12 +542,15 @@ class PhieuKhamService:
         tc = tham_chieu_nguon()
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
+            # MỘT chỗ đọc danh mục (01/10/2026): hàm `danh_muc_dich_vu` nói
+            # dịch vụ nào là phí khám, thuộc nhóm hàng nào — cùng luật với Bảng
+            # giá dịch vụ & phòng và cảnh báo trang chủ.
             dong_dv = await conn.fetch(
                 "SELECT service_code, unit_price, name, node_code, ma_kiotviet,"
-                "       billing_owner = 'EXTERNAL_PARTNER' AS doi_tac_thu"
-                "  FROM service_price"
-                " WHERE clinic_id = $1::uuid AND active AND \"group\" = 'dich_vu'"
-                " ORDER BY name",
+                "       billing_owner = 'EXTERNAL_PARTNER' AS doi_tac_thu,"
+                "       nhom, la_phi_kham"
+                "  FROM public.danh_muc_dich_vu($1::uuid)"
+                " WHERE active ORDER BY name",
                 cid,
             )
             dv = {r["service_code"]: r["unit_price"] for r in dong_dv}
@@ -563,6 +573,8 @@ class PhieuKhamService:
                     if t:
                         theo_ten.setdefault(_khoa_ten(t), r)
 
+        theo_ma = {r["service_code"]: r for r in dong_dv}
+
         def gan(d: ax.DichVuPhieu | None) -> dict[str, Any]:
             if d is None or d.ma not in dv:
                 return {"service_code": None, "gia": None, "doi_tac_thu": False}
@@ -571,6 +583,8 @@ class PhieuKhamService:
                 "service_code": d.ma,
                 "gia": int(gia) if gia is not None else None,
                 "doi_tac_thu": d.ma in dt_thu,
+                "nhom_hang": nhom_hang_hien(theo_ma[d.ma]["nhom"]),
+                "khoa": ly_do_khoa_chi_dinh(theo_ma[d.ma]),
             }
 
         for nhom in tc["chi_dinh_cls"]:
@@ -579,10 +593,11 @@ class PhieuKhamService:
             {**t, **gan(ax.THU_THUAT.get(t["ma"]))} for t in tc["thu_thuat"]
         ]
 
-        # DANH MỤC PHÒNG KHÁM (KiotViet, 26/09/2026): dịch vụ đang bật có mã phòng
-        # khám mà phiếu chưa liệt kê (NIPT, LEEP, IUI, PRP, phần tách của HPV /
-        # soi BTC…) vẫn chỉ định được — thêm thành nhóm theo phòng làm, như màn
-        # kê đơn thêm thuốc kho không có trên phiếu.
+        # DANH MỤC PHÒNG KHÁM: MỌI dịch vụ đang bán mà phiếu giấy chưa liệt kê
+        # đều chỉ định được — gom theo NHÓM HÀNG của danh mục chuẩn (Tuyền
+        # 01/10/2026: "danh sách chỉ định đang thiếu rất nhiều; KHÔNG được để
+        # dịch vụ nào bị lọt"). Trước đây chỉ lấy dòng có mã KiotViet + có nhóm
+        # việc → xét nghiệm nam khoa, tinh dịch đồ, biofeedback… lọt mất.
         da_co = {
             m["service_code"]
             for nhom in tc["chi_dinh_cls"]
@@ -591,19 +606,19 @@ class PhieuKhamService:
         } | {t["service_code"] for t in tc["thu_thuat"] if t.get("service_code")}
         them: dict[str, list[dict[str, Any]]] = {}
         for r in dong_dv:
-            # Không phòng làm = không phải dịch vụ chỉ định được (tiền khám
-            # `KHAM_*` có mã phòng khám từ 26/09 nhưng thu theo loại khám — lọt
-            # vào mục C là bác sĩ tick được "Hiếm muộn / Vô sinh" như một CLS).
-            # Dòng TIÊU ĐỀ của phiếu giấy ("*XN dịch âm đạo", "• Laser") không
-            # bao giờ hiện lại ở đây, kể cả khi sau này được gắn mã phòng khám.
+            # Phí khám thu theo LOẠI KHÁM, không phải dịch vụ chỉ định (tiền
+            # khám `KHAM_*` lọt vào mục C là bác sĩ tick được "Hiếm muộn / Vô
+            # sinh" như một CLS). Dòng TIÊU ĐỀ của phiếu giấy ("*XN dịch âm
+            # đạo", "• Laser") không bao giờ hiện lại ở đây.
             if (
-                not r["ma_kiotviet"]
-                or not r["node_code"]
+                r["la_phi_kham"]
                 or r["service_code"] in da_co
                 or r["service_code"] in ax.KHONG_LIET_KE
             ):
                 continue
-            nhom_ten = _NHOM_THEO_NODE.get(r["node_code"] or "", "Khác")
+            nhom_ten = nhom_hang_hien(r["nhom"]) or _NHOM_THEO_NODE.get(
+                r["node_code"] or "", "Khác"
+            )
             gia_dv = r["unit_price"]
             them.setdefault(nhom_ten, []).append(
                 {
@@ -614,11 +629,13 @@ class PhieuKhamService:
                     "gia": int(gia_dv) if gia_dv is not None else None,
                     "ma_kiotviet": r["ma_kiotviet"],
                     "doi_tac_thu": bool(r["doi_tac_thu"]),
+                    "nhom_hang": nhom_ten,
+                    "khoa": ly_do_khoa_chi_dinh(r),
                 }
             )
-        for ten, muc in them.items():
+        for ten in sorted(them, key=_thu_tu_nhom_hang):
             tc["chi_dinh_cls"].append(
-                {"nhom": f"{ten} (danh mục phòng khám)", "muc": muc}
+                {"nhom": f"{ten} (danh mục phòng khám)", "muc": them[ten]}
             )
 
         # KHO LÀ NGUỒN (Tuyền 25/09/2026): tên, giá, đơn vị, cách dùng, lưu ý đọc

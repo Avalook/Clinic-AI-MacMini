@@ -148,8 +148,9 @@ async def test_cac_cau_rieng_chay_tren_mot_ket_noi() -> None:
     # 3 đếm + 2 xu hướng + tải bác sĩ + 3 cần xử lý + roster + ô đen/NGHỈ
     # + trực ca + bảng trạng thái = 13, + hành trình khách dạng gọn (29/09:
     # lượt · sự kiện · chỉ định · hàng chờ · phiên = 5) = 18, + phòng của bác
-    # sĩ phiên (bác sĩ của phiên 29/09) = 19, cùng một _Conn.
-    assert len(conn.cac_cau) == 19
+    # sĩ phiên (bác sĩ của phiên 29/09) = 19, + dịch vụ đang bán chưa có phòng
+    # (01/10) = 20, cùng một _Conn.
+    assert len(conn.cac_cau) == 20
 
 
 @pytest.mark.asyncio
@@ -180,6 +181,7 @@ async def test_du_bay_khoi_ke_ca_khi_rong() -> None:
         "khach_tre",
         "chua_xep_bac_si",
         "viec_qua_han",
+        "dich_vu_chua_phong",
     ]
     assert sorted(ra["xu_huong"]) == ["khach_moi_hom_nay", "ngay", "viec_dang_cho"]
 
