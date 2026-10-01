@@ -90,7 +90,17 @@ gzcat "$AUTH" | psql_db >/dev/null
 
 # ---- 3. dữ liệu phòng khám: lược đồ public từ bản sao lưu ---------------------
 xanh "3/5  Nạp dữ liệu phòng khám (vài chục giây)"
-gzcat "$BAN" | psql_db >/dev/null
+# Bản dump chỉ có lược đồ public, KHÔNG chở extension nằm trong public (prod:
+# btree_gist, pg_trgm, unaccent). DROP SCHEMA ở bước 2 đã gỡ chúng → tạo lại
+# trước khi nạp, không thì hàm f_unaccent hỏng ngay dòng COPY patient đầu tiên.
+# Dump có sẵn "CREATE SCHEMA public" → tạo schema rồi bỏ dòng ấy khi nạp.
+psql_db <<'SQL'
+CREATE SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
+CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA public;
+SQL
+gzcat "$BAN" | sed '/^CREATE SCHEMA public;$/d' | psql_db >/dev/null
 # Quyền cho vai Supabase local (bản dump không chở GRANT của vai — Owner: -).
 psql_db <<'SQL'
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
