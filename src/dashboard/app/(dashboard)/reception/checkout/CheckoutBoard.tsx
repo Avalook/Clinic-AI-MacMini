@@ -48,9 +48,8 @@ const BANG_CHECKOUT = [
   "payment",
   "service_order",
   "consultation",
-  // Ghi nợ / huỷ ghi nợ / thu nợ (01/10/2026).
+  // Ghi nợ / huỷ ghi nợ / thu nợ (01/10/2026) — thu nợ báo qua `payment`.
   "cong_no",
-  "payment_cycle",
 ] as const;
 
 export default function CheckoutBoard({

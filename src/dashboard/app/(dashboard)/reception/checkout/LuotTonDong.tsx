@@ -35,7 +35,7 @@ interface LuotTon {
   no_khi_ve?: NoKhiVe | null;
 }
 
-const BANG = ["visit", "work_item", "cong_no", "payment_cycle"] as const;
+const BANG = ["visit", "work_item", "cong_no", "payment"] as const;
 
 /** Đọc danh sách từ máy chủ. `null` = không đọc được (khác "không có lượt nào"). */
 async function docTonDong(): Promise<LuotTon[] | null> {
