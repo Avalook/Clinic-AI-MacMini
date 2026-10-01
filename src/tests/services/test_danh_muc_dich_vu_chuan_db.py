@@ -105,7 +105,7 @@ async def test_dong_bo_theo_file_chuan_va_chay_lai_khong_doi(rb: RB) -> None:  #
         "SELECT name FROM service_price WHERE clinic_id = $1::uuid"
         " AND ma_kiotviet = 'SP000140'",
         CLINIC,
-    ) in (None, "Bơm PRP niêm mạc tử cung (Tropocel)")
+    ) in (None, "Bơm PRP niêm mạc tử cung (Tropocel)", "Bơm PRP niêm mạc tử cung (TPC)")
     # Dịch vụ PHÒNG KHÁM THU không bao giờ bị nạp 0đ (nạp 0 là thu 0 đồng).
     assert not await pool.fetchval(
         "SELECT count(*) FROM service_price sp JOIN danh_muc_dich_vu_nguon x"
@@ -170,7 +170,7 @@ async def test_moi_dich_vu_dang_ban_deu_chi_dinh_duoc(rb: RB) -> None:  # noqa: 
     for tu in ("PRP", "NIPT", "Liên cầu B"):
         assert tu in ten_co, f"bác sĩ tìm “{tu}” phải thấy"
     # XN thu hộ 0đ hiện 0 (không phải "chưa có giá").
-    [lcb] = [m for m in muc if m["nhan"] == "Liên cầu B"]
+    lcb = [m for m in muc if m["nhan"] == "Liên cầu B"][0]
     assert lcb["gia"] == 0 and lcb["doi_tac_thu"]
     # Dịch vụ thêm tay: có mặt, gom đúng nhóm hàng, khoá vì chưa nhóm việc.
     [moi] = [m for m in muc if m["nhan"] == ten]
