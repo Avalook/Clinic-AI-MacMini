@@ -182,9 +182,9 @@ async def test_du_bay_khoi_ke_ca_khi_rong() -> None:
         "khach_moi_hom_nay": 7,
         "lich_can_xu_ly": 7,
     }
-    # Ba dòng cần xử lý luôn có mặt (số 0 thì màn tự ẩn) — màn hình dựa vào mã.
+    # Bốn dòng cần xử lý luôn có mặt (số 0 thì màn tự ẩn) — màn hình dựa vào mã.
     # "Khách còn nợ" chỉ thêm cho người xem được báo cáo (01/10/2026).
-    assert [x["ma"] for x in ra["can_xu_ly"]][:3] == [
+    assert [x["ma"] for x in ra["can_xu_ly"]] == [
         "khach_tre",
         "chua_xep_bac_si",
         "viec_qua_han",
