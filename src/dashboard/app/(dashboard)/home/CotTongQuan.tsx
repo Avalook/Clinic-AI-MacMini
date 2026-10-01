@@ -23,6 +23,8 @@ export interface CanXuLyRow {
   ma: string;
   so: number;
   phut?: number;
+  /** Số tiền (dòng "khách còn nợ"). */
+  tien?: number;
 }
 
 // Bậc độ dài thanh — viết đủ tên lớp để Tailwind sinh ra chúng.
@@ -35,6 +37,9 @@ const NHAN_CAN_XU_LY: Record<string, (r: CanXuLyRow) => string> = {
   khach_tre: (r) => `${r.so} khách trễ quá ${r.phut ?? 15}′ chưa check-in`,
   chua_xep_bac_si: (r) => `${r.so} lịch chưa xếp bác sĩ`,
   viec_qua_han: (r) => `${r.so} việc quá hạn`,
+  // 01/10/2026 — chỉ người xem được báo cáo nhận dòng này (máy chủ quyết).
+  khach_con_no: (r) =>
+    `Khách còn nợ: ${r.so} — ${Math.round(r.tien ?? 0).toLocaleString("vi-VN")}đ`,
 };
 
 const O = "rounded-card border border-line bg-surface p-4 shadow-card";

@@ -22,6 +22,7 @@ import { fmtDayTime } from "@/lib/datetime";
 
 import { useNgheBang } from "../../dung-nghe-bang";
 import type { Blocker } from "./CheckoutBoard";
+import KhoanNoKhiVe, { coNo, type NoKhiVe } from "../../_lam-viec/KhoanNoKhiVe";
 
 interface LuotTon {
   visit_id: string;
@@ -30,9 +31,11 @@ interface LuotTon {
   room_name: string | null;
   checked_in_at: string | null;
   blockers: Blocker[];
+  /** Nợ khi về (01/10/2026): còn nợ chưa ghi thì máy chủ chặn cả đóng lượt dở. */
+  no_khi_ve?: NoKhiVe | null;
 }
 
-const BANG = ["visit", "work_item"] as const;
+const BANG = ["visit", "work_item", "cong_no", "payment_cycle"] as const;
 
 /** Đọc danh sách từ máy chủ. `null` = không đọc được (khác "không có lượt nào"). */
 async function docTonDong(): Promise<LuotTon[] | null> {
@@ -175,10 +178,14 @@ export default function LuotTonDong({ onDaDong }: { onDaDong?: () => void }) {
             </div>
             {dangHoi === l.visit_id ? (
               <XacNhanTaiCho
-                cau={`Đóng lượt của ${l.patient_name ?? "khách"} — ghi là khách về giữa chừng?`}
+                cau={
+                  l.no_khi_ve?.chan
+                    ? `${l.patient_name ?? "Khách"} còn nợ — thu hoặc ghi nợ rồi mới đóng lượt được.`
+                    : `Đóng lượt của ${l.patient_name ?? "khách"} — ghi là khách về giữa chừng?`
+                }
                 nhanDongY="Đóng lượt"
                 dangGui={dangGui}
-                choDongY={lyDo.trim().length > 0}
+                choDongY={lyDo.trim().length > 0 && !l.no_khi_ve?.chan}
                 onThoi={() => {
                   setDangHoi(null);
                   setLyDo("");
@@ -186,6 +193,16 @@ export default function LuotTonDong({ onDaDong }: { onDaDong?: () => void }) {
                 }}
                 onDongY={() => void dong(l)}
               >
+                {coNo(l.no_khi_ve) ? (
+                  <div className="mb-2">
+                    <KhoanNoKhiVe
+                      visitId={l.visit_id}
+                      no={l.no_khi_ve}
+                      onDoi={() => void tai()}
+                      choThuNgay={false}
+                    />
+                  </div>
+                ) : null}
                 <label className="block text-meta text-ink-muted">
                   Lý do (bắt buộc — CSKH đọc để biết gọi lại nói gì)
                   <textarea

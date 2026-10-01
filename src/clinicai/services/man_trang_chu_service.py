@@ -35,6 +35,8 @@ import asyncpg
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.trang_thai_lich import trang_thai_hien_thi
+from clinicai.permissions.can import can
+from clinicai.services.cong_no_service import doc_khach_con_no
 from clinicai.services.hanh_trinh_khach_service import doc_hanh_trinh_khach
 from clinicai.services.nhan_vai import gan_nhan_vai
 from clinicai.services.visit_progress_service import VisitProgressService
@@ -348,6 +350,15 @@ class ManTrangChuService:
                 ),
             )
 
+        # KHÁCH CÒN NỢ (01/10/2026) — chỉ người xem được báo cáo (quản lý).
+        can_no: list[dict[str, Any]] = []
+        async with self._pool.acquire() as conn:
+            if await can(conn, identity, "report.view"):
+                no = await doc_khach_con_no(conn, clinic_id, kem_ds=False)
+                can_no.append(
+                    {"ma": "khach_con_no", "so": no["so_khach"], "tien": no["so_tien"]}
+                )
+
         return {
             "so_lieu": {
                 "viec_dang_cho": so_viec,
@@ -364,6 +375,7 @@ class ManTrangChuService:
                 {"ma": "khach_tre", "so": so_khach_tre, "phut": _PHUT_TRE},
                 {"ma": "chua_xep_bac_si", "so": so_chua_xep_bac_si},
                 {"ma": "viec_qua_han", "so": so_viec_qua_han},
+                *can_no,
             ],
             "roster": [gan_nhan_vai(dict(r)) for r in roster],
             "dong_ca": [dict(r) for r in dong_ca],

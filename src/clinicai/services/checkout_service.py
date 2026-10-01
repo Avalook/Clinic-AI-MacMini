@@ -23,7 +23,9 @@ tới ``visit.status``. Bác sĩ vẫn ký bệnh án theo đường của mình
   2. kết quả bác sĩ còn chờ để đọc trong lượt, hoặc bác sĩ chưa khám/đọc xong
      — cả hai đọc RAIL MỚI (service_order, review_round, round_requirement);
      kết quả đã chuyển theo dõi (follow_up_case) không giữ lượt;
-  3. khoản chưa thu (dịch vụ luôn phải thu; thuốc chỉ khi có đơn);
+  3. khoản chưa thu (dịch vụ luôn phải thu; thuốc chỉ khi có đơn) — từ
+     01/10/2026 khoản ĐÃ LÀM / ĐÃ MUA mà chưa thu là NỢ: chặn hẳn, chỉ qua
+     được khi thu hoặc ghi nợ (`cong_no_service`);
   4. bệnh nhân vẫn đang đứng ở một phòng — *"Không cho đóng lượt khi bệnh nhân
      vẫn đang được xử lý tại một phòng"*.
 
@@ -345,7 +347,11 @@ class CheckoutService:
             visit_id,
         )
         [row] = await _gan_doi_tac_tu_thu(conn, identity.clinic_id, [raw])
-        return {"already_closed": False, "blockers": build_blockers(row)}
+        return {
+            "already_closed": False,
+            "blockers": build_blockers(row),
+            "no_khi_ve": row.get("no_khi_ve"),
+        }
 
     async def readiness(
         self, *, identity: StaffIdentity, visit_id: str
@@ -376,6 +382,7 @@ class CheckoutService:
             "so_theo_doi": int(row["follow_up_open"] or 0),
             "blockers": blockers,
             "can_close": not blockers and not row["already_closed"],
+            "no_khi_ve": row.get("no_khi_ve"),
         }
 
     async def pending_list(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
@@ -421,6 +428,7 @@ class CheckoutService:
                     "so_theo_doi": int(r["follow_up_open"] or 0),
                     "blockers": blockers,
                     "can_close": not blockers and not r["already_closed"],
+                    "no_khi_ve": r.get("no_khi_ve"),
                 }
             )
         return out
@@ -579,6 +587,7 @@ class CheckoutService:
             "already_closed": chung["already_closed"],
             "blockers": blockers,
             "can_close": not blockers and not chung["already_closed"],
+            "no_khi_ve": chung.get("no_khi_ve"),
             "dich_vu": [
                 {
                     "ten": r["ten_buoc"],
@@ -686,6 +695,7 @@ class CheckoutService:
                     r["checked_in_at"].isoformat() if r["checked_in_at"] else None
                 ),
                 "blockers": build_blockers(r),
+                "no_khi_ve": r.get("no_khi_ve"),
             }
             for r in rows
         ]
@@ -737,6 +747,12 @@ class CheckoutService:
                 if state["already_closed"]:
                     return {"ok": True, "already_closed": True}
                 blockers = state["blockers"]
+                # CÒN NỢ → CHẶN, kể cả "về giữa chừng" và đóng hộ (CSKH, máy tự
+                # ghi lý do). Lý do ngoại lệ KHÔNG vượt được — chỉ thu hoặc ghi
+                # nợ (01/10/2026, sau sự cố 30/09).
+                chan = [b for b in blockers if b.get("chan")]
+                if chan:
+                    raise ValidationError(str(chan[0]["message"]) + ".")
                 if blockers and not reason and not incomplete:
                     if ly_do_tu_dong:
                         reason = (
@@ -941,6 +957,10 @@ class CheckoutService:
                             "viec_ket_qua_giu_lai": int(giu_ket_qua or 0),
                             # Chỗ chờ còn mở lúc khách về — đã chuyển `left`.
                             "hang_cho_roi": int(roi_hang or 0),
+                            # Về khi còn nợ đã GHI NỢ (01/10/2026).
+                            "cong_no_id": (
+                                (state.get("no_khi_ve") or {}).get("ghi_no") or {}
+                            ).get("id"),
                             "incomplete_reason": ly_do_do or None,
                         },
                         ensure_ascii=False,
@@ -1017,6 +1037,7 @@ async def _gan_doi_tac_tu_thu(
     còn lượt đã thu có thể vừa phát sinh dịch vụ mới.
     """
     from clinicai.services.bill_service import hoa_don_con_no, tinh_hoa_don
+    from clinicai.services.cong_no_service import no_khi_ve
 
     out: list[dict[str, Any]] = []
     for r in rows:
@@ -1029,6 +1050,13 @@ async def _gan_doi_tac_tu_thu(
             dich_vu = await hoa_don_con_no(conn, clinic_id=clinic_id, visit_id=visit_id)
             d["doi_tac_tu_thu"] = dich_vu.chi_doi_tac_thu
             d["con_no_dich_vu"] = bool(dich_vu.van_de or dich_vu.tong > 0)
+            # NỢ KHI VỀ (01/10/2026) — khoản đã làm/đã mua mà chưa thu: CHẶN
+            # check-out (không vượt bằng lý do) trừ khi đã ghi nợ phủ đủ.
+            d["no_khi_ve"] = (
+                await no_khi_ve(
+                    conn, clinic_id=clinic_id, visit_id=visit_id, hd_dich_vu=dich_vu
+                )
+            ).cho_api()
             if d.get("has_drug") and not d.get("paid_drug"):
                 thuoc = await tinh_hoa_don(
                     conn, clinic_id=clinic_id, visit_id=visit_id, kind="thuoc"
@@ -1048,6 +1076,26 @@ def build_blockers(row: dict[str, Any]) -> list[dict[str, Any]]:
     hiện xong"* chứ không phải *"service_log.status != DONE"*.
     """
     out: list[dict[str, Any]] = []
+
+    # CÒN NỢ (01/10/2026) — vướng DUY NHẤT không vượt được bằng lý do (`chan`).
+    # Đã ghi nợ phủ đủ thì không còn vướng tiền nào.
+    no = row.get("no_khi_ve") or {}
+    loai_no = {str(d.get("loai")) for d in no.get("dong") or []}
+    if no.get("chan"):
+        from clinicai.services.cong_no_service import tien_vn
+
+        chua_gia = sum(1 for d in no["dong"] if d.get("so_tien") is None)
+        out.append(
+            {
+                "type": "con_no",
+                "chan": True,
+                "message": (
+                    f"Khách còn nợ {tien_vn(no.get('tong'))}đ"
+                    + (f" (+{chua_gia} khoản chưa có giá)" if chua_gia else "")
+                    + " — thu ngay hoặc ghi nợ (kèm lý do) mới check-out được"
+                ),
+            }
+        )
 
     if row.get("svc_open"):
         out.append(
@@ -1079,14 +1127,15 @@ def build_blockers(row: dict[str, Any]) -> list[dict[str, Any]]:
     if con_no_dich_vu is None:
         # Tương thích dữ liệu gọi cũ trong các hàm thuần / fixture.
         con_no_dich_vu = not row.get("paid_service") and not row.get("doi_tac_tu_thu")
-    if con_no_dich_vu:
+    # Khoản dịch vụ là NỢ thì đã nói ở "con_no" (hoặc đã ghi nợ) — không nhắc lại.
+    if con_no_dich_vu and "dich_vu" not in loai_no:
         out.append({"type": "unpaid_service", "message": "Chưa thu tiền dịch vụ khám"})
     # Chỉ đòi thu tiền thuốc KHI CÓ ĐƠN. Đòi ở mọi lượt sẽ chặn mọi bệnh nhân
     # không được kê thuốc — tức là phần lớn.
     con_no_thuoc = row.get("con_no_thuoc")
     if con_no_thuoc is None:
         con_no_thuoc = bool(row.get("has_drug") and not row.get("paid_drug"))
-    if con_no_thuoc:
+    if con_no_thuoc and "thuoc" not in loai_no:
         out.append({"type": "unpaid_drug", "message": "Có đơn thuốc chưa thu tiền"})
 
     # Vẫn đang đứng ở một phòng. Bước đóng lượt không tính là "đang xử lý".

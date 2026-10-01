@@ -9,17 +9,24 @@
 //
 // Không có nút thu tiền ở đây. Notion: *"Lễ tân chỉ được xem trạng thái thanh
 // toán"* — màn này nói còn thiếu khoản nào, việc thu là của Thu ngân.
+//
+// CÒN NỢ (01/10/2026): còn khoản đã làm / đã mua chưa thu thì máy chủ CHẶN cả
+// hai nút đóng (lý do không vượt được). Khối `KhoanNoKhiVe` dẫn sang quầy thu
+// (chọn sẵn lượt) hoặc "Ghi nợ" kèm lý do — ghi xong là đóng được.
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useNgheBang } from "../../dung-nghe-bang";
 import ChiTietLuot from "./ChiTietLuot";
 import LuotTonDong from "./LuotTonDong";
+import KhoanNoKhiVe, { coNo, type NoKhiVe } from "../../_lam-viec/KhoanNoKhiVe";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 export interface Blocker {
   type: string;
   message: string;
+  /** Vướng cứng (còn nợ) — lý do không vượt được. */
+  chan?: boolean;
 }
 
 export interface CheckoutRow {
@@ -31,6 +38,7 @@ export interface CheckoutRow {
   checked_in_at: string | null;
   blockers: Blocker[];
   can_close: boolean;
+  no_khi_ve?: NoKhiVe | null;
 }
 
 /** Bảng quyết định danh sách check-out — đều có trigger `trg_notify_*`. */
@@ -40,6 +48,9 @@ const BANG_CHECKOUT = [
   "payment",
   "service_order",
   "consultation",
+  // Ghi nợ / huỷ ghi nợ / thu nợ (01/10/2026).
+  "cong_no",
+  "payment_cycle",
 ] as const;
 
 export default function CheckoutBoard({
@@ -318,7 +329,16 @@ export default function CheckoutBoard({
               <ChiTietLuot key={chon.visit_id} visitId={chon.visit_id} />
 
               <div className="rounded-card border border-line bg-surface p-4 shadow-card">
-                {chon.blockers.length > 0 && (
+                {coNo(chon.no_khi_ve) ? (
+                  <div className="mb-3">
+                    <KhoanNoKhiVe
+                      visitId={chon.visit_id}
+                      no={chon.no_khi_ve}
+                      onDoi={() => void reload()}
+                    />
+                  </div>
+                ) : null}
+                {chon.blockers.some((b) => !b.chan) && (
                   <label className="block text-xs text-ink-muted">
                     Lý do đóng khi còn việc chưa xong (không bắt buộc — để trống máy tự ghi)
                     <textarea
@@ -333,7 +353,7 @@ export default function CheckoutBoard({
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
-                    disabled={busy}
+                    disabled={busy || !!chon.no_khi_ve?.chan}
                     onClick={() => void close(chon)}
                     className="inline-flex min-h-10 items-center justify-center gap-2 rounded-control bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-ink-faint"
                   >
@@ -341,7 +361,7 @@ export default function CheckoutBoard({
                   </button>
                   <button
                     type="button"
-                    disabled={busy || !reason.trim()}
+                    disabled={busy || !reason.trim() || !!chon.no_khi_ve?.chan}
                     onClick={() => void close(chon, true)}
                     title="Khách về giữa chừng — vẫn đóng, nhưng đánh dấu là khám dở để CSKH gọi lại"
                     className="inline-flex min-h-10 items-center justify-center gap-2 rounded-control border border-warning px-4 py-2 text-sm font-semibold text-warning hover:bg-warning-bg disabled:cursor-not-allowed disabled:border-line disabled:text-ink-faint"
@@ -349,6 +369,12 @@ export default function CheckoutBoard({
                     Đóng — khách về giữa chừng
                   </button>
                 </div>
+                {chon.no_khi_ve?.chan ? (
+                  <p className="mt-2 text-xs text-danger">
+                    Khách còn nợ — thu ngay hoặc ghi nợ (kèm lý do) thì hai nút
+                    đóng lượt mới mở.
+                  </p>
+                ) : null}
                 {chon.blockers.length === 0 && (
                   <p className="mt-2 text-xs text-ink-muted">
                     Nút &ldquo;khách về giữa chừng&rdquo; cần một lý do — đó là

@@ -136,7 +136,13 @@ WITH v AS (
       LEFT JOIN public.service_type st
              ON st.id = coalesce(vi.service_type_id, a.service_type_id)
      WHERE vi.clinic_id = $1::uuid
-       AND vi.created_at >= $2 AND vi.created_at < $3
+       AND ((vi.created_at >= $2 AND vi.created_at < $3)
+            -- THU NỢ (01/10/2026): lượt ngày trước đã GHI NỢ, còn chưa thu —
+            -- khách quay lại trả ở quầy theo đúng đường thu có sẵn.
+            OR EXISTS (
+                SELECT 1 FROM public.cong_no n
+                 WHERE n.clinic_id = vi.clinic_id AND n.visit_id = vi.visit_id
+                   AND n.trang_thai = 'CHUA_THU'))
        -- Luật 1: đã khám xong (ô thuốc + dịch vụ), HOẶC đã có chỉ định chính
        -- thức (ô dịch vụ — trả tiền trong lúc phiên bác sĩ còn mở).
        AND ("""

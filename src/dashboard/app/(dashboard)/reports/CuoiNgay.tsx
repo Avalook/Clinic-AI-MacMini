@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import Button, { buttonClass } from "@/components/ui/Button";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import ThanhNgay from "@/components/ui/ThanhNgay";
+import { fmtDayTime } from "@/lib/datetime";
 import { todayVn } from "@/lib/roster";
 import { congNgay, nhanKhoang, type Khoang } from "@/lib/thanh-ngay";
 
@@ -80,6 +81,23 @@ interface BaoCao {
     ly_do: string | null;
   }[];
   top_dich_vu: { ten: string; so_luong: number; doanh_thu: number }[];
+  /** Khách còn nợ (01/10/2026): khoản ghi nợ lúc check-out còn CHƯA THU — tính
+   *  tới hiện tại, không theo khoảng ngày. */
+  khach_con_no?: {
+    so_khach: number;
+    so_luot: number;
+    so_tien: number;
+    bi_cat?: boolean;
+    ds?: {
+      id: string;
+      khach: string | null;
+      ma_bn: string | null;
+      so_tien: number;
+      ly_do: string;
+      nguoi_ghi: string | null;
+      luc: string;
+    }[];
+  };
   theo_ngay: (OTien & { ngay: string; so_phieu: number })[];
 }
 
@@ -248,6 +266,13 @@ export default function CuoiNgay() {
             <StatCard label="Lượt đã thu" value={bc.khach.so_luot_da_thu} />
             <StatCard label="Khách đã thu" value={bc.khach.so_khach_da_thu} />
             <StatCard label="Phiếu thu" value={t.so_phieu_thu} />
+            {bc.khach_con_no ? (
+              <StatCard
+                label={`Khách còn nợ: ${bc.khach_con_no.so_khach}`}
+                value={tien(bc.khach_con_no.so_tien)}
+                tone={bc.khach_con_no.so_khach > 0 ? "warning" : "neutral"}
+              />
+            ) : null}
           </StatRow>
           {bc.khach.so_luot_ban_le ? (
             <p className="text-meta text-ink-muted">
@@ -407,6 +432,52 @@ export default function CuoiNgay() {
               Bảng &quot;Theo hình thức&quot; đã tính theo hình thức sau khi đổi.
             </p>
           </Khoi>
+
+          {bc.khach_con_no ? (
+            <Khoi
+              title={`Khách còn nợ: ${bc.khach_con_no.so_khach} — ${tien(bc.khach_con_no.so_tien)}`}
+            >
+              {(bc.khach_con_no.ds ?? []).length === 0 ? (
+                <p className="text-meta text-ink-muted">Không còn khoản ghi nợ nào chưa thu.</p>
+              ) : (
+                <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-card">
+                  <table className="w-full border-collapse text-body">
+                    <thead>
+                      <tr className="border-b border-line bg-surface-muted text-left text-meta text-ink-muted">
+                        <th className={TH}>Ghi lúc</th>
+                        <th className={TH}>Khách</th>
+                        <th className={TH}>Lý do</th>
+                        <th className={TH}>Người ghi</th>
+                        <th className={`${TH} text-right`}>Số tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(bc.khach_con_no.ds ?? []).map((o) => (
+                        <tr key={o.id} className="border-b border-surface-sunken last:border-b-0">
+                          <td className={`${TD} whitespace-nowrap`}>{fmtDayTime(o.luc)}</td>
+                          <td className={TD}>
+                            {o.khach ?? "—"}
+                            {o.ma_bn ? <span className="text-ink-muted"> · {o.ma_bn}</span> : null}
+                          </td>
+                          <td className={TD}>{o.ly_do}</td>
+                          <td className={TD}>{o.nguoi_ghi ?? "—"}</td>
+                          <td className={SO}>{tien(o.so_tien)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {bc.khach_con_no.bi_cat ? (
+                <p className="text-meta text-ink-muted">
+                  Danh sách chỉ hiện các khoản mới nhất — tổng ở trên là đủ.
+                </p>
+              ) : null}
+              <p className="text-meta text-ink-muted">
+                Thu nợ ở quầy thu ngân như thu thường — lượt hết nợ thì tự rời danh sách này.
+              </p>
+            </Khoi>
+          ) : null}
 
           <Khoi title={`Đối tác thu hộ — tham khảo, không cộng (${tien(bc.doi_tac.tong)})`}>
             {bc.doi_tac.dong.length === 0 ? (

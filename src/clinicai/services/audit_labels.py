@@ -400,6 +400,7 @@ AGGREGATE_LABELS: dict[str, str] = {
     "lab_result": "Kết quả xét nghiệm",
     "payment": "Thanh toán",
     "payment_cycle": "Lần thu tiền",
+    "cong_no": "Khoản ghi nợ",
     "payment_refund": "Hoàn tiền",
     "service_log": "Dịch vụ đã dùng",
     "clinical_record": "Bệnh án",

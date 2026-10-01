@@ -62,6 +62,9 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     # Số tiền là thông tin vận hành của quầy, không phải chữ lâm sàng.
     "payment.service_collected": ["so_tien", "phuong_thuc"],
     "payment.medicine_collected": ["so_tien", "phuong_thuc"],
+    "cong_no.ghi": ["so_tien", "ly_do"],
+    "cong_no.huy": ["so_tien", "ly_do"],
+    "cong_no.da_thu": ["so_tien"],
     # Kê ↔ mua ↔ giao: đối chiếu hai bản đơn (Tuyền 24/09).
     "medicine.dispensed": ["so_ke", "so_mua", "so_da_giao"],
     # Nhóm 3 (24/09/2026).

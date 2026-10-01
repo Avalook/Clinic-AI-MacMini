@@ -19,6 +19,7 @@
 // Chỉ cái sau là sự thật, và chỉ cái sau khiến có người đi hỏi.
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
 import NutXemLuot from "../_lam-viec/NutXemLuot";
@@ -162,7 +163,12 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   const [xong, setXong] = useState<string | null>(null);
   const [dangThu, setDangThu] = useState<string | null>(null);
   const [phuThuDangLuu, setPhuThuDangLuu] = useState<Set<string>>(() => new Set());
-  const [chonVisit, setChonVisit] = useState<string | null>(null);
+  // `?luot=` — mở quầy từ nút "Thu ngay" của check-out (khách còn nợ,
+  // 01/10/2026): chọn sẵn đúng lượt ấy.
+  const thamSo = useSearchParams();
+  const [chonVisit, setChonVisit] = useState<string | null>(
+    () => thamSo?.get("luot") ?? null,
+  );
   // Lượt vừa thu xong — để mời Check-out ngay dưới câu "Đã thu…" (27/09/2026,
   // đợt 3). Nút tự ẩn nếu tài khoản không có quyền đóng lượt.
   // Gắn với ĐÚNG câu báo của lần thu ấy (`cau`): câu báo đổi sang việc khác

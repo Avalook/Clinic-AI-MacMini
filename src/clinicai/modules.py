@@ -276,6 +276,10 @@ MODULE: dict[str, Module] = {
                 "service_order.required_changed",
                 "payment.service_collected",
                 "payment.medicine_collected",
+                # Công nợ khi khách về (01/10/2026).
+                "cong_no.ghi",
+                "cong_no.huy",
+                "cong_no.da_thu",
                 "medicine.dispensed",
                 "result_file.uploaded",
                 "result_file.confirmed",
@@ -633,6 +637,19 @@ MODULE: dict[str, Module] = {
         ),
         # 21 lego (Tuyền 25/09/2026): hai module chỉ-đọc cho lego Báo cáo /
         # Vận hành hệ thống và lego Lịch làm việc.
+        Module(
+            ma="cong_no",
+            ten="Công nợ khách (chặn check-out còn nợ)",
+            # Người đứng quầy ghi nợ / huỷ ghi nợ (cửa `reception.checkin.perform`
+            # — quyền của khối Tiếp đón). Check-out chỉ ĐỌC bảng này.
+            lenh=["GhiNo", "HuyGhiNo"],
+            phat=["cong_no.ghi", "cong_no.huy", "cong_no.da_thu"],
+            # Thu ở quầy → lượt hết nợ thì khoản ghi nợ chuyển ĐÃ THU.
+            nghe=["payment.service_collected", "payment.medicine_collected"],
+            ben_nhan=["cong_no"],
+            bang=["cong_no"],
+            projection=["khach_con_no"],
+        ),
         Module(
             ma="van_hanh",
             ten="Vận hành, báo cáo, lịch sử thao tác",

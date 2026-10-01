@@ -65,6 +65,9 @@ VONG_DOC = "vong_doc_luot_kham"
 #: mẫu) và "dịch vụ đã làm xong" (mẫu điều dưỡng lấy) → việc sang bàn đối tác +
 #: réo chuông đối tác.
 DOI_TAC_NHAN_VIEC = "doi_tac_nhan_viec"
+#: Khối CÔNG NỢ (01/10/2026): nghe "đã thu tiền" → lượt có khoản ghi nợ mà nay
+#: hết nợ thì khoản ấy chuyển ĐÃ THU (`events/consumers/cong_no.py`).
+CONG_NO = "cong_no"
 
 
 @dataclass(frozen=True)
@@ -812,6 +815,37 @@ class DichVuDaHuyBatDau(PayloadSuKien):
     execution_revision: int
 
 
+# ── cong_no ─────────────────────────────────────────────────────────────────
+
+
+class CongNoDaGhi(PayloadSuKien):
+    """`cong_no.ghi` — khách về khi còn nợ, quầy ghi nợ kèm lý do (01/10/2026).
+    Ghi lại khi nợ đổi = cùng `cong_no_id`, số tiền mới."""
+
+    visit_id: str
+    cong_no_id: str
+    so_tien: int
+    so_khoan: int
+    ly_do: str
+
+
+class CongNoDaHuy(PayloadSuKien):
+    """`cong_no.huy` — huỷ lần ghi nợ bấm nhầm (chỉ khi khách chưa check-out)."""
+
+    visit_id: str
+    cong_no_id: str
+    so_tien: int
+    ly_do: str
+
+
+class CongNoDaThu(PayloadSuKien):
+    """`cong_no.da_thu` — lượt có khoản ghi nợ nay đã hết nợ (thu ở quầy)."""
+
+    visit_id: str
+    cong_no_id: str
+    so_tien: int
+
+
 DANH_MUC: dict[str, SuKien] = {
     su_kien.ten: su_kien
     for su_kien in (
@@ -1363,7 +1397,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="payment",
             payload=TienThuocDaThu,
             nhan="Đã thu tiền thuốc",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, CONG_NO],
             is_public=False,
         ),
         SuKien(
@@ -1395,7 +1429,38 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="payment",
             payload=TienDichVuDaThu,
             nhan="Đã thu tiền dịch vụ",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, DOI_TAC_NHAN_VIEC],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, DOI_TAC_NHAN_VIEC, CONG_NO],
+            is_public=False,
+        ),
+        SuKien(
+            ten="cong_no.ghi",
+            version=1,
+            aggregate_type="cong_no",
+            source_module="cong_no",
+            payload=CongNoDaGhi,
+            nhan="Ghi nợ khi khách về",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            # Tiền là chuyện nội bộ (như payment.*).
+            is_public=False,
+        ),
+        SuKien(
+            ten="cong_no.huy",
+            version=1,
+            aggregate_type="cong_no",
+            source_module="cong_no",
+            payload=CongNoDaHuy,
+            nhan="Huỷ ghi nợ",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            is_public=False,
+        ),
+        SuKien(
+            ten="cong_no.da_thu",
+            version=1,
+            aggregate_type="cong_no",
+            source_module="cong_no",
+            payload=CongNoDaThu,
+            nhan="Đã thu hết nợ",
+            consumers=[DONG_THOI_GIAN_LUOT],
             is_public=False,
         ),
         SuKien(
@@ -1486,6 +1551,10 @@ def moi_consumer() -> frozenset[str]:
 
 
 __all__ = [
+    "CONG_NO",
+    "CongNoDaGhi",
+    "CongNoDaHuy",
+    "CongNoDaThu",
     "DANH_MUC",
     "HANH_TRINH",
     "ChiDinhMangSang",
