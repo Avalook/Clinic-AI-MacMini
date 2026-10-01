@@ -11,6 +11,11 @@
 // quầy thêm sửa được số lượng, cách dùng, lưu ý. Không xoá dòng nào — "bỏ" là
 // bỏ tick, dòng còn đó và tích lại được. Phần "Lấy thêm thuốc" dùng lại ĐÚNG ô
 // kê đơn của bác sĩ (`DonThuocPhieu`).
+//
+// C14 (Tuyền 01/10/2026): bác sĩ / điều dưỡng hay vội và QUÊN số lượng. Dòng thiếu
+// số lượng được TÔ NỔI "Bác sĩ chưa nhập số lượng — nhập tại quầy": quầy gõ số là
+// xong (máy chủ ghi người + lúc, màn kê đơn của bác sĩ hiện "SL do thu ngân điền")
+// — không chờ bác sĩ, không bị chặn. Tổng tiền tính lại ở máy chủ.
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -40,6 +45,12 @@ interface DongBan {
   mua: boolean;
   da_chot: boolean;
   gia: number | null;
+  /** Bác sĩ để trống số lượng — quầy phải nhập mới thu được. */
+  thieu_so_luong: boolean;
+  so_luong_do_thu_ngan: boolean;
+  nguoi_dien: string | null;
+  /** ĐVT của kho — gợi ý khi bác sĩ cũng không ghi đơn vị. */
+  don_vi_goi_y: string | null;
 }
 
 async function gui(than: Record<string, unknown>): Promise<string | null> {
@@ -182,7 +193,9 @@ export default function ChinhDonQuay({
         {dong.map((d) => (
           <li
             key={d.id}
-            className={`space-y-1 rounded-control border border-line p-2 ${d.mua ? "" : "opacity-60"}`}
+            className={`space-y-1 rounded-control border p-2 ${
+              d.thieu_so_luong ? "border-warning bg-warning-bg" : "border-line"
+            } ${d.mua ? "" : "opacity-60"}`}
           >
             <div className="flex flex-wrap items-center gap-2">
               <input
@@ -213,12 +226,22 @@ export default function ChinhDonQuay({
                   className={`${INPUT} w-24`}
                   aria-label={`Số lượng ${d.ten}`}
                 />
-                <span>{d.don_vi ?? ""}</span>
+                <span>{d.don_vi ?? d.don_vi_goi_y ?? ""}</span>
               </label>
-              {d.nguon === "BAC_SI" && d.so_ke ? (
+              {d.nguon === "BAC_SI" && d.so_ke && !d.so_luong_do_thu_ngan ? (
                 <span className="text-meta text-ink-faint">bác sĩ kê {d.so_ke}</span>
               ) : null}
+              {d.so_luong_do_thu_ngan ? (
+                <Chip tone="brand" title={d.nguoi_dien ? `Điền bởi ${d.nguoi_dien}` : undefined}>
+                  SL do thu ngân điền
+                </Chip>
+              ) : null}
             </div>
+            {d.thieu_so_luong ? (
+              <p className="pl-6 text-meta font-semibold text-warning" role="alert">
+                Bác sĩ chưa nhập số lượng — nhập tại quầy
+              </p>
+            ) : null}
             {d.nguon === "QUAY" ? (
               <DongQuaySua d={d} dang={dang} onLuu={suaDongQuay} />
             ) : d.cach_dung || d.luu_y ? (

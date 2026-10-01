@@ -279,6 +279,17 @@ phần một dòng (`InPhieuThu.tsx`). Test: `T/unit/test_phan_thu.py`,
   `QuayThuocService`. Test: `T/services/test_quay_thuoc_db.py`,
   `T/services/test_giao_thuoc_khong_lo_db.py`, FT `nha-thuoc-phan-lo-boundary.test.mts`.
 
+- **Bác sĩ quên số lượng thuốc → quầy thu thuốc điền (C14, 01/10)** — màn `/thu-ngan/thuoc`,
+  khối `D/thu-ngan/ChinhDonQuay.tsx` (dòng tô nổi + ô Số lượng) → `S/quay_thuoc_service.py`
+  `QuayThuocService.doi_so_luong` / `_dien_so_luong` (không trần; dấu người + lúc ở
+  `prescription.so_luong_dien_boi/_luc`; sự kiện `DIEN_SO_LUONG`). Câu báo + loại dòng
+  khỏi tổng: `S/bill_service.py` `THIEU_SO_LUONG`, `ghep_thuoc`. Nhãn "SL do thu ngân điền"
+  ở màn kê đơn: `D/_lam-viec/phieu-kham/DonThuocPhieu.tsx`, gộp tự động
+  `D/_lam-viec/phieu-kham/PhieuKhamLuot.tsx` + `lib/phieu-kham.ts` `gopSoLuongQuayDien`;
+  đọc đơn `S/phieu_kham_service.py` `doc_don_thuoc`. Lượt đã ký vẫn điền được: migration
+  `20261003100000_quay_thuoc_dien_so_luong.sql` (trigger `prescription_dinh_chinh_guard`).
+  Test: `T/services/test_quay_thuoc_dien_so_luong_db.py`.
+
 ## 11. Check-out · trạng thái khách · hành trình
 
 **Check-out (đóng lượt, khách về)** — `/reception/checkout` (`D/reception/checkout/CheckoutBoard.tsx`),

@@ -570,6 +570,9 @@ export interface DongThuoc {
   don_gia?: number | null;
   /** ĐVT của kho (`don_vi_ban`) — có thì ĐVT là CHỮ, không phải ô gõ. */
   dvt_kho?: string | null;
+  /** C14: số lượng do QUẦY THU THUỐC điền (bác sĩ để trống) — máy chủ trả; chỉ
+   *  để hiện nhãn "SL do thu ngân điền", không gửi ngược lên. */
+  so_luong_do_thu_ngan?: boolean;
 }
 
 /** Chọn một thuốc từ danh mục gợi ý → dòng đơn điền sẵn, bác sĩ sửa được. */
@@ -645,6 +648,8 @@ export interface DongDonMayChu {
   /** Đơn giá + ĐVT của kho (27/09/2026) — máy chủ cũ chưa trả thì thiếu. */
   don_gia?: number | null;
   dvt_kho?: string | null;
+  /** C14: quầy thu thuốc điền số lượng bác sĩ để trống. */
+  so_luong_do_thu_ngan?: boolean;
 }
 
 const NOI = " — ";
@@ -671,7 +676,26 @@ export function dongTuDon(r: DongDonMayChu): DongThuoc {
     mau_ma: null,
     don_gia: r.don_gia ?? null,
     dvt_kho: r.dvt_kho ?? null,
+    so_luong_do_thu_ngan: r.so_luong_do_thu_ngan ?? false,
   };
+}
+
+/**
+ * Quầy thu thuốc vừa điền / sửa số lượng (C14) → đưa vào đơn ĐANG MỞ của bác sĩ
+ * mà không đè chữ bác sĩ đang gõ: chỉ dòng (cùng mã) mà bác sĩ còn để trống số
+ * lượng, hoặc đã mang nhãn "do thu ngân điền". Trả `null` khi không có gì đổi.
+ */
+export function gopSoLuongQuayDien(hienTai: DongThuoc[], may: DongThuoc[]): DongThuoc[] | null {
+  let doi = false;
+  const ra = hienTai.map((d) => {
+    const m = d.id ? may.find((x) => x.id === d.id) : undefined;
+    if (!m || !m.so_luong_do_thu_ngan) return d;
+    if (d.so_luong.trim() !== "" && !d.so_luong_do_thu_ngan) return d;
+    if (d.so_luong === m.so_luong && d.don_vi === m.don_vi && d.so_luong_do_thu_ngan) return d;
+    doi = true;
+    return { ...d, so_luong: m.so_luong, don_vi: m.don_vi, so_luong_do_thu_ngan: true };
+  });
+  return doi ? ra : null;
 }
 
 export function donTuDong(d: DongThuoc) {

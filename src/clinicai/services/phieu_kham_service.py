@@ -700,10 +700,12 @@ class PhieuKhamService:
             rows = await conn.fetch(
                 "SELECT p.id::text, p.drug_catalog_id::text, p.drug_name_raw,"
                 "       p.quantity, p.dosage_instructions, p.caution,"
-                "       c.unit_price AS don_gia, c.don_vi_ban AS dvt_kho"
+                "       c.unit_price AS don_gia, c.don_vi_ban AS dvt_kho,"
+                "       p.so_luong_dien_luc, sd.full_name AS so_luong_dien_boi"
                 "  FROM prescription p"
                 "  LEFT JOIN drug_catalog c"
                 "    ON c.id = p.drug_catalog_id AND c.clinic_id = p.clinic_id"
+                "  LEFT JOIN staff sd ON sd.id = p.so_luong_dien_boi"
                 " WHERE p.clinic_id = $1::uuid AND p.visit_id = $2::uuid"
                 "   AND p.removed_at IS NULL AND p.nguon = 'BAC_SI'"
                 " ORDER BY p.created_at, p.id",
@@ -715,6 +717,12 @@ class PhieuKhamService:
                 **dict(r),
                 "don_gia": int(r["don_gia"]) if r["don_gia"] is not None else None,
                 "dvt_kho": (r["dvt_kho"] or "").strip() or None,
+                # C14: quầy thu thuốc điền số lượng bác sĩ để trống — màn kê đơn
+                # hiện "SL do thu ngân điền" (người + lúc).
+                "so_luong_do_thu_ngan": r["so_luong_dien_luc"] is not None,
+                "so_luong_dien_luc": r["so_luong_dien_luc"].isoformat()
+                if r["so_luong_dien_luc"]
+                else None,
             }
             for r in rows
         ]

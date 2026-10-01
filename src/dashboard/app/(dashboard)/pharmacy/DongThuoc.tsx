@@ -198,6 +198,12 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
           ) : (
             <div className="text-body text-ink">
               {fmtSo(dong.purchased_qty ?? dong.quantity_num)} {dong.unit ?? ""}
+              {/* C14: bác sĩ quên số lượng — thu ngân thuốc điền ở quầy, không chờ bác sĩ. */}
+              {dong.quantity_num === null ? (
+                <span className="ml-2 text-meta text-warning">
+                  chưa có số lượng — thu ngân thuốc điền ở màn Thu tiền thuốc
+                </span>
+              ) : null}
               {/* Hai bản đơn (Tuyền 24/09): bác sĩ kê ↔ khách chốt mua. */}
               {dong.purchased_qty !== null &&
               dong.quantity_num !== null &&

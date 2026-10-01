@@ -11,6 +11,14 @@ Hai loại dòng (cột ``prescription.nguon``):
   * QUAY — quầy thêm lúc bán ("lấy thêm thuốc"): sửa được số lượng, cách dùng,
     lưu ý. Không nằm trong đơn bác sĩ (phiếu khám / đính chính / ký bỏ qua).
 
+SỐ LƯỢNG BÁC SĨ QUÊN (C14, Tuyền 01/10/2026): bác sĩ / điều dưỡng hay vội và để
+trống số lượng. Quầy thu thuốc ĐIỀN ngay lúc thu — không bị chặn "chờ bác sĩ".
+Dòng bác sĩ để trống: quầy điền số lượng (không trần — chưa có số kê nào để so);
+dấu người + lúc điền nằm trên chính dòng đơn (``so_luong_dien_boi/_luc``) để màn kê
+đơn hiện "SL do thu ngân điền". Dòng quầy đã điền thì sửa lại được khi chưa có dấu vết
+nhà thuốc / thu (sau đó chỉ còn đổi số mua ≤ số đã điền). Dòng bác sĩ ĐÃ ghi
+số thì giữ luật cũ: số mua ≤ số kê.
+
 KHÔNG GỠ DÒNG NÀO. "Bỏ" = bỏ tick (số mua 0): dòng còn nguyên, tích lại được, và
 lúc thu tiền trở thành sự kiện ``medicine.declined`` ở bản thanh toán cuối. Mọi
 thay đổi ghi nhật ký (event_log) + phát ``medicine.counter_changed``.
@@ -73,8 +81,11 @@ class QuayThuocService:
                        r.drug_catalog_id::text AS drug_catalog_id, r.quantity,
                        r.quantity_num, r.unit, r.purchased_qty, r.dispensed_qty,
                        r.dosage_instructions, r.caution, r.refusal_reason,
-                       r.closed_at IS NOT NULL AS da_chot, c.unit_price AS gia
+                       r.closed_at IS NOT NULL AS da_chot, c.unit_price AS gia,
+                       c.don_vi_ban AS dvt_kho,
+                       r.so_luong_dien_luc, sd.full_name AS nguoi_dien
                   FROM prescription r
+                  LEFT JOIN staff sd ON sd.id = r.so_luong_dien_boi
                   LEFT JOIN drug_catalog c
                     ON c.id = r.drug_catalog_id AND c.clinic_id = r.clinic_id
                  WHERE r.clinic_id = $1::uuid AND r.visit_id = $2::uuid
@@ -107,6 +118,14 @@ class QuayThuocService:
                     "da_chot": bool(r["da_chot"]),
                     "da_giao": _chuoi_so(r["dispensed_qty"] or Decimal(0)),
                     "gia": int(r["gia"]) if r["gia"] is not None else None,
+                    # Bác sĩ để trống số lượng → quầy PHẢI điền mới thu được.
+                    "thieu_so_luong": r["quantity_num"] is None,
+                    "so_luong_do_thu_ngan": r["so_luong_dien_luc"] is not None,
+                    "nguoi_dien": r["nguoi_dien"],
+                    "dien_luc": r["so_luong_dien_luc"].isoformat()
+                    if r["so_luong_dien_luc"]
+                    else None,
+                    "don_vi_goi_y": (r["dvt_kho"] or "").strip() or None,
                 }
             )
         return {"visit_id": visit_id, "da_thu": da_thu, "dong": dong}
@@ -122,6 +141,8 @@ class QuayThuocService:
         hanh_dong: str,
         nguon: str,
         so_luong: str | None = None,
+        so_luong_cu: str | None = None,
+        ten_thuoc: str | None = None,
     ) -> None:
         await record_event(
             conn,
@@ -135,6 +156,10 @@ class QuayThuocService:
                 "hanh_dong": hanh_dong,
                 "nguon": nguon,
                 "so_luong": so_luong,
+                # Nhật ký vận hành (không phải dòng thời gian khách): có tên thuốc
+                # để Tuyền đối chiếu "ai điền / sửa dòng nào, từ bao nhiêu".
+                "so_luong_cu": so_luong_cu,
+                "ten_thuoc": ten_thuoc,
             },
         )
         await emit_event(
@@ -148,6 +173,7 @@ class QuayThuocService:
                 hanh_dong=hanh_dong,
                 nguon=nguon,
                 so_luong=so_luong,
+                so_luong_cu=so_luong_cu,
             ),
             boi=nguoi(identity),
             correlation_id=visit_id,
@@ -160,14 +186,23 @@ class QuayThuocService:
         # visit → prescription; từ chối nếu dòng đã chốt / tiền thuốc đã thu.
         don = await PharmacyService._khoa_dong_chua_thu(conn, identity, prescription_id)
         r = await conn.fetchrow(
-            "SELECT nguon, refusal_reason FROM prescription"
+            "SELECT nguon, refusal_reason, so_luong_dien_boi, drug_name_raw,"
+            "       public.prescription_muc_dau_vet(id, clinic_id) AS muc"
+            "  FROM prescription"
             " WHERE id = $1::uuid AND clinic_id = $2::uuid AND removed_at IS NULL",
             prescription_id,
             identity.clinic_id,
         )
         if r is None:
             raise ConflictError("Dòng thuốc vừa thay đổi — tải lại rồi thử lại.")
-        return {**dict(don), "nguon": r["nguon"], "refusal_reason": r["refusal_reason"]}
+        return {
+            **dict(don),
+            "nguon": r["nguon"],
+            "refusal_reason": r["refusal_reason"],
+            "so_luong_dien_boi": r["so_luong_dien_boi"],
+            "drug_name_raw": r["drug_name_raw"],
+            "muc": r["muc"],
+        }
 
     async def chon(
         self, *, prescription_id: str, mua: bool, identity: StaffIdentity
@@ -182,7 +217,8 @@ class QuayThuocService:
                 )
             if don["quantity_num"] is None:
                 raise ValidationError(
-                    "Dòng này chưa có số lượng — sửa số lượng trước rồi mới bỏ tick."
+                    "Dòng này chưa có số lượng — nhập số lượng ở ô “Số lượng” của dòng "
+                    "trước, rồi mới bỏ tick được."
                 )
             if not mua:
                 da_giao = Decimal(str(don["dispensed_qty"] or 0))
@@ -213,16 +249,29 @@ class QuayThuocService:
     async def doi_so_luong(
         self, *, prescription_id: str, so_luong: Any, identity: StaffIdentity
     ) -> dict[str, Any]:
-        """Đơn bác sĩ: đổi SỐ MUA (≤ số kê). Dòng quầy thêm: đổi chính số lượng."""
+        """Đơn bác sĩ: đổi SỐ MUA (≤ số kê). Dòng quầy thêm: đổi chính số lượng.
+        Dòng bác sĩ để TRỐNG số lượng (hoặc số do quầy điền): ĐIỀN / sửa số lượng
+        — không trần, ghi người + lúc (``DIEN_SO_LUONG``)."""
         so = _so(so_luong)
         async with self._pool.acquire() as conn, conn.transaction():
             don = await self._khoa_dong(conn, identity, prescription_id)
-            if don["nguon"] == BAC_SI:
+            hanh_dong = "SO_LUONG"
+            so_cu: str | None = None
+            if don["nguon"] == BAC_SI and (
+                don["quantity_num"] is None
+                or (don["so_luong_dien_boi"] is not None and int(don["muc"] or 0) == 0)
+            ):
+                # Bác sĩ để trống (hoặc số do chính quầy điền): quầy điền / sửa
+                # NGAY — không chặn, không chờ bác sĩ.
+                hanh_dong = "DIEN_SO_LUONG"
+                so_cu = (
+                    _chuoi_so(Decimal(str(don["quantity_num"])))
+                    if don["quantity_num"] is not None
+                    else None
+                )
+                await self._dien_so_luong(conn, identity, prescription_id, don, so)
+            elif don["nguon"] == BAC_SI:
                 ke = don["quantity_num"]
-                if ke is None:
-                    raise ValidationError(
-                        "Bác sĩ chưa ghi số lượng cho dòng này — nhờ bác sĩ ghi rõ."
-                    )
                 if so > Decimal(str(ke)):
                     raise ValidationError(
                         f"Bác sĩ kê {_chuoi_so(Decimal(str(ke)))} — muốn lấy thêm "
@@ -263,15 +312,58 @@ class QuayThuocService:
                 identity,
                 visit_id=str(don["visit_id"]),
                 prescription_id=prescription_id,
-                hanh_dong="SO_LUONG",
+                hanh_dong=hanh_dong,
                 nguon=don["nguon"],
                 so_luong=_chuoi_so(so),
+                so_luong_cu=so_cu,
+                ten_thuoc=don["drug_name_raw"],
             )
         return {
             "ok": True,
             "prescription_id": prescription_id,
             "so_luong": _chuoi_so(so),
         }
+
+    async def _dien_so_luong(
+        self,
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        prescription_id: str,
+        don: dict[str, Any],
+        so: Decimal,
+    ) -> None:
+        """Quầy điền (hoặc sửa phần mình điền) số lượng của dòng bác sĩ kê.
+
+        Đơn vị: giữ đơn vị bác sĩ đã gõ; trống thì lấy ĐVT bán của danh mục kho
+        (kho cần đơn vị để chọn lô). Số mua về NULL (= mua đủ số vừa điền).
+        """
+        if so < Decimal(str(don["dispensed_qty"] or 0)):
+            raise ValidationError("Số lượng không nhỏ hơn số kho đã giao.")
+        don_vi = (don["unit"] or "").strip()
+        if not don_vi and don["drug_catalog_id"]:
+            don_vi = (
+                await conn.fetchval(
+                    "SELECT btrim(coalesce(don_vi_ban, '')) FROM drug_catalog"
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                    str(don["drug_catalog_id"]),
+                    identity.clinic_id,
+                )
+                or ""
+            )
+        chu = f"{_chuoi_so(so)} {don_vi}".strip()
+        await conn.execute(
+            "UPDATE prescription SET quantity = $3, quantity_num = $4,"
+            " unit = $5, purchased_qty = NULL,"
+            " so_luong_dien_boi = $6::uuid, so_luong_dien_luc = now(),"
+            " updated_at = now()"
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            prescription_id,
+            identity.clinic_id,
+            chu,
+            so,
+            don_vi or None,
+            identity.staff_id,
+        )
 
     async def luu_dong_them(
         self, *, visit_id: str, dong: list[dict[str, Any]], identity: StaffIdentity

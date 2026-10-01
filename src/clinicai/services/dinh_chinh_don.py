@@ -724,7 +724,13 @@ async def luu_don_chua_ky(
                        CASE WHEN $7::uuid IS NULL THEN NULL ELSE $8::uuid END,
                    drug_mapped_at =
                        CASE WHEN $7::uuid IS NULL THEN NULL ELSE now() END,
-                   purchased_qty = NULL, updated_at = now()
+                   purchased_qty = NULL, updated_at = now(),
+                   -- Bác sĩ tự sửa số lượng: số ấy là của bác sĩ, bỏ dấu "do quầy
+                   -- điền" (C14). Vế SET đọc giá trị CŨ của cột.
+                   so_luong_dien_boi = CASE WHEN quantity IS DISTINCT FROM $4
+                       THEN NULL ELSE so_luong_dien_boi END,
+                   so_luong_dien_luc = CASE WHEN quantity IS DISTINCT FROM $4
+                       THEN NULL ELSE so_luong_dien_luc END
              WHERE id = $1::uuid AND clinic_id = $2::uuid
             """,
             r["id"],

@@ -919,7 +919,7 @@ export function NhomThu({
       ) : (
         <ul className="mt-2 space-y-1">
           {hd.dong.map((d) => (
-            <li key={d.source_id} className="flex items-baseline justify-between gap-3">
+            <li key={d.source_id} className="flex flex-wrap items-baseline justify-between gap-x-3">
               <span className="min-w-0 text-body text-ink">
                 {d.ten}
                 {d.so_luong !== 1 || d.don_vi ? (
@@ -937,7 +937,7 @@ export function NhomThu({
               <span
                 className={
                   d.van_de
-                    ? "shrink-0 text-meta text-warning"
+                    ? "w-full text-meta text-warning"
                     : "shrink-0 text-body tabular-nums text-ink"
                 }
               >
