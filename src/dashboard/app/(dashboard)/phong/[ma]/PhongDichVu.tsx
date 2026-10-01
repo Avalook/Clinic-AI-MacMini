@@ -73,6 +73,9 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import ChipLoc from "@/components/ui/ChipLoc";
 import ThanhNgay from "@/components/ui/ThanhNgay";
+import NutHoanTac from "@/components/ui/NutHoanTac";
+import ThongBaoHoanTac, { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
+import { lenhHoanTac } from "../../_lam-viec/hoan-tac";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { useNgheBang } from "../../dung-nghe-bang";
 import { tienVn } from "@/lib/phieu-kham";
@@ -125,6 +128,10 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   // xem cả phòng. Máy chủ quyết ai thuộc làn nào (`lan_toi`), màn chỉ lọc.
   const [lanToi, setLanToi] = useState<LanCuaToi | null>(null);
   const [cheDoLan, setCheDoLan] = useState<"lan" | "ca_phong">("lan");
+  // "Đã xong … · Hoàn tác" vài giây sau khi bấm Xong (Tuyền 01/10/2026). Ở
+  // cấp màn để còn hiện khi khung khách đổi sang người kế tiếp.
+  const [thongBao, setThongBao] = useState<ThongBao | null>(null);
+  const dongThongBao = useCallback(() => setThongBao(null), []);
 
   useEffect(() => {
     let huy = false;
@@ -200,6 +207,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
 
   return (
     <div className="grid gap-4">
+      <ThongBaoHoanTac thongBao={thongBao} onDong={dongThongBao} onHoanTacXong={napLai} />
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h1 className="text-title font-semibold text-ink">{phong?.ten ?? "Đang tải…"}</h1>
         {hang ? (
@@ -282,7 +290,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
           )}
         </aside>
         {chon ? (
-          <KhachTrongPhong key={chon.id} dong={chon} onDaBam={napLai} />
+          <KhachTrongPhong key={chon.id} dong={chon} onDaBam={napLai} onBao={setThongBao} />
         ) : (
           <section className="grid min-h-72 place-items-center rounded-card bg-surface p-8 text-center text-body text-ink-muted shadow-card">
             Chọn một khách trong hàng chờ.
@@ -296,9 +304,12 @@ export default function PhongDichVu({ ma }: { ma: string }) {
 function KhachTrongPhong({
   dong,
   onDaBam,
+  onBao,
 }: {
   dong: DongHangCho;
   onDaBam: () => void;
+  /** Báo thông báo kèm Hoàn tác sau thao tác (đặt ở cấp màn). */
+  onBao?: (tb: ThongBao) => void;
 }) {
   const loai = loaiCua(dong.node_code);
   const [th, setTh] = useState<ThucHien | null>(null);
@@ -358,6 +369,13 @@ function KhachTrongPhong({
     setMoLyDo(null);
     setLyDo("");
     setGhiChu("");
+    // Máy chủ trả trạng thái mới — vừa "xong" thì mời hoàn tác vài giây.
+    if (kq.data.execution_status === "COMPLETED") {
+      onBao?.({
+        cau: `Đã xong ${dong.viec ?? "dịch vụ"} — ${dong.ten}`,
+        goi: lenhHoanTac("hoan-tac-xong-v1", dong.ref_id),
+      });
+    }
     docLai();
     onDaBam();
   };
@@ -540,10 +558,24 @@ function KhachTrongPhong({
       {/* ĐÃ XONG: xem lại đúng cái đã ghi (batch pilot 18/09). */}
       {daXong ? (
         <div className="rounded-control bg-surface-muted px-3 py-2 text-body">
-          <p className="text-ink">
-            {trangThai === "NOT_PERFORMED" ? "Không làm được" : "Đã làm"}
-            {dong.nguoi_lam ? ` · ${dong.nguoi_lam}` : ""} · {gioVn(dong.xong_luc)}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-ink">
+              {trangThai === "NOT_PERFORMED" ? "Không làm được" : "Đã làm"}
+              {dong.nguoi_lam ? ` · ${dong.nguoi_lam}` : ""} · {gioVn(dong.xong_luc)}
+            </p>
+            {/* HOÀN TÁC "Xong" (01/10/2026): về lại đang làm, kết quả giữ nguyên. */}
+            {trangThai === "COMPLETED" ? (
+              <NutHoanTac
+                goi={lenhHoanTac("hoan-tac-xong-v1", dong.ref_id)}
+                onXong={() => {
+                  docLai();
+                  onDaBam();
+                }}
+                tieuDe="Hoàn tác “Xong” của dịch vụ này?"
+                moTa="Đưa dịch vụ về lại đang làm — kết quả đã gõ giữ nguyên"
+              />
+            ) : null}
+          </div>
           {/* Dịch vụ đã đóng mà phiếu kết quả mới là nháp (máy chủ quyết —
               27/09 đợt 3): bản in lúc này vẫn ghi BẢN NHÁP. */}
           {th?.phieu_chua_hoan_tat ? (

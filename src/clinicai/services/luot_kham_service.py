@@ -801,6 +801,16 @@ class LuotKhamService:
             clinic_id,
             visit_id,
         )
+        # Tin "tư vấn xong" tới SAU khi đã bấm Hoàn tác xong tư vấn (01/10/2026):
+        # phiên tư vấn lại đang mở → khách còn ở bàn tư vấn, chưa sang bác sĩ.
+        if await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM consultation WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid AND kind = 'TU_VAN'"
+            " AND status IN ('queued', 'in_progress'))",
+            clinic_id,
+            visit_id,
+        ):
+            return False
         if await conn.fetchval(
             "SELECT EXISTS (SELECT 1 FROM consultation WHERE clinic_id = $1::uuid"
             " AND visit_id = $2::uuid AND kind = 'PRIMARY' AND status <> 'cancelled')",
@@ -989,7 +999,12 @@ class LuotKhamService:
                     INSERT INTO consultation
                         (clinic_id, visit_id, round_no, kind, status, doctor_staff_id)
                     VALUES ($1::uuid, $2::uuid, $3, 'REVIEW', 'queued', $4::uuid)
-                    ON CONFLICT (visit_id, round_no) DO UPDATE SET updated_at = now()
+                    -- Phiên đọc đã HUỶ (hoàn tác khám xong 01/10/2026 bỏ vòng
+                    -- đọc chưa ai nhận) thì mở lại — không để chỗ chờ trỏ vào
+                    -- một phiên đã huỷ, bác sĩ bấm Bắt đầu sẽ bị từ chối.
+                    ON CONFLICT (visit_id, round_no) DO UPDATE SET updated_at = now(),
+                        status = CASE WHEN consultation.status = 'cancelled'
+                                      THEN 'queued' ELSE consultation.status END
                     RETURNING id::text
                     """,
                     cid,

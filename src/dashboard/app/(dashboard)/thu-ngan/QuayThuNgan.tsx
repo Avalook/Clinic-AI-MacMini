@@ -96,6 +96,20 @@ interface Luot {
   lam_truoc?: LamTruocLuot | null;
   /** Hoá đơn còn nợ của KHOẢN KIA (quầy thuốc: dịch vụ; quầy dịch vụ: thuốc). */
   no_khac?: { dich_vu?: HoaDon; thuoc?: HoaDon };
+  /** TIỀN THỪA (hoàn tác 01/10/2026): đã thu cho chỉ định nay đã bỏ / không
+   *  làm — máy chủ tính (đã trừ khoản hoàn). */
+  tien_thua?: TienThua | null;
+}
+
+interface TienThua {
+  tong: number;
+  dong: {
+    order_id: string;
+    ten: string | null;
+    so_tien: number;
+    loai: "BO_CHI_DINH" | "KHONG_LAM";
+    ly_do: string | null;
+  }[];
 }
 
 /** Một dịch vụ của lượt "Làm trước – thu sau" (máy chủ tính trạng thái + nợ). */
@@ -641,6 +655,8 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
 
             {l.lam_truoc?.dich_vu?.length ? <DichVuLamTruocKhoi ds={l.lam_truoc.dich_vu} /> : null}
 
+            {l.tien_thua && l.tien_thua.tong > 0 ? <TienThuaKhoi tt={l.tien_thua} /> : null}
+
             {coNoKhac(l) ? (
               <div className="border-b border-line px-4 py-3">
                 <NoKhac l={l} dangThu={dangThu} onThu={(k, hd, pt) => void thu(l, k, hd, pt)} />
@@ -734,6 +750,36 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+/** TIỀN THỪA (hoàn tác chỉ định đã thu, 01/10/2026): khoản đã thu cho dịch vụ
+ *  nay đã bỏ / không làm. Quầy KHÔNG tự trả: hoàn cho khách (Hoàn tiền / Huỷ
+ *  phiếu ở tab "Đã thanh toán hôm nay") hoặc trừ vào dịch vụ khác khi thu. Số
+ *  tiền máy chủ tính, màn chỉ vẽ. */
+function TienThuaKhoi({ tt }: { tt: TienThua }) {
+  return (
+    <div className="border-b border-line bg-warning-bg px-4 py-3">
+      <p className="text-body font-semibold text-warning">
+        Tiền thừa {tien(tt.tong)} — cần hoàn cho khách hoặc chuyển sang dịch vụ khác
+      </p>
+      <ul className="mt-1 divide-y divide-line">
+        {tt.dong.map((d) => (
+          <li key={d.order_id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+            <span className="flex min-w-0 flex-wrap items-center gap-2 text-body text-ink">
+              {d.ten ?? "—"}
+              <Chip tone="warning">{d.loai === "BO_CHI_DINH" ? "Đã bỏ chỉ định" : "Không làm"}</Chip>
+              {d.ly_do ? <span className="text-meta text-ink-muted">{d.ly_do}</span> : null}
+            </span>
+            <span className="shrink-0 text-body tabular-nums text-ink">{tien(d.so_tien)}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1 text-meta text-ink-muted">
+        Hoàn tiền / huỷ phiếu thu: tab “Đã thanh toán hôm nay”. Khách đổi sang dịch vụ khác thì
+        trừ khoản này khi thu dịch vụ mới.
+      </p>
+    </div>
   );
 }
 

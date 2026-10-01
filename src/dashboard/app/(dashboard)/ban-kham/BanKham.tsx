@@ -67,6 +67,9 @@ import BanTuVan from "./BanTuVan";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
+import NutHoanTac from "@/components/ui/NutHoanTac";
+import ThongBaoHoanTac, { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
+import { lenhHoanTac } from "../_lam-viec/hoan-tac";
 import ChoBacSiQuyet from "./ChoBacSiQuyet";
 import ThaiKy from "./ThaiKy";
 import SoLuot from "@/components/ui/SoLuot";
@@ -821,6 +824,9 @@ function HoSo({
   );
   // Hỏi lại trước khi Hoàn tất — dải xác nhận tại chỗ, theo đúng khách đang mở.
   const [hoiHoanTat, setHoiHoanTat] = useState<string | null>(null);
+  // "Đã khám xong · Hoàn tác" vài giây sau khi bấm (Tuyền 01/10/2026).
+  const [thongBao, setThongBao] = useState<ThongBao | null>(null);
+  const dongThongBao = useCallback(() => setThongBao(null), []);
   // Thẻ khách (phiếu v5 / bàn tư vấn) đã hiện chưa — hiện rồi thì tóm tắt lượt
   // vẽ TRONG thẻ, bỏ ô riêng phía trên (Tuyền 27/09 tối).
   const [coTheKhach, setCoTheKhach] = useState(false);
@@ -858,7 +864,15 @@ function HoSo({
     setDangGui(false);
     setHoiHoanTat(null);
     if (!kq.ok) setLoi({ id: dong.id, cau: kq.loi });
-    else onDaBam();
+    else {
+      if (thaoTac !== "nhan-kham") {
+        setThongBao({
+          cau: `${thaoTac === "xong-tu-van" ? "Đã xong tư vấn" : "Đã khám xong"} — ${dong.ten}`,
+          goi: lenhHoanTac("mo-lai-kham", dong.ref_id),
+        });
+      }
+      onDaBam();
+    }
   };
 
   const bam = async (thaoTac: "nhan-kham" | "kham-xong" | "xong-tu-van") => {
@@ -960,6 +974,24 @@ function HoSo({
             {loiHienTai}
           </p>
         ) : null}
+      </div>
+    ) : choBam &&
+      dong.trang_thai === "done" &&
+      dong.phien_status === "completed" &&
+      (dong.loai === "KHAM" || dong.loai === "TU_VAN") ? (
+      // HOÀN TÁC khám xong (01/10/2026): ngay cạnh trạng thái đã làm — phiên về
+      // lại đang khám, sửa đơn thuốc / chỉ định rồi bấm Hoàn tất lại.
+      <div className="flex flex-wrap items-center gap-2">
+        <Chip tone="success">
+          {tuVan ? "Đã xong tư vấn" : "Đã khám xong"}
+          {dong.xong_luc ? ` ${gioVn(dong.xong_luc)}` : ""}
+        </Chip>
+        <NutHoanTac
+          goi={lenhHoanTac("mo-lai-kham", dong.ref_id)}
+          onXong={onDaBam}
+          tieuDe="Mở lại khám?"
+          moTa="Đưa phiên về lại đang khám để sửa đơn thuốc / chỉ định, rồi bấm Hoàn tất lại"
+        />
       </div>
     ) : dong.da_ky ? (
       <span className="text-center text-meta text-ink-muted">
@@ -1314,6 +1346,7 @@ function HoSo({
         ) : null}
       </div>
       </TomTatLuotContext.Provider>
+      <ThongBaoHoanTac thongBao={thongBao} onDong={dongThongBao} onHoanTacXong={onDaBam} />
     </section>
   );
 }

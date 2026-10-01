@@ -48,6 +48,7 @@ from clinicai.api.v1.routers.doi_tac import router as doi_tac_router
 from clinicai.api.v1.routers.don_du_lieu_thu import router as don_du_lieu_thu_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.events import router as events_router
+from clinicai.api.v1.routers.hoan_tac import router as hoan_tac_router
 from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
@@ -297,6 +298,10 @@ app.include_router(
 # Chạy song song với luồng điều phối cũ; xem migration 20260911000001.
 app.include_router(
     luot_kham_router, prefix="/api/v1", tags=["luot-kham"], dependencies=_GUARDED
+)
+# Nút Hoàn tác ở mọi thao tác (01/10/2026) — nghịch đảo của các lệnh lượt khám.
+app.include_router(
+    hoan_tac_router, prefix="/api/v1", tags=["hoan-tac"], dependencies=_GUARDED
 )
 # Biểu mẫu: điền phiếu kết quả, xuất bản bản mẫu mới.
 app.include_router(

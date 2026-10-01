@@ -331,6 +331,9 @@ def dung_dong(
         "trang_thai": tt,
         "check_in_duoc": tt["nhom"] == "chua_den" and r.get("status") in CHO_CHECK_IN,
         "check_out_duoc": bool(r.get("visit_id")) and tt["loai"] in ("den", "dang_o"),
+        # Hoàn tác check-out / về giữa chừng (01/10/2026): khách đã về → nút
+        # "Hoàn tác" mở lại lượt (lệnh `HoanTacService.mo_lai_luot`).
+        "mo_lai_duoc": bool(r.get("visit_id")) and tt["loai"] == "ve",
     }
 
 

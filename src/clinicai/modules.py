@@ -82,12 +82,16 @@ MODULE: dict[str, Module] = {
                 "PlaceServiceOrders",
                 "CarryOverUnfinishedOrders",
                 "SetServiceOrderRequired",
+                # Hoàn tác (01/10/2026): bỏ chỉ định sai chỗ — chưa thu thì hoá
+                # đơn quầy tự bớt, đã thu thì thành tiền thừa ở quầy.
+                "CancelServiceOrder",
             ],
             phat=[
                 "service_order.placed",
                 "service_order.carried_over",
                 "service_order.required_changed",
                 "service_order.required_changed",
+                "service_order.cancelled",
             ],
             bang=["service_order"],
             quyen=["clinical.order.place"],
@@ -153,6 +157,8 @@ MODULE: dict[str, Module] = {
                 # đây" là StartService kèm giai_phong (cùng giao dịch dừng lần
                 # làm ở phòng kia); huỷ lần Bắt đầu bấm nhầm là lệnh riêng.
                 "CancelMistakenStart",
+                # Hoàn tác "Xong" (01/10/2026) — lần làm về lại đang làm.
+                "UndoServiceCompletion",
             ],
             phat=[
                 "service.started",
@@ -162,6 +168,7 @@ MODULE: dict[str, Module] = {
                 "service.retry_prepared",
                 "service.patient_moved",
                 "service.start_cancelled",
+                "service.completion_undone",
             ],
             bang=["service_execution_attempt"],
             quyen=[
@@ -260,6 +267,11 @@ MODULE: dict[str, Module] = {
                 "service.retry_prepared",
                 "service.patient_moved",
                 "service.start_cancelled",
+                # Hoàn tác (01/10/2026) — lên dòng thời gian của lượt.
+                "service.completion_undone",
+                "service_order.cancelled",
+                "consultation.reopened",
+                "visit.reopened",
                 "service.routing_invalidated",
                 "result_form.completed",
                 "result.ready",
@@ -328,8 +340,14 @@ MODULE: dict[str, Module] = {
         Module(
             ma="reception",
             ten="Tiếp đón",
-            lenh=["CheckInPatient", "CheckOutPatient"],
-            phat=["visit.checked_in", "visit.checked_out", "visit.left_early"],
+            # ReopenVisit (01/10/2026): hoàn tác check-out / về giữa chừng.
+            lenh=["CheckInPatient", "CheckOutPatient", "ReopenVisit"],
+            phat=[
+                "visit.checked_in",
+                "visit.checked_out",
+                "visit.left_early",
+                "visit.reopened",
+            ],
             quyen=["reception.checkin.perform"],
         ),
         Module(
@@ -400,11 +418,14 @@ MODULE: dict[str, Module] = {
                 "RerouteAfterServiceSwitch",
                 "OpenIntakeQueue",
                 "HandToPrimaryDoctor",
+                # Hoàn tác Khám xong / Xong tư vấn (01/10/2026).
+                "ReopenConsultation",
             ],
             phat=[
                 "consultation.started",
                 "consultation.handed_over",
                 "consultation.completed",
+                "consultation.reopened",
                 "followup.scheduled",
                 "prescription.saved",
             ],

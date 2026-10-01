@@ -101,6 +101,18 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     # người + giờ của dòng; chi tiết chỉ là số chỉ định chốt cùng lúc.
     "visit.defer_payment_set": ["so_chi_dinh_chot"],
     "visit.defer_payment_cleared": [],
+    # HOÀN TÁC (01/10/2026): lý do là chữ vận hành người bấm gõ khi máy chủ hỏi
+    # xác nhận — Tuyền cần thấy ai rút lại gì, vì sao, ở lịch sử lượt.
+    "consultation.reopened": ["loai", "ket_qua_cu", "mo_lai_kham_xong", "ly_do"],
+    "service_order.cancelled": [
+        "service_code",
+        "service_name",
+        "da_thu_tien",
+        "tien_thua",
+        "ly_do",
+    ],
+    "service.completion_undone": ["attempt_no", "mo_lai_kham_xong", "ly_do"],
+    "visit.reopened": ["tu_ve_giua_chung", "ly_do"],
 }
 
 

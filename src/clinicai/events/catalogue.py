@@ -812,6 +812,60 @@ class DichVuDaHuyBatDau(PayloadSuKien):
     execution_revision: int
 
 
+# ── HOÀN TÁC (Tuyền 01/10/2026: "không được để bất kể cái gì khoá hẳn") ──────
+# Mỗi hoàn tác là một SỰ THẬT riêng: sổ không xoá dòng cũ, chỉ ghi thêm "đã
+# rút lại". `ly_do` là chữ vận hành người bấm gõ (bắt buộc khi máy chủ hỏi xác
+# nhận) — hiện ở lịch sử Hành trình khách. `mo_lai_kham_xong` = lượt đang "khám
+# xong hẳn" thì mở lại (quầy thu / nhà thuốc thôi coi là khám xong).
+
+
+class PhienKhamMoLai(PayloadSuKien):
+    """`consultation.reopened` — hoàn tác "Khám xong" / "Xong tư vấn": phiên
+    khám về lại đang khám, sửa đơn thuốc / chỉ định rồi bấm khám xong lại."""
+
+    visit_id: str
+    consultation_id: str
+    loai: str
+    ket_qua_cu: str | None = None
+    mo_lai_kham_xong: bool = False
+    ly_do: str | None = None
+
+
+class ChiDinhDaHuy(PayloadSuKien):
+    """`service_order.cancelled` — bỏ chỉ định (chỉ định sai chỗ). Chưa thu thì
+    hoá đơn quầy tự bớt; ĐÃ thu thì khoản ấy thành tiền thừa ở quầy thu."""
+
+    visit_id: str
+    service_order_id: str
+    service_code: str
+    service_name: str
+    da_thu_tien: bool = False
+    tien_thua: int | None = None
+    ly_do: str | None = None
+
+
+class DichVuHoanTacXong(PayloadSuKien):
+    """`service.completion_undone` — hoàn tác "Xong" của một dịch vụ: lần làm
+    về lại đang làm, khách về lại phòng (kết quả đã gõ giữ nguyên)."""
+
+    visit_id: str
+    service_order_id: str
+    attempt_id: str
+    attempt_no: int
+    execution_revision: int
+    mo_lai_kham_xong: bool = False
+    ly_do: str | None = None
+
+
+class LuotMoLai(PayloadSuKien):
+    """`visit.reopened` — hoàn tác check-out / "về giữa chừng": lượt mở lại,
+    khách về lại các hàng chờ còn dở."""
+
+    visit_id: str
+    tu_ve_giua_chung: bool = False
+    ly_do: str | None = None
+
+
 DANH_MUC: dict[str, SuKien] = {
     su_kien.ten: su_kien
     for su_kien in (
@@ -1049,6 +1103,46 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Huỷ bắt đầu nhầm",
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
+        ),
+        # ── Hoàn tác (01/10/2026) — chỉ lên dòng thời gian: mỗi lệnh hoàn tác
+        # tự đưa mọi bảng về đúng chỗ trong CHÍNH giao dịch của nó, các màn tự
+        # tải lại qua NOTIFY của bảng (không cần bên nghe nào làm thêm việc).
+        SuKien(
+            ten="service.completion_undone",
+            version=1,
+            aggregate_type="service_order",
+            source_module="execution",
+            payload=DichVuHoanTacXong,
+            nhan="Hoàn tác “Xong” dịch vụ",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service_order.cancelled",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_order",
+            payload=ChiDinhDaHuy,
+            nhan="Bỏ chỉ định",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="consultation.reopened",
+            version=1,
+            aggregate_type="consultation",
+            source_module="consultation",
+            payload=PhienKhamMoLai,
+            nhan="Hoàn tác khám xong — mở lại khám",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="visit.reopened",
+            version=1,
+            aggregate_type="visit",
+            source_module="reception",
+            payload=LuotMoLai,
+            nhan="Hoàn tác check-out — mở lại lượt",
+            consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(
             # Đối tượng là PHIẾU, không phải chỉ định. Hai module cùng đánh số
@@ -1488,6 +1582,10 @@ def moi_consumer() -> frozenset[str]:
 __all__ = [
     "DANH_MUC",
     "HANH_TRINH",
+    "ChiDinhDaHuy",
+    "DichVuHoanTacXong",
+    "LuotMoLai",
+    "PhienKhamMoLai",
     "ChiDinhMangSang",
     "DaXepDuongDi",
     "DaChonBacSiLam",

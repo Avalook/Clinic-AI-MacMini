@@ -86,6 +86,16 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // chủ chốt luôn chỉ định chờ quyết; dây "thu trước khi làm" bật thì chỉ lượt
   // có tick mới làm khi chưa thu.
   "lam-truoc-thu-sau": (id) => `/api/v1/luot-kham/visits/${id}/lam-truoc-thu-sau`,
+  // HOÀN TÁC (01/10/2026, Tuyền: "không được để bất kể cái gì khoá hẳn").
+  // Thân: { ly_do?, xac_nhan? } — máy chủ trả 409 CAN_XAC_NHAN khi cần hỏi.
+  // id = PHIÊN KHÁM: hoàn tác Khám xong / Hoàn tất / Xong tư vấn.
+  "mo-lai-kham": (id) => `/api/v1/luot-kham/consultations/${id}/mo-lai`,
+  // id = CHỈ ĐỊNH: bỏ chỉ định (đã thu → tiền thừa ở quầy).
+  "huy-chi-dinh": (id) => `/api/v1/luot-kham/orders/${id}/huy-chi-dinh`,
+  // id = CHỈ ĐỊNH: hoàn tác "Xong" của dịch vụ.
+  "hoan-tac-xong-v1": (id) => `/api/v1/luot-kham/orders/${id}/execution/hoan-tac-xong`,
+  // id = LƯỢT: hoàn tác check-out / về giữa chừng.
+  "mo-lai-luot": (id) => `/api/v1/luot-kham/visits/${id}/mo-lai-luot`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
