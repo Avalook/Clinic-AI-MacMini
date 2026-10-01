@@ -30,6 +30,8 @@ mkdir -p "$LOG_DIR"
 
 [ -f .env.thu-local ] || { echo "Thiếu .env.thu-local — chạy scripts/dev-up.sh trước." >&2; exit 1; }
 set -a; . ./.env.thu-local; set +a
+# shellcheck source=scripts/lib/moi-truong-web.sh
+. "$REPO/scripts/lib/moi-truong-web.sh"
 
 SB_URL="http://127.0.0.1:${SUPABASE_API_PORT:-54421}"
 DB_URL="postgresql+asyncpg://postgres:${SUPABASE_DB_PASSWORD}@127.0.0.1:${SUPABASE_DB_PORT:-54422}/postgres"
@@ -87,26 +89,16 @@ nap_api() {
 nap_web() {
     echo "→ Next.js (dựng lại — bản production, đây là chỗ hay quên)"
     cd src/dashboard
-    NEXT_PUBLIC_SUPABASE_URL="$SB_URL" \
-    NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
-    SUPABASE_URL="$SB_URL" \
-    SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-    CLINIC_API_URL="http://127.0.0.1:${API_PORT}" \
-    BACKEND_API_KEY="$KHOA_CONG" \
-        npx next build >"$LOG_DIR/web-build.log" 2>&1 || {
+    # Bộ biến môi trường web: MỘT nguồn (scripts/lib/moi-truong-web.sh).
+    xuat_moi_truong_web
+    npx next build >"$LOG_DIR/web-build.log" 2>&1 || {
             echo "dựng hỏng — $LOG_DIR/web-build.log" >&2
             grep -m5 -E "Error|error" "$LOG_DIR/web-build.log" | sed 's/^/    /' >&2
             exit 1; }
     pkill -f "next start -p ${WEB_PORT}" 2>/dev/null || true
     pkill -f "next-server" 2>/dev/null || true
     sleep 1
-    NEXT_PUBLIC_SUPABASE_URL="$SB_URL" \
-    NEXT_PUBLIC_SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
-    SUPABASE_URL="$SB_URL" \
-    SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-    CLINIC_API_URL="http://127.0.0.1:${API_PORT}" \
-    BACKEND_API_KEY="$KHOA_CONG" \
-        nohup npx next start -p "$WEB_PORT" >"$LOG_DIR/web.log" 2>&1 &
+    nohup npx next start -p "$WEB_PORT" >"$LOG_DIR/web.log" 2>&1 &
     cd "$REPO"
     cho_len "http://127.0.0.1:${WEB_PORT}/login" "dashboard" && xanh "  Web sẵn sàng :${WEB_PORT}"
 }
