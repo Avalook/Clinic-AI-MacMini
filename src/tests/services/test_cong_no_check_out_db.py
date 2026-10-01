@@ -13,6 +13,7 @@ làm / chưa làm KHÔNG là nợ.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from typing import Any
 
 import asyncpg
 import pytest
@@ -53,7 +54,7 @@ async def _lam_truoc_thu_sau(pool: asyncpg.Pool) -> AsyncIterator[None]:  # noqa
         yield
 
 
-async def _san_sang(pool: asyncpg.Pool, ca, visit: str) -> dict:  # type: ignore[no-untyped-def]  # noqa: F811
+async def _san_sang(pool: asyncpg.Pool, ca, visit: str) -> dict[str, Any]:  # type: ignore[no-untyped-def]  # noqa: F811
     return await CheckoutService(pool).readiness(identity=ca.le_tan, visit_id=visit)
 
 
@@ -88,7 +89,7 @@ async def _luot_da_lam_chua_thu(pool: asyncpg.Pool):  # type: ignore[no-untyped-
     return ca, visit, order
 
 
-async def _dong(pool: asyncpg.Pool, ca, visit: str, **kw) -> dict:  # type: ignore[no-untyped-def]  # noqa: F811
+async def _dong(pool: asyncpg.Pool, ca, visit: str, **kw) -> dict[str, Any]:  # type: ignore[no-untyped-def]  # noqa: F811
     return await CheckoutService(pool).close(
         identity=ca.le_tan, visit_id=visit, ly_do_tu_dong=LY_DO_TU_DONG, **kw
     )
