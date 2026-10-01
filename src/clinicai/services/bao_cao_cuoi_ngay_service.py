@@ -563,7 +563,12 @@ class BaoCaoCuoiNgayService:
             so_luot_khong_chon = await conn.fetchval(
                 _LUOT_KHONG_CHON_DICH_VU_KHAM_SQL, cid, a, b
             )
-        return gom_bao_cao(
+            # "Khách còn nợ: n — x đ" (01/10/2026): khoản đã ghi nợ lúc check-out
+            # còn CHƯA THU — tính tới hiện tại, không theo khoảng ngày.
+            from clinicai.services.cong_no_service import doc_khach_con_no
+
+            con_no = await doc_khach_con_no(conn, cid)
+        bao_cao = gom_bao_cao(
             tu=a,
             den=b,
             lan_thu=[dict(r) for r in lan_thu],
@@ -574,3 +579,5 @@ class BaoCaoCuoiNgayService:
             doi_hinh_thuc=[dict(r) for r in doi_ht],
             so_luot_khong_chon_dich_vu_kham=int(so_luot_khong_chon or 0),
         )
+        bao_cao["khach_con_no"] = con_no
+        return bao_cao

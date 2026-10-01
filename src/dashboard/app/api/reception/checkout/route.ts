@@ -52,5 +52,19 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
+  // GHI NỢ / HUỶ GHI NỢ (01/10/2026): khách về khi còn nợ. Cùng cửa với
+  // check-out; máy chủ quyết mọi thứ (`cong_no_service`).
+  const hanhDong =
+    body && typeof body === "object" ? (body as { hanh_dong?: unknown }).hanh_dong : null;
+  if (hanhDong === "ghi_no" || hanhDong === "huy_ghi_no") {
+    const { visit_id, ly_do } = body as { visit_id?: unknown; ly_do?: unknown };
+    return proxyJsonToBackend(
+      "POST",
+      hanhDong === "ghi_no"
+        ? "/api/v1/reception/checkout/ghi-no"
+        : "/api/v1/reception/checkout/huy-ghi-no",
+      { visit_id, ly_do },
+    );
+  }
   return proxyJsonToBackend("POST", "/api/v1/reception/checkout", body);
 }

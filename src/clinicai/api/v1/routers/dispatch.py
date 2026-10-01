@@ -418,6 +418,40 @@ async def checkout(
     )
 
 
+class GhiNoRequest(BaseModel):
+    visit_id: UUID
+    ly_do: str = Field(min_length=3, max_length=500)
+
+
+@router.post("/reception/checkout/ghi-no", status_code=201)
+async def checkout_ghi_no(
+    body: GhiNoRequest,
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Khách về khi còn nợ: ghi nợ TOÀN BỘ khoản chưa thu, kèm lý do
+    (01/10/2026). Người đứng quầy bấm được — cùng cửa với check-out."""
+    from clinicai.services.cong_no_service import CongNoService
+
+    return await CongNoService(pool).ghi(
+        identity=identity, visit_id=str(body.visit_id), ly_do=body.ly_do
+    )
+
+
+@router.post("/reception/checkout/huy-ghi-no")
+async def checkout_huy_ghi_no(
+    body: GhiNoRequest,
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Huỷ lần ghi nợ bấm nhầm — chỉ khi khách CHƯA check-out."""
+    from clinicai.services.cong_no_service import CongNoService
+
+    return await CongNoService(pool).huy(
+        identity=identity, visit_id=str(body.visit_id), ly_do=body.ly_do
+    )
+
+
 class ThresholdRequest(BaseModel):
     """``room_id`` để trống = ngưỡng mặc định của phòng khám."""
 

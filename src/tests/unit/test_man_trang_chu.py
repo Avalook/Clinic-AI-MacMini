@@ -52,6 +52,11 @@ class _Conn:
         self.cac_cau.append(sql)
         return 7
 
+    async def fetchrow(self, sql: str, *a: object) -> dict[str, Any] | None:
+        # Chỉ câu tổng "khách còn nợ" (01/10/2026) dùng tới.
+        self.cac_cau.append(sql)
+        return {"so_khach": 2, "so_luot": 2, "so_tien": 950000}
+
     async def fetch(self, sql: str, *a: object) -> list[dict[str, Any]]:
         self.cac_cau.append(sql)
         if "FROM visit" in sql:
@@ -148,8 +153,9 @@ async def test_cac_cau_rieng_chay_tren_mot_ket_noi() -> None:
     # 3 đếm + 2 xu hướng + tải bác sĩ + 3 cần xử lý + roster + ô đen/NGHỈ
     # + trực ca + bảng trạng thái = 13, + hành trình khách dạng gọn (29/09:
     # lượt · sự kiện · chỉ định · hàng chờ · phiên = 5) = 18, + phòng của bác
-    # sĩ phiên (bác sĩ của phiên 29/09) = 19, cùng một _Conn.
-    assert len(conn.cac_cau) == 19
+    # sĩ phiên (bác sĩ của phiên 29/09) = 19, + quyền xem báo cáo (2 câu) +
+    # khách còn nợ (01/10) = 22, cùng một _Conn.
+    assert len(conn.cac_cau) == 22
 
 
 @pytest.mark.asyncio
@@ -176,7 +182,8 @@ async def test_du_bay_khoi_ke_ca_khi_rong() -> None:
         "lich_can_xu_ly": 7,
     }
     # Ba dòng cần xử lý luôn có mặt (số 0 thì màn tự ẩn) — màn hình dựa vào mã.
-    assert [x["ma"] for x in ra["can_xu_ly"]] == [
+    # "Khách còn nợ" chỉ thêm cho người xem được báo cáo (01/10/2026).
+    assert [x["ma"] for x in ra["can_xu_ly"]][:3] == [
         "khach_tre",
         "chua_xep_bac_si",
         "viec_qua_han",

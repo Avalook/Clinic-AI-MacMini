@@ -598,6 +598,7 @@ async function KhoiDuLieu({
           khach_tre: toi("/reception/queue"),
           chua_xep_bac_si: toi("/appointments/cho-xep-bac-si"),
           viec_qua_han: toi("/viec-can-xu-ly"),
+          khach_con_no: toi("/reports"),
         }}
       />
       </div>

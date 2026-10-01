@@ -138,8 +138,9 @@ async def test_chot_chua_thu_co_phong_lam_xong_check_out_bao_no_cuoi_buoi_thu_du
     sau = await _con_no(pool, visit)
     assert (sau.tong, sau.revision) == (truoc.tong, truoc.revision)
 
-    # Check-out vẫn nhắc còn nợ (vướng mềm như cũ).
-    assert "unpaid_service" in await _vuong(pool, ca, visit)
+    # Check-out báo còn nợ — từ 01/10/2026 là vướng CỨNG "con_no" (đã làm mà
+    # chưa thu: chặn tới khi thu hoặc ghi nợ — test_cong_no_check_out_db).
+    assert "con_no" in await _vuong(pool, ca, visit)
 
     # Cuối buổi thu: đúng số tiền, dịch vụ đã làm nằm trong phiếu.
     await _thu(pool, visit, ca.thu_ngan)
@@ -158,7 +159,7 @@ async def test_chot_chua_thu_co_phong_lam_xong_check_out_bao_no_cuoi_buoi_thu_du
     }
     assert (await _gate(pool, order)).finance_state == "PAID"
     assert (await _con_no(pool, visit)).tong == 0
-    assert "unpaid_service" not in await _vuong(pool, ca, visit)
+    assert not {"unpaid_service", "con_no"} & await _vuong(pool, ca, visit)
 
     # Dây H4 chạy lại sau khi thu: vô hại (đã có phòng, không xếp thêm).
     await chay_hanh_trinh(pool)
