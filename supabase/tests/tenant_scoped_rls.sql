@@ -184,8 +184,9 @@ BEGIN
     -- 92 → 93 (29/09/2026): work_roster_thay_nguoi (vết đổi người trong ca).
     -- 93 → 95 (29/09/2026): phieu_kho + phieu_kho_dong (20260929960000).
     -- 95 → 96 (30/09/2026): payment_cycle_doi_hinh_thuc (20260930500000).
-    IF scoped_count <> 96 THEN
-        RAISE EXCEPTION 'expected 96 tenant-scoped read policies, found %', scoped_count;
+    -- 96 → 98 (01/10/2026): payment_cycle_phan + anh_chuyen_khoan (20261002300000).
+    IF scoped_count <> 98 THEN
+        RAISE EXCEPTION 'expected 98 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
