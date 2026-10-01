@@ -172,8 +172,8 @@ async def test_hoan_tac_da_thu_dua_luot_ve_chua_thu(pool: asyncpg.Pool) -> None:
     assert lai["payment_cycle_id"] != cid
     # Dòng thời gian có sự kiện hoàn tác.
     assert await pool.fetchval(
-        "SELECT count(*) FROM domain_event WHERE event_type = 'payment.collection_undone'"
-        " AND aggregate_id = $1::uuid",
+        "SELECT count(*) FROM domain_event"
+        " WHERE event_type = 'payment.collection_undone' AND aggregate_id = $1::uuid",
         cid,
     )
     # Gửi lại → thành công như cũ, không nhân đôi.
