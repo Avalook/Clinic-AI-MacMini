@@ -35,6 +35,15 @@ class MucBody(BaseModel):
     o_sinh_hieu: bool = True
 
 
+class ThuTuMuc(BaseModel):
+    service_code: str = Field(min_length=1, max_length=64)
+    thu_tu: int = Field(ge=0, le=9999)
+
+
+class ThuTuBody(BaseModel):
+    muc: list[ThuTuMuc] = Field(min_length=1, max_length=100)
+
+
 @router.put("/lam-them/cau-hinh/{service_code}")
 async def luu_muc(
     service_code: str,
@@ -64,6 +73,18 @@ async def bo_muc(
     )
 
 
+@router.put("/lam-them/cau-hinh-thu-tu")
+async def doi_thu_tu(
+    body: ThuTuBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LamThemTaiQuayService(pool).doi_thu_tu(
+        identity=identity,
+        muc=[item.model_dump() for item in body.muc],
+    )
+
+
 @router.get("/lam-them/nut")
 async def nut_cho_luot(
     noi: str = Query(..., max_length=20),
@@ -81,6 +102,9 @@ class DatBody(BaseModel):
     service_code: str = Field(min_length=1, max_length=64)
     noi: str = Field(min_length=1, max_length=20)
     chon: bool
+    expected_order_id: str | None = Field(default=None, max_length=64)
+    expected_version: int | None = Field(default=None, ge=1)
+    idempotency_key: str = Field(min_length=8, max_length=200)
 
 
 @router.post("/lam-them/dat")
@@ -95,4 +119,7 @@ async def dat(
         service_code=body.service_code,
         noi=body.noi,
         chon=body.chon,
+        expected_order_id=body.expected_order_id,
+        expected_version=body.expected_version,
+        idempotency_key=body.idempotency_key,
     )

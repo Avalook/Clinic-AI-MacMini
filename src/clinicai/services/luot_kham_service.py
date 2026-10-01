@@ -1556,6 +1556,9 @@ class LuotKhamService:
                     ON n.clinic_id = o.clinic_id AND n.code = o.node_code
                  WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
                    AND o.hold_until_round IS NULL
+                   -- Dịch vụ quầy đi độc lập; không biến thành quyết định hay
+                   -- vòng đọc của bác sĩ khi bấm “Đã khám xong”.
+                   AND o.nguon_lam_them IS NULL
                    AND """
                 + CHI_DINH_CON_VIEC_SQL
                 + """

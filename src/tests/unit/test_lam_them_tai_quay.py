@@ -59,6 +59,7 @@ def _o(**kw: Any) -> dict[str, Any]:
         "exec_status": "authorized",
         "phong": None,
         "da_thu": False,
+        "version": 1,
     }
     goc.update(kw)
     return goc
@@ -69,6 +70,7 @@ def test_trang_thai_nut() -> None:
         "chon": False,
         "doi_duoc": True,
         "order_id": None,
+        "order_version": None,
         "ghi_chu": None,
     }
     # Tick ở quầy, chưa làm, chưa thu → bỏ được.
@@ -92,7 +94,30 @@ def test_trang_thai_nut() -> None:
         "chon": True,
         "doi_duoc": False,
         "order_id": "o1",
+        "order_version": 1,
         "ghi_chu": "bác sĩ đã chỉ định",
+    }
+
+
+@pytest.mark.parametrize(
+    "execution_status,exec_status,ghi_chu",
+    [
+        ("COMPLETED", "performed", "đã làm xong"),
+        ("NOT_PERFORMED", "not_performed", "đã ghi không làm"),
+    ],
+)
+def test_dich_vu_da_ket_thuc_van_hien_da_tick_va_khong_tao_lai(
+    execution_status: str, exec_status: str, ghi_chu: str
+) -> None:
+    tt = trang_thai_nut(
+        _o(execution_status=execution_status, exec_status=exec_status, version=4)
+    )
+    assert tt == {
+        "chon": True,
+        "doi_duoc": False,
+        "order_id": "o1",
+        "order_version": 4,
+        "ghi_chu": ghi_chu,
     }
 
 

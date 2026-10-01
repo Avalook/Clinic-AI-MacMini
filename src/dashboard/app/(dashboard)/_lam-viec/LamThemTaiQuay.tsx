@@ -14,9 +14,10 @@
 // Một lần đọc cho CẢ danh sách lượt (`useLamThem`), mỗi dòng vẽ `NutLamThem`.
 // Tự cập nhật khi chỉ định / danh sách nút đổi ở bất cứ đâu (dòng SSE chung).
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import ChipChon from "@/components/ui/ChipChon";
+import { chiaLoLamThem } from "@/lib/lam-them";
 
 import { useNgheBang } from "../dung-nghe-bang";
 
@@ -33,6 +34,7 @@ export interface TrangThaiNut {
   chon: boolean;
   doi_duoc: boolean;
   order_id: string | null;
+  order_version: number | null;
   ghi_chu: string | null;
   luot_mo: boolean;
 }
@@ -57,12 +59,25 @@ export function useLamThem(noi: NoiLamThem, visitIds: readonly string[]) {
     let huy = false;
     void (async () => {
       try {
-        const r = await fetch(`/api/lam-them?noi=${noi}&luot=${encodeURIComponent(khoa)}`, {
-          cache: "no-store",
-        });
-        if (!r.ok) return; // nút là phần phụ — đọc hỏng thì màn vẫn chạy, không có nút
-        const d = (await r.json().catch(() => null)) as GoiLamThem | null;
-        if (!huy && d && Array.isArray(d.nut)) setGoi(d);
+        const cacLo = chiaLoLamThem(khoa.split(","));
+        const cacGoi = await Promise.all(
+          cacLo.map(async (lo) => {
+            const r = await fetch(
+              `/api/lam-them?noi=${noi}&luot=${encodeURIComponent(lo.join(","))}`,
+              { cache: "no-store" },
+            );
+            if (!r.ok) return null;
+            return (await r.json().catch(() => null)) as GoiLamThem | null;
+          }),
+        );
+        const hopLe = cacGoi.filter((x): x is GoiLamThem => Boolean(x && Array.isArray(x.nut)));
+        if (!huy && hopLe.length === cacLo.length && hopLe[0]) {
+          setGoi({
+            noi,
+            nut: hopLe[0].nut,
+            luot: Object.assign({}, ...hopLe.map((x) => x.luot)),
+          });
+        }
       } catch {
         // mất mạng: giữ bản cũ, tin SSE kế tiếp hỏi lại
       }
@@ -94,6 +109,7 @@ export function NutLamThem({
 }) {
   const [dang, setDang] = useState<string | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
+  const khoaLenh = useRef<Record<string, string>>({});
   // Kết quả vừa bấm — chỉ sống tới khi bản đọc lại về (gói mới ≠ gói lúc bấm thì
   // bỏ), để ô không nhảy về trạng thái cũ trong lúc chờ.
   const [vuaDat, setVuaDat] = useState<{ goc: GoiLamThem | null; gia: Record<string, boolean> }>({
@@ -108,6 +124,11 @@ export function NutLamThem({
 
   async function dat(n: NutDichVu, chon: boolean) {
     if (!goi || dang) return;
+    const tt = goi.luot[visitId]?.[n.service_code];
+    if (!tt) return;
+    const maLenh = `${visitId}:${n.service_code}:${chon}`;
+    const idempotencyKey = khoaLenh.current[maLenh] ?? crypto.randomUUID();
+    khoaLenh.current[maLenh] = idempotencyKey;
     setDang(n.service_code);
     setLoi(null);
     try {
@@ -116,14 +137,25 @@ export function NutLamThem({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           thao_tac: "dat",
-          du_lieu: { visit_id: visitId, service_code: n.service_code, noi: goi.noi, chon },
+          du_lieu: {
+            visit_id: visitId,
+            service_code: n.service_code,
+            noi: goi.noi,
+            chon,
+            expected_order_id: tt.order_id,
+            expected_version: tt.order_version,
+            idempotency_key: idempotencyKey,
+          },
         }),
       });
       const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
       if (!r.ok) {
+        delete khoaLenh.current[maLenh];
         setLoi(d?.message ?? d?.error ?? `Không ${chon ? "thêm" : "bỏ"} được (HTTP ${r.status}).`);
+        napLai();
         return;
       }
+      delete khoaLenh.current[maLenh];
       setVuaDat({ goc: goi, gia: { ...giaVuaDat, [n.service_code]: chon } });
       napLai();
     } catch {

@@ -16,6 +16,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import CongTac from "@/components/ui/CongTac";
+import OChon from "@/components/ui/OChon";
+import ONhap from "@/components/ui/ONhap";
 
 import { useNgheBang } from "../../dung-nghe-bang";
 
@@ -42,8 +45,6 @@ interface DuLieu {
   muc: Muc[];
   dich_vu: DichVu[];
 }
-
-const O_NHAP = "min-h-10 rounded-control border border-line bg-surface px-3 text-body text-ink";
 
 function tien(n: number | null): string {
   return n == null ? "chưa có giá" : `${n.toLocaleString("vi-VN")}đ`;
@@ -131,15 +132,43 @@ export default function LamThemTaiQuayCauHinh() {
     );
   };
 
-  // Đổi chỗ với dòng trên / dưới: hai lần lưu thứ tự.
+  // Đổi chỗ trong một lệnh để không bao giờ lưu dở một nửa.
   const doiCho = async (i: number, j: number) => {
     if (!dl) return;
     const a = dl.muc[i];
     const b = dl.muc[j];
     if (!a || !b) return;
-    const ta = a.thu_tu === b.thu_tu ? a.thu_tu + (j > i ? 1 : -1) : b.thu_tu;
-    await luu(a.service_code, { thu_tu: Math.max(0, ta) }, "Đã đổi thứ tự.");
-    await luu(b.service_code, { thu_tu: a.thu_tu }, "Đã đổi thứ tự.");
+    const sapXep = [...dl.muc];
+    [sapXep[i], sapXep[j]] = [sapXep[j], sapXep[i]];
+    setDang(true);
+    setLoi(null);
+    setXong(null);
+    try {
+      const r = await fetch("/api/lam-them", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          thao_tac: "doi-thu-tu",
+          du_lieu: {
+            muc: sapXep.map((m, viTri) => ({
+              service_code: m.service_code,
+              thu_tu: (viTri + 1) * 10,
+            })),
+          },
+        }),
+      });
+      const d = (await r.json().catch(() => null)) as (Partial<DuLieu> & { message?: string }) | null;
+      if (!r.ok || !d || !Array.isArray(d.muc)) {
+        setLoi(d?.message ?? "Không đổi được thứ tự.");
+        return;
+      }
+      setDl((cu) => (cu ? { ...cu, muc: d.muc ?? cu.muc } : cu));
+      setXong("Đã đổi thứ tự.");
+    } catch {
+      setLoi("Mất kết nối — CHƯA đổi thứ tự.");
+    } finally {
+      setDang(false);
+    }
   };
 
   return (
@@ -180,7 +209,12 @@ export default function LamThemTaiQuayCauHinh() {
                   len={i > 0 ? () => void doiCho(i, i - 1) : undefined}
                   xuong={i < dl.muc.length - 1 ? () => void doiCho(i, i + 1) : undefined}
                   bo={() =>
-                    void gui("bo-muc", m.service_code, {}, `Đã bỏ nút “${m.nhan_hien}” khỏi quầy.`)
+                    void gui(
+                      "bo-muc",
+                      m.service_code,
+                      {},
+                      `Đã bỏ nút “${m.nhan_hien}” khỏi quầy. Có thể bật lại ngay.`,
+                    )
                   }
                 />
               ))}
@@ -232,34 +266,32 @@ function DongMuc({
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex min-h-10 items-center gap-2 text-meta text-ink">
-          <input
-            type="checkbox"
-            className="size-4 accent-brand-600"
-            checked={m.o_tiep_don}
+          <CongTac
+            bat={m.o_tiep_don}
             disabled={dang}
-            onChange={(e) => void luu(m.service_code, { o_tiep_don: e.target.checked }, `Đã đổi chỗ hiện của “${ten}”.`)}
+            nhan={`Hiện “${ten}” ở Tiếp đón`}
+            onDoi={(bat) => void luu(m.service_code, { o_tiep_don: bat }, `Đã đổi chỗ hiện của “${ten}”.`)}
           />
           Tiếp đón
         </label>
         <label className="flex min-h-10 items-center gap-2 text-meta text-ink">
-          <input
-            type="checkbox"
-            className="size-4 accent-brand-600"
-            checked={m.o_sinh_hieu}
+          <CongTac
+            bat={m.o_sinh_hieu}
             disabled={dang}
-            onChange={(e) => void luu(m.service_code, { o_sinh_hieu: e.target.checked }, `Đã đổi chỗ hiện của “${ten}”.`)}
+            nhan={`Hiện “${ten}” ở Đo sinh hiệu`}
+            onDoi={(bat) => void luu(m.service_code, { o_sinh_hieu: bat }, `Đã đổi chỗ hiện của “${ten}”.`)}
           />
           Đo sinh hiệu
         </label>
         <span className="flex flex-wrap items-center gap-2">
-          <input
+          <ONhap
             type="text"
             value={nhan}
             maxLength={40}
             placeholder={m.ten ?? "Chữ trên nút"}
             aria-label={`Chữ trên nút ${ten}`}
             onChange={(e) => setNhan(e.target.value)}
-            className={`${O_NHAP} w-40`}
+            className="w-40"
           />
           <Button
             size="lg"
@@ -276,8 +308,8 @@ function DongMuc({
           <Button size="lg" variant="ghost" disabled={dang || !xuong} onClick={xuong} aria-label={`Đưa “${ten}” xuống dưới`}>
             ↓
           </Button>
-          <Button size="lg" variant="danger" disabled={dang} onClick={bo}>
-            Bỏ khỏi quầy
+          <Button size="lg" variant="danger" disabled={dang || !m.bat} onClick={bo}>
+            {m.bat ? "Bỏ khỏi quầy" : "Đã bỏ khỏi quầy"}
           </Button>
         </span>
       </div>
@@ -293,11 +325,11 @@ function ThemMuc({ dl, dang, luu }: { dl: DuLieu; dang: boolean; luu: Luu }) {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">
       <span className="text-body font-semibold text-ink">Thêm nút</span>
-      <select
+      <OChon
         value={ma}
         onChange={(e) => setMa(e.target.value)}
         aria-label="Dịch vụ cho nút mới"
-        className={`${O_NHAP} min-w-0 flex-1 sm:max-w-sm`}
+        className="min-w-0 flex-1 sm:max-w-sm"
       >
         <option value="">— Chọn dịch vụ trong bảng giá —</option>
         {chonDuoc.map((d) => (
@@ -305,15 +337,15 @@ function ThemMuc({ dl, dang, luu }: { dl: DuLieu; dang: boolean; luu: Luu }) {
             {d.ten} · {tien(d.gia)}
           </option>
         ))}
-      </select>
-      <input
+      </OChon>
+      <ONhap
         type="text"
         value={nhan}
         maxLength={40}
         placeholder="Chữ trên nút (vd Lấy máu)"
         aria-label="Chữ trên nút mới"
         onChange={(e) => setNhan(e.target.value)}
-        className={`${O_NHAP} w-48`}
+        className="w-48"
       />
       <Button
         size="lg"

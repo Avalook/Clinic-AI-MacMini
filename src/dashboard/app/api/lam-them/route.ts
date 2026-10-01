@@ -73,6 +73,12 @@ export async function POST(request: Request) {
         `/api/v1/lam-them/cau-hinh/${encodeURIComponent(ma)}`,
         undefined,
       );
+    case "doi-thu-tu":
+      return proxyJsonToBackend(
+        "PUT",
+        "/api/v1/lam-them/cau-hinh-thu-tu",
+        than?.du_lieu ?? {},
+      );
   }
   return sai();
 }

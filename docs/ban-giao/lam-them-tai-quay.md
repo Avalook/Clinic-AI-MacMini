@@ -2,7 +2,7 @@
 
 **Mục tiêu (Tuyền 01/10):** nút "+ Nước tiểu"… ở Tiếp đón + Đo sinh hiệu — tick là chỉ
 định ngay, không cần bác sĩ; quản lý gắn / bớt nút; hiện trên hành trình khách.
-**~90% xong**: code + test + bấm thật local đạt; còn CI máy + PR.
+**Đã tiếp quản 01/10/2026**: code + test mục tiêu đạt; đang chờ CI máy + PR.
 ## Đã làm
 - Migration `20261002200000_lam_them_tai_quay.sql` (chạy lại được; **đã áp vào
   `chung_test_db` 55600 và `clinicai_thu_db`**): `service_order.consultation_id` bỏ
@@ -33,8 +33,21 @@
   tick → biến mất; ĐD tick ở 375; /hanh-trinh có nhãn; QL thêm "Lấy máu" hiện, tắt
   Nước tiểu ẩn (đã trả lại); 375 không tràn ngang.
 
+## Bổ sung khi tiếp quản (Codex 01/10/2026)
+- Migration mới `20261002210000_lam_them_tai_quay_xor.sql` (đã áp
+  `chung_test_db`): ép một chỉ định thuộc **phiên bác sĩ XOR nguồn quầy**; không sửa
+  migration cũ đã áp.
+- `bo_muc` đổi từ DELETE cứng sang tắt mềm: giữ nhãn/thứ tự/chỗ hiện và bật lại ngay.
+  Đổi thứ tự hai dòng nay là một lệnh/một transaction, không còn lưu nửa vời.
+- Tick/bỏ tick có `idempotency_key` + `expected_order_id/version`; lệnh cũ đến muộn
+  không huỷ nhầm chỉ định mới. Tick lại cập nhật đúng người/nguồn/thời điểm mới.
+- Dịch vụ đã làm/ghi không làm vẫn hiện đã tick và khoá, không trở thành nút “+”;
+  `kham_xong` bỏ việc quầy khỏi quyết định/vòng đọc của bác sĩ.
+- Danh sách >300 lượt được chia gói; UI cấu hình dùng `components/ui`; bổ sung nhãn
+  audit. Test mục tiêu: unit/audit 34 đạt, frontend 2 đạt, DB tính năng 16 đạt.
+
 ## Còn lại (theo thứ tự)
-1. `./scripts/ci-may.sh --bao-github` (cây sạch, đã push).
+1. `./scripts/ci-may.sh --bao-github`.
 2. Mở PR vào `main` (bảng nút/link đã đụng + kịch bản dưới).
 3. (Tuỳ chọn) nút ở bảng "Lịch hẹn" trên `/reception/queue` — cố ý chưa làm (dùng chung `/home`).
 
@@ -56,5 +69,6 @@
    quầy tiếp đón"; thu → phòng Lấy mẫu thấy A.
 3. Khách B lễ tân không tick → ĐD `/do-sinh-hieu` chọn B, tick → `/hanh-trinh` ghi "làm thêm tại quầy".
 4. Bỏ tick khách C trước khi thu → dòng biến khỏi quầy thu.
-5. QL `/settings/day-noi` → thêm "Xét nghiệm máu" (chữ "Lấy máu") → nút mới hiện; tắt Nước tiểu → ẩn.
+5. QL `/settings/day-noi` → thêm "Xét nghiệm máu" (chữ "Lấy máu") → nút mới hiện;
+   “Bỏ khỏi quầy” Nước tiểu → ẩn, rồi bật lại → giữ nguyên chữ/chỗ hiện/thứ tự.
 SQL: `SELECT nguon_lam_them, exec_status, count(*) FROM service_order WHERE nguon_lam_them IS NOT NULL GROUP BY 1,2;`

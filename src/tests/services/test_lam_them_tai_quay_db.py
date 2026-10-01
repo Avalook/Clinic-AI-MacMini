@@ -17,7 +17,7 @@ import uuid
 import asyncpg
 import pytest
 
-from clinicai.api.exceptions import ConflictError, ValidationError
+from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.chi_dinh_service import ChiDinhService
@@ -70,6 +70,9 @@ async def _tick(
     chon: bool = True,
     noi: str = "tiep_don",
     ai: StaffIdentity | None = None,
+    expected_order_id: str | None = None,
+    expected_version: int | None = None,
+    idempotency_key: str | None = None,
 ) -> dict:  # type: ignore[type-arg]
     return await LamThemTaiQuayService(pool).dat(
         identity=ai or ca.le_tan,
@@ -77,6 +80,9 @@ async def _tick(
         service_code=ca.ma_dv,
         noi=noi,
         chon=chon,
+        expected_order_id=expected_order_id,
+        expected_version=expected_version,
+        idempotency_key=idempotency_key,
     )
 
 
@@ -122,7 +128,8 @@ async def test_le_tan_tick_la_chi_dinh_chot_lam_quay_thu_thay_ngay(
 
     # Tick lại = không làm gì (chạy lại được), không sự kiện thứ hai.
     lai = await _tick(pool, ca, visit)
-    assert lai == {"ok": True, "changed": False, "order_id": oid}
+    assert lai["ok"] is True and lai["changed"] is False
+    assert lai["order_id"] == oid and lai["order_version"] >= 1
     assert len(await _su_kien(pool, "service_order.desk_added", oid)) == 1
 
     goi = await _nut(pool, ca, visit)
@@ -272,11 +279,80 @@ async def test_quan_ly_tat_nut_hoac_bo_cho_hien_thi_quay_khong_tick_duoc(
     # Dịch vụ không có trong bảng giá.
     with pytest.raises(ValidationError):
         await svc.luu_muc(identity=ql, service_code=f"KHONG-{uuid.uuid4().hex[:6]}")
-    # Bớt nút: biến khỏi danh sách; đọc cấu hình còn đủ dịch vụ để thêm lại.
+    # Bớt nút là tắt mềm: giữ nguyên cấu hình để bật lại đúng nhãn / thứ tự.
+    await svc.luu_muc(
+        identity=ql,
+        service_code=ca.ma_dv,
+        nhan="Nước tiểu thử",
+        bat=True,
+        o_sinh_hieu=False,
+    )
     kq = await svc.bo_muc(identity=ql, service_code=ca.ma_dv)
-    assert ca.ma_dv not in [m["service_code"] for m in kq["muc"]]
+    da_tat = next(m for m in kq["muc"] if m["service_code"] == ca.ma_dv)
+    assert da_tat["bat"] is False and da_tat["nhan"] == "Nước tiểu thử"
+    await svc.luu_muc(
+        identity=ql,
+        service_code=ca.ma_dv,
+        nhan=da_tat["nhan"],
+        bat=True,
+        thu_tu=da_tat["thu_tu"],
+        o_tiep_don=da_tat["o_tiep_don"],
+        o_sinh_hieu=da_tat["o_sinh_hieu"],
+    )
     ch = await svc.cau_hinh(identity=ql)
-    assert ca.ma_dv in [d["service_code"] for d in ch["dich_vu"]]
+    bat_lai = next(m for m in ch["muc"] if m["service_code"] == ca.ma_dv)
+    assert bat_lai["bat"] is True and bat_lai["nhan"] == "Nước tiểu thử"
+
+
+async def test_doi_thu_tu_hai_nut_la_mot_giao_dich(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    ca, _ = await _san_sang(pool)
+    ql = await _quan_ly(pool, ca)
+    ma_hai = f"DV2-{uuid.uuid4().hex[:8]}"
+    await pool.execute(
+        'INSERT INTO service_price (clinic_id, service_code, name, "group",'
+        " unit_price, node_code) VALUES ($1::uuid, $2, 'Dịch vụ thứ hai',"
+        " 'dich_vu', 10000, 'DICHVU-SIEUAM')",
+        CLINIC,
+        ma_hai,
+    )
+    svc = LamThemTaiQuayService(pool)
+    await svc.luu_muc(identity=ql, service_code=ma_hai, thu_tu=20)
+    await svc.doi_thu_tu(
+        identity=ql,
+        muc=[
+            {"service_code": ca.ma_dv, "thu_tu": 20},
+            {"service_code": ma_hai, "thu_tu": 10},
+        ],
+    )
+    assert (
+        await pool.fetchval(
+            "SELECT thu_tu FROM lam_them_tai_quay WHERE clinic_id = $1::uuid"
+            " AND service_code = $2",
+            CLINIC,
+            ca.ma_dv,
+        )
+        == 20
+    )
+    with pytest.raises(NotFoundError):
+        await svc.doi_thu_tu(
+            identity=ql,
+            muc=[
+                {"service_code": ca.ma_dv, "thu_tu": 99},
+                {"service_code": "KHONG-CO", "thu_tu": 1},
+            ],
+        )
+    # Một mã thiếu làm rollback cả mã hợp lệ, không để thứ tự nửa vời.
+    assert (
+        await pool.fetchval(
+            "SELECT thu_tu FROM lam_them_tai_quay WHERE clinic_id = $1::uuid"
+            " AND service_code = $2",
+            CLINIC,
+            ca.ma_dv,
+        )
+        == 20
+    )
 
 
 async def test_bac_si_da_chi_dinh_thi_quay_khong_chong_them(
@@ -383,3 +459,135 @@ async def test_chi_dinh_khong_phien_kham_phai_co_nguon_quay(
             "DICHVU-SIEUAM",
             ca.le_tan.staff_id,
         )
+
+
+async def test_chi_dinh_chi_thuoc_bac_si_hoac_quay_khong_duoc_ca_hai(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Bất biến DB là XOR: phiên bác sĩ và nguồn quầy loại trừ nhau."""
+    ca, visit = await _san_sang(pool)
+    consultation_id = await pool.fetchval(
+        "SELECT id FROM consultation WHERE visit_id = $1::uuid AND kind = 'PRIMARY'",
+        visit,
+    )
+    with pytest.raises(asyncpg.CheckViolationError):
+        await pool.execute(
+            "INSERT INTO service_order (clinic_id, visit_id, consultation_id,"
+            " service_code, service_name, node_code, exec_status, recorded_by,"
+            " nguon_lam_them) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, 'x',"
+            " $5, 'draft', $6::uuid, 'tiep_don')",
+            CLINIC,
+            visit,
+            consultation_id,
+            ca.ma_dv,
+            "DICHVU-SIEUAM",
+            ca.le_tan.staff_id,
+        )
+
+
+async def test_lenh_cu_khong_huy_chi_dinh_moi_va_gui_lai_khong_nhan_doi(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    ca, visit = await _san_sang(pool)
+    khoa_them = _khoa()
+    them = await _tick(pool, ca, visit, idempotency_key=khoa_them)
+    # Retry đúng khoá trả nguyên biên nhận, không phát thêm sự kiện.
+    assert await _tick(pool, ca, visit, idempotency_key=khoa_them) == them
+    assert len(await _su_kien(pool, "service_order.desk_added", them["order_id"])) == 1
+
+    tt = (await _nut(pool, ca, visit))["luot"][visit][ca.ma_dv]
+    await _tick(
+        pool,
+        ca,
+        visit,
+        chon=False,
+        expected_order_id=tt["order_id"],
+        expected_version=tt["order_version"],
+        idempotency_key=_khoa(),
+    )
+    moi = await _tick(pool, ca, visit, idempotency_key=_khoa())
+    assert moi["order_id"] != them["order_id"]
+
+    # Gói giao diện cũ của chỉ định đầu tiên đến muộn: không được huỷ dòng mới.
+    with pytest.raises(ConflictError) as loi:
+        await _tick(
+            pool,
+            ca,
+            visit,
+            chon=False,
+            expected_order_id=tt["order_id"],
+            expected_version=tt["order_version"],
+            idempotency_key=_khoa(),
+        )
+    assert getattr(loi.value, "error_code", None) == "STALE_DESK_SERVICE"
+    assert (
+        await pool.fetchval(
+            "SELECT exec_status FROM service_order WHERE id = $1::uuid",
+            moi["order_id"],
+        )
+        != "cancelled"
+    )
+
+
+async def test_tick_lai_cap_nhat_dung_nguoi_va_nguon_moi(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    ca, visit = await _san_sang(pool)
+    oid = (await _tick(pool, ca, visit))["order_id"]
+    await pool.execute(
+        "UPDATE service_order SET selection_status = 'NOT_SELECTED',"
+        " version = version + 1 WHERE id = $1::uuid",
+        oid,
+    )
+    tt = (await _nut(pool, ca, visit, noi="sinh_hieu"))["luot"][visit][ca.ma_dv]
+    await _tick(
+        pool,
+        ca,
+        visit,
+        noi="sinh_hieu",
+        ai=ca.dd,
+        expected_order_id=oid,
+        expected_version=tt["order_version"],
+        idempotency_key=_khoa(),
+    )
+    o = await pool.fetchrow(
+        "SELECT recorded_by::text AS ai, authorized_by::text AS duyet,"
+        " nguon_lam_them FROM service_order WHERE id = $1::uuid",
+        oid,
+    )
+    assert (o["ai"], o["duyet"], o["nguon_lam_them"]) == (
+        ca.dd.staff_id,
+        ca.dd.staff_id,
+        "sinh_hieu",
+    )
+
+
+async def test_kham_xong_khong_bi_chi_dinh_quay_ep_mo_vong_doc(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Dịch vụ quầy đi độc lập, không biến thành quyết định của bác sĩ."""
+    ca, visit = await _san_sang(pool)
+    phien = str(
+        await pool.fetchval(
+            "SELECT id FROM consultation WHERE visit_id = $1::uuid"
+            " AND kind = 'PRIMARY'",
+            visit,
+        )
+    )
+    await LuotKhamService(pool).start_consultation(
+        consultation_id=phien, identity=ca.bac_si
+    )
+    oid = (await _tick(pool, ca, visit))["order_id"]
+    await LuotKhamService(pool).kham_xong(
+        consultation_id=phien, identity=ca.bac_si, idempotency_key=_khoa()
+    )
+    c = await pool.fetchrow(
+        "SELECT outcome, status FROM consultation WHERE id = $1::uuid", phien
+    )
+    assert (c["outcome"], c["status"]) == ("NO_SERVICES", "completed")
+    assert (
+        await pool.fetchval(
+            "SELECT exec_status FROM service_order WHERE id = $1::uuid", oid
+        )
+        != "cancelled"
+    )

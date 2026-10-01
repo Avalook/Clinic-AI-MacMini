@@ -44,7 +44,12 @@ from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.audit import record_event
 from clinicai.services.hang_cho import cap_nhat_vi_tri
-from clinicai.services.lenh_kham_core import LuotKhamConflictError, khoa_luot
+from clinicai.services.lenh_kham_core import (
+    LuotKhamConflictError,
+    bien_nhan_doc,
+    bien_nhan_ghi,
+    khoa_luot,
+)
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 
 ORIGIN = "api:lam-them-tai-quay"
@@ -107,12 +112,12 @@ def _ma_dich_vu(value: Any) -> str:
     return ma
 
 
-# Chỉ định SỐNG của một dịch vụ trong lượt (cả của bác sĩ lẫn của quầy):
-# chưa huỷ, khách chưa bỏ, chưa xong / chưa "không làm".
+# Chỉ định chưa huỷ của một dịch vụ trong lượt (cả bác sĩ lẫn quầy). Giữ cả dòng
+# đã xong / không làm để nút không quay về dấu "+" và tạo trùng lần đã kết thúc.
 _SQL_SONG = """
 SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_code,
        o.nguon_lam_them, o.exec_status, o.selection_status, o.execution_status,
-       o.routing_status, o.room_id::text AS room_id,
+       o.routing_status, o.room_id::text AS room_id, o.version,
        r.name AS phong,
        nb.full_name AS nguoi_tick,
        EXISTS (
@@ -131,8 +136,7 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_code,
  WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
    AND o.service_code = ANY($3::text[])
    AND o.exec_status NOT IN ('draft', 'cancelled')
-   AND coalesce(o.execution_status, 'PENDING')
-       NOT IN ('CANCELLED', 'COMPLETED', 'NOT_PERFORMED')
+   AND coalesce(o.execution_status, 'PENDING') <> 'CANCELLED'
  ORDER BY (o.nguon_lam_them IS NOT NULL) DESC, o.created_at
 """
 
@@ -150,26 +154,57 @@ def trang_thai_nut(o: dict[str, Any] | None) -> dict[str, Any]:
     vì sao không bỏ được / ai đã chỉ định.
     """
     if o is None:
-        return {"chon": False, "doi_duoc": True, "order_id": None, "ghi_chu": None}
+        return {
+            "chon": False,
+            "doi_duoc": True,
+            "order_id": None,
+            "order_version": None,
+            "ghi_chu": None,
+        }
     la_quay = bool(o.get("nguon_lam_them"))
     if not la_quay:
         # Bác sĩ đã chỉ định dịch vụ này — quầy không chồng thêm, cũng không bỏ hộ.
         if o.get("selection_status") == "NOT_SELECTED":
-            return {"chon": False, "doi_duoc": True, "order_id": None, "ghi_chu": None}
+            return {
+                "chon": False,
+                "doi_duoc": True,
+                "order_id": None,
+                "order_version": None,
+                "ghi_chu": None,
+            }
         return {
             "chon": True,
             "doi_duoc": False,
             "order_id": o["id"],
+            "order_version": o.get("version"),
             "ghi_chu": "bác sĩ đã chỉ định",
         }
     if o.get("selection_status") == "NOT_SELECTED":
         # Khách bỏ ở quầy thu → nút về chưa tick; tick lại là chốt lại.
-        return {"chon": False, "doi_duoc": True, "order_id": o["id"], "ghi_chu": None}
+        return {
+            "chon": False,
+            "doi_duoc": True,
+            "order_id": o["id"],
+            "order_version": o.get("version"),
+            "ghi_chu": None,
+        }
+    ket_thuc = o.get("execution_status")
+    if ket_thuc in {"COMPLETED", "NOT_PERFORMED"}:
+        return {
+            "chon": True,
+            "doi_duoc": False,
+            "order_id": o["id"],
+            "order_version": o.get("version"),
+            "ghi_chu": (
+                "đã làm xong" if ket_thuc == "COMPLETED" else "đã ghi không làm"
+            ),
+        }
     if _da_bat_dau(o):
         return {
             "chon": True,
             "doi_duoc": False,
             "order_id": o["id"],
+            "order_version": o.get("version"),
             "ghi_chu": "đang làm" + (f" ở {o['phong']}" if o.get("phong") else ""),
         }
     if o.get("da_thu"):
@@ -177,12 +212,14 @@ def trang_thai_nut(o: dict[str, Any] | None) -> dict[str, Any]:
             "chon": True,
             "doi_duoc": False,
             "order_id": o["id"],
+            "order_version": o.get("version"),
             "ghi_chu": "đã thu tiền — bỏ ở quầy thu",
         }
     return {
         "chon": True,
         "doi_duoc": True,
         "order_id": o["id"],
+        "order_version": o.get("version"),
         "ghi_chu": nhan_lam_them(o.get("nguon_lam_them")),
     }
 
@@ -321,18 +358,20 @@ class LamThemTaiQuayService:
     async def bo_muc(
         self, *, identity: StaffIdentity, service_code: Any
     ) -> dict[str, Any]:
-        """Bớt một nút khỏi danh sách. Chỉ định đã tick trước đó GIỮ NGUYÊN."""
+        """Bớt nút khỏi quầy bằng tắt mềm; bật lại giữ nguyên toàn bộ cấu hình."""
         cid = identity.clinic_id
         ma = _ma_dich_vu(service_code)
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_CAU_HINH)
-            xoa = await conn.fetchval(
-                "DELETE FROM lam_them_tai_quay WHERE clinic_id = $1::uuid"
+            da_tat = await conn.fetchval(
+                "UPDATE lam_them_tai_quay SET bat = false, updated_by = $3::uuid,"
+                " updated_at = now() WHERE clinic_id = $1::uuid"
                 " AND service_code = $2 RETURNING service_code",
                 cid,
                 ma,
+                identity.staff_id,
             )
-            if xoa is None:
+            if da_tat is None:
                 raise NotFoundError("Nút này không có trong danh sách.")
             await record_event(
                 conn,
@@ -341,10 +380,63 @@ class LamThemTaiQuayService:
                 aggregate_id=cid,
                 identity=identity,
                 origin=ORIGIN,
-                payload={"service_code": ma},
+                payload={"service_code": ma, "bat": False, "co_the_bat_lai": True},
             )
             muc = await self._doc_muc(conn, cid)
         return {"ok": True, "muc": muc}
+
+    async def doi_thu_tu(self, *, identity: StaffIdentity, muc: Any) -> dict[str, Any]:
+        """Đổi thứ tự nhiều nút trong MỘT giao dịch, không để trạng thái nửa vời."""
+        if not isinstance(muc, list) or not 1 <= len(muc) <= 100:
+            raise ValidationError("Danh sách thứ tự không hợp lệ.")
+        ds: list[tuple[str, int]] = []
+        for item in muc:
+            if not isinstance(item, dict):
+                raise ValidationError("Danh sách thứ tự không hợp lệ.")
+            ma = _ma_dich_vu(item.get("service_code"))
+            gia_tri_thu_tu = item.get("thu_tu")
+            if not isinstance(gia_tri_thu_tu, (int, str)) or isinstance(
+                gia_tri_thu_tu, bool
+            ):
+                raise ValidationError("Thứ tự phải là số.")
+            try:
+                so = int(gia_tri_thu_tu)
+            except (TypeError, ValueError):
+                raise ValidationError("Thứ tự phải là số.") from None
+            if not 0 <= so <= 9999:
+                raise ValidationError("Thứ tự trong khoảng 0–9999.")
+            ds.append((ma, so))
+        if len({ma for ma, _ in ds}) != len(ds):
+            raise ValidationError("Một dịch vụ chỉ được có một thứ tự.")
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(conn, identity, QUYEN_CAU_HINH)
+            da_sua = await conn.fetch(
+                """
+                UPDATE lam_them_tai_quay l
+                   SET thu_tu = x.thu_tu, updated_by = $4::uuid, updated_at = now()
+                  FROM unnest($2::text[], $3::integer[]) AS x(service_code, thu_tu)
+                 WHERE l.clinic_id = $1::uuid AND l.service_code = x.service_code
+                RETURNING l.service_code
+                """,
+                cid,
+                [ma for ma, _ in ds],
+                [so for _, so in ds],
+                identity.staff_id,
+            )
+            if len(da_sua) != len(ds):
+                raise NotFoundError("Có nút không còn trong danh sách — tải lại.")
+            await record_event(
+                conn,
+                event_type="config.desk_services_reordered",
+                aggregate_type="clinic",
+                aggregate_id=cid,
+                identity=identity,
+                origin=ORIGIN,
+                payload={"muc": [{"service_code": ma, "thu_tu": so} for ma, so in ds]},
+            )
+            ket_qua = await self._doc_muc(conn, cid)
+        return {"ok": True, "muc": ket_qua}
 
     @staticmethod
     async def _doc_muc(conn: asyncpg.Connection, cid: str) -> list[dict[str, Any]]:
@@ -471,6 +563,9 @@ class LamThemTaiQuayService:
         service_code: Any,
         noi: Any,
         chon: Any,
+        expected_order_id: Any = None,
+        expected_version: Any = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Tick (``chon`` = True) hoặc bỏ tick một nút cho một lượt.
 
@@ -483,8 +578,32 @@ class LamThemTaiQuayService:
         vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
         ma = _ma_dich_vu(service_code)
         cid = identity.clinic_id
+        expected_oid = (
+            _uuid(expected_order_id, "Mã chỉ định cũ không hợp lệ.")
+            if expected_order_id
+            else None
+        )
+        try:
+            expected_ver = (
+                int(expected_version) if expected_version is not None else None
+            )
+        except (TypeError, ValueError):
+            raise ValidationError("Phiên bản chỉ định cũ không hợp lệ.") from None
+        payload = {
+            "visit_id": vid,
+            "service_code": ma,
+            "noi": n,
+            "chon": bool(chon),
+            "expected_order_id": expected_oid,
+            "expected_version": expected_ver,
+        }
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_THEO_NOI[n])
+            cached = await bien_nhan_doc(
+                conn, identity, "desk_service.set", idempotency_key, payload
+            )
+            if cached is not None:
+                return cached
             luot = await khoa_luot(conn, cid, vid)
             if luot["closed_at"] is not None:
                 raise LuotKhamConflictError(
@@ -497,10 +616,32 @@ class LamThemTaiQuayService:
                 )
             ]
             cua_quay = next((o for o in ds if o["nguon_lam_them"]), None)
+            if (
+                idempotency_key is not None
+                or expected_oid is not None
+                or expected_ver is not None
+            ):
+                hien_oid = cua_quay["id"] if cua_quay else None
+                hien_ver = int(cua_quay["version"]) if cua_quay else None
+                if (hien_oid, hien_ver) != (expected_oid, expected_ver):
+                    raise LuotKhamConflictError(
+                        "STALE_DESK_SERVICE",
+                        "Dịch vụ vừa được người khác thay đổi — đã tải lại, vui lòng"
+                        " xem trạng thái mới rồi bấm lại.",
+                    )
             if bool(chon):
                 kq = await self._tick(conn, identity, vid, ma, n, ds, cua_quay)
             else:
                 kq = await self._bo(conn, identity, vid, ma, n, cua_quay)
+            await bien_nhan_ghi(
+                conn,
+                identity,
+                "desk_service.set",
+                idempotency_key,
+                payload,
+                str(kq.get("order_id") or vid),
+                kq,
+            )
         return kq
 
     async def _tick(
@@ -527,14 +668,23 @@ class LamThemTaiQuayService:
             )
         if cua_quay is not None:
             if cua_quay["selection_status"] != "NOT_SELECTED":
-                return {"ok": True, "changed": False, "order_id": cua_quay["id"]}
+                return {
+                    "ok": True,
+                    "changed": False,
+                    "order_id": cua_quay["id"],
+                    "order_version": int(cua_quay["version"]),
+                }
             # Khách đã bỏ ở quầy thu, nay muốn làm lại → chốt lại chính chỉ định ấy.
-            await conn.execute(
+            version = await conn.fetchval(
                 "UPDATE service_order SET selection_status = 'SELECTED',"
+                " nguon_lam_them = $3, recorded_by = $4::uuid,"
+                " authorized_by = $4::uuid, authorized_at = now(),"
                 " version = version + 1, updated_at = now()"
-                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid RETURNING version",
                 cid,
                 cua_quay["id"],
+                noi,
+                identity.staff_id,
             )
             oid = cua_quay["id"]
             ten = await conn.fetchval(
@@ -572,7 +722,7 @@ class LamThemTaiQuayService:
                     "Dịch vụ đã ngừng bán hoặc chưa gắn bước thực hiện — báo quản"
                     " lý sửa bảng giá.",
                 )
-            oid = await conn.fetchval(
+            moi = await conn.fetchrow(
                 """
                 INSERT INTO service_order
                     (clinic_id, visit_id, consultation_id, service_code,
@@ -584,7 +734,7 @@ class LamThemTaiQuayService:
                 ON CONFLICT (clinic_id, visit_id, service_code)
                    WHERE nguon_lam_them IS NOT NULL AND exec_status <> 'cancelled'
                 DO NOTHING
-                RETURNING id::text
+                RETURNING id::text AS id, version
                 """,
                 cid,
                 vid,
@@ -594,16 +744,24 @@ class LamThemTaiQuayService:
                 identity.staff_id,
                 noi,
             )
-            if oid is None:  # người khác vừa tick (đã khoá lượt nên hiếm)
-                oid = await conn.fetchval(
-                    "SELECT id::text FROM service_order WHERE clinic_id = $1::uuid"
+            if moi is None:  # người khác vừa tick (đã khoá lượt nên hiếm)
+                moi = await conn.fetchrow(
+                    "SELECT id::text AS id, version FROM service_order"
+                    " WHERE clinic_id = $1::uuid"
                     " AND visit_id = $2::uuid AND service_code = $3"
                     " AND nguon_lam_them IS NOT NULL AND exec_status <> 'cancelled'",
                     cid,
                     vid,
                     ma,
                 )
-                return {"ok": True, "changed": False, "order_id": oid}
+                return {
+                    "ok": True,
+                    "changed": False,
+                    "order_id": moi["id"],
+                    "order_version": int(moi["version"]),
+                }
+            oid = moi["id"]
+            version = int(moi["version"])
             ten = dv["name"]
         await emit_event(
             conn,
@@ -630,7 +788,12 @@ class LamThemTaiQuayService:
             origin=ORIGIN,
             payload={"order_id": oid, "service_code": ma, "nguon": noi},
         )
-        return {"ok": True, "changed": True, "order_id": oid}
+        return {
+            "ok": True,
+            "changed": True,
+            "order_id": oid,
+            "order_version": int(version),
+        }
 
     async def _bo(
         self,
@@ -644,7 +807,12 @@ class LamThemTaiQuayService:
         cid = identity.clinic_id
         if cua_quay is None or cua_quay["selection_status"] == "NOT_SELECTED":
             # Chưa tick / đã bỏ (hoặc chỉ có chỉ định của bác sĩ — quầy không bỏ hộ).
-            return {"ok": True, "changed": False, "order_id": None}
+            return {
+                "ok": True,
+                "changed": False,
+                "order_id": None,
+                "order_version": None,
+            }
         oid = cua_quay["id"]
         if _da_bat_dau(cua_quay):
             raise LuotKhamConflictError(
@@ -682,7 +850,7 @@ class LamThemTaiQuayService:
                 cid,
                 [q["id"] for q in cho],
             )
-        await conn.execute(
+        version = await conn.fetchval(
             """
             UPDATE service_order
                SET exec_status = 'cancelled', selection_status = 'NOT_SELECTED',
@@ -695,6 +863,7 @@ class LamThemTaiQuayService:
                    cancel_reason = 'Bỏ tick làm thêm tại quầy',
                    version = version + 1, updated_at = now()
              WHERE clinic_id = $1::uuid AND id = $2::uuid
+             RETURNING version
             """,
             cid,
             oid,
@@ -733,7 +902,12 @@ class LamThemTaiQuayService:
             origin=ORIGIN,
             payload={"order_id": oid, "service_code": ma, "nguon": noi},
         )
-        return {"ok": True, "changed": True, "order_id": oid}
+        return {
+            "ok": True,
+            "changed": True,
+            "order_id": oid,
+            "order_version": int(version),
+        }
 
 
 __all__ = [
