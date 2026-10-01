@@ -235,6 +235,7 @@ EVENT_LABELS: dict[str, str] = {
     "service_order.cancelled": "Bỏ chỉ định",
     "service.completion_undone": "Hoàn tác “Xong” của dịch vụ",
     "visit.reopened": "Hoàn tác check-out — mở lại lượt khám",
+    "result.approval_revoked": "Thu hồi duyệt kết quả — về chờ bác sĩ duyệt",
     "dispatch.assigned": "Xếp phòng cho chỉ định",
     # Lifecycle v1 (Slice 4): điều phối chính thức theo routing_revision.
     "service.routed": "Xếp phòng chính thức cho dịch vụ",

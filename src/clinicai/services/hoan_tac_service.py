@@ -10,6 +10,7 @@ Bốn lệnh của đợt này, mỗi lệnh là NGHỊCH ĐẢO đúng một l�
     CancelServiceOrder    ↔ Chỉ định (bỏ chỉ định sai chỗ)
     UndoServiceCompletion ↔ Xong làm dịch vụ
     ReopenVisit           ↔ Check-out / Về giữa chừng
+    RevokeResultApproval  ↔ Bác sĩ duyệt kết quả (cho phép gửi)
 
 LUẬT CHUNG (mọi lệnh dưới đây):
   * Gác bằng ĐÚNG quyền của lệnh gốc (mở — ai làm được thì rút lại được).
@@ -40,6 +41,7 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.events.catalogue import (
     ChiDinhDaHuy,
     DichVuHoanTacXong,
+    KetQuaThuHoiDuyet,
     LuotMoLai,
     PhienKhamMoLai,
 )
@@ -1001,6 +1003,120 @@ class HoanTacService:
             "execution_revision": moi,
             "mo_lai_kham_xong": mo_moc,
         }
+
+    # ── (h) Duyệt kết quả → thu hồi về "chờ bác sĩ duyệt" ─────────────────
+    async def thu_hoi_duyet_ket_qua(
+        self,
+        *,
+        order_id: str,
+        identity: StaffIdentity,
+        ly_do: Any = None,
+        xac_nhan: bool = False,
+    ) -> dict[str, Any]:
+        """`RevokeResultApproval` — hoàn tác "Duyệt kết quả" (bấm duyệt nhầm).
+
+        Chỉ định về "chờ bác sĩ duyệt": bỏ mốc duyệt + người duyệt; việc theo
+        dõi "chờ kết quả" mà CHÍNH lần duyệt ấy đóng thì mở lại. Đánh giá bác
+        sĩ đã ghi, tệp, phiếu kết quả giữ nguyên (là bản nháp cho lần duyệt
+        sau). Mốc "cho phép gửi" trên từng tệp KHÔNG xoá — trigger CSDL giữ nó
+        làm vết, và từ 23/09 nó không còn là cửa gửi. Tệp đã GỬI khách thì hỏi
+        xác nhận + lý do (khách vẫn giữ bản đã nhận). Như lệnh duyệt: không
+        đòi lượt còn mở (kết quả muộn duyệt sau khi khách về).
+        """
+        cid = identity.clinic_id
+        oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
+        ly = doc_ly_do(ly_do)
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(
+                conn,
+                identity,
+                "result.review.approve",
+                cau="Bạn không có quyền duyệt kết quả nên không thu hồi được.",
+            )
+            vid = await luot_cua(conn, "service_order", cid, oid)
+            await conn.execute(
+                "SELECT 1 FROM visit WHERE clinic_id = $1::uuid AND visit_id ="
+                " $2::uuid FOR UPDATE",
+                cid,
+                vid,
+            )
+            o = await conn.fetchrow(
+                "SELECT duyet_luc FROM service_order"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
+                cid,
+                oid,
+            )
+            assert o is not None
+            if o["duyet_luc"] is None:
+                return {"ok": True, "order_id": oid, "already": True}
+            da_gui = _so(
+                await conn.fetchval(
+                    "SELECT count(*) FROM tep_ket_qua"
+                    " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+                    "   AND gui_luc IS NOT NULL AND da_xoa_luc IS NULL",
+                    cid,
+                    oid,
+                )
+            )
+            hau_qua: list[str] = []
+            if da_gui:
+                hau_qua.append(
+                    f"Đã gửi {da_gui} tệp kết quả cho khách — khách vẫn giữ bản"
+                    " đã nhận; thu hồi chỉ đưa kết quả về “chờ bác sĩ duyệt”."
+                )
+            doi_xac_nhan(ly_do=ly, xac_nhan=xac_nhan, hau_qua=hau_qua)
+
+            await conn.execute(
+                "UPDATE service_order SET duyet_luc = NULL, duyet_boi = NULL,"
+                "       version = version + 1, updated_at = now()"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                cid,
+                oid,
+            )
+            # Lần duyệt đầu đóng việc theo dõi trong CÙNG giao dịch → cùng
+            # `now()` với `duyet_luc`: mở lại đúng việc ấy, không đụng việc
+            # đóng vì lý do khác. Đã có việc mở khác thì thôi (một việc mở /
+            # chỉ định — `uq_follow_up_case_order_open`).
+            await conn.execute(
+                """
+                UPDATE follow_up_case f
+                   SET status = 'OPEN', closed_at = NULL, updated_at = now()
+                 WHERE f.id = (
+                        SELECT id FROM follow_up_case
+                         WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid
+                           AND status = 'DONE' AND closed_at = $3
+                         ORDER BY created_at DESC LIMIT 1)
+                   AND NOT EXISTS (
+                        SELECT 1 FROM follow_up_case
+                         WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid
+                           AND status = 'OPEN')
+                """,
+                cid,
+                oid,
+                o["duyet_luc"],
+            )
+            await emit_event(
+                conn,
+                ten="result.approval_revoked",
+                clinic_id=cid,
+                aggregate_id=oid,
+                so_ke_tiep=True,
+                payload=KetQuaThuHoiDuyet(
+                    visit_id=vid, service_order_id=oid, tep_da_gui=da_gui, ly_do=ly
+                ),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
+            await record_event(
+                conn,
+                event_type="result.approval_revoked",
+                aggregate_type="visit",
+                aggregate_id=vid,
+                identity=identity,
+                origin=ORIGIN,
+                payload={"visit_id": vid, "order_id": oid, "tep_da_gui": da_gui},
+            )
+        return {"ok": True, "order_id": oid, "tep_da_gui": da_gui}
 
     # ── (d) Check-out / về giữa chừng → mở lại lượt ───────────────────────
     async def mo_lai_luot(

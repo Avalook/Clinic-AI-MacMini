@@ -96,3 +96,20 @@ async def mo_lai_luot(
         ly_do=b.ly_do,
         xac_nhan=b.xac_nhan,
     )
+
+
+@router.post("/luot-kham/orders/{order_id}/thu-hoi-duyet")
+async def thu_hoi_duyet(
+    order_id: UUID,
+    body: HoanTacBody | None = None,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thu hồi lần bác sĩ duyệt kết quả — về "chờ bác sĩ duyệt"."""
+    b = body or HoanTacBody()
+    return await HoanTacService(pool).thu_hoi_duyet_ket_qua(
+        order_id=str(order_id),
+        identity=identity,
+        ly_do=b.ly_do,
+        xac_nhan=b.xac_nhan,
+    )

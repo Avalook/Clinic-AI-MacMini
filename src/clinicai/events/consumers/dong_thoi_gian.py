@@ -113,6 +113,7 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     ],
     "service.completion_undone": ["attempt_no", "mo_lai_kham_xong", "ly_do"],
     "visit.reopened": ["tu_ve_giua_chung", "ly_do"],
+    "result.approval_revoked": ["tep_da_gui", "ly_do"],
 }
 
 

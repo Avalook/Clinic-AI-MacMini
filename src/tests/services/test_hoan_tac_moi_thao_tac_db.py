@@ -52,7 +52,11 @@ from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
-async def _phien(pool: asyncpg.Pool, visit: str, loai: str = "PRIMARY") -> asyncpg.Record:  # noqa: F811
+async def _phien(
+    pool: asyncpg.Pool,  # noqa: F811
+    visit: str,
+    loai: str = "PRIMARY",
+) -> asyncpg.Record:
     return await pool.fetchrow(
         "SELECT id::text AS id, status, outcome, completed_at FROM consultation"
         " WHERE visit_id = $1::uuid AND kind = $2",
@@ -74,7 +78,8 @@ async def _cho(pool: asyncpg.Pool, ref: str) -> list[str]:  # noqa: F811
     return [
         r["status"]
         for r in await pool.fetch(
-            "SELECT status FROM queue_entry WHERE ref_id = $1::uuid ORDER BY created_at",
+            "SELECT status FROM queue_entry WHERE ref_id = $1::uuid"
+            " ORDER BY created_at",
             ref,
         )
     ]
@@ -88,7 +93,9 @@ async def _kham_xong(pool: asyncpg.Pool, ca: Ca, con: str) -> dict:  # type: ign
 
 async def _vao_kham(pool: asyncpg.Pool, ca: Ca, visit: str) -> str:  # noqa: F811
     con = (await _phien(pool, visit))["id"]
-    await LuotKhamService(pool).start_consultation(consultation_id=con, identity=ca.bac_si)
+    await LuotKhamService(pool).start_consultation(
+        consultation_id=con, identity=ca.bac_si
+    )
     return str(con)
 
 
@@ -154,14 +161,19 @@ async def test_kham_xong_hoan_tac_mo_lai_roi_kham_xong_lai(
         "NO_SERVICES",
         True,
     )
-    assert await pool.fetchval(
-        "SELECT count(*) FROM event_log WHERE event_type = 'consult.reopened'"
-        " AND aggregate_id = $1",
-        visit,
-    ) == 1
+    assert (
+        await pool.fetchval(
+            "SELECT count(*) FROM event_log WHERE event_type = 'consult.reopened'"
+            " AND aggregate_id = $1",
+            visit,
+        )
+        == 1
+    )
 
     # Bấm hai lần: không làm gì thêm.
-    lai = await HoanTacService(pool).mo_lai_kham(consultation_id=con, identity=ca.bac_si)
+    lai = await HoanTacService(pool).mo_lai_kham(
+        consultation_id=con, identity=ca.bac_si
+    )
     assert lai.get("already") is True
     assert len(await _su_kien(pool, "consultation.reopened", con)) == 1
 
@@ -179,21 +191,30 @@ async def test_kham_xong_co_chi_dinh_hoan_tac_bo_vong_doc_vua_mo(
     con, _order = await _kham_va_chi_dinh(pool, ca, visit)
     await _kham_xong(pool, ca, con)
     assert (await _phien(pool, visit))["outcome"] == "SERVICES"
-    assert await pool.fetchval(
-        "SELECT count(*) FROM review_round WHERE visit_id = $1::uuid", visit
-    ) == 1
+    assert (
+        await pool.fetchval(
+            "SELECT count(*) FROM review_round WHERE visit_id = $1::uuid", visit
+        )
+        == 1
+    )
 
     await HoanTacService(pool).mo_lai_kham(consultation_id=con, identity=ca.bac_si)
     assert (await _phien(pool, visit))["status"] == "in_progress"
     # Vòng đọc kết quả lần bấm ấy mở ra (chưa ai đọc) bị bỏ.
-    assert await pool.fetchval(
-        "SELECT count(*) FROM review_round WHERE visit_id = $1::uuid", visit
-    ) == 0
+    assert (
+        await pool.fetchval(
+            "SELECT count(*) FROM review_round WHERE visit_id = $1::uuid", visit
+        )
+        == 0
+    )
     # Khám xong lại → mở vòng mới (không vấp chỉ mục duy nhất).
     await _kham_xong(pool, ca, con)
-    assert await pool.fetchval(
-        "SELECT count(*) FROM review_round WHERE visit_id = $1::uuid", visit
-    ) == 1
+    assert (
+        await pool.fetchval(
+            "SELECT count(*) FROM review_round WHERE visit_id = $1::uuid", visit
+        )
+        == 1
+    )
 
 
 async def test_kham_xong_roi_check_out_hoan_tac_phai_xac_nhan_va_mo_lai_luot(
@@ -329,9 +350,9 @@ async def test_bo_chi_dinh_chua_thu_hoa_don_quay_bot_ngay_roi_chi_dinh_khac(
     assert ev["ai"] == ca.bac_si.staff_id
     assert json.loads(ev["payload"])["da_thu_tien"] is False
     # Bấm lại: không làm gì thêm.
-    assert (await HoanTacService(pool).huy_chi_dinh(order_id=order, identity=ca.bac_si))[
-        "already"
-    ] is True
+    assert (
+        await HoanTacService(pool).huy_chi_dinh(order_id=order, identity=ca.bac_si)
+    )["already"] is True
 
     # Chỉ định cái khác được ngay (cùng mã cũng được — chỉ định mới).
     moi = await ChiDinhService(pool).dat_chi_dinh(
@@ -376,11 +397,15 @@ async def test_bo_chi_dinh_da_thu_hoi_xac_nhan_roi_thanh_tien_thua_o_quay(
     assert thua[visit]["dong"][0]["loai"] == "BO_CHI_DINH"
     assert thua[visit]["dong"][0]["ly_do"] == "Chỉ định nhầm siêu âm"
     # Quầy thu thấy khoản tiền thừa, khách nằm trong danh sách chờ xử lý.
-    bang = await CashierBoardService(pool).board(identity=ca.thu_ngan, modes=["dich_vu"])
+    bang = await CashierBoardService(pool).board(
+        identity=ca.thu_ngan, modes=["dich_vu"]
+    )
     [item] = [i for i in bang["items"] if i["visit_id"] == visit]
     assert item["tien_thua"]["tong"] == 300000
     assert visit in bang["ds_cho_thu"]
-    pl = json.loads((await _su_kien(pool, "service_order.cancelled", order))[0]["payload"])
+    pl = json.loads(
+        (await _su_kien(pool, "service_order.cancelled", order))[0]["payload"]
+    )
     assert (pl["da_thu_tien"], pl["tien_thua"], pl["ly_do"]) == (
         True,
         300000,
@@ -414,11 +439,16 @@ async def test_hoan_tac_xong_dich_vu_ve_dang_lam_roi_xong_lai(
     _con, order = await _kham_va_chi_dinh(pool, ca, visit)
     lan = await _xep_va_lam(pool, ca, visit, order)
     await _xong_dv(pool, ca, order, lan)
-    assert await pool.fetchval(
-        "SELECT execution_status FROM service_order WHERE id = $1::uuid", order
-    ) == "COMPLETED"
+    assert (
+        await pool.fetchval(
+            "SELECT execution_status FROM service_order WHERE id = $1::uuid", order
+        )
+        == "COMPLETED"
+    )
 
-    kq = await HoanTacService(pool).hoan_tac_xong_dich_vu(order_id=order, identity=ca.dd)
+    kq = await HoanTacService(pool).hoan_tac_xong_dich_vu(
+        order_id=order, identity=ca.dd
+    )
     assert kq["execution_status"] == "IN_PROGRESS"
     o = await pool.fetchrow(
         "SELECT execution_status, exec_status, finished_at FROM service_order"
@@ -431,7 +461,8 @@ async def test_hoan_tac_xong_dich_vu_ve_dang_lam_roi_xong_lai(
         None,
     )
     at = await pool.fetchrow(
-        "SELECT status, completed_at FROM service_execution_attempt WHERE id = $1::uuid",
+        "SELECT status, completed_at FROM service_execution_attempt"
+        " WHERE id = $1::uuid",
         lan,
     )
     assert (at["status"], at["completed_at"]) == ("IN_PROGRESS", None)
@@ -439,14 +470,19 @@ async def test_hoan_tac_xong_dich_vu_ve_dang_lam_roi_xong_lai(
     [ev] = await _su_kien(pool, "service.completion_undone", order)
     assert ev["ai"] == ca.dd.staff_id
     # Bấm lại: không làm gì thêm.
-    lai = await HoanTacService(pool).hoan_tac_xong_dich_vu(order_id=order, identity=ca.dd)
+    lai = await HoanTacService(pool).hoan_tac_xong_dich_vu(
+        order_id=order, identity=ca.dd
+    )
     assert lai.get("already") is True
 
     # Xong LẠI — đúng lần làm cũ.
     await _xong_dv(pool, ca, order, lan)
-    assert await pool.fetchval(
-        "SELECT execution_status FROM service_order WHERE id = $1::uuid", order
-    ) == "COMPLETED"
+    assert (
+        await pool.fetchval(
+            "SELECT execution_status FROM service_order WHERE id = $1::uuid", order
+        )
+        == "COMPLETED"
+    )
 
 
 # ── (d) Check-out → mở lại lượt ─────────────────────────────────────────────
@@ -480,7 +516,9 @@ async def test_check_out_nham_hoan_tac_mo_lai_luot_roi_check_out_lai(
     ] is True
 
     # Bác sĩ khám tiếp được, check-out lại được.
-    await LuotKhamService(pool).start_consultation(consultation_id=con, identity=ca.bac_si)
+    await LuotKhamService(pool).start_consultation(
+        consultation_id=con, identity=ca.bac_si
+    )
     kq2 = await CheckoutService(pool).close(
         identity=ca.le_tan, visit_id=visit, ly_do_tu_dong="Lễ tân cho khách về."
     )
@@ -502,7 +540,8 @@ async def test_ve_giua_chung_hoan_tac_ve_lai_dang_kham(
     kq = await HoanTacService(pool).mo_lai_luot(visit_id=visit, identity=ca.le_tan)
     assert kq["tu_ve_giua_chung"] is True
     v = await pool.fetchrow(
-        "SELECT status, incomplete_reason, closed_at FROM visit WHERE visit_id = $1::uuid",
+        "SELECT status, incomplete_reason, closed_at FROM visit"
+        " WHERE visit_id = $1::uuid",
         visit,
     )
     assert (v["status"], v["incomplete_reason"], v["closed_at"]) == (
@@ -510,3 +549,155 @@ async def test_ve_giua_chung_hoan_tac_ve_lai_dang_kham(
         None,
         None,
     )
+
+
+# ── (h) Duyệt kết quả → thu hồi về chờ duyệt ────────────────────────────────
+
+
+async def test_duyet_ket_qua_nham_thu_hoi_ve_cho_duyet_mo_lai_theo_doi(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    _con, order = await _kham_va_chi_dinh(pool, ca, visit)
+    lan = await _xep_va_lam(pool, ca, visit, order)
+    await _xong_dv(pool, ca, order, lan)
+    await pool.execute(
+        "UPDATE service_order SET ket_qua_luc = now() WHERE id = $1::uuid", order
+    )
+    benh_nhan = await pool.fetchval(
+        "SELECT clinic_patient_id FROM visit WHERE visit_id = $1::uuid", visit
+    )
+    theo_doi = await pool.fetchval(
+        "INSERT INTO follow_up_case (clinic_id, clinic_patient_id, visit_id,"
+        " service_order_id, reason) VALUES ($1::uuid, $2, $3::uuid, $4::uuid,"
+        " 'chờ kết quả') RETURNING id::text",
+        CLINIC,
+        benh_nhan,
+        visit,
+        order,
+    )
+    await LuotKhamService(pool).duyet_ket_qua(
+        order_id=order, danh_gia="Bình thường", identity=ca.bac_si
+    )
+    assert (
+        await pool.fetchval(
+            "SELECT status FROM follow_up_case WHERE id = $1::uuid", theo_doi
+        )
+        == "DONE"
+    )
+
+    kq = await HoanTacService(pool).thu_hoi_duyet_ket_qua(
+        order_id=order, identity=ca.bac_si
+    )
+    assert kq["ok"] is True and kq["tep_da_gui"] == 0
+    o = await pool.fetchrow(
+        "SELECT duyet_luc, duyet_boi, bac_si_danh_gia FROM service_order"
+        " WHERE id = $1::uuid",
+        order,
+    )
+    # Về chờ duyệt; đánh giá đã ghi giữ làm bản nháp.
+    assert (o["duyet_luc"], o["duyet_boi"], o["bac_si_danh_gia"]) == (
+        None,
+        None,
+        "Bình thường",
+    )
+    f = await pool.fetchrow(
+        "SELECT status, closed_at FROM follow_up_case WHERE id = $1::uuid", theo_doi
+    )
+    assert (f["status"], f["closed_at"]) == ("OPEN", None)
+    [ev] = await _su_kien(pool, "result.approval_revoked", order)
+    assert ev["ai"] == ca.bac_si.staff_id
+    lai = await HoanTacService(pool).thu_hoi_duyet_ket_qua(
+        order_id=order, identity=ca.bac_si
+    )
+    assert lai.get("already") is True
+
+    # Duyệt LẠI được như lần đầu.
+    await LuotKhamService(pool).duyet_ket_qua(
+        order_id=order, danh_gia=None, identity=ca.bac_si
+    )
+    assert await pool.fetchval(
+        "SELECT duyet_luc IS NOT NULL FROM service_order WHERE id = $1::uuid", order
+    )
+
+
+async def test_thu_hoi_duyet_khi_tep_da_gui_khach_phai_xac_nhan(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    _con, order = await _kham_va_chi_dinh(pool, ca, visit)
+    # Giả lập "đã duyệt + có tệp đã gửi khách" bằng cột (đường tải tệp thật
+    # có test riêng ở tep_ket_qua).
+    await pool.execute(
+        "UPDATE service_order SET ket_qua_luc = now(), duyet_luc = now(),"
+        " duyet_boi = $2::uuid WHERE id = $1::uuid",
+        order,
+        ca.bac_si.staff_id,
+    )
+    benh_nhan = await pool.fetchval(
+        "SELECT clinic_patient_id FROM visit WHERE visit_id = $1::uuid", visit
+    )
+    await pool.execute(
+        "INSERT INTO tep_ket_qua (clinic_id, clinic_patient_id, service_order_id,"
+        " khoa, loai_tep, mime, so_byte, sha256, tai_len_boi_staff_id,"
+        " gui_luc, gui_boi_staff_id, gui_kenh)"
+        " VALUES ($1::uuid, $2, $3::uuid, $4, 'PDF', 'application/pdf', 10,"
+        " repeat('a', 64), $5::uuid, now(), $5::uuid, 'ZALO')",
+        CLINIC,
+        benh_nhan,
+        order,
+        f"thu/{uuid.uuid4()}.pdf",
+        ca.bac_si.staff_id,
+    )
+    with pytest.raises(LuotKhamConflictError) as e:
+        await HoanTacService(pool).thu_hoi_duyet_ket_qua(
+            order_id=order, identity=ca.bac_si
+        )
+    assert e.value.error_code == CAN_XAC_NHAN
+    assert "Đã gửi 1 tệp" in str(e.value)
+    assert await pool.fetchval(
+        "SELECT duyet_luc IS NOT NULL FROM service_order WHERE id = $1::uuid", order
+    )
+    kq = await HoanTacService(pool).thu_hoi_duyet_ket_qua(
+        order_id=order, identity=ca.bac_si, xac_nhan=True, ly_do="Duyệt nhầm khách"
+    )
+    assert kq["tep_da_gui"] == 1
+    assert (
+        await pool.fetchval(
+            "SELECT duyet_luc FROM service_order WHERE id = $1::uuid", order
+        )
+        is None
+    )
+
+
+# ── (e) Xếp phòng → huỷ xếp phòng (nút ở khối DoiPhong) ─────────────────────
+
+
+async def test_xep_nham_phong_huy_xep_phong_ve_chua_xep(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    from clinicai.services.service_routing_service import ServiceRoutingService
+
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    _con, order = await _kham_va_chi_dinh(pool, ca, visit)
+    await _chon(pool, ca, visit, [order])
+    await _thu(pool, visit, ca.thu_ngan)
+    await chay_hanh_trinh(pool)
+    d = await _don(pool, order)
+    assert d["routing_status"] == "ASSIGNED"
+
+    await ServiceRoutingService(pool).invalidate(
+        order_id=order,
+        expected_routing_revision=int(d["routing_revision"]),
+        reason_code="ASSIGNED_BY_MISTAKE",
+        identity=ca.thu_ngan,
+        idempotency_key=_khoa(),
+    )
+    o = await pool.fetchrow(
+        "SELECT routing_status, room_id FROM service_order WHERE id = $1::uuid", order
+    )
+    assert (o["routing_status"], o["room_id"]) == ("REASSIGNMENT_REQUIRED", None)
+    assert "waiting" not in await _cho(pool, order)

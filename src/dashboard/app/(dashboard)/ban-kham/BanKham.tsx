@@ -856,6 +856,35 @@ function HoSo({
     );
   }
 
+  // Chỉ định xong → "Đã chỉ định N dịch vụ · Hoàn tác" (01/10/2026): hoàn tác
+  // = bỏ đúng các chỉ định vừa tạo (máy chủ trả `order_ids`), quầy thu bớt ngay.
+  const datChiDinh = async (
+    codes: string[],
+    batBuoc: string[],
+  ): Promise<{ ok: true } | { ok: false; loi: string }> => {
+    const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
+      service_codes: codes,
+      bat_buoc_codes: batBuoc,
+    });
+    if (!kq.ok) return { ok: false, loi: kq.loi };
+    const ids = Array.isArray(kq.data.order_ids)
+      ? kq.data.order_ids.filter((x): x is string => typeof x === "string")
+      : [];
+    if (ids.length > 0) {
+      setThongBao({
+        cau: `Đã chỉ định ${ids.length} dịch vụ — ${dong.ten}`,
+        goi: async (duLieu) => {
+          for (const id of ids) {
+            const r = await lenhHoanTac("huy-chi-dinh", id)(duLieu);
+            if (!r.ok) return r;
+          }
+          return { ok: true };
+        },
+      });
+    }
+    return { ok: true };
+  };
+
   const gui = async (thaoTac: "nhan-kham" | "kham-xong" | "xong-tu-van") => {
     setDangGui(true);
     setLoi(null);
@@ -1226,13 +1255,7 @@ function HoSo({
             coPhieu={PHIEU_V5 && Boolean(dong.form_code)}
             choGhi={choBam}
             onTrangThai={baoGate}
-            datChiDinh={async (codes, batBuoc) => {
-              const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
-                service_codes: codes,
-                bat_buoc_codes: batBuoc,
-              });
-              return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };
-            }}
+            datChiDinh={datChiDinh}
             onDaDat={onDaBam}
             nutXong={nutHoanTat}
           />
@@ -1245,13 +1268,7 @@ function HoSo({
               visitId={dong.visit_id}
               clinicPatientId={dong.clinic_patient_id}
               choGhi={choBam}
-              datChiDinh={async (codes, batBuoc) => {
-                const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
-                  service_codes: codes,
-                  bat_buoc_codes: batBuoc,
-                });
-                return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };
-              }}
+              datChiDinh={datChiDinh}
               onDaDat={onDaBam}
               onTrangThai={baoGate}
               chanRay={laPhieuMoi ? nutHoanTat : undefined}

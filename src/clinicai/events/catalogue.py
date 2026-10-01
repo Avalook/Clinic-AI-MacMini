@@ -857,6 +857,16 @@ class DichVuHoanTacXong(PayloadSuKien):
     ly_do: str | None = None
 
 
+class KetQuaThuHoiDuyet(PayloadSuKien):
+    """`result.approval_revoked` — thu hồi lần bác sĩ duyệt kết quả: chỉ định
+    về "chờ bác sĩ duyệt" (đánh giá, tệp, phiếu giữ nguyên)."""
+
+    visit_id: str
+    service_order_id: str
+    tep_da_gui: int = 0
+    ly_do: str | None = None
+
+
 class LuotMoLai(PayloadSuKien):
     """`visit.reopened` — hoàn tác check-out / "về giữa chừng": lượt mở lại,
     khách về lại các hàng chờ còn dở."""
@@ -1114,6 +1124,16 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuHoanTacXong,
             nhan="Hoàn tác “Xong” dịch vụ",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="result.approval_revoked",
+            version=1,
+            aggregate_type="service_order",
+            source_module="result",
+            payload=KetQuaThuHoiDuyet,
+            nhan="Thu hồi duyệt kết quả",
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
@@ -1584,6 +1604,7 @@ __all__ = [
     "HANH_TRINH",
     "ChiDinhDaHuy",
     "DichVuHoanTacXong",
+    "KetQuaThuHoiDuyet",
     "LuotMoLai",
     "PhienKhamMoLai",
     "ChiDinhMangSang",

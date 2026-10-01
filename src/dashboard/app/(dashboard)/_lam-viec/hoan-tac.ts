@@ -17,14 +17,20 @@ export type LenhHoanTac =
   /** id = CHỈ ĐỊNH: hoàn tác "Xong" của dịch vụ. */
   | "hoan-tac-xong-v1"
   /** id = LƯỢT: hoàn tác check-out / về giữa chừng. */
-  | "mo-lai-luot";
+  | "mo-lai-luot"
+  /** id = CHỈ ĐỊNH: huỷ xếp phòng (chưa bắt đầu) — chỉ định về "chưa xếp phòng". */
+  | "huy-xep-phong-v1"
+  /** id = CHỈ ĐỊNH: thu hồi kết quả ĐÃ DUYỆT về nháp. */
+  | "thu-hoi-ket-qua";
 
 export function lenhHoanTac(
   lenh: LenhHoanTac,
   id: string,
+  /** Trường riêng của lệnh gốc (vd `expected_routing_revision` khi huỷ xếp phòng). */
+  them: Record<string, unknown> = {},
 ): (duLieu: DuLieuHoanTac) => Promise<KetQuaHoanTac> {
   return async (duLieu) => {
-    const kq = await guiThaoTac(lenh, id, { ...duLieu });
+    const kq = await guiThaoTac(lenh, id, { ...them, ...duLieu });
     if (kq.ok) return { ok: true };
     return { ok: false, loi: kq.loi, ...(kq.chiTiet ? { chiTiet: kq.chiTiet } : {}) };
   };

@@ -12,15 +12,18 @@
 - Màn: Bàn khám/Bàn tư vấn (`BanKham.tsx`: dòng done → chip "Đã khám xong HH:MM · Hoàn tác" + toast sau Hoàn tất/Xong tư vấn); phiếu khám thẻ chỉ định (`KetQuaChiDinh.tsx` nút "Hoàn tác chỉ định", qua `PhieuKham`/`PhieuKhamLuot`); phòng dịch vụ (`PhongDichVu.tsx`: khối Đã làm + toast sau Xong); check-out (`NutCheckOut.tsx` sau khi đóng; `/reception/queue` dòng "Đã về" có Hoàn tác — cờ máy chủ `mo_lai_duoc` ở `tiep_don_service.py`, kiểu `lib/tiep-don.ts`).
 - Test: `T/services/test_hoan_tac_moi_thao_tac_db.py` 11 bài XANH trên DB chung :55600; unit `test_o_cam_module`, `test_danh_muc_su_kien`, audit drift xanh; `tsc`, `eslint`, `test:boundary` xanh; `ban-do-code.py --kiem` khớp.
 
-## CÒN LẠI (theo thứ tự)
-1. Bấm thật local 1280 + 375 (stack nhánh: `scratchpad/ht/chay.sh` dựng API :8204 / web :3204; dữ liệu `scratchpad/ht/du_lieu.py` đã tạo 3 khách "HT …" trong `clinicai_thu_db`: A khám xong, B chỉ định SA đã thu, C đã check-out). Đăng nhập `bs.a`, `letan`, `thungan` @dr4women.local.
-2. `./scripts/ci-may.sh --bao-github`, mở PR (bảng kiểm kê lệnh + bảng nút đã đụng + kịch bản staging bên dưới).
-3. (e) Huỷ xếp phòng: lệnh `huy-xep-phong-v1` có sẵn, CHƯA có nút — đặt NutHoanTac ở `_lam-viec/DoiPhong.tsx` / `XepPhongDaThu.tsx`.
-4. (f) Sinh hiệu: hiện chỉ "đo lại" (dòng mới thắng) — thêm xoá/sửa lần đo nếu cần.
-5. (h) Duyệt kết quả → thu hồi về nháp: chưa có lệnh (`LuotKhamService.duyet_ket_qua`; tệp đã gửi khách thì hỏi xác nhận).
-6. Chưa có hoàn tác: huỷ lịch / không đến (booking_service CANCELLED/NO_SHOW chết), "Không làm" dịch vụ, quyết yêu cầu (miễn/theo dõi), đối tác đã lấy mẫu, chốt dòng thuốc. Ghi rõ đợt sau trong PR.
-7. Toast sau khi chỉ định ("Đã chỉ định X · Hoàn tác") chưa làm — cần `datChiDinh` trả `order_ids`.
-8. `/reception/checkout` (CheckoutBoard) tự đóng lượt bằng code riêng — hoàn tác ở `/reception/queue` dòng "Đã về"; cân nhắc dùng NutCheckOut ở đó.
+## ĐỢT 2 (01/10 chiều) — đã làm
+- (e) Huỷ xếp phòng: nút `NutHoanTac` "Huỷ xếp phòng" trong `_lam-viec/DoiPhong.tsx` (mọi lối: quầy thu `XepPhongDaThu`, Bàn khám, Xem lượt) → lệnh có sẵn `huy-xep-phong-v1` với mã lý do MỚI `ASSIGNED_BY_MISTAKE` (`INVALIDATE_REASONS`; "OTHER" bị từ chối vì đòi ghi chú).
+- (h) Thu hồi duyệt kết quả: `HoanTacService.thu_hoi_duyet_ket_qua` + `POST /luot-kham/orders/{id}/thu-hoi-duyet` (thao tác `thu-hoi-ket-qua`), sự kiện `result.approval_revoked`. Bỏ `duyet_luc/duyet_boi`, mở lại việc theo dõi mà chính lần duyệt đóng (cùng `now()`); tệp đã gửi khách → hỏi xác nhận. Mốc `cho_phep_gui_luc` của tệp giữ (trigger cấm sửa, không còn là cửa gửi). Màn `/duyet-ket-qua`: toast "Đã duyệt … · Hoàn tác".
+- (7) Toast sau chỉ định ở Bàn khám: "Đã chỉ định N dịch vụ — <khách> · Hoàn tác" (bỏ đúng `order_ids` máy chủ trả).
+- Test DB: 14 bài xanh (thêm thu hồi duyệt ×2, huỷ xếp phòng).
+- Bấm thật 1280 + 375: khám xong → Hoàn tác → Hoàn tất lại; chỉ định → toast Hoàn tác → quầy mất dòng → chỉ định khác hiện ngay; check-out → Hoàn tác ở dòng "Đã về"; huỷ xếp phòng ở quầy; duyệt → Hoàn tác.
+
+## CÒN LẠI (đợt sau)
+- (f) Sinh hiệu: chỉ "đo lại" (dòng mới thắng) — chưa xoá/sửa lần đo.
+- Chưa có hoàn tác: huỷ lịch / không đến (booking CANCELLED/NO_SHOW), "Không làm" dịch vụ, quyết yêu cầu (miễn/theo dõi), đối tác đã lấy mẫu, chốt dòng thuốc, ký siêu âm (`clinical_sign`).
+- `/reception/checkout` (CheckoutBoard) đóng lượt bằng code riêng — hoàn tác ở `/reception/queue` dòng "Đã về".
+- `/reception/queue` cập nhật chậm 5–10 s sau Check-out VÀ sau Hoàn tác (có từ trước — `router.refresh()` không vẽ lại, đợi vòng làm tươi kế; máy chủ đã đúng ngay). Cần soát riêng.
 
 ## Quyết định đã chốt + lý do
 - Bỏ chỉ định ĐANG LÀM / ĐÃ XONG → báo "Huỷ bắt đầu nhầm / Hoàn tác Xong ở phòng trước" (thứ tự, không khoá; không xoá ngầm việc người khác đang làm).

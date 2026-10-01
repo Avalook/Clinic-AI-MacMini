@@ -182,7 +182,14 @@ MODULE: dict[str, Module] = {
         Module(
             ma="result",
             ten="Biểu mẫu kết quả",
-            lenh=["OpenForm", "SaveFormDraft", "CompleteForm", "ReopenForm"],
+            lenh=[
+                "OpenForm",
+                "SaveFormDraft",
+                "CompleteForm",
+                "ReopenForm",
+                # Hoàn tác (01/10/2026) — thu hồi lần bác sĩ duyệt kết quả.
+                "RevokeResultApproval",
+            ],
             # BA sự kiện, MỘT nút bấm (ChatGPT tin 156, Tuyền tin 157). Kết quả
             # là vòng đời riêng của phiếu: ready → corrected → (sau này)
             # reviewed, released. Thêm bước mới vào chuỗi ấy không đụng module
@@ -193,6 +200,7 @@ MODULE: dict[str, Module] = {
                 "result.corrected",
                 "result.reviewed",
                 "result.viewed",
+                "result.approval_revoked",
             ],
             bang=["form_instance"],
             # Xác nhận tệp kết quả (B2) và bác sĩ duyệt kết quả (B3) cũng là
@@ -272,6 +280,7 @@ MODULE: dict[str, Module] = {
                 "service_order.cancelled",
                 "consultation.reopened",
                 "visit.reopened",
+                "result.approval_revoked",
                 "service.routing_invalidated",
                 "result_form.completed",
                 "result.ready",

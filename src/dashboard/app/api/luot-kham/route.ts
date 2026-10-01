@@ -96,6 +96,8 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "hoan-tac-xong-v1": (id) => `/api/v1/luot-kham/orders/${id}/execution/hoan-tac-xong`,
   // id = LƯỢT: hoàn tác check-out / về giữa chừng.
   "mo-lai-luot": (id) => `/api/v1/luot-kham/visits/${id}/mo-lai-luot`,
+  // id = CHỈ ĐỊNH: thu hồi lần bác sĩ duyệt kết quả (về chờ duyệt).
+  "thu-hoi-ket-qua": (id) => `/api/v1/luot-kham/orders/${id}/thu-hoi-duyet`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
