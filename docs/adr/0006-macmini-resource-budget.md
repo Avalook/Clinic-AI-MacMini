@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Proposed |
+| **Status** | Superseded (01/10/2026) — hệ thống chạy trên VPS `clinic-vps-moi` từ 16/09; phần giới hạn RAM từng container đã làm trong `docker-compose.yml`; phần Mac mini/Colima/`clinic-backend-boot.sh` lỗi thời (script đã gỡ) |
 | **Date** | 2026-07-18 |
 | **Deciders** | Quang |
 | **Liên quan** | Design doc v5 §5.8; khảo sát 18-07 (đo thực tế) |

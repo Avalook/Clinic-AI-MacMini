@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted |
+| **Status** | Superseded (01/10/2026) — đã bê lên VPS (07/08, dựng lại trên `clinic-vps-moi` 16/09); nửa "chạy trên Mac mini" hết hiệu lực, plist `launchdaemons/` đã gỡ. Nửa "không viết cứng đường dẫn/máy" vẫn là luật (CI job portability) |
 | **Date** | 2026-07-30 |
 | **Deciders** | Quang — "xây để sẵn sàng bê lên VPS luôn, nhưng chưa thuê nên dùng tạm trên Mac mini đã" |
 | **Liên quan** | ADR-0005 (không thêm hạ tầng có trạng thái), ADR-0006 (ngân sách tài nguyên Mac mini), DOD "Cloud VPS", `docs/legacy/deploy-mac-mini.md` |

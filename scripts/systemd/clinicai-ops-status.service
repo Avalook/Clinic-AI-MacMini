@@ -1,6 +1,6 @@
 [Unit]
 Description=ClinicAI — chụp tình trạng máy chủ cho tab Hệ thống ở /ops
-# Máy Mac có launchd (scripts/launchdaemons/com.dr4women.ops-status.plist);
+# Đời Mac mini có launchd (plist đã gỡ khỏi repo 01/10/2026);
 # VPS mới (16/09/2026) chưa bao giờ có lịch này → /ops không có số liệu nào
 # về container / đĩa / RAM suốt từ ngày chuyển máy (đo 27/09).
 After=docker.service

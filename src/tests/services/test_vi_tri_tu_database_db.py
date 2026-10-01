@@ -70,10 +70,11 @@ async def _goi(pool: asyncpg.Pool) -> list[dict[str, Any]]:  # noqa: F811
 
 
 async def _danh_muc(pool: asyncpg.Pool) -> set[str]:  # noqa: F811
-    """Vị trí thật của phòng khám (bỏ dòng các bài kiểm khác tạo: mã `T-…`)."""
+    """Vị trí thật của phòng khám (bỏ dòng các bài kiểm khác tạo: mã `T-…`, và
+    `VT-…` của test_chon_bac_si_trong_phong_db — mã thật không có dấu gạch)."""
     rows = await pool.fetch(
         "SELECT code FROM vi_tri_lam_viec WHERE clinic_id = $1::uuid AND is_active"
-        " AND code !~ '^T-'",
+        " AND code !~ '^(T|VT)-'",
         CLINIC,
     )
     return {r["code"] for r in rows}

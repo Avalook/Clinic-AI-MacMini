@@ -21,10 +21,10 @@
 -- CÁCH CHẠY (sao lưu TRƯỚC — một transaction, lỗi thì quay về, nhưng chạy đúng
 -- thì không có đường lùi):
 --
---   ssh clinic-vps 'docker exec -i clinicai_db pg_dump -U postgres -d postgres \
+--   ssh clinic-vps-moi 'docker exec -i clinicai_db pg_dump -U postgres -d postgres \
 --     --no-owner > ~/prod_truoc_khi_don_20260809.sql'
 --
---   ssh clinic-vps 'docker exec -i clinicai_db psql -U postgres -d postgres \
+--   ssh clinic-vps-moi 'docker exec -i clinicai_db psql -U postgres -d postgres \
 --     -v ON_ERROR_STOP=1' < scripts/maintenance/don_data_khach.sql
 -- =====================================================================
 

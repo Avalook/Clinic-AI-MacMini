@@ -20,9 +20,13 @@ ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 # ghi gì. Compose lấy chung từ MO_QUYEN_TAM_THOI của máy chủ để hai nửa khớp.
 # Mặc định TẮT từ 27/09/2026 (hỏng thì đóng).
 ARG NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0
+# Môi trường (01/10/2026): "staging" thì hiện dải "STAGING — bản thử" ở đầu mọi
+# trang (components/ui/DaiStaging.tsx). Compose lấy từ APP_ENV; mặc định prod.
+ARG NEXT_PUBLIC_APP_ENV=production
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
     NEXT_PUBLIC_MO_QUYEN_TAM_THOI=$NEXT_PUBLIC_MO_QUYEN_TAM_THOI \
+    NEXT_PUBLIC_APP_ENV=$NEXT_PUBLIC_APP_ENV \
     NEXT_TELEMETRY_DISABLED=1 \
     BUILD_STANDALONE=1
 # Chặn ngay tại đây, đừng để ra tới trình duyệt.

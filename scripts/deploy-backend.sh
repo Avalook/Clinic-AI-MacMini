@@ -341,6 +341,21 @@ if [ "$UP_OK" = "1" ]; then
   fi
 fi
 
+# MẠNG CẦU SANG STAGING (01/10/2026). Staging online chạy chung máy: Caddy prod
+# giữ TLS cho tên miền staging (caddy/them/staging.caddy) rồi chuyển sang Caddy
+# staging qua mạng `clinicai_staging_edge`. Nối bằng `docker network connect`
+# (không alias, không khởi động lại) — mất khi container Caddy bị TẠO LẠI, nên
+# nối lại ở đây sau mỗi lần deploy prod. Không có mạng (chưa dựng staging) thì
+# bỏ qua; hỏng thì chỉ site staging 502, prod không ảnh hưởng.
+if [ "$UP_OK" = "1" ] && [ "$ENVN" = "prod" ] && \
+   docker network inspect "${STAGING_EDGE_NETWORK:-clinicai_staging_edge}" >/dev/null 2>&1; then
+  caddy_cid="$("${COMPOSE[@]}" ps -q caddy 2>/dev/null || true)"
+  if [ -n "$caddy_cid" ]; then
+    docker network connect "${STAGING_EDGE_NETWORK:-clinicai_staging_edge}" "$caddy_cid" \
+      >/dev/null 2>&1 || true
+  fi
+fi
+
 # RELAY THÔNG BÁO SỐNG QUA DEPLOY. `up -d` chỉ dựng profile mặc định; relay
 # nằm trong profile `notifications` nên MỖI lần deploy nó bị bỏ rơi — đo được
 # 17/08/2026: sau deploy, relay biến mất và 57 sự kiện xếp hàng câm lặng cho

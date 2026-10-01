@@ -1,18 +1,17 @@
-# ClinicAI / Dr4Women — self-host stack (Mac mini, Docker/Colima).
+# ClinicAI / Dr4Women — self-host stack (VPS clinic-vps-moi, Docker).
 # ONE parameterized compose for BOTH environments. Select env with --env-file:
 #
 #   PROD    : docker compose --env-file .env.prod    -p clinicai_prod    up -d
 #   STAGING : docker compose --env-file .env.staging -p clinicai_staging up -d
 #
-# Prod + staging run side-by-side on the same Mac: different project names (-p),
-# different Caddy host ports (CADDY_HTTP_PORT/HTTPS_PORT), different Supabase.
-# Application rows live in Supabase cloud; host config, volumes and platform
-# identities still require the separate backup/restore plan in OPS-RUNBOOK.
+# Prod + staging can run side-by-side on the same host: different project names
+# (-p), different Caddy host ports (CADDY_HTTP_PORT/HTTPS_PORT), different
+# self-hosted Supabase (docker-compose.supabase.yml). Backup/restore: see
+# docs/VAN-HANH-MAY-CHU.md and scripts/backup-db.sh.
 #
 # Ingress: Caddy (auto-HTTPS) is the ONLY service bound to public host ports.
 #   api + dashboard are internal-only (reached over the compose network).
-# Public access: put Caddy behind Cloudflare Tunnel (profile `cloudflare`) or
-#   Tailscale Funnel (host-level, see scripts/clinic-backend-boot.sh).
+# The `cloudflare` profile is legacy (Cloudflare Tunnel is no longer used).
 #
 # Runtime secrets: CLINIC_ENV_FILE must name the same explicit file passed to
 #   --env-file. This prevents a staging command from loading production runtime
@@ -65,6 +64,10 @@ services:
       # Đường dẫn theo biến để staging dùng được Caddyfile riêng (có ổ khoá
       # HTTP) mà prod không đổi gì. Không đặt CADDY_FILE thì vẫn là bản chung.
       - ${CADDY_FILE:-./caddy/Caddyfile}:/etc/caddy/Caddyfile:ro
+      # Site phụ (01/10/2026) — gắn cả THƯ MỤC, không gắn từng file: tệp mới
+      # viết vào đây container thấy ngay (gắn một file thì git/script thay file
+      # là inode mới, container vẫn đọc bản cũ). Thư mục có sẵn trong git.
+      - ./caddy/them:/etc/caddy/them:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -104,6 +107,8 @@ services:
         # .env.prod là tắt cả hai nửa — thanh bên/cửa trang và cửa gác API.
         # Thiếu biến thì TẮT (27/09/2026 — hỏng thì đóng, cùng mặc định máy chủ).
         NEXT_PUBLIC_MO_QUYEN_TAM_THOI: ${MO_QUYEN_TAM_THOI:-0}
+        # "staging" → dải "STAGING — bản thử" ở đầu mọi trang (01/10/2026).
+        NEXT_PUBLIC_APP_ENV: ${APP_ENV:-production}
     image: clinicai-dashboard:${IMAGE_TAG:-latest}
     restart: unless-stopped
     # 4 tiến trình × ~85MiB đo được lúc tải + phần dựng trang. 512m cũ vừa đủ

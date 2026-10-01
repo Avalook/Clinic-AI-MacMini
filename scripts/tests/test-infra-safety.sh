@@ -338,9 +338,8 @@ test_backup_command_preflight_is_explicit() {
     fail "backup command PATH does not include Homebrew libpq"
   grep -Fq '/opt/homebrew/opt/postgresql@17/bin' "$ROOT/scripts/backup-db.sh" || \
     fail "backup command PATH does not include Homebrew PostgreSQL 17"
-  grep -Fq '/opt/homebrew/opt/libpq/bin' \
-    "$ROOT/scripts/launchdaemons/com.dr4women.db-backup.plist" || \
-    fail "LaunchDaemon PATH does not include Homebrew libpq"
+  # (01/10/2026) Bỏ kiểm PATH của LaunchDaemon Mac: sao lưu chạy bằng systemd
+  # timer trên VPS, plist đời Mac mini đã gỡ khỏi repo.
 }
 
 test_backup_rejects_small_archive_before_publish() {
@@ -506,35 +505,15 @@ test_deploy_is_pinned_and_serialized() {
   if grep -Eq 'cp +"?\$ENV_FILE"? +\.env|git pull --ff-only *\|\|' "$ROOT/scripts/deploy-backend.sh"; then
     fail "deploy script still copies shared env or swallows pull failure"
   fi
-  # Kiểm CÓ XẾP HÀNG hay không, không kiểm tên nhóm. Bản trước dò đúng chuỗi
-  # 'clinicai-macmini-deploy' — nên khi CD rời khỏi máy Mac (13/08/2026) và nhóm
-  # đổi tên thành 'clinicai-vps-deploy', bài kiểm đỏ vì một lý do không liên quan
-  # gì tới thứ nó bảo vệ. Thứ nó bảo vệ là: prod và staging dùng chung một máy
-  # Docker, nên hai lần deploy không được chồng lên nhau.
-  grep -Eq '^ *group: clinicai-[a-z0-9-]+-deploy$' "$ROOT/.github/workflows/cd.yml" || \
-    fail "prod and staging deployments are not globally serialized"
-  grep -Fq 'cancel-in-progress: false' "$ROOT/.github/workflows/cd.yml" || \
-    fail "a queued deploy must wait, not cancel the one already running"
-  grep -Fq 'ref: ${{ github.event.workflow_run.head_sha }}' "$ROOT/.github/workflows/cd.yml" || \
-    fail "CD does not checkout the triggering commit"
-  grep -Fq 'workflow_run:' "$ROOT/.github/workflows/cd.yml" || \
-    fail "CD is not gated on completion of CI"
-  grep -Fq "github.event.workflow_run.conclusion == 'success'" "$ROOT/.github/workflows/cd.yml" || \
-    fail "CD does not require a successful CI conclusion"
-  grep -Fq "github.event.workflow_run.event == 'push'" "$ROOT/.github/workflows/cd.yml" || \
-    fail "CD can be triggered by an untrusted pull request workflow"
-  grep -Fq 'github.event.workflow_run.head_repository.full_name == github.repository' \
-    "$ROOT/.github/workflows/cd.yml" || \
-    fail "CD does not require the completed CI run to belong to this repository"
-  grep -Fq 'github.event.workflow_run.head_branch' "$ROOT/.github/workflows/cd.yml" || \
-    fail "CD does not select the environment from the CI source branch"
-  grep -Fq 'id: freshness' "$ROOT/.github/workflows/cd.yml" || \
-    fail "CD does not compare a completed CI SHA with the current branch head"
-  grep -Fq 'steps.freshness.outputs.deploy' "$ROOT/.github/workflows/cd.yml" || \
-    fail "CD checkout/deploy steps are not gated by branch-head freshness"
-  if grep -Eq '^  push:' "$ROOT/.github/workflows/cd.yml"; then
-    fail "CD still deploys directly on push before CI succeeds"
-  fi
+  # Kiểm CÓ XẾP HÀNG hay không. Thứ nó bảo vệ là: hai lần deploy chạy chung một
+  # máy Docker thì không được chồng lên nhau. Trước 01/10/2026 bài này dò nhóm
+  # `concurrency` trong .github/workflows/cd.yml; CD tự động đã chết (runner VPS
+  # cũ chết, GitHub Actions hỏng thanh toán), cd.yml đã gỡ, deploy làm tay trên
+  # VPS — nên giờ khoá xếp hàng nằm ở chính deploy-backend.sh.
+  grep -Fq 'CLINIC_DEPLOY_LOCK' "$ROOT/scripts/deploy-backend.sh" || \
+    fail "deploy script has no shared deploy lock"
+  grep -Eq 'if ! mkdir "\$LOCK_DIR"' "$ROOT/scripts/deploy-backend.sh" || \
+    fail "deploy script does not refuse to run while another deploy holds the lock"
 
   grep -Fq './scripts/tests/test-infra-safety.sh' "$ROOT/.github/workflows/ci.yml" || \
     fail "CI does not execute the infrastructure safety smoke tests"
@@ -543,11 +522,11 @@ test_deploy_is_pinned_and_serialized() {
   # It found that the backup could not be restored at all, so the runbook has to
   # keep telling people to run it.
   [ -x "$ROOT/scripts/restore-drill.sh" ] || fail "restore drill is missing or not executable"
-  grep -Fq './scripts/restore-drill.sh' "$ROOT/docs/OPS-RUNBOOK.md" || \
+  grep -Fq 'scripts/restore-drill.sh' "$ROOT/docs/VAN-HANH-MAY-CHU.md" || \
     fail "runbook does not tell anyone to run the restore drill"
   grep -Fq 'restore_order=auth-then-public' "$ROOT/scripts/backup-db.sh" || \
     fail "backup no longer records the restore order the drill depends on"
-  for workflow in ci.yml cd.yml; do
+  for workflow in ci.yml; do
     grep -Fq 'contents: read' "$ROOT/.github/workflows/$workflow" || \
       fail "$workflow does not use least-privilege repository contents access"
   done
@@ -782,34 +761,6 @@ DOCKER
   fi
 }
 
-test_boot_is_bash32_safe_and_uses_shared_lock() {
-  local boot_repo="$TMP_ROOT/boot-repo"
-  local active_repo="$TMP_ROOT/active-release"
-  local boot_lock="$TMP_ROOT/boot.lock"
-  mkdir -p "$boot_repo/scripts" "$active_repo" "$TEST_HOME/Library/Logs"
-  cp "$ROOT/scripts/clinic-backend-boot.sh" "$boot_repo/scripts/clinic-backend-boot.sh"
-  printf '%s\n' 'services: {}' > "$active_repo/docker-compose.yml"
-  printf '%s\n' \
-    'APP_ENV=production' \
-    'DATABASE_URL=postgresql://tester:secret@db.example.test:5432/clinic_test' > "$boot_repo/.env.prod"
-  printf 'source=%s\nenv=%s\n' "$active_repo" "$boot_repo/.env.prod" > "$boot_repo/.active-state-prod"
-
-  HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" CLINIC_PATH_PREFIX="$FAKE_BIN" \
-    CLINIC_DEPLOY_LOCK="$boot_lock" \
-    /bin/bash "$boot_repo/scripts/clinic-backend-boot.sh" "$boot_repo"
-  if ! grep -q 'compose up -d OK' "$TEST_HOME/Library/Logs/clinic-backend-boot.log"; then
-    sed -n '1,120p' "$TEST_HOME/Library/Logs/clinic-backend-boot.log" >&2
-    fail "boot script did not use the control repo env with the active release"
-  fi
-
-  mkdir "$boot_lock"
-  HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" CLINIC_PATH_PREFIX="$FAKE_BIN" \
-    CLINIC_DEPLOY_LOCK="$boot_lock" \
-    /bin/bash "$boot_repo/scripts/clinic-backend-boot.sh" "$boot_repo"
-  rmdir "$boot_lock"
-  grep -q 'deployment/self-heal already active' "$TEST_HOME/Library/Logs/clinic-backend-boot.log" || \
-    fail "boot script did not honor the shared deploy lock"
-}
 
 test_compose_has_bounded_runtime_defaults() {
   grep -Fq 'RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-}' "$ROOT/docker-compose.yml" || \
@@ -877,38 +828,14 @@ test_repository_hygiene_and_test_doc_are_safe() {
   grep -Fqx '.headroom/' "$ROOT/.gitignore" || \
     fail "local Headroom agent memory is not ignored"
   grep -E 'Mật khẩu phòng khám.*secret manager' \
-    "$ROOT/docs/Hướng dẫn test Dashboard.md" >/dev/null || \
+    "$ROOT/docs/legacy/Hướng dẫn test Dashboard.md" >/dev/null || \
     fail "dashboard test guide does not direct testers to the secret manager"
-  if grep -E 'Mật khẩu phòng khám' "$ROOT/docs/Hướng dẫn test Dashboard.md" | \
+  if grep -E 'Mật khẩu phòng khám' "$ROOT/docs/legacy/Hướng dẫn test Dashboard.md" | \
       grep -vq 'secret manager'; then
     fail "dashboard test guide still embeds the clinic password"
   fi
 }
 
-test_runbook_installs_the_real_launchdaemon_template() {
-  local runbook="$ROOT/docs/OPS-RUNBOOK.md"
-  local backend_template="$ROOT/docker/com.dr4women.clinic-backend.plist"
-
-  [ -f "$backend_template" ] || fail "backend LaunchDaemon template is missing"
-  grep -Fq 'docker/com.dr4women.clinic-backend.plist' "$runbook" || \
-    fail "runbook does not install the real backend LaunchDaemon template"
-  if grep -Fq 'scripts/launchdaemons/com.dr4women.clinic-backend.plist' "$runbook"; then
-    fail "runbook still names a nonexistent backend LaunchDaemon file"
-  fi
-  for marker in __USER__ __HOME__ __REPO__; do
-    grep -Fq "$marker" "$runbook" || \
-      fail "runbook does not render backend LaunchDaemon marker $marker"
-  done
-  grep -Fq 'plutil -lint "$BACKEND_PLIST"' "$runbook" || \
-    fail "runbook does not lint the rendered backend LaunchDaemon"
-  grep -Fq 'launchctl bootstrap system' "$runbook" || \
-    fail "runbook does not bootstrap LaunchDaemons in the system domain"
-  grep -Fq 'launchctl kickstart -k system/com.dr4women.db-backup' "$runbook" || \
-    fail "runbook does not run the reinstalled backup daemon immediately"
-  if grep -Eq 'sudo launchctl load|clinic-backend\.plist.*2>/dev/null' "$runbook"; then
-    fail "runbook still uses deprecated or error-swallowing LaunchDaemon commands"
-  fi
-}
 
 
 # ── Chốt pre-commit: dữ liệu bệnh nhân và bí mật không được vào git ──────────
@@ -1014,11 +941,9 @@ test_deploy_is_pinned_and_serialized
 test_deploy_precreates_bind_dirs
 test_deploy_rolls_back_when_initial_up_fails
 test_deploy_exact_sha_smoke
-test_boot_is_bash32_safe_and_uses_shared_lock
 test_compose_has_bounded_runtime_defaults
 test_compose_renders_every_profile_safely
 test_repository_hygiene_and_test_doc_are_safe
-test_runbook_installs_the_real_launchdaemon_template
 # ĐỂ CUỐI CÙNG, CÓ CHỦ Ý: bài này cố ý làm hỏng một tệp media để thử người kiểm.
 # Các bài khác lấy "tệp .sql.gz đầu tiên tìm thấy" trong cùng thư mục, nên một
 # tệp hỏng còn sót lại là chúng kiểm nhầm bản sao lưu — và báo một lỗi nói về

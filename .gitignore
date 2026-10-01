@@ -57,6 +57,9 @@ out/
 .ops-status/
 # Ổ VPS của tệp kết quả (tải lên lưu trước, đẩy sang CFS sau — 01/10/2026).
 .media-vps/
+# Site phụ của Caddy prod do script máy chủ viết ra (caddy/them/README.md).
+caddy/them/*.caddy
+caddy/them/*.bak.*
 
 # Editor / OS
 .vscode/
@@ -130,7 +133,7 @@ scripts/maintenance/backups/
 .feedback/
 
 # --- Bí mật vận hành để LOCAL, không lên GitHub -----------------------------
-# Repo này PUBLIC (xem .github/workflows/cd.yml: "this repository is public").
+# Repo này TỪNG public (chuyển private 16/09/2026) — coi lịch sử git như đã lộ.
 #
 # apply-pending-migrations.sh TỪNG nằm ở đây, vì bản cũ chứa connection string
 # prod kèm mật khẩu ở dạng thô, và repo này public.

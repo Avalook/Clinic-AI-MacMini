@@ -129,7 +129,7 @@ fi
 # thay Caddy, phiên bản trôi theo "latest". Xanh trên bộ đó không nói được gì về
 # máy chủ.
 #
-# CÁCH LY — cùng ba điều dung-staging.sh đòi: tiền tố container riêng
+# CÁCH LY — cùng ba điều scripts/lib/staging-chung.sh đòi: tiền tố container riêng
 # (`clinicai_thu`), khoá JWT riêng (sinh mới vào .env.thu-local, đã gitignore),
 # cổng riêng (54421 cổng, 54422 database). Volume thuộc project `clinicai_thu_db`.
 blue "1/5  bộ Supabase tự dựng (cùng file compose với máy chủ)"
@@ -156,7 +156,7 @@ set -a
 # shellcheck disable=SC1090
 . "$SB_ENV"
 set +a
-# Khoá trùng prod/staging là token đi chéo được — dừng, như dung-staging.sh.
+# Khoá trùng prod/staging là token đi chéo được — dừng, như staging-chung.sh.
 for bien in SUPABASE_JWT_SECRET SUPABASE_DB_PASSWORD; do
     for khac in .env.prod .env.staging; do
         [ -f "$REPO/$khac" ] || continue
@@ -284,7 +284,7 @@ for f in staff_logins.sql tai_khoan_da_vai_hom_nay.sql gan_phong_dich_vu_thieu_l
     psql_db <"$REPO/supabase/fixtures/$f" >"$LOG_DIR/fixture-$f.log" 2>&1 || {
         red "  fixture $f hỏng — xem $LOG_DIR/fixture-$f.log"; tail -5 "$LOG_DIR/fixture-$f.log"; exit 1; }
 done
-# seed nạp lại dịch vụ mà migration này ẩn đi — dung-staging.sh chạy lại nó y như vậy.
+# seed nạp lại dịch vụ mà migration này ẩn đi — staging cũ (dung-staging.sh, đã gỡ 01/10/2026) từng chạy lại nó y như vậy.
 if [ "$MOI" = 1 ]; then
     psql_db <"$REPO/supabase/migrations/20260807000007_nam_dich_vu_kham.sql" >"$LOG_DIR/nam-dich-vu.log" 2>&1 || {
         red "  chạy lại 20260807000007_nam_dich_vu_kham hỏng — xem $LOG_DIR/nam-dich-vu.log"; exit 1; }

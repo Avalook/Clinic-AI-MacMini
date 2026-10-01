@@ -59,7 +59,7 @@ Cách này có đường lùi (máy cũ còn nguyên tới khi máy mới chạy
 3. **Khung đêm (1h–4h), có người xem:**
    1. Máy cũ: dừng nhận khách (`docker compose -p clinicai_prod stop dashboard`),
       sao lưu lần cuối (`scripts/backup-db.sh`, lệnh đầy đủ ở CLAUDE.md).
-   2. Chép bản sao lưu sang máy mới, khôi phục (`docs/khoi-phuc-du-lieu.md`),
+   2. Chép bản sao lưu sang máy mới, khôi phục (`scripts/restore-db.sh`; hướng dẫn sống ở `~/Projects/ClinicAI-Backups/HUONG-DAN-PHUC-HOI.md` trên Mac),
       áp migration còn thiếu (`scripts/apply-pending-migrations.sh --apply`),
       `NOTIFY pgrst, 'reload schema'`.
    3. Chép `/var/lib/clinicai/media` nếu có tệp không nằm trên CFS.
