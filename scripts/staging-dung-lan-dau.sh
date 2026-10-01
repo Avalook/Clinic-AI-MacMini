@@ -66,6 +66,13 @@ if [ "${1:-}" != "--da-clone" ]; then
             dung0 "không có $PROD_DIR/.git — đặt STAGING_REPO_URL để clone."
         fi
     fi
+    # Prod tải code bằng khoá chỉ-đọc riêng (core.sshCommand trong .git/config của
+    # prod) — bản clone không mang theo cấu hình ấy → "Permission denied
+    # (publickey)" ở bước fetch (lần dựng đầu 01/10/2026). Chép đúng khoá prod dùng.
+    if [ -z "$(git -C "$STAGING_DIR" config --get core.sshCommand || true)" ] \
+       && [ -n "$(git -C "$PROD_DIR" config --get core.sshCommand 2>/dev/null || true)" ]; then
+        git -C "$STAGING_DIR" config core.sshCommand "$(git -C "$PROD_DIR" config --get core.sshCommand)"
+    fi
     git -C "$STAGING_DIR" fetch -q origin
     if git -C "$STAGING_DIR" rev-parse -q --verify "origin/$STAGING_REF^{commit}" >/dev/null; then
         SHA="$(git -C "$STAGING_DIR" rev-parse "origin/$STAGING_REF")"
