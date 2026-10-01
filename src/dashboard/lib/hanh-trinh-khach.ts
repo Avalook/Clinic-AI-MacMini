@@ -70,6 +70,8 @@ export interface TheDichVu {
   /** Làm thêm tại quầy (01/10/2026): "Làm thêm tại quầy tiếp đón"; null = bác
    *  sĩ chỉ định. Máy chủ cũ chưa trả → không có. */
   lam_them?: string | null;
+  /** Làm thêm tại quầy đã đóng: người đóng (Hoàn tất kết quả ở quầy). */
+  xong_boi?: string | null;
 }
 
 export interface BuocHanhTrinh {

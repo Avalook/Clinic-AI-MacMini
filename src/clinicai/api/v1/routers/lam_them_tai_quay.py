@@ -125,3 +125,29 @@ async def dat(
         expected_state_revision=body.expected_state_revision,
         idempotency_key=body.idempotency_key,
     )
+
+
+class DonBody(BaseModel):
+    order_id: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/lam-them/dong-dich-vu")
+async def dong_dich_vu(
+    body: DonBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LamThemTaiQuayService(pool).dong_dich_vu(
+        identity=identity, order_id=body.order_id
+    )
+
+
+@router.post("/lam-them/hoan-tac-dich-vu")
+async def hoan_tac_dich_vu(
+    body: DonBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LamThemTaiQuayService(pool).hoan_tac_dich_vu(
+        identity=identity, order_id=body.order_id
+    )

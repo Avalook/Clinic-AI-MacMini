@@ -16,10 +16,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import Button from "@/components/ui/Button";
 import ChipChon from "@/components/ui/ChipChon";
 import { chiaLoLamThem } from "@/lib/lam-them";
 
 import { useNgheBang } from "../dung-nghe-bang";
+import NhapKetQuaLamThem, { nhanNutKetQua, type KetQuaLamThem } from "./NhapKetQuaLamThem";
 
 export type NoiLamThem = "tiep_don" | "sinh_hieu";
 
@@ -38,6 +40,8 @@ export interface TrangThaiNut {
   state_revision: number;
   ghi_chu: string | null;
   luot_mo: boolean;
+  /** Chỗ nhập kết quả tại quầy (chỉ chỉ định quầy đang tick) — máy chủ trả. */
+  ket_qua?: KetQuaLamThem | null;
 }
 
 export interface GoiLamThem {
@@ -46,7 +50,13 @@ export interface GoiLamThem {
   luot: Record<string, Record<string, TrangThaiNut>>;
 }
 
-const BANG_NGHE = ["service_order", "lam_them_tai_quay", "visit"] as const;
+const BANG_NGHE = [
+  "service_order",
+  "lam_them_tai_quay",
+  "visit",
+  "form_instance",
+  "tep_ket_qua",
+] as const;
 
 /** Đọc nút + trạng thái cho nhiều lượt một lần. `visitIds` rỗng → không hỏi. */
 export function useLamThem(noi: NoiLamThem, visitIds: readonly string[]) {
@@ -109,6 +119,8 @@ export function NutLamThem({
   className?: string;
 }) {
   const [dang, setDang] = useState<string | null>(null);
+  // Chỉ định đang mở khung "Nhập kết quả" (mã dịch vụ của nút).
+  const [moKq, setMoKq] = useState<string | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const khoaLenh = useRef<Record<string, string>>({});
   // Kết quả vừa bấm — chỉ sống tới khi bản đọc lại về (gói mới ≠ gói lúc bấm thì
@@ -186,6 +198,34 @@ export function NutLamThem({
               ) : null}
             </ChipChon>
           </span>
+        );
+      })}
+      {nut.map((n) => {
+        const tt = cuaLuot[n.service_code];
+        const kq = tt.chon && tt.order_id ? tt.ket_qua : null;
+        if (!kq || !kq.nhap_duoc || !tt.order_id) return null;
+        const mo = moKq === n.service_code;
+        return (
+          <div key={`kq-${n.service_code}`} className="w-full min-w-0 space-y-2">
+            {mo ? (
+              <NhapKetQuaLamThem
+                tieuDe={n.nhan}
+                serviceOrderId={tt.order_id}
+                ketQua={kq}
+                onDoi={napLai}
+                onDong={() => setMoKq(null)}
+              />
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                variant="soft"
+                onClick={() => setMoKq(n.service_code)}
+              >
+                {nhanNutKetQua(n.nhan, kq.trang_thai)}
+              </Button>
+            )}
+          </div>
         );
       })}
       {loi ? (

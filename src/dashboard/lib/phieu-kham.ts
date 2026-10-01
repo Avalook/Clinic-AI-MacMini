@@ -105,6 +105,12 @@ export interface ChiDinhVaKetQua {
   ket_qua: KetQuaMotChiDinh[];
   /** Mẫu kết quả đã gắn cho dịch vụ (Danh mục & biểu mẫu). */
   mau_ket_qua?: MauKetQuaNgan[];
+  /** Mẫu để ĐIỀN (01/10/2026, máy chủ quyết): đã gắn, hoặc mặc định của máy
+   *  (gợi ý / CHUNG nhập tự do) khi quản lý chưa gắn. */
+  mau_chon_duoc?: MauKetQuaNgan[];
+  mau_chon_san?: string | null;
+  /** true = quản lý chưa gắn mẫu, mẫu chọn sẵn là mặc định của máy. */
+  mau_mac_dinh?: boolean;
   /** Lần chỉ định trong lượt (1, 2, 3… mỗi lần bấm chốt). null = mang sang. */
   lan?: number | null;
   chi_dinh_luc?: string | null;
@@ -143,6 +149,8 @@ export interface MauKetQuaNgan {
   ma: string;
   ten: string;
   nhom?: string | null;
+  /** Mẫu của CHÍNH dịch vụ này (máy chủ tính). false = của dịch vụ khác. */
+  cua_dich_vu?: boolean;
 }
 
 /** Một dòng danh mục mục C — nhãn nguồn + mã/giá THẬT máy chủ đã gắn. */

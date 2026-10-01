@@ -303,6 +303,7 @@ def dung_tung_dich_vu(chi_dinh: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "ten": o.get("ten") or "",
                 "lan": o["lan"],
                 "lam_them": o.get("lam_them"),
+                "xong_boi": o.get("xong_boi"),
                 "noi": "Đối tác"
                 if o["ngoai"]
                 else (noi_lam(o["phong"], o.get("bac_si_lam")) or "Phòng dịch vụ"),
@@ -336,6 +337,7 @@ _SQL_CHI_DINH = """
                o.doi_tac_cho_tai_lieu_luc AS nhan_mau_luc,
                o.started_at, o.finished_at, r.name AS phong,
                bl.full_name AS bac_si_lam,
+               pf.full_name AS nguoi_lam_xong,
                coalesce(n.lam_ben_ngoai, false) AS ngoai,
                EXISTS (
                    SELECT 1 FROM payment_bill_line bl
@@ -367,6 +369,7 @@ _SQL_CHI_DINH = """
           FROM service_order o
           LEFT JOIN clinic_room r ON r.id = o.room_id
           LEFT JOIN staff bl ON bl.id = o.bac_si_lam_id
+          LEFT JOIN staff pf ON pf.id = o.performed_by
           LEFT JOIN node_definition n
             ON n.clinic_id = o.clinic_id AND n.code = o.node_code
          WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
@@ -384,6 +387,12 @@ def _chi_dinh(r: asyncpg.Record) -> dict[str, Any]:
         # Làm thêm tại quầy (01/10/2026): lễ tân / người đo tick, không qua bác
         # sĩ — "Làm thêm tại quầy tiếp đón" / "… bàn sinh hiệu"; None = bác sĩ.
         "lam_them": nhan_lam_them(r["nguon_lam_them"]),
+        # Làm thêm tại quầy đã đóng (Hoàn tất kết quả ở quầy = xong): AI đóng.
+        "xong_boi": (
+            r["nguoi_lam_xong"]
+            if r["nguon_lam_them"] and r["execution_status"] == "COMPLETED"
+            else None
+        ),
         "tao_luc": r["created_at"],
         "chon": r["selection_status"] != "NOT_SELECTED",
         "da_tra": bool(r["da_tra"]),

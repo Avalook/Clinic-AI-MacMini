@@ -893,7 +893,14 @@ class FormEngineService:
             khung = await self._khung(
                 conn, identity.clinic_id, moi["form_id"], moi["version"]
             )
-        return {"ok": True, **self._tra_phieu(moi, khung)}
+        # Kết quả làm thêm tại quầy đang được sửa lại → dịch vụ do QUẦY đóng mở
+        # lại (chờ làm); [Xác nhận sửa] / [Huỷ sửa] đóng lại (01/10/2026).
+        from clinicai.services.lam_them_dong_dich_vu import mo_lai_neu_quay_da_dong
+
+        dich_vu = await mo_lai_neu_quay_da_dong(
+            self._pool, order_id=str(moi["service_order_id"]), identity=identity
+        )
+        return {"ok": True, **self._tra_phieu(moi, khung), "dich_vu": dich_vu}
 
     @staticmethod
     async def _ghi_lan_sua(
@@ -993,7 +1000,8 @@ class FormEngineService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_DIEN)
             dong = await conn.fetchrow(
-                "SELECT dang_sua, revision FROM form_instance"
+                "SELECT dang_sua, revision, service_order_id::text AS order_id"
+                "  FROM form_instance"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
                 identity.clinic_id,
                 phieu_id,
@@ -1016,7 +1024,14 @@ class FormEngineService:
                 identity.clinic_id,
                 phieu_id,
             )
-        return {"ok": True, "dang_sua": False, "revision": int(moi)}
+        # Bỏ sửa → kết quả chính thức vẫn đó → dịch vụ làm thêm tại quầy (đã mở
+        # lại lúc Sửa lại) đóng lại (01/10/2026).
+        from clinicai.services.lam_them_dong_dich_vu import dong_lai_sau_huy_sua
+
+        dich_vu = await dong_lai_sau_huy_sua(
+            self._pool, order_id=str(dong["order_id"]), identity=identity
+        )
+        return {"ok": True, "dang_sua": False, "revision": int(moi), "dich_vu": dich_vu}
 
     @staticmethod
     async def _result_mode(
@@ -1066,11 +1081,26 @@ class FormEngineService:
 
         async with self._pool.acquire() as conn:
             don = await conn.fetchrow(
-                "SELECT execution_status, execution_revision FROM service_order"
+                "SELECT execution_status, execution_revision, nguon_lam_them"
+                "  FROM service_order"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid",
                 identity.clinic_id,
                 service_order_id,
             )
+            # LÀM THÊM TẠI QUẦY (Tuyền 01/10/2026, phương án A): Hoàn tất kết quả
+            # ở quầy = dịch vụ xong. Chỉ định chưa ai bắt đầu → bắt đầu + xong
+            # bằng lệnh có sẵn của module Thực hiện, tôn trọng cửa tiền; không
+            # đóng được thì nói rõ vì sao (không im lặng).
+            if (
+                don is not None
+                and don["nguon_lam_them"]
+                and (don["execution_status"] or "PENDING") == "PENDING"
+            ):
+                from clinicai.services.lam_them_dong_dich_vu import dong_tai_quay
+
+                return await dong_tai_quay(
+                    self._pool, order_id=service_order_id, identity=identity
+                )
             if don is None or don["execution_status"] != "IN_PROGRESS":
                 return {"da_dong": False, "vi_sao": "khong_dang_lam"}
             lan = await conn.fetchval(

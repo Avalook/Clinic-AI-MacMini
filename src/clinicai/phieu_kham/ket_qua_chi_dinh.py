@@ -25,6 +25,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.phieu_kham.khung import FORM_IDS
+from clinicai.phieu_kham.mau_goi_y import mau_cho_cac_dich_vu
 from clinicai.services.doi_tac_service import (
     LA_VIEC_DOI_TAC_SQL,
     trang_thai_doi_tac,
@@ -153,20 +154,13 @@ async def doc_ket_qua_theo_chi_dinh(
 
     # Mẫu kết quả đã GẮN cho từng dịch vụ (Danh mục & biểu mẫu). Bác sĩ điền
     # kết quả ngay trong phiếu khám (Tuyền 23/09: "khỏi duyệt kết quả, tự điền
-    # vào đây") thì mở đúng mẫu này; chưa gắn thì màn cho chọn mẫu dự phòng.
-    gan_mau: dict[str, list[dict[str, Any]]] = {}
-    for r in await conn.fetch(
-        "SELECT d.service_code, m.ma, m.ten, m.nhom FROM dich_vu_mau_ket_qua d"
-        "  JOIN ket_qua_mau m ON m.clinic_id = d.clinic_id AND m.ma = d.mau"
-        "   AND m.active"
-        " WHERE d.clinic_id = $1::uuid AND d.service_code = ANY($2::text[])"
-        " ORDER BY m.ten",
-        clinic_id,
-        list({r["service_code"] for r in don}),
-    ):
-        gan_mau.setdefault(r["service_code"], []).append(
-            {"ma": r["ma"], "ten": r["ten"], "nhom": r["nhom"]}
-        )
+    # vào đây") thì mở đúng mẫu này. Chưa gắn: MÁY chọn (gợi ý v5 / CHUNG nhập
+    # tự do — 01/10/2026), màn không tự quyết.
+    chon_mau_dv = await mau_cho_cac_dich_vu(
+        conn,
+        clinic_id=clinic_id,
+        service_codes=list({r["service_code"] for r in don}),
+    )
 
     theo_don: dict[Any, list[dict[str, Any]]] = {i: [] for i in ids}
     for r in phieu:
@@ -195,7 +189,16 @@ async def doc_ket_qua_theo_chi_dinh(
                     "CO_KET_QUA" if co else "DANG_NHAP" if dang_nhap else "CHUA_CO"
                 ),
                 "ket_qua": cua_no,
-                "mau_ket_qua": gan_mau.get(r["service_code"], []),
+                # Mẫu ĐÃ GẮN (rỗng = quản lý chưa gắn) — chip "mẫu PDF / tự do".
+                "mau_ket_qua": [
+                    {"ma": m["ma"], "ten": m["ten"], "nhom": m["nhom"]}
+                    for m in chon_mau_dv[r["service_code"]]["mau"]
+                    if not chon_mau_dv[r["service_code"]]["mac_dinh"]
+                ],
+                # Mẫu để ĐIỀN: đã gắn, hoặc mặc định của máy khi chưa gắn.
+                "mau_chon_duoc": chon_mau_dv[r["service_code"]]["mau"],
+                "mau_chon_san": chon_mau_dv[r["service_code"]]["chon_san"],
+                "mau_mac_dinh": chon_mau_dv[r["service_code"]]["mac_dinh"],
                 "lan": r["lan_chi_dinh"],
                 "chi_dinh_luc": (
                     r["created_at"].isoformat() if r["created_at"] else None
