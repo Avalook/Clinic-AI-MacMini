@@ -7,8 +7,9 @@ thu sau" mới xếp phòng / bắt đầu làm khi chưa thu. Cửa ấy nằm 
 
     lam_truoc_thu_sau   lượt đang tick
     tick_duoc           người xem bấm tick được (dây bật + có quyền + lượt mở)
-    bo_tick_duoc        người xem bỏ tick được (chưa chỉ định nào bắt đầu làm)
-    ly_do_khong_bo      câu vì sao không bỏ được (màn hiện nguyên)
+    bo_tick_duoc        người xem bỏ tick được (có quyền; không đòi gì thêm)
+    ly_do_khong_bo      câu vì sao không bỏ được (chỉ khi thiếu quyền)
+    luu_y_bo            câu nói bỏ tick thì chuyện gì xảy ra (lượt đang tick)
     chot_thu_sau_duoc   quầy được "Chốt, thu sau" (dây tắt, hoặc lượt đã tick)
 
 Lệnh ``SetDeferPayment``:
@@ -16,8 +17,12 @@ Lệnh ``SetDeferPayment``:
     phần ghi của ConfirmServiceSelection — ``ap_lua_chon``), để dây H4 xếp phòng
     như cũ. Phát ``visit.defer_payment_set`` (Hành trình xếp phòng, Đối tác nhận
     việc, dòng thời gian lượt).
-  * Tắt: chỉ khi CHƯA chỉ định nào bắt đầu làm — đã làm thì khoản nợ ấy đã là
-    "làm trước", bỏ tick là nói dối lịch sử. Phát ``visit.defer_payment_cleared``.
+  * Tắt (tick lần nữa = HOÀN TÁC, Tuyền 01/10/2026): luôn được, KHÔNG khoá cứng
+    — kể cả khi đã có dịch vụ bắt đầu làm. Dịch vụ đã / đang làm giữ nguyên và
+    vẫn còn nợ (quầy thu như thường); chỉ dịch vụ CHƯA làm quay về luật thu
+    trước (cửa làm ở FinanceGate). Câu giải thích máy chủ viết (``luu_y_bo``,
+    ``ghi_chu`` trong kết quả lệnh). Phát ``visit.defer_payment_cleared`` kèm
+    ``da_bat_dau``.
 
 Quyền: ai có lego Bàn khám (chỉ định / hoàn tất khám) HOẶC thu tiền dịch vụ —
 hỏi ``can()``, không hỏi vai. Tick = khách đồng ý làm, nên chốt lựa chọn đi
@@ -78,9 +83,14 @@ CAU_KHONG_QUYEN = (
     'Bạn không có quyền tick "Làm trước – thu sau" (cần lego Bàn khám hoặc thu'
     " tiền dịch vụ)."
 )
-CAU_DA_BAT_DAU = (
-    "Đã có dịch vụ bắt đầu làm — không bỏ Làm trước – thu sau được nữa (thu tiền"
-    " ở quầy như thường)."
+CAU_BO_CHUA_LAM = (
+    "Tick lần nữa để hoàn tác: lượt quay về thu tiền trước — dịch vụ chưa làm"
+    " chỉ vào phòng sau khi thu tiền."
+)
+CAU_BO_DA_LAM = (
+    "Đã có dịch vụ bắt đầu làm — bỏ tick vẫn được. Dịch vụ đã / đang làm giữ"
+    " nguyên và vẫn còn nợ (thu ở quầy); dịch vụ chưa làm phải thu tiền trước khi"
+    " vào phòng."
 )
 
 #: Chỉ định của lượt ĐÃ bắt đầu làm (đang làm / xong / dừng giữa chừng; trục
@@ -119,12 +129,8 @@ def co_tick(
     luot_mo: bool,
 ) -> dict[str, Any]:
     """Cờ cho màn — máy chủ quyết, màn chỉ đọc. Hàm thuần."""
-    if da_tick and da_bat_dau:
-        ly_do: str | None = CAU_DA_BAT_DAU
-    elif da_tick and not co_quyen:
-        ly_do = CAU_KHONG_QUYEN
-    else:
-        ly_do = None
+    ly_do = CAU_KHONG_QUYEN if da_tick and not co_quyen else None
+    luu_y = (CAU_BO_DA_LAM if da_bat_dau else CAU_BO_CHUA_LAM) if da_tick else None
     return {
         "cong_tac_bat": cong_tac_bat,
         "lam_truoc_thu_sau": da_tick,
@@ -132,8 +138,9 @@ def co_tick(
         # Lượt đã tick vẫn hiện để bỏ được / thấy ai bật.
         "hien": cong_tac_bat or da_tick,
         "tick_duoc": cong_tac_bat and co_quyen and luot_mo and not da_tick,
-        "bo_tick_duoc": da_tick and co_quyen and not da_bat_dau,
+        "bo_tick_duoc": da_tick and co_quyen,
         "ly_do_khong_bo": ly_do,
+        "luu_y_bo": luu_y,
         "chot_thu_sau_duoc": (not cong_tac_bat) or da_tick,
     }
 
@@ -411,8 +418,6 @@ class LamTruocThuSauService:
                         correlation_id=vid,
                     )
             elif luot["luc"] is not None:
-                if luot["da_bat_dau"]:
-                    raise LuotKhamConflictError("DEFER_PAYMENT_STARTED", CAU_DA_BAT_DAU)
                 await conn.execute(
                     "UPDATE public.visit SET lam_truoc_thu_sau_luc = NULL,"
                     " lam_truoc_thu_sau_boi = NULL"
@@ -427,23 +432,36 @@ class LamTruocThuSauService:
                     aggregate_id=vid,
                     identity=identity,
                     origin=ORIGIN,
-                    payload={},
+                    payload={"da_bat_dau": bool(luot["da_bat_dau"])},
                 )
                 await emit_event(
                     conn,
                     ten="visit.defer_payment_cleared",
                     clinic_id=cid,
                     aggregate_id=vid,
-                    payload=LamTruocThuSauDaBo(visit_id=vid),
+                    payload=LamTruocThuSauDaBo(
+                        visit_id=vid, da_bat_dau=bool(luot["da_bat_dau"])
+                    ),
                     boi=nguoi(identity),
                     correlation_id=vid,
                 )
             kq = (await trang_thai_lam_truoc(conn, identity, [vid]))[vid]
-        return {"ok": True, "visit_id": vid, **kq}
+        out: dict[str, Any] = {"ok": True, "visit_id": vid, **kq}
+        if not bat and luot["luc"] is not None:
+            # Máy chủ nói rõ chuyện gì xảy ra sau khi hoàn tác (màn hiện nguyên).
+            out["ghi_chu"] = "Đã bỏ Làm trước – thu sau. " + (
+                "Dịch vụ đã / đang làm giữ nguyên và vẫn còn nợ — thu ở quầy;"
+                " dịch vụ chưa làm phải thu tiền trước khi vào phòng."
+                if luot["da_bat_dau"]
+                else "Lượt quay về thu tiền trước: dịch vụ chưa làm chỉ vào"
+                " phòng sau khi thu tiền."
+            )
+        return out
 
 
 __all__ = [
-    "CAU_DA_BAT_DAU",
+    "CAU_BO_CHUA_LAM",
+    "CAU_BO_DA_LAM",
     "CAU_KHONG_QUYEN",
     "LamTruocThuSauService",
     "QUYEN_TICK",
