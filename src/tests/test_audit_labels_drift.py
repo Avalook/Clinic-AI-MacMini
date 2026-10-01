@@ -164,6 +164,7 @@ _NGUON = re.compile(r"""['"]((?:api:|config\.|cskh\.)[a-z0-9:._-]+)['"]""")
 _KHONG_PHAI_SU_KIEN = {
     "config.roster",  # cột source của roster.week_applied
     "config.booking_rule",  # cột source của booking.doctor_rule_saved
+    "roster.manage",  # tên QUYỀN (can(...)) trong config_service, không phải sự kiện
     "communication.send_zalo_message",
     "event_log.append_event",
     "kb.read_policy",

@@ -128,9 +128,16 @@ def parse_price(raw: Any) -> int | None:
 
 class RosterService:
     async def _xep_lich(self, identity: StaffIdentity) -> bool:
-        """Người XẾP lịch trực = lego 18 "Cài đặt phòng khám" (Tuyền 25/09/2026:
-        xem lịch là lego 15, xếp lịch ở lego 18). Hỏi quyền, không hỏi vai —
-        `ROSTER_ADMIN_ROLES` cũ giữ làm bản OFF."""
+        """Người XẾP lịch trực = trưởng ca (quyền `roster.manage`, lego Điều
+        phối khách — Tuyền 01/10/2026) hoặc lego 18 "Cài đặt phòng khám". Hỏi
+        quyền, không hỏi vai — `ROSTER_ADMIN_ROLES` cũ giữ làm bản OFF."""
+        async with self._pool.acquire() as conn:
+            return await can(conn, identity, "roster.manage") or await can(
+                conn, identity, "config.clinic.manage"
+            )
+
+    async def _cai_dat(self, identity: StaffIdentity) -> bool:
+        """Sửa phạm vi vị trí = cấu hình phòng khám, chỉ lego 18."""
         async with self._pool.acquire() as conn:
             return await can(conn, identity, "config.clinic.manage")
 
@@ -454,7 +461,7 @@ class RosterService:
         xoá nó đi thì lần rà sau sẽ có người bật lại rồi ngạc nhiên vì sao
         trước đó không có.
         """
-        if not await self._xep_lich(identity):
+        if not await self._cai_dat(identity):
             raise SafetyGateError("Chỉ quản lý được sửa phạm vi vị trí.")
         tram_ma = (tram_ma or "").strip()
         vai = (vai or "").strip()
@@ -495,7 +502,7 @@ class RosterService:
     ) -> None:
         """Approve or reject a self-registered shift. Management only."""
         if not await self._xep_lich(identity):
-            raise SafetyGateError("Chỉ quản lý được duyệt ca")
+            raise SafetyGateError("Chỉ trưởng ca / quản lý được duyệt ca")
 
         status = "APPROVED" if decision == "approve" else "REJECTED"
         # Approving clears any earlier rejection reason, in case a manager
@@ -784,8 +791,10 @@ class RosterService:
         """Người được ĐỔI NGƯỜI trong ca: quyền riêng `roster.shift.swap` (khối
         trưởng ca, lego Điều phối khách — 29/09/2026), hoặc người xếp lịch."""
         async with self._pool.acquire() as conn:
-            return await can(conn, identity, "roster.shift.swap") or await can(
-                conn, identity, "config.clinic.manage"
+            return (
+                await can(conn, identity, "roster.shift.swap")
+                or await can(conn, identity, "roster.manage")
+                or await can(conn, identity, "config.clinic.manage")
             )
 
     async def thay_nguoi(
