@@ -43,9 +43,13 @@ router = APIRouter()
 
 # Everyone works a shift, so everyone may sign up for one; the service decides
 # who may schedule somebody else.
-# 21 lego (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai. Xếp lịch trực thuộc
-# lego 18 "Cài đặt phòng khám"; bảng giá dịch vụ là lego 16.
-_ROSTER_GUARD = cua_quyen("config.clinic.manage")
+# 21 lego (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai. Bảng giá dịch vụ là
+# lego 16. Xếp lịch trực (01/10/2026, Tuyền): trưởng ca — quyền `roster.manage`
+# trong lego Điều phối khách; lego 18 "Cài đặt phòng khám" vẫn xếp được.
+_ROSTER_GUARD = cua_quyen("roster.manage", "config.clinic.manage")
+# Phạm vi vị trí (vai nào được đứng trạm nào) là CẤU HÌNH, ở /settings — chỉ
+# lego 18, không theo người xếp lịch.
+_PHAM_VI_GUARD = cua_quyen("config.clinic.manage")
 # XEM lịch làm việc = lego 15 (quyền `roster.view`, kiểm toán 27/09/2026 — trước
 # chỉ cần đăng nhập nên thu lego chỉ mất mục trên thanh bên). Người xếp lịch
 # (lego 18) đương nhiên xem được bảng mình xếp.
@@ -173,7 +177,7 @@ async def roster_stations(
 
 @router.get("/roster/station-scope")
 async def station_scope(
-    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    identity: StaffIdentity = Depends(_PHAM_VI_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Cả ma trận vai × vị trí — màn cấu hình của quản lý."""
@@ -189,7 +193,7 @@ class StationScopeRequest(BaseModel):
 @router.put("/roster/station-scope")
 async def set_station_scope(
     body: StationScopeRequest,
-    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    identity: StaffIdentity = Depends(_PHAM_VI_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Bật/tắt một ô của ma trận. Chỉ Quản lý (kiểm lại trong service)."""

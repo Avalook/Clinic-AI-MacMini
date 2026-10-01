@@ -14,7 +14,7 @@ import {
   requireNavAccess,
   vaiLamViec,
 } from "../../../lib/clinic-session";
-import { isAdminRole, departmentToRole } from "../../../lib/roles";
+import { isAdminRole, departmentToRole, type ClinicRole } from "../../../lib/roles";
 import {
   fmtDayMonth,
   weekDates,
@@ -62,15 +62,17 @@ export default async function SchedulePage({
   const week = (rawWeek ? weekStartOf(rawWeek) : null) ?? currentWeekStartVn();
   const dates = weekDates(week);
 
-  // NGƯỜI XẾP LỊCH = có lego 18 "Cài đặt phòng khám" (quyền
-  // `config.clinic.manage`) — ĐÚNG câu backend hỏi (`RosterService._xep_lich`),
-  // không phải vai Quản lý (kiểm toán 27/09/2026). Nút bấm được mà backend từ
-  // chối tệ hơn không có nút. Máy chủ chưa trả lời quyền → rơi về vai như cũ.
+  // NGƯỜI XẾP LỊCH = trưởng ca (quyền `roster.manage`, lego Điều phối khách —
+  // Tuyền 01/10/2026) hoặc lego 18 "Cài đặt phòng khám" (`config.clinic.manage`)
+  // — ĐÚNG câu backend hỏi (`RosterService._xep_lich`), không phải vai (kiểm toán
+  // 27/09/2026). Nút bấm được mà backend từ chối tệ hơn không có nút. Máy chủ
+  // chưa trả lời quyền → rơi về vai (Trưởng ca / Quản lý).
   const quyen = await getQuyenCuaToi();
+  const laNguoiXep = (r: ClinicRole | null) => r === "TRUONG_CA" || isAdminRole(r);
   const isAdmin =
     quyen !== null
-      ? quyen.includes("config.clinic.manage")
-      : isAdminRole(await vaiLamViec(isAdminRole));
+      ? quyen.includes("roster.manage") || quyen.includes("config.clinic.manage")
+      : laNguoiXep(await vaiLamViec(laNguoiXep));
 
   // Lấy TOÀN BỘ phân công của tuần (cho mọi vai trò) → bảng ma trận đồng bộ với
   // trang chủ. Form "Đăng ký ca của tôi" lọc client-side theo staff_id.
@@ -138,7 +140,7 @@ export default async function SchedulePage({
         <div className="min-w-0">
           <h1 className="text-xl font-semibold text-ink lg:text-2xl">Lịch làm việc</h1>
           <p className="mt-1 text-sm text-ink-muted">
-            Lịch trực do quản lý xếp và áp dụng theo tuần.
+            Lịch trực do trưởng ca xếp và áp dụng theo tuần.
           </p>
         </div>
         {/* NÚT "SỬA LỊCH" ĐÃ BỎ cùng trang /schedule/edit (Quang 09/08/2026).
@@ -216,15 +218,16 @@ export default async function SchedulePage({
         </section>
       )}
 
-      {/* BẢNG ĐĂNG KÝ CA — BẬT LẠI, NHƯNG CHỈ CHO QUẢN LÝ (Quang 09/08/2026).
+      {/* BẢNG ĐĂNG KÝ CA — BẬT LẠI, NHƯNG CHỈ CHO NGƯỜI XẾP LỊCH (Quang 09/08/2026;
+          01/10/2026 Tuyền: trưởng ca xếp — quyền `roster.manage`).
 
           Nó bị ẩn ngày 07/08 vì lúc ấy nhân viên không còn tự xin ca. Nay quản
           lý cần lại đúng cái ô có dấu "+" để xếp người ngay trong bảng, thay vì
           phải sang màn Sửa lịch riêng.
 
-          CHỈ QUẢN LÝ, và đó không phải lựa chọn thẩm mỹ: đường ghi ở API đã
-          siết về Quản lý (ROSTER_ROLES trong config_service.py). Bày ô "+" cho
-          vai khác là bày một nút bấm vào sẽ ăn 403 — tệ hơn không có nút. */}
+          CHỈ NGƯỜI XẾP LỊCH, và đó không phải lựa chọn thẩm mỹ: đường ghi ở API
+          gác bằng quyền (`RosterService._xep_lich`). Bày ô "+" cho người khác là
+          bày một nút bấm vào sẽ ăn 403 — tệ hơn không có nút. */}
       {isAdmin && (
         <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
           <div>

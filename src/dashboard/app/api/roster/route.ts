@@ -5,7 +5,7 @@
 //   POST   { week_start, work_date, … }  → thêm 1 ô
 //   POST   { apply_week: "YYYY-MM-DD" }  → chốt cả tuần
 //   DELETE { id }                        → xoá 1 ô
-// Người xếp lịch (quyền config.clinic.manage): xếp cho BẤT KỲ ai. Người khác:
+// Người xếp lịch (trưởng ca `roster.manage` / lego 18 `config.clinic.manage`): xếp cho BẤT KỲ ai. Người khác:
 // chỉ TỰ đăng ký / xoá ca CỦA MÌNH — backend ép (RosterService), route chỉ
 // chuyển tiếp (kiểm toán 27/09/2026: bỏ cửa vai ở đây).
 
@@ -25,7 +25,7 @@ type Auth = { ok: true } | { ok: false; res: NextResponse };
 
 // CHỈ KIỂM "ĐÃ ĐĂNG NHẬP" (kiểm toán 27/09/2026). Ai được xếp lịch cho người
 // khác, chốt tuần, duyệt ca là việc của BACKEND: `/roster/*` gác bằng quyền
-// `config.clinic.manage` (lego 18) và `RosterService._xep_lich` quyết ai được
+// `roster.manage` (trưởng ca, 01/10/2026) hoặc `config.clinic.manage` (lego 18) và `RosterService._xep_lich` quyết ai được
 // ghi tên người khác. Trước đây route này tự gác bằng VAI Quản lý — cấp lego Cài
 // đặt cho người khác vai thì backend cho mà route chặn.
 async function authorize(): Promise<Auth> {
@@ -158,7 +158,7 @@ export async function POST(request: Request) {
   }
 
   // Chốt cả tuần — việc khác hẳn với thêm một ô, nên tách nhánh ngay đầu.
-  // Chỉ người có lego Cài đặt chốt được: backend quyết (config.clinic.manage).
+  // Chỉ người xếp lịch chốt được: backend quyết (roster.manage / config.clinic.manage).
   const apply_week = (body.apply_week ?? "").trim();
   if (apply_week) {
     return proxyJsonToBackend("POST", "/api/v1/roster/weeks/apply", {
@@ -207,7 +207,7 @@ export async function POST(request: Request) {
 //  - approve → status = APPROVED (hiện lên lịch chung).
 //  - reject  → status = REJECTED (ẩn khỏi lịch chung, lưu lại để đối chiếu).
 export async function PATCH(request: Request) {
-  // Duyệt ca: backend gác bằng quyền `config.clinic.manage` (lego 18).
+  // Duyệt ca: backend gác bằng quyền `roster.manage` / `config.clinic.manage`.
   const auth = await authorize();
   if (!auth.ok) return auth.res;
 

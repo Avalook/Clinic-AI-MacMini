@@ -529,6 +529,16 @@ QUYEN: dict[str, Quyen] = {
             "roster",
             MucRuiRo.VAN_HANH,
         ),
+        # 01/10/2026 (Tuyền): trưởng ca XẾP lịch làm việc (xếp ca, áp dụng tuần)
+        # — trước chỉ người có lego "Cài đặt phòng khám". Phạm vi vị trí vẫn ở
+        # lego Cài đặt.
+        Quyen(
+            "roster.manage",
+            "Xếp lịch làm việc (xếp ca, áp dụng tuần)",
+            "truong_ca",
+            "roster",
+            MucRuiRo.VAN_HANH,
+        ),
         Quyen(
             "patient.create",
             "Thêm bệnh nhân mới",

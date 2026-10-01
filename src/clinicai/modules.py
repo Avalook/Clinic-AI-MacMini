@@ -641,8 +641,9 @@ MODULE: dict[str, Module] = {
         Module(
             ma="lich_truc",
             ten="Lịch làm việc",
-            # + đổi người trong ca (29/09/2026, khối trưởng ca).
-            quyen=["roster.view", "roster.shift.swap"],
+            # + đổi người trong ca (29/09/2026) và xếp lịch (01/10/2026), khối
+            # trưởng ca.
+            quyen=["roster.view", "roster.shift.swap", "roster.manage"],
         ),
     )
 }
