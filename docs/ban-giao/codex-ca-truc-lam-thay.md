@@ -1,0 +1,13 @@
+# Bàn giao C5-A — ca trực lâm sàng
+- Nhánh: `codex/ca-truc-lam-thay`, nền `origin/claude/ca-truc-va-no`; chỉ làm phần A.
+- Đã thêm cửa ca trực cho mở phiên, chỉ định, kê đơn, khám xong, nhập/hoàn tất/duyệt kết quả.
+- Luật: BS có ca; TKYK/ĐD cùng ca + phòng + làn; lượt cũ trước mốc bật không bị kẹt.
+- Domain event ghi `actor_staff_id` và `on_behalf_of`; câu chặn tiếng Việt rõ.
+- Quản lý có màn mở/huỷ ngoại lệ tại `/schedule`, bắt buộc lý do và giữ lịch sử.
+- Migration: `20261002600000_ca_truc_lam_sang.sql` (công tắc mặc định bật + bảng ngoại lệ).
+- 4 test DB nghiệm thu xanh; cụm hồi quy liên quan 81/81 xanh; bấm thật 1280/375 xanh.
+- `ci-may` vòng đầu: format 6 tệp + mốc tenant 126→127; đã sửa.
+- Vòng sau: audit label/module, mock kê đơn, route scanner, RLS 96→97; đã sửa, 29 test mục tiêu xanh.
+- CI toàn bộ cuối đang chạy thì bị dừng theo yêu cầu; cần chạy lại `./scripts/ci-may.sh --bao-github`.
+- Cổng dành cho nhánh: API 8211 / web 3211; hiện đã tắt.
+- Không đụng `checkout_service`, bảng nợ hay hộp check-out; chưa mở PR/merge/deploy.
