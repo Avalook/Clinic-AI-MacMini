@@ -289,7 +289,8 @@ class LamThemTaiQuayService(LamThemCauHinhMixin):
             nut = await self._nut_dang_hien(conn, cid, n)
             luot: dict[str, dict[str, Any]] = {}
             if nut and ids:
-                # Lượt còn mở (chưa check-out) mới bấm được.
+                # Lượt còn mở (chưa check-out) mới bấm được. `INCOMPLETE` là
+                # khách đã về khi khám dở, cố ý không hiện nút làm thêm.
                 mo = {
                     r["visit_id"]
                     for r in await conn.fetch(
