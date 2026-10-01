@@ -209,10 +209,16 @@ Danh mục chọn được (thiếu dịch vụ nào thì xem đây): `S/phieu_k
 quyền thu). Test: `T/test_payment_service.py`, `T/services/test_cashier_board.py`,
 FT `quay-thu-ngan-boundary.test.mts`.
 
-**Quầy thuốc thu nợ dịch vụ (và ngược lại)** — máy chủ đã trả `no_khac` cho mọi
-quầy: `S/cashier_board_service.py` `_lam_truoc_va_no_khac`; màn hiện ở
-`D/thu-ngan/QuayThuNgan.tsx` (`no_khac`). Quyền thu từng loại: `QUYEN_THU` trong
-`S/payment_service.py` + lego Thanh toán dịch vụ / Thu tiền thuốc (`/phan-quyen`).
+**Thuốc và dịch vụ thu RIÊNG HẲN (01/10 — quầy thuốc không thu hộ tiền dịch vụ, và ngược lại)** —
+luật máy chủ `S/payment_service.py` `kiem_quay` (409 `QUAY_KHAC_LOAI`; mọi lệnh thu / xác minh /
+huỷ chờ / hoàn tác nhận `quay`); bảng thu lọc theo quầy ở `S/cashier_board_service.py`
+(`board`, `giao_dich(kind=)`, `_lam_truoc_dich_vu`); sổ lịch sử `S/quay_thu_service.py`; báo
+cáo cuối ngày lọc `loai` ở `S/bao_cao_cuoi_ngay_service.py`; Postgres ép dòng hoá đơn khớp loại
+lần thu (mig 20261002800000). Màn: `D/thu-ngan/QuayThuNgan.tsx` (`quayThu`), `GiaoDich.tsx` (prop
+`quay`). Quyền thu từng loại: `QUYEN_THU` trong `S/payment_service.py` + lego Thanh toán dịch vụ
+/ Thu tiền thuốc (`/phan-quyen`). Test: `T/services/test_tach_thu_thuoc_dich_vu_db.py`, FT
+`quay-thu-tach-thuoc-dich-vu-boundary.test.mts`. (Dịch vụ "XN thu hộ" của đối tác vẫn là tiền DỊCH VỤ,
+thu ở quầy dịch vụ.)
 Lượt Bán lẻ ở quầy thuốc: `D/pharmacy/BanLeThu.tsx` → `S/ban_le_service.py`.
 
 **Thu trước – làm trước (tick "Làm trước – thu sau")** — công tắc: `/settings/day-noi`

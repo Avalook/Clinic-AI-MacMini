@@ -16,6 +16,9 @@ export async function GET(request: Request) {
     const v = url.searchParams.get(k) ?? "";
     if (NGAY_RE.test(v)) q.set(k, v);
   }
+  // Xem riêng tiền dịch vụ / tiền thuốc (01/10/2026); rác thì bỏ → cả hai.
+  const loai = url.searchParams.get("loai");
+  if (loai === "dich_vu" || loai === "thuoc") q.set("loai", loai);
   if (url.searchParams.get("xuat") !== "csv") {
     return proxyJsonToBackend("GET", `/api/v1/reports/cuoi-ngay?${q.toString()}`, undefined);
   }

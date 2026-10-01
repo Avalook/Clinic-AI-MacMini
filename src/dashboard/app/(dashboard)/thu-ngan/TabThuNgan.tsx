@@ -42,7 +42,7 @@ export default function TabThuNgan({ quay }: { quay: "dich_vu" | "thuoc" }) {
         // Quầy dịch vụ (27/09, đợt 3): lịch sử gom theo khách + CSV + phiếu thu.
         <LichSuThu />
       ) : (
-        <GiaoDich key={tab} lichSu={tab === "lich_su"} />
+        <GiaoDich key={tab} lichSu={tab === "lich_su"} quay={quay} />
       )}
     </div>
   );

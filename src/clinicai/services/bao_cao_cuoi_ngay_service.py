@@ -588,10 +588,23 @@ class BaoCaoCuoiNgayService:
         self._pool = pool
 
     async def bao_cao(
-        self, *, identity: StaffIdentity, tu: Any = None, den: Any = None
+        self,
+        *,
+        identity: StaffIdentity,
+        tu: Any = None,
+        den: Any = None,
+        loai: Any = None,
     ) -> dict[str, Any]:
-        """Báo cáo cuối ngày trong khoảng (giờ VN). Ngày rác → hôm nay."""
+        """Báo cáo cuối ngày trong khoảng (giờ VN). Ngày rác → hôm nay.
+
+        ``loai`` (01/10/2026 — thuốc và dịch vụ thu RIÊNG HẲN, mỗi quầy một ngăn
+        kéo): ``dich_vu`` | ``thuoc`` chỉ cộng lần thu / hoàn / đổi hình thức của
+        loại ấy (theo hình thức, người thu, ngày đều theo loại); rỗng hoặc rác =
+        cả hai (``theo_loai`` vẫn tách sẵn hai dòng). Khoản đối tác tự thu là
+        tiền dịch vụ nên không hiện ở báo cáo thuốc.
+        """
         a, b = doc_khoang(tu, den)
+        loai_loc = loai if loai in TEN_LOAI else None
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
             lan_thu = await conn.fetch(_LAN_THU_SQL, cid, a, b)
@@ -614,16 +627,27 @@ class BaoCaoCuoiNgayService:
             from clinicai.services.cong_no_service import doc_khach_con_no
 
             con_no = await doc_khach_con_no(conn, cid)
-        bao_cao = gom_bao_cao(
+        lan_thu_ds = [dict(r) for r in lan_thu]
+        hoan_ds = [dict(r) for r in hoan]
+        doi_ht_ds = [dict(r) for r in doi_ht]
+        doi_tac_ds = [dict(r) for r in doi_tac]
+        if loai_loc is not None:
+            lan_thu_ds = [r for r in lan_thu_ds if r.get("kind") == loai_loc]
+            hoan_ds = [r for r in hoan_ds if r.get("kind") == loai_loc]
+            doi_ht_ds = [r for r in doi_ht_ds if r.get("kind") == loai_loc]
+            if loai_loc == "thuoc":
+                doi_tac_ds = []
+        bc = gom_bao_cao(
             tu=a,
             den=b,
-            lan_thu=[dict(r) for r in lan_thu],
-            hoan=[dict(r) for r in hoan],
+            lan_thu=lan_thu_ds,
+            hoan=hoan_ds,
             dong=[dict(r) for r in dong],
-            doi_tac=[dict(r) for r in doi_tac],
+            doi_tac=doi_tac_ds,
             so_luot_kham=int(so_luot or 0),
-            doi_hinh_thuc=[dict(r) for r in doi_ht],
+            doi_hinh_thuc=doi_ht_ds,
             so_luot_khong_chon_dich_vu_kham=int(so_luot_khong_chon or 0),
         )
-        bao_cao["khach_con_no"] = con_no
-        return bao_cao
+        bc["khach_con_no"] = con_no
+        bc["loai"] = loai_loc
+        return bc

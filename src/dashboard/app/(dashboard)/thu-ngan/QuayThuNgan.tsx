@@ -32,7 +32,6 @@ import ChonDichVuKham from "../_lam-viec/ChonDichVuKham";
 import PhuThuKem from "./PhuThuKem";
 import { useNgheBang } from "../dung-nghe-bang";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
-import Button from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
 import { nhanPhan, tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
@@ -99,8 +98,6 @@ interface Luot {
   cho_tu?: string | null;
   /** Tick "Làm trước – thu sau" + dịch vụ đã làm / còn nợ (30/09/2026 tối). */
   lam_truoc?: LamTruocLuot | null;
-  /** Hoá đơn còn nợ của KHOẢN KIA (quầy thuốc: dịch vụ; quầy dịch vụ: thuốc). */
-  no_khac?: { dich_vu?: HoaDon; thuoc?: HoaDon };
   /** TIỀN THỪA (hoàn tác 01/10/2026): đã thu cho chỉ định nay đã bỏ / không
    *  làm — máy chủ tính (đã trừ khoản hoàn). */
   tien_thua?: TienThua | null;
@@ -182,6 +179,9 @@ const TONE_DV: Record<DichVuLamTruoc["trang_thai"], ChipTone> = {
 };
 
 export default function QuayThuNgan({ quay }: { quay: Quay }) {
+  // THUỐC VÀ DỊCH VỤ THU RIÊNG HẲN (Tuyền 01/10/2026): mọi lệnh gửi kèm quầy
+  // đang đứng — máy chủ từ chối (409 QUAY_KHAC_LOAI) nếu loại tiền không thuộc quầy.
+  const quayThu = quay === "ca_hai" ? undefined : quay;
   const [ds, setDs] = useState<Luot[] | null>(null);
   const [daThu, setDaThu] = useState<DaThu[]>([]);
   const [cho, setCho] = useState<ChoXacMinh[]>([]);
@@ -336,6 +336,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           visitId: l.visit_id,
           clinicPatientId: l.clinic_patient_id,
           kind,
+          quay: quayThu,
           billRevision: hd.revision,
           amount: hd.tong,
           method: pt,
@@ -347,7 +348,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
       );
       if (ok) setVuaThu({ visitId: l.visit_id, ten: l.full_name, cau });
     },
-    [gui],
+    [gui, quayThu],
   );
 
   /** Thu một lệnh: máy chủ chốt lựa chọn dịch vụ + ghi sổ (quầy một hoá đơn). */
@@ -363,6 +364,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           visitId: l.visit_id,
           clinicPatientId: l.clinic_patient_id,
           kind: "dich_vu",
+          quay: quayThu,
           billRevision: p.billRevision,
           amount: p.amount,
           method: p.method,
@@ -375,7 +377,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
       );
       if (ok) setVuaThu({ visitId: l.visit_id, ten: l.full_name, cau });
     },
-    [gui],
+    [gui, quayThu],
   );
 
   /** V10 LÀM TRƯỚC, THU SAU (Tuyền 30/09/2026): chốt dịch vụ khách làm, KHÔNG
@@ -432,13 +434,14 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             ?.payment_cycle_id,
           visitId: l.visit_id,
           kind,
+          quay: quayThu,
           reference: ma,
         },
         cau,
       );
       if (ok) setVuaThu({ visitId: l.visit_id, ten: l.full_name, cau });
     },
-    [gui, cho],
+    [gui, cho, quayThu],
   );
 
   if (loi && ds === null) {
@@ -466,8 +469,14 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
       (quay !== "dich_vu" && l.drugs.length > 0 && !daThuCua(l.visit_id, "thuoc")),
   );
 
+  // "Lượt đã thu xong" chỉ đếm lượt CÓ khoản của quầy này (thuốc và dịch vụ
+  // thu riêng hẳn — lượt chỉ có tiền dịch vụ không phải "đã thu xong" ở quầy thuốc).
+  const lienQuan = (l: Luot) =>
+    (quay !== "thuoc" && (l.services.length > 0 || choQuyet(l))) ||
+    (quay !== "dich_vu" && l.drugs.length > 0);
+  const daXong = ds.filter((l) => lienQuan(l) && !conCho.includes(l)).length;
+
   const dangXem = conCho.find((l) => l.visit_id === chonVisit) ?? conCho[0] ?? null;
-  const luotVuaThu = vuaThu ? ds.find((l) => l.visit_id === vuaThu.visitId) : undefined;
 
   const daThuChoPhong =
     quay === "thuoc"
@@ -478,9 +487,9 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
     <section className="space-y-3">
       <p className="text-body font-semibold text-ink">
         {conCho.length} khách đang chờ thu
-        {ds.length !== conCho.length ? (
+        {daXong > 0 ? (
           <span className="ml-2 font-normal text-meta text-ink-muted">
-            ({ds.length - conCho.length} lượt đã thu xong)
+            ({daXong} lượt đã thu xong)
           </span>
         ) : null}
       </p>
@@ -508,6 +517,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             <NutHoanTac
               key={lanVuaGhi.cycleId}
               cycleId={lanVuaGhi.cycleId}
+              quay={quayThu}
               soTien={lanVuaGhi.soTien || null}
               onXong={(c) => {
                 setXong(c);
@@ -523,23 +533,16 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
               In phiếu hướng dẫn phòng (chưa thu tiền)
             </NutInPhieu>
           ) : null}
-          {/* MỌI QUẦY THU HẾT ĐƯỢC (30/09/2026 tối): còn nợ khoản kia thì mời
-              thu luôn tại đây; hết nợ mới mời Check-out. */}
+          {/* SAU "ĐÃ NHẬN ĐỦ": mời check-out. Thuốc và dịch vụ thu RIÊNG HẲN
+              (01/10/2026) — quầy này không thu hộ, không hiện nợ của quầy kia;
+              nút Check-out tự nhắc nếu khách còn khoản chưa thu. */}
           {vuaThu && vuaThu.cau === xong ? (
-            luotVuaThu && coNoKhac(luotVuaThu) ? (
-              <NoKhac
-                l={luotVuaThu}
-                dangThu={dangThu}
-                onThu={(k, hd, c) => void thu(luotVuaThu, k, hd, c)}
-              />
-            ) : (
-              <NutCheckOut
-                key={vuaThu.visitId}
-                visitId={vuaThu.visitId}
-                ten={vuaThu.ten}
-                onXong={() => void tai()}
-              />
-            )
+            <NutCheckOut
+              key={vuaThu.visitId}
+              visitId={vuaThu.visitId}
+              ten={vuaThu.ten}
+              onXong={() => void tai()}
+            />
           ) : null}
         </div>
       ) : null}
@@ -560,7 +563,10 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
           >
             {conCho.map((l, i) => {
               const on = l.visit_id === dangXem?.visit_id;
-              const soTien = l.quay_thu?.tong ?? l.hoa_don?.dich_vu?.tong ?? l.hoa_don?.thuoc?.tong ?? null;
+              const soTien =
+                quay === "thuoc"
+                  ? (l.hoa_don?.thuoc?.tong ?? null)
+                  : (l.quay_thu?.tong ?? l.hoa_don?.dich_vu?.tong ?? null);
               const xongHet = l.lam_truoc?.nhom === "LAM_XONG_THU_TIEN";
               // Máy chủ đưa lượt "đã làm xong — thu tiền" lên đầu; màn chỉ kẻ
               // tiêu đề nhóm ở dòng đầu mỗi nhóm.
@@ -678,6 +684,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
 
             {quay !== "thuoc" && l.services.length > 0 ? (
               <NhomThu
+                quay="dich_vu"
                 tieu_de="Tiền dịch vụ"
                 hd={l.hoa_don?.dich_vu}
                 daThu={daThuCua(l.visit_id, "dich_vu")}
@@ -694,15 +701,9 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             </>
             )}
 
-            {l.lam_truoc?.dich_vu?.length ? <DichVuLamTruocKhoi ds={l.lam_truoc.dich_vu} /> : null}
+            {quay !== "thuoc" && l.lam_truoc?.dich_vu?.length ? <DichVuLamTruocKhoi ds={l.lam_truoc.dich_vu} /> : null}
 
             {l.tien_thua && l.tien_thua.tong > 0 ? <TienThuaKhoi tt={l.tien_thua} /> : null}
-
-            {coNoKhac(l) ? (
-              <div className="border-b border-line px-4 py-3">
-                <NoKhac l={l} dangThu={dangThu} onThu={(k, hd, c) => void thu(l, k, hd, c)} />
-              </div>
-            ) : null}
 
             {quay !== "thuoc" ? (
               <XepPhongDaThu
@@ -731,6 +732,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
 
             {quay !== "dich_vu" && l.drugs.length > 0 ? (
               <NhomThu
+                quay="thuoc"
                 tieu_de="Thuốc đã kê"
                 hd={l.hoa_don?.thuoc}
                 daThu={daThuCua(l.visit_id, "thuoc")}
@@ -814,10 +816,6 @@ function TienThuaKhoi({ tt }: { tt: TienThua }) {
   );
 }
 
-function coNoKhac(l: Luot): boolean {
-  return Boolean(l.no_khac?.dich_vu || l.no_khac?.thuoc);
-}
-
 /** Lượt "Làm trước – thu sau": từng dịch vụ Đã làm xong / Đang làm / Chưa làm
  *  + số tiền còn nợ — máy chủ tính, màn chỉ vẽ. */
 function DichVuLamTruocKhoi({ ds }: { ds: DichVuLamTruoc[] }) {
@@ -841,73 +839,9 @@ function DichVuLamTruocKhoi({ ds }: { ds: DichVuLamTruoc[] }) {
   );
 }
 
-/** MỌI QUẦY THU HẾT ĐƯỢC (30/09/2026 tối): "Còn nợ dịch vụ / thuốc X đ" +
- *  [Thu luôn] — gọi ĐÚNG lệnh thu của khoản ấy, cùng hoá đơn máy chủ. */
-function NoKhac({
-  l,
-  dangThu,
-  onThu,
-}: {
-  l: Luot;
-  dangThu: string | null;
-  onThu: (kind: "dich_vu" | "thuoc", hd: HoaDon, chia: KetQuaChia) => void;
-}) {
-  const dong = (["dich_vu", "thuoc"] as const).flatMap((k) => {
-    const hd = l.no_khac?.[k];
-    return hd ? [{ k, hd }] : [];
-  });
-  return (
-    <ul className="space-y-3">
-      {dong.map(({ k, hd }) => (
-        <DongNoKhac
-          key={`${k}:${hd.revision}`}
-          k={k}
-          hd={hd}
-          dang={dangThu === `${l.visit_id}:${k}`}
-          onThu={(c) => onThu(k, hd, c)}
-        />
-      ))}
-    </ul>
-  );
-}
-
-function DongNoKhac({
-  k,
-  hd,
-  dang,
-  onThu,
-}: {
-  k: "dich_vu" | "thuoc";
-  hd: HoaDon;
-  dang: boolean;
-  onThu: (chia: KetQuaChia) => void;
-}) {
-  const [chia, setChia] = useState<KetQuaChia | null>(null);
-  return (
-    <li className="space-y-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-body font-semibold text-warning">
-          Còn nợ {k === "dich_vu" ? "dịch vụ" : "thuốc"} {tien(hd.tong)}
-        </span>
-        <Button
-          variant="soft"
-          size="lg"
-          disabled={dang || !hd.thu_duoc || !chia?.hopLe}
-          onClick={() => chia && onThu(chia)}
-        >
-          {dang ? "Đang ghi…" : "Thu luôn"}
-        </Button>
-      </div>
-      {hd.thu_duoc ? <ChiaHinhThuc tong={hd.tong} onDoi={setChia} /> : null}
-      {!hd.thu_duoc && hd.van_de.length > 0 ? (
-        <p className="text-meta text-warning">{hd.van_de.join(" · ")}</p>
-      ) : null}
-    </li>
-  );
-}
-
 // Khối thu MỘT khoản — dùng lại ở Nhà thuốc cho lượt Bán lẻ (V8, `pharmacy/BanLeThu`).
 export function NhomThu({
+  quay,
   tieu_de,
   hd,
   daThu,
@@ -917,6 +851,8 @@ export function NhomThu({
   onXacMinh,
   onDoi,
 }: {
+  /** Loại tiền của khối — gửi kèm lệnh hoàn tác để máy chủ gác quầy (01/10/2026). */
+  quay?: "dich_vu" | "thuoc";
   tieu_de: string;
   hd: HoaDon | undefined;
   daThu: boolean;
@@ -962,7 +898,7 @@ export function NhomThu({
         {/* Khách không chuyển / chuyển sai / ghi nhầm hình thức → HOÀN TÁC (lý do
             không bắt buộc), rồi thu lại. Thay "Huỷ lần chờ" bắt gõ lý do. */}
         <div className="mt-2">
-          <NutHoanTac cycleId={cho.payment_cycle_id} soTien={cho.so_tien} onXong={onDoi} />
+          <NutHoanTac cycleId={cho.payment_cycle_id} soTien={cho.so_tien} quay={quay} onXong={onDoi} />
         </div>
       </div>
     );

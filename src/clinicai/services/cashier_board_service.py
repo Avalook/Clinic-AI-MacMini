@@ -264,7 +264,7 @@ def hoan_tac_cua(
 
 class CashierBoardService:
     async def giao_dich(
-        self, *, identity: StaffIdentity, tu: Any, den: Any
+        self, *, identity: StaffIdentity, tu: Any, den: Any, kind: Any = None
     ) -> dict[str, Any]:
         """Giao dịch đã ghi trong khoảng ngày — CHỈ ĐỌC, kể cả dòng đã huỷ.
 
@@ -272,6 +272,10 @@ class CashierBoardService:
         ghi đè lịch sử: dòng huỷ vẫn hiện, kèm ai huỷ, lúc nào, vì sao. Phương
         thức thanh toán CHƯA có cột trong `payment` — trả null, không đoán.
         """
+        # ``kind`` (01/10/2026): thuốc và dịch vụ thu RIÊNG HẲN — mỗi quầy chỉ xem
+        # sổ của loại tiền mình; bỏ trống (hoặc rác) = cả hai, cho script / tích
+        # hợp cũ. Tab của hai quầy luôn gửi ``kind``.
+        loai = [kind] if kind in ("dich_vu", "thuoc") else ["dich_vu", "thuoc"]
         a, b = doc_khoang_ngay(tu, den)
         # SỔ CÁC LẦN THU (contract tiền–thuốc CP2): một dòng mỗi lần thu, kể cả
         # lần đã huỷ và lần chuyển khoản chờ xác minh/đã huỷ chờ. Bản trước đọc
@@ -306,7 +310,7 @@ class CashierBoardService:
               LEFT JOIN staff cb ON cb.id = pc.created_by
               LEFT JOIN staff xn ON xn.id = pc.confirmed_by
               LEFT JOIN staff dg ON dg.id = pc.closed_by
-             WHERE pc.clinic_id = $1::uuid
+             WHERE pc.clinic_id = $1::uuid AND pc.kind = ANY($4::text[])
                AND (coalesce(pc.paid_at, pc.created_at) AT TIME ZONE
                     'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
              ORDER BY coalesce(pc.paid_at, pc.created_at) DESC
@@ -315,6 +319,7 @@ class CashierBoardService:
             identity.clinic_id,
             a,
             b,
+            loai,
         )
         # CP5: khoản hoàn của từng lần thu đã từng thu (kể cả đã huỷ phiếu) +
         # dòng còn hoàn được. Nút hoàn chỉ cho vai hoàn tiền TẠM THỜI (HOLD J4).
@@ -382,6 +387,13 @@ class CashierBoardService:
         raw = json.loads(row) if isinstance(row, str) else row
 
         out = build_rows(raw, want_svc=want_svc, want_rx=want_rx)
+        # THUỐC VÀ DỊCH VỤ THU RIÊNG HẲN (Tuyền 01/10/2026): quầy nào chỉ thấy
+        # sổ của loại tiền ấy — "đã thu" và "chờ xác minh" của loại kia không
+        # trả về; quầy thuốc chỉ liệt kê lượt có đơn thuốc.
+        loai = [k for k, co in (("dich_vu", want_svc), ("thuoc", want_rx)) if co]
+        out["paid"] = [p for p in out["paid"] if p["kind"] in loai]
+        if not want_svc:
+            out["items"] = [i for i in out["items"] if i["drugs"]]
         # HOÁ ĐƠN MÁY CHỦ (contract tiền–thuốc C3, 19/09/2026): tổng tiền và
         # dấu hoá đơn mà thu ngân thấy phải là đúng thứ `PaymentService` sẽ tính
         # lại lúc thu — màn không tự cộng nữa (trước: thuốc cộng đơn giá, quên
@@ -403,10 +415,11 @@ class CashierBoardService:
                        AS phan
               FROM payment_cycle
              WHERE clinic_id = $1::uuid AND status = 'PENDING_VERIFICATION'
-               AND visit_id = ANY($2::uuid[])
+               AND visit_id = ANY($2::uuid[]) AND kind = ANY($3::text[])
             """,
             identity.clinic_id,
             [i["visit_id"] for i in out["items"]],
+            loai,
         )
         async with self._pool.acquire() as conn:
             anh_cho = await anh_cua_cac_lan_thu(
@@ -427,7 +440,6 @@ class CashierBoardService:
             for r in cho_rows
         ]
         cho = {(r["visit_id"], r["kind"]) for r in cho_rows}
-        loai = [k for k, co in (("dich_vu", want_svc), ("thuoc", want_rx)) if co]
         # Tiền dịch vụ thu được NHIỀU lần (Slice 3): bác sĩ chỉ định thêm sau
         # lần thu đầu thì còn khoản mới. "Đã thu" của ô dịch vụ = hoá đơn CÒN
         # NỢ rỗng, không phải "từng có một phiếu thu" — tính lại ở dưới.
@@ -493,14 +505,11 @@ class CashierBoardService:
                             tinh_dv,
                             chon.get(item["visit_id"]),
                         )
-            await _lam_truoc_va_no_khac(
+            await _lam_truoc_dich_vu(
                 conn,
                 identity,
                 out,
                 want_svc=want_svc,
-                want_rx=want_rx,
-                da_thu=da_thu,
-                cho=cho,
                 no_theo_chi_dinh=no_theo_chi_dinh,
             )
             # Tiền thừa (hoàn tác 01/10/2026): đã thu cho chỉ định nay đã bỏ /
@@ -536,28 +545,31 @@ def _no_theo_chi_dinh(hd: HoaDon) -> dict[str, int | None]:
     }
 
 
-async def _lam_truoc_va_no_khac(
+async def _lam_truoc_dich_vu(
     conn: asyncpg.Connection,
     identity: StaffIdentity,
     out: dict[str, Any],
     *,
     want_svc: bool,
-    want_rx: bool,
-    da_thu: set[tuple[str, str]],
-    cho: set[tuple[str, str]],
     no_theo_chi_dinh: dict[str, dict[str, int | None]],
 ) -> None:
-    """Hai phần của đợt "thu trước, trừ khi tick" (30/09/2026 tối):
+    """Phần "thu trước, trừ khi tick" (30/09/2026 tối) — CHỈ của quầy DỊCH VỤ:
 
-    * ``lam_truoc`` — tick "Làm trước – thu sau" của lượt + cờ bấm được; lượt đã
-      tick kèm từng dịch vụ (Đã làm xong / Đang làm / Chưa làm + còn nợ) và
-      ``nhom`` = ``LAM_XONG_THU_TIEN`` khi mọi dịch vụ đã xong mà còn nợ — lượt
-      ấy nổi lên ĐẦU danh sách ("Đã làm xong — thu tiền").
-    * ``no_khac`` — MỌI QUẦY THU HẾT ĐƯỢC: quầy thuốc thấy hoá đơn dịch vụ còn
-      nợ, quầy dịch vụ thấy hoá đơn thuốc còn nợ (cùng hoá đơn máy chủ, thu
-      bằng đúng lệnh thu của khoản ấy). Chờ xác minh thì không mời thu lại.
+    ``lam_truoc`` — tick "Làm trước – thu sau" của lượt + cờ bấm được; lượt đã
+    tick kèm từng dịch vụ (Đã làm xong / Đang làm / Chưa làm + còn nợ) và
+    ``nhom`` = ``LAM_XONG_THU_TIEN`` khi mọi dịch vụ đã xong mà còn nợ — lượt
+    ấy nổi lên ĐẦU danh sách ("Đã làm xong — thu tiền").
+
+    01/10/2026 (Tuyền: "không cho node thuốc thu hộ tiền dịch vụ", thuốc và
+    dịch vụ thu riêng hẳn): bản 30/09 cho MỌI QUẦY THU HẾT (``no_khac``: quầy
+    thuốc thấy nợ dịch vụ + [Thu luôn], quầy dịch vụ thấy nợ thuốc) — đã BỎ.
+    Quầy thuốc không còn thấy tiền dịch vụ (kể cả bảng "Làm trước – thu sau"),
+    quầy dịch vụ không còn thấy tiền thuốc.
     """
-    from clinicai.services.bill_service import tinh_hoa_don
+    if not want_svc:
+        for item in out["items"]:
+            item["lam_truoc"] = None
+        return
     from clinicai.services.lam_truoc_thu_sau import (
         dich_vu_lam_truoc,
         trang_thai_lam_truoc,
@@ -569,28 +581,9 @@ async def _lam_truoc_va_no_khac(
     dich_vu = await dich_vu_lam_truoc(
         conn, identity.clinic_id, da_tick, no_theo_chi_dinh
     )
-    khac = [k for k, co in (("dich_vu", not want_svc), ("thuoc", not want_rx)) if co]
     for item in out["items"]:
         vid = item["visit_id"]
-        no_khac: dict[str, Any] = {}
-        # Tiền còn nợ từng chỉ định: quầy dịch vụ đã dựng sẵn; quầy thuốc lấy từ
-        # hoá đơn dịch vụ dựng cho "Còn nợ dịch vụ" dưới đây (bấm thật 30/09:
-        # quầy thuốc hiện "—" ở mọi dịch vụ làm trước vì chưa có bảng này).
         no_dv = dict(no_theo_chi_dinh.get(vid) or {})
-        # Chỉ lượt đang có mặt ở quầy này (quầy thuốc: có đơn; quầy dịch vụ: có
-        # dịch vụ) — không dựng hoá đơn cho mọi lượt trong ngày.
-        co_mat = bool(item.get("drugs") if want_rx else item.get("services"))
-        for k in khac if co_mat else []:
-            if (vid, k) in cho or (k == "thuoc" and (vid, k) in da_thu):
-                continue
-            hd = await tinh_hoa_don(
-                conn, clinic_id=identity.clinic_id, visit_id=vid, kind=k
-            )
-            if hd.dong_thu and hd.tong > 0:
-                no_khac[k] = hd.cho_api()
-            if k == "dich_vu":
-                no_dv = _no_theo_chi_dinh(hd)
-        item["no_khac"] = no_khac
         lt = dict(lam_truoc.get(vid) or {})
         dv = dich_vu.get(vid)
         con_no = sum(x for x in no_dv.values() if x)

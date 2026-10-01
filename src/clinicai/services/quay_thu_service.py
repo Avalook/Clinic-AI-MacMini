@@ -982,7 +982,7 @@ class QuayThuService:
                 nguoi_thu=nt if nt in ds_nguoi else None,
             )
             if chi_tiet and loc:
-                await self._chi_tiet(conn, identity, loc)
+                await self._chi_tiet(conn, identity, loc, loai)
             # [Đổi hình thức] từng phiếu (V7): cờ + lịch sử đổi do máy chủ quyết.
             gan_vao_lich_su(
                 loc,
@@ -1039,6 +1039,7 @@ class QuayThuService:
         conn: asyncpg.Connection,
         identity: StaffIdentity,
         khach: list[dict[str, Any]],
+        kind: str = "dich_vu",
     ) -> None:
         from clinicai.services.bill_service import doi_tac_da_thu
         from clinicai.services.hoan_tien_service import hoan_cua_cac_lan_thu
@@ -1049,7 +1050,9 @@ class QuayThuService:
 
         cid = identity.clinic_id
         vids = [g["visit_id"] for g in khach]
-        dt_rows = await conn.fetch(_DOI_TAC_SQL, cid, vids)
+        # Đối tác + phòng làm là chuyện DỊCH VỤ: sổ thuốc không kèm (01/10/2026).
+        la_dv = kind == "dich_vu"
+        dt_rows = await conn.fetch(_DOI_TAC_SQL, cid, vids) if la_dv else []
         da_thu = await doi_tac_da_thu(conn, cid, [r["id"] for r in dt_rows])
         dt: dict[str, list[dict[str, Any]]] = {}
         for r in dt_rows:
@@ -1064,7 +1067,7 @@ class QuayThuService:
         hoan = await hoan_cua_cac_lan_thu(
             conn, identity, [p["id"] for g in khach for p in g["phieu"]]
         )
-        phong = await da_tra_cho_vao_phong(conn, cid, vids)
+        phong = await da_tra_cho_vao_phong(conn, cid, vids) if la_dv else {}
         pq = PhongQuay(conn, cid)
         for g in khach:
             g["doi_tac"] = dt.get(g["visit_id"], [])
@@ -1252,10 +1255,16 @@ class QuayThuService:
                     }
                     for r in await conn.fetch(_DONG_SQL, cid, [id_])
                 ]
-                doi_tac = [
-                    {"ten": r["ten"], "gia": _so(r["gia"])}
-                    for r in await conn.fetch(_DOI_TAC_SQL, cid, [goc["visit_id"]])
-                ]
+                # Dịch vụ khách trả đối tác là tiền DỊCH VỤ — phiếu thuốc không in
+                # (thuốc và dịch vụ thu riêng hẳn, Tuyền 01/10/2026).
+                doi_tac = (
+                    [
+                        {"ten": r["ten"], "gia": _so(r["gia"])}
+                        for r in await conn.fetch(_DOI_TAC_SQL, cid, [goc["visit_id"]])
+                    ]
+                    if goc["kind"] == "dich_vu"
+                    else []
+                )
         return {
             # Mã gốc — mở / in lại đúng phiếu này (in theo lượt, 28/09/2026).
             "id": goc["id"],

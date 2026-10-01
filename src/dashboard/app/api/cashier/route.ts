@@ -18,6 +18,9 @@ export async function GET(request: Request) {
       const v = url.searchParams.get(k) ?? "";
       if (NGAY_RE.test(v)) q.set(k, v);
     }
+    // Mỗi quầy chỉ xem sổ loại tiền của mình (01/10/2026).
+    const loai = url.searchParams.get("kind");
+    if (loai === "dich_vu" || loai === "thuoc") q.set("kind", loai);
     return proxyJsonToBackend("GET", `/api/v1/cashier/giao-dich?${q.toString()}`, undefined);
   }
   // Lịch sử gom theo khách + CSV + phiếu thu (quầy một hoá đơn, 27/09/2026).

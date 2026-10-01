@@ -96,6 +96,37 @@ def dung_kho_thuoc_khi_thanh_toan() -> bool:
 
 
 PAYMENT_KINDS: frozenset[str] = frozenset({"thuoc", "dich_vu"})
+
+
+class QuayKhongThuLoaiNayError(ConflictError):
+    """Quầy thu này không thu loại tiền ấy (HTTP 409)."""
+
+    error_code: str = "QUAY_KHAC_LOAI"
+
+
+_TEN_QUAY = {"thuoc": "Thu tiền thuốc", "dich_vu": "Thu tiền dịch vụ"}
+
+
+def kiem_quay(quay: object, kind: str) -> None:
+    """TIỀN THUỐC VÀ TIỀN DỊCH VỤ THU RIÊNG HẲN (Tuyền 01/10/2026).
+
+    ``quay`` = quầy màn đang đứng (``thuoc`` | ``dich_vu``). Quầy thuốc không thu
+    hộ tiền dịch vụ, quầy dịch vụ không thu hộ tiền thuốc — đi nhầm quầy thì
+    máy chủ từ chối, kèm câu chỉ đúng quầy. ``None`` = lệnh không đi qua quầy
+    (script, tích hợp): chỉ còn cửa quyền theo loại tiền. Thuần.
+    """
+    if quay is None:
+        return
+    if quay not in PAYMENT_KINDS:
+        raise ValidationError(f"Quầy thu không hợp lệ: {quay!r}")
+    if quay != kind:
+        raise QuayKhongThuLoaiNayError(
+            f"Quầy “{_TEN_QUAY[str(quay)]}” không thu tiền "
+            f"{'dịch vụ' if kind == 'dich_vu' else 'thuốc'} — "
+            f"khoản này thu ở quầy “{_TEN_QUAY[kind]}”."
+        )
+
+
 # Contract tiền–thuốc A2/C6: tiền mặt = nhân viên xác nhận đã nhận đủ; chuyển
 # khoản/QR chỉ PAID khi có người xác minh kèm mã giao dịch.
 PAYMENT_METHODS: frozenset[str] = frozenset({"CASH", "TRANSFER", "QR"})
@@ -252,8 +283,12 @@ class PaymentService:
         idempotency_key: str | None = None,
         chon: Mapping[str, Any] | None = None,
         phan: object = None,
+        quay: str | None = None,
     ) -> dict[str, Any]:
         """Một LẦN THU (payment_cycle) cho ``(visit_id, kind)``.
+
+        ``quay`` (01/10/2026): quầy màn đang đứng — khác ``kind`` thì 409
+        ``QUAY_KHAC_LOAI`` (``kiem_quay``); thuốc và dịch vụ thu riêng hẳn.
 
         ``phan`` (01/10/2026): chia lần thu theo hình thức — ``[{hinh_thuc,
         so_tien, khach_dua?}]`` (Tiền mặt + Chuyển khoản). Tổng phải đúng số máy
@@ -279,6 +314,7 @@ class PaymentService:
         NotFoundError (404) if the visit/appointment is missing, and
         ConflictError (409) if the doctor has not finished the exam yet.
         """
+        kiem_quay(quay, kind)
         if kind == "dich_vu":
             # Tiền DỊCH VỤ hỏi QUYỀN `payment.service.collect` trong chính giao
             # dịch thu (CORE-B3, 23/09/2026) — xem `_thu_dich_vu`. Tiền thuốc
@@ -881,6 +917,7 @@ class PaymentService:
         kind: str,
         reference: object,
         identity: StaffIdentity,
+        quay: str | None = None,
     ) -> dict[str, Any]:
         """Xác minh lần chuyển khoản/QR ĐÃ NHẬN TIỀN → PAID.
 
@@ -896,6 +933,7 @@ class PaymentService:
         Gửi lại cùng mã cho lần đã xác minh → thành công như cũ (idempotent).
         HOLD: ai được xác minh (hiện: cùng các vai được thu loại tiền này).
         """
+        kiem_quay(quay, kind)
         await self._assert_kind_allowed(kind, identity)
         ma = (reference.strip() if isinstance(reference, str) else "") or None
         if ma is not None and len(ma) > 100:
@@ -1086,10 +1124,12 @@ class PaymentService:
         kind: str,
         reason: object,
         identity: StaffIdentity,
+        quay: str | None = None,
     ) -> dict[str, Any]:
         """Huỷ ĐÚNG lần chuyển khoản/QR chờ xác minh (khách không chuyển / chuyển
         sai). Không phải huỷ phiếu thu — chưa từng thu. Gửi lại cho lần đã huỷ
         → thành công như cũ."""
+        kiem_quay(quay, kind)
         await self._assert_kind_allowed(kind, identity)
         ly_do = normalize_void_reason(reason)
         if ly_do is None:
@@ -1166,6 +1206,7 @@ class PaymentService:
         kind: str,
         reason: object,
         identity: StaffIdentity,
+        quay: str | None = None,
     ) -> dict[str, Any]:
         """Huỷ ĐÚNG phiếu thu (lần thu) được nhắm — contract D2, review CP2 #1.
 
@@ -1174,6 +1215,7 @@ class PaymentService:
         15/09: chính người đã thu phiếu đó, hoặc Quản lý). Lệnh cũ đến muộn nhắm A thì
         không bao giờ huỷ B; gửi lại cho A đã huỷ → thành công như cũ.
         """
+        kiem_quay(quay, kind)
         await self._assert_kind_allowed(kind, identity)
         normalized_reason = normalize_void_reason(reason)
         if normalized_reason is None:
@@ -1378,6 +1420,7 @@ class PaymentService:
         payment_cycle_id: str,
         ly_do: object,
         identity: StaffIdentity,
+        quay: str | None = None,
     ) -> dict[str, Any]:
         """HOÀN TÁC MỘT LẦN THU (Tuyền 01/10/2026) — MỘT nút cho mọi lần thu.
 
@@ -1406,6 +1449,8 @@ class PaymentService:
         )
         if lan is None:
             raise NotFoundError("Không tìm thấy lần thu này.")
+        # Hoàn tác ở quầy nào thì chỉ hoàn tác lần thu của quầy ấy.
+        kiem_quay(quay, lan["kind"])
         cau = ly_do_hoan_tac(ly_do)
         if lan["status"] == CHO_XAC_MINH:
             kq = await self.huy_cho_xac_minh(
