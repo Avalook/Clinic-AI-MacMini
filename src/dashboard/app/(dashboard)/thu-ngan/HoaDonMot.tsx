@@ -52,6 +52,8 @@ export interface DongQuay {
   trong_lua_chon: boolean;
   bat_buoc?: boolean;
   mang_sang?: boolean;
+  /** Làm thêm tại quầy (01/10/2026) — câu máy chủ viết; null = bác sĩ chỉ định. */
+  lam_them?: string | null;
   doi_tac_lam?: boolean;
   doi_tac_da_thu?: boolean | null;
   phong_chon_duoc?: PhongChon[];
@@ -371,6 +373,7 @@ function DanhSach({
                 {!co ? <span className="text-meta text-ink-muted">khách không làm</span> : null}
                 {d.bat_buoc ? <Chip tone="warning">Bắt buộc</Chip> : null}
                 {d.mang_sang ? <Chip tone="neutral">Mang sang</Chip> : null}
+                {d.lam_them ? <Chip tone="info">{d.lam_them}</Chip> : null}
                 {doiTac ? (
                   <Chip tone={d.doi_tac_da_thu ? "success" : "neutral"}>
                     {d.doi_tac_da_thu ? "đã thu hộ cho đối tác" : "chưa thu hộ cho đối tác"}

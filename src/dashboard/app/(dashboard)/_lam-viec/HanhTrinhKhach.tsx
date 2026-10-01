@@ -157,6 +157,7 @@ function TheDv({
       <p className="flex flex-wrap items-center gap-2 text-emph font-semibold text-ink">
         {t.noi}
         {(t.so_lan ?? 1) >= 2 ? <Chip tone="warning">{`Làm lại · lần ${t.so_lan}`}</Chip> : null}
+        {t.lam_them ? <Chip tone="info">{t.lam_them}</Chip> : null}
       </p>
       <p className="text-meta text-ink-soft">{t.ten}</p>
       <p className={`mt-2 flex items-center gap-1.5 text-body font-semibold tabular-nums ${CHU_THE[t.trang_thai]}`}>

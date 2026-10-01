@@ -30,6 +30,8 @@ export interface HanhTrinhGon extends DangO {
   do_lai?: string[];
   /** Dịch vụ LÀM LẠI: tên + số lần (29/09). */
   lam_lai?: { ten: string; lan: number }[];
+  /** Tên dịch vụ làm thêm tại quầy (01/10/2026). Máy chủ cũ chưa trả → không có. */
+  lam_them?: string[];
   xong_buoi: boolean;
   doan: TrangThaiBuoc[];
   dv_xong: number;
@@ -65,6 +67,9 @@ export interface TheDichVu {
   so_lan?: number;
   /** Mọi lần làm khi LÀM LẠI (lần 1 vẫn giữ); một lần → rỗng. */
   lan?: LanLam[];
+  /** Làm thêm tại quầy (01/10/2026): "Làm thêm tại quầy tiếp đón"; null = bác
+   *  sĩ chỉ định. Máy chủ cũ chưa trả → không có. */
+  lam_them?: string | null;
 }
 
 export interface BuocHanhTrinh {
@@ -195,6 +200,8 @@ export function dongPhuGon(g: HanhTrinhGon): string {
   if (lamLai.length > 0) {
     ra.push(`làm lại: ${lamLai.map((x) => `${x.ten} (lần ${x.lan})`).join(", ")}`);
   }
+  const lamThem = g.lam_them ?? [];
+  if (lamThem.length > 0) ra.push(`làm thêm tại quầy: ${lamThem.join(", ")}`);
   return ra.join(" · ");
 }
 

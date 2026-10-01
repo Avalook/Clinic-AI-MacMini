@@ -48,13 +48,23 @@ import {
   type TabTiepDon,
 } from "@/lib/tiep-don";
 
+import { NutLamThem, useLamThem, type GoiLamThem } from "../../_lam-viec/LamThemTaiQuay";
 import NutCheckOut from "../../_lam-viec/NutCheckOut";
 import NutXemLuot from "../../_lam-viec/NutXemLuot";
 
 /** Một dòng tiếp đón. Check-in đi ĐÚNG đường của bảng "Lịch hẹn hôm nay"
  *  (`PATCH /api/appointments` action=checkin) — hai đường check-in là hai luật
  *  cấp số lệch nhau. Ai được bấm do máy chủ quyết theo khối quyền. */
-function DongKhach({ d }: { d: DongTiepDon }) {
+function DongKhach({
+  d,
+  lamThem,
+  napLamThem,
+}: {
+  d: DongTiepDon;
+  /** Nút "+ dịch vụ" (làm thêm tại quầy, 01/10/2026) — một lần đọc cho cả bảng. */
+  lamThem: GoiLamThem | null;
+  napLamThem: () => void;
+}) {
   const router = useRouter();
   const [dang, startTransition] = useTransition();
   const [gui, setGui] = useState(false);
@@ -137,6 +147,16 @@ function DongKhach({ d }: { d: DongTiepDon }) {
           />
         ) : null}
       </div>
+      {/* "+ Nước tiểu"… ngay sau check-in: tick là chỉ định luôn, không cần
+          bác sĩ (Tuyền 01/10/2026). Danh sách nút do quản lý quản. */}
+      {d.visit_id ? (
+        <NutLamThem
+          goi={lamThem}
+          visitId={d.visit_id}
+          napLai={napLamThem}
+          className="col-span-full sm:col-start-2"
+        />
+      ) : null}
       {loi ? (
         <p className="col-span-full rounded-control bg-danger-bg px-2 py-1 text-meta text-danger">
           {loi}
@@ -180,6 +200,13 @@ export default function QueueBoard({
     () => locTiepDon(sapXepTiepDon(goi.buoi, huong), tab, tim),
     [goi.buoi, huong, tab, tim],
   );
+  // Mọi lượt đã check-in hôm nay — một lần đọc nút "+ dịch vụ" cho cả bảng.
+  const cacLuot = useMemo(
+    () =>
+      goi.buoi.flatMap((b) => b.dong.map((d) => d.visit_id)).filter((v): v is string => Boolean(v)),
+    [goi.buoi],
+  );
+  const { goi: lamThem, napLai: napLamThem } = useLamThem("tiep_don", cacLuot);
 
   return (
     <section aria-label="Danh sách tiếp đón" className="flex min-w-0 flex-col gap-3">
@@ -250,7 +277,12 @@ export default function QueueBoard({
               </h3>
               <ul>
                 {b.dong.map((d) => (
-                  <DongKhach key={d.appointment_id} d={d} />
+                  <DongKhach
+                    key={d.appointment_id}
+                    d={d}
+                    lamThem={lamThem}
+                    napLamThem={napLamThem}
+                  />
                 ))}
               </ul>
             </div>

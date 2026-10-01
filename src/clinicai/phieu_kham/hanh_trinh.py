@@ -24,6 +24,7 @@ import asyncpg
 
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.bang_hanh_trinh_service import dang_o
+from clinicai.services.lam_them_tai_quay_service import nhan_lam_them
 from clinicai.services.lan_bac_si import noi_lam
 
 XONG, DANG, CHUA = "xong", "dang", "chua"
@@ -177,15 +178,19 @@ def dung_moc(
 
     if chi_dinh:
         # NHIỀU CHỈ ĐỊNH GỬI CÙNG LÚC = MỘT MỐC: gom theo lần chỉ định.
-        theo_lan: dict[int | None, list[datetime]] = {}
+        # Làm thêm tại quầy (01/10/2026) là một nhóm riêng — không phải "lần"
+        # của bác sĩ, cũng không phải "mang sang".
+        theo_lan: dict[tuple[int | None, bool], list[datetime]] = {}
         for o in chi_dinh:
-            theo_lan.setdefault(o["lan"], []).append(o["tao_luc"])
+            khoa = (o["lan"], bool(o.get("lam_them")))
+            theo_lan.setdefault(khoa, []).append(o["tao_luc"])
         gui = sorted(
-            ((min(ts), lan, len(ts)) for lan, ts in theo_lan.items()),
+            ((min(ts), lan, quay, len(ts)) for (lan, quay), ts in theo_lan.items()),
             key=lambda g: g[0],
         )
         cac_lan: list[dict[str, Any]] = [
-            {"lan": lan, "luc": t, "so": so} for (t, lan, so) in gui
+            {"lan": lan, "luc": t, "so": so, **({"lam_them": True} if quay else {})}
+            for (t, lan, quay, so) in gui
         ]
         moc.append(
             _moc(
@@ -297,6 +302,7 @@ def dung_tung_dich_vu(chi_dinh: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "id": o.get("id"),
                 "ten": o.get("ten") or "",
                 "lan": o["lan"],
+                "lam_them": o.get("lam_them"),
                 "noi": "Đối tác"
                 if o["ngoai"]
                 else (noi_lam(o["phong"], o.get("bac_si_lam")) or "Phòng dịch vụ"),
@@ -325,7 +331,7 @@ def _iso(v: Any) -> Any:
 # (cả ngày, 29/09/2026) dùng chung câu này để hai nơi không lệch nhau.
 _SQL_CHI_DINH = """
         SELECT o.visit_id::text AS visit_id, o.id, o.service_name,
-               o.lan_chi_dinh, o.created_at,
+               o.lan_chi_dinh, o.created_at, o.nguon_lam_them,
                o.selection_status, o.execution_status, o.ket_qua_luc,
                o.doi_tac_cho_tai_lieu_luc AS nhan_mau_luc,
                o.started_at, o.finished_at, r.name AS phong,
@@ -375,6 +381,9 @@ def _chi_dinh(r: asyncpg.Record) -> dict[str, Any]:
         "id": str(r["id"]),
         "ten": r["service_name"],
         "lan": r["lan_chi_dinh"],
+        # Làm thêm tại quầy (01/10/2026): lễ tân / người đo tick, không qua bác
+        # sĩ — "Làm thêm tại quầy tiếp đón" / "… bàn sinh hiệu"; None = bác sĩ.
+        "lam_them": nhan_lam_them(r["nguon_lam_them"]),
         "tao_luc": r["created_at"],
         "chon": r["selection_status"] != "NOT_SELECTED",
         "da_tra": bool(r["da_tra"]),

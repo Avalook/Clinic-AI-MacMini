@@ -111,6 +111,29 @@ class ChiDinhDaDat(PayloadSuKien):
     billing_status: str
 
 
+class LamThemDaThem(PayloadSuKien):
+    """`service_order.desk_added` — lễ tân / người đo sinh hiệu tick "+ dịch vụ"
+    (làm thêm tại quầy, Tuyền 01/10/2026): chỉ định ĐÃ CHỐT làm, không qua bác
+    sĩ. `nguon` = 'tiep_don' | 'sinh_hieu'."""
+
+    visit_id: str
+    service_order_id: str
+    service_code: str
+    service_name: str
+    nguon: str
+
+
+class LamThemDaBo(PayloadSuKien):
+    """`service_order.desk_removed` — bỏ tick "+ dịch vụ" khi chưa làm, chưa
+    thu: chỉ định huỷ (không xoá — vẫn đọc được là đã có lần tick). `nguon` =
+    nơi bấm bỏ."""
+
+    visit_id: str
+    service_order_id: str
+    service_code: str
+    nguon: str
+
+
 class ChiDinhMangSang(PayloadSuKien):
     """`service_order.carried_over` — chỉ định chưa làm ở lượt trước được mang
     sang lượt này (dây H2). Đã trả tiền thì không thu lại."""
@@ -822,6 +845,26 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="service_order",
             payload=ChiDinhDoiBatBuoc,
             nhan="Đổi dịch vụ bắt buộc",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="service_order.desk_added",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_order",
+            payload=LamThemDaThem,
+            nhan="Làm thêm tại quầy",
+            # Hành trình nghe để xếp phòng qua CỬA LÀM như khách vừa chốt ở
+            # quầy thu (dây H4, ``thu_truoc_khi_lam``).
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+        ),
+        SuKien(
+            ten="service_order.desk_removed",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_order",
+            payload=LamThemDaBo,
+            nhan="Bỏ làm thêm tại quầy",
             consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(

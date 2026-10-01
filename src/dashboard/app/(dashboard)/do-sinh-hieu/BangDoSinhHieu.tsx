@@ -37,6 +37,7 @@ import {
 import Button from "@/components/ui/Button";
 import OSo from "@/components/ui/OSo";
 
+import { NutLamThem, useLamThem } from "../_lam-viec/LamThemTaiQuay";
 import XemLuot from "../_lam-viec/XemLuot";
 import { useNgayXem } from "../_lam-viec/dung-ngay-xem";
 import ChipLoc from "@/components/ui/ChipLoc";
@@ -257,6 +258,11 @@ export default function BangDoSinhHieu() {
   }, [luot, xepTheo]);
 
   const dangChon = (luot ?? []).find((l) => l.visit_id === chon) ?? null;
+  // Nút "+ dịch vụ" (làm thêm tại quầy, Tuyền 01/10/2026): khách muốn làm
+  // nước tiểu… ngay lúc đo — người đo tick là chỉ định luôn. Một lần đọc cho
+  // cả danh sách; lượt đã check-out máy chủ không cho bấm.
+  const cacLuot = useMemo(() => (luot ?? []).map((l) => l.visit_id), [luot]);
+  const { goi: lamThem, napLai: napLamThem } = useLamThem("sinh_hieu", cacLuot);
 
   const moKhach = (l: Luot, giuBao = false) => {
     setXemDs(false);
@@ -665,6 +671,12 @@ export default function BangDoSinhHieu() {
                 </Button>
               ) : null}
               {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
+              <NutLamThem
+                goi={lamThem}
+                visitId={dangChon.visit_id}
+                napLai={napLamThem}
+                className="mt-2"
+              />
               </div>
             </div>
             {canhBao.length > 0 ? (

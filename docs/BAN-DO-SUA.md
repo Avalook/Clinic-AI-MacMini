@@ -130,6 +130,18 @@ Code: `S/sinh_hieu_service.py` `SinhHieuService` (`record_vitals`,
 `bat_dau_do_sinh_hieu`); dùng lại số đo cùng buổi `S/sinh_hieu_buoi.py`. Test:
 `T/services/test_sinh_hieu_cung_buoi_db.py`, `T/services/test_sinh_hieu_khong_chan_db.py`.
 
+**Nút "+ Nước tiểu"… — làm thêm tại quầy (lễ tân / người đo tick, không cần bác
+sĩ)** — Trên màn: danh sách nút (thêm "Xét nghiệm máu", tắt, chỗ hiện, chữ trên
+nút) ở `/settings/day-noi` khối "Dịch vụ làm thêm tại quầy". Code: nút
+`D/_lam-viec/LamThemTaiQuay.tsx` (dùng ở `QueueBoard.tsx`, `BangDoSinhHieu.tsx`),
+cấu hình `D/settings/day-noi/LamThemTaiQuayCauHinh.tsx` → `/api/lam-them` →
+`R/lam_them_tai_quay.py` → `S/lam_them_tai_quay_service.py` `LamThemTaiQuayService`
+(`dat`, `nut_cho_luot`, `luu_muc`, `bo_muc`). Chỉ định quầy: `service_order
+.nguon_lam_them`, không có `consultation_id`; bảng `lam_them_tai_quay` (migration
+`20261002200000_lam_them_tai_quay.sql`). Xếp phòng: sự kiện
+`service_order.desk_added` → consumer Hành trình (H4). Test:
+`T/services/test_lam_them_tai_quay_db.py`, `T/unit/test_lam_them_tai_quay.py`.
+
 ## 5. Tư vấn · Bàn khám · phiếu khám
 
 **Bàn tư vấn / Bàn khám (hàng chờ, nhận khách, xong tư vấn, khám xong)** — màn

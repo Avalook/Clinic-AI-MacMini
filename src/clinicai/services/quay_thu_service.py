@@ -234,6 +234,8 @@ def dung_hoa_don_quay(
             "trong_lua_chon": True,
             "bat_buoc": bool(c.get("bat_buoc")),
             "mang_sang": bool(c.get("mang_sang")),
+            # Làm thêm tại quầy (01/10/2026): "Làm thêm tại quầy tiếp đón".
+            "lam_them": c.get("lam_them"),
             "doi_tac_lam": bool(c.get("doi_tac")),
             "phong_chon_duoc": list(c.get("phong_chon_duoc") or []),
             "phong_du_kien_id": c.get("phong_du_kien_id"),
@@ -328,9 +330,14 @@ def so_sanh_chi_dinh(chi_dinh: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
                 "khach": ("doi_tac" if doi_tac else "lam") if lam else "khong",
                 "tien": gia,
                 "doi_tac": doi_tac,
+                "lam_them": c.get("lam_them"),
             }
         )
         luc = c.get("chi_dinh_luc")
+        # Chân bảng nói về lần chỉ định của BÁC SĨ — làm thêm tại quầy (lễ tân /
+        # người đo tick, 01/10/2026) không phải lần ấy.
+        if c.get("lam_them"):
+            continue
         if luc and (moi_nhat is None or str(luc) > str(moi_nhat.get("chi_dinh_luc"))):
             moi_nhat = c
     return {

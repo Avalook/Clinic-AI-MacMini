@@ -235,25 +235,31 @@ export default function KetQuaChiDinh({
   const daGhi = useRef(new Set<string>());
 
   // Các lần — lần mới nhất lên đầu; chỉ định mang sang (lần 0) để cuối.
-  const cacLan = [...new Set(ds.map((d) => d.lan ?? 0))].sort((a, b) => (b || -1) - (a || -1));
+  // Làm thêm tại quầy (01/10/2026, lễ tân / người đo tick) không phải một "lần"
+  // của bác sĩ: luôn hiện cùng lần đang mở để bác sĩ thấy kết quả ngay.
+  const cacLanBs = [...new Set(ds.filter((d) => !d.lam_them).map((d) => d.lan ?? 0))].sort(
+    (a, b) => (b || -1) - (a || -1),
+  );
+  const cacLan = cacLanBs.length > 0 ? cacLanBs : [0];
   const nhieuLan = cacLan.length > 1;
   const lanHienTai = cacLan.find((l) => l > 0) ?? cacLan[0] ?? 0;
+  const lanCua = (d: ChiDinhVaKetQua) => (d.lam_them ? lanHienTai : (d.lan ?? 0));
   const lanXem = xemLan !== null && cacLan.includes(xemLan) ? xemLan : lanHienTai;
   const chiXem = nhieuLan && lanXem !== lanHienTai;
-  const dsHien = nhieuLan ? ds.filter((d) => (d.lan ?? 0) === lanXem) : ds;
+  const dsHien = nhieuLan ? ds.filter((d) => lanCua(d) === lanXem) : ds;
   const choSua = choDien && !chiXem;
 
   // Tóm tắt luôn hiện ⇒ khối 2 mở ra là đã xem: ghi MỘT lần mỗi kết quả chưa xem
   // — chỉ những chỉ định đang HIỆN (lần cũ chưa bấm xem thì chưa tính là xem).
   useEffect(() => {
     for (const d of ds) {
-      if (nhieuLan && (d.lan ?? 0) !== lanXem) continue;
+      if (nhieuLan && (d.lam_them ? lanHienTai : (d.lan ?? 0)) !== lanXem) continue;
       if (d.ket_qua_trang_thai !== "CO_KET_QUA" || d.da_xem_luc) continue;
       if (daGhi.current.has(d.service_order_id)) continue;
       daGhi.current.add(d.service_order_id);
       ghiDaXem(d.service_order_id);
     }
-  }, [ds, nhieuLan, lanXem]);
+  }, [ds, nhieuLan, lanXem, lanHienTai]);
 
   const mauCho = (d: ChiDinhVaKetQua): MauKetQuaNgan[] => {
     if (d.mau_ket_qua && d.mau_ket_qua.length > 0) return d.mau_ket_qua;
@@ -285,6 +291,7 @@ export default function KetQuaChiDinh({
             ) : null}
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <Chip tone={tt.tone}>{tt.nhan}</Chip>
+              {d.lam_them ? <Chip tone="info">{d.lam_them}</Chip> : null}
               {mau ? <Chip tone={mau.tone}>{mau.nhan}</Chip> : null}
               {d.ket_qua.some((k) => k.dang_sua) ? (
                 <Chip tone="warning">Đang sửa lại — bản dưới vẫn chính thức</Chip>
@@ -430,7 +437,7 @@ export default function KetQuaChiDinh({
                 l !== lanHienTai &&
                 ds.some(
                   (d) =>
-                    (d.lan ?? 0) === l && d.ket_qua_trang_thai === "CO_KET_QUA" && !d.da_xem_luc,
+                    lanCua(d) === l && d.ket_qua_trang_thai === "CO_KET_QUA" && !d.da_xem_luc,
                 ),
             }))}
           />

@@ -31,6 +31,9 @@ from clinicai.events.worker import SuKienDaNhan, dang_ky
 # đẩy dữ liệu cá nhân ra một màn có nhiều người xem hơn.
 CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service_order.placed": ["service_code", "service_name"],
+    # Làm thêm tại quầy (01/10/2026): dịch vụ + nơi tick.
+    "service_order.desk_added": ["service_code", "service_name", "nguon"],
+    "service_order.desk_removed": ["service_code", "nguon"],
     # Số dòng đơn — không tên thuốc (tên thuốc nói ra bệnh).
     "prescription.saved": ["so_dong"],
     "medicine.counter_changed": ["hanh_dong", "so_luong"],

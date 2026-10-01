@@ -243,6 +243,9 @@ def _the_dich_vu(
         if goc.get("ngoai") and goc.get("phong")
         else tung["noi"],
         "doi_tac": bool(goc.get("ngoai")),
+        # Làm thêm tại quầy (01/10/2026): "Làm thêm tại quầy tiếp đón"; None =
+        # bác sĩ chỉ định.
+        "lam_them": tung.get("lam_them"),
         "trang_thai": tt,
         # Vào hàng của phòng — lần gần nhất KHÔNG muộn hơn giờ bắt đầu.
         "vao": lan[-1]["vao"] if lan else _vao_truoc(ds_vao, bat_dau),
@@ -444,7 +447,8 @@ def dung_hanh_trinh_khach(
     vao_q = _gio(q_chinh.get("eligible_at")) if q_chinh else None
     quay_lai_luc = vao_q if (vao_q and bat_kham and vao_q > bat_kham) else None
     vao_kham = None if quay_lai_luc else vao_q
-    lam = [o for o in chi_dinh if o.get("chon")]
+    # "chỉ định N dịch vụ" là của BÁC SĨ — làm thêm tại quầy không tính vào.
+    lam = [o for o in chi_dinh if o.get("chon") and not o.get("lam_them")]
     thu = moc.get("THU_TIEN")
     bs_chinh = (p_chinh or {}).get("bac_si") or (q_chinh or {}).get("bac_si")
     them(
@@ -733,6 +737,8 @@ def dung_hanh_trinh_khach(
         ],
         "xong_buoi": xong_buoi,
         "doan": doan,
+        # Dịch vụ làm thêm tại quầy (01/10/2026) — dòng gọn ghi riêng.
+        "lam_them": [t["ten"] for t in the if t.get("lam_them")],
         "dv_xong": sum(1 for t in the if t["trang_thai"] == DA_XONG),
         "dv_tong": len(the),
         "con_cho": con_cho,

@@ -29,6 +29,7 @@ from clinicai.services.doi_tac_service import (
     LA_VIEC_DOI_TAC_SQL,
     trang_thai_doi_tac,
 )
+from clinicai.services.lam_them_tai_quay_service import nhan_lam_them
 
 #: Bảy phiếu khám KHÔNG phải kết quả CLS — chúng là nơi ĐỌC kết quả, và gắn vào
 #: consultation/visit chứ không vào chỉ định. Chỉ phiếu kết quả dịch vụ (18 mẫu
@@ -80,6 +81,7 @@ async def doc_ket_qua_theo_chi_dinh(
     don = await conn.fetch(
         "SELECT o.id, o.service_code, o.service_name, o.exec_status,"
         "       o.execution_status, o.created_at, o.mang_tu_visit_id, o.bat_buoc,"
+        "       o.nguon_lam_them,"
         "       o.lan_chi_dinh, o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc,"
         # Việc của ĐỐI TÁC: bước làm bên ngoài HOẶC mẫu gửi đối tác (29/09/2026).
         "       " + LA_VIEC_DOI_TAC_SQL + " AS ben_ngoai,"
@@ -199,6 +201,8 @@ async def doc_ket_qua_theo_chi_dinh(
                     r["created_at"].isoformat() if r["created_at"] else None
                 ),
                 "mang_sang": r["mang_tu_visit_id"] is not None,
+                # Làm thêm tại quầy (01/10/2026) — lễ tân / người đo tick.
+                "lam_them": nhan_lam_them(r["nguon_lam_them"]),
                 "bat_buoc": bool(r["bat_buoc"]),
                 "ma_kiotviet": r["ma_kiotviet"],
                 "gia": int(r["unit_price"]) if r["unit_price"] is not None else None,

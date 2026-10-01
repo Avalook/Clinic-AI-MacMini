@@ -2413,6 +2413,10 @@ class LuotKhamService:
                        -- "Đo mật độ xương" khách không làm chặn Hoàn tất). Cùng
                        -- luật với danh sách "còn việc" nút Hoàn tất dùng.
                        AND selection_status IS DISTINCT FROM 'NOT_SELECTED'
+                       -- Làm thêm tại quầy (01/10/2026) không do bác sĩ chỉ
+                       -- định — bác sĩ kết thúc "không cần dịch vụ" vẫn được,
+                       -- việc ấy đi tiếp theo luồng của nó.
+                       AND nguon_lam_them IS NULL
                     """,
                     cid,
                     vid,

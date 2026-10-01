@@ -3,11 +3,15 @@
  * CUSTOM được". Quản lý chỉnh: loại khám qua tư vấn / đi thẳng phòng, bật tắt
  * tự xếp phòng, thời hạn nhắc, người nhận chuông, vị trí trực. Dây LÕI (dòng
  * thời gian, trách nhiệm tiền) không có ở đây.
+ *
+ * Khối "Dịch vụ làm thêm tại quầy" (01/10/2026): nút "+ Nước tiểu"… ở Tiếp đón
+ * và Đo sinh hiệu — quản lý gắn thêm / bớt, bật / tắt, chỗ hiện.
  */
 
 import { requireNavAccess } from "@/lib/clinic-session";
 
 import DayNoiBoard from "./DayNoiBoard";
+import LamThemTaiQuayCauHinh from "./LamThemTaiQuayCauHinh";
 
 export const metadata = { title: "Dây nối nghiệp vụ · ClinicAI" };
 export const dynamic = "force-dynamic";
@@ -17,6 +21,8 @@ export default async function DayNoiPage() {
   return (
     <main className="page-in flex flex-col gap-4 p-4 xl:p-6">
       <DayNoiBoard />
+      {/* Nút "+ dịch vụ" ở Tiếp đón / Đo sinh hiệu (Tuyền 01/10/2026). */}
+      <LamThemTaiQuayCauHinh />
     </main>
   );
 }

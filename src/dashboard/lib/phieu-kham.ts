@@ -110,6 +110,8 @@ export interface ChiDinhVaKetQua {
   chi_dinh_luc?: string | null;
   /** Chỉ định mang sang từ lượt trước. */
   mang_sang?: boolean;
+  /** Làm thêm tại quầy (01/10/2026): "Làm thêm tại quầy tiếp đón"; null = bác sĩ. */
+  lam_them?: string | null;
   /** Mã sản phẩm KiotViet (mã phòng khám) — hiện cạnh tên (27/09/2026). */
   ma_kiotviet?: string | null;
   gia?: number | null;
