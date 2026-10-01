@@ -104,7 +104,7 @@ phan_ban() {
   echo "── Bản đang chạy (tuổi image = lần deploy gần nhất) ──"
   ssh "$HOST" 'docker images --format "{{.Repository}}:{{.Tag}}\t{{.CreatedSince}}" | grep -E "clinicai-(api|dashboard)"' \
     | awk -F'\t' '{ printf "  %-28s dựng %s\n", $1, $2 }'
-  echo "  (đối chiếu commit: gh run list --workflow=cd.yml --limit 3)"
+  echo "  (đối chiếu commit: cat /home/clinicai/clinicai/.ops-status/production/deploy-status.json trên VPS)"
 }
 
 case "${1:-tong-quan}" in

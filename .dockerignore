@@ -27,7 +27,7 @@ docker/rabbitmq/log
 # Project meta not needed at build (README.md is kept — pyproject requires it).
 .ai
 context
-final_canon
+docs/legacy
 
 # Tệp kết quả của khách trên ổ VPS (01/10/2026) — không bao giờ vào ảnh.
 .media-vps

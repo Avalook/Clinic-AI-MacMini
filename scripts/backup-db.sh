@@ -17,7 +17,7 @@
 # 4. Optionally pushes to Cloudflare R2 via rclone (if configured)
 #
 # Run manually:  ./scripts/backup-db.sh
-# Or via LaunchDaemon (see scripts/launchdaemons/com.dr4women.db-backup.plist)
+# On the VPS it runs from systemd timers (scripts/systemd/clinicai-backup*.timer)
 set -euo pipefail
 umask 077
 

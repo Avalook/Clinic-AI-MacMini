@@ -26,7 +26,7 @@ Mọi thứ trong sổ này treo vào bảng này. Đổi bảng này là phải
 | Tải đo được | **~1 lượt gọi/giây** |
 | Database | Postgres 17 tự dựng, **chạy cùng máy** với backend |
 | Dữ liệu | 22 MB lúc rời Supabase cloud · nhật ký ~2.400 dòng/ngày (dưới 1 GB/năm) |
-| Máy chủ | 1 VPS Vietnix · 4 lõi · 8 GB (đang dùng 37%) · **50 GB đĩa** (14%). Máy Mac chỉ còn nhận bản sao lưu đêm |
+| Máy chủ | 1 VPS `clinic-vps-moi` (dựng lại 16/09/2026 sau khi VPS Vietnix hết hạn) · 4 lõi · 8 GB · **48 GB đĩa** (61% ngày 01/10). Máy Mac không chạy prod: máy dev + nhận bản sao lưu |
 | Đội | 1 người + AI |
 
 Hai con số quyết định gần hết mọi thứ: **1 lượt gọi/giây** và **1 người vận
@@ -37,20 +37,29 @@ phục lúc 7h sáng khi phòng khám mở cửa.
 
 # Phần 2 — Đường đi của code, từ máy Quang tới khách
 
+Hiện hành (01/10/2026 — GitHub Actions hỏng thanh toán từ 25/09, runner VPS cũ đã chết):
+
 ```
-1. Viết code ở nhánh riêng, tên tiếng Việt nói ra việc   (bat-sentry, bang-gia-qua-api)
-2. Mở PR vào main → CI chạy 5 chặng → đỏ thì không gộp được
-3. Gộp vào main → CI dựng ĐÚNG MỘT ảnh Docker (amd64), đẩy lên kho ảnh,
-   dán nhãn bằng mã commit
-4. staging TỰ ĐỘNG chạy đúng ảnh đó → vào xem thật ở cổng :8080
-5. Ưng → bấm nút "đưa lên prod" trên GitHub
-   → prod TẢI ĐÚNG ẢNH staging đang chạy, KHÔNG dựng lại
-6. Nút bấm được cả ngày, nhưng máy xếp hàng, chỉ chạy trong 1h–4h sáng giờ VN
-7. Xong: khoẻ → đánh dấu phiên bản · không khoẻ → tự trỏ về ảnh cũ
+1. Viết code ở nhánh riêng, tên tiếng Việt nói ra việc   (bang-gia-qua-api)
+2. Commit + push → ./scripts/ci-may.sh --bao-github trên MÁY DEV (y hệt ci.yml,
+   5 chặng) → đỏ thì không gộp
+3. Mở PR → gộp vào main
+4. Thử thật: staging local từ bản sao lưu (scripts/staging-tu-ban-sao.sh) hoặc
+   staging trên VPS (staging.dr4women.io.vn, dữ liệu đã che — đang dựng 01/10)
+5. Deploy prod LÀM TAY trên VPS clinic-vps-moi, ghim đúng SHA đã soát:
+   soát → sao lưu → diễn tập migration trên bản sao → áp → checkout SHA →
+   scripts/deploy-backend.sh prod (dựng ảnh trên VPS)   — chi tiết: CLAUDE.md
+6. Khi nào: xong + CI xanh là deploy, từng nhánh một
+7. Xong: khoẻ → ghi .active-state · không khoẻ → deploy-backend.sh tự trỏ về ảnh cũ
 ```
 
-**Luật 2.1 — Code chỉ sống ở `main`.** `staging` là cái nhãn trỏ vào thứ đang
-chạy trên bản thử, **không bao giờ gộp ngược vào `main`**.
+> **Lịch sử (13/08 → 25/09):** thiết kế cũ là CI dựng một ảnh → staging cổng :8080
+> tự chạy ảnh đó → bấm nút GitHub đưa lên prod, chỉ trong 1h–4h sáng. Staging 8080,
+> CD (`cd.yml`) và khung giờ ấy đều đã chết; luật 2.2–2.3 dưới đây giữ làm ghi chép
+> quyết định.
+
+**Luật 2.1 — Code chỉ sống ở `main`.** Staging chạy một nhánh việc hay một SHA
+của `main` — **không bao giờ gộp ngược vào `main`**.
 *Vì sao:* đã từng có nhánh `staging` dài hạn và **`main` tụt lại 63 commit** mà
 không ai biết; toàn bộ nền multi-tenant chỉ sống trên `staging`.
 *Ai canh:* GitHub (khoá không cho gộp ngược).
@@ -61,9 +70,12 @@ không ai biết; toàn bộ nền multi-tenant chỉ sống trên `staging`.
 dựng khác nhau — giống nhau hầu hết thời gian, cho tới ngày ảnh nền được nhà
 phát hành cập nhật giữa hai lần.
 *Ai canh:* CI (chỉ đẩy đi ảnh đã qua kiểm) + deploy script (chỉ tải, không dựng).
+⚠️ *Hiện trạng 01/10:* **chưa làm** — `deploy-backend.sh` vẫn `compose build` trên VPS
+(không còn CI GitHub để dựng ảnh). Ghim SHA đã soát là chốt chặn đang dùng.
 
-**Luật 2.3 — Prod chỉ đổi trong 1h–4h sáng.** Ngoài khung đó, nút bấm được
-nhưng máy xếp hàng chờ.
+**Luật 2.3 — Prod chỉ đổi trong 1h–4h sáng.** ⚠️ *Đã bỏ trên thực tế* (từ 25/09:
+xong + CI xanh là deploy, từng nhánh; CD canh khung giờ đã chết). Giữ làm ghi chép.
+Ngoài khung đó, nút bấm được nhưng máy xếp hàng chờ.
 *Ngoại lệ:* cửa vượt cho lúc cháy nhà — bắt gõ lý do, và lý do được ghi lại.
 *Bẫy phải tránh:* máy chủ chạy giờ quốc tế; "1h sáng" của nó là **8h sáng** của
 mình — đúng giờ đông khách nhất. Giờ phải ghim `Asia/Ho_Chi_Minh`.
@@ -289,10 +301,16 @@ chạy-đâu-cũng-được = 0013.
 Ghi lại vì trước hôm này nó không có hình dạng nào cả: hai nhánh dài song song,
 prod và staging chung một thư mục, và 79 commit của prod chỉ nằm trên một ổ đĩa.
 
+> ⚠️ **Bảng dưới là ảnh chụp 13/08 (VPS cũ, đã chết).** Hiện hành 01/10/2026: prod
+> `/home/clinicai/clinicai` trên `clinic-vps-moi`, đứng ở `main` (SHA đã soát), cổng
+> 80/443; staging đang dựng ở thư mục riêng trên cùng VPS (`staging.dr4women.io.vn`,
+> DB riêng, dữ liệu đã che); không có CD — CI chạy trên máy dev, deploy làm tay, không
+> khung giờ. Luật 11.1–11.3 vẫn đúng.
+
 | | |
 |---|---|
 | Nhánh dài hạn | **`main`** — và chỉ `main` |
-| prod | `/home/clinicai/clinicai` trên VPS, đứng ở `main`, cổng 80 |
+| prod | `/home/clinicai/clinicai` trên VPS cũ, đứng ở `main`, cổng 80 |
 | staging | `/home/clinicai/staging` trên VPS, đứng ở tag `staging-*`, cổng 8080 |
 | Hai thư mục | dùng chung một kho `.git` (worktree) — tách nguồn, không nhân đôi đĩa |
 | Lên staging | tự động sau khi CI xanh |

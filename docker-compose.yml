@@ -1,18 +1,17 @@
-# ClinicAI / Dr4Women — self-host stack (Mac mini, Docker/Colima).
+# ClinicAI / Dr4Women — self-host stack (VPS clinic-vps-moi, Docker).
 # ONE parameterized compose for BOTH environments. Select env with --env-file:
 #
 #   PROD    : docker compose --env-file .env.prod    -p clinicai_prod    up -d
 #   STAGING : docker compose --env-file .env.staging -p clinicai_staging up -d
 #
-# Prod + staging run side-by-side on the same Mac: different project names (-p),
-# different Caddy host ports (CADDY_HTTP_PORT/HTTPS_PORT), different Supabase.
-# Application rows live in Supabase cloud; host config, volumes and platform
-# identities still require the separate backup/restore plan in OPS-RUNBOOK.
+# Prod + staging can run side-by-side on the same host: different project names
+# (-p), different Caddy host ports (CADDY_HTTP_PORT/HTTPS_PORT), different
+# self-hosted Supabase (docker-compose.supabase.yml). Backup/restore: see
+# docs/VAN-HANH-MAY-CHU.md and scripts/backup-db.sh.
 #
 # Ingress: Caddy (auto-HTTPS) is the ONLY service bound to public host ports.
 #   api + dashboard are internal-only (reached over the compose network).
-# Public access: put Caddy behind Cloudflare Tunnel (profile `cloudflare`) or
-#   Tailscale Funnel (host-level, see scripts/clinic-backend-boot.sh).
+# The `cloudflare` profile is legacy (Cloudflare Tunnel is no longer used).
 #
 # Runtime secrets: CLINIC_ENV_FILE must name the same explicit file passed to
 #   --env-file. This prevents a staging command from loading production runtime

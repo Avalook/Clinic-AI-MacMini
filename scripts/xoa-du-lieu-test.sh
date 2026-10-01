@@ -37,7 +37,7 @@ if [ -z "$recent" ]; then
 fi
 [ -n "$recent" ] || { echo "!! không tạo được bản lưu — DỪNG" >&2; exit 1; }
 echo "==> bản lưu dùng để quay lại: $recent"
-echo "    (cách khôi phục: docs/khoi-phuc-du-lieu.md)"
+echo "    (cách khôi phục: scripts/restore-db.sh — hướng dẫn: ~/Projects/ClinicAI-Backups/HUONG-DAN-PHUC-HOI.md trên Mac)"
 echo
 
 # ── 2. Cho xem trước ───────────────────────────────────────────────────────

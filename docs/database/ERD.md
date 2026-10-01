@@ -1,7 +1,7 @@
 # 🗄️ Sơ đồ Database — Dr4Women (ClinicAI)
 
 > **Nguồn (authoritative):** `supabase/migrations/*.sql` (git-tracked).  
-> **Đối chiếu prod:** `docs/database/schema.sql` + `docs/database/drift-report.md`.  
+> **Đối chiếu prod:** `docs/database/schema.sql` + `docs/legacy/database/drift-report.md`.  
 > Dữ liệu nằm ở **Supabase cloud**; toàn bộ logic ở FastAPI backend (frontend chỉ UI).
 
 **Quy mô:** 33 bảng theo migrations (32 baseline + `idempotency_key`). Prod hiện có 35 bảng do **schema drift** — xem §6.
@@ -1239,7 +1239,7 @@ erDiagram
 
 ## 6. Tóm tắt schema drift (migrations ↔ prod)
 
-Nguồn: `docs/database/drift-report.md` (generated 2026-07-23).
+Nguồn: `docs/legacy/database/drift-report.md` (generated 2026-07-23).
 
 | Hạng mục | Migrations (đúng) | Prod (thực tế) | Khác biệt chính |
 |---|---:|---:|---|

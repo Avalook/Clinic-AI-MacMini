@@ -55,6 +55,10 @@ Bấm từng màn một mình **không bắt được** lỗi tranh chấp, th�
 đông, hay phân quyền chéo vai. Muốn test đúng thì mở nhiều máy / nhiều Chrome
 profile cùng lúc.
 
+> ⛔ **KHÔNG mở đường hầm khi database local là BẢN SAO PROD** (`scripts/staging-tu-ban-sao.sh`)
+> — đó là dữ liệu bệnh nhân thật trên một URL công khai. Chỉ dùng với dữ liệu thử của
+> `scripts/dev-up.sh`. Xong việc thì tắt `cloudflared` ngay.
+
 **Cần HAI tunnel**, không phải một — và đây là chỗ dễ sai:
 
 ```bash

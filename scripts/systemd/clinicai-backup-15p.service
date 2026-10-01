@@ -1,6 +1,6 @@
 [Unit]
 Description=ClinicAI — sao lưu database 15 phút/lần trong giờ mở cửa (29/09/2026)
-Documentation=file:///home/clinicai/clinicai/docs/OPS-RUNBOOK.md
+Documentation=file:///home/clinicai/clinicai/docs/VAN-HANH-MAY-CHU.md
 # Database chạy bằng Docker; đừng khởi động khi Docker chưa sẵn sàng, nếu không
 # lần chạy đầu sau mỗi lần khởi động lại máy sẽ hỏng vì không tìm thấy container.
 After=docker.service

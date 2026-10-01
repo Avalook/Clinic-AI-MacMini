@@ -476,4 +476,4 @@ Nguồn nội bộ:
 
 - [docs/forms/handover_kham.docx](forms/handover_kham.docx) — tài liệu bàn giao (4 mục, không có NK)
 - Notion [KHAM-NAMKHOA](https://app.notion.com/p/bb9ccb0eac8882ffa92281d1a14cfcac) · [KHAM-HIEMMUON-VOSINH](https://app.notion.com/p/4d2ccb0eac8882ac8863010be626bc85)
-- [docs/ClinicAI-Tong-Quan-He-Thong.md](ClinicAI-Tong-Quan-He-Thong.md) §13.3–13.4
+- [docs/legacy/ClinicAI-Tong-Quan-He-Thong.md](legacy/ClinicAI-Tong-Quan-He-Thong.md) §13.3–13.4

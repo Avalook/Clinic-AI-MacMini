@@ -11,17 +11,21 @@ hay file + hàm + test; việc dữ liệu thì làm trên màn), rồi tìm rou
 `docs/BAN-DO-CODE.md` (sinh bởi `scripts/ban-do-code.py`, CI canh không lệch).
 Giao việc cho AI khác theo `docs/MAU-GIAO-VIEC.md`.
 
-> Tên thư mục còn chữ "MacMini" là dấu vết lịch sử. Máy Mac **không chạy gì**
-> của hệ thống — nó chỉ là chỗ **nhận bản sao lưu**, và đó là chủ ý: bản sao phải
-> nằm ở máy khác với thứ nó sao lưu. Sao lưu đêm 02:15 trên VPS → Viettel CFS;
-> Mac kéo về 0:30 và 6:30 (`~/Projects/ClinicAI-Backups/keo-ve.sh`). Kiểm nhanh:
-> `cat ~/Projects/ClinicAI-Backups/TRANG-THAI.txt` phải "BÌNH THƯỜNG" (từng hỏng
-> 12→27/09 vì script trỏ VPS cũ — đã sửa).
+> Tên thư mục còn chữ "MacMini" là dấu vết lịch sử. Máy Mac **không chạy prod**.
+> Nó là máy dev — stack thử (`scripts/dev-up.sh`), staging local từ bản sao lưu
+> (`scripts/staging-tu-ban-sao.sh`), CI (`scripts/ci-may.sh`) — và là chỗ **nhận
+> bản sao lưu**, có chủ ý: bản sao phải nằm ở máy khác với thứ nó sao lưu. Sao lưu
+> trên VPS: mỗi 15 phút (`clinicai-backup-15p`, giữ 2 ngày) + đêm 02:15 (giữ 7
+> ngày) → Viettel CFS; Mac kéo về 0:30 và 6:30 (`~/Projects/ClinicAI-Backups/keo-ve.sh`).
+> Kiểm nhanh: `cat ~/Projects/ClinicAI-Backups/TRANG-THAI.txt` phải "BÌNH THƯỜNG"
+> (từng hỏng 12→27/09 vì script trỏ VPS cũ — đã sửa). Mac từng còn LaunchDaemon
+> `com.dr4women.*` cố dựng prod mỗi 5 phút (quét 01/10): `launchctl list | grep dr4women`
+> còn thấy thì gỡ (cần sudo).
 >
-> **Đã chết, đừng dùng:** VPS cũ `clinic-vps` (222.255.215.219), staging cổng
-> 8080 và `/home/clinicai/staging`, Vercel, Supabase cloud, Cloudflare Tunnel,
-> Tailscale, Sentry, CD qua GitHub Actions, `supabase db push`. Tài liệu thời đó
-> nằm trong `docs/legacy/` — chỉ để tra lịch sử.
+> **Đã chết, đừng dùng:** VPS cũ `clinic-vps` (222.255.215.219), VPS Vietnix,
+> staging cổng 8080 và `/home/clinicai/staging`, Vercel, Supabase cloud,
+> Cloudflare Tunnel, Tailscale, Sentry, CD qua GitHub Actions (`cd.yml` đã gỡ),
+> `supabase db push`. Tài liệu thời đó nằm trong `docs/legacy/` — chỉ để tra lịch sử.
 
 ## Kiến trúc
 
@@ -44,23 +48,25 @@ khách → Caddy (TLS Let's Encrypt) → dashboard (Next.js, chỉ giao diện)
   Postgres từ chối `wal2json`).
 - **Theo dõi lỗi:** kho lỗi `loi_nhom` + bộ canh gác `canh_bao` (mỗi phút, trong
   su-kien) + nhật ký vận hành — xem ở `/ops` tab "Lỗi & cảnh báo", "Nhật ký vận hành".
+- Lịch trên VPS đều là systemd timer (không crontab): ops-status 1 phút, backup-15p,
+  backup 02:15 (unit trong `scripts/systemd/`), và `clinicai-traffic-report` 10 phút
+  nuôi `/traffic` — cái cuối nằm **ngoài git** (công cụ lạ cài 30/09), chờ chốt.
 - **Mọi thứ chạy trong container, cấu hình qua biến môi trường** — không địa chỉ
   hay khoá viết cứng.
 - Tệp kết quả (ảnh/video/PDF) nằm trên ổ Viettel CFS gắn vào VPS
   (`/mnt/viettel-cfs`).
 - Chi tiết "cái gì được phép ở frontend": `docs/SO-LUAT.md` Phần 3.
 
-## Môi trường: chỉ có prod
+## Môi trường
 
-Trên VPS (`ssh clinic-vps-moi`):
+| | Ở đâu | Dữ liệu |
+|---|---|---|
+| **prod** — đang đón bệnh nhân | VPS `/home/clinicai/clinicai`, nhánh `main`, cổng 80/443 | thật |
+| **staging** — đang dựng (01/10) | cùng VPS, `staging.dr4women.io.vn`, Supabase/DB/khoá/mạng **riêng**, `scripts/staging-*.sh` — chi tiết `docs/STAGING.md` (sắp có) | bản sao prod **đã che** thông tin khách |
+| **staging local** | Mac, `scripts/staging-tu-ban-sao.sh` (nạp bản sao lưu đêm, đăng nhập bằng tài khoản prod) | bản sao prod **chưa che** — cấm mở đường hầm ra ngoài |
+| **dev local** | Mac, `scripts/dev-up.sh` (cả stack bằng chính `docker-compose.supabase.yml`) | thử |
 
-| | Thư mục | Đứng ở | Cổng |
-|---|---|---|---|
-| **prod** — đang đón bệnh nhân | `/home/clinicai/clinicai` | nhánh `main` | 80/443 |
-
-**Không có staging** (từ khi dựng lại trên VPS mới 16/09/2026). Thử trên máy dev:
-`scripts/dev-up.sh` dựng cả stack local bằng chính `docker-compose.supabase.yml`.
-Nghiệm thu giao diện làm trên local, rồi mới lên prod.
+Nghiệm thu giao diện làm trên local/staging, rồi mới lên prod.
 
 ## Nhánh: chỉ có `main`
 
@@ -78,17 +84,27 @@ Nghiệm thu giao diện làm trên local, rồi mới lên prod.
   sạch. Nó chạy y hệt `ci.yml`: ruff · mypy · pytest · máy kiểm phạm vi phòng
   khám · tsc · eslint · test frontend · migration chạy thật (`--anh` để dựng
   thêm ảnh amd64). **Xanh mới được merge, xanh mới được deploy.**
-- **Không có CD tự động.** Runner của VPS cũ đã chết; `cd.yml` không chạy.
-- **Deploy prod = làm tay trên VPS**, theo đúng thứ tự:
-  1. Sao lưu database (lệnh ở mục "Lệnh hay dùng").
-  2. Có migration mới → **diễn tập trước** trên bản sao (khôi phục bản sao lưu
-     vừa tạo vào một database phụ, áp thử ở đó), rồi mới áp thật.
-  3. `git fetch origin && git checkout -B main origin/main`
-  4. `./scripts/deploy-backend.sh prod` (đòi đứng trên nhánh `main`, không detached).
-  5. Kiểm: log api 0 lỗi, `/health/su-kien` ok, 0 sự kiện kẹt.
-- Deploy dựng lại container nên người đang dùng thấy 502 khoảng một phút. Khung
-  giờ deploy (giữ 1h–4h hay cho deploy ngày) đang chờ Tuyền chốt — kiểm toán
-  27/09 mục 6, câu 7.
+- **Không có CD tự động.** Runner của VPS cũ đã chết; `cd.yml` đã gỡ (01/10).
+- **Deploy prod = làm tay trên VPS, ghim đúng SHA đã soát**, theo thứ tự:
+  1. **Soát:** `git fetch origin` rồi `git log --oneline HEAD..origin/main` — đọc
+     từng commit (migration? commit lạ?), chốt **một SHA**. Soát và deploy là hai
+     lệnh riêng, không nối `&&`.
+  2. Sao lưu database (lệnh ở mục "Lệnh hay dùng").
+  3. Có migration mới → **diễn tập trước** trên bản sao (worktree tách ở đúng SHA
+     đó + container Postgres phụ nạp dữ liệu prod, áp thử, số dòng bảng chính
+     không đổi; xong xoá **kèm volume** `docker rm -fv` — 52 volume bản sao từng
+     treo vì thiếu `-v`), rồi mới áp thật + `NOTIFY pgrst`.
+  4. `git checkout -B main <sha-đã-soát>` — **không** fetch lại, **không**
+     `origin/main` (30/09: phiên khác merge #291 kèm migration chen vào 5 phút
+     giữa soát và deploy → prod lên bản chưa soát).
+  5. `./scripts/deploy-backend.sh prod` (đòi đứng trên nhánh `main`, không detached).
+  6. Kiểm: container api được tạo lại, log api 0 lỗi, `/health/su-kien` ok, 0 sự kiện kẹt.
+- Khuôn chạy cả chuỗi: `~/Projects/ClinicAI-Backups/ban-giao-2909/deploy_3009_chung.sh`
+  (trên Mac, chép lên VPS rồi chạy) — **thay `origin/main` trong đó bằng SHA đã soát**.
+  Lệnh đưa người khác chạy trên VPS phải bọc `ssh clinic-vps-moi '…'`.
+- Khi nào deploy: xong + CI xanh là deploy, **từng nhánh một**, không gom đợt
+  (thực tế từ 25/09; khung 1h–4h cũ đã bỏ). Deploy dựng lại container nên người
+  đang dùng thấy 502 khoảng một phút. `.release-source-prod/` giữ mọi bản (chưa tự dọn).
 
 ## Database — chỉ qua migration
 
@@ -114,6 +130,7 @@ CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh          #
 CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh --apply  # áp thật
 docker exec clinicai_db psql -U postgres -c "NOTIFY pgrst, 'reload schema'"
 
+git checkout -B main <sha-đã-soát>                   # KHÔNG origin/main
 ./scripts/deploy-backend.sh prod
 CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai_prod ps
 ```
