@@ -1,49 +1,35 @@
-// Bảng giá DỊCH VỤ (group=dich_vu) — tách từ trang gộp cũ (T-DASH-CASHIER-IA-02).
-// Tái dùng scaffold CashierView (khoá group="dich_vu" → ẩn toggle). Đọc qua
-// FastAPI, ghi qua /api/service-price. Lọc group ở MÁY CHỦ, không tải cả
-// bảng giá về rồi lọc ở trình duyệt.
+// BẢNG GIÁ DỊCH VỤ & PHÒNG (group=dich_vu) — Tuyền 01/10/2026: mọi dịch vụ kèm
+// nhóm hàng, giá, bên thu, nhóm việc và PHÒNG LÀM ĐƯỢC; lọc "Chưa có phòng",
+// gán phòng tại chỗ. Đọc qua FastAPI (`/api/v1/service-prices/danh-muc` —
+// máy chủ quyết phí khám / cần phòng / thiếu phòng), ghi qua /api/service-price
+// và /api/clinic-config (service-rooms). Bảng giá thuốc vẫn ở CashierView.
 
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../../lib/clinic-session";
-import CashierView, { type PriceRow } from "../CashierView";
+import DanhMucDichVuPhong, { type DanhMucGoi } from "../DanhMucDichVuPhong";
 
 export const dynamic = "force-dynamic";
 
-export default async function PriceDichVuPage() {
+export default async function PriceDichVuPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ loc?: string }>;
+}) {
   await requireNavAccess("/cashier/dich-vu");
-  // Đọc qua FastAPI thay vì đọc thẳng bảng: đọc thẳng cần vai Postgres
-  // (`authenticated`) mà database cho thuê không cho tạo. Phần GHI đã đi qua
-  // /api/service-price từ trước — đây là nửa còn lại.
-  const data = await fetchFromBackend<PriceRow[]>(
-    "/api/v1/service-prices?group=dich_vu",
-  );
-  // null = backend không trả lời. Bảng giá rỗng và bảng giá không đọc được
-  // nhìn giống hệt nhau, mà một bên là "chưa khai giá" còn bên kia là "đừng
-  // tin con số nào trên màn này".
-  const error = data === null;
-  const rows = data ?? [];
+  const { loc } = await searchParams;
+  // null = backend không trả lời — "không đọc được" khác "chưa có dịch vụ".
+  const data = await fetchFromBackend<DanhMucGoi>("/api/v1/service-prices/danh-muc");
 
   return (
     <main className="page-in space-y-4 p-4 lg:p-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Bảng giá dịch vụ</h1>
-          <p className="text-sm text-ink-muted">
-            Quản lý mã dịch vụ, đơn giá và trạng thái áp dụng tại quầy thu ngân.
-          </p>
-        </div>
-        <span className="rounded-control border border-line bg-surface px-3 py-1.5 text-xs text-ink-muted">
-          Danh mục khám &amp; dịch vụ
-        </span>
+      <header>
+        <h1 className="text-title font-semibold text-ink">Bảng giá dịch vụ &amp; phòng</h1>
+        <p className="text-body text-ink-muted">
+          Mọi dịch vụ phòng khám bán: nhóm hàng, đơn giá, bên thu và phòng làm được. Sửa là dùng
+          ngay cho lượt mới — ô chỉ định của bác sĩ, quầy thu, xếp phòng cùng đọc danh mục này.
+        </p>
       </header>
-
-      {error ? (
-        <div className="rounded-control border border-danger bg-danger-bg px-3 py-2.5 text-sm text-danger">
-          Không tải được bảng giá dịch vụ. Vui lòng thử lại sau.
-        </div>
-      ) : (
-        <CashierView rows={rows} group="dich_vu" />
-      )}
+      <DanhMucDichVuPhong banDau={data} chiChuaPhong={loc === "chua-phong"} />
     </main>
   );
 }

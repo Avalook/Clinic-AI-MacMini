@@ -55,6 +55,8 @@ export interface ChiDinhChoQuyet {
   doi_tac_thu?: boolean;
   /** Bác sĩ đánh dấu BẮT BUỘC (25/09/2026) — quầy không bỏ được (máy chủ chặn). */
   bat_buoc?: boolean;
+  /** Làm thêm tại quầy (01/10/2026) — câu máy chủ viết; null = bác sĩ chỉ định. */
+  lam_them?: string | null;
 }
 
 export interface ChoKhachQuyet {
@@ -237,6 +239,11 @@ export default function ChonDichVu({
                 {c.mang_sang ? (
                   <span className="ml-2">
                     <Chip tone="brand">hẹn từ lượt trước</Chip>
+                  </span>
+                ) : null}
+                {c.lam_them ? (
+                  <span className="ml-2">
+                    <Chip tone="info">{c.lam_them}</Chip>
                   </span>
                 ) : null}
                 {c.doi_tac ? (

@@ -36,6 +36,7 @@ import Button, { buttonClass } from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import ChipLoc from "@/components/ui/ChipLoc";
 import Lightbox from "@/components/ui/Lightbox";
+import NutHoanTac, { type DuLieuHoanTac, type KetQuaHoanTac } from "@/components/ui/NutHoanTac";
 import { fmtTime } from "@/lib/datetime";
 import {
   NHAN_DOI_TAC,
@@ -199,8 +200,13 @@ export default function KetQuaChiDinh({
   onDoi,
   nhanGiay = {},
   onDoiBatBuoc,
+  onBoChiDinh,
 }: {
   ds: ChiDinhVaKetQua[];
+  /** Hoàn tác chỉ định (01/10/2026): bỏ chỉ định sai chỗ. Máy chủ quyết được
+   *  không (đang làm / đã xong → hoàn tác ở phòng trước) và hỏi xác nhận khi
+   *  đã thu tiền (khoản ấy thành tiền thừa ở quầy). */
+  onBoChiDinh?: (orderId: string) => (duLieu: DuLieuHoanTac) => Promise<KetQuaHoanTac>;
   /** Bật / tắt "Bắt buộc" của chỉ định CHƯA thu tiền (25/09/2026; 27/09 chuyển
    *  từ hộp tóm tắt ở đầu danh mục vào đây). Không truyền = chỉ xem chip. */
   onDoiBatBuoc?: (
@@ -235,27 +241,36 @@ export default function KetQuaChiDinh({
   const daGhi = useRef(new Set<string>());
 
   // Các lần — lần mới nhất lên đầu; chỉ định mang sang (lần 0) để cuối.
-  const cacLan = [...new Set(ds.map((d) => d.lan ?? 0))].sort((a, b) => (b || -1) - (a || -1));
+  // Làm thêm tại quầy (01/10/2026, lễ tân / người đo tick) không phải một "lần"
+  // của bác sĩ: luôn hiện cùng lần đang mở để bác sĩ thấy kết quả ngay.
+  const cacLanBs = [...new Set(ds.filter((d) => !d.lam_them).map((d) => d.lan ?? 0))].sort(
+    (a, b) => (b || -1) - (a || -1),
+  );
+  const cacLan = cacLanBs.length > 0 ? cacLanBs : [0];
   const nhieuLan = cacLan.length > 1;
   const lanHienTai = cacLan.find((l) => l > 0) ?? cacLan[0] ?? 0;
+  const lanCua = (d: ChiDinhVaKetQua) => (d.lam_them ? lanHienTai : (d.lan ?? 0));
   const lanXem = xemLan !== null && cacLan.includes(xemLan) ? xemLan : lanHienTai;
   const chiXem = nhieuLan && lanXem !== lanHienTai;
-  const dsHien = nhieuLan ? ds.filter((d) => (d.lan ?? 0) === lanXem) : ds;
+  const dsHien = nhieuLan ? ds.filter((d) => lanCua(d) === lanXem) : ds;
   const choSua = choDien && !chiXem;
 
   // Tóm tắt luôn hiện ⇒ khối 2 mở ra là đã xem: ghi MỘT lần mỗi kết quả chưa xem
   // — chỉ những chỉ định đang HIỆN (lần cũ chưa bấm xem thì chưa tính là xem).
   useEffect(() => {
     for (const d of ds) {
-      if (nhieuLan && (d.lan ?? 0) !== lanXem) continue;
+      if (nhieuLan && (d.lam_them ? lanHienTai : (d.lan ?? 0)) !== lanXem) continue;
       if (d.ket_qua_trang_thai !== "CO_KET_QUA" || d.da_xem_luc) continue;
       if (daGhi.current.has(d.service_order_id)) continue;
       daGhi.current.add(d.service_order_id);
       ghiDaXem(d.service_order_id);
     }
-  }, [ds, nhieuLan, lanXem]);
+  }, [ds, nhieuLan, lanXem, lanHienTai]);
 
   const mauCho = (d: ChiDinhVaKetQua): MauKetQuaNgan[] => {
+    // Máy chủ đã chọn (đã gắn / mặc định CHUNG) — 01/10/2026. Phần dưới chỉ còn
+    // là đường lùi cho bản máy chủ cũ.
+    if (d.mau_chon_duoc && d.mau_chon_duoc.length > 0) return d.mau_chon_duoc;
     if (d.mau_ket_qua && d.mau_ket_qua.length > 0) return d.mau_ket_qua;
     const g = goiYMau[d.service_code];
     const goiY = g ? mauDuPhong.filter((m) => m.ma === g) : [];
@@ -285,6 +300,7 @@ export default function KetQuaChiDinh({
             ) : null}
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <Chip tone={tt.tone}>{tt.nhan}</Chip>
+              {d.lam_them ? <Chip tone="info">{d.lam_them}</Chip> : null}
               {mau ? <Chip tone={mau.tone}>{mau.nhan}</Chip> : null}
               {d.ket_qua.some((k) => k.dang_sua) ? (
                 <Chip tone="warning">Đang sửa lại — bản dưới vẫn chính thức</Chip>
@@ -313,6 +329,16 @@ export default function KetQuaChiDinh({
             ) : null}
           </div>
           <div className="flex flex-wrap justify-end gap-1">
+            {onBoChiDinh && !chiXem ? (
+              <NutHoanTac
+                nhan="Hoàn tác chỉ định"
+                variant="ghost"
+                tieuDe={`Bỏ chỉ định “${d.ten_hien_thi}”?`}
+                moTa="Bỏ chỉ định này (chỉ định sai chỗ) — quầy thu cập nhật ngay"
+                goi={onBoChiDinh(d.service_order_id)}
+                onXong={onDoi}
+              />
+            ) : null}
             {choSua ? (
               <Button
                 type="button"
@@ -393,7 +419,7 @@ export default function KetQuaChiDinh({
               mau={mauCho(d)}
               mauMacDinh={
                 d.ket_qua.find((k) => k.loai === "PHIEU")?.form_id?.replace(/^KQ_/, "") ??
-                (d.mau_ket_qua?.[0]?.ma || goiYMau[d.service_code] || null)
+                (d.mau_chon_san || d.mau_ket_qua?.[0]?.ma || goiYMau[d.service_code] || null)
               }
               onHoanTat={() => onDoi?.()}
             />
@@ -430,7 +456,7 @@ export default function KetQuaChiDinh({
                 l !== lanHienTai &&
                 ds.some(
                   (d) =>
-                    (d.lan ?? 0) === l && d.ket_qua_trang_thai === "CO_KET_QUA" && !d.da_xem_luc,
+                    lanCua(d) === l && d.ket_qua_trang_thai === "CO_KET_QUA" && !d.da_xem_luc,
                 ),
             }))}
           />

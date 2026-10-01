@@ -47,7 +47,8 @@ from clinicai.events.catalogue import (
     PhieuDaHoanTat,
     PhieuKetQuaDaXem,
 )
-from clinicai.events.emit import emit_event, nguoi
+from clinicai.events.emit import emit_event, nguoi, nguoi_lam_thay
+from clinicai.permissions.ca_truc import kiem_dung_ca
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.y_khoa import doc_duoc_in_phieu
 from clinicai.phieu_kham.kiem_khung_mau import kiem_khung_mau
@@ -512,13 +513,23 @@ class FormEngineService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_DIEN)
             dong = await conn.fetchrow(
-                "SELECT trang_thai, dang_sua, revision FROM form_instance"
-                " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
+                "SELECT i.trang_thai, i.dang_sua, i.revision,"
+                " i.service_order_id::text, o.visit_id::text AS visit_id"
+                " FROM form_instance i JOIN service_order o"
+                " ON o.clinic_id=i.clinic_id AND o.id=i.service_order_id"
+                " WHERE i.clinic_id = $1::uuid AND i.id = $2::uuid FOR UPDATE OF i",
                 identity.clinic_id,
                 phieu_id,
             )
             if dong is None:
                 raise ValidationError("Không tìm thấy phiếu này.")
+            bac_si_id = await bac_si_thuc_hien_mac_dinh(
+                conn,
+                clinic_id=identity.clinic_id,
+                service_order_id=str(dong["service_order_id"]),
+                nguoi_bam=identity.staff_id,
+            )
+            await kiem_dung_ca(conn, identity, bac_si_id, visit_id=dong["visit_id"])
             if dong["trang_thai"] == "READY" and not dong["dang_sua"]:
                 # Không chặn vĩnh viễn — chặn tới khi người dùng nói rõ "tôi
                 # muốn sửa" bằng lệnh `mo_sua`. Sửa được là quyền của họ; cái
@@ -631,6 +642,13 @@ class FormEngineService:
             )
             if dong is None:
                 raise ValidationError("Không tìm thấy phiếu này.")
+            bac_si_id = await bac_si_thuc_hien_mac_dinh(
+                conn,
+                clinic_id=identity.clinic_id,
+                service_order_id=str(dong["service_order_id"]),
+                nguoi_bam=identity.staff_id,
+            )
+            await kiem_dung_ca(conn, identity, bac_si_id, visit_id=dong["visit_id"])
             sua_lai = bool(dong["trang_thai"] == "READY" and dong["dang_sua"])
             if dong["trang_thai"] == "READY" and not sua_lai:
                 # Bấm hai lần: lần thứ hai không tạo sự thật thứ hai.
@@ -767,7 +785,7 @@ class FormEngineService:
                         thuc_hien_boi=moi["thuc_hien_boi"],
                         so_o_con_trong=len(con_trong),
                     ),
-                    boi=nguoi(identity),
+                    boi=nguoi_lam_thay(identity, bac_si_id),
                 )
 
             # SỰ THẬT THỨ HAI TỪ CÙNG MỘT NÚT BẤM (ChatGPT #156, Tuyền #157).
@@ -810,7 +828,7 @@ class FormEngineService:
                             thuc_hien_boi=moi["thuc_hien_boi"],
                         )
                     ),
-                    boi=nguoi(identity),
+                    boi=nguoi_lam_thay(identity, bac_si_id),
                     correlation_id=dong["visit_id"],
                 )
 
@@ -893,7 +911,14 @@ class FormEngineService:
             khung = await self._khung(
                 conn, identity.clinic_id, moi["form_id"], moi["version"]
             )
-        return {"ok": True, **self._tra_phieu(moi, khung)}
+        # Kết quả làm thêm tại quầy đang được sửa lại → dịch vụ do QUẦY đóng mở
+        # lại (chờ làm); [Xác nhận sửa] / [Huỷ sửa] đóng lại (01/10/2026).
+        from clinicai.services.lam_them_dong_dich_vu import mo_lai_neu_quay_da_dong
+
+        dich_vu = await mo_lai_neu_quay_da_dong(
+            self._pool, order_id=str(moi["service_order_id"]), identity=identity
+        )
+        return {"ok": True, **self._tra_phieu(moi, khung), "dich_vu": dich_vu}
 
     @staticmethod
     async def _ghi_lan_sua(
@@ -993,7 +1018,8 @@ class FormEngineService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_DIEN)
             dong = await conn.fetchrow(
-                "SELECT dang_sua, revision FROM form_instance"
+                "SELECT dang_sua, revision, service_order_id::text AS order_id"
+                "  FROM form_instance"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
                 identity.clinic_id,
                 phieu_id,
@@ -1016,7 +1042,14 @@ class FormEngineService:
                 identity.clinic_id,
                 phieu_id,
             )
-        return {"ok": True, "dang_sua": False, "revision": int(moi)}
+        # Bỏ sửa → kết quả chính thức vẫn đó → dịch vụ làm thêm tại quầy (đã mở
+        # lại lúc Sửa lại) đóng lại (01/10/2026).
+        from clinicai.services.lam_them_dong_dich_vu import dong_lai_sau_huy_sua
+
+        dich_vu = await dong_lai_sau_huy_sua(
+            self._pool, order_id=str(dong["order_id"]), identity=identity
+        )
+        return {"ok": True, "dang_sua": False, "revision": int(moi), "dich_vu": dich_vu}
 
     @staticmethod
     async def _result_mode(
@@ -1066,11 +1099,26 @@ class FormEngineService:
 
         async with self._pool.acquire() as conn:
             don = await conn.fetchrow(
-                "SELECT execution_status, execution_revision FROM service_order"
+                "SELECT execution_status, execution_revision, nguon_lam_them"
+                "  FROM service_order"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid",
                 identity.clinic_id,
                 service_order_id,
             )
+            # LÀM THÊM TẠI QUẦY (Tuyền 01/10/2026, phương án A): Hoàn tất kết quả
+            # ở quầy = dịch vụ xong. Chỉ định chưa ai bắt đầu → bắt đầu + xong
+            # bằng lệnh có sẵn của module Thực hiện, tôn trọng cửa tiền; không
+            # đóng được thì nói rõ vì sao (không im lặng).
+            if (
+                don is not None
+                and don["nguon_lam_them"]
+                and (don["execution_status"] or "PENDING") == "PENDING"
+            ):
+                from clinicai.services.lam_them_dong_dich_vu import dong_tai_quay
+
+                return await dong_tai_quay(
+                    self._pool, order_id=service_order_id, identity=identity
+                )
             if don is None or don["execution_status"] != "IN_PROGRESS":
                 return {"da_dong": False, "vi_sao": "khong_dang_lam"}
             lan = await conn.fetchval(

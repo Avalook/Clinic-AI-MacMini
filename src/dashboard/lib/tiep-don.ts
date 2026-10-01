@@ -29,6 +29,8 @@ export interface DongTiepDon {
   trang_thai: { loai: LoaiTrangThai; nhan: string; nhom: NhomTab };
   check_in_duoc: boolean;
   check_out_duoc: boolean;
+  /** Khách đã về — máy chủ cho "Hoàn tác" mở lại lượt (01/10/2026). */
+  mo_lai_duoc?: boolean;
 }
 
 export interface BuoiTiepDon {

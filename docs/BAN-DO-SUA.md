@@ -42,12 +42,21 @@ phân quyền** (`/nhan-su`, `/phan-quyen`, `/settings/tai-khoan`,
 
 ## 1. Danh mục, giá, phòng — phần lớn là DỮ LIỆU, sửa trên màn
 
-**Giá dịch vụ · thêm/bớt/đổi tên dịch vụ trong bảng giá**
-- Trên màn: `/cashier/dich-vu` (Bảng giá dịch vụ). Lưu là dùng ngay cho lượt mới.
-- Code: `D/cashier/CashierView.tsx` → `/api/service-price` → `R/config.py`
-  (`add_price`, `update_price`, `remove_price`) → `S/config_service.py`
-  `PriceListService` (`add/update/remove/list`). Bảng `service_price`.
-- Test: `T/services/test_danh_muc_kiotviet_db.py`, `T/services/test_gia_thuoc_hai_nguon_khop_db.py`.
+**Giá dịch vụ · nhóm hàng · thêm/tạm ngưng dịch vụ · PHÒNG LÀM từng dịch vụ**
+- Trên màn: `/cashier/dich-vu` (Bảng giá dịch vụ & phòng, 01/10). Lưu là dùng ngay
+  cho lượt mới. Lọc "Chưa có phòng" + [Gán phòng] (cần lego Cài đặt phòng khám).
+- Nguồn sự thật danh mục: file phòng khám gửi 01/10 → bảng `danh_muc_dich_vu_nguon`
+  + hàm `dong_bo_danh_muc_dich_vu` (migration `20261002100000_danh_muc_dich_vu_chuan_0110.sql`;
+  đợt file mới = thêm `nguon` mới rồi gọi lại hàm). Luật "phí khám / cần phòng /
+  phòng nào làm được / chưa có phòng" ở MỘT hàm Postgres `danh_muc_dich_vu(clinic)`.
+- Code: `D/cashier/DanhMucDichVuPhong.tsx` → `/api/service-price` (`?xem=danh-muc`,
+  POST/PATCH có `nhom`) → `R/config.py` (`danh_muc_dich_vu`, `add_price`,
+  `update_price`) → `S/danh_muc_dich_vu_service.py` `DanhMucDichVuService.doc`,
+  `S/config_service.py` `PriceListService`; gán phòng → `/api/clinic-config`
+  `service-rooms` → `S/clinic_config_service.py` `set_service_rooms`. Bảng giá
+  thuốc vẫn `D/cashier/CashierView.tsx`.
+- Test: `T/services/test_danh_muc_dich_vu_chuan_db.py`, `T/unit/test_danh_muc_dich_vu.py`,
+  `T/services/test_danh_muc_kiotviet_db.py`, FT `cashier-catalog-ui-boundary.test.mts`.
 
 **Dịch vụ nào làm ở phòng nào** (vd Ghế điện từ trường chỉ ở Phòng Sàn chậu)
 - Trên màn: `/settings/clinic-config` → phòng → "Làm việc gì" → tick dịch vụ
@@ -130,6 +139,36 @@ Code: `S/sinh_hieu_service.py` `SinhHieuService` (`record_vitals`,
 `bat_dau_do_sinh_hieu`); dùng lại số đo cùng buổi `S/sinh_hieu_buoi.py`. Test:
 `T/services/test_sinh_hieu_cung_buoi_db.py`, `T/services/test_sinh_hieu_khong_chan_db.py`.
 
+**Nút "+ Nước tiểu"… — làm thêm tại quầy (lễ tân / người đo tick, không cần bác
+sĩ)** — Trên màn: danh sách nút (thêm "Xét nghiệm máu", tắt, chỗ hiện, chữ trên
+nút) ở `/settings/day-noi` khối "Dịch vụ làm thêm tại quầy". Code: nút
+`D/_lam-viec/LamThemTaiQuay.tsx` (dùng ở `QueueBoard.tsx`, `BangDoSinhHieu.tsx`),
+cấu hình `D/settings/day-noi/LamThemTaiQuayCauHinh.tsx` → `/api/lam-them` →
+`R/lam_them_tai_quay.py` → `S/lam_them_tai_quay_service.py` `LamThemTaiQuayService`
+(`dat`, `nut_cho_luot`, `luu_muc`, `bo_muc`). Chỉ định quầy: `service_order
+.nguon_lam_them`, không có `consultation_id`; bảng `lam_them_tai_quay` (migration
+`20261002200000_lam_them_tai_quay.sql`). Xếp phòng: sự kiện
+`service_order.desk_added` → consumer Hành trình (H4). Test:
+`T/services/test_lam_them_tai_quay_db.py`, `T/unit/test_lam_them_tai_quay.py`.
+
+**Nhập kết quả ngay tại quầy cho dịch vụ làm thêm (Nước tiểu…) + dịch vụ chưa gắn
+mẫu** — dịch vụ chưa gắn mẫu thì MÁY CHỦ chọn mẫu `CHUNG` (nhập tự do; hoặc mẫu
+gợi ý v5), cờ `mac_dinh`; quản lý gắn mẫu riêng sau thì mẫu gắn thắng. Code luật:
+`src/clinicai/phieu_kham/mau_goi_y.py` (`chon_mau`, `mau_cho_cac_dich_vu` — một chỗ cho phòng
+dịch vụ, phiếu khám, quầy, `MauKetQuaService.mau_cua_dich_vu`). Nút "Nhập kết quả"
+dưới chip tick: `D/_lam-viec/NhapKetQuaLamThem.tsx` (ghép `PhieuKetQua` + `KhungTep`,
+đường lưu / hoàn tất / tải tệp có sẵn) ← `LamThemTaiQuay.tsx` ← khối `ket_qua` của
+`S/lam_them_tai_quay_service.py` (`_ket_qua_cac_don`; `nhap_duoc` = quyền
+`result.form.fill`). Test: `T/services/test_ket_qua_chung_lam_them_db.py`.
+**Hoàn tất kết quả ở quầy = dịch vụ làm thêm XONG (phương án A, Tuyền 01/10):**
+`S/lam_them_dong_dich_vu.py` (`dong_tai_quay`, `hoan_tac_tai_quay`, cửa tiền
+`finance_gate.can_start` — dây `thu_truoc_khi_lam`, chưa thu thì nói rõ không đóng) gọi
+lệnh `bat_dau` + `xong` CÓ SẴN của `S/service_execution_service.py`; lệnh mới
+`hoan_tac_xong_tai_quay` (về chờ làm, lý do `RESULT_UNDONE`, migration
+`20261002700000_hoan_tac_xong_tai_quay.sql`). Móc ở `S/form_engine_service.py`
+(`hoan_tat`, `mo_sua`, `huy_sua`); nút [Đóng dịch vụ] / [Hoàn tác] ở `NhapKetQuaLamThem.tsx`
+→ `/api/lam-them` (`dong-dich-vu`, `hoan-tac-dich-vu`).
+
 ## 5. Tư vấn · Bàn khám · phiếu khám
 
 **Bàn tư vấn / Bàn khám (hàng chờ, nhận khách, xong tư vấn, khám xong)** — màn
@@ -153,6 +192,10 @@ FT `phieu-kham-boundary.test.mts`, `npm run test:phieu-kham`.
 `D/_lam-viec/phieu-kham/DanhMucChiDinh.tsx`, `ChiDinhThuThuat.tsx` → `/api/luot-kham`
 (`chi-dinh`) → `S/chi_dinh_service.py` `ChiDinhService.dat_chi_dinh`. Test:
 `T/services/test_chi_dinh_db.py`, `T/services/test_chi_dinh_bat_buoc_db.py`.
+Danh mục chọn được (thiếu dịch vụ nào thì xem đây): `S/phieu_kham_service.py`
+`tham_chieu_that` ← hàm `danh_muc_dich_vu` (mọi dịch vụ đang bán trừ phí khám);
+ô tìm `timDanhMucChiDinh` (`src/dashboard/lib/phieu-kham.ts`). Test:
+`T/services/test_danh_muc_dich_vu_chuan_db.py` (`test_moi_dich_vu_dang_ban_deu_chi_dinh_duoc`).
 
 **Khách chọn làm dịch vụ nào (ở quầy)** — chỉ ở `D/thu-ngan/ChonDichVu.tsx` →
 `S/service_selection_service.py` (`ServiceSelectionService`; luật ở hàm `plan`, `ap_lua_chon`).
@@ -166,10 +209,16 @@ FT `phieu-kham-boundary.test.mts`, `npm run test:phieu-kham`.
 quyền thu). Test: `T/test_payment_service.py`, `T/services/test_cashier_board.py`,
 FT `quay-thu-ngan-boundary.test.mts`.
 
-**Quầy thuốc thu nợ dịch vụ (và ngược lại)** — máy chủ đã trả `no_khac` cho mọi
-quầy: `S/cashier_board_service.py` `_lam_truoc_va_no_khac`; màn hiện ở
-`D/thu-ngan/QuayThuNgan.tsx` (`no_khac`). Quyền thu từng loại: `QUYEN_THU` trong
-`S/payment_service.py` + lego Thanh toán dịch vụ / Thu tiền thuốc (`/phan-quyen`).
+**Thuốc và dịch vụ thu RIÊNG HẲN (01/10 — quầy thuốc không thu hộ tiền dịch vụ, và ngược lại)** —
+luật máy chủ `S/payment_service.py` `kiem_quay` (409 `QUAY_KHAC_LOAI`; mọi lệnh thu / xác minh /
+huỷ chờ / hoàn tác nhận `quay`); bảng thu lọc theo quầy ở `S/cashier_board_service.py`
+(`board`, `giao_dich(kind=)`, `_lam_truoc_dich_vu`); sổ lịch sử `S/quay_thu_service.py`; báo
+cáo cuối ngày lọc `loai` ở `S/bao_cao_cuoi_ngay_service.py`; Postgres ép dòng hoá đơn khớp loại
+lần thu (mig 20261002800000). Màn: `D/thu-ngan/QuayThuNgan.tsx` (`quayThu`), `GiaoDich.tsx` (prop
+`quay`). Quyền thu từng loại: `QUYEN_THU` trong `S/payment_service.py` + lego Thanh toán dịch vụ
+/ Thu tiền thuốc (`/phan-quyen`). Test: `T/services/test_tach_thu_thuoc_dich_vu_db.py`, FT
+`quay-thu-tach-thuoc-dich-vu-boundary.test.mts`. (Dịch vụ "XN thu hộ" của đối tác vẫn là tiền DỊCH VỤ,
+thu ở quầy dịch vụ.)
 Lượt Bán lẻ ở quầy thuốc: `D/pharmacy/BanLeThu.tsx` → `S/ban_le_service.py`.
 
 **Thu trước – làm trước (tick "Làm trước – thu sau")** — công tắc: `/settings/day-noi`
@@ -185,7 +234,16 @@ sửa ở `/settings/clinic-config` (cơ sở). Dữ liệu: `R/cashier.py:cashi
 dẫn `dong_huong_dan` (không tiền). Nút in: `D/thu-ngan/QuayThuNgan.tsx`, `D/thu-ngan/XepPhongDaThu.tsx`,
 `D/_lam-viec/OLamTruocThuSau.tsx`. Test: `T/unit/test_quay_thu.py`, `T/services/test_phieu_huong_dan_db.py`.
 
-**Phụ thu, hoàn tiền, đổi hình thức TM/CK/QR, huỷ phiếu** — `D/thu-ngan/PhuThuKem.tsx`
+**Thu nhiều hình thức (TM + CK), ảnh chuyển khoản, hoàn tác lần thu** (01/10) —
+luật chia `S/phan_thu.py` (thuần; QR cũ = CK), ghi `PaymentService.record_payment(phan=)`
++ `_ghi_phan` → sổ `payment_cycle_phan` (Postgres ép tổng, mig 20261002300000), đọc qua
+hàm SQL `phan_thu_hieu_luc`; hoàn tác `PaymentService.hoan_tac`; ảnh
+`S/anh_chuyen_khoan_service.py`. Màn: `D/thu-ngan/ChiaHinhThuc.tsx`, `NutHoanTac.tsx`,
+`AnhChuyenKhoan.tsx`, tên hiển thị `src/dashboard/lib/hinh-thuc-thu.ts`; phiếu in mỗi
+phần một dòng (`InPhieuThu.tsx`). Test: `T/unit/test_phan_thu.py`,
+`T/services/test_thu_nhieu_hinh_thuc_db.py`.
+
+**Phụ thu, hoàn tiền, đổi hình thức TM/CK (chia được), huỷ phiếu** — `D/thu-ngan/PhuThuKem.tsx`
 → `S/phu_thu_service.py`; `D/thu-ngan/HoanTien.tsx` → `S/hoan_tien_service.py`;
 `D/thu-ngan/DoiHinhThuc.tsx` → `S/doi_hinh_thuc_service.py`; huỷ →
 `PaymentService.void_payment`. Test: `T/services/test_doi_hinh_thuc_db.py`.

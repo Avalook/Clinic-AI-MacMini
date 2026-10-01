@@ -29,6 +29,8 @@ import Chip from "@/components/ui/Chip";
 import { dongDangChon, tongTheoLuaChon } from "@/lib/hoa-don-quay";
 import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "../_lam-viec/ChonBacSiLam";
 import OLamTruocThuSau, { type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
+import type { PhanGui } from "@/lib/hinh-thuc-thu";
+import ChiaHinhThuc, { type KetQuaChia } from "./ChiaHinhThuc";
 
 export interface PhongChon {
   id: string;
@@ -52,6 +54,8 @@ export interface DongQuay {
   trong_lua_chon: boolean;
   bat_buoc?: boolean;
   mang_sang?: boolean;
+  /** Làm thêm tại quầy (01/10/2026) — câu máy chủ viết; null = bác sĩ chỉ định. */
+  lam_them?: string | null;
   doi_tac_lam?: boolean;
   doi_tac_da_thu?: boolean | null;
   phong_chon_duoc?: PhongChon[];
@@ -86,13 +90,17 @@ export interface QuayThu {
   lua_chon: { revision: number; order_ids_seen: string[] };
 }
 
-export type PhuongThuc = "CASH" | "TRANSFER" | "QR";
-const TEN_PT: Record<PhuongThuc, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", QR: "QR" };
+/** Hình thức chính của lần thu — có phần chuyển khoản thì là chuyển khoản. */
+export type PhuongThuc = "CASH" | "TRANSFER";
 
 export interface LenhThuMot {
   amount: number | undefined;
   billRevision: string | undefined;
   method: PhuongThuc;
+  /** Chia Tiền mặt + Chuyển khoản (01/10/2026); undefined = chỉ chốt, không thu. */
+  phan: PhanGui[] | undefined;
+  /** Ảnh chuyển khoản đã chọn — cha tải lên khi có mã lần thu. */
+  anh: File | null;
   chon:
     | { order_ids_seen: string[]; selected_order_ids: string[]; expected_selection_revision: number }
     | undefined;
@@ -138,7 +146,8 @@ export default function HoaDonMot({
     [...qt.phong_kham, ...qt.doi_tac].filter((d) => d.trong_lua_chon && d.chon).map((d) => d.id),
   );
   const [chon, setChon] = useState<Set<string>>(macDinh);
-  const [pt, setPt] = useState<PhuongThuc>("CASH");
+  const [chia, setChia] = useState<KetQuaChia | null>(null);
+  const pt: PhuongThuc = chia?.coChuyenKhoan ? "TRANSFER" : "CASH";
   const [loiPhong, setLoiPhong] = useState<string | null>(null);
   const orderIdsCoTheDoi = new Set(qt.lua_chon.order_ids_seen);
 
@@ -147,7 +156,8 @@ export default function HoaDonMot({
   const tong = doi ? tongTheoLuaChon(qt.phong_kham, chon, orderIdsCoTheDoi) : qt.tong;
   const thieuGia = qt.phong_kham.some((d) => dangChon(d) && d.gia == null);
   const chiChot = tong === 0;
-  const chanThu = thieuGia || (!doi && !qt.thu_duoc && !chiChot);
+  const chanThu =
+    thieuGia || (!doi && !qt.thu_duoc && !chiChot) || (!chiChot && !chia?.hopLe);
 
   const doiTick = (id: string) =>
     setChon((c) => {
@@ -196,10 +206,19 @@ export default function HoaDonMot({
       amount: chiChot ? undefined : tong,
       billRevision: doi ? undefined : (qt.revision ?? undefined),
       method: pt,
+      phan: chiChot ? undefined : chia?.phan,
+      anh: chiChot ? null : (chia?.anh ?? null),
       chon: seen.length
         ? { order_ids_seen: seen, selected_order_ids: selected, expected_selection_revision: qt.lua_chon.revision }
         : undefined,
-      khoa: ["thu-mot", qt.revision, String(qt.lua_chon.revision), selected.join(","), pt, String(tong)].join("|"),
+      khoa: [
+        "thu-mot",
+        qt.revision,
+        String(qt.lua_chon.revision),
+        selected.join(","),
+        JSON.stringify(chiChot ? null : chia?.phan),
+        String(tong),
+      ].join("|"),
       tong,
     });
   };
@@ -289,23 +308,12 @@ export default function HoaDonMot({
         </div>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
-        <div role="radiogroup" aria-label="Hình thức thu" className="flex gap-1">
-          {(Object.keys(TEN_PT) as PhuongThuc[]).map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="radio"
-              aria-checked={pt === k}
-              onClick={() => setPt(k)}
-              className={`h-8 rounded-control px-3 text-meta font-medium ${
-                pt === k ? "bg-brand-600 text-white" : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
-              }`}
-            >
-              {TEN_PT[k]}
-            </button>
-          ))}
+      {!chiChot ? (
+        <div className="border-t border-line pt-3">
+          <ChiaHinhThuc tong={tong} onDoi={setChia} />
         </div>
+      ) : null}
+      <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line pt-3">
         <div className="flex flex-wrap items-center justify-end gap-3">
           <span className="text-emph font-semibold tabular-nums text-ink">{tien(tong)}</span>
           {onChotThuSau && conQuyet && !chiChot && lamTruoc?.chot_thu_sau_duoc ? (
@@ -324,7 +332,13 @@ export default function HoaDonMot({
             disabled={dangThu || dangLuuPhuThu || chanThu}
             onClick={bam}
           >
-            {dangThu ? "Đang ghi…" : chiChot ? "Chốt dịch vụ" : "Thu"}
+            {dangThu
+              ? "Đang ghi…"
+              : chiChot
+                ? "Chốt dịch vụ"
+                : chia?.coChuyenKhoan
+                  ? "Thu · chờ xác minh CK"
+                  : "Thu"}
           </Button>
         </div>
       </div>
@@ -371,6 +385,7 @@ function DanhSach({
                 {!co ? <span className="text-meta text-ink-muted">khách không làm</span> : null}
                 {d.bat_buoc ? <Chip tone="warning">Bắt buộc</Chip> : null}
                 {d.mang_sang ? <Chip tone="neutral">Mang sang</Chip> : null}
+                {d.lam_them ? <Chip tone="info">{d.lam_them}</Chip> : null}
                 {doiTac ? (
                   <Chip tone={d.doi_tac_da_thu ? "success" : "neutral"}>
                     {d.doi_tac_da_thu ? "đã thu hộ cho đối tác" : "chưa thu hộ cho đối tác"}

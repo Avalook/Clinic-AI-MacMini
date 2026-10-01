@@ -303,3 +303,39 @@ def test_luot_kham_do_van_bat_buoc_co_ly_do_nguoi_go() -> None:
     assert "incomplete and not ly_do_do" in nguon, (
         "lượt khám dở vẫn phải có lý do do người gõ"
     )
+
+
+class TestConNoKhiVe:
+    """01/10/2026 — khoản đã làm/đã mua chưa thu: vướng CỨNG, không nhắc trùng."""
+
+    _NO = {
+        "tong": 300000,
+        "chan": True,
+        "dong": [{"loai": "dich_vu", "so_tien": 300000}],
+        "ghi_no": None,
+    }
+
+    def test_con_no_la_vuong_cung_va_bo_nhac_trung(self) -> None:
+        out = build_blockers(
+            _row(paid_service=False, con_no_dich_vu=True, no_khi_ve=self._NO)
+        )
+        [chan] = [b for b in out if b.get("chan")]
+        assert chan["type"] == "con_no" and "300.000" in chan["message"]
+        assert "unpaid_service" not in {b["type"] for b in out}
+
+    def test_da_ghi_no_phu_du_thi_khong_vuong_tien(self) -> None:
+        out = build_blockers(
+            _row(
+                paid_service=False,
+                con_no_dich_vu=True,
+                no_khi_ve={**self._NO, "chan": False},
+            )
+        )
+        assert not {"con_no", "unpaid_service"} & {b["type"] for b in out}
+
+    def test_khong_no_thi_giu_nhac_mem_cu(self) -> None:
+        out = build_blockers(
+            _row(paid_service=False, con_no_dich_vu=True, no_khi_ve={"dong": []})
+        )
+        assert "unpaid_service" in {b["type"] for b in out}
+        assert not any(b.get("chan") for b in out)

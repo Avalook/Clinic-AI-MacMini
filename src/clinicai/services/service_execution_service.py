@@ -116,6 +116,13 @@ LY_DO_GIAN_DOAN = frozenset(
 #:   STARTED_IN_ERROR — "Huỷ bắt đầu nhầm" khi chưa điền gì.
 LY_DO_CHUYEN_KHACH = "PATIENT_MOVED"
 LY_DO_BAT_DAU_NHAM = "STARTED_IN_ERROR"
+#: "Hoàn tác" dịch vụ đã đóng TẠI QUẦY (làm thêm tại quầy, 01/10/2026): lần làm
+#: đóng bằng lý do này khi người đứng quầy sửa lại / hoàn tác kết quả.
+LY_DO_HOAN_TAC_XONG = "RESULT_UNDONE"
+#: Ghi chú lần làm do QUẦY đóng (Hoàn tất phiếu kết quả ở Đo sinh hiệu / Tiếp
+#: đón). Là DẤU để lệnh hoàn tác chỉ mở lại những lần làm do quầy đóng — dịch vụ
+#: do phòng làm xong thì hoàn tác ở phòng.
+GHI_CHU_TAI_QUAY = "Làm tại quầy — hoàn tất phiếu kết quả"
 
 
 def phieu_da_dien(trang_thai: str | None, revision: int | None) -> bool:
@@ -872,6 +879,114 @@ class ServiceExecutionService:
                 conn,
                 identity,
                 "service.start_cancel",
+                idempotency_key,
+                payload,
+                vid,
+                ket_qua,
+            )
+        return ket_qua
+
+    # ------------------------------------------------------------------
+    async def hoan_tac_xong_tai_quay(
+        self,
+        *,
+        order_id: str,
+        expected_execution_revision: int,
+        identity: StaffIdentity,
+        idempotency_key: str | None = None,
+        nguon: str = "hoan_tac",
+    ) -> dict[str, Any]:
+        """`ReopenDeskCompletedService` — hoàn tác dịch vụ QUẦY đã đóng (01/10/2026).
+
+        Làm thêm tại quầy: Hoàn tất phiếu kết quả ở Đo sinh hiệu / Tiếp đón =
+        dịch vụ xong (`xong` kèm dấu `GHI_CHU_TAI_QUAY`). Sửa lại / Hoàn tác kết
+        quả thì dịch vụ trở về ĐÚNG trạng thái trước đó: chờ làm, khách hiện lại
+        ở hàng chờ của phòng. Một giao dịch: lần làm → INTERRUPTED lý do
+        RESULT_UNDONE (không xoá), chỉ định → PENDING, hàng chờ phòng dựng lại,
+        con trỏ "khách ở đâu" dời, phát `service.retry_prepared`.
+
+        CHỈ lần làm do quầy đóng; dịch vụ phòng làm xong thì lệnh này từ chối.
+        `nguon` ("hoan_tac" | "sua_lai") ghi vào lần làm để [Huỷ sửa] biết có phải
+        chính lần Sửa lại đã mở dịch vụ không (hoàn tác tường minh thì [Huỷ sửa]
+        KHÔNG đóng lại).
+        """
+        cid = identity.clinic_id
+        payload = {"order_id": order_id}
+        async with self._pool.acquire() as conn, conn.transaction():
+            await _doi_quyen_lam(conn, identity, QUYEN_XONG)
+            don, vid = await self._khoa_don(conn, cid, order_id)
+            await doi_quyen(conn, identity, QUYEN_XONG, phong_id=don["room_id"])
+            cached = await bien_nhan_doc(
+                conn, identity, "service.desk_reopen", idempotency_key, payload
+            )
+            if cached is not None:
+                return cached
+            await doi_lich_phong(
+                conn,
+                self._pool,
+                identity,
+                don["room_id"],
+                ngay_cu=bool(don["la_ngay_cu"]),
+            )
+            self._doi_revision(don, expected_execution_revision, "execution_revision")
+            if don["execution_status"] != "COMPLETED":
+                raise LuotKhamConflictError(
+                    "EXECUTION_STATE_INVALID", "Dịch vụ chưa được đóng."
+                )
+            lan = await conn.fetchrow(
+                "SELECT id::text, attempt_no, ghi_chu FROM service_execution_attempt"
+                " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+                " ORDER BY attempt_no DESC LIMIT 1 FOR UPDATE",
+                cid,
+                order_id,
+            )
+            if lan is None or lan["ghi_chu"] != GHI_CHU_TAI_QUAY:
+                raise LuotKhamConflictError(
+                    "NOT_DESK_COMPLETED",
+                    "Dịch vụ này do phòng làm xong — hoàn tác ở phòng.",
+                )
+            await conn.execute(
+                "UPDATE service_execution_attempt"
+                "   SET status = 'INTERRUPTED', completed_by = NULL,"
+                "       completed_at = NULL, interrupted_by = $3::uuid,"
+                "       interrupted_at = now(), interruption_reason_code = $4,"
+                "       interruption_reason_note = $5, updated_at = now()"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                cid,
+                lan["id"],
+                identity.staff_id,
+                LY_DO_HOAN_TAC_XONG,
+                nguon,
+            )
+            moi = await self._doi_trang_thai(conn, cid, order_id, "PENDING")
+            await ve_lai_hang_phong(conn, cid, vid, order_id, don["room_id"])
+            await cap_nhat_vi_tri(conn, cid, vid)
+            await emit_event(
+                conn,
+                ten="service.retry_prepared",
+                clinic_id=cid,
+                aggregate_id=order_id,
+                so_ke_tiep=True,
+                payload=DichVuSanSangLamLai(
+                    visit_id=vid,
+                    service_order_id=order_id,
+                    attempt_id=lan["id"],
+                    execution_revision=moi,
+                ),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
+            ket_qua = {
+                "ok": True,
+                "order_id": order_id,
+                "execution_status": "PENDING",
+                "cho_lam": True,
+                "execution_revision": moi,
+            }
+            await bien_nhan_ghi(
+                conn,
+                identity,
+                "service.desk_reopen",
                 idempotency_key,
                 payload,
                 vid,

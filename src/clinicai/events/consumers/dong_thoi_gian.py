@@ -31,6 +31,9 @@ from clinicai.events.worker import SuKienDaNhan, dang_ky
 # đẩy dữ liệu cá nhân ra một màn có nhiều người xem hơn.
 CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service_order.placed": ["service_code", "service_name"],
+    # Làm thêm tại quầy (01/10/2026): dịch vụ + nơi tick.
+    "service_order.desk_added": ["service_code", "service_name", "nguon"],
+    "service_order.desk_removed": ["service_code", "nguon"],
     # Số dòng đơn — không tên thuốc (tên thuốc nói ra bệnh).
     "prescription.saved": ["so_dong"],
     "medicine.counter_changed": ["hanh_dong", "so_luong"],
@@ -62,6 +65,9 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     # Số tiền là thông tin vận hành của quầy, không phải chữ lâm sàng.
     "payment.service_collected": ["so_tien", "phuong_thuc"],
     "payment.medicine_collected": ["so_tien", "phuong_thuc"],
+    "cong_no.ghi": ["so_tien", "ly_do"],
+    "cong_no.huy": ["so_tien", "ly_do"],
+    "cong_no.da_thu": ["so_tien"],
     # Kê ↔ mua ↔ giao: đối chiếu hai bản đơn (Tuyền 24/09).
     "medicine.dispensed": ["so_ke", "so_mua", "so_da_giao"],
     # Nhóm 3 (24/09/2026).
@@ -84,6 +90,8 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "payment.refunded": ["so_tien"],
     # Đổi TM/CK/QR sau khi thu (V7) — thông tin vận hành của quầy.
     "payment.method_changed": ["tu", "sang", "so_tien"],
+    # Hoàn tác lần thu (01/10/2026) — lý do là chữ vận hành người bấm gõ.
+    "payment.collection_undone": ["kind", "so_tien", "truoc", "ly_do"],
     "followup.scheduled": ["ngay"],
     "partner.sample_collected": [],
     "partner.sample_received": [],
@@ -101,6 +109,19 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     # người + giờ của dòng; chi tiết chỉ là số chỉ định chốt cùng lúc.
     "visit.defer_payment_set": ["so_chi_dinh_chot"],
     "visit.defer_payment_cleared": [],
+    # HOÀN TÁC (01/10/2026): lý do là chữ vận hành người bấm gõ khi máy chủ hỏi
+    # xác nhận — Tuyền cần thấy ai rút lại gì, vì sao, ở lịch sử lượt.
+    "consultation.reopened": ["loai", "ket_qua_cu", "mo_lai_kham_xong", "ly_do"],
+    "service_order.cancelled": [
+        "service_code",
+        "service_name",
+        "da_thu_tien",
+        "tien_thua",
+        "ly_do",
+    ],
+    "service.completion_undone": ["attempt_no", "mo_lai_kham_xong", "ly_do"],
+    "visit.reopened": ["tu_ve_giua_chung", "ly_do"],
+    "result.approval_revoked": ["tep_da_gui", "ly_do"],
 }
 
 

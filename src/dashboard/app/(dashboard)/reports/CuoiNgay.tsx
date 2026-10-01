@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import Button, { buttonClass } from "@/components/ui/Button";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import ThanhNgay from "@/components/ui/ThanhNgay";
+import { fmtDayTime } from "@/lib/datetime";
 import { todayVn } from "@/lib/roster";
 import { congNgay, nhanKhoang, type Khoang } from "@/lib/thanh-ngay";
 
@@ -25,6 +26,8 @@ interface OTien {
 interface BaoCao {
   tu: string;
   den: string;
+  /** Đang xem riêng một loại tiền (01/10/2026) — null = cả hai. */
+  loai?: "dich_vu" | "thuoc" | null;
   tong: OTien & {
     hoan_cho: number;
     so_phieu_thu: number;
@@ -42,6 +45,7 @@ interface BaoCao {
     ma_bn: string | null;
     loai_tien: string | null;
     hinh_thuc: string | null;
+    nhan_hinh_thuc?: string;
     so_tien: number;
     nguoi: string | null;
     ly_do: string | null;
@@ -75,15 +79,34 @@ interface BaoCao {
     loai_tien: string | null;
     tu: string | null;
     sang: string;
+    /** Nhãn máy chủ dựng — có cả chia TM + CK (01/10/2026). */
+    nhan_sang?: string;
     so_tien: number;
     nguoi: string | null;
     ly_do: string | null;
   }[];
   top_dich_vu: { ten: string; so_luong: number; doanh_thu: number }[];
+  /** Khách còn nợ (01/10/2026): khoản ghi nợ lúc check-out còn CHƯA THU — tính
+   *  tới hiện tại, không theo khoảng ngày. */
+  khach_con_no?: {
+    so_khach: number;
+    so_luot: number;
+    so_tien: number;
+    bi_cat?: boolean;
+    ds?: {
+      id: string;
+      khach: string | null;
+      ma_bn: string | null;
+      so_tien: number;
+      ly_do: string;
+      nguoi_ghi: string | null;
+      luc: string;
+    }[];
+  };
   theo_ngay: (OTien & { ngay: string; so_phieu: number })[];
 }
 
-const TEN_PT: Record<string, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", QR: "QR" };
+const TEN_PT: Record<string, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", QR: "Chuyển khoản" };
 const TEN_LOAI: Record<string, string> = { dich_vu: "Dịch vụ", thuoc: "Thuốc" };
 
 function tien(n: number): string {
@@ -174,8 +197,11 @@ export default function CuoiNgay() {
   const [bc, setBc] = useState<BaoCao | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [dangTai, setDangTai] = useState(true);
+  // Thuốc và dịch vụ thu RIÊNG HẲN (Tuyền 01/10/2026): mỗi quầy một ngăn kéo —
+  // chọn "Dịch vụ" / "Thuốc" để mọi bảng chỉ cộng đúng loại tiền ấy.
+  const [loai, setLoai] = useState<"" | "dich_vu" | "thuoc">("");
 
-  const chuoi = new URLSearchParams({ tu: khoang.tu, den: khoang.den }).toString();
+  const chuoi = new URLSearchParams({ tu: khoang.tu, den: khoang.den, ...(loai ? { loai } : {}) }).toString();
 
   const tai = useCallback(async () => {
     setDangTai(true);
@@ -209,6 +235,28 @@ export default function CuoiNgay() {
           onChon={(k) => setKhoang(k ?? { tu: congNgay(homNay, -92), den: homNay })}
           className="min-w-0 flex-1"
         />
+        <div role="tablist" aria-label="Loại tiền" className="flex gap-1">
+          {(
+            [
+              ["", "Tất cả"],
+              ["dich_vu", "Dịch vụ"],
+              ["thuoc", "Thuốc"],
+            ] as const
+          ).map(([ma, nhan]) => (
+            <button
+              key={ma}
+              type="button"
+              role="tab"
+              aria-selected={loai === ma}
+              onClick={() => setLoai(ma)}
+              className={`min-h-10 rounded-control px-3 text-sm font-medium ${
+                loai === ma ? "bg-brand-600 text-white" : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
+              }`}
+            >
+              {nhan}
+            </button>
+          ))}
+        </div>
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={() => window.print()} disabled={!bc}>
             In
@@ -238,6 +286,14 @@ export default function CuoiNgay() {
             <StatCard label={`Huỷ phiếu (${t.so_phieu_huy})`} value={am(t.huy)} tone="warning" />
             <StatCard label={`Hoàn tiền (${t.so_phieu_hoan})`} value={am(t.hoan)} tone="warning" />
           </StatRow>
+          {/* Hai ngăn kéo riêng: tiền dịch vụ và tiền thuốc không cộng lẫn khi đối soát. */}
+          {!bc.loai ? (
+            <StatRow>
+              {bc.theo_loai.map((o) => (
+                <StatCard key={o.ma} label={`Thực thu ${TEN_LOAI[o.ma]?.toLowerCase() ?? o.ten}`} value={tien(o.thuc_thu)} />
+              ))}
+            </StatRow>
+          ) : null}
           <StatRow>
             <StatCard label="Lượt khám mới" value={bc.khach.so_luot_kham} />
             <StatCard
@@ -248,6 +304,13 @@ export default function CuoiNgay() {
             <StatCard label="Lượt đã thu" value={bc.khach.so_luot_da_thu} />
             <StatCard label="Khách đã thu" value={bc.khach.so_khach_da_thu} />
             <StatCard label="Phiếu thu" value={t.so_phieu_thu} />
+            {bc.khach_con_no ? (
+              <StatCard
+                label={`Khách còn nợ: ${bc.khach_con_no.so_khach}`}
+                value={tien(bc.khach_con_no.so_tien)}
+                tone={bc.khach_con_no.so_khach > 0 ? "warning" : "neutral"}
+              />
+            ) : null}
           </StatRow>
           {bc.khach.so_luot_ban_le ? (
             <p className="text-meta text-ink-muted">
@@ -342,10 +405,10 @@ export default function CuoiNgay() {
                       <tr key={`${o.loai}-${o.id}`} className="border-b border-surface-sunken last:border-b-0">
                         <td className={`${TD} whitespace-nowrap`}>{gio(o.luc)}</td>
                         <td className={TD}>
-                          {o.loai === "huy" ? "Huỷ phiếu" : "Hoàn"}
+                          {o.loai === "huy" ? "Hoàn tác lần thu (huỷ phiếu)" : "Hoàn tiền"}
                           {o.cho ? <span className="ml-1 text-meta text-warning">chờ chuyển</span> : null}
                           <span className="block text-meta text-ink-muted">
-                            {[TEN_LOAI[o.loai_tien ?? ""], TEN_PT[o.hinh_thuc ?? ""]]
+                            {[TEN_LOAI[o.loai_tien ?? ""], o.nhan_hinh_thuc || TEN_PT[o.hinh_thuc ?? ""]]
                               .filter(Boolean)
                               .join(" · ")}
                           </span>
@@ -392,7 +455,7 @@ export default function CuoiNgay() {
                           </span>
                         </td>
                         <td className={TD}>
-                          {TEN_PT[o.tu ?? ""] ?? "Không rõ"} → {TEN_PT[o.sang] ?? o.sang}
+                          {TEN_PT[o.tu ?? ""] ?? "Không rõ"} → {o.nhan_sang || (TEN_PT[o.sang] ?? o.sang)}
                         </td>
                         <td className={TD}>{o.nguoi ?? "—"}</td>
                         <td className={`${TD} min-w-40`}>{o.ly_do ?? "—"}</td>
@@ -407,6 +470,52 @@ export default function CuoiNgay() {
               Bảng &quot;Theo hình thức&quot; đã tính theo hình thức sau khi đổi.
             </p>
           </Khoi>
+
+          {bc.khach_con_no ? (
+            <Khoi
+              title={`Khách còn nợ: ${bc.khach_con_no.so_khach} — ${tien(bc.khach_con_no.so_tien)}`}
+            >
+              {(bc.khach_con_no.ds ?? []).length === 0 ? (
+                <p className="text-meta text-ink-muted">Không còn khoản ghi nợ nào chưa thu.</p>
+              ) : (
+                <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-card">
+                  <table className="w-full border-collapse text-body">
+                    <thead>
+                      <tr className="border-b border-line bg-surface-muted text-left text-meta text-ink-muted">
+                        <th className={TH}>Ghi lúc</th>
+                        <th className={TH}>Khách</th>
+                        <th className={TH}>Lý do</th>
+                        <th className={TH}>Người ghi</th>
+                        <th className={`${TH} text-right`}>Số tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(bc.khach_con_no.ds ?? []).map((o) => (
+                        <tr key={o.id} className="border-b border-surface-sunken last:border-b-0">
+                          <td className={`${TD} whitespace-nowrap`}>{fmtDayTime(o.luc)}</td>
+                          <td className={TD}>
+                            {o.khach ?? "—"}
+                            {o.ma_bn ? <span className="text-ink-muted"> · {o.ma_bn}</span> : null}
+                          </td>
+                          <td className={TD}>{o.ly_do}</td>
+                          <td className={TD}>{o.nguoi_ghi ?? "—"}</td>
+                          <td className={SO}>{tien(o.so_tien)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {bc.khach_con_no.bi_cat ? (
+                <p className="text-meta text-ink-muted">
+                  Danh sách chỉ hiện các khoản mới nhất — tổng ở trên là đủ.
+                </p>
+              ) : null}
+              <p className="text-meta text-ink-muted">
+                Thu nợ ở quầy thu ngân như thu thường — lượt hết nợ thì tự rời danh sách này.
+              </p>
+            </Khoi>
+          ) : null}
 
           <Khoi title={`Đối tác thu hộ — tham khảo, không cộng (${tien(bc.doi_tac.tong)})`}>
             {bc.doi_tac.dong.length === 0 ? (

@@ -23,7 +23,7 @@ import json
 import math
 import os
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -40,12 +40,17 @@ from clinicai.api.exceptions import (
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.events.catalogue import ThuocBiBo, TienDichVuDaThu, TienThuocDaThu
+from clinicai.events.catalogue import (
+    LanThuDaHoanTac,
+    ThuocBiBo,
+    TienDichVuDaThu,
+    TienThuocDaThu,
+)
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.catalogue import tra_quyen
 from clinicai.services import pos_outbox
-from clinicai.services.ban_le_service import dong_luot_ban_le
+from clinicai.services.ban_le_service import dong_luot_ban_le, mo_lai_luot_ban_le
 from clinicai.services.bill_service import (
     HoaDon,
     hoa_don_theo_anh_chup,
@@ -62,6 +67,13 @@ from clinicai.services.phan_lo_service import (
     go_va_giu_ke_hoach,
     khoa_ban_thuoc,
     van_de_phan_lo,
+)
+from clinicai.services.phan_thu import (
+    PhanThu,
+    ap_phan,
+    chuan_hinh_thuc,
+    doc_phan,
+    hinh_thuc_chinh,
 )
 from clinicai.services.service_selection_service import (
     QUYEN_CHON_DICH_VU,
@@ -84,6 +96,37 @@ def dung_kho_thuoc_khi_thanh_toan() -> bool:
 
 
 PAYMENT_KINDS: frozenset[str] = frozenset({"thuoc", "dich_vu"})
+
+
+class QuayKhongThuLoaiNayError(ConflictError):
+    """Quầy thu này không thu loại tiền ấy (HTTP 409)."""
+
+    error_code: str = "QUAY_KHAC_LOAI"
+
+
+_TEN_QUAY = {"thuoc": "Thu tiền thuốc", "dich_vu": "Thu tiền dịch vụ"}
+
+
+def kiem_quay(quay: object, kind: str) -> None:
+    """TIỀN THUỐC VÀ TIỀN DỊCH VỤ THU RIÊNG HẲN (Tuyền 01/10/2026).
+
+    ``quay`` = quầy màn đang đứng (``thuoc`` | ``dich_vu``). Quầy thuốc không thu
+    hộ tiền dịch vụ, quầy dịch vụ không thu hộ tiền thuốc — đi nhầm quầy thì
+    máy chủ từ chối, kèm câu chỉ đúng quầy. ``None`` = lệnh không đi qua quầy
+    (script, tích hợp): chỉ còn cửa quyền theo loại tiền. Thuần.
+    """
+    if quay is None:
+        return
+    if quay not in PAYMENT_KINDS:
+        raise ValidationError(f"Quầy thu không hợp lệ: {quay!r}")
+    if quay != kind:
+        raise QuayKhongThuLoaiNayError(
+            f"Quầy “{_TEN_QUAY[str(quay)]}” không thu tiền "
+            f"{'dịch vụ' if kind == 'dich_vu' else 'thuốc'} — "
+            f"khoản này thu ở quầy “{_TEN_QUAY[kind]}”."
+        )
+
+
 # Contract tiền–thuốc A2/C6: tiền mặt = nhân viên xác nhận đã nhận đủ; chuyển
 # khoản/QR chỉ PAID khi có người xác minh kèm mã giao dịch.
 PAYMENT_METHODS: frozenset[str] = frozenset({"CASH", "TRANSFER", "QR"})
@@ -156,6 +199,42 @@ def normalize_amount(raw: object) -> int | None:
     return None
 
 
+#: Hoàn tác lần thu không bắt gõ lý do (Tuyền 01/10/2026: mở cho người đứng
+#: quầy làm lại thao tác sai). Sổ vẫn cần một câu (CHECK 5–500 ký tự của
+#: payment_cycle) — để trống thì ghi câu này; ai/lúc nào nằm ở closed_by/at.
+LY_DO_HOAN_TAC_MAC_DINH = "Hoàn tác lần thu (thao tác nhầm)"
+
+
+def ly_do_hoan_tac(raw: object) -> str:
+    """Lý do TUỲ CHỌN của hoàn tác → câu ghi sổ (luôn 5–500 ký tự). Thuần.
+
+    Rỗng / không phải chuỗi → câu mặc định; ngắn quá (vd "sai") → "Hoàn tác:
+    sai"; dài quá → cắt 500.
+    """
+    s = " ".join(raw.split()) if isinstance(raw, str) else ""
+    if not s:
+        return LY_DO_HOAN_TAC_MAC_DINH
+    if len(s) < MIN_VOID_REASON_LENGTH:
+        s = f"Hoàn tác: {s}"
+    return s[:MAX_VOID_REASON_LENGTH]
+
+
+def ly_do_khong_hoan_tac(status: object, kind: object, co_hoan: object) -> str | None:
+    """Vì sao lần thu này KHÔNG có nút Hoàn tác; ``None`` = có. Thuần.
+
+    Cùng luật với ``hoan_tac`` (void_payment / huy_cho_xac_minh): đã hoàn tác
+    rồi thì thôi; phiếu DỊCH VỤ đã có khoản hoàn thì đi đường hoàn tiền (huỷ
+    nữa là trả khách hai lần). Quyền thu từng loại do nơi gọi kiểm.
+    """
+    if status in ("VOIDED", "CANCELLED"):
+        return "Lần thu này đã hoàn tác."
+    if status not in ("PAID", CHO_XAC_MINH):
+        return "Lần thu này không còn hiệu lực."
+    if kind == "dich_vu" and co_hoan:
+        return "Phiếu đã có khoản hoàn tiền — xử lý theo đường hoàn tiền."
+    return None
+
+
 def normalize_void_reason(raw: object) -> str | None:
     """Return a trimmed, bounded financial-reversal reason or ``None``."""
     if not isinstance(raw, str):
@@ -203,8 +282,18 @@ class PaymentService:
         method: str = "CASH",
         idempotency_key: str | None = None,
         chon: Mapping[str, Any] | None = None,
+        phan: object = None,
+        quay: str | None = None,
     ) -> dict[str, Any]:
         """Một LẦN THU (payment_cycle) cho ``(visit_id, kind)``.
+
+        ``quay`` (01/10/2026): quầy màn đang đứng — khác ``kind`` thì 409
+        ``QUAY_KHAC_LOAI`` (``kiem_quay``); thuốc và dịch vụ thu riêng hẳn.
+
+        ``phan`` (01/10/2026): chia lần thu theo hình thức — ``[{hinh_thuc,
+        so_tien, khach_dua?}]`` (Tiền mặt + Chuyển khoản). Tổng phải đúng số máy
+        chủ tính; có phần chuyển khoản thì cả lần thu là chuyển khoản (chờ xác
+        minh). Không gửi = một phần theo ``method``. ``QR`` cũ = Chuyển khoản.
 
         Tiền mặt → PAID ngay (nhân viên bấm "đã nhận đủ" là bằng chứng). Chuyển
         khoản / QR → lần thu CHỜ XÁC MINH, chưa PAID; xem ``xac_minh_dien_tu``.
@@ -225,6 +314,7 @@ class PaymentService:
         NotFoundError (404) if the visit/appointment is missing, and
         ConflictError (409) if the doctor has not finished the exam yet.
         """
+        kiem_quay(quay, kind)
         if kind == "dich_vu":
             # Tiền DỊCH VỤ hỏi QUYỀN `payment.service.collect` trong chính giao
             # dịch thu (CORE-B3, 23/09/2026) — xem `_thu_dich_vu`. Tiền thuốc
@@ -235,6 +325,11 @@ class PaymentService:
             await self._assert_kind_allowed(kind, identity)
         if method not in PAYMENT_METHODS:
             raise ValidationError(f"Phương thức thanh toán không hợp lệ: {method!r}")
+        ds_phan = doc_phan(phan)
+        # QR gộp vào Chuyển khoản (01/10/2026): sổ chỉ còn ghi CASH / TRANSFER.
+        method = (
+            hinh_thuc_chinh(ds_phan) if ds_phan else (chuan_hinh_thuc(method) or method)
+        )
 
         so_trinh_duyet: int | None = None
         if amount is not None:
@@ -252,6 +347,7 @@ class PaymentService:
                 so_trinh_duyet=so_trinh_duyet,
                 idempotency_key=idempotency_key,
                 chon=chon,
+                phan=ds_phan,
             )
         if chon is not None:
             raise ValidationError("Lựa chọn dịch vụ chỉ đi kèm lần thu tiền dịch vụ.")
@@ -404,6 +500,7 @@ class PaymentService:
                             "Chưa thu được tiền thuốc — " + "; ".join(van_de)
                         )
 
+                phan_ghi = ap_phan(ds_phan, method, normalized)
                 cycle_id = str(uuid.uuid4())
                 dien_tu = method in DIEN_TU
                 await conn.execute(
@@ -428,6 +525,7 @@ class PaymentService:
                     CHO_XAC_MINH if dien_tu else "PAID",
                     identity.staff_id,
                 )
+                await _ghi_phan(conn, identity.clinic_id, cycle_id, phan_ghi)
                 payment_id: str | None = None
                 if not dien_tu:
                     payment_id = await _ghi_da_thu(
@@ -507,6 +605,7 @@ class PaymentService:
         so_trinh_duyet: int | None,
         idempotency_key: str | None,
         chon: Mapping[str, Any] | None = None,
+        phan: Sequence[PhanThu] | None = None,
     ) -> dict[str, Any]:
         """Một lần thu TIỀN DỊCH VỤ theo OUTSTANDING BILL (Lifecycle v1 Slice 3).
 
@@ -534,6 +633,9 @@ class PaymentService:
             "method": method,
             "amount": so_trinh_duyet,
         }
+        if phan:
+            # Chỉ thêm khi có: lần thu một hình thức giữ nguyên dấu băm cũ.
+            payload["phan"] = [p.ra_dict() for p in phan]
         lua_chon = None
         if chon is not None:
             # Kiểm hình dạng TRƯỚC khi mở giao dịch — cùng luật lệnh xác nhận.
@@ -574,6 +676,7 @@ class PaymentService:
                         method=method,
                         so_trinh_duyet=so_trinh_duyet,
                         chi_chot_khi_rong=kq_chon is not None,
+                        phan=phan,
                     )
                     if kq_chon is not None:
                         kq["chon"] = kq_chon
@@ -613,6 +716,7 @@ class PaymentService:
         method: str,
         so_trinh_duyet: int | None,
         chi_chot_khi_rong: bool = False,
+        phan: Sequence[PhanThu] | None = None,
     ) -> dict[str, Any]:
         cho = await conn.fetchrow(
             """
@@ -675,6 +779,7 @@ class PaymentService:
                 f"Số tiền {so_trinh_duyet:,}đ khác hoá đơn máy chủ "
                 f"{hoa_don.tong:,}đ — tải lại rồi thu theo hoá đơn mới."
             )
+        phan_ghi = ap_phan(phan, method, hoa_don.tong)
         cycle_id = str(uuid.uuid4())
         dien_tu = method in DIEN_TU
         await conn.execute(
@@ -697,6 +802,7 @@ class PaymentService:
             CHO_XAC_MINH if dien_tu else "PAID",
             identity.staff_id,
         )
+        await _ghi_phan(conn, identity.clinic_id, cycle_id, phan_ghi)
         payment_id: str | None = None
         if not dien_tu:
             payment_id = await _ghi_da_thu(
@@ -811,6 +917,7 @@ class PaymentService:
         kind: str,
         reference: object,
         identity: StaffIdentity,
+        quay: str | None = None,
     ) -> dict[str, Any]:
         """Xác minh lần chuyển khoản/QR ĐÃ NHẬN TIỀN → PAID.
 
@@ -826,6 +933,7 @@ class PaymentService:
         Gửi lại cùng mã cho lần đã xác minh → thành công như cũ (idempotent).
         HOLD: ai được xác minh (hiện: cùng các vai được thu loại tiền này).
         """
+        kiem_quay(quay, kind)
         await self._assert_kind_allowed(kind, identity)
         ma = (reference.strip() if isinstance(reference, str) else "") or None
         if ma is not None and len(ma) > 100:
@@ -1016,10 +1124,12 @@ class PaymentService:
         kind: str,
         reason: object,
         identity: StaffIdentity,
+        quay: str | None = None,
     ) -> dict[str, Any]:
         """Huỷ ĐÚNG lần chuyển khoản/QR chờ xác minh (khách không chuyển / chuyển
         sai). Không phải huỷ phiếu thu — chưa từng thu. Gửi lại cho lần đã huỷ
         → thành công như cũ."""
+        kiem_quay(quay, kind)
         await self._assert_kind_allowed(kind, identity)
         ly_do = normalize_void_reason(reason)
         if ly_do is None:
@@ -1076,6 +1186,16 @@ class PaymentService:
                     void_reason=ly_do,
                     method=lan["method"],
                 )
+                await _phat_hoan_tac(
+                    conn,
+                    identity=identity,
+                    visit_id=visit_id,
+                    cycle_id=payment_cycle_id,
+                    kind=kind,
+                    so_tien=int(lan["amount"]),
+                    truoc=CHO_XAC_MINH,
+                    ly_do=ly_do,
+                )
         return {"payment_cycle_id": payment_cycle_id, "status": "CANCELLED"}
 
     async def void_payment(
@@ -1086,6 +1206,7 @@ class PaymentService:
         kind: str,
         reason: object,
         identity: StaffIdentity,
+        quay: str | None = None,
     ) -> dict[str, Any]:
         """Huỷ ĐÚNG phiếu thu (lần thu) được nhắm — contract D2, review CP2 #1.
 
@@ -1094,6 +1215,7 @@ class PaymentService:
         15/09: chính người đã thu phiếu đó, hoặc Quản lý). Lệnh cũ đến muộn nhắm A thì
         không bao giờ huỷ B; gửi lại cho A đã huỷ → thành công như cũ.
         """
+        kiem_quay(quay, kind)
         await self._assert_kind_allowed(kind, identity)
         normalized_reason = normalize_void_reason(reason)
         if normalized_reason is None:
@@ -1269,6 +1391,20 @@ class PaymentService:
                     ),
                     original_paid_at=payment["paid_at"],
                 )
+                await _phat_hoan_tac(
+                    conn,
+                    identity=identity,
+                    visit_id=visit_id,
+                    cycle_id=payment_cycle_id,
+                    kind=kind,
+                    so_tien=int(payment["amount"]),
+                    truoc="PAID",
+                    ly_do=normalized_reason,
+                )
+                if kind == "thuoc":
+                    # Lượt BÁN LẺ tự đóng lúc thu → hoàn tác thì mở lại để thu
+                    # lại được (01/10/2026). Lượt khám thường: không làm gì.
+                    await mo_lai_luot_ban_le(conn, identity=identity, visit_id=visit_id)
         logger.info(
             "payment_voided",
             visit_id=visit_id,
@@ -1277,6 +1413,100 @@ class PaymentService:
             by_staff_id=identity.staff_id,
         )
         return {"payment_cycle_id": payment_cycle_id, "status": "VOIDED"}
+
+    async def hoan_tac(
+        self,
+        *,
+        payment_cycle_id: str,
+        ly_do: object,
+        identity: StaffIdentity,
+        quay: str | None = None,
+    ) -> dict[str, Any]:
+        """HOÀN TÁC MỘT LẦN THU (Tuyền 01/10/2026) — MỘT nút cho mọi lần thu.
+
+        "Thu nhầm, trả lại ngay": lượt về CHƯA THU, mọi màn đọc lại từ sổ (quầy
+        thu hiện lại "chờ thu", check-out thấy còn nợ, báo cáo trừ phiếu huỷ).
+        KHÔNG phải đường thứ hai — dùng lại đúng hai lệnh sẵn có:
+
+        * lần thu ĐÃ THU (``PAID``) → ``void_payment`` (huỷ phiếu, giữ vết);
+        * lần chuyển khoản CHỜ XÁC MINH → ``huy_cho_xac_minh``.
+
+        Khác HOÀN TIỀN (``hoan_tien_service``): hoàn tiền là khách đã trả ĐÚNG,
+        giờ trả lại một phần/toàn bộ — tiền thật đi ra, phiếu thu vẫn đứng.
+        Phiếu dịch vụ đã có khoản hoàn thì không hoàn tác được (``void_payment``
+        từ chối — trả khách hai lần); xử lý tiếp theo đường hoàn tiền.
+
+        Ai: người có quyền thu đúng loại tiền ấy (cửa của hai lệnh trên — không
+        chỉ quản lý). Lý do TUỲ CHỌN (``ly_do_hoan_tac``). Dịch vụ đã bắt đầu
+        làm sau khi thu vẫn hoàn tác được — khách thành còn nợ, không khoá.
+        Gửi lại cho lần đã hoàn tác → thành công như cũ.
+        """
+        lan = await self._pool.fetchrow(
+            "SELECT visit_id::text AS visit_id, kind, status FROM payment_cycle"
+            " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid",
+            identity.clinic_id,
+            payment_cycle_id,
+        )
+        if lan is None:
+            raise NotFoundError("Không tìm thấy lần thu này.")
+        # Hoàn tác ở quầy nào thì chỉ hoàn tác lần thu của quầy ấy.
+        kiem_quay(quay, lan["kind"])
+        cau = ly_do_hoan_tac(ly_do)
+        if lan["status"] == CHO_XAC_MINH:
+            kq = await self.huy_cho_xac_minh(
+                payment_cycle_id=payment_cycle_id,
+                visit_id=lan["visit_id"],
+                kind=lan["kind"],
+                reason=cau,
+                identity=identity,
+            )
+        elif lan["status"] in ("PAID", "VOIDED"):
+            kq = await self.void_payment(
+                payment_cycle_id=payment_cycle_id,
+                visit_id=lan["visit_id"],
+                kind=lan["kind"],
+                reason=cau,
+                identity=identity,
+            )
+        else:  # CANCELLED — lần chờ đã huỷ từ trước
+            await self._assert_kind_allowed(lan["kind"], identity)
+            kq = {
+                "payment_cycle_id": payment_cycle_id,
+                "status": lan["status"],
+                "da_huy_tu_truoc": True,
+            }
+        return {**kq, "visit_id": lan["visit_id"], "kind": lan["kind"]}
+
+
+async def _phat_hoan_tac(
+    conn: asyncpg.Connection,
+    *,
+    identity: StaffIdentity,
+    visit_id: str,
+    cycle_id: str,
+    kind: str,
+    so_tien: int,
+    truoc: str,
+    ly_do: str | None,
+) -> None:
+    """`payment.collection_undone` — CÙNG giao dịch với huỷ phiếu / huỷ lần chờ:
+    dòng thời gian của lượt ghi "Hoàn tác lần thu" (ai, lúc nào, bao nhiêu)."""
+    await emit_event(
+        conn,
+        ten="payment.collection_undone",
+        clinic_id=identity.clinic_id,
+        aggregate_id=cycle_id,
+        payload=LanThuDaHoanTac(
+            visit_id=visit_id,
+            payment_cycle_id=cycle_id,
+            kind=kind,
+            so_tien=int(so_tien),
+            truoc=truoc,
+            ly_do=ly_do,
+        ),
+        boi=nguoi(identity),
+        correlation_id=visit_id,
+    )
 
 
 async def _chot_lua_chon(
@@ -1726,6 +1956,24 @@ async def _can_theo_anh_chup(
             (str(r["source_id"]), r["name_snapshot"], Decimal(str(r["quantity"])))
             for r in dong
         ],
+    )
+
+
+async def _ghi_phan(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    cycle_id: str,
+    phan: Sequence[PhanThu],
+) -> None:
+    """Các phần theo hình thức của lần thu vừa tạo (01/10/2026) — chỉ thêm.
+    Tổng = amount ép ở Postgres lúc COMMIT (trigger hoãn)."""
+    await conn.executemany(
+        """
+        INSERT INTO public.payment_cycle_phan
+            (clinic_id, cycle_id, hinh_thuc, so_tien, khach_dua)
+        VALUES ($1::uuid, $2::uuid, $3, $4, $5)
+        """,
+        [(clinic_id, cycle_id, p.hinh_thuc, p.so_tien, p.khach_dua) for p in phan],
     )
 
 

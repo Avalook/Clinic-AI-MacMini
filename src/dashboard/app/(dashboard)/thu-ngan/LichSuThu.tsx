@@ -16,8 +16,20 @@ import SoLuot from "@/components/ui/SoLuot";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import Chip from "@/components/ui/Chip";
 import { todayVn } from "@/lib/roster";
+import { tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
 
+import { useNgheBang } from "../dung-nghe-bang";
+import AnhChuyenKhoan, { type AnhCk } from "./AnhChuyenKhoan";
 import DoiHinhThuc, { type HinhThuc, type TrangThaiDoi } from "./DoiHinhThuc";
+import NutHoanTac from "./NutHoanTac";
+
+/** Hoàn tác / đổi hình thức / ảnh CK ở nơi khác → lịch sử tự mới (01/10/2026). */
+const BANG_LICH_SU = [
+  "payment_cycle",
+  "payment_cycle_doi_hinh_thuc",
+  "anh_chuyen_khoan",
+  "payment",
+] as const;
 
 interface SuKien {
   loai: "thu" | "hoan" | "huy";
@@ -32,6 +44,11 @@ interface SuKien {
   cho: boolean;
   /** V7 — chỉ sự kiện "thu": cờ đổi hình thức (máy chủ quyết) + lịch sử đổi. */
   doi_hinh_thuc?: TrangThaiDoi | null;
+  /** Chia TM + CK (01/10/2026) + nhãn máy chủ dựng sẵn. */
+  phan?: PhanThu[];
+  nhan_hinh_thuc?: string;
+  anh_ck?: AnhCk[];
+  hoan_tac?: { duoc: boolean; ly_do_khong: string | null } | null;
 }
 
 interface KhachLichSu {
@@ -54,12 +71,11 @@ interface KhachLichSu {
 }
 
 interface GoiLichSu {
-  tong: { tong_thu: number; tien_mat: number; chuyen_khoan: number; qr: number; hoan: number };
+  tong: { tong_thu: number; tien_mat: number; chuyen_khoan: number; hoan: number };
   nguoi_thu: string[];
   khach: KhachLichSu[];
 }
 
-const TEN_PT: Record<string, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", QR: "QR" };
 const TEN_LOAI: Record<SuKien["loai"], string> = { thu: "Thu", hoan: "Hoàn", huy: "Huỷ" };
 
 function tien(n: number): string {
@@ -109,6 +125,7 @@ export default function LichSuThu() {
     const t = setTimeout(() => void tai(), 250);
     return () => clearTimeout(t);
   }, [tai]);
+  useNgheBang(BANG_LICH_SU, () => void tai());
 
   const nhieuNgay = tu !== den;
 
@@ -129,7 +146,6 @@ export default function LichSuThu() {
           <option value="">Mọi hình thức</option>
           <option value="CASH">Tiền mặt</option>
           <option value="TRANSFER">Chuyển khoản</option>
-          <option value="QR">QR</option>
         </select>
         <select aria-label="Người thu" value={nguoiThu} onChange={(e) => setNguoiThu(e.target.value)} className={O_NHAP}>
           <option value="">Mọi người thu</option>
@@ -159,7 +175,6 @@ export default function LichSuThu() {
             <StatCard label="Tổng thu" value={tien(goi.tong.tong_thu)} tone="brand" />
             <StatCard label="Tiền mặt" value={tien(goi.tong.tien_mat)} />
             <StatCard label="Chuyển khoản" value={tien(goi.tong.chuyen_khoan)} />
-            <StatCard label="QR" value={tien(goi.tong.qr)} />
             <StatCard label="Hoàn / huỷ" value={goi.tong.hoan ? `−${tien(goi.tong.hoan)}` : tien(0)} tone="warning" />
           </StatRow>
 
@@ -187,7 +202,7 @@ export default function LichSuThu() {
                           {k.cuoi && k.cuoi !== k.dau ? ` → ${gio(k.cuoi, nhieuNgay)}` : ""} · {k.so_phieu} phiếu{" "}
                           {k.ma_phieu_dau ?? ""}
                           {k.so_phieu > 1 ? ` +${k.so_phieu - 1}` : ""} ·{" "}
-                          {k.hinh_thuc.map((h) => TEN_PT[h] ?? h).join(", ")} · {k.nguoi_thu.join(", ")}
+                          {k.hinh_thuc.map((h) => tenHinhThuc(h)).join(" + ")} · {k.nguoi_thu.join(", ")}
                         </span>
                       </span>
                       <span className="text-right">
@@ -215,7 +230,7 @@ export default function LichSuThu() {
                               {s.so_tien < 0 ? `−${tien(-s.so_tien)}` : tien(s.so_tien)}
                             </span>
                             <span className="min-w-0 flex-1 truncate text-ink-muted">
-                              {[s.hinh_thuc ? (TEN_PT[s.hinh_thuc] ?? s.hinh_thuc) : null, s.nguoi, s.dich_vu.join(", ")]
+                              {[s.nhan_hinh_thuc || tenHinhThuc(s.hinh_thuc) || null, s.nguoi, s.dich_vu.join(", ")]
                                 .filter(Boolean)
                                 .join(" · ")}
                               {s.ly_do ? ` · lý do: ${s.ly_do}` : ""}
@@ -236,9 +251,27 @@ export default function LichSuThu() {
                                 <DoiHinhThuc
                                   paymentCycleId={s.id}
                                   hinhThuc={(s.hinh_thuc as HinhThuc | null) ?? null}
+                                  soTien={s.so_tien}
                                   doi={s.doi_hinh_thuc}
                                   onXong={() => void tai()}
                                 />
+                              </div>
+                            ) : null}
+                            {s.loai === "thu" &&
+                            ((s.anh_ck?.length ?? 0) > 0 ||
+                              (s.hoan_tac?.duoc && (s.phan ?? []).some((p) => p.hinh_thuc === "TRANSFER"))) ? (
+                              <div className="basis-full">
+                                <AnhChuyenKhoan
+                                  cycleId={s.id}
+                                  ds={s.anh_ck}
+                                  choThem={Boolean(s.hoan_tac?.duoc)}
+                                  onDoi={() => void tai()}
+                                />
+                              </div>
+                            ) : null}
+                            {s.loai === "thu" && s.hoan_tac?.duoc ? (
+                              <div className="basis-full">
+                                <NutHoanTac cycleId={s.id} soTien={s.so_tien} quay="dich_vu" onXong={() => void tai()} />
                               </div>
                             ) : null}
                           </li>

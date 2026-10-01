@@ -1,5 +1,7 @@
 // Bảng giá khung dịch vụ/thuốc (service_price) — CRUD scaffold cho màn Bảng giá.
 //   GET    ?xem=phong-lam                                  → phòng làm (node) để chọn
+//   GET    ?xem=danh-muc                                   → Bảng giá dịch vụ & phòng (01/10/2026):
+//          mọi dịch vụ + nhóm hàng + phòng làm được + cờ chưa có phòng (máy chủ quyết)
 //   POST   { service_code?, ma_kiotviet?, name, group, unit_price?, node_code?, billing_owner? }
 //   PATCH  { id, unit_price?, name?, active?, ma_kiotviet?, node_code?, billing_owner? }
 //
@@ -68,6 +70,9 @@ export async function GET(request: Request) {
   const chan = await daDangNhap();
   if (chan) return chan;
   const xem = new URL(request.url).searchParams.get("xem");
+  if (xem === "danh-muc") {
+    return proxyJsonToBackend("GET", "/api/v1/service-prices/danh-muc", undefined);
+  }
   if (xem !== "phong-lam") return sai("Không rõ cần đọc gì.");
   return proxyJsonToBackend("GET", "/api/v1/service-prices/phong-lam", undefined);
 }
@@ -80,6 +85,15 @@ interface PostBody {
   unit_price?: unknown;
   node_code?: unknown;
   billing_owner?: unknown;
+  nhom?: unknown;
+}
+
+/** Nhóm hàng: chuỗi ≤ 120 ký tự ("" = bỏ nhóm); sai kiểu → undefined. */
+function parseNhom(v: unknown): string | null | undefined {
+  if (v === null || v === undefined) return null;
+  if (typeof v !== "string") return undefined;
+  const s = v.trim();
+  return s.length <= 120 ? s : undefined;
 }
 
 export async function POST(request: Request) {
@@ -100,15 +114,18 @@ export async function POST(request: Request) {
   const ma_kiotviet = parseMaKv(body.ma_kiotviet);
   const node_code = parseNode(body.node_code);
   const billing_owner = parseBenThu(body.billing_owner);
+  const nhom = parseNhom(body.nhom);
 
-  if ((!service_code && !ma_kiotviet) || !name) {
+  if (!group) return sai("Nhóm phải là thuoc / dich_vu.");
+  // Dịch vụ không mã: máy chủ tự sinh mã nội bộ từ tên (01/10/2026).
+  if (!name || (group === "thuoc" && !service_code && !ma_kiotviet)) {
     return sai("Thiếu mã phòng khám (hoặc mã dịch vụ) hoặc tên.");
   }
-  if (!group) return sai("Nhóm phải là thuoc / dich_vu.");
   if (unit_price === undefined) return sai("Đơn giá không hợp lệ.");
   if (ma_kiotviet === undefined) return sai("Mã phòng khám chỉ gồm chữ, số, gạch.");
   if (node_code === undefined) return sai("Phòng làm không hợp lệ.");
   if (billing_owner === undefined) return sai("Bên thu không hợp lệ.");
+  if (nhom === undefined) return sai("Nhóm hàng không hợp lệ.");
 
   // Mã trùng là 409 từ FastAPI, không phải một dòng thứ hai không ai để ý.
   return proxyJsonToBackend("POST", "/api/v1/service-prices", {
@@ -119,6 +136,7 @@ export async function POST(request: Request) {
     ma_kiotviet,
     node_code,
     ...(billing_owner ? { billing_owner } : {}),
+    ...(nhom ? { nhom } : {}),
   });
 }
 
@@ -130,6 +148,7 @@ interface PatchBody {
   ma_kiotviet?: unknown;
   node_code?: unknown;
   billing_owner?: unknown;
+  nhom?: unknown;
 }
 
 export async function PATCH(request: Request) {
@@ -153,6 +172,8 @@ export async function PATCH(request: Request) {
   if (node === undefined) return sai("Phòng làm không hợp lệ.");
   const ben = "billing_owner" in body ? parseBenThu(body.billing_owner) : null;
   if (ben === undefined) return sai("Bên thu không hợp lệ.");
+  const nhom = "nhom" in body ? parseNhom(body.nhom) : null;
+  if (nhom === undefined) return sai("Nhóm hàng không hợp lệ.");
 
   return proxyJsonToBackend("PATCH", `/api/v1/service-prices/${id}`, {
     name: body.name ?? null,
@@ -161,6 +182,7 @@ export async function PATCH(request: Request) {
     ...("ma_kiotviet" in body ? { ma_kiotviet: ma } : {}),
     ...("node_code" in body && node ? { node_code: node } : {}),
     ...(ben ? { billing_owner: ben } : {}),
+    ...("nhom" in body ? { nhom: nhom ?? "" } : {}),
   });
 }
 

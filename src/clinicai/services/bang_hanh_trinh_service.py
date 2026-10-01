@@ -84,6 +84,9 @@ def con_cho(
             out.append("Chờ " + noi_hang(q))
     for o in chi_dinh:
         ten = o["ten"]
+        if o.get("nguon_lam_them"):
+            # Làm thêm tại quầy (01/10/2026) — nói rõ không do bác sĩ chỉ định.
+            ten = f"{ten} (làm thêm tại quầy)"
         if o["selection_status"] == "PENDING":
             out.append(f"Chờ khách chọn làm: {ten}")
         elif o["selection_status"] == "SELECTED":
@@ -195,7 +198,7 @@ class BangHanhTrinhService:
                 SELECT o.id::text AS id, o.visit_id::text AS visit_id,
                        o.service_name AS ten,
                        o.selection_status, o.routing_status, o.execution_status,
-                       o.ket_qua_luc, r.name AS phong,
+                       o.ket_qua_luc, r.name AS phong, o.nguon_lam_them,
                        o.doi_tac_cho_tai_lieu_luc AS nhan_mau_luc,
                        coalesce(n.lam_ben_ngoai, false) AS ngoai,
                        EXISTS (

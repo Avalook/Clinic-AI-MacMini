@@ -48,9 +48,11 @@ from clinicai.api.v1.routers.doi_tac import router as doi_tac_router
 from clinicai.api.v1.routers.don_du_lieu_thu import router as don_du_lieu_thu_router
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.events import router as events_router
+from clinicai.api.v1.routers.hoan_tac import router as hoan_tac_router
 from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.identity import router as identity_router
 from clinicai.api.v1.routers.lab import router as lab_router
+from clinicai.api.v1.routers.lam_them_tai_quay import router as lam_them_router
 from clinicai.api.v1.routers.luot_kham import router as luot_kham_router
 from clinicai.api.v1.routers.mau_ket_qua import router as mau_ket_qua_router
 from clinicai.api.v1.routers.ops import router as ops_router
@@ -298,6 +300,10 @@ app.include_router(
 app.include_router(
     luot_kham_router, prefix="/api/v1", tags=["luot-kham"], dependencies=_GUARDED
 )
+# Nút Hoàn tác ở mọi thao tác (01/10/2026) — nghịch đảo của các lệnh lượt khám.
+app.include_router(
+    hoan_tac_router, prefix="/api/v1", tags=["hoan-tac"], dependencies=_GUARDED
+)
 # Biểu mẫu: điền phiếu kết quả, xuất bản bản mẫu mới.
 app.include_router(
     phieu_router, prefix="/api/v1", tags=["phieu"], dependencies=_GUARDED
@@ -331,6 +337,7 @@ app.include_router(thu_ky_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(thai_ky_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(xem_luot_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(day_noi_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(lam_them_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(theo_doi_thu_thuat_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(
     ultrasound_router, prefix="/api/v1", tags=["ultrasound"], dependencies=_GUARDED

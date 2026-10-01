@@ -22,19 +22,28 @@
 //
 // Chỉ hiện khi tài khoản có quyền đóng lượt (`useCheckOutDuoc` — lego 1 Tiếp
 // đón khách), không hỏi vai.
+//
+// CÒN NỢ (01/10/2026): máy chủ trả `no_khi_ve`; còn nợ chưa ghi thì nút
+// "Check-out" khoá, khối `KhoanNoKhiVe` cho Thu ngay / Ghi nợ (kèm lý do) —
+// máy chủ cũng chặn, khoá ở đây chỉ để khỏi bấm vào câu từ chối.
 
 import { useState } from "react";
 
 import Button, { type ButtonSize, type ButtonVariant } from "@/components/ui/Button";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
+import NutHoanTac from "@/components/ui/NutHoanTac";
 import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 
 import { INPUT } from "../form-ui";
 import { useCheckOutDuoc } from "../QuyenContext";
+import KhoanNoKhiVe, { coNo, type NoKhiVe } from "./KhoanNoKhiVe";
+import { lenhHoanTac } from "./hoan-tac";
 
 interface VuongMac {
   type: string;
   message: string;
+  /** Vướng cứng — không vượt bằng lý do (còn nợ). */
+  chan?: boolean;
 }
 
 /** Hình dạng `GET /api/v1/reception/checkout/{visit_id}` (phần màn cần). */
@@ -42,6 +51,7 @@ interface SanSang {
   ok?: boolean;
   already_closed?: boolean;
   blockers?: VuongMac[];
+  no_khi_ve?: NoKhiVe | null;
 }
 
 type Buoc = "nghi" | "dang_hoi" | "hoi" | "dang_gui" | "xong";
@@ -64,6 +74,7 @@ export default function NutCheckOut({
   const duoc = useCheckOutDuoc();
   const [buoc, setBuoc] = useState<Buoc>("nghi");
   const [vuong, setVuong] = useState<VuongMac[]>([]);
+  const [no, setNo] = useState<NoKhiVe | null>(null);
   const [lyDo, setLyDo] = useState("");
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
@@ -93,7 +104,9 @@ export default function NutCheckOut({
         onXong?.();
         return;
       }
-      setVuong(d.blockers ?? []);
+      // Vướng "còn nợ" vẽ ở khối nợ, không lặp trong danh sách việc dở.
+      setVuong((d.blockers ?? []).filter((b) => !b.chan));
+      setNo(d.no_khi_ve ?? null);
       setLyDo("");
       setBuoc("hoi");
     } catch {
@@ -138,15 +151,30 @@ export default function NutCheckOut({
   }
 
   if (buoc === "xong") {
+    // HOÀN TÁC check-out (01/10/2026): check-out nhầm → mở lại lượt ngay tại chỗ.
     return (
-      <p role="status" className="text-meta text-success">
-        {bao}
-      </p>
+      <span className="inline-flex flex-wrap items-center gap-2">
+        <span role="status" className="text-meta text-success">
+          {bao}
+        </span>
+        <NutHoanTac
+          goi={lenhHoanTac("mo-lai-luot", visitId)}
+          tieuDe="Mở lại lượt khám?"
+          moTa="Check-out nhầm — mở lại lượt, khách về lại các hàng chờ còn dở"
+          onXong={() => {
+            setBao(null);
+            setBuoc("nghi");
+            onXong?.();
+          }}
+        />
+      </span>
     );
   }
 
-  const cau =
-    vuong.length > 0
+  const chanNo = !!no?.chan;
+  const cau = chanNo
+    ? `${tenKhach} còn nợ — thu ngay hoặc ghi nợ rồi mới check-out được.`
+    : vuong.length > 0
       ? `${tenKhach} còn ${vuong.length} việc chưa xong — vẫn check-out?`
       : `Check-out ${tenKhach}? Khách rời hàng chờ, lượt khám đóng lại.`;
 
@@ -161,29 +189,37 @@ export default function NutCheckOut({
           cau={cau}
           nhanDongY="Check-out"
           dangGui={buoc === "dang_gui"}
+          choDongY={!chanNo}
           onDongY={() => void gui()}
           onThoi={() => {
             setLoi(null);
             setBuoc("nghi");
           }}
         >
-          {vuong.length > 0 ? (
+          {coNo(no) || vuong.length > 0 ? (
             <div className="space-y-2">
-              <ul className="list-disc pl-5 text-meta text-warning">
-                {vuong.map((v, i) => (
-                  <li key={`${v.type}-${i}`}>{v.message}</li>
-                ))}
-              </ul>
-              <label className="block text-meta text-ink-muted">
-                Lý do cho khách về (không bắt buộc — để trống thì máy ghi kèm danh
-                sách việc còn dở)
-                <input
-                  value={lyDo}
-                  onChange={(e) => setLyDo(e.target.value)}
-                  maxLength={500}
-                  className={`${INPUT} mt-1`}
-                />
-              </label>
+              {coNo(no) ? (
+                <KhoanNoKhiVe visitId={visitId} no={no} onDoi={() => void hoi()} />
+              ) : null}
+              {vuong.length > 0 ? (
+                <>
+                  <ul className="list-disc pl-5 text-meta text-warning">
+                    {vuong.map((v, i) => (
+                      <li key={`${v.type}-${i}`}>{v.message}</li>
+                    ))}
+                  </ul>
+                  <label className="block text-meta text-ink-muted">
+                    Lý do cho khách về (không bắt buộc — để trống thì máy ghi kèm
+                    danh sách việc còn dở)
+                    <input
+                      value={lyDo}
+                      onChange={(e) => setLyDo(e.target.value)}
+                      maxLength={500}
+                      className={`${INPUT} mt-1`}
+                    />
+                  </label>
+                </>
+              ) : null}
             </div>
           ) : null}
         </XacNhanTaiCho>

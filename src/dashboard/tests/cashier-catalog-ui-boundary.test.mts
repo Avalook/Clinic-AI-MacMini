@@ -50,8 +50,20 @@ test("the two routes stay server-filtered and the legacy index remains a redirec
   // thực hiện. Ghim vào cách viết thì mọi lần đổi tầng đều đỏ dù luật y nguyên.
   assert.match(medicinePage, /service-prices\?group=thuoc/);
   assert.match(medicinePage, /group="thuoc"/);
-  assert.match(servicePage, /service-prices\?group=dich_vu/);
-  assert.match(servicePage, /group="dich_vu"/);
+  // Bảng giá dịch vụ & phòng (01/10/2026): máy chủ trả RIÊNG dịch vụ kèm
+  // phòng làm được (`/service-prices/danh-muc`) — vẫn lọc ở máy chủ.
+  assert.match(servicePage, /service-prices\/danh-muc/);
+  assert.match(servicePage, /DanhMucDichVuPhong/);
   assert.doesNotMatch(`${medicinePage}\n${servicePage}`, /error\.message/);
   assert.match(indexPage, /redirect\("\/cashier\/thuoc"\)/);
+});
+
+test("bảng giá dịch vụ & phòng: lọc chưa có phòng, gán phòng qua cấu hình, không xoá", () => {
+  const dv = read("../app/(dashboard)/cashier/DanhMucDichVuPhong.tsx");
+  assert.match(dv, /chua_co_phong/);
+  assert.match(dv, /what: "service-rooms"/);
+  assert.match(dv, /sua_phong_duoc/);
+  // Thôi bán = bỏ tick "Đang bán" — không nút xoá, không window.confirm.
+  assert.doesNotMatch(dv, /"DELETE"|window\.confirm|style=\{\{/);
+  assert.doesNotMatch(dv, /supabase|#[0-9a-f]{3,8}\b|bg-white/iu);
 });

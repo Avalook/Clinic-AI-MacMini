@@ -14,6 +14,7 @@ import { fmtDateTimeOrDate } from "../../../../lib/datetime";
 export interface Blocker {
   type: string;
   message: string;
+  chan?: boolean;
 }
 
 interface DichVu {
@@ -365,8 +366,10 @@ export default function ChiTietLuot({ visitId }: { visitId: string }) {
             </>
           ) : (
             <>
-              <b>Còn {d.blockers.length} việc chưa xong.</b> Vẫn cho khách về
-              được — việc còn dở được ghi lại:
+              <b>Còn {d.blockers.length} việc chưa xong.</b>{" "}
+              {d.blockers.some((b) => b.chan)
+                ? "Khách còn nợ: phải thu hoặc ghi nợ trước — các việc khác vẫn cho về được:"
+                : "Vẫn cho khách về được — việc còn dở được ghi lại:"}
               <ul className="mt-1 list-disc pl-5">
                 {d.blockers.map((b) => (
                   <li key={b.type}>{b.message}</li>

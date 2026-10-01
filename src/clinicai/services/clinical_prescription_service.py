@@ -12,8 +12,9 @@ from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
+from clinicai.permissions.ca_truc import kiem_dung_ca
 from clinicai.permissions.can import can
-from clinicai.services.bac_si_phu_trach import la_bac_si_khac
+from clinicai.services.bac_si_phu_trach import bac_si_cua_phien, la_bac_si_khac
 
 
 def _prescription_key(name: Any, quantity: Any) -> tuple[str, str]:
@@ -125,6 +126,14 @@ async def prepare_prescription_write(
     (`approve`) để dữ liệu cũ không kẹt; một lần ghi thẳng mới THAY nháp (nháp
     bị xoá). Lưu hồ sơ không đụng đơn thì nháp giữ nguyên.
     """
+    if items is not None or approve:
+        bac_si_id = await bac_si_cua_phien(
+            conn,
+            clinic_id=identity.clinic_id,
+            visit_id=str(visit_id),
+            nguoi_bam=identity.staff_id,
+        )
+        await kiem_dung_ca(conn, identity, bac_si_id, visit_id=str(visit_id))
     physician = identity.co_vai({ClinicRole.DOCTOR, ClinicRole.ULTRASOUND_DOCTOR})
     # 29/09/2026 (Tuyền): ĐD/TKYK trọn quyền như bác sĩ — ai có quyền khám
     # (lego Bàn khám, hoặc được xếp vào phòng bác sĩ hôm nay) kê được đơn; đơn

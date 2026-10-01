@@ -10,7 +10,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import ThongBaoHoanTac, { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
+
 import { docBang, guiThaoTac, gioVn } from "../_lam-viec/api";
+import { lenhHoanTac } from "../_lam-viec/hoan-tac";
 import KhungTep from "../_lam-viec/KhungTep";
 
 interface KetQua {
@@ -33,6 +36,8 @@ export default function DuyetKetQua() {
   const [loi, setLoi] = useState<string | null>(null);
   const [chiCuaToi, setChiCuaToi] = useState(true);
   const [lanNap, setLanNap] = useState(0);
+  // Duyệt nhầm (01/10/2026): "Đã duyệt … · Hoàn tác" — thu hồi về chờ duyệt.
+  const [thongBao, setThongBao] = useState<ThongBao | null>(null);
 
   useEffect(() => {
     let huy = false;
@@ -49,6 +54,17 @@ export default function DuyetKetQua() {
   }, [lanNap]);
 
   const napLai = useCallback(() => setLanNap((n) => n + 1), []);
+  const daDuyet = useCallback(
+    (k: KetQua) => {
+      setThongBao({
+        cau: `Đã duyệt ${k.dich_vu} — ${k.ten}`,
+        goi: lenhHoanTac("thu-hoi-ket-qua", k.id),
+      });
+      napLai();
+    },
+    [napLai],
+  );
+  const dongThongBao = useCallback(() => setThongBao(null), []);
   const hien = (ds ?? []).filter((k) => !chiCuaToi || k.cua_toi);
 
   return (
@@ -77,8 +93,9 @@ export default function DuyetKetQua() {
         </p>
       ) : null}
       {hien.map((k) => (
-        <TheKetQua key={k.id} k={k} onXong={napLai} />
+        <TheKetQua key={k.id} k={k} onXong={() => daDuyet(k)} />
       ))}
+      <ThongBaoHoanTac thongBao={thongBao} onDong={dongThongBao} onHoanTacXong={napLai} />
     </div>
   );
 }

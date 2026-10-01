@@ -21,6 +21,8 @@ Giữ luật THỨ TỰ khách đi. Nghe sự thật đã xảy ra, rồi gửi 
                                     cửa làm (dây ``thu_truoc_khi_lam`` BẬT: đã
                                     thu, hoặc lượt tick "Làm trước – thu sau";
                                     TẮT: V10, chưa thu cũng xếp)
+        service_order.desk_added  → lễ tân / người đo tick "+ dịch vụ" (làm
+                                    thêm tại quầy, 01/10/2026): như trên
         visit.defer_payment_set   → vừa tick "Làm trước – thu sau": chạy lại
                                     đúng lệnh ấy bằng quyền người tick
         payment.service_collected → chạy lại đúng lệnh ấy bằng quyền người thu
@@ -133,6 +135,9 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
     elif su_kien.event_type in (
         "service_selection.confirmed",
         "visit.defer_payment_set",
+        # Làm thêm tại quầy (01/10/2026): lễ tân / người đo tick là chỉ định đã
+        # chốt — đi đúng cửa làm như khách vừa chốt ở quầy thu.
+        "service_order.desk_added",
     ):
         # Khách chốt xong (hoặc lượt vừa được tick "Làm trước – thu sau") → xếp
         # phòng ngay mọi chỉ định QUA CỬA LÀM của FinanceGate, bằng quyền NGƯỜI

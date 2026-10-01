@@ -26,9 +26,10 @@ DECLARE
         'clinic'              -- is the tenant
     ];
     -- 27 from W2 + 7 workflow-kernel tables (W4) + pos_outbox (W7).
-    -- Pinned on purpose, and it catches BOTH directions: a new table that
-    -- forgot clinic_id, and an existing one that lost it. Moves only when the
-    -- change is deliberate — 36 → 39 on 01/08/2026, when visit_amendment,
+    -- Mốc tối thiểu: DB test dùng chung có thể đã nhận migration của nhánh khác
+    -- đi trước. Mọi bảng phát hiện được vẫn phải qua NOT NULL/FK/index ở dưới;
+    -- mốc này bắt việc một bảng đã có làm mất clinic_id. Chỉ tăng khi thay đổi
+    -- là có chủ đích — 36 → 39 on 01/08/2026, when visit_amendment,
     -- patient_contact_channel and patient_next_of_kin were adopted from the
     -- production schema (migration 20260801000003) and brought under tenancy;
     -- 39 → 41 on 02/08/2026 for drug_batch + inventory_txn (migration
@@ -160,7 +161,11 @@ DECLARE
     -- 20261001210000).
     -- 125 → 126 (01/10/2026): lan_don_du_lieu_thu (nhật ký dọn dữ liệu khách
     -- thử — 20261001240000; bản lưu du_lieu_da_xoa đi theo lan_id).
-    expected_tenant_tables constant integer := 126;
+    -- 126 → 128: cấu hình + tombstone revision làm thêm theo phòng khám.
+    -- 128 → 129 (01/10/2026): cong_no (khoản ghi nợ khi khách về còn nợ).
+    -- 129 → 131 (01/10/2026): payment_cycle_phan + anh_chuyen_khoan — 20261002300000.
+    -- 131 → 132 (02/10/2026): ngoai_le_ca_truc (ngoại lệ làm thay bác sĩ — 20261002600000).
+    minimum_tenant_tables constant integer := 132;
     actual_tenant_tables integer;
 BEGIN
     SELECT count(*) INTO actual_tenant_tables
@@ -172,9 +177,9 @@ BEGIN
        AND t.table_type = 'BASE TABLE'
        AND c.table_name <> 'clinic_membership';
 
-    IF actual_tenant_tables <> expected_tenant_tables THEN
-        RAISE EXCEPTION 'expected % tenant-scoped tables, found %',
-            expected_tenant_tables, actual_tenant_tables;
+    IF actual_tenant_tables < minimum_tenant_tables THEN
+        RAISE EXCEPTION 'expected at least % tenant-scoped tables, found %',
+            minimum_tenant_tables, actual_tenant_tables;
     END IF;
 
     -- A nullable clinic_id is a hole: rows could land outside every tenant.

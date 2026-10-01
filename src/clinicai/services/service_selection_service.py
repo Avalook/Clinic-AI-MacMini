@@ -29,6 +29,7 @@ from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.audit import record_event
 from clinicai.services.bac_si_ky import sql_join_bac_si_chi_dinh
 from clinicai.services.bill_service import THU_CU_KHONG_TRUY_DUOC_SQL
+from clinicai.services.lam_them_tai_quay_service import nhan_lam_them
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
     LuotKhamValidationError,
@@ -319,7 +320,7 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
        bscd.full_name AS bac_si_chi_dinh,
        CASE WHEN nb.id IS DISTINCT FROM bscd.id THEN nb.full_name END
            AS nguoi_bam_chi_dinh,
-       o.lan_chi_dinh,
+       o.lan_chi_dinh, o.nguon_lam_them,
        coalesce(o.authorized_at, o.created_at) AS chi_dinh_luc
   FROM service_order o
   LEFT JOIN service_selection_state s
@@ -390,8 +391,13 @@ async def cho_khach_quyet(
                 # không có ô chọn phòng. Máy chủ quyết, màn chỉ đọc danh sách.
                 "phong_chon_duoc": phong,
                 "can_xep_phong": bool(phong),
-                "bac_si_chi_dinh": r["bac_si_chi_dinh"],
+                # Làm thêm tại quầy (01/10/2026): không có bác sĩ chỉ định —
+                # người tick (lễ tân / người đo) đứng ở "người bấm".
+                "bac_si_chi_dinh": None
+                if r["nguon_lam_them"]
+                else r["bac_si_chi_dinh"],
                 "nguoi_bam_chi_dinh": r["nguoi_bam_chi_dinh"],
+                "lam_them": nhan_lam_them(r["nguon_lam_them"]),
                 "lan_chi_dinh": r["lan_chi_dinh"],
                 "chi_dinh_luc": _iso(r["chi_dinh_luc"]),
             }

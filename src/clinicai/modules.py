@@ -82,14 +82,25 @@ MODULE: dict[str, Module] = {
                 "PlaceServiceOrders",
                 "CarryOverUnfinishedOrders",
                 "SetServiceOrderRequired",
+                # Làm thêm tại quầy (01/10/2026): lễ tân / người đo sinh hiệu
+                # tick "+ dịch vụ" theo danh sách quản lý quản.
+                "AddDeskService",
+                "RemoveDeskService",
+                "ConfigureDeskServices",
+                # Hoàn tác (01/10/2026): bỏ chỉ định sai chỗ — chưa thu thì hoá
+                # đơn quầy tự bớt, đã thu thì thành tiền thừa ở quầy.
+                "CancelServiceOrder",
             ],
             phat=[
                 "service_order.placed",
                 "service_order.carried_over",
                 "service_order.required_changed",
                 "service_order.required_changed",
+                "service_order.desk_added",
+                "service_order.desk_removed",
+                "service_order.cancelled",
             ],
-            bang=["service_order"],
+            bang=["service_order", "lam_them_tai_quay"],
             quyen=["clinical.order.place"],
         ),
         Module(
@@ -153,6 +164,8 @@ MODULE: dict[str, Module] = {
                 # đây" là StartService kèm giai_phong (cùng giao dịch dừng lần
                 # làm ở phòng kia); huỷ lần Bắt đầu bấm nhầm là lệnh riêng.
                 "CancelMistakenStart",
+                # Hoàn tác "Xong" (01/10/2026) — lần làm về lại đang làm.
+                "UndoServiceCompletion",
             ],
             phat=[
                 "service.started",
@@ -162,6 +175,7 @@ MODULE: dict[str, Module] = {
                 "service.retry_prepared",
                 "service.patient_moved",
                 "service.start_cancelled",
+                "service.completion_undone",
             ],
             bang=["service_execution_attempt"],
             quyen=[
@@ -175,7 +189,14 @@ MODULE: dict[str, Module] = {
         Module(
             ma="result",
             ten="Biểu mẫu kết quả",
-            lenh=["OpenForm", "SaveFormDraft", "CompleteForm", "ReopenForm"],
+            lenh=[
+                "OpenForm",
+                "SaveFormDraft",
+                "CompleteForm",
+                "ReopenForm",
+                # Hoàn tác (01/10/2026) — thu hồi lần bác sĩ duyệt kết quả.
+                "RevokeResultApproval",
+            ],
             # BA sự kiện, MỘT nút bấm (ChatGPT tin 156, Tuyền tin 157). Kết quả
             # là vòng đời riêng của phiếu: ready → corrected → (sau này)
             # reviewed, released. Thêm bước mới vào chuỗi ấy không đụng module
@@ -186,6 +207,7 @@ MODULE: dict[str, Module] = {
                 "result.corrected",
                 "result.reviewed",
                 "result.viewed",
+                "result.approval_revoked",
             ],
             bang=["form_instance"],
             # Xác nhận tệp kết quả (B2) và bác sĩ duyệt kết quả (B3) cũng là
@@ -232,9 +254,22 @@ MODULE: dict[str, Module] = {
                 # Phân quyền theo KỸ NĂNG (28/09/2026): tick kỹ năng cho người =
                 # bật/tắt các lego của kỹ năng ấy qua GrantWorkPack/RevokeWorkPack.
                 "SetStaffSkill",
+                "OpenClinicalShiftException",
+                "CancelClinicalShiftException",
             ],
-            phat=["capability.granted", "capability.revoked"],
-            bang=["capability_grant", "quyen_preset", "ky_nang", "nhan_su_ky_nang"],
+            phat=[
+                "capability.granted",
+                "capability.revoked",
+                "clinical_shift.exception_opened",
+                "clinical_shift.exception_cancelled",
+            ],
+            bang=[
+                "capability_grant",
+                "quyen_preset",
+                "ky_nang",
+                "nhan_su_ky_nang",
+                "ngoai_le_ca_truc",
+            ],
             quyen=["permission.manage", "staff.manage", "account.manage"],
         ),
         Module(
@@ -253,6 +288,8 @@ MODULE: dict[str, Module] = {
                 "medicine.declined",
                 "service_selection.confirmed",
                 "service_order.placed",
+                "service_order.desk_added",
+                "service_order.desk_removed",
                 "service.started",
                 "service.completed",
                 "service.not_performed",
@@ -260,6 +297,12 @@ MODULE: dict[str, Module] = {
                 "service.retry_prepared",
                 "service.patient_moved",
                 "service.start_cancelled",
+                # Hoàn tác (01/10/2026) — lên dòng thời gian của lượt.
+                "service.completion_undone",
+                "service_order.cancelled",
+                "consultation.reopened",
+                "visit.reopened",
+                "result.approval_revoked",
                 "service.routing_invalidated",
                 "result_form.completed",
                 "result.ready",
@@ -276,6 +319,10 @@ MODULE: dict[str, Module] = {
                 "service_order.required_changed",
                 "payment.service_collected",
                 "payment.medicine_collected",
+                # Công nợ khi khách về (01/10/2026).
+                "cong_no.ghi",
+                "cong_no.huy",
+                "cong_no.da_thu",
                 "medicine.dispensed",
                 "result_file.uploaded",
                 "result_file.confirmed",
@@ -297,6 +344,7 @@ MODULE: dict[str, Module] = {
                 "visit.left_early",
                 "payment.refunded",
                 "payment.method_changed",
+                "payment.collection_undone",
                 "followup.scheduled",
                 "partner.sample_collected",
                 "partner.sample_received",
@@ -328,8 +376,14 @@ MODULE: dict[str, Module] = {
         Module(
             ma="reception",
             ten="Tiếp đón",
-            lenh=["CheckInPatient", "CheckOutPatient"],
-            phat=["visit.checked_in", "visit.checked_out", "visit.left_early"],
+            # ReopenVisit (01/10/2026): hoàn tác check-out / về giữa chừng.
+            lenh=["CheckInPatient", "CheckOutPatient", "ReopenVisit"],
+            phat=[
+                "visit.checked_in",
+                "visit.checked_out",
+                "visit.left_early",
+                "visit.reopened",
+            ],
             quyen=["reception.checkin.perform"],
         ),
         Module(
@@ -361,6 +415,7 @@ MODULE: dict[str, Module] = {
                 "payment.service_collected",
                 "payment.medicine_collected",
                 "service_selection.confirmed",
+                "service_order.desk_added",
                 "visit.defer_payment_set",
                 "visit.checked_out",
                 "visit.left_early",
@@ -400,11 +455,14 @@ MODULE: dict[str, Module] = {
                 "RerouteAfterServiceSwitch",
                 "OpenIntakeQueue",
                 "HandToPrimaryDoctor",
+                # Hoàn tác Khám xong / Xong tư vấn (01/10/2026).
+                "ReopenConsultation",
             ],
             phat=[
                 "consultation.started",
                 "consultation.handed_over",
                 "consultation.completed",
+                "consultation.reopened",
                 "followup.scheduled",
                 "prescription.saved",
             ],
@@ -448,12 +506,20 @@ MODULE: dict[str, Module] = {
                 "payment.service_collected",
                 "payment.medicine_collected",
                 "payment.refunded",
-                # Đổi TM/CK/QR sau khi thu (V7) — không phải huỷ.
+                # Đổi hình thức sau khi thu (V7) — không phải huỷ.
                 "payment.method_changed",
+                # Hoàn tác lần thu (01/10/2026) — thu nhầm, lượt về chưa thu.
+                "payment.collection_undone",
                 # Bản thanh toán cuối: dòng thuốc khách bỏ / lấy bớt.
                 "medicine.declined",
             ],
-            bang=["payment_cycle", "payment_bill_line", "payment_cycle_doi_hinh_thuc"],
+            bang=[
+                "payment_cycle",
+                "payment_bill_line",
+                "payment_cycle_doi_hinh_thuc",
+                "payment_cycle_phan",
+                "anh_chuyen_khoan",
+            ],
             quyen=["payment.service.collect", "payment.medicine.collect"],
         ),
         Module(
@@ -633,6 +699,19 @@ MODULE: dict[str, Module] = {
         ),
         # 21 lego (Tuyền 25/09/2026): hai module chỉ-đọc cho lego Báo cáo /
         # Vận hành hệ thống và lego Lịch làm việc.
+        Module(
+            ma="cong_no",
+            ten="Công nợ khách (chặn check-out còn nợ)",
+            # Người đứng quầy ghi nợ / huỷ ghi nợ (cửa `reception.checkin.perform`
+            # — quyền của khối Tiếp đón). Check-out chỉ ĐỌC bảng này.
+            lenh=["GhiNo", "HuyGhiNo"],
+            phat=["cong_no.ghi", "cong_no.huy", "cong_no.da_thu"],
+            # Thu ở quầy → lượt hết nợ thì khoản ghi nợ chuyển ĐÃ THU.
+            nghe=["payment.service_collected", "payment.medicine_collected"],
+            ben_nhan=["cong_no"],
+            bang=["cong_no"],
+            projection=["khach_con_no"],
+        ),
         Module(
             ma="van_hanh",
             ten="Vận hành, báo cáo, lịch sử thao tác",

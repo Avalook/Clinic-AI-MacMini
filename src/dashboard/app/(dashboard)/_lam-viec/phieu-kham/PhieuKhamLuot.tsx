@@ -15,6 +15,7 @@
 //     tab, lỗi mạng tự thử lại). Cổng Hoàn tất mang `luuNot`: bấm Hoàn tất khi
 //     còn chữ chưa lưu thì Bàn khám lưu nốt rồi mới gửi.
 
+import { lenhHoanTac } from "../hoan-tac";
 import ChonDichVuKham from "../ChonDichVuKham";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
@@ -557,6 +558,9 @@ export default function PhieuKhamLuot({
           nhanGiay,
           // Ô "bắt buộc" của chỉ định đã đặt: nay ở thẻ từng chỉ định (27/09).
           onDoiBatBuoc: choGhi ? doiBatBuoc : undefined,
+          // Hoàn tác chỉ định (01/10/2026) — quầy thu cập nhật ngay (hoá đơn
+          // máy chủ dựng lại); đã thu thì hỏi xác nhận, thành tiền thừa.
+          onBoChiDinh: choGhi && !xemLai ? (id) => lenhHoanTac("huy-chi-dinh", id) : undefined,
           choDien: choGhi,
           clinicPatientId,
           onDoi: () => {

@@ -12,6 +12,8 @@ export interface LanGui {
   lan: number | null;
   luc: string;
   so: number;
+  /** Nhóm làm thêm tại quầy (01/10/2026) — không phải lần của bác sĩ. */
+  lam_them?: boolean;
 }
 
 export interface MocMayChu {
@@ -83,7 +85,10 @@ export function gioMoc(m: MocMayChu): string {
 function gioMocChinh(m: MocMayChu): string {
   if (m.cac_lan && m.cac_lan.length > 0) {
     return m.cac_lan
-      .map((x) => `${x.lan == null ? "Mang sang" : `Lần ${x.lan}`} ${fmtTime(x.luc)}`)
+      .map(
+        (x) =>
+          `${x.lam_them ? "Làm thêm tại quầy" : x.lan == null ? "Mang sang" : `Lần ${x.lan}`} ${fmtTime(x.luc)}`,
+      )
       .join(" · ");
   }
   if (!m.bat) return "";

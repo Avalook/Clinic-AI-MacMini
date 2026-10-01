@@ -25,6 +25,7 @@
 //   · mục liên kết (C, E, F) dữ liệu thật ở chỗ khác (chỉ định, đơn thuốc);
 //                            shell cắm màn thật vào qua props.
 
+import type { DuLieuHoanTac, KetQuaHoanTac } from "@/components/ui/NutHoanTac";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { buttonClass } from "@/components/ui/Button";
@@ -161,6 +162,9 @@ export default function PhieuKham({
       orderId: string,
       batBuoc: boolean,
     ) => Promise<{ ok: true } | { ok: false; loi: string }>;
+    /** Nút Hoàn tác chỉ định ở thẻ từng chỉ định (01/10/2026) — lệnh máy chủ
+     *  của đúng chỉ định ấy. Không truyền = không có nút (chỉ xem). */
+    onBoChiDinh?: (orderId: string) => (duLieu: DuLieuHoanTac) => Promise<KetQuaHoanTac>;
   };
   /** Mã dịch vụ thủ thuật — kết quả của chúng hiện ở khối 3 (bản mẫu). */
   maThuThuat?: ReadonlySet<string>;

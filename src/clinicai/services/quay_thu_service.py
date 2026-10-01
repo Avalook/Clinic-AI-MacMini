@@ -33,9 +33,23 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import can
-from clinicai.services.cashier_board_service import doc_khoang_ngay
+from clinicai.services.anh_chuyen_khoan_service import anh_cua_cac_lan_thu
+from clinicai.services.cashier_board_service import (
+    doc_khoang_ngay,
+    hoan_tac_cua,
+    quyen_thu_theo_loai,
+)
 from clinicai.services.doi_hinh_thuc_service import gan_vao_lich_su, trang_thai_doi
 from clinicai.services.lan_bac_si import ten_bac_si
+from clinicai.services.phan_thu import (
+    HINH_THUC_THU,
+    cac_hinh_thuc,
+    chuan_hinh_thuc,
+    doc_phan_db,
+    nhan_phan,
+    phan_mot_hinh_thuc,
+    tra_lai,
+)
 
 # ---------------------------------------------------------------------------
 # Phòng chọn được
@@ -234,6 +248,8 @@ def dung_hoa_don_quay(
             "trong_lua_chon": True,
             "bat_buoc": bool(c.get("bat_buoc")),
             "mang_sang": bool(c.get("mang_sang")),
+            # Làm thêm tại quầy (01/10/2026): "Làm thêm tại quầy tiếp đón".
+            "lam_them": c.get("lam_them"),
             "doi_tac_lam": bool(c.get("doi_tac")),
             "phong_chon_duoc": list(c.get("phong_chon_duoc") or []),
             "phong_du_kien_id": c.get("phong_du_kien_id"),
@@ -328,9 +344,14 @@ def so_sanh_chi_dinh(chi_dinh: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
                 "khach": ("doi_tac" if doi_tac else "lam") if lam else "khong",
                 "tien": gia,
                 "doi_tac": doi_tac,
+                "lam_them": c.get("lam_them"),
             }
         )
         luc = c.get("chi_dinh_luc")
+        # Chân bảng nói về lần chỉ định của BÁC SĨ — làm thêm tại quầy (lễ tân /
+        # người đo tick, 01/10/2026) không phải lần ấy.
+        if c.get("lam_them"):
+            continue
         if luc and (moi_nhat is None or str(luc) > str(moi_nhat.get("chi_dinh_luc"))):
             moi_nhat = c
     return {
@@ -377,13 +398,24 @@ def tim_theo_ma(tim: str) -> str | None:
 # Bộ lọc lịch sử — đầu vào rác → bỏ qua, không ném
 # ---------------------------------------------------------------------------
 
-HINH_THUC = ("CASH", "TRANSFER", "QR")
-TEN_HINH_THUC = {"CASH": "Tiền mặt", "TRANSFER": "Chuyển khoản", "QR": "QR"}
+#: QR gộp vào Chuyển khoản (01/10/2026): lọc / cộng chỉ còn hai hình thức.
+HINH_THUC = HINH_THUC_THU
+TEN_HINH_THUC = {"CASH": "Tiền mặt", "TRANSFER": "Chuyển khoản", "QR": "Chuyển khoản"}
 
 
 def doc_hinh_thuc(v: Any) -> str | None:
-    s = v.strip().upper() if isinstance(v, str) else ""
-    return s if s in HINH_THUC else None
+    """Bộ lọc hình thức: CASH / TRANSFER (QR cũ = TRANSFER); rác → None."""
+    return chuan_hinh_thuc(v)
+
+
+def _phan_cua(c: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Các phần của một lần thu: cột ``phan`` (hàm SQL) nếu có, không thì một
+    phần (hình thức, số tiền) — dữ liệu không qua ``phan_thu_hieu_luc``."""
+    if c.get("phan") is not None:
+        ds = doc_phan_db(c.get("phan"))
+        if ds:
+            return ds
+    return phan_mot_hinh_thuc(c.get("method"), _so(c.get("amount")) or 0)
 
 
 def doc_tim(v: Any) -> str:
@@ -444,6 +476,8 @@ def gom_theo_khach(
         so_tien = _so(c.get("amount")) or 0
         dv = [str(d.get("ten")) for d in dong.get(str(c["id"]), [])]
         ma = ma_phieu(c["id"])
+        phan = _phan_cua(c)
+        ht = chuan_hinh_thuc(c.get("method"))
         g["tong_goc"] += so_tien
         g["phieu"].append(
             {
@@ -451,7 +485,8 @@ def gom_theo_khach(
                 "ma": ma,
                 "luc": _iso(c.get("paid_at")),
                 "trang_thai": c.get("status"),
-                "hinh_thuc": c.get("method"),
+                "hinh_thuc": ht,
+                "phan": phan,
                 "nguoi_thu": c.get("nguoi_thu"),
                 "tong": so_tien,
                 "dong": [
@@ -473,7 +508,9 @@ def gom_theo_khach(
                 "luc": _iso(c.get("paid_at")),
                 "ma": ma,
                 "so_tien": so_tien,
-                "hinh_thuc": c.get("method"),
+                "hinh_thuc": ht,
+                "phan": phan,
+                "nhan_hinh_thuc": nhan_phan(phan),
                 "nguoi": c.get("nguoi_thu"),
                 "dich_vu": dv,
                 "ly_do": None,
@@ -489,7 +526,9 @@ def gom_theo_khach(
                     "luc": _iso(c.get("closed_at")),
                     "ma": ma,
                     "so_tien": -so_tien,
-                    "hinh_thuc": c.get("method"),
+                    "hinh_thuc": ht,
+                    "phan": phan,
+                    "nhan_hinh_thuc": nhan_phan(phan),
                     "nguoi": c.get("nguoi_huy"),
                     "dich_vu": dv,
                     "ly_do": c.get("close_reason"),
@@ -510,7 +549,11 @@ def gom_theo_khach(
                 "luc": _iso(r.get("created_at")),
                 "ma": ma_phieu(r["refund_id"], "hoan"),
                 "so_tien": -so_tien,
-                "hinh_thuc": r.get("method"),
+                "hinh_thuc": chuan_hinh_thuc(r.get("method")),
+                "phan": phan_mot_hinh_thuc(r.get("method"), so_tien),
+                "nhan_hinh_thuc": nhan_phan(
+                    phan_mot_hinh_thuc(r.get("method"), so_tien)
+                ),
                 "nguoi": r.get("nguoi"),
                 "dich_vu": list(r.get("dich_vu") or []),
                 "ly_do": r.get("reason"),
@@ -528,7 +571,7 @@ def gom_theo_khach(
         g["so_phieu"] = len(thu)
         g["ma_phieu_dau"] = thu[0]["ma"] if thu else None
         g["phieu_cuoi_id"] = thu[-1]["id"] if thu else None
-        g["hinh_thuc"] = sorted({s["hinh_thuc"] for s in thu if s["hinh_thuc"]})
+        g["hinh_thuc"] = cac_hinh_thuc(p for s in thu for p in s.get("phan") or [])
         g["nguoi_thu"] = sorted({s["nguoi"] for s in thu if s["nguoi"]})
         g["con_lai"] = g["tong_goc"] - g["tong_hoan"]
         g["co_hoan"] = any(s["loai"] in ("hoan", "huy") for s in g["su_kien"])
@@ -539,21 +582,27 @@ def gom_theo_khach(
 
 
 def tong_lich_su(khach: Iterable[Mapping[str, Any]]) -> dict[str, int]:
-    """5 ô tổng: Tổng thu (mọi lần đã thu) · theo hình thức · Hoàn/huỷ. Thuần."""
-    t = {"tong_thu": 0, "CASH": 0, "TRANSFER": 0, "QR": 0, "hoan": 0}
+    """4 ô tổng: Tổng thu (mọi lần đã thu) · Tiền mặt · Chuyển khoản (cộng THEO
+    PHẦN — lần thu 200k CK + 500k TM cộng đúng vào hai ô; QR cũ = CK) ·
+    Hoàn/huỷ. Thuần."""
+    t = {"tong_thu": 0, "CASH": 0, "TRANSFER": 0, "hoan": 0}
     for g in khach:
         for s in g.get("su_kien") or []:
             if s["loai"] == "thu":
                 t["tong_thu"] += s["so_tien"]
-                if s.get("hinh_thuc") in HINH_THUC:
-                    t[s["hinh_thuc"]] += s["so_tien"]
+                phan = s.get("phan") or phan_mot_hinh_thuc(
+                    s.get("hinh_thuc"), s["so_tien"]
+                )
+                for p in phan:
+                    ht = chuan_hinh_thuc(p.get("hinh_thuc"))
+                    if ht is not None:
+                        t[ht] += int(p.get("so_tien") or 0)
             elif not s.get("cho"):
                 t["hoan"] += -s["so_tien"]
     return {
         "tong_thu": t["tong_thu"],
         "tien_mat": t["CASH"],
         "chuyen_khoan": t["TRANSFER"],
-        "qr": t["QR"],
         "hoan": t["hoan"],
     }
 
@@ -644,7 +693,10 @@ def csv_lich_su(khach: Iterable[Mapping[str, Any]]) -> str:
                     _o(g.get("ma_bn")),
                     g.get("so_booking") if g.get("so_booking") is not None else "",
                     g.get("so_tiep_don") if g.get("so_tiep_don") is not None else "",
-                    _o(TEN_HINH_THUC.get(str(s.get("hinh_thuc")), "")),
+                    _o(
+                        s.get("nhan_hinh_thuc")
+                        or TEN_HINH_THUC.get(str(s.get("hinh_thuc")), "")
+                    ),
                     _o(s.get("nguoi")),
                     _o(", ".join(s.get("dich_vu") or [])),
                     s.get("so_tien") or 0,
@@ -858,6 +910,9 @@ class QuayThuService:
                        -- Hình thức HIỆU LỰC (sau mọi lần đổi — V7).
                        hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
                                           pc.method) AS method,
+                       -- Chia TM + CK hiệu lực (01/10/2026).
+                       phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
+                                         pc.method, pc.amount) AS phan,
                        pc.paid_at, pc.closed_at, pc.close_reason,
                        coalesce(xn.full_name, cb.full_name) AS nguoi_thu,
                        dg.full_name AS nguoi_huy
@@ -927,7 +982,7 @@ class QuayThuService:
                 nguoi_thu=nt if nt in ds_nguoi else None,
             )
             if chi_tiet and loc:
-                await self._chi_tiet(conn, identity, loc)
+                await self._chi_tiet(conn, identity, loc, loai)
             # [Đổi hình thức] từng phiếu (V7): cờ + lịch sử đổi do máy chủ quyết.
             gan_vao_lich_su(
                 loc,
@@ -935,6 +990,36 @@ class QuayThuService:
                     conn, cid, [p["id"] for g in loc for p in g["phieu"]]
                 ),
             )
+            # Ảnh chuyển khoản + nút Hoàn tác từng lần thu (01/10/2026).
+            ids = [p["id"] for g in loc for p in g["phieu"]]
+            anh = await anh_cua_cac_lan_thu(conn, cid, ids)
+            quyen = await quyen_thu_theo_loai(conn, identity)
+            co_hoan_rows = await conn.fetch(
+                "SELECT DISTINCT payment_cycle_id::text AS id FROM payment_refund"
+                " WHERE clinic_id = $1::uuid AND payment_cycle_id = ANY($2::uuid[])"
+                " AND status IN ('PENDING', 'COMPLETED')",
+                cid,
+                ids,
+            )
+            co_hoan = {r["id"] for r in co_hoan_rows}
+            for g in loc:
+                for p in g["phieu"]:
+                    p["anh_ck"] = anh.get(p["id"], [])
+                    p["hoan_tac"] = hoan_tac_cua(
+                        p["trang_thai"],
+                        loai,
+                        {"khoan_hoan": [{"status": "PENDING"}]}
+                        if p["id"] in co_hoan
+                        else None,
+                        quyen,
+                    )
+                for s in g["su_kien"]:
+                    if s["loai"] == "thu":
+                        s["anh_ck"] = anh.get(s["id"], [])
+                        s["hoan_tac"] = next(
+                            (p["hoan_tac"] for p in g["phieu"] if p["id"] == s["id"]),
+                            None,
+                        )
             # Huỷ phiếu: cùng quyền thu đúng loại tiền (PaymentService.void_payment).
             co_huy = await can(conn, identity, QUYEN_THU[0 if loai == "dich_vu" else 1])
         from clinicai.services.hoan_tien_service import co_quyen_hoan
@@ -954,6 +1039,7 @@ class QuayThuService:
         conn: asyncpg.Connection,
         identity: StaffIdentity,
         khach: list[dict[str, Any]],
+        kind: str = "dich_vu",
     ) -> None:
         from clinicai.services.bill_service import doi_tac_da_thu
         from clinicai.services.hoan_tien_service import hoan_cua_cac_lan_thu
@@ -964,7 +1050,9 @@ class QuayThuService:
 
         cid = identity.clinic_id
         vids = [g["visit_id"] for g in khach]
-        dt_rows = await conn.fetch(_DOI_TAC_SQL, cid, vids)
+        # Đối tác + phòng làm là chuyện DỊCH VỤ: sổ thuốc không kèm (01/10/2026).
+        la_dv = kind == "dich_vu"
+        dt_rows = await conn.fetch(_DOI_TAC_SQL, cid, vids) if la_dv else []
         da_thu = await doi_tac_da_thu(conn, cid, [r["id"] for r in dt_rows])
         dt: dict[str, list[dict[str, Any]]] = {}
         for r in dt_rows:
@@ -979,7 +1067,7 @@ class QuayThuService:
         hoan = await hoan_cua_cac_lan_thu(
             conn, identity, [p["id"] for g in khach for p in g["phieu"]]
         )
-        phong = await da_tra_cho_vao_phong(conn, cid, vids)
+        phong = await da_tra_cho_vao_phong(conn, cid, vids) if la_dv else {}
         pq = PhongQuay(conn, cid)
         for g in khach:
             g["doi_tac"] = dt.get(g["visit_id"], [])
@@ -1054,6 +1142,8 @@ class QuayThuService:
             "dong": dong,
             "tong": 0,
             "hinh_thuc": None,
+            "phan": [],
+            "tra_lai": None,
             "nguoi_thu": None,
             "ly_do": None,
             "doi_tac": [],
@@ -1098,6 +1188,8 @@ class QuayThuService:
                            pc.amount,
                            hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
                                               pc.method) AS method,
+                           phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
+                                             pc.method, pc.amount) AS phan,
                            pc.status, pc.close_reason AS ly_do,
                            coalesce(pc.paid_at, pc.created_at) AS luc,
                            coalesce(xn.full_name, cb.full_name) AS nguoi
@@ -1111,6 +1203,11 @@ class QuayThuService:
                 )
             if goc is None:
                 raise NotFoundError("Không tìm thấy phiếu này.")
+            phan_in = (
+                doc_phan_db(goc["phan"])
+                if not la_hoan
+                else phan_mot_hinh_thuc(goc["method"], _so(goc["amount"]) or 0)
+            )
             dau = await conn.fetchrow(_DAU_PHIEU_SQL, cid, goc["visit_id"])
             k = await conn.fetchrow(_KHACH_SQL, cid, [goc["visit_id"]])
             if la_hoan:
@@ -1158,10 +1255,16 @@ class QuayThuService:
                     }
                     for r in await conn.fetch(_DONG_SQL, cid, [id_])
                 ]
-                doi_tac = [
-                    {"ten": r["ten"], "gia": _so(r["gia"])}
-                    for r in await conn.fetch(_DOI_TAC_SQL, cid, [goc["visit_id"]])
-                ]
+                # Dịch vụ khách trả đối tác là tiền DỊCH VỤ — phiếu thuốc không in
+                # (thuốc và dịch vụ thu riêng hẳn, Tuyền 01/10/2026).
+                doi_tac = (
+                    [
+                        {"ten": r["ten"], "gia": _so(r["gia"])}
+                        for r in await conn.fetch(_DOI_TAC_SQL, cid, [goc["visit_id"]])
+                    ]
+                    if goc["kind"] == "dich_vu"
+                    else []
+                )
         return {
             # Mã gốc — mở / in lại đúng phiếu này (in theo lượt, 28/09/2026).
             "id": goc["id"],
@@ -1181,7 +1284,11 @@ class QuayThuService:
             "bac_si": k["bac_si"] if k else None,
             "dong": dong,
             "tong": _so(goc["amount"]) or 0,
-            "hinh_thuc": goc["method"],
+            "hinh_thuc": chuan_hinh_thuc(goc["method"]),
+            # Bản in có DÒNG HÌNH THỨC từng phần (01/10/2026: 200k CK + 500k TM
+            # in thành hai dòng) + tiền khách đưa / trả lại nếu có.
+            "phan": phan_in,
+            "tra_lai": tra_lai(phan_in),
             "nguoi_thu": goc["nguoi"],
             "ly_do": goc["ly_do"],
             "doi_tac": doi_tac,

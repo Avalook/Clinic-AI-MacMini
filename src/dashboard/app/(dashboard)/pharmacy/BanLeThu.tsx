@@ -16,13 +16,11 @@ import { useRouter } from "next/navigation";
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
 import { useNgheBang } from "../dung-nghe-bang";
 import ChinhDonQuay from "../thu-ngan/ChinhDonQuay";
-import {
-  NhomThu,
-  TEN_PT,
-  type ChoXacMinh,
-  type HoaDon,
-  type PhuongThuc,
-} from "../thu-ngan/QuayThuNgan";
+import { nhanPhan } from "@/lib/hinh-thuc-thu";
+import { taiAnhChuyenKhoan } from "../thu-ngan/AnhChuyenKhoan";
+import type { KetQuaChia } from "../thu-ngan/ChiaHinhThuc";
+import NutHoanTac from "../thu-ngan/NutHoanTac";
+import { NhomThu, type ChoXacMinh, type HoaDon } from "../thu-ngan/QuayThuNgan";
 
 interface DocBanLe {
   visit_id: string;
@@ -30,6 +28,8 @@ interface DocBanLe {
   ten_khach: string | null;
   da_dong: boolean;
   da_thu: boolean;
+  /** Lần thu đã thu — nút "Hoàn tác lần thu" (01/10/2026). */
+  lan_da_thu?: string | null;
   cho_xac_minh: ChoXacMinh | null;
   hoa_don: HoaDon;
   duoc_thu: boolean;
@@ -82,7 +82,12 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
     };
   }, [visitId]);
 
-  const gui = async (than: Record<string, unknown>, cau: string, thaoTac?: string) => {
+  const gui = async (
+    than: Record<string, unknown>,
+    cau: string,
+    thaoTac?: string,
+    anh?: File | null,
+  ) => {
     setDangThu(true);
     setLoi(null);
     setXong(null);
@@ -96,8 +101,12 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
       });
       if (r.ok && thaoTac) xongThaoTac(thaoTac);
       const d = (await r.json().catch(() => null)) as
-        | { message?: string; error?: string; status?: string }
+        | { message?: string; error?: string; status?: string; payment_cycle_id?: string | null }
         | null;
+      if (r.ok && anh && d?.payment_cycle_id) {
+        const loiAnh = await taiAnhChuyenKhoan(d.payment_cycle_id, anh);
+        if (loiAnh) setLoi(`Đã ghi lần thu, nhưng ảnh chuyển khoản chưa lưu: ${loiAnh}`);
+      }
       if (!r.ok) setLoi(d?.message ?? d?.error ?? "Không ghi được.");
       else
         setXong(
@@ -153,23 +162,27 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
         />
       ) : null}
       <NhomThu
+        quay="thuoc"
         tieu_de="Tiền thuốc (bán lẻ)"
         hd={doc.da_thu ? undefined : doc.hoa_don}
         daThu={doc.da_thu}
         cho={doc.cho_xac_minh ?? undefined}
         dangThu={dangThu}
-        onThu={(hd: HoaDon, pt: PhuongThuc) =>
+        onThu={(hd: HoaDon, chia: KetQuaChia) =>
           void gui(
             {
               visitId,
               clinicPatientId: doc.clinic_patient_id,
               kind: "thuoc",
+              quay: "thuoc",
               billRevision: hd.revision,
               amount: hd.tong,
-              method: pt,
+              method: chia.coChuyenKhoan ? "TRANSFER" : "CASH",
+              phan: chia.phan,
             },
-            `Đã thu ${tien(hd.tong)} (${TEN_PT[pt]}) — lượt bán lẻ đã tự đóng. Giao thuốc ở các dòng dưới.`,
-            dinhDanhThaoTac("thu", visitId, "thuoc", hd.revision, pt, String(hd.tong)),
+            `Đã thu ${tien(hd.tong)} (${nhanPhan(chia.phan)}) — lượt bán lẻ đã tự đóng. Giao thuốc ở các dòng dưới.`,
+            dinhDanhThaoTac("thu", visitId, "thuoc", hd.revision, JSON.stringify(chia.phan), String(hd.tong)),
+            chia.anh,
           )
         }
         onXacMinh={(ma: string) =>
@@ -179,24 +192,31 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
               paymentCycleId: doc.cho_xac_minh?.payment_cycle_id,
               visitId,
               kind: "thuoc",
+              quay: "thuoc",
               reference: ma,
             },
             "Đã xác minh — tiền thuốc đã thu, lượt bán lẻ đã tự đóng.",
           )
         }
-        onHuyCho={(lyDo: string) =>
-          void gui(
-            {
-              action: "huy-cho",
-              paymentCycleId: doc.cho_xac_minh?.payment_cycle_id,
-              visitId,
-              kind: "thuoc",
-              reason: lyDo,
-            },
-            "Đã huỷ lần chờ xác minh.",
-          )
-        }
+        onDoi={(cau?: string) => {
+          if (cau) setXong(cau);
+          void tai();
+          router.refresh();
+        }}
       />
+      {doc.lan_da_thu ? (
+        <div className="border-t border-line px-4 py-3">
+          <NutHoanTac
+            cycleId={doc.lan_da_thu}
+            quay="thuoc"
+            onXong={(cau) => {
+              setXong(`${cau} Lượt bán lẻ mở lại để thu lại.`);
+              void tai();
+              router.refresh();
+            }}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
 
 import DoiPhong from "../../../(dashboard)/_lam-viec/DoiPhong";
 
@@ -56,6 +57,11 @@ export interface Phieu {
   }[];
   tong: number;
   hinh_thuc: string | null;
+  /** Từng phần theo hình thức (01/10/2026: một lần thu = Tiền mặt + Chuyển khoản).
+   *  Phiếu in mỗi phần một dòng. Máy chủ cũ không gửi → rơi về `hinh_thuc`. */
+  phan?: PhanThu[];
+  /** Tiền thừa trả khách (khách đưa − phần tiền mặt) — chỉ in, không vào sổ. */
+  tra_lai?: number | null;
   nguoi_thu: string | null;
   ly_do: string | null;
   doi_tac: { ten: string; gia: number | null }[];
@@ -63,7 +69,6 @@ export interface Phieu {
 
 export type LoaiPhieu = "thu" | "hoan" | "huong_dan";
 
-const TEN_PT: Record<string, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", QR: "QR" };
 
 // Khổ hoá đơn 80mm, dài theo nội dung. `@page` chỉ áp cho trang in này.
 export const KIEU_HOA_DON = `
@@ -168,6 +173,8 @@ function XepPhongTrenPhieu({ p, onDaDoi }: { p: Phieu; onDaDoi: () => void }) {
  *  hoá đơn thuốc của một lượt (CSKH, 28/09/2026). */
 export function PhieuThuGiay({ p }: { p: Phieu }) {
   if (p.loai === "huong_dan") return <PhieuHuongDanGiay p={p} />;
+  const phanCo = (p.phan ?? []).filter((ph) => ph.hinh_thuc);
+  const khachDua = phanCo.find((ph) => ph.hinh_thuc === "CASH")?.khach_dua ?? null;
   const luc = p.luc
     ? new Date(p.luc).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
     : "";
@@ -241,8 +248,27 @@ export function PhieuThuGiay({ p }: { p: Phieu }) {
         <span className="tabular-nums">{tien(Math.abs(p.tong))}</span>
       </p>
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-meta">
-        <dt className="text-ink-muted">Hình thức</dt>
-        <dd>{p.hinh_thuc ? (TEN_PT[p.hinh_thuc] ?? p.hinh_thuc) : "—"}</dd>
+        {phanCo.length > 1 ? (
+          phanCo.map((ph, i) => (
+            <div key={i} className="contents">
+              <dt className="text-ink-muted">{tenHinhThuc(ph.hinh_thuc)}</dt>
+              <dd className="text-right tabular-nums">{tien(ph.so_tien)}</dd>
+            </div>
+          ))
+        ) : (
+          <>
+            <dt className="text-ink-muted">Hình thức</dt>
+            <dd>{tenHinhThuc(phanCo[0]?.hinh_thuc ?? p.hinh_thuc) || "—"}</dd>
+          </>
+        )}
+        {khachDua != null && p.tra_lai ? (
+          <>
+            <dt className="text-ink-muted">Khách đưa</dt>
+            <dd className="text-right tabular-nums">{tien(khachDua)}</dd>
+            <dt className="text-ink-muted">Trả lại khách</dt>
+            <dd className="text-right tabular-nums">{tien(p.tra_lai)}</dd>
+          </>
+        ) : null}
         <dt className="text-ink-muted">Người thu</dt>
         <dd>{p.nguoi_thu ?? "—"}</dd>
         {p.ly_do ? (

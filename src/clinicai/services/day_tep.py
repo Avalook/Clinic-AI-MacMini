@@ -108,6 +108,18 @@ HAN_QUET_GIAY = 60.0
 #: Khoá tư vấn: chỉ MỘT tiến trình đẩy tệp.
 KHOA_MOT_TIEN_TRINH = "clinicai:day-tep"
 MA_O_VPS = "O_VPS_DAY"
+#: Bảng có tệp ổ VPS → CFS, CÙNG bộ cột đẩy (khoa, so_byte, sha256, vi_tri,
+#: da_day_luc, so_lan_day_loi, loi_day_cuoi, day_loi_luc, da_xoa_ban_vps_luc,
+#: da_don_tep_luc, tai_len_luc). Ảnh chuyển khoản (mig 20261002300000) đi cùng
+#: đường với tệp kết quả — không làm đường đẩy thứ hai. Tên bảng chỉ lấy từ
+#: danh sách này (chèn vào SQL).
+BANG_TEP: tuple[str, ...] = ("tep_ket_qua", "anh_chuyen_khoan")
+
+
+def _bang(bang: str) -> str:
+    if bang not in BANG_TEP:
+        raise ValueError(f"bảng tệp lạ: {bang!r}")
+    return bang
 
 
 def lui_giay(so_lan_loi: int) -> int:
@@ -203,7 +215,7 @@ def chep_va_kiem(
 _SQL_LO = """
 SELECT t.id::text AS id, t.clinic_id::text AS clinic_id, t.khoa,
        t.so_byte, t.sha256, t.so_lan_day_loi
-  FROM tep_ket_qua t
+  FROM {bang} t
  WHERE t.vi_tri = 'vps'
    AND t.da_don_tep_luc IS NULL
    AND (t.day_loi_luc IS NULL
@@ -217,9 +229,11 @@ SELECT t.id::text AS id, t.clinic_id::text AS clinic_id, t.khoa,
 """
 
 
-async def _ghi_loi(pool: asyncpg.Pool, r: Any, loi: str) -> None:
+async def _ghi_loi(
+    pool: asyncpg.Pool, r: Any, loi: str, bang: str = "tep_ket_qua"
+) -> None:
     await pool.execute(
-        "UPDATE tep_ket_qua"
+        f"UPDATE {_bang(bang)}"  # noqa: S608 — tên bảng từ BANG_TEP
         "   SET so_lan_day_loi = so_lan_day_loi + 1,"
         "       loi_day_cuoi = left($3, 500), day_loi_luc = now()"
         " WHERE id = $1::uuid AND clinic_id = $2::uuid AND vi_tri = 'vps'",
@@ -238,14 +252,20 @@ async def day_mot_lo(
     goc_vps: Path | None = None,
     goc_cfs: Path | None = None,
     gioi_han: int = MOI_LO,
+    bang: str = "tep_ket_qua",
 ) -> dict[str, Any]:
-    """Đẩy một lô. Ném ``ExternalServiceError`` KHÔNG — CFS chậm thì dừng lô
-    (``bo_qua='kho_cham'``). Lỗi DB thì ném (``mot_vong`` bọc)."""
+    """Đẩy một lô của ``bang``. Ném ``ExternalServiceError`` KHÔNG — CFS chậm
+    thì dừng lô (``bo_qua='kho_cham'``). Lỗi DB thì ném (``mot_vong`` bọc)."""
     goc_vps = goc_vps or media_service.goc_vps()
     goc_cfs = goc_cfs or media_service.goc_cfs()
     ket: dict[str, Any] = {"da_day": 0, "loi": 0, "bo_qua": None}
     async with pool.acquire() as conn, conn.transaction():
-        lo = await conn.fetch(_SQL_LO, gioi_han, LUI_CO_BAN_GIAY, LUI_TOI_DA_GIAY)
+        lo = await conn.fetch(
+            _SQL_LO.format(bang=_bang(bang)),
+            gioi_han,
+            LUI_CO_BAN_GIAY,
+            LUI_TOI_DA_GIAY,
+        )
     if not lo:
         return ket
 
@@ -284,10 +304,10 @@ async def day_mot_lo(
             break
         except (DayTepError, OSError) as loi:
             ket["loi"] += 1
-            await _ghi_loi(pool, r, f"{type(loi).__name__}: {loi}"[:500])
+            await _ghi_loi(pool, r, f"{type(loi).__name__}: {loi}"[:500], bang)
             continue
         kq = await pool.execute(
-            "UPDATE tep_ket_qua SET vi_tri = 'cfs', da_day_luc = now()"
+            f"UPDATE {_bang(bang)} SET vi_tri = 'cfs', da_day_luc = now()"
             " WHERE id = $1::uuid AND clinic_id = $2::uuid"
             "   AND vi_tri = 'vps' AND sha256 = $3",
             r["id"],
@@ -343,12 +363,14 @@ def _xoa_tep(goc: Path, clinic_id: str, khoa: str) -> int:
     return co
 
 
-async def _xoa_ban_vps(pool: asyncpg.Pool, goc_vps: Path, r: Any) -> int:
+async def _xoa_ban_vps(
+    pool: asyncpg.Pool, goc_vps: Path, r: Any, bang: str = "tep_ket_qua"
+) -> int:
     """Xoá bản VPS của MỘT tệp ĐÃ đẩy + ghi mốc, trong giao dịch giữ khoá dòng
     (ổ VPS nhanh). Kiểm lại ``vi_tri='cfs'`` dưới khoá. Trả byte đã giải phóng."""
     async with pool.acquire() as conn, conn.transaction():
         con = await conn.fetchval(
-            "SELECT t.khoa FROM tep_ket_qua t"
+            f"SELECT t.khoa FROM {_bang(bang)} t"  # noqa: S608
             " WHERE t.id = $1::uuid AND t.clinic_id = $2::uuid"
             "   AND t.vi_tri = 'cfs' AND t.da_day_luc IS NOT NULL"
             "   AND t.da_xoa_ban_vps_luc IS NULL"
@@ -364,7 +386,7 @@ async def _xoa_ban_vps(pool: asyncpg.Pool, goc_vps: Path, r: Any) -> int:
             partial(_xoa_tep, goc_vps, clinic_id, khoa), kho=KHO_VPS
         )
         await conn.execute(
-            "UPDATE tep_ket_qua SET da_xoa_ban_vps_luc = now()"
+            f"UPDATE {_bang(bang)} SET da_xoa_ban_vps_luc = now()"  # noqa: S608
             " WHERE id = $1::uuid AND clinic_id = $2::uuid AND vi_tri = 'cfs'",
             r["id"],
             clinic_id,
@@ -374,7 +396,7 @@ async def _xoa_ban_vps(pool: asyncpg.Pool, goc_vps: Path, r: Any) -> int:
 
 _SQL_HET_HAN_GIU = """
 SELECT t.id::text AS id, t.clinic_id::text AS clinic_id
-  FROM tep_ket_qua t
+  FROM {bang} t
  WHERE t.vi_tri = 'cfs' AND t.da_day_luc IS NOT NULL
    AND t.da_xoa_ban_vps_luc IS NULL
    AND t.da_day_luc < now() - make_interval(days => $1)
@@ -385,7 +407,7 @@ SELECT t.id::text AS id, t.clinic_id::text AS clinic_id
 #: Vượt trần: bản đã đẩy CŨ NHẤT trước. KHÔNG BAO GIỜ chọn ``vi_tri='vps'``.
 _SQL_DA_DAY_CU_NHAT = """
 SELECT t.id::text AS id, t.clinic_id::text AS clinic_id
-  FROM tep_ket_qua t
+  FROM {bang} t
  WHERE t.vi_tri = 'cfs' AND t.da_day_luc IS NOT NULL
    AND t.da_xoa_ban_vps_luc IS NULL
  ORDER BY t.da_day_luc, t.id
@@ -407,17 +429,20 @@ async def don_ban_vps(
     giu = giu_ngay if giu_ngay is not None else GIU_NGAY
     tran_ = tran if tran is not None else TRAN_BYTES
     ket: dict[str, Any] = {"het_han": 0, "vuot_tran": 0, "dung": 0}
-    for r in await pool.fetch(_SQL_HET_HAN_GIU, giu, 500):
-        await _xoa_ban_vps(pool, goc_vps, r)
-        ket["het_han"] += 1
+    for bang in BANG_TEP:
+        for r in await pool.fetch(_SQL_HET_HAN_GIU.format(bang=bang), giu, 500):
+            await _xoa_ban_vps(pool, goc_vps, r, bang)
+            ket["het_han"] += 1
     dung = await chay_tren_kho(
         partial(dung_luong, goc_vps), han=HAN_QUET_GIAY, kho=KHO_VPS
     )
-    if dung > tran_:
-        for r in await pool.fetch(_SQL_DA_DAY_CU_NHAT, 500):
+    for bang in BANG_TEP:
+        if dung <= tran_:
+            break
+        for r in await pool.fetch(_SQL_DA_DAY_CU_NHAT.format(bang=bang), 500):
             if dung <= tran_:
                 break
-            giai = await _xoa_ban_vps(pool, goc_vps, r)
+            giai = await _xoa_ban_vps(pool, goc_vps, r, bang)
             dung -= giai
             ket["vuot_tran"] += 1
         if dung > tran_:
@@ -488,6 +513,13 @@ async def mot_vong(
             ket["day"] = await day_mot_lo(pool, goc_vps=goc_vps, goc_cfs=goc_cfs)
         except Exception:  # noqa: BLE001
             logger.exception("day_tep_day_hong")
+        # Ảnh chuyển khoản (01/10/2026): cùng đường, lô riêng.
+        try:
+            ket["day_anh_ck"] = await day_mot_lo(
+                pool, goc_vps=goc_vps, goc_cfs=goc_cfs, bang="anh_chuyen_khoan"
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("day_tep_day_anh_ck_hong")
     else:
         ket["day"] = {"bo_qua": "cfs_chua_on", "on_lien": tt.on_lien}
 

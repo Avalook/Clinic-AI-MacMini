@@ -105,11 +105,19 @@ export interface ChiDinhVaKetQua {
   ket_qua: KetQuaMotChiDinh[];
   /** Mẫu kết quả đã gắn cho dịch vụ (Danh mục & biểu mẫu). */
   mau_ket_qua?: MauKetQuaNgan[];
+  /** Mẫu để ĐIỀN (01/10/2026, máy chủ quyết): đã gắn, hoặc mặc định của máy
+   *  (gợi ý / CHUNG nhập tự do) khi quản lý chưa gắn. */
+  mau_chon_duoc?: MauKetQuaNgan[];
+  mau_chon_san?: string | null;
+  /** true = quản lý chưa gắn mẫu, mẫu chọn sẵn là mặc định của máy. */
+  mau_mac_dinh?: boolean;
   /** Lần chỉ định trong lượt (1, 2, 3… mỗi lần bấm chốt). null = mang sang. */
   lan?: number | null;
   chi_dinh_luc?: string | null;
   /** Chỉ định mang sang từ lượt trước. */
   mang_sang?: boolean;
+  /** Làm thêm tại quầy (01/10/2026): "Làm thêm tại quầy tiếp đón"; null = bác sĩ. */
+  lam_them?: string | null;
   /** Mã sản phẩm KiotViet (mã phòng khám) — hiện cạnh tên (27/09/2026). */
   ma_kiotviet?: string | null;
   gia?: number | null;
@@ -141,6 +149,8 @@ export interface MauKetQuaNgan {
   ma: string;
   ten: string;
   nhom?: string | null;
+  /** Mẫu của CHÍNH dịch vụ này (máy chủ tính). false = của dịch vụ khác. */
+  cua_dich_vu?: boolean;
 }
 
 /** Một dòng danh mục mục C — nhãn nguồn + mã/giá THẬT máy chủ đã gắn. */
@@ -156,6 +166,11 @@ export interface MucCls {
   /** Khách trả TRỰC TIẾP cho đối tác (27/09/2026, máy chủ nói): giá chỉ tham
    *  khảo, không cộng vào tổng phòng khám. */
   doi_tac_thu?: boolean;
+  /** Nhóm hàng của danh mục chuẩn ("Siêu âm › Siêu âm thai", "XN thu hộ"…) —
+   *  máy chủ gắn (01/10/2026), dùng để gom kết quả tìm. */
+  nhom_hang?: string | null;
+  /** Câu khoá ô (vd chưa gắn nhóm việc) — máy chủ quyết; có = ô tick khoá. */
+  khoa?: string | null;
 }
 
 export interface NhomCls {
@@ -501,6 +516,8 @@ export interface ThuThuatNguon {
   /** Nhóm như bản giao diện mẫu (`CHI_DINH_DT`, 27/09/2026): "Thủ thuật",
    *  "Sàn chậu — trải nghiệm 5 phút ghế ĐTT", "Sàn chậu — định hướng điều trị". */
   nhom?: string | null;
+  /** Câu khoá ô do máy chủ gắn (vd chưa gắn nhóm việc) — 01/10/2026. */
+  khoa?: string | null;
 }
 
 /** Nhóm mặc định khi máy chủ (bản cũ) chưa gửi `nhom` của thủ thuật. */
@@ -529,6 +546,7 @@ export function nhomThuThuat(ds: readonly ThuThuatNguon[] | null | undefined): N
       form_id_ket_qua: t.form_id_ket_qua,
       service_code: t.service_code,
       gia: t.gia ?? null,
+      khoa: t.khoa ?? null,
     });
   }
   return ra;
@@ -669,6 +687,45 @@ export function donTuDong(d: DongThuoc) {
 
 export function tienVn(n: number | null | undefined): string {
   return typeof n === "number" ? `${n.toLocaleString("vi-VN")} đ` : "chưa có giá";
+}
+
+/** Bỏ dấu + thường — tìm "sieu am" ra "Siêu âm". */
+export function boDauTim(s: string): string {
+  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/đ/gi, "d").toLowerCase();
+}
+
+/**
+ * TÌM trong danh mục chỉ định (01/10/2026 — Tuyền: "không được để dịch vụ nào
+ * bị lọt"): gõ "PRP", "NIPT", "liên cầu" ra ngay, kể cả mục nằm trong ngăn gập
+ * "Dịch vụ khác trong bảng giá". Kết quả gom theo NHÓM HÀNG (máy chủ gắn; mục
+ * phiếu giấy chưa có nhóm hàng thì theo nhóm phiếu), mỗi dịch vụ một lần.
+ * Hàm thuần — chỉ lọc chữ, không quyết dịch vụ nào được chỉ định.
+ */
+export function timDanhMucChiDinh(ds: readonly NhomCls[], tu: string): NhomCls[] {
+  const q = boDauTim(tu.trim());
+  if (!q) return [];
+  const da = new Set<string>();
+  const nhom = new Map<string, MucCls[]>();
+  for (const n of ds ?? []) {
+    if (!n || !Array.isArray(n.muc)) continue;
+    const goc = n.nhom.endsWith(HAU_TO_DANH_MUC_PK) ? n.nhom.slice(0, -HAU_TO_DANH_MUC_PK.length) : n.nhom;
+    for (const m of n.muc) {
+      const khoa = m.service_code ?? `nhan:${m.nhan}`;
+      if (da.has(khoa)) continue;
+      if (!boDauTim(`${m.nhan} ${m.ma_kiotviet ?? ""} ${m.nhom_hang ?? ""} ${goc}`).includes(q)) continue;
+      da.add(khoa);
+      const ten = m.nhom_hang || goc;
+      nhom.set(ten, [...(nhom.get(ten) ?? []), m]);
+    }
+  }
+  return [...nhom.entries()].map(([ten, muc]) => ({ nhom: ten, muc }));
+}
+
+/** Ngăn "Dịch vụ khác trong bảng giá": gom lại theo nhóm hàng, giữ thứ tự máy chủ. */
+export function gomTheoNhomGoc<T extends { nhom_goc: string }>(ds: readonly T[]): [string, T[]][] {
+  const m = new Map<string, T[]>();
+  for (const x of ds) m.set(x.nhom_goc, [...(m.get(x.nhom_goc) ?? []), x]);
+  return [...m.entries()];
 }
 
 /** Tìm thuốc theo tên / đường dùng, không phân biệt dấu và hoa thường. */

@@ -223,7 +223,8 @@ def test_gom_so_tm_ck_hoan_huy_thuoc() -> None:
         300_000,
         400_000,
     )
-    assert ht["TRANSFER"]["thuc_thu"] == 150_000 and ht["QR"]["thuc_thu"] == 80_000
+    # QR cũ (01/10) gộp vào Chuyển khoản: 150k CK + 80k QR.
+    assert ht["TRANSFER"]["thuc_thu"] == 230_000 and "QR" not in ht
     assert "KHAC" not in ht
     # Tổng theo hình thức = tổng chung (không suy đoán, không rơi đồng nào).
     assert sum(o["thuc_thu"] for o in bc["theo_hinh_thuc"]) == t["thuc_thu"]
