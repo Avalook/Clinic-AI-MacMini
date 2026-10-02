@@ -315,6 +315,10 @@ async def test_ca_93_dich_vu_file_chuan_chi_dinh_duoc_va_co_phong(
     assert dong
     for r in dong:
         assert r["service_code"] in muc, f"lọt khỏi bàn khám: {r['ten']}"
+        # Tên hiện = tên file (nhãn phiếu giấy chỉ là dòng phụ) — gõ tên trong
+        # file là tìm ra (C21: "Đo trương lực cơ sàn chậu máy Bio" từng chỉ hiện
+        # dưới nhãn "Đo cơ lực âm đạo bằng máy (sàng lọc)").
+        assert muc[r["service_code"]]["ten_dich_vu"] == r["ten"], r["ten"]
         if r["node_code"]:
             assert not muc[r["service_code"]]["khoa"], r["ten"]
 

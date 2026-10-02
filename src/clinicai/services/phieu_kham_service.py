@@ -586,10 +586,19 @@ class PhieuKhamService:
 
         def gan(d: ax.DichVuPhieu | None) -> dict[str, Any]:
             if d is None or d.ma not in dv:
-                return {"service_code": None, "gia": None, "doi_tac_thu": False}
+                return {
+                    "service_code": None,
+                    "gia": None,
+                    "doi_tac_thu": False,
+                    "ten_dich_vu": None,
+                }
             gia = dv[d.ma]
             return {
                 "service_code": d.ma,
+                # TÊN THẬT của bảng giá (file phòng khám gửi) — màn hiện tên này,
+                # nhãn phiếu giấy chỉ còn dòng phụ; ô tìm dò cả hai (C21: gõ
+                # "trương lực" phải ra "Đo cơ lực âm đạo bằng máy (sàng lọc)").
+                "ten_dich_vu": theo_ma[d.ma]["name"],
                 "gia": int(gia) if gia is not None else None,
                 "doi_tac_thu": d.ma in dt_thu,
                 "nhom_hang": nhom_hang_hien(theo_ma[d.ma]["nhom"]),
@@ -633,6 +642,7 @@ class PhieuKhamService:
             them.setdefault(nhom_ten, []).append(
                 {
                     "nhan": r["name"],
+                    "ten_dich_vu": r["name"],
                     "cach_tra_ket_qua": "",
                     "form_id_ket_qua": None,
                     "service_code": r["service_code"],

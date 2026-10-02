@@ -35,6 +35,7 @@ import {
   chipMauDanhMuc,
   gomTheoNhomGoc,
   tachDanhMucKhac,
+  tenHienMuc,
   timDanhMucChiDinh,
   tienVn,
   type ChiDinhVaKetQua,
@@ -125,6 +126,7 @@ export default function DanhMucChiDinh({
     const dangChon = ma ? chon.includes(ma) : false;
     const lan = ma ? lanCua.get(ma) : undefined;
     const mau = chipMauDanhMuc(m);
+    const ten = tenHienMuc(m);
     // Máy chủ khoá ô (vd dịch vụ chưa gắn nhóm việc — chỉ định không xếp được).
     const khoa = chiDoc || !ma || Boolean(m.khoa);
     return (
@@ -142,7 +144,10 @@ export default function DanhMucChiDinh({
             onChange={(e) => ma && bat(ma, e.target.checked)}
           />
           <span className="min-w-0">
-            <span className={da ? "font-semibold text-brand-700" : "text-ink"}>{m.nhan}</span>
+            <span className={da ? "font-semibold text-brand-700" : "text-ink"}>{ten.chinh}</span>
+            {ten.phieuGiay ? (
+              <span className="block text-meta text-ink-faint">Trên phiếu giấy: {ten.phieuGiay}</span>
+            ) : null}
             {da ? (
               <span className="block text-label font-semibold text-brand-600">
                 {lan ? `đã chỉ định ở lần ${lan}` : "đã chỉ định"}

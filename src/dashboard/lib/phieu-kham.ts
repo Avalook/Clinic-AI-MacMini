@@ -171,6 +171,9 @@ export interface MucCls {
   nhom_hang?: string | null;
   /** Câu khoá ô (vd chưa gắn nhóm việc) — máy chủ quyết; có = ô tick khoá. */
   khoa?: string | null;
+  /** TÊN THẬT trong bảng giá (C21, 02/10/2026) — màn hiện tên này, `nhan` (nhãn
+   *  phiếu giấy) thành dòng phụ khi khác; ô tìm dò cả hai. */
+  ten_dich_vu?: string | null;
 }
 
 export interface NhomCls {
@@ -518,6 +521,8 @@ export interface ThuThuatNguon {
   nhom?: string | null;
   /** Câu khoá ô do máy chủ gắn (vd chưa gắn nhóm việc) — 01/10/2026. */
   khoa?: string | null;
+  /** Tên thật trong bảng giá (C21) — xem `MucCls.ten_dich_vu`. */
+  ten_dich_vu?: string | null;
 }
 
 /** Nhóm mặc định khi máy chủ (bản cũ) chưa gửi `nhom` của thủ thuật. */
@@ -547,6 +552,7 @@ export function nhomThuThuat(ds: readonly ThuThuatNguon[] | null | undefined): N
       service_code: t.service_code,
       gia: t.gia ?? null,
       khoa: t.khoa ?? null,
+      ten_dich_vu: t.ten_dich_vu ?? null,
     });
   }
   return ra;
@@ -738,6 +744,15 @@ export function boDauTim(s: string): string {
   return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/đ/gi, "d").toLowerCase();
 }
 
+/** Tên hiện của một mục danh mục chỉ định (C21, 02/10/2026): TÊN THẬT của bảng
+ *  giá làm tên chính; nhãn phiếu giấy cũ thành dòng phụ khi khác — hàm thuần. */
+export function tenHienMuc(m: Pick<MucCls, "nhan" | "ten_dich_vu">): { chinh: string; phieuGiay: string | null } {
+  const that = (m.ten_dich_vu ?? "").trim();
+  if (!that) return { chinh: m.nhan, phieuGiay: null };
+  const khac = boDauTim(that) !== boDauTim(m.nhan ?? "");
+  return { chinh: that, phieuGiay: khac ? m.nhan : null };
+}
+
 /**
  * TÌM trong danh mục chỉ định (01/10/2026 — Tuyền: "không được để dịch vụ nào
  * bị lọt"): gõ "PRP", "NIPT", "liên cầu" ra ngay, kể cả mục nằm trong ngăn gập
@@ -756,7 +771,8 @@ export function timDanhMucChiDinh(ds: readonly NhomCls[], tu: string): NhomCls[]
     for (const m of n.muc) {
       const khoa = m.service_code ?? `nhan:${m.nhan}`;
       if (da.has(khoa)) continue;
-      if (!boDauTim(`${m.nhan} ${m.ma_kiotviet ?? ""} ${m.nhom_hang ?? ""} ${goc}`).includes(q)) continue;
+      if (!boDauTim(`${m.nhan} ${m.ten_dich_vu ?? ""} ${m.ma_kiotviet ?? ""} ${m.nhom_hang ?? ""} ${goc}`).includes(q))
+        continue;
       da.add(khoa);
       const ten = m.nhom_hang || goc;
       nhom.set(ten, [...(nhom.get(ten) ?? []), m]);

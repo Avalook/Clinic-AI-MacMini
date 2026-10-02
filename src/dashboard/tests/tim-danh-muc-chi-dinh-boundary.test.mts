@@ -112,3 +112,25 @@ test("gõ 'ghe dien' ra Ghế điện từ trường; ô tìm luôn hiện + nú
   assert.match(src, /useState\(true\)/, "danh mục mở sẵn");
   assert.match(src, /<NganGap\s+moSan/, "ngăn Dịch vụ khác mở sẵn");
 });
+
+// C21: dịch vụ nằm dưới NHÃN PHIẾU GIẤY cũ ("Đo cơ lực âm đạo bằng máy (sàng
+// lọc)") phải tìm được và hiện bằng TÊN THẬT của bảng giá.
+test("tìm theo tên thật bảng giá; tên thật là tên chính, nhãn phiếu giấy là dòng phụ", async () => {
+  const { tenHienMuc } = await import("../lib/phieu-kham.ts");
+  const bio = muc("Đo cơ lực âm đạo bằng máy (sàng lọc)", "CLS_DO_CO_LUC_AM_DAO", {
+    ten_dich_vu: "Đo trương lực cơ sàn chậu máy Bio (ko bao gồm đầu dò)",
+  });
+  const ds: NhomCls[] = [{ nhom: "Sàn chậu — đánh giá", muc: [bio] }];
+  for (const tu of ["truong luc", "may bio", "co luc am dao"]) {
+    assert.equal(timDanhMucChiDinh(ds, tu).flatMap((n) => n.muc).length, 1, tu);
+  }
+  assert.deepEqual(tenHienMuc(bio), {
+    chinh: "Đo trương lực cơ sàn chậu máy Bio (ko bao gồm đầu dò)",
+    phieuGiay: "Đo cơ lực âm đạo bằng máy (sàng lọc)",
+  });
+  assert.deepEqual(tenHienMuc(muc("Siêu âm ổ bụng", "X", { ten_dich_vu: "Siêu âm ổ bụng" })), {
+    chinh: "Siêu âm ổ bụng",
+    phieuGiay: null,
+  });
+  assert.deepEqual(tenHienMuc(muc("Ghế ĐTT", null)), { chinh: "Ghế ĐTT", phieuGiay: null });
+});
