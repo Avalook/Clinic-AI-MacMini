@@ -36,7 +36,7 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service_order.desk_removed": ["service_code", "nguon"],
     # Số dòng đơn — không tên thuốc (tên thuốc nói ra bệnh).
     "prescription.saved": ["so_dong"],
-    "medicine.counter_changed": ["hanh_dong", "so_luong"],
+    "medicine.counter_changed": ["hanh_dong", "so_luong", "so_luong_cu"],
     "medicine.declined": ["so_ke", "so_mua"],
     # Số ô còn trống là thông tin vận hành, không phải chữ lâm sàng.
     "result_form.completed": ["form_id", "so_o_con_trong"],
@@ -109,6 +109,9 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     # người + giờ của dòng; chi tiết chỉ là số chỉ định chốt cùng lúc.
     "visit.defer_payment_set": ["so_chi_dinh_chot"],
     "visit.defer_payment_cleared": [],
+    # Bán thêm vật tư (C13, 01/10/2026): tên hàng + số lượng là thông tin vận
+    # hành của quầy, không phải chữ lâm sàng.
+    "visit.supply_changed": ["ten", "hanh_dong", "so_luong"],
     # HOÀN TÁC (01/10/2026): lý do là chữ vận hành người bấm gõ khi máy chủ hỏi
     # xác nhận — Tuyền cần thấy ai rút lại gì, vì sao, ở lịch sử lượt.
     "consultation.reopened": ["loai", "ket_qua_cu", "mo_lai_kham_xong", "ly_do"],
@@ -131,6 +134,24 @@ def _visit_id(payload: dict[str, Any]) -> str | None:
     return str(visit_id) if visit_id else None
 
 
+def _nhan_rieng(event_type: str, payload: dict[str, Any]) -> str | None:
+    """Nhãn riêng khi nhãn cố định của danh mục không đủ nói chuyện gì xảy ra.
+
+    Thuần hàm của payload (phát lại ra đúng nhãn cũ). Không có tên thuốc — tên
+    thuốc nói ra bệnh; dòng nào do mã dòng, màn kê đơn của bác sĩ chỉ ra.
+    """
+    if (
+        event_type == "medicine.counter_changed"
+        and payload.get("hanh_dong") == "DIEN_SO_LUONG"
+    ):
+        moi = payload.get("so_luong")
+        cu = payload.get("so_luong_cu")
+        if cu is None:
+            return f"Quầy thu thuốc điền số lượng thuốc (bác sĩ để trống): {moi}"
+        return f"Quầy thu thuốc sửa số lượng thuốc đã điền: {cu} → {moi}"
+    return None
+
+
 async def ghi_dong_thoi_gian(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     visit_id = _visit_id(su_kien.payload)
     if visit_id is None:
@@ -139,7 +160,9 @@ async def ghi_dong_thoi_gian(conn: asyncpg.Connection, su_kien: SuKienDaNhan) ->
 
     truong = CHI_TIET_HIEN.get(su_kien.event_type, ())
     chi_tiet = {k: su_kien.payload[k] for k in truong if k in su_kien.payload}
-    nhan = DANH_MUC[su_kien.event_type].nhan if su_kien.event_type in DANH_MUC else ""
+    nhan = _nhan_rieng(su_kien.event_type, su_kien.payload) or (
+        DANH_MUC[su_kien.event_type].nhan if su_kien.event_type in DANH_MUC else ""
+    )
 
     await conn.execute(
         """

@@ -138,6 +138,23 @@ class LamThemDaBo(PayloadSuKien):
     nguon: str
 
 
+class VatTuDaDoi(PayloadSuKien):
+    """`visit.supply_changed` — thêm / đổi số lượng / bỏ một vật tư khách mua thêm
+    ở quầy Thu tiền dịch vụ (Tuyền 01/10/2026, C13). Tiền vật tư là tiền DỊCH VỤ:
+    quầy thu và các màn nghe `luot_vat_tu` đọc lại hoá đơn. `hanh_dong` = 'them'
+    | 'sua' | 'bo'. Không có tên khách — chỉ mã lượt + mặt hàng."""
+
+    visit_id: str
+    luot_vat_tu_id: str
+    service_price_id: str
+    ten: str
+    hanh_dong: str
+    so_luong: int
+    don_gia: int
+    #: Hàng phải có quản lý duyệt (vòng Mirena thứ 2…).
+    can_ql_duyet: bool = False
+
+
 class ChiDinhMangSang(PayloadSuKien):
     """`service_order.carried_over` — chỉ định chưa làm ở lượt trước được mang
     sang lượt này (dây H2). Đã trả tiền thì không thu lại."""
@@ -663,9 +680,12 @@ class ThuocQuayDaChinh(PayloadSuKien):
     visit_id: str
     prescription_id: str
     #: BO_CHON | CHON_LAI | SO_LUONG | THEM | SUA | BO_DONG_THEM
+    #: | DIEN_SO_LUONG (C14: quầy điền / sửa số lượng bác sĩ để trống)
     hanh_dong: str
     nguon: str
     so_luong: str | None = None
+    #: Số trước khi quầy điền / sửa (None = bác sĩ để trống).
+    so_luong_cu: str | None = None
 
 
 class ThuocBiBo(PayloadSuKien):
@@ -715,10 +735,13 @@ class LamTruocThuSauDaBat(PayloadSuKien):
 
 
 class LamTruocThuSauDaBo(PayloadSuKien):
-    """`visit.defer_payment_cleared` — bỏ tick "Làm trước – thu sau" (chỉ khi
-    chưa chỉ định nào bắt đầu làm)."""
+    """`visit.defer_payment_cleared` — bỏ tick "Làm trước – thu sau" (hoàn tác,
+    01/10/2026: được cả khi đã có dịch vụ bắt đầu làm — khi ấy khoản đã làm vẫn
+    còn nợ, dịch vụ chưa làm quay về luật thu trước)."""
 
     visit_id: str
+    #: Lúc bỏ tick đã có chỉ định bắt đầu / làm xong chưa.
+    da_bat_dau: bool = False
 
 
 class DichVuDaXong(PayloadSuKien):
@@ -993,6 +1016,16 @@ DANH_MUC: dict[str, SuKien] = {
             payload=LamThemDaBo,
             nhan="Bỏ làm thêm tại quầy",
             consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="visit.supply_changed",
+            version=1,
+            aggregate_type="visit",
+            source_module="vat_tu",
+            payload=VatTuDaDoi,
+            nhan="Bán thêm vật tư",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            is_public=False,
         ),
         SuKien(
             ten="service_order.placed",

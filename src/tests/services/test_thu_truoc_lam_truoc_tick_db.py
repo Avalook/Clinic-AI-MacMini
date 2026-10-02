@@ -23,7 +23,7 @@ from clinicai.services import finance_gate
 from clinicai.services.bill_service import hoa_don_con_no, tinh_hoa_don
 from clinicai.services.cashier_board_service import CashierBoardService
 from clinicai.services.lam_truoc_thu_sau import (
-    CAU_DA_BAT_DAU,
+    CAU_BO_DA_LAM,
     QUYEN_TICK,
     LamTruocThuSauService,
 )
@@ -232,11 +232,25 @@ async def test_tick_chot_luon_xep_ngay_lam_khi_chua_thu_cuoi_buoi_thu_dung_so(
     assert dv["con_no"] == 300_000
     assert b["items"][0]["visit_id"] == visit
 
-    # Bỏ tick sau khi đã làm → từ chối, câu rõ.
-    with pytest.raises(ConflictError, match="Đã có dịch vụ bắt đầu làm"):
-        await svc.dat(visit_id=visit, bat=False, identity=ca.le_tan)
-    doc = await svc.doc(visit_id=visit, identity=ca.le_tan)
-    assert (doc["bo_tick_duoc"], doc["ly_do_khong_bo"]) == (False, CAU_DA_BAT_DAU)
+    # Quầy giữ khách + trạng thái: ai tick, lúc nào (huy hiệu ở danh sách).
+    assert lt["bat_boi"] is not None and lt["bat_luc"] is not None
+    assert lt["bo_tick_duoc"] is True and lt["luu_y_bo"] == CAU_BO_DA_LAM
+
+    # HOÀN TÁC sau khi đã làm (01/10/2026): KHÔNG khoá cứng — bỏ tick được, máy
+    # chủ nói rõ chuyện gì xảy ra; khách vẫn ở quầy, vẫn còn nợ đủ.
+    kq = await svc.dat(visit_id=visit, bat=False, identity=ca.le_tan)
+    assert kq["lam_truoc_thu_sau"] is False and "còn nợ" in kq["ghi_chu"]
+    [ev] = await _su_kien(pool, "visit.defer_payment_cleared", visit)
+    assert json.loads(ev["payload"])["da_bat_dau"] is True
+    b = await CashierBoardService(pool).board(identity=ca.thu_ngan, modes=["dich_vu"])
+    [luot] = [i for i in b["items"] if i["visit_id"] == visit]
+    assert luot["lam_truoc"]["lam_truoc_thu_sau"] is False
+    assert luot["lam_truoc"]["tick_duoc"] is True  # tick lại được
+    assert luot["quay_thu"]["tong"] == truoc.tong
+    # Dịch vụ đã làm xong vẫn còn nợ; tick lần nữa → bật lại, đủ người + giờ mới.
+    kq = await svc.dat(visit_id=visit, bat=True, identity=ca.le_tan)
+    assert kq["lam_truoc_thu_sau"] is True and kq["bat_boi"] is not None
+    assert len(await _su_kien(pool, "visit.defer_payment_set", visit)) == 2
 
     # Hoá đơn vẫn còn nợ đủ; thu cuối đúng số.
     async with pool.acquire() as conn:
@@ -265,6 +279,12 @@ async def test_bo_tick_truoc_khi_lam_thi_bat_dau_bi_chan_cau_ro(
     await _xep_tay(pool, ca, order)
     assert (await _don(pool, order))["routing_status"] == "ASSIGNED"
 
+    # Tick: quầy vẫn LIỆT KÊ khách, kèm ai tick + lúc nào.
+    b = await CashierBoardService(pool).board(identity=ca.thu_ngan, modes=["dich_vu"])
+    [luot] = [i for i in b["items"] if i["visit_id"] == visit]
+    assert luot["lam_truoc"]["lam_truoc_thu_sau"] is True
+    assert luot["lam_truoc"]["bat_boi"] is not None and luot["lam_truoc"]["bat_luc"]
+
     kq = await svc.dat(visit_id=visit, bat=False, identity=ca.le_tan)
     assert kq["lam_truoc_thu_sau"] is False
     assert (
@@ -275,6 +295,13 @@ async def test_bo_tick_truoc_khi_lam_thi_bat_dau_bi_chan_cau_ro(
     )
     [ev] = await _su_kien(pool, "visit.defer_payment_cleared", visit)
     assert ev["ai"] == ca.le_tan.staff_id
+    assert json.loads(ev["payload"])["da_bat_dau"] is False
+    # Bỏ tick: khách VẪN ở quầy, về trạng thái chưa thu bình thường (còn nợ).
+    b = await CashierBoardService(pool).board(identity=ca.thu_ngan, modes=["dich_vu"])
+    [luot] = [i for i in b["items"] if i["visit_id"] == visit]
+    assert luot["lam_truoc"]["lam_truoc_thu_sau"] is False
+    assert luot["lam_truoc"]["bat_boi"] is None
+    assert luot["quay_thu"]["tong"] > 0
 
     with pytest.raises(ConflictError, match="Chưa thu tiền — thu trước hoặc tick"):
         await _bat_dau(pool, ca, order)

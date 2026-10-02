@@ -33,13 +33,16 @@ UPDATE public.service_price
 
 -- Chốt kiểm: chạy lại migration này không được đổi thêm gì, và sau khi chạy
 -- thì đúng một dịch vụ active còn thiếu bước — khám phụ khoa.
+-- (01/10/2026, C13: chỉ đếm nhóm DỊCH VỤ — vật tư bán thêm `vat_tu`, nạp sau bởi
+-- 20261003000000, không có bước thực hiện vì không xếp phòng; lượt chạy lại của
+-- CI database thấy chúng.)
 DO $$
 DECLARE
     con integer;
 BEGIN
     SELECT count(*) INTO con
       FROM public.service_price
-     WHERE active AND node_code IS NULL;
+     WHERE active AND node_code IS NULL AND "group" <> 'vat_tu';
     IF con <> (SELECT count(*) FROM public.service_price
                 WHERE active AND service_code = 'CLS_KHAM_PHU_KHOA') THEN
         RAISE EXCEPTION

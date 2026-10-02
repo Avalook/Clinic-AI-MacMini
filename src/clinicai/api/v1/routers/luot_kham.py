@@ -493,6 +493,80 @@ async def dat_phu_thu(
     )
 
 
+class VatTuThemBody(BaseModel):
+    service_price_id: UUID
+    so_luong: int = Field(default=1, ge=1, le=99)
+    #: Mặt hàng đã có dòng chờ thu: True (nút chọn nhanh) = cộng thêm số lượng.
+    cong_don: bool = True
+    #: Hàng cần quản lý duyệt (Mirena): quản lý đã duyệt + lý do.
+    duyet_boi: UUID | None = None
+    ly_do_duyet: str | None = Field(default=None, max_length=500)
+
+
+class VatTuSoLuongBody(BaseModel):
+    so_luong: int = Field(ge=1, le=99)
+
+
+@router.get("/luot-kham/visits/{visit_id}/vat-tu")
+async def doc_vat_tu(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Danh mục vật tư + dòng đã thêm của lượt — quầy Thu tiền dịch vụ (C13)."""
+    from clinicai.services.vat_tu_service import VatTuService
+
+    return await VatTuService(pool).doc(visit_id=str(visit_id), identity=identity)
+
+
+@router.post("/luot-kham/visits/{visit_id}/vat-tu")
+async def them_vat_tu(
+    visit_id: UUID,
+    body: VatTuThemBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thêm một vật tư vào hoá đơn dịch vụ của lượt (tiền DỊCH VỤ)."""
+    from clinicai.services.vat_tu_service import VatTuService
+
+    return await VatTuService(pool).them(
+        visit_id=str(visit_id),
+        service_price_id=str(body.service_price_id),
+        so_luong=body.so_luong,
+        cong_don=body.cong_don,
+        duyet_boi=str(body.duyet_boi) if body.duyet_boi else None,
+        ly_do_duyet=body.ly_do_duyet,
+        identity=identity,
+    )
+
+
+@router.post("/luot-kham/vat-tu/{dong_id}")
+async def dat_so_luong_vat_tu(
+    dong_id: UUID,
+    body: VatTuSoLuongBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đổi số lượng một dòng vật tư chưa thu."""
+    from clinicai.services.vat_tu_service import VatTuService
+
+    return await VatTuService(pool).dat_so_luong(
+        dong_id=str(dong_id), so_luong=body.so_luong, identity=identity
+    )
+
+
+@router.post("/luot-kham/vat-tu/{dong_id}/bo")
+async def bo_vat_tu(
+    dong_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bỏ một dòng vật tư chưa thu khỏi hoá đơn."""
+    from clinicai.services.vat_tu_service import VatTuService
+
+    return await VatTuService(pool).bo(dong_id=str(dong_id), identity=identity)
+
+
 class PhiKhamBody(BaseModel):
     ids: list[UUID] = Field(default_factory=list, max_length=40)
 

@@ -209,6 +209,12 @@ SELECT r.id::text AS room_id, r.code, r.sort,
    -- không lọc cơ sở — bộ mô phỏng ngày khám bắt được một xét nghiệm máu bị xếp
    -- sang phòng lấy mẫu của cơ sở khác.
    AND ($3::uuid IS NULL OR r.location_id = $3::uuid)
+   -- TỰ XẾP chỉ vào phòng ĐÚNG CHỨC NĂNG (01/10/2026, sau "mở hết phòng"):
+   -- phòng có node của dịch vụ. Xếp TAY (quầy / đổi phòng) không bật cờ này.
+   AND (NOT $6::boolean OR EXISTS (
+        SELECT 1 FROM clinic_room_node rn
+         WHERE rn.clinic_id = r.clinic_id AND rn.room_id = r.id
+           AND rn.node_code = $2))
 """
 
 
@@ -307,6 +313,7 @@ async def eligible_rooms(
     location_id: str | None = None,
     tru_luot: str | None = None,
     service_code: str | None = None,
+    dung_chuc_nang: bool = False,
 ) -> list[RoomCandidate]:
     """EligibleRoomQuery — tập phòng hợp lệ của một chỉ định, một truy vấn.
 
@@ -314,7 +321,9 @@ async def eligible_rooms(
     phòng ấy (None = chỉ xét node). `location_id` = cơ sở của lượt khám; truyền
     vào thì chỉ lấy phòng cùng cơ sở (None = không lọc — chỉ dùng cho màn cấu
     hình). `tru_luot` = lượt của khách đang được xếp: không đếm chính họ vào số
-    người chờ.
+    người chờ. `dung_chuc_nang` = chỉ lấy phòng có đúng node (nhóm việc) của
+    dịch vụ — dành riêng cho TỰ XẾP; danh sách chọn tay để False (mọi phòng
+    ``phong_lam_duoc``).
 
     Tầng sau (chọn BÁC SĨ trong phòng nhiều bác sĩ) lọc / xếp tiếp trên chính
     tập này — không tự tính lại "phòng nào làm được"."""
@@ -327,7 +336,13 @@ async def eligible_rooms(
             tai=int(r["tai"]),
         )
         for r in await conn.fetch(
-            _ELIGIBLE_SQL, clinic_id, node_code, location_id, tru_luot, service_code
+            _ELIGIBLE_SQL,
+            clinic_id,
+            node_code,
+            location_id,
+            tru_luot,
+            service_code,
+            dung_chuc_nang,
         )
     ]
 
@@ -452,6 +467,7 @@ async def doi_tac_lam_tron(
 CHO_XEP_KHONG_CO_PHONG = "KHONG_CO_PHONG"
 CHO_XEP_CHUA_CHON_PHONG = "CHUA_CHON_PHONG"
 CHO_XEP_PHONG_DU_KIEN_HONG = "PHONG_DU_KIEN_KHONG_NHAN"
+CHO_XEP_KHONG_DUNG_CHUC_NANG = "KHONG_CO_PHONG_DUNG_CHUC_NANG"
 #: Vai nhận chuông "chờ xếp phòng": người đứng quầy (lễ tân kiêm thu ngân).
 VAI_NHAN_CHO_XEP = ("RECEPTION", "CASHIER")
 
@@ -460,6 +476,11 @@ _CAU_CHO_XEP: dict[str, str] = {
         "Không phòng nào đang nhận khách làm được dịch vụ này (phòng có thể đang"
         " tạm ngừng). Việc cần làm: báo trưởng ca mở lại phòng, rồi xếp phòng ở"
         ' ô "Phòng làm dịch vụ (khách đã chốt)".'
+    ),
+    CHO_XEP_KHONG_DUNG_CHUC_NANG: (
+        "Không có phòng đúng chức năng (nhóm việc) của dịch vụ này đang nhận khách"
+        " nên hệ thống không tự xếp. Việc cần làm: chọn phòng ở ô"
+        ' "Phòng làm dịch vụ (khách đã chốt)".'
     ),
     CHO_XEP_CHUA_CHON_PHONG: (
         'Dây "chỉ áp phòng lễ tân chọn" đang bật mà dịch vụ này chưa chọn phòng.'
@@ -486,6 +507,7 @@ def chon_phong_h4(
     phong_du_kien: str | None,
     *,
     chi_ap_phong_du_kien: bool,
+    ung_vien_chuc_nang: Sequence[dict[str, Any]] | None = None,
 ) -> tuple[str | None, str | None]:
     """Dây H4 chọn phòng nào — HÀM THUẦN. Trả ``(room_id, None)`` hoặc
     ``(None, lý do chờ xếp)``.
@@ -494,6 +516,11 @@ def chon_phong_h4(
     không thì phòng vắng nhất. Dây ``h4_chi_ap_phong_du_kien`` BẬT: CHỈ áp phòng
     lễ tân chọn — không tự chọn phòng vắng nhất; chưa chọn / phòng ấy không còn
     nhận thì để chờ lễ tân xếp.
+
+    ``ung_vien`` = mọi phòng LÀM ĐƯỢC (``phong_lam_duoc``, kể cả khi đã mở hết
+    phòng cho chọn tay) — dùng để chấp nhận phòng lễ tân chọn. TỰ CHỌN phòng vắng
+    nhất chỉ lấy trong ``ung_vien_chuc_nang`` (phòng đúng chức năng của dịch vụ);
+    rỗng thì chờ quầy, KHÔNG rơi về phòng bất kỳ. None = không phân biệt (cũ).
     """
     khop = next((u for u in ung_vien if u.get("room_id") == phong_du_kien), None)
     if chi_ap_phong_du_kien:
@@ -504,6 +531,12 @@ def chon_phong_h4(
         return None, CHO_XEP_PHONG_DU_KIEN_HONG
     if khop is not None:
         return str(khop["room_id"]), None
+    if ung_vien_chuc_nang is not None:
+        if ung_vien_chuc_nang:
+            return str(ung_vien_chuc_nang[0]["room_id"]), None
+        return None, (
+            CHO_XEP_KHONG_DUNG_CHUC_NANG if ung_vien else CHO_XEP_KHONG_CO_PHONG
+        )
     if ung_vien:
         return str(ung_vien[0]["room_id"]), None
     return None, CHO_XEP_KHONG_CO_PHONG
@@ -1465,11 +1498,32 @@ class ServiceRoutingService:
                     service_code=o["service_code"],
                 )
             )
+            # Tự chọn chỉ trong phòng ĐÚNG CHỨC NĂNG (node của dịch vụ): "mở hết
+            # phòng" cho chọn tay không được kéo khách vào phòng sai việc.
+            ung_vien_cn = (
+                rank_rooms(
+                    await eligible_rooms(
+                        conn,
+                        clinic_id,
+                        o["node_code"],
+                        co_so,
+                        tru_luot=visit_id,
+                        service_code=o["service_code"],
+                        dung_chuc_nang=True,
+                    )
+                )
+                if o["node_code"]
+                else []
+            )
             # Phòng khách chọn ở quầy (phong_du_kien) thắng — nếu nó vẫn đủ điều
-            # kiện (đúng cơ sở, còn nhận khách, làm được bước này). Không thì
-            # phòng vắng nhất như cũ: ý định cũ không được làm khách kẹt.
+            # kiện (đúng cơ sở, còn nhận khách, làm được bước này): đó là lựa
+            # chọn của người. Không thì phòng vắng nhất ĐÚNG CHỨC NĂNG; không có
+            # thì chờ quầy chọn (không rơi về phòng bất kỳ).
             rid, ly_do_cho = chon_phong_h4(
-                ung_vien, o["phong_du_kien"], chi_ap_phong_du_kien=chi_ap
+                ung_vien,
+                o["phong_du_kien"],
+                chi_ap_phong_du_kien=chi_ap,
+                ung_vien_chuc_nang=ung_vien_cn,
             )
             if rid is None:
                 # Không xếp được — KHÔNG im lặng: réo quầy "chờ xếp phòng".

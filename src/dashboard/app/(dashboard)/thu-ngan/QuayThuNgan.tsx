@@ -30,12 +30,13 @@ import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import ChonDichVuKham from "../_lam-viec/ChonDichVuKham";
 import PhuThuKem from "./PhuThuKem";
+import VatTuQuay from "./VatTuQuay";
 import { useNgheBang } from "../dung-nghe-bang";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
 import { nhanPhan, tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
-import type { LamTruoc } from "../_lam-viec/OLamTruocThuSau";
+import { gio, nhanLamTruocThuSau, type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
 import AnhChuyenKhoan, { taiAnhChuyenKhoan, type AnhCk } from "./AnhChuyenKhoan";
 import ChiaHinhThuc, { type KetQuaChia } from "./ChiaHinhThuc";
 import NutHoanTac from "./NutHoanTac";
@@ -249,7 +250,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   // xếp phòng (dây H4) ngay sau khi thu — màn vẫn hiện "chưa xếp phòng" với số
   // phiên bản cũ, bấm "Xếp phòng" thì bị báo "vừa được điều phối bởi người khác".
   useNgheBang(
-    ["service_order", "visit", "queue_entry", "payment", "payment_cycle", "prescription"],
+    ["service_order", "visit", "queue_entry", "payment", "payment_cycle", "prescription", "luot_vat_tu"],
     () => void tai(),
   );
 
@@ -596,8 +597,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                         {[l.loai_kham, l.bac_si].filter(Boolean).join(" · ") || (l.patient_code ?? "")}
                       </span>
                       {l.lam_truoc?.lam_truoc_thu_sau ? (
-                        <span className="mt-1 block">
+                        <span className="mt-1 flex min-w-0 flex-col items-start gap-0.5">
                           <Chip tone="info">Làm trước – thu sau</Chip>
+                          <span className="block max-w-full truncate text-meta text-ink-muted">
+                            {[l.lam_truoc.bat_boi, gio(l.lam_truoc.bat_luc)].filter(Boolean).join(" · ")}
+                          </span>
                         </span>
                       ) : null}
                     </span>
@@ -621,6 +625,11 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                   <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
                 </p>
                 <p className="text-meta text-ink-muted">{l.patient_code ?? ""}</p>
+                {l.lam_truoc?.lam_truoc_thu_sau ? (
+                  <p className="mt-1">
+                    <Chip tone="info">{nhanLamTruocThuSau(l.lam_truoc)}</Chip>
+                  </p>
+                ) : null}
               </div>
               {/* Thu xong, hệ thống tự xếp phòng (dây H4): lễ tân mở đây để
                   báo khách phòng nào, hoặc đổi sang phòng vắng hơn. */}
@@ -636,6 +645,23 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 (28/09/2026). Tự ẩn khi lượt không có dịch vụ nào có món kèm. */}
             {quay !== "thuoc" && !daThuCua(l.visit_id, "dich_vu") ? (
               <PhuThuKem
+                visitId={l.visit_id}
+                reloadToken={l.quay_thu?.revision}
+                onDoi={tai}
+                onDangLuu={(dang) =>
+                  setPhuThuDangLuu((cu) => {
+                    const moi = new Set(cu);
+                    if (dang) moi.add(l.visit_id);
+                    else moi.delete(l.visit_id);
+                    return moi;
+                  })
+                }
+              />
+            ) : null}
+            {/* Mua thêm vật tư (đầu dò Bio chọn nhanh, tìm theo tên) — vào hoá đơn
+                DỊCH VỤ, KHÔNG có ở quầy thuốc (C13, 01/10/2026). */}
+            {quay !== "thuoc" && !daThuCua(l.visit_id, "dich_vu") ? (
+              <VatTuQuay
                 visitId={l.visit_id}
                 reloadToken={l.quay_thu?.revision}
                 onDoi={tai}
@@ -919,7 +945,7 @@ export function NhomThu({
       ) : (
         <ul className="mt-2 space-y-1">
           {hd.dong.map((d) => (
-            <li key={d.source_id} className="flex items-baseline justify-between gap-3">
+            <li key={d.source_id} className="flex flex-wrap items-baseline justify-between gap-x-3">
               <span className="min-w-0 text-body text-ink">
                 {d.ten}
                 {d.so_luong !== 1 || d.don_vi ? (
@@ -937,7 +963,7 @@ export function NhomThu({
               <span
                 className={
                   d.van_de
-                    ? "shrink-0 text-meta text-warning"
+                    ? "w-full text-meta text-warning"
                     : "shrink-0 text-body tabular-nums text-ink"
                 }
               >

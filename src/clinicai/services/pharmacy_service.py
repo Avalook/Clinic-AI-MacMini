@@ -1186,8 +1186,8 @@ class PharmacyService:
                     # Không biết số kê thì không có căn cứ cho một số mua bất kỳ
                     # (review CP1 #1; DB cũng chặn: prescription_purchased_qty_check).
                     raise ValidationError(
-                        "Chưa xác định số lượng bác sĩ kê cho dòng này — "
-                        "cần bác sĩ ghi rõ số lượng trước khi khai số mua."
+                        "Dòng này chưa có số lượng (bác sĩ để trống) — "
+                        "thu ngân thuốc điền ở màn Thu tiền thuốc, không chờ bác sĩ."
                     )
                 if mua > Decimal(str(ke)):
                     raise ValidationError(f"Bác sĩ kê {ke} — không bán quá số kê.")
@@ -1748,15 +1748,15 @@ class PharmacyService:
                         "Chưa xác định thuốc trong kho cho dòng này — xác định "
                         "thuốc trước khi chọn lô."
                     )
+                if don["quantity_num"] is None:
+                    raise ValidationError(
+                        "Dòng này chưa có số lượng (bác sĩ để trống) — thu ngân "
+                        "thuốc điền ở màn Thu tiền thuốc trước, chưa chọn lô được."
+                    )
                 if not _don_vi(don["unit"]):
                     raise ValidationError(
                         "Chưa xác định đơn vị thuốc được kê; cần xác nhận/chỉnh "
                         "đơn trước khi chọn lô."
-                    )
-                if don["quantity_num"] is None:
-                    raise ValidationError(
-                        "Chưa xác định số lượng bác sĩ kê cho dòng này — chưa "
-                        "chọn lô được."
                     )
                 ban = Decimal(
                     str(

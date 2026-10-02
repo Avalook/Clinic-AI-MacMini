@@ -86,10 +86,11 @@ class ConsoleService:
                   AND status IN ('PENDING', 'IN_PROGRESS'))::int
                 AS viec_dang_mo,
               (SELECT count(*) FROM service_price
-                WHERE clinic_id = $1::uuid AND active
+                WHERE clinic_id = $1::uuid AND active AND "group" <> 'vat_tu'
                   AND unit_price IS NOT NULL)::int AS dich_vu_co_gia,
               (SELECT count(*) FROM service_price
-                WHERE clinic_id = $1::uuid AND active)::int AS dich_vu_tong
+                WHERE clinic_id = $1::uuid AND active
+                  AND "group" <> 'vat_tu')::int AS dich_vu_tong
             """,
             clinic_id,
         )

@@ -202,6 +202,11 @@ export default function DonThuocPhieu({
                   <span className="grid size-6 shrink-0 place-items-center rounded-full bg-brand-50 text-meta font-semibold text-brand-700">
                     {i + 1}
                   </span>
+                  {d.so_luong_do_thu_ngan ? (
+                    <Chip tone="brand" title="Bác sĩ để trống số lượng — quầy thu thuốc đã điền lúc thu">
+                      SL do thu ngân điền
+                    </Chip>
+                  ) : null}
                   {!coKho ? (
                     d.mau_ma ? (
                       <Chip tone="warning">Chưa gắn thuốc kho</Chip>

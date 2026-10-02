@@ -17,7 +17,8 @@ rồi lọc theo luật Tuyền chốt:
     mặc định — không là nợ, không chặn.
   * Chỉ định: chỉ khoản ĐANG LÀM / ĐÃ LÀM mà chưa thu (kể cả khách chưa chốt ở
     quầy — dịch vụ đã làm là đã nhận). Khoản khách không chọn làm, hay chưa làm,
-    không tính. Phụ thu đi theo chỉ định cha.
+    không tính. Phụ thu đi theo chỉ định cha. Vật tư khách đã được thêm vào hoá
+    đơn (C13) là nợ ngay — không gắn chỉ định nào.
   * Thuốc: dòng quầy đã ghi số khách mua (``purchased_qty``) hoặc đã cấp
     (``dispensed_qty``) mà chưa thu. Dòng khách từ chối / mua 0 không tính.
   * Dịch vụ đối tác tự thu không tính (khách trả thẳng đối tác).
@@ -125,7 +126,7 @@ def tien_vn(so: int | float | None) -> str:
 @dataclass(frozen=True)
 class DongNo:
     loai: str  # dich_vu | thuoc
-    source_type: str  # exam | service_order | phu_thu | prescription
+    source_type: str  # exam | service_order | phu_thu | vat_tu | prescription
     source_id: str
     ten: str
     #: None = chưa có giá (vẫn là nợ, số tiền chưa rõ).
@@ -223,6 +224,10 @@ def loc_no_dich_vu(hd: HoaDon, da_lam: Iterable[str]) -> list[DongNo]:
         elif d.source_type == "phu_thu":
             if d.order_id not in lam:
                 continue
+        elif d.source_type == "vat_tu":
+            # Vật tư khách đã được thêm vào hoá đơn (C13, 01/10/2026): đã lấy
+            # là đã nhận — còn nợ thì chặn check-out như mọi khoản dịch vụ.
+            pass
         else:
             continue
         so = None if d.thanh_tien is None else int(d.thanh_tien)

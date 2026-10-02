@@ -30,7 +30,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -217,6 +217,11 @@ def _dong_gia(
 
 BEN_THU_MAU_THUAN = "cấu hình bên thu mâu thuẫn giữa các bảng giá"
 CHUA_CO_GIA = "chưa có giá"
+#: Quầy điền số lượng ở ô "Khách lấy thuốc nào?" (C14) — câu này hiện nguyên văn
+#: ở dòng hoá đơn và trong lỗi "Chưa thu được".
+THIEU_SO_LUONG = (
+    "chưa có số lượng — bác sĩ chưa nhập, nhập tại quầy (ô Khách lấy thuốc nào?)"
+)
 
 
 def giai_ben_thu(ben_thu: Sequence[str | None]) -> tuple[str | None, str | None]:
@@ -378,6 +383,7 @@ def ghep_dich_vu(
     kham: dict[str, Any] | None,
     chi_dinh: list[dict[str, Any]],
     phu_thu: Sequence[Mapping[str, Any]] = (),
+    vat_tu: Sequence[Mapping[str, Any]] = (),
 ) -> HoaDon:
     """Hoá đơn dịch vụ từ dữ liệu đã đọc. Thuần — kiểm được không cần DB."""
     hd = HoaDon(visit_id=visit_id, kind="dich_vu")
@@ -445,6 +451,22 @@ def ghep_dich_vu(
                 ma=None,
                 van_de=None,
                 order_id=str(p["order_id"]),
+            )
+        )
+    # Vật tư khách mua thêm ở quầy thu dịch vụ (C13, 01/10/2026): theo LƯỢT, có
+    # số lượng; giá đã chốt lúc thêm. Là tiền DỊCH VỤ (không phải tiền thuốc).
+    for v in vat_tu:
+        hd.dong.append(
+            _dong_gia(
+                source_type="vat_tu",
+                source_id=str(v["id"]),
+                ten=clean_name(v.get("ten")) or "Vật tư",
+                so_luong=Decimal(int(v["so_luong"])),
+                don_vi=v.get("don_vi"),
+                gia=[Decimal(str(v["don_gia"]))],
+                ben_thu=CLINIC,
+                ma=str(v["service_price_id"]) if v.get("service_price_id") else None,
+                van_de=None,
             )
         )
     return hd
@@ -519,7 +541,10 @@ def ghep_thuoc(visit_id: str, don: list[dict[str, Any]]) -> HoaDon:
         so = mua if mua is not None else d.get("quantity_num")
         van_de: str | None = None
         if so is None:
-            van_de = "chưa có số lượng"
+            # Bác sĩ / điều dưỡng vội quên số lượng (C14): KHÔNG phải khoá — quầy
+            # nhập tại chỗ (ô "Khách lấy thuốc nào?"). Chưa có số thì chưa có tiền:
+            # dòng không cộng vào tổng cho tới khi có số.
+            van_de = THIEU_SO_LUONG
             so_luong = Decimal(1)
         else:
             so_luong = Decimal(str(so))
@@ -527,21 +552,22 @@ def ghep_thuoc(visit_id: str, don: list[dict[str, Any]]) -> HoaDon:
                 continue
         if d.get("drug_catalog_id") is None:
             van_de = "thuốc chưa có trong danh mục giá"
-        hd.dong.append(
-            _dong_gia(
-                source_type="prescription",
-                source_id=str(d["id"]),
-                ten=(d.get("ten") or "").strip(),
-                so_luong=so_luong,
-                don_vi=d.get("unit"),
-                gia=[Decimal(str(g)) for g in d.get("gia") or []],
-                ben_thu=CLINIC,
-                drug_catalog_id=(
-                    str(d["drug_catalog_id"]) if d.get("drug_catalog_id") else None
-                ),
-                van_de=van_de,
-            )
+        dong = _dong_gia(
+            source_type="prescription",
+            source_id=str(d["id"]),
+            ten=(d.get("ten") or "").strip(),
+            so_luong=so_luong,
+            don_vi=d.get("unit"),
+            gia=[Decimal(str(g)) for g in d.get("gia") or []],
+            ben_thu=CLINIC,
+            drug_catalog_id=(
+                str(d["drug_catalog_id"]) if d.get("drug_catalog_id") else None
+            ),
+            van_de=van_de,
         )
+        if so is None:
+            dong = replace(dong, thanh_tien=None)
+        hd.dong.append(dong)
     return hd
 
 
@@ -636,6 +662,21 @@ SELECT p.id::text AS id, p.service_order_id::text AS order_id, p.ten, p.don_gia
    AND {dieu_kien}
  ORDER BY p.chon_luc, p.id
 """
+
+
+#: Vật tư còn phải thu: dòng chưa bỏ (C13, 01/10/2026), chưa nằm trong lần thu
+#: đang giữ phủ. Khác phụ thu: theo LƯỢT, không phụ thuộc chỉ định nào.
+_VAT_TU_SQL = """
+SELECT v.id::text AS id, v.service_price_id::text AS service_price_id, v.ten,
+       v.don_vi, v.don_gia, v.so_luong
+  FROM public.luot_vat_tu v
+ WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid AND v.bo_luc IS NULL
+   AND {dieu_kien}
+ ORDER BY v.chon_luc, v.id
+"""
+
+
+_VAT_TU_CHUA_THU = "NOT " + _DA_PHU.format(loai="'vat_tu'", nguon="v.id::text")
 
 
 async def _kham(
@@ -799,7 +840,12 @@ async def hoa_don_con_no(
         visit_id,
         sorted({str(i) for i in coi_nhu_chon}),
     )
-    hd = ghep_dich_vu(visit_id, kham, _chi_dinh(rows), phu_thu)
+    vat_tu = await conn.fetch(
+        _VAT_TU_SQL.format(dieu_kien=_VAT_TU_CHUA_THU),
+        clinic_id,
+        visit_id,
+    )
+    hd = ghep_dich_vu(visit_id, kham, _chi_dinh(rows), phu_thu, vat_tu)
     hd.dong = [
         d for d in hd.dong if d.source_type != "exam" or d.source_id not in nguon_da_phu
     ]
@@ -921,7 +967,18 @@ async def hoa_don_theo_anh_chup(
         if ids_pt
         else []
     )
-    hd = ghep_dich_vu(visit_id, kham, _chi_dinh(rows), phu_thu)
+    ids_vt = sorted(r["source_id"] for r in nguon if r["source_type"] == "vat_tu")
+    vat_tu = (
+        await conn.fetch(
+            _VAT_TU_SQL.format(dieu_kien="v.id::text = ANY($3::text[])"),
+            clinic_id,
+            visit_id,
+            ids_vt,
+        )
+        if ids_vt
+        else []
+    )
+    hd = ghep_dich_vu(visit_id, kham, _chi_dinh(rows), phu_thu, vat_tu)
     hd.dong = [
         d for d in hd.dong if d.source_type != "exam" or d.source_id in nguon_kham
     ]

@@ -10,7 +10,9 @@ from __future__ import annotations
 from clinicai.services import finance_gate
 from clinicai.services.day_noi import DAY, giai_gia_tri
 from clinicai.services.lam_truoc_thu_sau import (
-    CAU_DA_BAT_DAU,
+    CAU_BO_CHUA_LAM,
+    CAU_BO_DA_LAM,
+    CAU_KHONG_QUYEN,
     co_tick,
     da_lam_xong_het,
     trang_thai_dich_vu_lam_truoc,
@@ -60,8 +62,24 @@ def test_co_tick_cho_man() -> None:
     kq = co_tick(
         cong_tac_bat=True, co_quyen=True, da_tick=True, da_bat_dau=True, luot_mo=True
     )
-    assert (kq["bo_tick_duoc"], kq["ly_do_khong_bo"]) == (False, CAU_DA_BAT_DAU)
+    # Hoàn tác (01/10/2026): đã có dịch vụ bắt đầu làm VẪN bỏ tick được — không
+    # khoá cứng; máy chủ chỉ nói rõ chuyện gì xảy ra.
+    assert (kq["bo_tick_duoc"], kq["ly_do_khong_bo"]) == (True, None)
+    assert kq["luu_y_bo"] == CAU_BO_DA_LAM
     assert kq["chot_thu_sau_duoc"] is True
+    kq = co_tick(
+        cong_tac_bat=True, co_quyen=True, da_tick=True, da_bat_dau=False, luot_mo=True
+    )
+    assert (kq["bo_tick_duoc"], kq["luu_y_bo"]) == (True, CAU_BO_CHUA_LAM)
+    # Thiếu quyền thì không bỏ được, câu rõ; chưa tick thì không có gì để bỏ.
+    kq = co_tick(
+        cong_tac_bat=True, co_quyen=False, da_tick=True, da_bat_dau=False, luot_mo=True
+    )
+    assert (kq["bo_tick_duoc"], kq["ly_do_khong_bo"]) == (False, CAU_KHONG_QUYEN)
+    kq = co_tick(
+        cong_tac_bat=True, co_quyen=True, da_tick=False, da_bat_dau=False, luot_mo=True
+    )
+    assert (kq["bo_tick_duoc"], kq["luu_y_bo"]) == (False, None)
     # Dây tắt: không mời tick, quầy "Chốt, thu sau" như V10.
     kq = co_tick(
         cong_tac_bat=False, co_quyen=True, da_tick=False, da_bat_dau=False, luot_mo=True

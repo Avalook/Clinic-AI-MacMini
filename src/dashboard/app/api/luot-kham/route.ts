@@ -80,6 +80,11 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "bat-buoc": (id) => `/api/v1/luot-kham/orders/${id}/bat-buoc`,
   // 28/09: món kèm dịch vụ (đầu dò) — id là CHỈ ĐỊNH.
   "phu-thu": (id) => `/api/v1/luot-kham/orders/${id}/phu-thu`,
+  // 01/10 (C13): vật tư khách mua thêm ở quầy thu dịch vụ. Thêm — id là LƯỢT;
+  // đổi số lượng / bỏ — id là DÒNG vật tư.
+  "vat-tu-them": (id) => `/api/v1/luot-kham/visits/${id}/vat-tu`,
+  "vat-tu-so-luong": (id) => `/api/v1/luot-kham/vat-tu/${id}`,
+  "vat-tu-bo": (id) => `/api/v1/luot-kham/vat-tu/${id}/bo`,
   // 28/09: tick dịch vụ khám theo mã KiotViet (tiền khám) — id là LƯỢT.
   "phi-kham": (id) => `/api/v1/luot-kham/visits/${id}/phi-kham`,
   // 30/09 tối: tick / bỏ tick "Làm trước – thu sau" — id là LƯỢT. Bật = máy
@@ -124,6 +129,11 @@ function duongDoc(url: URL): string | null {
   if (xem === "phu-thu") {
     const luot = url.searchParams.get("luot") ?? "";
     return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/phu-thu` : null;
+  }
+  // Danh mục vật tư + dòng đã thêm của một lượt (C13, 01/10/2026).
+  if (xem === "vat-tu") {
+    const luot = url.searchParams.get("luot") ?? "";
+    return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/vat-tu` : null;
   }
   // Tick "Làm trước – thu sau" + cờ bấm được của một lượt (30/09/2026 tối).
   if (xem === "lam-truoc-thu-sau") {

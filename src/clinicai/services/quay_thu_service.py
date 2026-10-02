@@ -229,6 +229,28 @@ def dung_hoa_don_quay(
             }
         )
 
+    # Vật tư khách mua thêm (C13, 01/10/2026): thêm / đổi số lượng / bỏ ở khối
+    # "Mua thêm vật tư" (`VatTuQuay`); trong hoá đơn là dòng khoá như tiền khám,
+    # tiền DỊCH VỤ cộng vào tổng. Không có chỉ định cha, không có phòng.
+    vat_tu_quay: list[dict[str, Any]] = []
+    for d in hd.get("dong") or []:
+        if d.get("source_type") != "vat_tu":
+            continue
+        sl = int(Decimal(str(d.get("so_luong") or 1)))
+        ten = str(d.get("ten") or "Vật tư")
+        vat_tu_quay.append(
+            {
+                "id": str(d["source_id"]),
+                "loai": "vat_tu",
+                "ten": f"{ten} × {sl}" if sl > 1 else ten,
+                "gia": _so(d.get("thanh_tien")),
+                "van_de": d.get("van_de"),
+                "chon": True,
+                "sua_duoc": False,
+                "trong_lua_chon": False,
+            }
+        )
+
     for c in chi_dinh:
         cid = str(c["id"])
         chon_c = c.get("selection_status") != "NOT_SELECTED"
@@ -266,7 +288,7 @@ def dung_hoa_don_quay(
     # mà chưa thu…): vẫn là khoản phải thu — hiện, tick khoá.
     for d in hd.get("dong") or []:
         sid = str(d["source_id"])
-        if d.get("source_type") in ("exam", "phu_thu") or sid in theo_id:
+        if d.get("source_type") in ("exam", "phu_thu", "vat_tu") or sid in theo_id:
             continue
         phong_kham.append(
             {
@@ -281,6 +303,7 @@ def dung_hoa_don_quay(
             }
         )
     phong_kham.extend(phu_thu_quay)
+    phong_kham.extend(vat_tu_quay)
     for d in hd.get("dong_doi_tac") or []:
         sid = str(d["source_id"])
         if sid in theo_id:
