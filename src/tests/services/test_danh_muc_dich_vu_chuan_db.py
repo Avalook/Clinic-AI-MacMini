@@ -7,8 +7,9 @@ hiện". Kiểm:
 * đồng bộ theo file (migration 20261002100000): mọi dòng file khớp một dịch vụ
   đang bán cùng tên + nhóm; XN thu hộ = thu hộ đối tác, giá đúng file kể cả 0đ;
   dịch vụ phòng khám thu KHÔNG bao giờ bị nạp 0đ; chạy lại không đổi gì;
-* MỌI dịch vụ đang bán (trừ phí khám) có trong danh mục chỉ định của phiếu khám
-  và ô "Chỉ định thêm" của Bàn khám — tìm được PRP, NIPT, Liên cầu B;
+* MỌI dịch vụ đang bán — KỂ CẢ phí khám (C21, 02/10/2026: "toàn bộ 93 dịch vụ
+  phải chọn được ở bàn khám") — có trong danh mục chỉ định của phiếu khám và ô
+  "Chỉ định thêm" của Bàn khám — tìm được PRP, NIPT, Liên cầu B, Khám nam khoa;
 * Bảng giá dịch vụ & phòng: dịch vụ không phòng hiện "chưa có phòng", gán phòng
   tại chỗ là hết, bỏ gán là về theo nhóm việc; trang chủ đếm cùng luật.
 
@@ -146,26 +147,31 @@ async def test_moi_dich_vu_dang_ban_deu_chi_dinh_duoc(rb: RB) -> None:  # noqa: 
     tc = await PhieuKhamService(pool, kiem_quyen=_cho_qua).tham_chieu_that(
         identity=_ai()
     )
-    muc = [m for n in tc["chi_dinh_cls"] for m in n["muc"]] + list(tc["thu_thuat"])
+    muc = [m for n in tc["chi_dinh_cls"] for m in n["muc"]]
     co = {m["service_code"] for m in muc if m.get("service_code")}
+    assert "CLS_GHE_DTT" in co or not await pool.fetchval(
+        "SELECT active FROM service_price WHERE clinic_id = $1::uuid"
+        " AND service_code = 'CLS_GHE_DTT'",
+        CLINIC,
+    ), "Ghế điện từ trường phải tìm được ở Chỉ định cận lâm sàng"
     can_co = {
         r["service_code"]
         for r in await pool.fetch(
-            "SELECT service_code FROM danh_muc_dich_vu($1::uuid)"
-            " WHERE active AND NOT la_phi_kham",
+            "SELECT service_code FROM danh_muc_dich_vu($1::uuid) WHERE active",
             CLINIC,
         )
     } - ax.KHONG_LIET_KE
     assert can_co - co == set(), f"lọt khỏi danh mục chỉ định: {can_co - co}"
-    # Phí khám không bao giờ thành ô chỉ định.
+    # Phí khám CŨNG là ô chỉ định (C21) — không còn bộ lọc phí khám.
     phi = {
         r["service_code"]
         for r in await pool.fetch(
-            "SELECT service_code FROM danh_muc_dich_vu($1::uuid) WHERE la_phi_kham",
+            "SELECT service_code FROM service_price WHERE clinic_id = $1::uuid"
+            " AND active AND \"group\" = 'dich_vu' AND category LIKE 'Phí khám%'",
             CLINIC,
         )
     }
-    assert not (phi & co)
+    assert phi <= co, f"phí khám lọt khỏi danh mục chỉ định: {phi - co}"
     ten_co = " | ".join(m["nhan"] for m in muc)
     for tu in ("PRP", "NIPT", "Liên cầu B"):
         assert tu in ten_co, f"bác sĩ tìm “{tu}” phải thấy"
@@ -184,8 +190,7 @@ async def test_moi_dich_vu_dang_ban_deu_chi_dinh_duoc(rb: RB) -> None:  # noqa: 
     ban_kham = {
         r["service_code"]
         for r in await pool.fetch(
-            "SELECT d.service_code FROM danh_muc_dich_vu($1::uuid) d"
-            " WHERE d.active AND NOT d.la_phi_kham",
+            "SELECT d.service_code FROM danh_muc_dich_vu($1::uuid) d WHERE d.active",
             CLINIC,
         )
     }
@@ -237,10 +242,14 @@ async def test_gan_phong_tai_cho_va_canh_bao_chua_co_phong(rb: RB) -> None:  # n
         )
 
 
-async def test_phi_kham_khong_can_phong_va_tien_kham_kham_khong_chi_dinh(
+async def test_phi_kham_chua_nhom_viec_van_hien_va_gan_phong_duoc(
     rb: RB,  # noqa: F811
 ) -> None:
+    """C21 (02/10/2026): phí khám mới thêm, chưa nhóm việc — KHÔNG biến mất:
+    hiện "Chưa có phòng" ở Bảng giá, hiện (khoá kèm lý do) ở danh mục chỉ định;
+    gán phòng tại chỗ là có nhóm việc + chỉ định được."""
     pool = rb.pool
+    ql = await _quan_ly(rb)
     ma = f"KHAM_T{uuid.uuid4().hex[:6].upper()}"
     await pool.execute(
         'INSERT INTO service_price (clinic_id, service_code, name, "group",'
@@ -255,8 +264,63 @@ async def test_phi_kham_khong_can_phong_va_tien_kham_kham_khong_chi_dinh(
         CLINIC,
         ma,
     )
-    assert d is not None and d["la_phi_kham"] and not d["can_phong"]
-    assert not d["chua_co_phong"], "phí khám không bao giờ tính là thiếu phòng"
+    assert d is not None and d["la_phi_kham"] and d["can_phong"]
+    assert d["chua_co_phong"], "phí khám chưa phòng phải hiện để gán"
+    tc = await PhieuKhamService(pool, kiem_quyen=_cho_qua).tham_chieu_that(
+        identity=_ai()
+    )
+    [m] = [m for n in tc["chi_dinh_cls"] for m in n["muc"] if m["service_code"] == ma]
+    assert m["khoa"], "chưa nhóm việc → khoá kèm lý do, không ẩn"
+
+    kq = await ClinicConfigService(pool).set_service_rooms(
+        identity=ql, service_code=ma, room_ids=[rb.sa1, rb.sa2]
+    )
+    sau = kq["dich_vu"]
+    assert sau["node_code"] and not sau["chua_co_phong"]
+    assert {p["id"] for p in sau["phong"]} == {rb.sa1, rb.sa2}
+    tc = await PhieuKhamService(pool, kiem_quyen=_cho_qua).tham_chieu_that(
+        identity=_ai()
+    )
+    [m] = [m for n in tc["chi_dinh_cls"] for m in n["muc"] if m["service_code"] == ma]
+    assert m["khoa"] is None
+
+
+async def test_ca_93_dich_vu_file_chuan_chi_dinh_duoc_va_co_phong(
+    rb: RB,  # noqa: F811
+) -> None:
+    """Mọi dòng file 01/10 khớp được một dịch vụ: có trong danh mục chỉ định,
+    KHÔNG khoá, và có ít nhất một phòng nội bộ làm được (Tuyền 02/10)."""
+    pool = rb.pool
+    await _dong_bo(pool)
+    tc = await PhieuKhamService(pool, kiem_quyen=_cho_qua).tham_chieu_that(
+        identity=_ai()
+    )
+    # Mục C (Chỉ định cận lâm sàng — có ô tìm) phải tự đủ: thủ thuật của phiếu
+    # giấy (Ghế điện từ trường…) cũng có ở đây, không chỉ ở mục F.
+    muc = {
+        m["service_code"]: m
+        for n in tc["chi_dinh_cls"]
+        for m in n["muc"]
+        if m.get("service_code")
+    }
+    dong = await pool.fetch(
+        "SELECT x.ten, d.service_code, d.node_code, d.chua_co_phong"
+        "  FROM ghep_danh_muc_dich_vu('kiot_0110') g"
+        "  JOIN danh_muc_dich_vu_nguon x ON x.nguon = 'kiot_0110'"
+        "   AND x.thu_tu = g.thu_tu"
+        "  JOIN danh_muc_dich_vu($1::uuid) d ON d.id = g.service_price_id"
+        " WHERE g.clinic_id = $1::uuid",
+        CLINIC,
+    )
+    assert dong
+    for r in dong:
+        assert r["service_code"] in muc, f"lọt khỏi bàn khám: {r['ten']}"
+        # Tên hiện = tên file (nhãn phiếu giấy chỉ là dòng phụ) — gõ tên trong
+        # file là tìm ra (C21: "Đo trương lực cơ sàn chậu máy Bio" từng chỉ hiện
+        # dưới nhãn "Đo cơ lực âm đạo bằng máy (sàng lọc)").
+        assert muc[r["service_code"]]["ten_dich_vu"] == r["ten"], r["ten"]
+        if r["node_code"]:
+            assert not muc[r["service_code"]]["khoa"], r["ten"]
 
 
 async def test_bang_gia_them_nhom_hang_va_ma_tu_sinh(rb: RB) -> None:  # noqa: F811

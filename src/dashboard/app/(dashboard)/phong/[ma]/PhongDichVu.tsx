@@ -74,6 +74,7 @@ import Chip from "@/components/ui/Chip";
 import ChipLoc from "@/components/ui/ChipLoc";
 import ThanhNgay from "@/components/ui/ThanhNgay";
 import NutHoanTac from "@/components/ui/NutHoanTac";
+import NutInPhieu from "@/components/ui/NutInPhieu";
 import ThongBaoHoanTac, { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
 import { lenhHoanTac } from "../../_lam-viec/hoan-tac";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
@@ -129,7 +130,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   const [lanToi, setLanToi] = useState<LanCuaToi | null>(null);
   const [cheDoLan, setCheDoLan] = useState<"lan" | "ca_phong">("lan");
   // "Đã xong … · Hoàn tác" vài giây sau khi bấm Xong (Tuyền 01/10/2026). Ở
-  // cấp màn để còn hiện khi khung khách đổi sang người kế tiếp.
+  // cấp màn để còn hiện khi người làm bấm sang khách kế tiếp.
   const [thongBao, setThongBao] = useState<ThongBao | null>(null);
   const dongThongBao = useCallback(() => setThongBao(null), []);
 
@@ -204,6 +205,19 @@ export default function PhongDichVu({ ma }: { ma: string }) {
     ds.find((d) => d.trang_thai === "waiting" || d.trang_thai === "called") ??
     null;
   const chon = ds.find((d) => d.id === chonId) ?? macDinh;
+  // GHIM KHÁCH ĐANG HIỆN (Tuyền 02/10/2026): bấm Xong / Hoàn tất phiếu thì khách
+  // sang nhóm "Đã xong" ở cột trái nhưng khung phải VẪN là khách ấy — tải nhầm
+  // tệp thì sửa ngay, khỏi đi tìm lại. Trước đây khách tự chọn (chưa bấm vào
+  // dòng) không được ghim, nên Xong xong khung nhảy sang người chờ kế tiếp.
+  // Sang người mới = bấm dòng ở cột trái hoặc nút "Khách kế tiếp".
+  if (chon && chon.id !== chonId) setChonId(chon.id);
+  // Khách kế tiếp = cùng thứ tự với khách mặc định: đang làm dở trước, rồi đang chờ.
+  const keTiep =
+    chon?.trang_thai === "done"
+      ? (ds.find((d) => d.trang_thai === "serving") ??
+        ds.find((d) => d.trang_thai === "waiting" || d.trang_thai === "called") ??
+        null)
+      : null;
 
   return (
     <div className="grid gap-4">
@@ -290,7 +304,13 @@ export default function PhongDichVu({ ma }: { ma: string }) {
           )}
         </aside>
         {chon ? (
-          <KhachTrongPhong key={chon.id} dong={chon} onDaBam={napLai} onBao={setThongBao} />
+          <KhachTrongPhong
+            key={chon.id}
+            dong={chon}
+            onDaBam={napLai}
+            onBao={setThongBao}
+            keTiep={keTiep ? { ten: keTiep.ten, onChon: () => setChonId(keTiep.id) } : null}
+          />
         ) : (
           <section className="grid min-h-72 place-items-center rounded-card bg-surface p-8 text-center text-body text-ink-muted shadow-card">
             Chọn một khách trong hàng chờ.
@@ -305,11 +325,14 @@ function KhachTrongPhong({
   dong,
   onDaBam,
   onBao,
+  keTiep,
 }: {
   dong: DongHangCho;
   onDaBam: () => void;
   /** Báo thông báo kèm Hoàn tác sau thao tác (đặt ở cấp màn). */
   onBao?: (tb: ThongBao) => void;
+  /** Khách đang chờ kế tiếp — chỉ có khi khách này đã xong. */
+  keTiep?: { ten: string; onChon: () => void } | null;
 }) {
   const loai = loaiCua(dong.node_code);
   const [th, setTh] = useState<ThucHien | null>(null);
@@ -458,7 +481,11 @@ function KhachTrongPhong({
             </span>
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* IN PHIẾU LUÔN Ở ĐÂY (Tuyền 02/10/2026): mọi trạng thái, mọi loại
+              phòng — kể cả đã xong rồi quay lại, lấy mẫu, dịch vụ không phiếu.
+              Trang in tự lo: phiếu nháp ghi BẢN NHÁP, chỉ có ảnh vẫn in ảnh. */}
+          <NutInPhieu href={`/print/ket-qua/${dong.ref_id}`} size="lg" />
           {chuaLam && th ? (
             <Button
               size="lg"
@@ -588,14 +615,16 @@ function KhachTrongPhong({
               Lý do: {nhanLyDo(dong.ly_do_khong_lam)}
             </p>
           ) : null}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="mt-1 -ml-3"
-            onClick={() => setXemLuot(true)}
-          >
-            Xem lại cả lượt
-          </Button>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="ghost" className="-ml-3" onClick={() => setXemLuot(true)}>
+              Xem lại cả lượt
+            </Button>
+            {keTiep ? (
+              <Button size="sm" variant="secondary" onClick={keTiep.onChon}>
+                Sang khách kế tiếp: {keTiep.ten} →
+              </Button>
+            ) : null}
+          </div>
           {xemLuot ? (
             <XemLuot visitId={dong.visit_id} onDong={() => setXemLuot(false)} />
           ) : null}

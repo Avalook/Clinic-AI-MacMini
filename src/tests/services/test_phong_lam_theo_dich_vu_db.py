@@ -372,7 +372,10 @@ async def test_nap_san_chau_chay_lai_duoc(pool: asyncpg.Pool) -> None:
         CLINIC,
     )
     # KiotViet 0đ → để TRỐNG giá (không bao giờ nạp 0đ — 20260926000001).
-    assert tv is not None and tv["node_code"] is None and tv["unit_price"] is None
+    # Nhóm việc: trống lúc nạp; từ C21 (02/10/2026) phí khám được gắn nhóm
+    # thủ thuật để chỉ định được (mig 20261003700000).
+    assert tv is not None and tv["unit_price"] is None
+    assert tv["node_code"] in (None, "DICHVU-THUTHUAT")
     thieu = await pool.fetchval(
         "SELECT count(*) FROM service_type st WHERE st.clinic_id = $1::uuid"
         " AND st.is_active AND NOT EXISTS (SELECT 1 FROM loai_kham_phi l"

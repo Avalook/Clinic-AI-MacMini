@@ -557,7 +557,7 @@ class PhieuKhamService:
             dong_dv = await conn.fetch(
                 "SELECT service_code, unit_price, name, node_code, ma_kiotviet,"
                 "       billing_owner = 'EXTERNAL_PARTNER' AS doi_tac_thu,"
-                "       nhom, la_phi_kham"
+                "       nhom"
                 "  FROM public.danh_muc_dich_vu($1::uuid)"
                 " WHERE active ORDER BY name",
                 cid,
@@ -586,10 +586,19 @@ class PhieuKhamService:
 
         def gan(d: ax.DichVuPhieu | None) -> dict[str, Any]:
             if d is None or d.ma not in dv:
-                return {"service_code": None, "gia": None, "doi_tac_thu": False}
+                return {
+                    "service_code": None,
+                    "gia": None,
+                    "doi_tac_thu": False,
+                    "ten_dich_vu": None,
+                }
             gia = dv[d.ma]
             return {
                 "service_code": d.ma,
+                # TÊN THẬT của bảng giá (file phòng khám gửi) — màn hiện tên này,
+                # nhãn phiếu giấy chỉ còn dòng phụ; ô tìm dò cả hai (C21: gõ
+                # "trương lực" phải ra "Đo cơ lực âm đạo bằng máy (sàng lọc)").
+                "ten_dich_vu": theo_ma[d.ma]["name"],
                 "gia": int(gia) if gia is not None else None,
                 "doi_tac_thu": d.ma in dt_thu,
                 "nhom_hang": nhom_hang_hien(theo_ma[d.ma]["nhom"]),
@@ -607,23 +616,24 @@ class PhieuKhamService:
         # 01/10/2026: "danh sách chỉ định đang thiếu rất nhiều; KHÔNG được để
         # dịch vụ nào bị lọt"). Trước đây chỉ lấy dòng có mã KiotViet + có nhóm
         # việc → xét nghiệm nam khoa, tinh dịch đồ, biofeedback… lọt mất.
+        # Chỉ trừ mục ĐÃ có trong chính mục C. Thủ thuật của phiếu giấy (Ghế
+        # ĐTT, Biofeedback… ở mục F của phiếu Sàn chậu) VẪN có ở đây (C21,
+        # 02/10/2026: bác sĩ phụ khoa tìm "Ghế điện từ trường" ở Chỉ định cận
+        # lâm sàng không thấy — nó chỉ nằm ở danh sách thủ thuật).
         da_co = {
             m["service_code"]
             for nhom in tc["chi_dinh_cls"]
             for m in nhom["muc"]
             if m.get("service_code")
-        } | {t["service_code"] for t in tc["thu_thuat"] if t.get("service_code")}
+        }
         them: dict[str, list[dict[str, Any]]] = {}
         for r in dong_dv:
-            # Phí khám thu theo LOẠI KHÁM, không phải dịch vụ chỉ định (tiền
-            # khám `KHAM_*` lọt vào mục C là bác sĩ tick được "Hiếm muộn / Vô
-            # sinh" như một CLS). Dòng TIÊU ĐỀ của phiếu giấy ("*XN dịch âm
-            # đạo", "• Laser") không bao giờ hiện lại ở đây.
-            if (
-                r["la_phi_kham"]
-                or r["service_code"] in da_co
-                or r["service_code"] in ax.KHONG_LIET_KE
-            ):
+            # PHÍ KHÁM CŨNG CHỈ ĐỊNH ĐƯỢC (Tuyền 02/10/2026, C21: "toàn bộ 93
+            # dịch vụ … phải chọn được ở bàn khám"). Không lọc theo phí khám nữa
+            # — phí khám chưa nhóm việc vẫn HIỆN, khoá kèm lý do. Tiền khám không
+            # tính hai lần: chặn ở `chan_trung_dich_vu_kham`. Chỉ dòng TIÊU ĐỀ của
+            # phiếu giấy ("*XN dịch âm đạo", "• Laser") không bao giờ hiện lại.
+            if r["service_code"] in da_co or r["service_code"] in ax.KHONG_LIET_KE:
                 continue
             nhom_ten = nhom_hang_hien(r["nhom"]) or _NHOM_THEO_NODE.get(
                 r["node_code"] or "", "Khác"
@@ -632,6 +642,7 @@ class PhieuKhamService:
             them.setdefault(nhom_ten, []).append(
                 {
                     "nhan": r["name"],
+                    "ten_dich_vu": r["name"],
                     "cach_tra_ket_qua": "",
                     "form_id_ket_qua": None,
                     "service_code": r["service_code"],

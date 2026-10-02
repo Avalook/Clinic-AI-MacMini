@@ -632,7 +632,7 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
                   </p>
                 ) : null}
               </div>
-              {/* Thu xong, hệ thống tự xếp phòng (dây H4): lễ tân mở đây để
+              {/* Thu xong, máy chủ xếp theo phòng quầy đã chọn (dây H4): lễ tân mở đây để
                   báo khách phòng nào, hoặc đổi sang phòng vắng hơn. */}
               <NutXemLuot visitId={l.visit_id} nhan="Xem hành trình · đổi phòng" />
             </header>
