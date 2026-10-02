@@ -48,7 +48,6 @@ export interface DongDichVu {
   ten_nhom_viec: string | null;
   ma_kiotviet: string | null;
   gia_tam: boolean;
-  la_phi_kham: boolean;
   can_phong: boolean;
   gan_rieng: boolean;
   phong: PhongDv[];
@@ -459,59 +458,52 @@ function DongDv({
 
       <label className="block">
         <span className={nhan}>Nhóm việc</span>
-        {d.la_phi_kham ? (
-          <span className="block text-meta text-ink-muted">Phí khám — theo loại khám</span>
-        ) : (
-          <select
-            aria-label={`Nhóm việc ${d.name}`}
-            value={d.node_code ?? ""}
-            disabled={ban}
-            onChange={(e) => onSua({ node_code: e.target.value }, `Đã đổi nhóm việc “${d.name}”.`)}
-            className={O_NHAP}
-          >
-            <option value="" disabled>
-              Chưa chọn nhóm việc
+        {/* Phí khám cũng chọn nhóm việc + phòng như mọi dịch vụ (C21, 02/10/2026). */}
+        <select
+          aria-label={`Nhóm việc ${d.name}`}
+          value={d.node_code ?? ""}
+          disabled={ban}
+          onChange={(e) => onSua({ node_code: e.target.value }, `Đã đổi nhóm việc “${d.name}”.`)}
+          className={O_NHAP}
+        >
+          <option value="" disabled>
+            Chưa chọn nhóm việc
+          </option>
+          {nhomViec.map((n) => (
+            <option key={n.ma} value={n.ma}>
+              {n.ten}
             </option>
-            {nhomViec.map((n) => (
-              <option key={n.ma} value={n.ma}>
-                {n.ten}
-              </option>
-            ))}
-          </select>
-        )}
+          ))}
+        </select>
       </label>
 
       <div className="min-w-0 sm:col-span-2 lg:col-span-1">
         <span className={nhan}>Phòng làm</span>
-        {d.la_phi_kham ? (
-          <span className="block text-meta text-ink-faint">—</span>
-        ) : (
-          <div className="flex flex-wrap items-center gap-1">
-            {d.chua_co_phong ? <Chip tone="warning">Chưa có phòng</Chip> : null}
-            {d.phong.map((p) => (
-              <Chip key={p.id} tone={p.doi_tac ? "info" : "neutral"}>
-                {p.ten}
-                {p.doi_tac ? " · đối tác" : ""}
-              </Chip>
-            ))}
-            {!d.can_phong && d.phong.length === 0 ? (
-              <span className="text-meta text-ink-muted">Đối tác làm — không cần phòng</span>
-            ) : null}
-            {d.gan_rieng ? <Chip tone="brand">gán riêng</Chip> : null}
-            {goi.sua_phong_duoc ? (
-              <Button
-                type="button"
-                size="sm"
-                variant={d.chua_co_phong ? "soft" : "ghost"}
-                disabled={ban}
-                onClick={(e) => onMoPhong(e.currentTarget)}
-                className="max-lg:h-10"
-              >
-                {d.chua_co_phong ? "Gán phòng" : "Sửa phòng"}
-              </Button>
-            ) : null}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-1">
+          {d.chua_co_phong ? <Chip tone="warning">Chưa có phòng</Chip> : null}
+          {d.phong.map((p) => (
+            <Chip key={p.id} tone={p.doi_tac ? "info" : "neutral"}>
+              {p.ten}
+              {p.doi_tac ? " · đối tác" : ""}
+            </Chip>
+          ))}
+          {!d.can_phong && d.phong.length === 0 ? (
+            <span className="text-meta text-ink-muted">Đối tác làm — không cần phòng</span>
+          ) : null}
+          {d.gan_rieng ? <Chip tone="brand">gán riêng</Chip> : null}
+          {goi.sua_phong_duoc ? (
+            <Button
+              type="button"
+              size="sm"
+              variant={d.chua_co_phong ? "soft" : "ghost"}
+              disabled={ban}
+              onClick={(e) => onMoPhong(e.currentTarget)}
+              className="max-lg:h-10"
+            >
+              {d.chua_co_phong ? "Gán phòng" : "Sửa phòng"}
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <label className="flex min-h-10 items-center gap-2 text-meta text-ink-soft lg:min-h-0 lg:justify-end">

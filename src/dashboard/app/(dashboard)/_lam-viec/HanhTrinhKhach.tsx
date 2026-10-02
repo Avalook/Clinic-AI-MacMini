@@ -67,7 +67,8 @@ const MAU_DOAN: Record<TrangThaiBuoc, string> = {
   khong: "bg-surface-sunken",
 };
 
-/** Thanh đoạn màu — mỗi bước / mỗi dịch vụ một đoạn. */
+/** Thanh đoạn màu — mỗi bước / mỗi dịch vụ một đoạn, ĐÚNG thứ tự và màu chấm /
+ *  viền thẻ của khung đầy đủ (máy chủ `doan_tu_buoc`). */
 export function ThanhDoan({ doan }: { doan: TrangThaiBuoc[] }) {
   if (doan.length === 0) return null;
   return (
@@ -110,12 +111,14 @@ export function DongHanhTrinhGon({ gon, bayGio }: { gon: HanhTrinhGon; bayGio: n
   );
 }
 
+// Chấm tô ĐẶC đúng màu đoạn cùng bước trên dòng gọn (`MAU_DOAN`) — Tuyền
+// 02/10/2026: trong cam thì ngoài cam, trong xanh thì ngoài xanh.
 const CHAM: Record<TrangThaiBuoc, string> = {
   xong: "border-success bg-success",
   dang: "border-status-in-progress bg-status-in-progress ring-4 ring-status-in-progress-bg",
-  cho: "border-warning bg-surface",
+  cho: "border-warning bg-warning",
   doi_tac: "border-status-dang-o bg-status-dang-o",
-  chua: "border-line bg-surface",
+  chua: "border-line bg-surface-sunken",
   khong: "border-line bg-surface-sunken",
 };
 

@@ -357,6 +357,10 @@ export default function BanKham({
   const daKy = daXong.filter((d) => d.da_ky);
   const macDinh = dangKham[0] ?? canDoc[0] ?? choKham[0] ?? buocKhac[0] ?? null;
   const chon = hienRa.find((d) => d.id === chonId) ?? macDinh;
+  // GHIM KHÁCH ĐANG HIỆN (Tuyền 02/10/2026, cùng luật phòng dịch vụ): Khám xong
+  // thì khách sang "Đã khám xong" ở cột trái nhưng vùng làm việc VẪN là khách
+  // ấy — sửa / in tiếp được ngay. Sang người mới = bấm dòng ở cột trái.
+  if (chon && chon.id !== chonId) setChonId(chon.id);
   const luot = bang?.luot.find((l) => l.visit_id === chon?.visit_id) ?? null;
 
   // VÙNG LÀM VIỆC khi không đủ chỗ cho 3 cột (< 1536px): Bệnh án và Chỉ định &

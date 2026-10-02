@@ -1286,11 +1286,22 @@ class LuotKhamService:
         return str(fid)
 
     async def _services(
-        self, conn: asyncpg.Connection, clinic_id: str, codes: list[str]
+        self,
+        conn: asyncpg.Connection,
+        clinic_id: str,
+        codes: list[str],
+        *,
+        visit_id: str | None = None,
     ) -> list[asyncpg.Record]:
+        """Dịch vụ để chỉ định. Có `visit_id` → chặn chỉ định lại dịch vụ đang
+        tính ở "Dịch vụ khám" của lượt (tiền khám không tính hai lần, C21)."""
+        from clinicai.services.phi_kham_service import chan_trung_dich_vu_kham
+
         wanted = [c.strip() for c in codes if isinstance(c, str) and c.strip()]
         if not wanted:
             raise ValidationError("Chưa chọn dịch vụ nào.")
+        if visit_id is not None:
+            await chan_trung_dich_vu_kham(conn, clinic_id, visit_id, ma_chi_dinh=wanted)
         rows = await conn.fetch(
             """
             SELECT DISTINCT ON (s.service_code)
@@ -2138,7 +2149,9 @@ class LuotKhamService:
                 consultation["doctor_id"],
                 visit_id=vid,
             )
-            services = await self._services(conn, cid, list(service_codes or []))
+            services = await self._services(
+                conn, cid, list(service_codes or []), visit_id=vid
+            )
             ids = []
             for s in services:
                 ids.append(
@@ -2302,7 +2315,7 @@ class LuotKhamService:
                     )
                 ids.extend(r["id"] for r in flipped)
             if codes:
-                for s in await self._services(conn, cid, codes):
+                for s in await self._services(conn, cid, codes, visit_id=vid):
                     ids.append(
                         await conn.fetchval(
                             """

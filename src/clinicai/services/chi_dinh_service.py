@@ -120,7 +120,7 @@ class ChiDinhService:
 
             consultation = await luot_kham._consultation_in_progress(conn, cid, con_id)
 
-            dich_vu = await luot_kham._services(conn, cid, codes)
+            dich_vu = await luot_kham._services(conn, cid, codes, visit_id=vid)
             ids: list[str] = []
             for s in dich_vu:
                 order_id = await conn.fetchval(

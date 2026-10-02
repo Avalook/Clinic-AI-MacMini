@@ -402,10 +402,10 @@ function DanhSach({
                   onChange={(e) => void datPhong(d.id, e.target.value)}
                   className="w-full rounded-control border border-line bg-surface px-2 py-1 text-meta text-ink-soft"
                 >
-                  <option value="">{doiTac ? "Lấy mẫu: tự xếp phòng vắng nhất" : "Tự xếp phòng vắng nhất"}</option>
+                  <option value="">{doiTac ? "— Lấy mẫu: vui lòng chọn phòng —" : "— Vui lòng chọn phòng —"}</option>
                   {d.phong_chon_duoc.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.ten} · {p.dang_cho} đang chờ{p.vang_nhat ? " — vắng nhất" : ""}
+                      {p.ten} · {p.dang_cho} đang chờ
                     </option>
                   ))}
                 </select>
