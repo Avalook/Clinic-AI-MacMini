@@ -250,7 +250,7 @@ export default function DoiPhong({
             onChange={(e) => void datDuKien(e.target.value)}
             className="min-h-8 rounded-control border border-line bg-surface px-2 text-xs text-ink"
           >
-            <option value="">Tự xếp phòng vắng nhất</option>
+            <option value="">— Vui lòng chọn phòng —</option>
             {goiY.candidates.map((u) => (
               <option key={u.room_id} value={u.room_id}>
                 {nhan(u)}
@@ -362,7 +362,7 @@ export default function DoiPhong({
             }}
             className="min-h-8 rounded-control border border-line bg-surface px-2 text-xs text-ink"
           >
-            <option value="">{phongHienTaiId ? "Đổi sang phòng…" : "Xếp vào phòng…"}</option>
+            <option value="">{phongHienTaiId ? "Đổi sang phòng…" : "— Vui lòng chọn phòng —"}</option>
             {goiY.candidates
               .filter((u) => u.room_id !== phongHienTaiId)
               .map((u) => (

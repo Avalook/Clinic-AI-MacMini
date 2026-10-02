@@ -89,7 +89,7 @@ export default function ChonDichVu({
           .map((c) => c.id),
       ),
   );
-  // "" = để hệ thống tự chọn phòng vắng nhất lúc thu xong.
+  // "" = chưa chọn phòng (ô hiện "Vui lòng chọn phòng"); máy chủ quyết khi xếp.
   const [phong, setPhong] = useState<Record<string, string>>(() =>
     Object.fromEntries(cho.chi_dinh.map((c) => [c.id, c.phong_du_kien_id ?? ""])),
   );
@@ -281,7 +281,7 @@ export default function ChonDichVu({
                   }}
                   className="min-h-10 rounded-control border border-line bg-surface px-2 text-body text-ink"
                 >
-                  <option value="">Tự chọn phòng vắng nhất</option>
+                  <option value="">— Vui lòng chọn phòng —</option>
                   {(c.phong_chon_duoc ?? []).map((ph) => (
                     <option key={ph.id} value={ph.id}>
                       {ph.ten} · {ph.dang_cho} người chờ
