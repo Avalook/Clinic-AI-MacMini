@@ -542,3 +542,120 @@ def test_doc_ket_qua_ngay_trong_phien_kham_chinh() -> None:
     assert b["DOC_KQ"]["trang_thai"] == "xong"
     assert b["DOC_KQ"]["bat_dau"] == p(66) and b["DOC_KQ"]["xong"] == p(70)
     assert "BS BS" not in (b["DOC_KQ"]["noi"] or "")
+
+
+# ── C18 (02/10/2026): trạng thái HIỆN TẠI + dịch vụ khám hiện trên hành trình ─
+
+
+def test_hoan_tac_kham_xong_thi_buoc_kham_dang_kham_lai_khong_xong() -> None:
+    kq = dung_hanh_trinh_khach(
+        luot={
+            "visit_id": "v1",
+            "status": "IN_PROGRESS",
+            "checked_in_at": p(0),
+            "closed_at": None,
+            "dat_luc": None,
+        },
+        su_kien=[
+            ("consultation.started", p(10), {"loai": "PRIMARY"}),
+            ("consultation.completed", p(20), {"loai": "PRIMARY"}),
+            ("consultation.reopened", p(25), {"loai": "PRIMARY"}),
+        ],
+        chi_dinh=[],
+        hang=[],
+        phien=[
+            {
+                "kind": "PRIMARY",
+                "status": "in_progress",
+                "started_at": p(10),
+                "completed_at": None,
+                "bac_si": "BS Nam",
+                "doctor_staff_id": BS,
+            }
+        ],
+    )
+    kham = next(b for b in kq["buoc"] if b["ma"] == "KHAM")
+    assert kham["trang_thai"] == "dang"
+    assert kham["kham_lai"] is True
+    assert kham["xong"] is None
+    assert kham["mo_lai_luc"] == p(25)
+
+
+def test_phien_dang_kham_nhung_su_kien_chua_kip_ghi_van_khong_xong() -> None:
+    """Dòng thời gian (projection) trễ vài giây: trạng thái phiên quyết."""
+    kq = dung_hanh_trinh_khach(
+        luot={
+            "visit_id": "v1",
+            "status": "IN_PROGRESS",
+            "checked_in_at": p(0),
+            "closed_at": None,
+            "dat_luc": None,
+        },
+        su_kien=[
+            ("consultation.started", p(10), {"loai": "PRIMARY"}),
+            ("consultation.completed", p(20), {"loai": "PRIMARY"}),
+        ],
+        chi_dinh=[],
+        hang=[],
+        phien=[
+            {
+                "kind": "PRIMARY",
+                "status": "in_progress",
+                "started_at": p(10),
+                "completed_at": None,
+                "bac_si": "BS Nam",
+                "doctor_staff_id": BS,
+            }
+        ],
+    )
+    kham = next(b for b in kq["buoc"] if b["ma"] == "KHAM")
+    assert kham["trang_thai"] == "dang" and kham["kham_lai"] is True
+
+
+def test_dong_dich_vu_kham_ba_dang() -> None:
+    from clinicai.services.hanh_trinh_khach_service import dong_dich_vu_kham
+
+    assert (
+        dong_dich_vu_kham(
+            {
+                "loai": "Sàn chậu chuyên sâu",
+                "dich_vu": [{"ten": "Tư vấn phụ khoa chuyên sâu", "gia": 300000}],
+            }
+        )
+        == "Dịch vụ khám: Tư vấn phụ khoa chuyên sâu · 300.000đ"
+    )
+    # 0đ KHÔNG phải lỗi: chưa chọn dịch vụ khám con vẫn có dòng rõ ràng.
+    assert (
+        dong_dich_vu_kham({"loai": "Khám phụ khoa", "gia_mac_dinh": 0, "dich_vu": []})
+        == "Loại khám Khám phụ khoa · 0đ (chưa chọn dịch vụ khám con)"
+    )
+    assert (
+        dong_dich_vu_kham({"loai": "Khám X", "gia_mac_dinh": 150000, "dich_vu": []})
+        == "Loại khám Khám X · 150.000đ (chưa chọn dịch vụ khám con)"
+    )
+    assert (
+        dong_dich_vu_kham({"loai": None, "dich_vu": []}) is None
+        and dong_dich_vu_kham(None) is None
+    )
+    assert "chưa có giá" in str(
+        dong_dich_vu_kham({"loai": "K", "dich_vu": [{"ten": "A", "gia": None}]})
+    )
+
+
+def test_buoc_kham_mang_dong_dich_vu_kham() -> None:
+    kq = dung_hanh_trinh_khach(
+        luot={
+            "visit_id": "v1",
+            "status": "IN_PROGRESS",
+            "checked_in_at": p(0),
+            "closed_at": None,
+            "dat_luc": None,
+        },
+        su_kien=[],
+        chi_dinh=[],
+        hang=[],
+        phien=[],
+        dich_vu_kham={"loai": "Khám phụ khoa", "gia_mac_dinh": 0, "dich_vu": []},
+    )
+    kham = next(b for b in kq["buoc"] if b["ma"] == "KHAM")
+    assert kham["dich_vu_kham"].startswith("Loại khám Khám phụ khoa · 0đ")

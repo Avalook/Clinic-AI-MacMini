@@ -112,6 +112,9 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     # Bán thêm vật tư (C13, 01/10/2026): tên hàng + số lượng là thông tin vận
     # hành của quầy, không phải chữ lâm sàng.
     "visit.supply_changed": ["ten", "hanh_dong", "so_luong"],
+    # Dịch vụ khám con (C18, 02/10/2026): tên + giá là danh mục, không phải
+    # chữ lâm sàng — Hành trình khách hiện "Dịch vụ khám: <tên> · <giá>".
+    "visit.exam_service_changed": ["loai_kham", "them", "bo"],
     # HOÀN TÁC (01/10/2026): lý do là chữ vận hành người bấm gõ khi máy chủ hỏi
     # xác nhận — Tuyền cần thấy ai rút lại gì, vì sao, ở lịch sử lượt.
     "consultation.reopened": ["loai", "ket_qua_cu", "mo_lai_kham_xong", "ly_do"],
@@ -149,6 +152,25 @@ def _nhan_rieng(event_type: str, payload: dict[str, Any]) -> str | None:
         if cu is None:
             return f"Quầy thu thuốc điền số lượng thuốc (bác sĩ để trống): {moi}"
         return f"Quầy thu thuốc sửa số lượng thuốc đã điền: {cu} → {moi}"
+    if event_type == "visit.exam_service_changed":
+
+        def _ds(x: Any) -> str:
+            gia = x.get("gia")
+            tien = (
+                f"{int(gia):,}".replace(",", ".") + "đ"
+                if isinstance(gia, int)
+                else "chưa có giá"
+            )
+            return f"{x.get('ten') or 'dịch vụ khám'} · {tien}"
+
+        them = [_ds(x) for x in payload.get("them") or []]
+        bo = [_ds(x) for x in payload.get("bo") or []]
+        cau = []
+        if them:
+            cau.append("Chọn dịch vụ khám: " + " + ".join(them))
+        if bo:
+            cau.append("Bỏ chọn dịch vụ khám: " + " + ".join(bo))
+        return "; ".join(cau) or None
     return None
 
 

@@ -531,7 +531,11 @@ async def bo_vat_tu(
 
 
 class PhiKhamBody(BaseModel):
-    ids: list[UUID] = Field(default_factory=list, max_length=40)
+    #: Dạng cũ: đặt cả tập. Có `ids` thì `them` / `bo` bị bỏ qua.
+    ids: list[UUID] | None = Field(default=None, max_length=40)
+    #: Dạng đổi từng dịch vụ (C18): tính trên tập hiện có ở máy chủ.
+    them: list[UUID] = Field(default_factory=list, max_length=40)
+    bo: list[UUID] = Field(default_factory=list, max_length=40)
 
 
 @router.get("/luot-kham/visits/{visit_id}/phi-kham")
@@ -557,7 +561,11 @@ async def chon_phi_kham(
     from clinicai.services.phi_kham_service import PhiKhamService
 
     return await PhiKhamService(pool).chon(
-        visit_id=str(visit_id), ids=[str(i) for i in body.ids], identity=identity
+        visit_id=str(visit_id),
+        ids=None if body.ids is None else [str(i) for i in body.ids],
+        them_vao=[str(i) for i in body.them],
+        bo_di=[str(i) for i in body.bo],
+        identity=identity,
     )
 
 

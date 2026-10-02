@@ -155,6 +155,19 @@ class VatTuDaDoi(PayloadSuKien):
     can_ql_duyet: bool = False
 
 
+class DichVuKhamDaDoi(PayloadSuKien):
+    """`visit.exam_service_changed` — tick / bỏ tick DỊCH VỤ KHÁM CON của lượt
+    (bảng `luot_phi_kham`, C18 02/10/2026). Trước đây chỉ ghi nhật ký thao tác,
+    nên Hành trình khách không thấy khách đã khám dịch vụ gì. `them` / `bo` là
+    danh sách `{id, ten, gia}` (đồng; gia None = chưa có giá); `loai_kham` =
+    tên loại khám đặt lịch. Không có tên khách."""
+
+    visit_id: str
+    loai_kham: str | None = None
+    them: list[dict[str, str | int | None]] = []
+    bo: list[dict[str, str | int | None]] = []
+
+
 class ChiDinhMangSang(PayloadSuKien):
     """`service_order.carried_over` — chỉ định chưa làm ở lượt trước được mang
     sang lượt này (dây H2). Đã trả tiền thì không thu lại."""
@@ -1024,6 +1037,16 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="vat_tu",
             payload=VatTuDaDoi,
             nhan="Bán thêm vật tư",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            is_public=False,
+        ),
+        SuKien(
+            ten="visit.exam_service_changed",
+            version=1,
+            aggregate_type="visit",
+            source_module="phi_kham",
+            payload=DichVuKhamDaDoi,
+            nhan="Chọn dịch vụ khám",
             consumers=[DONG_THOI_GIAN_LUOT],
             is_public=False,
         ),
