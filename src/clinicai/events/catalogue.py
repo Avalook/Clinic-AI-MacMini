@@ -694,6 +694,7 @@ class ThuocQuayDaChinh(PayloadSuKien):
     prescription_id: str
     #: BO_CHON | CHON_LAI | SO_LUONG | THEM | SUA | BO_DONG_THEM
     #: | DIEN_SO_LUONG (C14: quầy điền / sửa số lượng bác sĩ để trống)
+    #: | SUA_SO_LUONG (C19: quầy đặt số khác số bác sĩ đã kê, tăng hay giảm)
     hanh_dong: str
     nguon: str
     so_luong: str | None = None

@@ -6,8 +6,8 @@
 // khám của bác sĩ để thu ngân thuốc chỉnh được, bỏ tick thuốc được nếu bệnh
 // nhân không muốn, lưu hết lịch sử, có event đã bỏ thuốc này ở bản cuối."
 //
-// Mọi luật ở máy chủ (`quay_thuoc_service`): thuốc bác sĩ kê chỉ tích / bỏ tick /
-// đổi số MUA (≤ số kê) — cách dùng là quyết định chuyên môn nên chỉ xem; thuốc
+// Mọi luật ở máy chủ (`quay_thuoc_service`): thuốc bác sĩ kê tích / bỏ tick /
+// đặt số lượng TUỲ Ý (tăng hay giảm — C19, bỏ "trần số kê") — cách dùng là quyết định chuyên môn nên chỉ xem; thuốc
 // quầy thêm sửa được số lượng, cách dùng, lưu ý. Không xoá dòng nào — "bỏ" là
 // bỏ tick, dòng còn đó và tích lại được. Phần "Lấy thêm thuốc" dùng lại ĐÚNG ô
 // kê đơn của bác sĩ (`DonThuocPhieu`).
@@ -16,6 +16,8 @@
 // số lượng được TÔ NỔI "Bác sĩ chưa nhập số lượng — nhập tại quầy": quầy gõ số là
 // xong (máy chủ ghi người + lúc, màn kê đơn của bác sĩ hiện "SL do thu ngân điền")
 // — không chờ bác sĩ, không bị chặn. Tổng tiền tính lại ở máy chủ.
+// C19 (Tuyền 02/10/2026): bác sĩ đã ghi số thì quầy vẫn gõ số khác được — chip
+// "SL do thu ngân sửa (bác sĩ kê X)"; máy chủ ghi số cũ → mới.
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -48,6 +50,8 @@ interface DongBan {
   /** Bác sĩ để trống số lượng — quầy phải nhập mới thu được. */
   thieu_so_luong: boolean;
   so_luong_do_thu_ngan: boolean;
+  /** Số bác sĩ kê gốc khi quầy đã sửa (null = bác sĩ để trống). */
+  so_ke_goc: string | null;
   nguoi_dien: string | null;
   /** ĐVT của kho — gợi ý khi bác sĩ cũng không ghi đơn vị. */
   don_vi_goi_y: string | null;
@@ -127,6 +131,8 @@ export default function ChinhDonQuay({
   const doiSo = async (d: DongBan) => {
     const v = (soNhap[d.id] ?? "").trim();
     if (!v) return;
+    // Rời ô mà số không đổi thì không gọi máy chủ (khỏi ghi vết "10 → 10").
+    if (Number(v.replace(",", ".")) === Number(d.so_mua ?? d.so_ke)) return;
     setDang(true);
     const loi = await gui({
       thao_tac: "so-luong",
@@ -233,7 +239,7 @@ export default function ChinhDonQuay({
               ) : null}
               {d.so_luong_do_thu_ngan ? (
                 <Chip tone="brand" title={d.nguoi_dien ? `Điền bởi ${d.nguoi_dien}` : undefined}>
-                  SL do thu ngân điền
+                  {d.so_ke_goc ? `SL do thu ngân sửa (bác sĩ kê ${d.so_ke_goc})` : "SL do thu ngân điền"}
                 </Chip>
               ) : null}
             </div>

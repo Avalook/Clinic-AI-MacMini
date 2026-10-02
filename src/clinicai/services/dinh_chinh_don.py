@@ -730,7 +730,9 @@ async def luu_don_chua_ky(
                    so_luong_dien_boi = CASE WHEN quantity IS DISTINCT FROM $4
                        THEN NULL ELSE so_luong_dien_boi END,
                    so_luong_dien_luc = CASE WHEN quantity IS DISTINCT FROM $4
-                       THEN NULL ELSE so_luong_dien_luc END
+                       THEN NULL ELSE so_luong_dien_luc END,
+                   so_luong_ke_goc = CASE WHEN quantity IS DISTINCT FROM $4
+                       THEN NULL ELSE so_luong_ke_goc END
              WHERE id = $1::uuid AND clinic_id = $2::uuid
             """,
             r["id"],

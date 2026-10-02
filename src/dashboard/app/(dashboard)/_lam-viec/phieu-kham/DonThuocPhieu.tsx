@@ -203,8 +203,17 @@ export default function DonThuocPhieu({
                     {i + 1}
                   </span>
                   {d.so_luong_do_thu_ngan ? (
-                    <Chip tone="brand" title="Bác sĩ để trống số lượng — quầy thu thuốc đã điền lúc thu">
-                      SL do thu ngân điền
+                    <Chip
+                      tone="brand"
+                      title={
+                        d.so_luong_ke_goc
+                          ? `Bác sĩ kê ${d.so_luong_ke_goc} — quầy thu thuốc đã sửa lúc thu`
+                          : "Bác sĩ để trống số lượng — quầy thu thuốc đã điền lúc thu"
+                      }
+                    >
+                      {d.so_luong_ke_goc
+                        ? `SL do thu ngân sửa (bác sĩ kê ${d.so_luong_ke_goc})`
+                        : "SL do thu ngân điền"}
                     </Chip>
                   ) : null}
                   {!coKho ? (

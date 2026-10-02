@@ -1644,7 +1644,11 @@ async def _phat_thuoc_bi_bo(
     """
     rows = await conn.fetch(
         """
-        SELECT r.id::text AS id, r.nguon, r.quantity_num,
+        -- C19: quầy đặt số khác thì mốc so là SỐ BÁC SĨ KÊ GỐC (so_luong_ke_goc),
+        -- không phải số quầy vừa đặt — giảm dưới số kê vẫn là "lấy bớt".
+        SELECT r.id::text AS id, r.nguon,
+               coalesce(public.so_luong_tu_van_ban(r.so_luong_ke_goc),
+                        r.quantity_num) AS quantity_num,
                coalesce(sum(bl.quantity), 0) AS da_thu
           FROM public.prescription r
           LEFT JOIN public.payment_bill_line bl
@@ -1652,7 +1656,7 @@ async def _phat_thuoc_bi_bo(
            AND bl.source_type = 'prescription' AND bl.source_id = r.id::text
          WHERE r.clinic_id = $1::uuid AND r.visit_id = $2::uuid
            AND r.removed_at IS NULL
-         GROUP BY r.id, r.nguon, r.quantity_num
+         GROUP BY r.id, r.nguon, r.quantity_num, r.so_luong_ke_goc
         """,
         identity.clinic_id,
         visit_id,

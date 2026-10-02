@@ -145,6 +145,14 @@ def _nhan_rieng(event_type: str, payload: dict[str, Any]) -> str | None:
     """
     if (
         event_type == "medicine.counter_changed"
+        and payload.get("hanh_dong") == "SUA_SO_LUONG"
+    ):
+        return (
+            "Quầy thu thuốc sửa số lượng thuốc bác sĩ kê: "
+            f"{payload.get('so_luong_cu')} → {payload.get('so_luong')}"
+        )
+    if (
+        event_type == "medicine.counter_changed"
         and payload.get("hanh_dong") == "DIEN_SO_LUONG"
     ):
         moi = payload.get("so_luong")

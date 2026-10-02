@@ -749,7 +749,8 @@ class XemLuotService:
                    pr.removed_at, pr.removal_reason,
                    pr.superseded_by_id::text AS thay_boi,
                    sg.full_name AS nguoi_dinh_chinh,
-                   pr.so_luong_dien_luc, sd.full_name AS nguoi_dien_so_luong
+                   pr.so_luong_dien_luc, pr.so_luong_ke_goc,
+                   sd.full_name AS nguoi_dien_so_luong
               FROM prescription pr
               LEFT JOIN staff sd ON sd.id = pr.so_luong_dien_boi
               LEFT JOIN staff s ON s.id = pr.dispensed_by_staff_id
@@ -782,6 +783,8 @@ class XemLuotService:
                 "so_luong_do_thu_ngan": r["so_luong_dien_luc"] is not None,
                 "nguoi_dien_so_luong": r["nguoi_dien_so_luong"],
                 "dien_so_luong_luc": _iso(r["so_luong_dien_luc"]),
+                # C19: số bác sĩ kê gốc khi quầy đã sửa (NULL = bác sĩ để trống).
+                "so_luong_ke_goc": r["so_luong_ke_goc"],
             }
             for r in rows
         ]

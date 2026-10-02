@@ -5,6 +5,8 @@ Phủ: dòng trống số lượng → quầy điền → tổng tính lại →
 báo ĐÍCH DANH dòng (không phải khoá) · sự kiện (ai / số cũ → mới) · kho trừ theo
 số cuối · lượt đã ký vẫn điền được · hoàn tác lần thu vẫn chạy · luật cũ (số mua
 ≤ số bác sĩ ghi) giữ nguyên với dòng bác sĩ đã ghi số.
+
+C19 (02/10): bỏ trần số kê — quầy đặt số TUỲ Ý (tăng / giảm) cho dòng bác sĩ đã ghi số.
 """
 
 # ruff: noqa: F811 — fixture `q` được IMPORT từ CP1.
@@ -169,20 +171,122 @@ async def test_quay_sua_lai_so_minh_dien_khong_tran(q: Quay) -> None:
     ]
 
 
-async def test_dong_bac_si_da_ghi_so_giu_luat_cu_so_mua_khong_qua_so_ke(
-    q: Quay,
-) -> None:
-    rx = await _don(q, 10)
+async def _dong_co_so(q: Quay, so: int = 10) -> str:
+    rx = await _don(q, so)
     drug = await _thuoc(q)
     await PharmacyService(q.pool).xac_dinh_thuoc(
         identity=q.duoc_si, prescription_id=rx, drug_catalog_id=drug
     )
+    return rx
+
+
+async def test_c19_tang_vuot_so_ke_duoc_tong_tinh_lai_ghi_vet_bac_si_thay_nhan(
+    q: Quay,
+) -> None:
+    rx = await _dong_co_so(q, 10)
     svc = QuayThuocService(q.pool)
-    with pytest.raises(ValidationError, match="Lấy thêm"):
-        await svc.doi_so_luong(prescription_id=rx, so_luong=12, identity=q.thu_ngan)
-    await svc.doi_so_luong(prescription_id=rx, so_luong=6, identity=q.thu_ngan)
+    assert (await _hd(q, "thuoc")).tong == 50_000
+    await svc.doi_so_luong(prescription_id=rx, so_luong=20, identity=q.thu_ngan)
+    assert (await _hd(q, "thuoc")).tong == 100_000  # 20 × 5.000, máy chủ tính
     [d] = (await svc.doc(visit_id=q.visit_id, identity=q.thu_ngan))["dong"]
-    assert (d["so_ke"], d["so_mua"], d["so_luong_do_thu_ngan"]) == ("10", "6", False)
+    assert (d["so_ke"], d["so_ke_goc"], d["so_luong_do_thu_ngan"]) == (
+        "20",
+        "10 viên",
+        True,
+    )
+    [ev] = await _su_kien(q, "medicine.counter_changed")
+    assert (ev["hanh_dong"], ev["so_luong"], ev["so_luong_cu"]) == (
+        "SUA_SO_LUONG",
+        "20",
+        "10",
+    )
+    nhat_ky = await q.pool.fetchrow(
+        "SELECT payload FROM event_log"
+        " WHERE event_type = 'pharmacy.counter_changed' AND aggregate_id = $1::uuid"
+        " ORDER BY occurred_at DESC LIMIT 1",
+        rx,
+    )
+    p = nhat_ky["payload"]
+    p = json.loads(p) if isinstance(p, str) else p
+    assert (p["so_luong_cu"], p["so_luong"]) == ("10", "20")
+    ai = await q.pool.fetchrow(
+        "SELECT so_luong_dien_boi::text AS boi, so_luong_dien_luc FROM prescription"
+        " WHERE id = $1::uuid",
+        rx,
+    )
+    assert ai["boi"] == str(q.thu_ngan.staff_id) and ai["so_luong_dien_luc"] is not None
+
+    async def _cho_qua(*_a: object, **_k: object) -> None:
+        return None
+
+    [dong_bs] = await PhieuKhamService(q.pool, kiem_quyen=_cho_qua).doc_don_thuoc(
+        visit_id=q.visit_id, identity=q.bac_si
+    )
+    assert dong_bs["so_luong_do_thu_ngan"] is True
+    assert dong_bs["quantity"].startswith("20")
+    assert dong_bs["so_luong_ke_goc"].startswith("10")
+    assert (await _thu(q))["status"] == "PAID"
+    dong = await q.pool.fetchrow(
+        "SELECT quantity FROM payment_bill_line WHERE source_id = $1", rx
+    )
+    assert Decimal(str(dong["quantity"])) == 20
+
+
+async def test_c19_giam_duoc_ke_goc_giu_lan_dau_va_van_la_lay_bot(q: Quay) -> None:
+    rx = await _dong_co_so(q, 10)
+    svc = QuayThuocService(q.pool)
+    await svc.doi_so_luong(prescription_id=rx, so_luong=20, identity=q.thu_ngan)
+    await svc.doi_so_luong(prescription_id=rx, so_luong=5, identity=q.thu_ngan)
+    [d] = (await svc.doc(visit_id=q.visit_id, identity=q.thu_ngan))["dong"]
+    assert (d["so_ke"], d["so_ke_goc"]) == ("5", "10 viên")  # gốc không bị đè bởi 20
+    assert (await _hd(q, "thuoc")).tong == 25_000
+    # Cùng số hiện tại → không ghi vết giả.
+    await svc.doi_so_luong(prescription_id=rx, so_luong=5, identity=q.thu_ngan)
+    evs = await _su_kien(q, "medicine.counter_changed")
+    assert [(e["so_luong_cu"], e["so_luong"]) for e in evs] == [
+        ("10", "20"),
+        ("20", "5"),
+    ]
+    await _thu(q)
+    # Mốc so là số bác sĩ kê gốc (10) → 5 < 10 là "lấy bớt", báo CSKH như cũ.
+    [bo] = await _su_kien(q, "medicine.declined")
+    assert (bo["so_ke"], bo["so_mua"]) == ("10", "5")
+
+
+async def test_c19_khong_hop_le_bao_ro_khong_500(q: Quay) -> None:
+    rx = await _dong_co_so(q, 10)
+    svc = QuayThuocService(q.pool)
+    for xau in (0, "0", -3, "", None, "abc", "1e999", "999999999", float("nan")):
+        with pytest.raises(ValidationError, match="Số lượng phải"):
+            await svc.doi_so_luong(
+                prescription_id=rx, so_luong=xau, identity=q.thu_ngan
+            )
+    [d] = (await svc.doc(visit_id=q.visit_id, identity=q.thu_ngan))["dong"]
+    assert d["so_ke"] == "10" and d["so_luong_do_thu_ngan"] is False
+    assert await _su_kien(q, "medicine.counter_changed") == []
+
+
+async def test_c19_giam_khong_duoi_so_da_chon_lo(
+    q: Quay, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "1")
+    rx = await _dong_co_so(q, 10)
+    drug = str(
+        await q.pool.fetchval(
+            "SELECT drug_catalog_id::text FROM prescription WHERE id = $1::uuid", rx
+        )
+    )
+    lo = await _nhap_lo(q, drug, 100)
+    svc = QuayThuocService(q.pool)
+    await svc.doi_so_luong(prescription_id=rx, so_luong=15, identity=q.thu_ngan)
+    await PharmacyService(q.pool).phan_lo(
+        identity=q.duoc_si, prescription_id=rx, drug_batch_id=lo, so_luong=15
+    )
+    with pytest.raises(ValidationError, match="chọn lô nhiều hơn"):
+        await svc.doi_so_luong(prescription_id=rx, so_luong=8, identity=q.thu_ngan)
+    await svc.doi_so_luong(
+        prescription_id=rx, so_luong=18, identity=q.thu_ngan
+    )  # tăng vẫn được
 
 
 async def test_con_dong_trong_thi_khong_thu_dong_khac_van_vao_tong(
@@ -247,11 +351,10 @@ async def test_hoan_tac_lan_thu_van_chay_va_dong_da_thu_khong_sua_so_luong_nua(
     with pytest.raises(ConflictError):
         await svc.doi_so_luong(prescription_id=rx, so_luong=6, identity=q.thu_ngan)
     await _huy_phieu(q, cyc)
-    # Sau hoàn tác: số đã điền còn nguyên; đã có dấu vết thu → chỉ đổi SỐ MUA.
+    # Sau hoàn tác: số đã điền còn nguyên; C19 — sửa tiếp được, tăng hay giảm.
     [d] = (await svc.doc(visit_id=q.visit_id, identity=q.thu_ngan))["dong"]
     assert (d["so_ke"], d["so_luong_do_thu_ngan"]) == ("5", True)
-    with pytest.raises(ValidationError, match="Lấy thêm"):
-        await svc.doi_so_luong(prescription_id=rx, so_luong=9, identity=q.thu_ngan)
+    await svc.doi_so_luong(prescription_id=rx, so_luong=9, identity=q.thu_ngan)
     await svc.doi_so_luong(prescription_id=rx, so_luong=4, identity=q.thu_ngan)
     assert (await _hd(q, "thuoc")).tong == 20_000
     assert (await _thu(q))["status"] == "PAID"
@@ -280,7 +383,7 @@ async def test_luot_da_ky_quay_van_dien_duoc_nhung_bac_si_sua_tay_van_bi_chan(
         identity=q.thu_ngan,
     )
     assert len(kq["them"]) == 1
-    # Lưới TT13 vẫn nguyên: sửa số lượng dòng bác sĩ ĐÃ ghi số → vẫn chặn.
+    # Lưới TT13 vẫn nguyên: BÁC SĨ tự sửa số lượng (không qua quầy) → vẫn chặn.
     with pytest.raises(asyncpg.CheckViolationError, match="đã ký"):
         await q.pool.execute(
             "UPDATE prescription SET quantity = '99 viên', quantity_num = 99"
@@ -302,5 +405,11 @@ def test_nhan_dong_thoi_gian_noi_ro_so_cu_moi_khong_co_ten_thuoc() -> None:
         {"hanh_dong": "DIEN_SO_LUONG", "so_luong": "20", "so_luong_cu": "2"},
     )
     assert sua == "Quầy thu thuốc sửa số lượng thuốc đã điền: 2 → 20"
+    # C19: bác sĩ ĐÃ kê số, quầy đặt số khác.
+    c19 = _nhan_rieng(
+        "medicine.counter_changed",
+        {"hanh_dong": "SUA_SO_LUONG", "so_luong": "20", "so_luong_cu": "10"},
+    )
+    assert c19 == "Quầy thu thuốc sửa số lượng thuốc bác sĩ kê: 10 → 20"
     # Các hành động khác giữ nhãn cố định của danh mục.
     assert _nhan_rieng("medicine.counter_changed", {"hanh_dong": "BO_CHON"}) is None
