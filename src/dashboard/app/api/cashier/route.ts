@@ -80,12 +80,16 @@ export async function GET(request: Request) {
     );
   }
   const modes = url.searchParams.get("modes") ?? "dich_vu,thuoc";
+  // Thanh ngày (02/10/2026): xem lại một ngày cũ. Chỉ chuyển đúng dạng
+  // yyyy-mm-dd; máy chủ quyết khoảng (rác → hôm nay).
+  const ngay = url.searchParams.get("ngay") ?? "";
+  const duoiNgay = NGAY_RE.test(ngay) ? `&ngay=${ngay}` : "";
   // Giữ NGUYÊN mã và câu của máy chủ: bị chặn quyền (403) phải nói là bị chặn,
   // không được thành "Không đọc được danh sách" như mất kết nối (tự kiểm
   // 16/09/2026 — người dùng thấy câu ấy khi vai hôm nay không có quyền thu).
   const res = await proxyJsonToBackend(
     "GET",
-    `/api/v1/cashier/board?modes=${encodeURIComponent(modes)}`,
+    `/api/v1/cashier/board?modes=${encodeURIComponent(modes)}${duoiNgay}`,
     undefined,
   );
   if (res.status === 401 || res.status === 403) {

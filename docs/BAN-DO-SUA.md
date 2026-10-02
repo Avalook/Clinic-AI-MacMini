@@ -255,8 +255,11 @@ hàm SQL `phan_thu_hieu_luc`; hoàn tác `PaymentService.hoan_tac`; ảnh
 phần một dòng (`InPhieuThu.tsx`). Test: `T/unit/test_phan_thu.py`,
 `T/services/test_thu_nhieu_hinh_thuc_db.py`.
 
-**Phụ thu, hoàn tiền, đổi hình thức TM/CK (chia được), huỷ phiếu** — `D/thu-ngan/PhuThuKem.tsx`
-→ `S/phu_thu_service.py`; `D/thu-ngan/HoanTien.tsx` → `S/hoan_tien_service.py`;
+**Mua thêm vật tư / đầu dò** (khối "Món kèm" cũ đã gỡ 02/10, C17; dòng `luot_phu_thu` cũ
+vẫn đọc ở `bill_service._PHU_THU_SQL`) — `D/thu-ngan/VatTuQuay.tsx`. **Thanh ngày quầy thu
+(xem lại ngày cũ)** — `D/thu-ngan/TabThuNgan.tsx` + `S/cashier_board_service.py::khoang_ngay_xem`;
+test `T/services/test_thu_ngan_thanh_ngay_db.py`, `D/tests/quay-thu-thanh-ngay-boundary.test.mts`.
+**Hoàn tiền, đổi hình thức TM/CK (chia được), huỷ phiếu** — `D/thu-ngan/HoanTien.tsx` → `S/hoan_tien_service.py`;
 `D/thu-ngan/DoiHinhThuc.tsx` → `S/doi_hinh_thuc_service.py`; huỷ →
 `PaymentService.void_payment`. Test: `T/services/test_doi_hinh_thuc_db.py`.
 

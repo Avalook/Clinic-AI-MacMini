@@ -1,22 +1,19 @@
-"""Món kèm dịch vụ (đầu dò) — tick + sửa giá ở thu tiền dịch vụ (28/09/2026).
+"""Phụ thu CŨ còn đọc được sau khi gỡ khối "Món kèm" (C17, 02/10/2026).
 
-Tuyền: "thêm ô tick vào thu dịch vụ là thêm đầu dò và điền được giá vào". Tick
-→ dòng `phu_thu` trong hoá đơn DỊCH VỤ đúng giá chốt; sửa giá → hoá đơn đổi
-theo; bỏ tick → mất khỏi hoá đơn; món không thuộc dịch vụ → từ chối.
+Tuyền gỡ khối tick "Món kèm dịch vụ" (trùng "Mua thêm vật tư"). Dòng
+`luot_phu_thu` đã tick từ trước KHÔNG bị xoá: còn nằm trong hoá đơn dịch vụ, thu
+được, theo tick dịch vụ cha. Test chèn thẳng dòng cũ bằng SQL (không còn API tick).
 """
 
 from __future__ import annotations
 
 import uuid
-from decimal import Decimal
 
 import pytest
 
-from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.bill_service import tinh_hoa_don
 from clinicai.services.payment_service import PaymentService
-from clinicai.services.phu_thu_service import PhuThuService
 from clinicai.services.service_selection_service import ServiceSelectionService
 from tests.services.test_full_chi_dinh_slice_ab_db import (
     BoKichBan,
@@ -67,6 +64,21 @@ async def _dich_vu_co_dau_do(kb: BoKichBan) -> tuple[str, str]:
     return oid, str(mau)
 
 
+async def _tick_cu(kb: BoKichBan, oid: str, mau: str, gia: int = 300_000) -> None:
+    """Dòng phụ thu đã tick từ trước khi gỡ khối (không còn đường API)."""
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO public.luot_phu_thu (clinic_id, visit_id,"
+            " service_order_id, phu_thu_mau_id, ten, don_gia)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, 'Đầu dò cũ', $5)",
+            kb.bac_si.clinic_id,
+            kb.visit_id,
+            oid,
+            mau,
+            gia,
+        )
+
+
 async def _dong_phu_thu(kb: BoKichBan) -> list[dict[str, object]]:
     async with kb.pool.acquire() as conn:
         hd = await tinh_hoa_don(
@@ -102,41 +114,12 @@ async def _gan_loai_kham_co_gia(kb: BoKichBan) -> None:
         )
 
 
-async def test_tick_sua_gia_bo_tick_dau_do(kban: BoKichBan) -> None:  # noqa: F811
-    oid, mau = await _dich_vu_co_dau_do(kban)
-    svc = PhuThuService(kban.pool)
-    ai = await _thu_ngan(kban)
-    await svc.dat(order_id=oid, mau_id=mau, chon=True, don_gia=None, identity=ai)
-    dong = await _dong_phu_thu(kban)
-    assert len(dong) == 1 and Decimal(str(dong[0]["don_gia"])) == 300000
-    # Sửa giá tại quầy → hoá đơn theo giá mới.
-    await svc.dat(order_id=oid, mau_id=mau, chon=True, don_gia="250.000", identity=ai)
-    dong = await _dong_phu_thu(kban)
-    assert len(dong) == 1 and Decimal(str(dong[0]["don_gia"])) == 250000
-    # Bỏ tick → không còn trong hoá đơn.
-    await svc.dat(order_id=oid, mau_id=mau, chon=False, don_gia=None, identity=ai)
-    assert await _dong_phu_thu(kban) == []
-
-
-async def test_mon_khong_thuoc_dich_vu_bi_tu_choi(kban: BoKichBan) -> None:  # noqa: F811
-    oid, _mau = await _dich_vu_co_dau_do(kban)
-    with pytest.raises(ValidationError):
-        await PhuThuService(kban.pool).dat(
-            order_id=oid,
-            mau_id=str(uuid.uuid4()),
-            chon=True,
-            don_gia=None,
-            identity=await _thu_ngan(kban),
-        )
-
-
-async def test_thu_tien_co_phu_thu(kban: BoKichBan) -> None:  # noqa: F811
+async def test_thu_tien_co_phu_thu_cu(kban: BoKichBan) -> None:  # noqa: F811
     await _gan_loai_kham_co_gia(kban)
     oid, mau = await _dich_vu_co_dau_do(kban)
     ai = await _thu_ngan(kban)
-    await PhuThuService(kban.pool).dat(
-        order_id=oid, mau_id=mau, chon=True, don_gia=300_000, identity=ai
-    )
+    await _tick_cu(kban, oid, mau)
+    assert len(await _dong_phu_thu(kban)) == 1
     async with kban.pool.acquire() as conn:
         hd = await tinh_hoa_don(
             conn,
@@ -196,9 +179,7 @@ async def test_bo_dich_vu_cha_tu_bo_phu_thu_va_thu_duoc_phan_con_lai(
         identity=ai,
         idempotency_key=f"chon-ca-hai-{uuid.uuid4().hex}",
     )
-    await PhuThuService(kban.pool).dat(
-        order_id=dau_do, mau_id=str(mau), chon=True, don_gia=300_000, identity=ai
-    )
+    await _tick_cu(kban, dau_do, str(mau))
     await ServiceSelectionService(kban.pool).confirm(
         visit_id=kban.visit_id,
         order_ids_seen=[dau_do, con_lai],
@@ -233,52 +214,3 @@ async def test_bo_dich_vu_cha_tu_bo_phu_thu_va_thu_duoc_phan_con_lai(
         idempotency_key=f"thu-con-lai-{uuid.uuid4().hex}",
     )
     assert kq["status"] == "PAID"
-
-
-async def test_dat_lai_cung_gia_khong_doi_revision_hoac_ghi_them(
-    kban: BoKichBan,  # noqa: F811
-) -> None:
-    oid, mau = await _dich_vu_co_dau_do(kban)
-    ai = await _thu_ngan(kban)
-    svc = PhuThuService(kban.pool)
-    await svc.dat(order_id=oid, mau_id=mau, chon=True, don_gia=300_000, identity=ai)
-    async with kban.pool.acquire() as conn:
-        truoc = await tinh_hoa_don(
-            conn,
-            clinic_id=kban.bac_si.clinic_id,
-            visit_id=kban.visit_id,
-            kind="dich_vu",
-        )
-        dong_truoc = await conn.fetchval(
-            "SELECT id::text FROM luot_phu_thu WHERE service_order_id = $1::uuid"
-            " AND phu_thu_mau_id = $2::uuid AND bo_luc IS NULL",
-            oid,
-            mau,
-        )
-        event_truoc = await conn.fetchval(
-            "SELECT count(*) FROM event_log WHERE aggregate_id = $1"
-            " AND event_type = 'visit.surcharge_set'",
-            oid,
-        )
-    await svc.dat(order_id=oid, mau_id=mau, chon=True, don_gia="300.000", identity=ai)
-    async with kban.pool.acquire() as conn:
-        sau = await tinh_hoa_don(
-            conn,
-            clinic_id=kban.bac_si.clinic_id,
-            visit_id=kban.visit_id,
-            kind="dich_vu",
-        )
-        dong_sau = await conn.fetchval(
-            "SELECT id::text FROM luot_phu_thu WHERE service_order_id = $1::uuid"
-            " AND phu_thu_mau_id = $2::uuid AND bo_luc IS NULL",
-            oid,
-            mau,
-        )
-        event_sau = await conn.fetchval(
-            "SELECT count(*) FROM event_log WHERE aggregate_id = $1"
-            " AND event_type = 'visit.surcharge_set'",
-            oid,
-        )
-    assert sau.revision == truoc.revision
-    assert dong_sau == dong_truoc
-    assert event_sau == event_truoc

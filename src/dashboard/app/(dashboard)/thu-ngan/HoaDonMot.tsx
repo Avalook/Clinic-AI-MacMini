@@ -125,7 +125,7 @@ export default function HoaDonMot({
   lamTruoc,
   qt,
   dangThu,
-  dangLuuPhuThu,
+  dangLuuVatTu,
   onThu,
   onChotThuSau,
   onDoiPhong,
@@ -135,7 +135,7 @@ export default function HoaDonMot({
   lamTruoc?: LamTruoc | null;
   qt: QuayThu;
   dangThu: boolean;
-  dangLuuPhuThu: boolean;
+  dangLuuVatTu: boolean;
   /** Cha gửi POST /api/payment (khoá gửi lại, báo kết quả, tải lại). */
   onThu: (p: LenhThuMot) => void;
   /** Cha gửi lệnh chốt lựa chọn (không thu) — V10 làm trước, thu sau. */
@@ -320,7 +320,7 @@ export default function HoaDonMot({
             <Button
               variant="secondary"
               size="lg"
-              disabled={dangThu || dangLuuPhuThu}
+              disabled={dangThu || dangLuuVatTu}
               onClick={chotSau}
             >
               Chốt, thu sau
@@ -329,7 +329,7 @@ export default function HoaDonMot({
           <Button
             variant="primary"
             size="lg"
-            disabled={dangThu || dangLuuPhuThu || chanThu}
+            disabled={dangThu || dangLuuVatTu || chanThu}
             onClick={bam}
           >
             {dangThu

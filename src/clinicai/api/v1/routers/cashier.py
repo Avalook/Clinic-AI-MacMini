@@ -38,16 +38,25 @@ async def cashier_board(
         "dich_vu,thuoc",
         description="Ô nào cần: dich_vu, thuoc, hoặc cả hai (ngăn bởi dấu phẩy).",
     ),
+    ngay: str | None = Query(
+        None,
+        max_length=32,
+        description="YYYY-MM-DD giờ VN — xem lại một ngày cũ (02/10/2026); "
+        "rỗng / rác = hôm nay",
+    ),
     identity: StaffIdentity = Depends(_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Bệnh nhân cần thu tiền hôm nay, kèm dịch vụ / thuốc / đã thu.
+    """Bệnh nhân cần thu tiền trong ngày (mặc định hôm nay), kèm dịch vụ /
+    thuốc / đã thu.
 
     `modes` theo vai: CASHIER_THUOC chỉ thuốc, CASHIER_DV chỉ dịch vụ, CASHIER
     cả hai. Vai được kiểm ở tầng router; `modes` chỉ quyết định hiện ô nào.
     """
     wanted = [m.strip() for m in modes.split(",") if m.strip()]
-    return await CashierBoardService(pool).board(identity=identity, modes=wanted)
+    return await CashierBoardService(pool).board(
+        identity=identity, modes=wanted, ngay=ngay
+    )
 
 
 @router.get("/cashier/giao-dich")

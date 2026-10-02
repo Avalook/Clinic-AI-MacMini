@@ -29,7 +29,6 @@ import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
 import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import ChonDichVuKham from "../_lam-viec/ChonDichVuKham";
-import PhuThuKem from "./PhuThuKem";
 import VatTuQuay from "./VatTuQuay";
 import { useNgheBang } from "../dung-nghe-bang";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
@@ -179,7 +178,7 @@ const TONE_DV: Record<DichVuLamTruoc["trang_thai"], ChipTone> = {
   KHONG_LAM: "neutral",
 };
 
-export default function QuayThuNgan({ quay }: { quay: Quay }) {
+export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string }) {
   // THUỐC VÀ DỊCH VỤ THU RIÊNG HẲN (Tuyền 01/10/2026): mọi lệnh gửi kèm quầy
   // đang đứng — máy chủ từ chối (409 QUAY_KHAC_LOAI) nếu loại tiền không thuộc quầy.
   const quayThu = quay === "ca_hai" ? undefined : quay;
@@ -189,7 +188,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
   const [loi, setLoi] = useState<string | null>(null);
   const [xong, setXong] = useState<string | null>(null);
   const [dangThu, setDangThu] = useState<string | null>(null);
-  const [phuThuDangLuu, setPhuThuDangLuu] = useState<Set<string>>(() => new Set());
+  const [vatTuDangLuu, setVatTuDangLuu] = useState<Set<string>>(() => new Set());
   // `?luot=` — mở quầy từ nút "Thu ngay" của check-out (khách còn nợ,
   // 01/10/2026): chọn sẵn đúng lượt ấy.
   const thamSo = useSearchParams();
@@ -217,7 +216,9 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
 
   const doc = useCallback(async () => {
     try {
-      const r = await fetch(`/api/cashier?modes=${MODES[quay]}`, {
+      // `ngay` (02/10/2026, thanh ngày): xem lại một ngày cũ; không có = hôm nay.
+      const duoiNgay = ngay ? `&ngay=${ngay}` : "";
+      const r = await fetch(`/api/cashier?modes=${MODES[quay]}${duoiNgay}`, {
         cache: "no-store",
       });
       const d = (await r.json().catch(() => null)) as
@@ -228,7 +229,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
     } catch {
       return { loi: "Mất kết nối tới máy chủ." };
     }
-  }, [quay]);
+  }, [quay, ngay]);
 
   const nhan = useCallback(
     (kq: { items?: Luot[]; paid?: DaThu[]; cho?: ChoXacMinh[]; loi?: string }) => {
@@ -641,23 +642,6 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
             {quay !== "thuoc" && !daThuCua(l.visit_id, "dich_vu") ? (
               <ChonDichVuKham visitId={l.visit_id} onDoi={() => void tai()} />
             ) : null}
-            {/* Món kèm dịch vụ (đầu dò…) — tick + sửa giá, vào hoá đơn dịch vụ
-                (28/09/2026). Tự ẩn khi lượt không có dịch vụ nào có món kèm. */}
-            {quay !== "thuoc" && !daThuCua(l.visit_id, "dich_vu") ? (
-              <PhuThuKem
-                visitId={l.visit_id}
-                reloadToken={l.quay_thu?.revision}
-                onDoi={tai}
-                onDangLuu={(dang) =>
-                  setPhuThuDangLuu((cu) => {
-                    const moi = new Set(cu);
-                    if (dang) moi.add(l.visit_id);
-                    else moi.delete(l.visit_id);
-                    return moi;
-                  })
-                }
-              />
-            ) : null}
             {/* Mua thêm vật tư (đầu dò Bio chọn nhanh, tìm theo tên) — vào hoá đơn
                 DỊCH VỤ, KHÔNG có ở quầy thuốc (C13, 01/10/2026). */}
             {quay !== "thuoc" && !daThuCua(l.visit_id, "dich_vu") ? (
@@ -666,7 +650,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 reloadToken={l.quay_thu?.revision}
                 onDoi={tai}
                 onDangLuu={(dang) =>
-                  setPhuThuDangLuu((cu) => {
+                  setVatTuDangLuu((cu) => {
                     const moi = new Set(cu);
                     if (dang) moi.add(l.visit_id);
                     else moi.delete(l.visit_id);
@@ -685,7 +669,7 @@ export default function QuayThuNgan({ quay }: { quay: Quay }) {
                 lamTruoc={l.lam_truoc}
                 qt={l.quay_thu}
                 dangThu={dangThu === `${l.visit_id}:dich_vu`}
-                dangLuuPhuThu={phuThuDangLuu.has(l.visit_id)}
+                dangLuuVatTu={vatTuDangLuu.has(l.visit_id)}
                 onThu={(p) => void thuMot(l, p)}
                 onChotThuSau={(c) => void chotThuSau(l, c)}
                 onDoiPhong={() => void tai()}
