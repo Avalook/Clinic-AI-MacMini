@@ -258,3 +258,87 @@ def test_sinh_hieu_do_mot_lan_khong_co_do_lai() -> None:
     )["SINH_HIEU"]
     assert (sh["bat"], sh["ket"], sh["do_lai"]) == (p(8), p(8), [])
     assert sh["lan_do"] == [{"luc": p(8), "ai": None}]
+
+
+# ── I2 (C18, 02/10/2026): mốc XONG theo TRẠNG THÁI HIỆN TẠI ─────────────────
+
+
+def _su_kien_kham_xong() -> list[SuKien]:
+    return [
+        ("consultation.started", p(10), {"loai": "PRIMARY"}),
+        ("consultation.completed", p(20), {"loai": "PRIMARY"}),
+    ]
+
+
+def test_hoan_tac_kham_xong_rut_moc_xong_ve_dang_kham() -> None:
+    su_kien = [
+        *_su_kien_kham_xong(),
+        ("consultation.reopened", p(25), {"loai": "PRIMARY"}),
+    ]
+    moc = _theo_ma(
+        dung_moc(
+            dat_lich_luc=None,
+            check_in_luc=p(0),
+            ve_luc=None,
+            su_kien=su_kien,
+            chi_dinh=[],
+        )
+    )
+    assert moc["KHAM"]["trang_thai"] == DANG
+    assert moc["KHAM"]["ket"] is None
+    assert moc["KHAM"]["mo_lai_luc"] == p(25)
+
+
+def test_kham_xong_lai_sau_hoan_tac_thi_xong_lan_nua() -> None:
+    su_kien = [
+        *_su_kien_kham_xong(),
+        ("consultation.reopened", p(25), {"loai": "PRIMARY"}),
+        ("consultation.completed", p(40), {"loai": "PRIMARY"}),
+    ]
+    moc = _theo_ma(
+        dung_moc(
+            dat_lich_luc=None,
+            check_in_luc=p(0),
+            ve_luc=None,
+            su_kien=su_kien,
+            chi_dinh=[],
+        )
+    )
+    assert moc["KHAM"]["trang_thai"] == XONG
+    assert moc["KHAM"]["ket"] == p(40)
+    assert moc["KHAM"]["mo_lai_luc"] is None
+
+
+def test_mo_lai_phien_khac_khong_dong_den_kham_chinh() -> None:
+    su_kien = [
+        *_su_kien_kham_xong(),
+        ("consultation.reopened", p(25), {"loai": "TU_VAN"}),
+    ]
+    moc = _theo_ma(
+        dung_moc(
+            dat_lich_luc=None,
+            check_in_luc=p(0),
+            ve_luc=None,
+            su_kien=su_kien,
+            chi_dinh=[],
+        )
+    )
+    assert moc["KHAM"]["trang_thai"] == XONG
+
+
+def test_hoan_tac_xong_tu_van_rut_moc_tu_van() -> None:
+    su_kien = [
+        ("consultation.started", p(5), {"loai": "TU_VAN"}),
+        ("consultation.completed", p(9), {"loai": "TU_VAN"}),
+        ("consultation.reopened", p(12), {"loai": "TU_VAN"}),
+    ]
+    moc = _theo_ma(
+        dung_moc(
+            dat_lich_luc=None,
+            check_in_luc=p(0),
+            ve_luc=None,
+            su_kien=su_kien,
+            chi_dinh=[],
+        )
+    )
+    assert moc["TU_VAN"]["trang_thai"] == DANG

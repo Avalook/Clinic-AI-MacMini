@@ -37,6 +37,9 @@ _SU_KIEN = (
     "consultation.started",
     "consultation.handed_over",
     "consultation.completed",
+    # Hoàn tác "Khám xong" / "Xong tư vấn" (C18, 02/10/2026): mốc XONG của hành
+    # trình phải theo TRẠNG THÁI HIỆN TẠI — mở lại khám thì rút mốc xong.
+    "consultation.reopened",
     "payment.service_collected",
     "service.started",
     "service.completed",
@@ -169,12 +172,43 @@ def dung_moc(
             + luc("consultation.completed", loai="TU_VAN")
             if t >= bat
         ]
+        # Hoàn tác "Xong tư vấn": chỉ tính lần xong SAU lần mở lại cuối.
+        mo_tv = _cuoi(luc("consultation.reopened", loai="TU_VAN"))
+        if mo_tv is not None:
+            het = [t for t in het if t > mo_tv]
         ket = _dau(het)
-        moc.append(_moc("TU_VAN", "Tư vấn", "Bàn tư vấn", bat, ket, _tt(bat, ket)))
+        moc.append(
+            _moc(
+                "TU_VAN",
+                "Tư vấn",
+                "Bàn tư vấn",
+                bat,
+                ket,
+                _tt(bat, ket),
+                mo_lai_luc=mo_tv if ket is None else None,
+            )
+        )
 
     bat = _dau(luc("consultation.started", loai="PRIMARY"))
     ket = _cuoi(luc("consultation.completed", loai="PRIMARY")) if bat else None
-    moc.append(_moc("KHAM", "Khám bác sĩ chính", "Bàn khám", bat, ket, _tt(bat, ket)))
+    # I2 (C18, 02/10/2026): mốc XONG = trạng thái HIỆN TẠI. Có lần mở lại khám
+    # SAU lần "Khám xong" cuối thì phiên đang khám lại — rút mốc xong.
+    mo_lai = _cuoi(luc("consultation.reopened", loai="PRIMARY"))
+    if ket is not None and mo_lai is not None and mo_lai > ket:
+        ket = None
+    else:
+        mo_lai = None
+    moc.append(
+        _moc(
+            "KHAM",
+            "Khám bác sĩ chính",
+            "Bàn khám",
+            bat,
+            ket,
+            _tt(bat, ket),
+            mo_lai_luc=mo_lai,
+        )
+    )
 
     if chi_dinh:
         # NHIỀU CHỈ ĐỊNH GỬI CÙNG LÚC = MỘT MỐC: gom theo lần chỉ định.
@@ -259,7 +293,22 @@ def dung_moc(
     if doc:
         bat = min(doc)
         ket = _cuoi(luc("consultation.completed", loai="REVIEW"))
-        moc.append(_moc("DOC_KQ", "Đọc kết quả", "Bàn khám", bat, ket, _tt(bat, ket)))
+        mo_doc = _cuoi(luc("consultation.reopened", loai="REVIEW"))
+        if ket is not None and mo_doc is not None and mo_doc > ket:
+            ket = None
+        else:
+            mo_doc = None
+        moc.append(
+            _moc(
+                "DOC_KQ",
+                "Đọc kết quả",
+                "Bàn khám",
+                bat,
+                ket,
+                _tt(bat, ket),
+                mo_lai_luc=mo_doc,
+            )
+        )
 
     if luc("prescription.saved"):
         bat = _dau(luc("payment.medicine_collected"))
@@ -466,6 +515,8 @@ def _moc_iso(moc: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for m in moc:
         for k in ("bat", "ket"):
             m[k] = _iso(m[k])
+        if "mo_lai_luc" in m:
+            m["mo_lai_luc"] = _iso(m["mo_lai_luc"])
         for x in m.get("cac_lan", []):
             x["luc"] = _iso(x["luc"])
         if "do_lai" in m:

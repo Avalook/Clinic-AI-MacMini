@@ -34,6 +34,7 @@ from clinicai.core.clock import CLINIC_TZ_NAME
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import (
+    ChiDinhDaHuy,
     DaHenTaiKham,
     DaXepDuongDi,
     KetQuaDaDuyet,
@@ -157,6 +158,12 @@ from clinicai.services.sinh_hieu_service import SinhHieuService
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
 
 logger = structlog.get_logger()
+
+#: Lý do ghi cho chỉ định NHÁP tự huỷ khi bác sĩ bấm "Khám xong — không cần dịch
+#: vụ" (hiện trên Hành trình khách / lịch sử lượt).
+LY_DO_HUY_NHAP_KHI_KHAM_XONG = (
+    "Nháp không được duyệt — tự huỷ khi bác sĩ bấm Khám xong, không cần dịch vụ"
+)
 
 
 class LuotKhamService:
@@ -932,7 +939,12 @@ class LuotKhamService:
                             target,
                         )
                 views.append(view)
-            if rules.vong_khong_can_doc(views):
+            # VÒNG RỖNG (C18, I3, 02/10/2026): huỷ chỉ định cuối cùng sau "Khám
+            # xong" xoá hết yêu cầu của vòng chưa đóng — vòng không còn gì để
+            # đọc thì ĐÓNG, không treo "đang thu" mãi (tập rỗng vẫn không bao
+            # giờ "sẵn sàng", I5: không tự sinh lần gọi bác sĩ không ai cần).
+            vong_rong = not views
+            if vong_rong or rules.vong_khong_can_doc(views):
                 await conn.execute(
                     "UPDATE review_round SET status = 'closed', closed_at = now(),"
                     " version = version + 1, updated_at = now()"
@@ -971,7 +983,11 @@ class LuotKhamService:
                     aggregate_id=visit_id,
                     identity=identity,
                     origin=ORIGIN,
-                    payload={"visit_id": visit_id, "round_no": rd["round_no"]},
+                    payload={
+                        "visit_id": visit_id,
+                        "round_no": rd["round_no"],
+                        **({"ly_do": "vong_rong"} if vong_rong else {}),
+                    },
                 )
                 continue
             ready = rules.round_ready(views)
@@ -2472,19 +2488,41 @@ class LuotKhamService:
                         "Còn chỉ định đã duyệt chưa làm — không kết thúc 'không cần"
                         " dịch vụ' được.",
                     )
-                await conn.execute(
+                nhap_huy = await conn.fetch(
                     """
                     UPDATE service_order
                        SET exec_status = 'cancelled', cancelled_by = $3::uuid,
-                           cancel_reason = 'Nháp không được duyệt khi kết thúc khám',
+                           cancel_reason = $4,
                            version = version + 1, updated_at = now()
                      WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
                        AND exec_status = 'draft'
+                    RETURNING id::text AS id, service_code, service_name
                     """,
                     cid,
                     vid,
                     identity.staff_id,
+                    LY_DO_HUY_NHAP_KHI_KHAM_XONG,
                 )
+                # I4 (C18, 02/10/2026): tự huỷ nào cũng phải để lại vết — nháp của
+                # điều dưỡng / thư ký không được biến mất không dấu. Mỗi nháp một
+                # sự kiện (ai bấm Khám xong, vì sao) → lên Hành trình khách.
+                for nh in nhap_huy:
+                    await emit_event(
+                        conn,
+                        ten="service_order.cancelled",
+                        clinic_id=cid,
+                        aggregate_id=nh["id"],
+                        so_ke_tiep=True,
+                        payload=ChiDinhDaHuy(
+                            visit_id=vid,
+                            service_order_id=nh["id"],
+                            service_code=nh["service_code"],
+                            service_name=nh["service_name"],
+                            ly_do=LY_DO_HUY_NHAP_KHI_KHAM_XONG,
+                        ),
+                        boi=nguoi(identity),
+                        correlation_id=vid,
+                    )
             elif outcome in rules.OUTCOMES_OPENING_ROUND:
                 if not plan:
                     raise LuotKhamConflictError(

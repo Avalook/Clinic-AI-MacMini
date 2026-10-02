@@ -113,6 +113,15 @@ MODULE: dict[str, Module] = {
             bang=["luot_vat_tu", "vat_tu_goi_y"],
         ),
         Module(
+            ma="phi_kham",
+            ten="Dịch vụ khám (tiền khám)",
+            # Tick dịch vụ khám con theo mã KiotViet (28/09/2026); từ C18
+            # (02/10/2026) mỗi lần tick / bỏ tick là một sự kiện lên Hành trình.
+            lenh=["ChonDichVuKham"],
+            phat=["visit.exam_service_changed"],
+            bang=["luot_phi_kham"],
+        ),
+        Module(
             ma="service_selection",
             ten="Khách chọn dịch vụ",
             # SetDeferPayment (30/09/2026 tối): tick / bỏ tick "Làm trước – thu
@@ -361,6 +370,8 @@ MODULE: dict[str, Module] = {
                 "visit.defer_payment_cleared",
                 # Bán thêm vật tư ở quầy thu dịch vụ (C13, 01/10/2026).
                 "visit.supply_changed",
+                # Dịch vụ khám con tick / bỏ tick (C18, 02/10/2026).
+                "visit.exam_service_changed",
             ],
             ben_nhan=["dong_thoi_gian_luot"],
             projection=["luot_dong_thoi_gian"],

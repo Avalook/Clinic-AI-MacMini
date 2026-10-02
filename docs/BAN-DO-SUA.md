@@ -77,7 +77,10 @@ phân quyền** (`/nhan-su`, `/phan-quyen`, `/settings/tai-khoan`,
   `T/services/test_clinic_config.py`, `T/services/test_phong_la_tai_nguyen_db.py`.
 
 **Phí khám (dịch vụ con của loại khám)** — chọn ở quầy: `D/_lam-viec/ChonDichVuKham.tsx`
-→ `R/luot_kham.py` → `S/phi_kham_service.py` `PhiKhamService` (`doc`, `chon`).
+→ `R/luot_kham.py` → `S/phi_kham_service.py` `PhiKhamService` (`doc`, `chon` — gửi `them`/`bo`
+theo từng dịch vụ, sự kiện `visit.exam_service_changed`). Dòng "Dịch vụ khám" trên Hành trình
+khách: `S/hanh_trinh_khach_service.py` `dong_dich_vu_kham`. Test: `T/services/test_phi_kham_chon_db.py`,
+`T/services/test_hanh_trinh_trang_thai_hien_tai_db.py`.
 
 **Kho thuốc: thêm thuốc, giá thuốc, nhập lô, kiểm kho** — trên màn `/pharmacy/inventory`
 (tab Danh mục, Nhập, Kiểm kho). Code: `D/pharmacy/inventory/DanhMucKho.tsx`,

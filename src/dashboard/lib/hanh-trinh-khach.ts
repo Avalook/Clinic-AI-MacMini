@@ -97,6 +97,12 @@ export interface BuocHanhTrinh {
   thu_luc?: string | null;
   nguoi_thu?: string | null;
   cho_thu?: number;
+  /** Bước Khám đang KHÁM LẠI (đã hoàn tác "Khám xong") — máy chủ quyết. */
+  kham_lai?: boolean;
+  mo_lai_luc?: string | null;
+  /** Câu máy chủ viết: "Dịch vụ khám: <tên> · <giá>" hoặc "Loại khám <tên> ·
+   *  0đ (chưa chọn dịch vụ khám con)". */
+  dich_vu_kham?: string | null;
 }
 
 export interface TiepTheo {

@@ -9,7 +9,7 @@
 // phi-kham`). Màn chỉ vẽ ô tick và gửi tập đã chọn. Dùng ở Bàn khám (dưới "Bác
 // sĩ tư vấn ghi") và ở quầy thu (khi dòng tiền khám chưa chọn).
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { docBang, guiThaoTac } from "./api";
 
@@ -44,6 +44,7 @@ export default function ChonDichVuKham({
   const [pk, setPk] = useState<PhiKham | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [dangGui, setDangGui] = useState(false);
+  const dangGuiRef = useRef(false);
 
   const nap = useCallback(async () => {
     const kq = await docBang<PhiKham>("phi-kham", { luot: visitId });
@@ -61,15 +62,33 @@ export default function ChonDichVuKham({
   // Loại khám đi thẳng phòng: không có tiền khám — dịch vụ thêm ở quầy.
   if (pk.khong_kham || pk.lua_chon.length === 0) return null;
 
+  // TICK TỰ BỎ (C18, 02/10/2026): trước đây ô tick chỉ đổi SAU khi máy chủ trả
+  // lời (~1 giây trên đường dài) nên nhân viên tưởng chưa ăn và bấm lần hai —
+  // lần hai là BỎ tick. Nay ô đổi NGAY, khoá cho tới khi lưu xong (ref chặn cả
+  // hai lần onChange liên tiếp trước khi React kịp vẽ lại), và gửi THEO TỪNG
+  // DỊCH VỤ (them / bo) chứ không gửi cả tập đang cầm — tab cũ hay hai người
+  // cùng mở một lượt không ghi đè tick của nhau.
   async function doi(id: string, bat: boolean) {
-    if (!pk) return;
-    const ids = bat ? [...pk.da_chon, id] : pk.da_chon.filter((x) => x !== id);
+    if (dangGuiRef.current) return;
+    dangGuiRef.current = true;
     setDangGui(true);
     setLoi(null);
-    const kq = await guiThaoTac("phi-kham", visitId, { ids });
+    setPk((cu) =>
+      cu
+        ? {
+            ...cu,
+            da_chon: bat
+              ? [...cu.da_chon.filter((x) => x !== id), id]
+              : cu.da_chon.filter((x) => x !== id),
+          }
+        : cu,
+    );
+    const kq = await guiThaoTac("phi-kham", visitId, bat ? { them: [id] } : { bo: [id] });
+    dangGuiRef.current = false;
     setDangGui(false);
     if (!kq.ok) {
       setLoi(kq.loi);
+      await nap(); // trả ô về đúng trạng thái máy chủ
       return;
     }
     setPk(kq.data as unknown as PhiKham);
@@ -84,9 +103,11 @@ export default function ChonDichVuKham({
           Dịch vụ khám{pk.loai_kham ? ` — ${pk.loai_kham}` : ""}
         </h3>
         <span className="text-meta text-ink-muted">
-          {pk.da_chon.length === 0
-            ? "Chưa chọn — đang tính giá mặc định"
-            : "Tiền khám tính theo dịch vụ đã chọn"}
+          {dangGui
+            ? "Đang lưu…"
+            : pk.da_chon.length === 0
+              ? "Chưa chọn — đang tính giá mặc định"
+              : "Tiền khám tính theo dịch vụ đã chọn"}
         </span>
       </div>
       <ul className="space-y-1">

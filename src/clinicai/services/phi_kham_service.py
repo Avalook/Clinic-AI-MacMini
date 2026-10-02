@@ -24,6 +24,8 @@ import asyncpg
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.events.catalogue import DichVuKhamDaDoi
+from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
 from clinicai.services.lenh_kham_core import khoa_luot
@@ -164,11 +166,25 @@ class PhiKhamService:
             return kq
 
     async def chon(
-        self, *, visit_id: str, ids: list[str], identity: StaffIdentity
+        self,
+        *,
+        visit_id: str,
+        ids: list[str] | None = None,
+        them_vao: list[str] | None = None,
+        bo_di: list[str] | None = None,
+        identity: StaffIdentity,
     ) -> dict[str, Any]:
-        """Đặt TẬP dịch vụ khám của lượt = `ids` (bỏ tick = đóng dấu, không xoá)."""
+        """Đổi dịch vụ khám của lượt (bỏ tick = đóng dấu, không xoá).
+
+        HAI DẠNG GỬI:
+        * `ids` — đặt TẬP = `ids` (dạng cũ, giữ cho khách gọi cũ).
+        * `them_vao` / `bo_di` — ĐỔI THEO TỪNG DỊCH VỤ, tính trên tập HIỆN CÓ
+          trong chính giao dịch (C18, 02/10/2026). Màn nào cầm tập cũ (tab mở
+          từ trước, hai người cùng mở một lượt) gửi lên cũng không ghi đè tick
+          của người khác; tick một dịch vụ đã tick là không làm gì (idempotent).
+        """
         vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
-        muon = list(dict.fromkeys(str(i) for i in ids))
+        muon = list(dict.fromkeys(str(i) for i in (ids or [])))
         cid = identity.clinic_id
         async with self._pool.acquire() as conn, conn.transaction():
             if not await _co_quyen_tick(conn, identity):
@@ -184,12 +200,18 @@ class PhiKhamService:
                     "Loại khám đi thẳng phòng không có tiền khám — thêm dịch vụ ở quầy."
                 )
             hop_le = {x["id"] for x in hien["lua_chon"]}
+            cu = set(hien["da_chon"])
+            if ids is None:
+                cong = [str(i) for i in (them_vao or [])]
+                tru = {str(i) for i in (bo_di or [])}
+                muon = [
+                    i for i in dict.fromkeys([*hien["da_chon"], *cong]) if i not in tru
+                ]
             la = [i for i in muon if i not in hop_le]
             if la:
                 raise ValidationError(
                     "Có dịch vụ không thuộc danh sách khám của loại khám này."
                 )
-            cu = set(hien["da_chon"])
             bo = sorted(cu - set(muon))
             them = [i for i in muon if i not in cu]
             if bo:
@@ -215,6 +237,32 @@ class PhiKhamService:
                     identity.staff_id,
                 )
             if bo or them:
+                # Sổ sự kiện (C18, 02/10/2026): dịch vụ khám con lên Hành trình
+                # khách — ai tick / bỏ tick, tên + giá lúc ấy.
+                moc = {x["id"]: x for x in hien["lua_chon"]}
+
+                def _dv(i: str) -> dict[str, str | int | None]:
+                    return {
+                        "id": i,
+                        "ten": (moc.get(i) or {}).get("ten"),
+                        "gia": (moc.get(i) or {}).get("gia"),
+                    }
+
+                await emit_event(
+                    conn,
+                    ten="visit.exam_service_changed",
+                    clinic_id=cid,
+                    aggregate_id=vid,
+                    so_ke_tiep=True,
+                    payload=DichVuKhamDaDoi(
+                        visit_id=vid,
+                        loai_kham=hien["loai_kham"],
+                        them=[_dv(i) for i in them],
+                        bo=[_dv(i) for i in bo],
+                    ),
+                    boi=nguoi(identity),
+                    correlation_id=vid,
+                )
                 await record_event(
                     conn,
                     event_type="visit.exam_fee_selected",

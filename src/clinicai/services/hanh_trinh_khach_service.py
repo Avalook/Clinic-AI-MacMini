@@ -26,6 +26,7 @@ kết quả (không giữ khách).
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections import defaultdict
 from datetime import UTC, date, datetime
@@ -263,6 +264,39 @@ def _the_dich_vu(
     }
 
 
+def _tien_dong(v: Any) -> str:
+    try:
+        return f"{int(v):,}".replace(",", ".") + "đ"
+    except (TypeError, ValueError):
+        return "chưa có giá"
+
+
+def dong_dich_vu_kham(dv: dict[str, Any] | None) -> str | None:
+    """Dòng "Dịch vụ khám" của bước Khám — HÀM THUẦN, máy chủ viết sẵn câu
+    (C18, 02/10/2026; giao diện chỉ vẽ).
+
+    Có dịch vụ khám con đã tick → "Dịch vụ khám: <tên> · <giá>" (nhiều dịch vụ
+    nối " + "). Chưa tick → "Loại khám <tên> · 0đ (chưa chọn dịch vụ khám con)":
+    luật chủ phòng khám, 0đ KHÔNG phải lỗi — tiền khám chỉ tính khi đã chọn dịch
+    vụ khám con (loại nào có giá mặc định thì hiện đúng giá ấy). Không có cả loại
+    khám lẫn dịch vụ → None (không bịa)."""
+    if not dv:
+        return None
+    ds = [x for x in (dv.get("dich_vu") or []) if x.get("ten")]
+    if ds:
+        return "Dịch vụ khám: " + " + ".join(
+            f"{x['ten']} · {_tien_dong(x.get('gia'))}" for x in ds
+        )
+    if dv.get("loai"):
+        # Giá mặc định của loại khám — đúng số hoá đơn đang tính khi chưa tick
+        # (bill_service.dong_kham_theo_chon). Bảy loại đặt lịch để 0đ.
+        return (
+            f"Loại khám {dv['loai']} · {_tien_dong(dv.get('gia_mac_dinh') or 0)}"
+            " (chưa chọn dịch vụ khám con)"
+        )
+    return None
+
+
 def dung_hanh_trinh_khach(
     *,
     luot: dict[str, Any],
@@ -273,6 +307,7 @@ def dung_hanh_trinh_khach(
     phong_bac_si: dict[str, str] | None = None,
     ai: dict[str, str] | None = None,
     lan_lam: dict[str, list[dict[str, Any]]] | None = None,
+    dich_vu_kham: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Hàm THUẦN — kiểm được không cần DB.
 
@@ -286,6 +321,8 @@ def dung_hanh_trinh_khach(
     doctor_staff_id}.
     `phong_bac_si`: doctor_staff_id → tên phòng theo lịch trực.
     `ai`: event_type → tên người làm (check-in, đo, thu tiền).
+    `dich_vu_kham`: {loai, gia_mac_dinh, dich_vu: [{ten, gia}]} — loại khám +
+    dịch vụ khám con ĐANG được chọn (trạng thái hiện tại), xem `dong_dich_vu_kham`.
     """
     phong_bac_si = phong_bac_si or {}
     ai = ai or {}
@@ -403,6 +440,19 @@ def dung_hanh_trinh_khach(
     xong_kham = (km["ket"] if km else None) or (
         _gio(p_chinh.get("completed_at")) if p_chinh else None
     )
+    # I2 (C18, 02/10/2026): mốc XONG theo TRẠNG THÁI HIỆN TẠI. Phiên khám chính
+    # đang khám / đang chờ lại (hoàn tác "Khám xong") thì bước KHÁM không còn
+    # xong — kể cả khi sổ sự kiện chưa kịp ghi dòng "mở lại" vào dòng thời gian.
+    kham_lai = bool(
+        (km or {}).get("mo_lai_luc")
+        or (
+            xong_kham is not None
+            and p_chinh is not None
+            and p_chinh.get("status") in ("in_progress", "queued")
+        )
+    )
+    if kham_lai:
+        xong_kham = None
 
     # 2. Đo sinh hiệu — chờ tính từ check-in. Chưa đo mà bác sĩ đã khám = bước
     # này không làm (bỏ qua), không treo "đang chờ".
@@ -473,6 +523,11 @@ def dung_hanh_trinh_khach(
         bat_dau=bat_kham,
         xong=xong_kham,
         so_chi_dinh=len(lam),
+        # Đang khám lại sau khi hoàn tác "Khám xong" (giao diện hiện chữ này).
+        kham_lai=kham_lai,
+        # "Dịch vụ khám: <tên> · <giá>" hoặc "Loại khám <tên> · 0đ (chưa chọn…)".
+        dich_vu_kham=dong_dich_vu_kham(dich_vu_kham),
+        mo_lai_luc=(km or {}).get("mo_lai_luc"),
         thu_luc=thu["ket"] if thu else None,
         nguoi_thu=ai.get("payment.service_collected") if thu and thu["ket"] else None,
         cho_thu=int(thu.get("con_cho") or 0) if thu else 0,
@@ -828,6 +883,26 @@ _SQL_PHIEN = """
      ORDER BY c.round_no
 """
 
+# Loại khám + dịch vụ khám con ĐANG chọn của các lượt (C18, 02/10/2026).
+_SQL_DICH_VU_KHAM = """
+    SELECT v.visit_id::text AS visit_id, st.name AS loai,
+           coalesce(st.gia_mac_dinh, 0) AS gia_mac_dinh,
+           coalesce((
+               SELECT jsonb_agg(jsonb_build_object('ten', sp.name,
+                                                   'gia', sp.unit_price)
+                                ORDER BY l.chon_luc, l.id)
+                 FROM luot_phi_kham l
+                 JOIN service_price sp
+                   ON sp.id = l.service_price_id AND sp.clinic_id = l.clinic_id
+                WHERE l.clinic_id = v.clinic_id AND l.visit_id = v.visit_id
+                  AND l.bo_luc IS NULL), '[]'::jsonb) AS dich_vu
+      FROM visit v
+      LEFT JOIN appointment a ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+      LEFT JOIN service_type st
+        ON st.id = coalesce(v.service_type_id, a.service_type_id)
+     WHERE v.clinic_id = $1::uuid AND v.visit_id = ANY($2::uuid[])
+"""
+
 # Phòng của bác sĩ theo lịch trực ngày khám — cùng phép tra với con trỏ vị trí
 # (`hang_cho.cap_nhat_vi_tri`).
 _SQL_PHONG_BAC_SI = """
@@ -862,6 +937,7 @@ async def doc_hanh_trinh_khach(
     clinic_id: str,
     visit_ids: list[str],
     kem_ai: bool = False,
+    kem_dich_vu_kham: bool = False,
 ) -> dict[str, dict[str, Any]]:
     """Hành trình của NHIỀU lượt trong 5–6 câu (không theo số lượt). Lượt không
     thuộc phòng khám này không có trong kết quả. Thời điểm trả dạng ISO."""
@@ -906,6 +982,21 @@ async def doc_hanh_trinh_khach(
     lan_lam: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in await conn.fetch(_SQL_LAN_LAM, clinic_id, ids):
         lan_lam[r["order_id"]].append(dict(r))
+    dv_kham: dict[str, dict[str, Any]] = {}
+    # Chỉ dạng ĐẦY ĐỦ (popup một lượt) cần dòng dịch vụ khám — dạng gọn của cả
+    # bảng không tốn thêm câu hỏi.
+    for r0 in (
+        await conn.fetch(_SQL_DICH_VU_KHAM, clinic_id, ids) if kem_dich_vu_kham else []
+    ):
+        r = dict(r0)
+        dich_vu = r.get("dich_vu")
+        if isinstance(dich_vu, str):
+            dich_vu = json.loads(dich_vu)
+        dv_kham[str(r.get("visit_id"))] = {
+            "loai": r.get("loai"),
+            "gia_mac_dinh": r.get("gia_mac_dinh"),
+            "dich_vu": list(dich_vu or []),
+        }
     ai: dict[str, dict[str, str]] = defaultdict(dict)
     if kem_ai:
         for r in await conn.fetch(
@@ -938,6 +1029,7 @@ async def doc_hanh_trinh_khach(
                 },
                 ai=ai.get(vid),
                 lan_lam=lan_lam,
+                dich_vu_kham=dv_kham.get(vid),
             )
         )
     return ra
@@ -975,7 +1067,11 @@ class HanhTrinhKhachService:
             raise NotFoundError("Không tìm thấy lượt khám.")
         async with self._pool.acquire() as conn:
             kq = await doc_hanh_trinh_khach(
-                conn, clinic_id=identity.clinic_id, visit_ids=ma, kem_ai=True
+                conn,
+                clinic_id=identity.clinic_id,
+                visit_ids=ma,
+                kem_ai=True,
+                kem_dich_vu_kham=True,
             )
             if ma[0] not in kq:
                 raise NotFoundError("Không tìm thấy lượt khám.")

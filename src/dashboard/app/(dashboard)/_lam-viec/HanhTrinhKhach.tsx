@@ -237,6 +237,7 @@ function Buoc({
           {b.ten}
           {b.dich_vu && b.dich_vu.length > 0 ? <Chip tone="run">{demThe(b.dich_vu)}</Chip> : null}
           {duKien ? <Chip tone="neutral">dự kiến</Chip> : null}
+          {b.kham_lai ? <Chip tone="warning">đang khám lại</Chip> : null}
         </p>
         {meta.length > 0 ? (
           <p className="text-meta tabular-nums text-ink-muted">{meta.join(" · ")}</p>
@@ -244,6 +245,14 @@ function Buoc({
         {doLai ? <p className="mt-0.5 text-meta tabular-nums text-ink-muted">{doLai}</p> : null}
         {ghi ? (
           <p className={`mt-1 text-meta ${duKien ? "text-ink-muted" : "text-ink-soft"}`}>{ghi}</p>
+        ) : null}
+        {b.ma === "KHAM" && b.mo_lai_luc ? (
+          <p className="mt-0.5 text-meta tabular-nums text-ink-soft">
+            Hoàn tác “Khám xong” lúc {gio(b.mo_lai_luc)}
+          </p>
+        ) : null}
+        {b.ma === "KHAM" && b.dich_vu_kham ? (
+          <p className="mt-0.5 text-meta text-ink-soft">{b.dich_vu_kham}</p>
         ) : null}
         {b.dich_vu && b.dich_vu.length > 0 ? (
           <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
