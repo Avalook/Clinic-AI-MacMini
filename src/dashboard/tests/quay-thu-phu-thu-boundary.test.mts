@@ -7,7 +7,6 @@ import { dongDangChon, giaNhapBang, tongTheoLuaChon } from "../lib/hoa-don-quay.
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const quay = read("../app/(dashboard)/thu-ngan/QuayThuNgan.tsx");
 const hoaDon = read("../app/(dashboard)/thu-ngan/HoaDonMot.tsx");
-const phuThu = read("../app/(dashboard)/thu-ngan/PhuThuKem.tsx");
 
 test("phụ thu theo tick dịch vụ cha và rời ô cùng giá không tạo thay đổi", () => {
   const chon = new Set<string>();
@@ -44,13 +43,22 @@ test("phụ thu của dịch vụ cha bị khóa vẫn giữ theo trạng thái 
   assert.equal(tongTheoLuaChon([phuThuBiKhoa], chon, idsCoTheDoi), 300_000);
 });
 
-test("quầy khóa Thu lúc lưu phụ thu và không remount theo revision", () => {
-  assert.match(hoaDon, /disabled=\{dangThu \|\| dangLuuPhuThu \|\| chanThu\}/);
-  assert.match(quay, /dangLuuPhuThu=\{phuThuDangLuu\.has\(l\.visit_id\)\}/);
+test("quầy khóa Thu lúc lưu vật tư và không remount theo revision", () => {
+  assert.match(hoaDon, /disabled=\{dangThu \|\| dangLuuVatTu \|\| chanThu\}/);
+  assert.match(quay, /dangLuuVatTu=\{vatTuDangLuu\.has\(l\.visit_id\)\}/);
   assert.match(quay, /key=\{`\$\{l\.visit_id\}:\$\{l\.quay_thu\.lua_chon\.order_ids_seen\.join/);
   assert.match(quay, /l\.quay_thu\.lua_chon\.revision/);
   assert.doesNotMatch(quay, /key=\{`\$\{l\.visit_id\}:\$\{l\.quay_thu\.revision/);
   assert.match(quay, /className="min-w-0 overflow-hidden rounded-card/);
   assert.match(quay, /className="min-w-0 rounded-card border border-line bg-surface shadow-card"/);
-  assert.match(phuThu, /max-w-32/);
+});
+
+test("khối Món kèm cũ đã gỡ: không còn component, proxy hay state; vật tư thay chỗ", () => {
+  assert.doesNotMatch(quay, /PhuThuKem|phuThuDangLuu|setPhuThuDangLuu/);
+  assert.doesNotMatch(hoaDon, /dangLuuPhuThu/);
+  assert.doesNotMatch(
+    read("../app/api/luot-kham/route.ts"),
+    /phu-thu|PhuThu/,
+  );
+  assert.match(quay, /<VatTuQuay/);
 });

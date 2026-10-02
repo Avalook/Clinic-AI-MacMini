@@ -81,16 +81,21 @@ function ngayGio(iso: string | null): string {
 export default function GiaoDich({
   lichSu,
   quay,
+  ngay,
 }: {
   lichSu: boolean;
   /** Quầy đang đứng: chỉ xem / hoàn tác sổ của loại tiền mình (01/10/2026). */
   quay: "dich_vu" | "thuoc";
+  /** Ngày trên thanh ngày của quầy (02/10/2026); không có = hôm nay. Đổi ngày
+   *  thì TabThuNgan dựng lại tab này (`key`) — ô "Từ – Đến" chỉ để mở rộng sau đó. */
+  ngay?: string;
 }) {
-  const [tu, setTu] = useState(homNay);
-  const [den, setDen] = useState(homNay);
+  const ngayXem = ngay ?? homNay();
+  const [tu, setTu] = useState(ngayXem);
+  const [den, setDen] = useState(ngayXem);
   const [hoi, setHoi] = useState<{ tu: string; den: string; lan: number }>(() => ({
-    tu: homNay(),
-    den: homNay(),
+    tu: ngayXem,
+    den: ngayXem,
     lan: 0,
   }));
   const [kq, setKq] = useState<{

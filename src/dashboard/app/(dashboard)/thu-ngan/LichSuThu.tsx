@@ -96,10 +96,12 @@ function gio(iso: string | null, coNgay: boolean): string {
 
 const O_NHAP = "h-8 rounded-control border border-line bg-surface px-2 text-meta text-ink";
 
-export default function LichSuThu() {
-  const homNay = todayVn();
-  const [tu, setTu] = useState(homNay);
-  const [den, setDen] = useState(homNay);
+export default function LichSuThu({ ngay }: { ngay?: string }) {
+  // Thanh ngày của quầy (02/10/2026) quyết ngày xem; ô "Từ – Đến" dưới đây chỉ
+  // để MỞ RỘNG khoảng sau đó (đối soát cả tuần). Đổi ngày → TabThuNgan dựng lại (`key`), về đúng ngày ấy.
+  const ngayXem = ngay ?? todayVn();
+  const [tu, setTu] = useState(ngayXem);
+  const [den, setDen] = useState(ngayXem);
   const [tim, setTim] = useState("");
   const [hinhThuc, setHinhThuc] = useState("");
   const [nguoiThu, setNguoiThu] = useState("");

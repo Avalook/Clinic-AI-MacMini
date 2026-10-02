@@ -207,8 +207,9 @@ def dung_hoa_don_quay(
                 }
             )
 
-    # Phụ thu kèm dịch vụ (đầu dò…, 28/09/2026): tick / sửa giá ở khối riêng
-    # (`PhuThuKem`); trong hoá đơn là dòng khoá như tiền khám.
+    # Phụ thu CŨ kèm dịch vụ (đầu dò…, 28/09/2026): khối tick đã gỡ (C17,
+    # 02/10/2026, thay bằng "Mua thêm vật tư") nhưng dòng đã tick từ trước vẫn
+    # nằm trong hoá đơn, khoá như tiền khám, thu được như thường.
     phu_thu_quay: list[dict[str, Any]] = []
     for d in hd.get("dong") or []:
         if d.get("source_type") != "phu_thu":

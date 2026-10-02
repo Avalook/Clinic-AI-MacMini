@@ -33,5 +33,5 @@ test("hoàn tác gửi quay; proxy chuyển quay xuống máy chủ", () => {
 
 test("sổ giao dịch lọc theo quầy đang đứng", () => {
   assert.match(giaoDich, /xem=giao-dich&kind=\$\{quay\}/);
-  assert.match(tab, /<GiaoDich key=\{tab\} lichSu=\{tab === "lich_su"\} quay=\{quay\} \/>/);
+  assert.match(tab, /<GiaoDich key=\{`\$\{tab\}:\$\{ngay\}`\} lichSu=\{tab === "lich_su"\} quay=\{quay\} ngay=\{ngay\} \/>/);
 });

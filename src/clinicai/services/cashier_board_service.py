@@ -39,7 +39,7 @@ import asyncpg
 import structlog
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, doc_ngay_xem, hom_nay_vn
 from clinicai.permissions.can import can
 from clinicai.services.anh_chuyen_khoan_service import anh_cua_cac_lan_thu
 from clinicai.services.doi_hinh_thuc_service import trang_thai_doi
@@ -142,11 +142,12 @@ WITH v AS (
      WHERE vi.clinic_id = $1::uuid
        AND ((vi.created_at >= $2 AND vi.created_at < $3)
             -- THU NỢ (01/10/2026): lượt ngày trước đã GHI NỢ, còn chưa thu —
-            -- khách quay lại trả ở quầy theo đúng đường thu có sẵn.
-            OR EXISTS (
+            -- khách quay lại trả ở quầy theo đúng đường thu có sẵn. Chỉ khi
+            -- xem HÔM NAY ($4): xem lại một ngày cũ thì chỉ khách của ngày ấy.
+            OR ($4::boolean AND EXISTS (
                 SELECT 1 FROM public.cong_no n
                  WHERE n.clinic_id = vi.clinic_id AND n.visit_id = vi.visit_id
-                   AND n.trang_thai = 'CHUA_THU'))
+                   AND n.trang_thai = 'CHUA_THU')))
        -- Luật 1: đã khám xong (ô thuốc + dịch vụ), HOẶC đã có chỉ định chính
        -- thức (ô dịch vụ — trả tiền trong lúc phiên bác sĩ còn mở).
        AND ("""
@@ -376,17 +377,26 @@ class CashierBoardService:
         self._pool = pool
 
     async def board(
-        self, *, identity: StaffIdentity, modes: list[str]
+        self, *, identity: StaffIdentity, modes: list[str], ngay: Any = None
     ) -> dict[str, Any]:
+        """Bảng thu của MỘT ngày (`ngay` YYYY-MM-DD giờ VN; rác / rỗng = hôm nay).
+
+        Thanh ngày (02/10/2026): thu ngân xem lại ngày cũ để đối soát — khách
+        chưa trả của ngày ấy vẫn thu được (không khoá). Máy chủ quyết khoảng.
+        """
         want_svc = "dich_vu" in modes
         want_rx = "thuoc" in modes
-        start = _vn_midnight_today()
-        end = start + timedelta(days=1)
+        ngay_xem, start, end = khoang_ngay_xem(ngay)
+        la_hom_nay = ngay_xem == hom_nay_vn()
 
-        row = await self._pool.fetchval(_SQL, identity.clinic_id, start, end)
+        row = await self._pool.fetchval(
+            _SQL, identity.clinic_id, start, end, la_hom_nay
+        )
         raw = json.loads(row) if isinstance(row, str) else row
 
         out = build_rows(raw, want_svc=want_svc, want_rx=want_rx)
+        out["ngay"] = ngay_xem.isoformat()
+        out["hom_nay"] = hom_nay_vn().isoformat()
         # THUỐC VÀ DỊCH VỤ THU RIÊNG HẲN (Tuyền 01/10/2026): quầy nào chỉ thấy
         # sổ của loại tiền ấy — "đã thu" và "chờ xác minh" của loại kia không
         # trả về; quầy thuốc chỉ liệt kê lượt có đơn thuốc.
@@ -522,7 +532,7 @@ class CashierBoardService:
             out["dem"] = {
                 "cho_thu": len(out["ds_cho_thu"]),
                 "da_thu_hom_nay": await _dem_da_thu_hom_nay(
-                    self._pool, identity.clinic_id
+                    self._pool, identity.clinic_id, ngay_xem
                 ),
             }
         if want_svc:
@@ -677,9 +687,9 @@ def _doc_luc(v: Any) -> datetime | None:
         return None
 
 
-async def _dem_da_thu_hom_nay(pool: asyncpg.Pool, clinic_id: str) -> int:
-    """Số khách ở tab "Đã thu hôm nay" — cùng tập với sổ gom theo khách
-    (``QuayThuService.lich_su`` hôm nay): lần thu đã thu hoặc khoản hoàn hôm nay."""
+async def _dem_da_thu_hom_nay(pool: asyncpg.Pool, clinic_id: str, ngay: date) -> int:
+    """Số khách ở tab "Đã thu ngày …" — cùng tập với sổ gom theo khách
+    (``QuayThuService.lich_su`` đúng ngày ấy): lần thu đã thu hoặc khoản hoàn."""
     return int(
         await pool.fetchval(
             """
@@ -687,16 +697,16 @@ async def _dem_da_thu_hom_nay(pool: asyncpg.Pool, clinic_id: str) -> int:
                 SELECT visit_id FROM payment_cycle
                  WHERE clinic_id = $1::uuid AND kind = 'dich_vu'
                    AND paid_at IS NOT NULL
-                   AND (paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                       = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                   AND (paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2::date
                 UNION ALL
                 SELECT visit_id FROM payment_refund
                  WHERE clinic_id = $1::uuid AND kind = 'dich_vu'
                    AND status IN ('PENDING', 'COMPLETED')
                    AND (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                       = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date) x
+                       = $2::date) x
             """,
             clinic_id,
+            ngay,
         )
         or 0
     )
@@ -812,11 +822,12 @@ def build_rows(raw: dict[str, Any], *, want_svc: bool, want_rx: bool) -> dict[st
     return {"items": items, "paid": paid}
 
 
-def _vn_midnight_today() -> datetime:
-    """Nửa đêm HÔM NAY giờ Việt Nam, CÓ múi giờ.
+def khoang_ngay_xem(ngay: Any) -> tuple[date, datetime, datetime]:
+    """Ngày thu ngân đang xem → (ngày, nửa đêm đầu, nửa đêm sau), giờ VN có múi giờ.
 
-    `visit.created_at` là timestamptz; một datetime trần sẽ được Postgres hiểu
-    theo TimeZone của phiên và biên ngày lệch bảy tiếng — thu ngân sẽ thấy bệnh
-    nhân của hôm qua nằm lẫn trong danh sách hôm nay.
+    `ngay` YYYY-MM-DD; rác / rỗng / trước 2020 → HÔM NAY, KHÔNG ném (luật hàm
+    nhận ngày từ người dùng). Thuần — test được không cần database.
     """
-    return datetime.now(CLINIC_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+    ngay_xem = doc_ngay_xem(ngay) or hom_nay_vn()
+    dau = datetime(ngay_xem.year, ngay_xem.month, ngay_xem.day, tzinfo=CLINIC_TZ)
+    return ngay_xem, dau, dau + timedelta(days=1)

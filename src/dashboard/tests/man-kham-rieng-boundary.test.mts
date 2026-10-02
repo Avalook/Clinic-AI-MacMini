@@ -79,7 +79,7 @@ test("hai quầy thu ngân: mỗi màn cố định một quầy, cùng một th
     assert.match(trang, new RegExp(`<TabThuNgan quay="${quay}" />`));
     assert.match(
       readFileSync(new URL("../app/(dashboard)/thu-ngan/TabThuNgan.tsx", import.meta.url), "utf8"),
-      /<QuayThuNgan quay=\{quay\} \/>/,
+      /<QuayThuNgan quay=\{quay\} ngay=\{ngay\} \/>/,
     );
     assert.match(trang, new RegExp(`requireNavAccess\\("/thu-ngan/${duong}"\\)`));
     assert.match(nav, new RegExp(`href: "/thu-ngan/${duong}"`));
