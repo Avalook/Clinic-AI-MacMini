@@ -235,10 +235,31 @@ def test_gio_tung_buoc() -> None:
     assert b["CHECK_OUT"]["trang_thai"] == "chua"
 
 
+_MAU_THE = {
+    "XONG": "xong",
+    "DANG_LAM": "dang",
+    "CHO_LAM": "cho",
+    "CHO_THU": "cho",
+    "DOI_TAC": "doi_tac",
+}
+
+
+def _doan_cua_khung(kq: dict[str, Any]) -> list[str]:
+    """Màu khung đầy đủ đọc theo mắt người: chấm từng bước, riêng "Làm dịch vụ"
+    là viền từng thẻ."""
+    ra: list[str] = []
+    for b in kq["buoc"]:
+        if b["ma"] == "LAM_DV":
+            ra.extend(_MAU_THE[t["trang_thai"]] for t in b["dich_vu"])
+        else:
+            ra.append(b["trang_thai"])
+    return ra
+
+
 def test_dong_gon_doan_va_dem() -> None:
     g = _buoi()["gon"]
-    # check-in, sinh hiệu, khám, 3 dịch vụ, quay lại BS, check-out (thuốc chưa
-    # biết có đơn — không chiếm đoạn).
+    # check-in, sinh hiệu, khám, 3 dịch vụ, quay lại BS, thuốc (nếu có đơn —
+    # bên trong có chấm xám thì ngoài cũng có đoạn xám), check-out.
     assert g["doan"] == [
         "xong",
         "xong",
@@ -248,16 +269,16 @@ def test_dong_gon_doan_va_dem() -> None:
         "doi_tac",
         "chua",
         "chua",
+        "chua",
     ]
     assert (g["dv_xong"], g["dv_tong"]) == (1, 3)
     assert g["con_cho"] == ["KQ đối tác"]
 
 
-def test_check_out_la_xong_buoi_tick_het() -> None:
+def test_check_out_la_xong_buoi_thanh_theo_khung() -> None:
     kq = _buoi(dong_luc=p(80))
     g = kq["gon"]
     assert g["trang_thai"] == "DA_VE" and g["xong_buoi"] and g["tu_luc"] == p(80)
-    assert set(g["doan"]) == {"xong"}
     assert kq["tiep_theo"] == []
     b = _buoc(kq)
     assert b["CHECK_OUT"]["trang_thai"] == "xong" and b["CHECK_OUT"]["xong"] == p(80)
@@ -267,6 +288,43 @@ def test_check_out_la_xong_buoi_tick_het() -> None:
     assert "THUOC" not in b
     dv = {t["id"]: t for t in b["LAM_DV"]["dich_vu"]}
     assert dv["cd-hpv"]["trang_thai"] == "DOI_TAC"
+    # 02/10 (Tuyền): KHÔNG ép xanh hết — khách về còn việc dở thì thanh cũng thấy,
+    # cùng màu với bên trong.
+    assert g["doan"] == [
+        "xong",
+        "xong",
+        "xong",
+        "xong",
+        "dang",
+        "doi_tac",
+        "khong",
+        "xong",
+    ]
+
+
+def test_thanh_doan_luon_cung_mau_khung_day_du() -> None:
+    """Bất biến (Tuyền 02/10/2026): bên trong cam thì ngoài cam, xanh thì xanh —
+    cùng số đoạn, cùng thứ tự, ở mọi trạng thái của buổi."""
+    ca = [
+        _buoi(),
+        _buoi(dong_luc=p(80)),
+        dung_hanh_trinh_khach(
+            luot={"visit_id": "v3", "status": "IN_PROGRESS", "checked_in_at": p(0)},
+            su_kien=[],
+            chi_dinh=[],
+            hang=[_q("q", "TU_VAN", "waiting", vao=p(1), stt=1)],
+            phien=[],
+        ),
+        dung_hanh_trinh_khach(
+            luot={"visit_id": "v4", "status": "IN_PROGRESS", "checked_in_at": p(0)},
+            su_kien=[("vitals.recorded", p(5), {})],
+            chi_dinh=[],
+            hang=[_q("q", "PRIMARY", "waiting", vao=p(6), bac_si="Nam", stt=2)],
+            phien=[],
+        ),
+    ]
+    for kq in ca:
+        assert kq["gon"]["doan"] == _doan_cua_khung(kq), kq["buoc"]
 
 
 def test_dang_cho_co_stt() -> None:
