@@ -301,3 +301,54 @@ async def test_khong_duoc_doi_phi_kham_sau_checkout(kb: KichBan) -> None:
         await PhiKhamService(kb.pool).chon(
             visit_id=kb.visit_id, ids=[child], identity=kb.bac_si
         )
+
+
+async def test_tien_kham_khong_tinh_hai_lan_khi_phi_kham_chi_dinh_duoc(
+    kb: KichBan,
+) -> None:
+    """C21 (02/10/2026): phí khám chỉ định được ở Bàn khám — nhưng một dịch vụ
+    đang tick ở "Dịch vụ khám" thì không chỉ định lại, và ngược lại."""
+    from tests.services.test_luot_kham_service_db import _vao_kham
+
+    a = await _dich_vu_kham(kb, "Khám nam khoa (thử C21)", 300000)
+    ma = await kb.pool.fetchval(
+        "UPDATE service_price SET node_code = (SELECT node_code FROM service_price"
+        " WHERE clinic_id = $2::uuid AND service_code = $3 LIMIT 1)"
+        " WHERE id = $1::uuid RETURNING service_code",
+        a,
+        kb.bac_si.clinic_id,
+        kb.ma_sa,
+    )
+    phien = await _vao_kham(kb)
+    svc = PhiKhamService(kb.pool)
+    await svc.chon(visit_id=kb.visit_id, them_vao=[a], identity=kb.bac_si)
+    with pytest.raises(ValidationError, match="Đã tính ở Dịch vụ khám"):
+        await kb.svc.authorize_orders(
+            consultation_id=phien,
+            service_codes=[ma],
+            draft_order_ids=None,
+            identity=kb.bac_si,
+        )
+    with pytest.raises(ValidationError, match="Đã tính ở Dịch vụ khám"):
+        await kb.svc.propose_orders(
+            consultation_id=phien, service_codes=[ma], identity=kb.bac_si
+        )
+    # Bỏ tick → chỉ định được; tick lại thì bị chặn (tiền đã nằm ở chỉ định).
+    await svc.chon(visit_id=kb.visit_id, bo_di=[a], identity=kb.bac_si)
+    duyet = await kb.svc.authorize_orders(
+        consultation_id=phien,
+        service_codes=[ma],
+        draft_order_ids=None,
+        identity=kb.bac_si,
+    )
+    assert len(duyet["order_ids"]) == 1
+    with pytest.raises(ValidationError, match="Đã chỉ định"):
+        await svc.chon(visit_id=kb.visit_id, them_vao=[a], identity=kb.bac_si)
+    assert (await svc.doc(visit_id=kb.visit_id, identity=kb.bac_si))["da_chon"] == []
+    # Huỷ chỉ định → tick lại được.
+    await kb.pool.execute(
+        "UPDATE service_order SET exec_status = 'cancelled' WHERE id = ANY($1::uuid[])",
+        duyet["order_ids"],
+    )
+    kq = await svc.chon(visit_id=kb.visit_id, them_vao=[a], identity=kb.bac_si)
+    assert kq["da_chon"] == [a]
