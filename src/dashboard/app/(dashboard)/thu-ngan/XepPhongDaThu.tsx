@@ -58,7 +58,7 @@ export default function XepPhongDaThu({
               {c.ten}
               <span className={c.phong ? "text-ink-muted" : "text-warning"}>
                 {" "}
-                · {c.phong ?? "chưa xếp phòng"}
+                · {c.phong ?? "vui lòng chọn phòng"}
                 {c.phong && c.bac_si_lam ? ` · ${c.bac_si_lam}` : ""}
               </span>
             </p>

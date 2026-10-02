@@ -47,7 +47,7 @@ export interface Phieu {
       /** Bác sĩ quầy chọn trong phòng nhiều bác sĩ ("BS X") — 30/09/2026. */
       bac_si?: string | null;
     } | null;
-    /** Máy vừa thu, đang tự xếp phòng — bản in hỏi lại sau giây lát. */
+    /** Vừa thu, máy chủ chưa xếp xong phòng (chạy nền) — bản in hỏi lại sau giây lát. */
     cho_xep?: boolean;
     /** Xếp / đổi phòng ngay trên trang phiếu (quên chọn phòng lúc thu). */
     order_id?: string;
@@ -91,7 +91,7 @@ export default function InPhieuThu({ id, loai }: { id: string; loai: LoaiPhieu }
   useEffect(() => {
     let huy = false;
     void (async () => {
-      // Thu xong là máy tự xếp phòng (vài giây, chạy nền). Bill mở ngay lúc ấy
+      // Thu xong máy chủ mới xếp phòng (vài giây, chạy nền). Bill mở ngay lúc ấy
       // có thể chưa có phòng → hỏi lại tối đa 4 lần, cách 1,5 giây.
       for (let lan = 0; lan < 5; lan++) {
         const r = await fetch(`/api/cashier?xem=phieu&id=${encodeURIComponent(id)}&loai=${loai}`, {
@@ -151,7 +151,7 @@ function XepPhongTrenPhieu({ p, onDaDoi }: { p: Phieu; onDaDoi: () => void }) {
               {d.ten}
               <span className={d.phong ? "text-ink-muted" : "text-warning"}>
                 {" "}
-                · {d.phong ? `${d.phong.ten}${d.phong.bac_si ? ` · ${d.phong.bac_si}` : ""}` : "chưa xếp phòng"}
+                · {d.phong ? `${d.phong.ten}${d.phong.bac_si ? ` · ${d.phong.bac_si}` : ""}` : "vui lòng chọn phòng"}
               </span>
             </p>
             <DoiPhong
