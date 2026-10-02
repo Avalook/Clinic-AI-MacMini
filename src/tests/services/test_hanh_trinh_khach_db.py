@@ -195,7 +195,8 @@ async def test_buoi_du_dang_o_tiep_theo_gio_tung_buoc_va_check_out(
             visit_id="00000000-0000-4000-8000-000000000000", identity=ca.le_tan
         )
 
-    # CHECK-OUT = xong buổi: tick hết, không còn "tiếp theo".
+    # CHECK-OUT = xong buổi: không còn "tiếp theo"; thanh đoạn đọc thẳng các
+    # bước (02/10 — không ép xanh hết, cùng màu bên trong).
     await pool.execute(
         "UPDATE queue_entry SET status = 'done', done_at = now()"
         " WHERE visit_id = $1::uuid"
@@ -207,6 +208,9 @@ async def test_buoi_du_dang_o_tiep_theo_gio_tung_buoc_va_check_out(
     )
     ve = await svc.mot_luot(visit_id=visit, identity=ca.le_tan)
     assert ve["gon"]["trang_thai"] == "DA_VE" and ve["gon"]["xong_buoi"]
-    assert set(ve["gon"]["doan"]) == {"xong"}
+    assert ve["gon"]["doan"][-1] == "xong", "đoạn Check-out xanh"
+    assert len(ve["gon"]["doan"]) == len(ve["buoc"]) - 1 + len(
+        {x["ma"]: x for x in ve["buoc"]}["LAM_DV"]["dich_vu"]
+    ), "mỗi bước một đoạn, Làm dịch vụ mỗi thẻ một đoạn"
     assert ve["tiep_theo"] == []
     assert {x["ma"]: x for x in ve["buoc"]}["CHECK_OUT"]["trang_thai"] == "xong"

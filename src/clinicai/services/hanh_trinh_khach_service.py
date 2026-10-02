@@ -20,8 +20,9 @@ làm do trình duyệt tính theo đồng hồ (dòng đang chạy phải nhích
 Thiếu mốc thì để trống, không bịa.
 
 Check-out (`visit.closed_at`) = khách XONG BUỔI (Tuyền 29/09: "ấn checkout là
-phải xong"): thanh đoạn tick hết; việc đối tác chờ kết quả vẫn ghi đúng là chờ
-kết quả (không giữ khách).
+phải xong"); việc đối tác chờ kết quả vẫn ghi đúng là chờ kết quả (không giữ
+khách). Thanh đoạn của dạng gọn đọc thẳng các bước của dạng đầy đủ
+(`doan_tu_buoc`, 02/10) — hai dạng luôn cùng màu, kể cả sau check-out.
 """
 
 from __future__ import annotations
@@ -751,28 +752,7 @@ def dung_hanh_trinh_khach(
                 )
 
     # ── DẠNG GỌN ───────────────────────────────────────────────────────────
-    doan: list[str] = []
-    for b in buoc:
-        if b["ma"] == "LAM_DV":
-            for t in b["dich_vu"] or []:
-                doan.append(
-                    {
-                        DA_XONG: XONG,
-                        DANG_LAM: DANG,
-                        CHO_LAM: CHO,
-                        CHO_THU: CHO,
-                        DV_DOI_TAC: DOI_TAC,
-                    }.get(t["trang_thai"], CHUA)
-                )
-        elif b["ma"] == "THUOC" and b["trang_thai"] == CHUA:
-            continue  # "nếu có đơn" — không chiếm một đoạn khi chưa biết có đơn
-        else:
-            doan.append(b["trang_thai"])
-    if xong_buoi:
-        # Check-out = xong buổi: tick hết.
-        doan = [XONG] * len(doan)
-    else:
-        doan = [CHUA if d == KHONG else d for d in doan]
+    doan = doan_tu_buoc(buoc)
 
     con_cho: list[str] = []
     for t in the:
@@ -807,6 +787,34 @@ def dung_hanh_trinh_khach(
         "tiep_theo": tiep,
         "buoc": buoc,
     }
+
+
+#: Thẻ dịch vụ → màu đoạn (cùng màu viền thẻ ở khung đầy đủ).
+_DOAN_THE = {
+    DA_XONG: XONG,
+    DANG_LAM: DANG,
+    CHO_LAM: CHO,
+    CHO_THU: CHO,
+    DV_DOI_TAC: DOI_TAC,
+}
+
+
+def doan_tu_buoc(buoc: list[dict[str, Any]]) -> list[str]:
+    """Thanh đoạn màu của dòng gọn — ĐỌC THẲNG dòng thời gian, không luật riêng
+    (Tuyền 02/10/2026: "bên trong cái nào cam thì ngoài cũng cam").
+
+    Mỗi bước một đoạn, cùng trạng thái với chấm của bước đó; riêng "Làm dịch
+    vụ" mỗi thẻ dịch vụ một đoạn, cùng màu viền thẻ. Trước đây thanh bỏ bước
+    "Thuốc — nếu có đơn" (số đoạn lệch số chấm) và ép xanh hết khi check-out
+    (bên trong vẫn xám / cam) — nay bỏ cả hai: khách về mà còn việc dở thì
+    thanh cũng thấy."""
+    doan: list[str] = []
+    for b in buoc:
+        if b["ma"] == "LAM_DV" and b.get("dich_vu"):
+            doan.extend(_DOAN_THE.get(t["trang_thai"], CHUA) for t in b["dich_vu"])
+        else:
+            doan.append(b["trang_thai"])
+    return doan
 
 
 def _iso(v: Any) -> Any:
