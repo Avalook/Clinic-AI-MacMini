@@ -24,6 +24,13 @@ Dựng 01/10/2026 (Tuyền chốt). Bản thử giống prod để mọi ngườ
   bản khám / JSON sự kiện được thay bằng tên giả; mọi SĐT, email trong văn bản →
   giả. Danh sách cột đầy đủ: bảng `_che_cot` trong `scripts/staging-che-du-lieu.sql`.
   Nạp + che là **một giao dịch** — dữ liệu chưa che không bao giờ nằm lại staging.
+- **Phiên đăng nhập được giữ qua đêm nạp lại (02/10):** `TRUNCATE auth.users CASCADE`
+  xoá cả `auth.sessions` / `refresh_tokens`, nên script chép chúng ra bảng tạm trước
+  và trả lại (chỉ phiên của tài khoản còn tồn tại) trong cùng giao dịch — sáng ra
+  không ai phải đăng nhập lại. Trả lại hỏng thì chỉ in cảnh báo, nạp lại vẫn chạy
+  (không giữ được phiên ≠ không có staging). Nếu phiên vẫn mất (đổi mật khẩu, GoTrue
+  mất dữ liệu…), ứng dụng tự đưa người dùng về `/login` kèm câu "Phiên đăng nhập đã
+  hết — vui lòng đăng nhập lại" thay vì để họ kẹt ở màn cũ (`lib/het-phien.ts`).
 - **Không có** ảnh / video / PDF kết quả (không chép kho Viettel) — màn hiện
   "không có tệp" là đúng. Tệp tải lên staging nằm ở `~/clinicai-staging-data`.
 - **Không gửi gì ra ngoài:** không khoá Telegram / Zalo / SMS / POS / AI thật

@@ -6,6 +6,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { ganKiemPhienTaiCho } from "./lib/kiem-phien-tai-cho";
+import {
+  cookiePhienCanXoa,
+  DUONG_DANG_NHAP_HET_PHIEN,
+  phanLoaiKhongCoNguoiDung,
+} from "./lib/het-phien";
 import { laRouteDaTat } from "./lib/route-da-tat";
 import { SUPABASE_COOKIE_NAME } from "./lib/supabase-cookie";
 
@@ -63,9 +68,16 @@ export async function proxy(request: NextRequest) {
     },
   ));
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Lỗi xác thực CÓ THỂ ném (GoTrue không trả lỗi tử tế) — coi như không có người dùng.
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
+  let loiXacThuc: { name?: string; status?: number } | null = null;
+  try {
+    const kq = await supabase.auth.getUser();
+    user = kq.data.user;
+    loiXacThuc = kq.error;
+  } catch (e) {
+    loiXacThuc = e as { name?: string; status?: number };
+  }
 
   const { pathname } = request.nextUrl;
 
@@ -86,7 +98,23 @@ export async function proxy(request: NextRequest) {
   if (isPublic) return response;
 
   // Cổng duy nhất: phải có phiên...
-  if (!user) return redirectTo("/login");
+  if (!user) {
+    // Có cookie phiên mà không ra người dùng = phiên đã chết (đêm nạp lại staging
+    // xoá auth.sessions; refresh token mất...). Xoá cookie + nói rõ, không để
+    // người dùng kẹt ở màn cũ. Xem lib/het-phien.ts.
+    const ten = request.cookies.getAll().map((c) => c.name);
+    const coCookie = cookiePhienCanXoa(ten, SUPABASE_COOKIE_NAME);
+    if (phanLoaiKhongCoNguoiDung(loiXacThuc, coCookie.length > 0) === "chua_dang_nhap") {
+      return redirectTo("/login");
+    }
+    const url = request.nextUrl.clone();
+    const dich = new URL(DUONG_DANG_NHAP_HET_PHIEN, request.url);
+    url.pathname = dich.pathname;
+    url.search = dich.search;
+    const res = NextResponse.redirect(url);
+    for (const t of coCookie) res.cookies.set(t, "", { path: "/", maxAge: 0 });
+    return res;
+  }
 
   // ...VÀ phiên ấy phải gắn với một nhân viên đang làm việc. Trước đây truy vấn
   // này chạy rồi vứt kết quả đi, vì cổng phòng khám dùng chung mới là thứ chặn

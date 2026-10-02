@@ -2,12 +2,16 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Mail, Lock } from "lucide-react";
+import { THAM_SO_HET_PHIEN } from "../../../lib/het-phien";
 import { loginStaff } from "./actions";
 
 export default function LoginForm() {
   const [state, formAction, pending] = useActionState(loginStaff, null);
+  // Phiên chết (proxy / gác 401 chuyển về đây) — nói rõ, không để người dùng đoán.
+  const hetPhien = useSearchParams().get(THAM_SO_HET_PHIEN) === "1";
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-brand-50 via-white to-brand-100 px-4">
@@ -87,6 +91,12 @@ export default function LoginForm() {
             />
           </div>
         </div>
+
+        {hetPhien && !state?.error && (
+          <p role="status" className="rounded-lg bg-warning-bg px-3 py-2 text-sm text-warning">
+            Phiên đăng nhập đã hết — vui lòng đăng nhập lại.
+          </p>
+        )}
 
         {state?.error && (
           <p className="rounded-lg bg-danger-bg px-3 py-2 text-sm text-danger">

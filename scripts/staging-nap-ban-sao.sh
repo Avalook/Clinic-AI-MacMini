@@ -167,6 +167,25 @@ xong "đã dừng:${DA_DUNG:- (không có gì đang chạy)}"
 buoc "4/6  Nạp + che dữ liệu khách — MỘT giao dịch (vài chục giây)"
 {
     echo "SET client_min_messages = warning;"
+    # GIỮ PHIÊN ĐĂNG NHẬP QUA ĐÊM (02/10/2026): TRUNCATE auth.users CASCADE xoá cả
+    # auth.sessions / refresh_tokens / mfa_amr_claims → sáng ra trình duyệt cầm
+    # refresh token đã chết ("Refresh Token Not Found"). Chép ra bảng TẠM trước
+    # khi xoá, trả lại sau khi nạp tài khoản prod (chỉ phiên của người còn tồn
+    # tại). Cùng giao dịch; hỏng thì chỉ cảnh báo — nạp lại vẫn chạy tiếp,
+    # người dùng đăng nhập lại (app đã tự đưa về /login: lib/het-phien.ts).
+    cat <<'SQL'
+DO $giu$
+BEGIN
+    CREATE TEMP TABLE giu_sessions AS SELECT * FROM auth.sessions;
+    CREATE TEMP TABLE giu_refresh  AS SELECT * FROM auth.refresh_tokens;
+    IF to_regclass('auth.mfa_amr_claims') IS NOT NULL THEN
+        CREATE TEMP TABLE giu_amr AS SELECT * FROM auth.mfa_amr_claims;
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'không giữ được phiên đăng nhập staging (%) — người dùng sẽ phải đăng nhập lại', SQLERRM;
+END
+$giu$;
+SQL
     # Gỡ public TRƯỚC khi xoá auth: DB dựng bằng migration có khoá ngoại
     # public → auth.users; TRUNCATE … CASCADE sẽ lan sang bảng chỉ-thêm và đụng
     # chốt chặn. DROP SCHEMA không chạy trigger xoá hàng.
@@ -174,6 +193,29 @@ buoc "4/6  Nạp + che dữ liệu khách — MỘT giao dịch (vài chục gi�
     echo "TRUNCATE auth.users CASCADE;"
     gzip -cd "$AUTH"
     echo "SET client_min_messages = warning;"
+    cat <<'SQL'
+DO $giu$
+BEGIN
+    IF to_regclass('pg_temp.giu_sessions') IS NULL OR to_regclass('pg_temp.giu_refresh') IS NULL THEN
+        RETURN;  -- bước giữ phiên đã hỏng/bỏ qua — cảnh báo đã in ở trên
+    END IF;
+    INSERT INTO auth.sessions SELECT s.* FROM giu_sessions s
+        WHERE s.user_id IN (SELECT id FROM auth.users) ON CONFLICT DO NOTHING;
+    INSERT INTO auth.refresh_tokens SELECT r.* FROM giu_refresh r
+        WHERE r.session_id IN (SELECT id FROM auth.sessions) ON CONFLICT DO NOTHING;
+    IF to_regclass('pg_temp.giu_amr') IS NOT NULL THEN
+        INSERT INTO auth.mfa_amr_claims SELECT a.* FROM giu_amr a
+            WHERE a.session_id IN (SELECT id FROM auth.sessions) ON CONFLICT DO NOTHING;
+    END IF;
+    -- refresh_tokens.id là serial: GoTrue cấp id mới phải lớn hơn mọi id đã trả lại.
+    PERFORM setval('auth.refresh_tokens_id_seq', GREATEST(
+        (SELECT coalesce(max(id), 1) FROM auth.refresh_tokens),
+        (SELECT last_value FROM auth.refresh_tokens_id_seq)));
+EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'không trả lại được phiên đăng nhập staging (%) — người dùng sẽ phải đăng nhập lại', SQLERRM;
+END
+$giu$;
+SQL
     # Bản dump không chở extension nằm trong public (btree_gist, pg_trgm,
     # unaccent) — thiếu là f_unaccent hỏng ngay dòng COPY patient đầu tiên.
     echo "CREATE SCHEMA public;"
@@ -198,6 +240,7 @@ SQL
     cat "$CHE_SQL"
 } | psql_stg --single-transaction >/dev/null
 xong "đã nạp + che (giao dịch đã commit)"
+xong "giữ lại $(psql_stg -tAc 'SELECT count(*) FROM auth.sessions' | tr -d ' \r') phiên đăng nhập"
 
 # ── 5. Migration của code staging mà prod chưa có ────────────────────────────
 buoc "5/6  Bật GoTrue / PostgREST + áp migration code staging mới hơn prod"
