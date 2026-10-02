@@ -1,0 +1,200 @@
+CHATGPT REVIEW MAP — ClinicAI @ c187fea2e87da01f3c3732cd7c780ec0c2437606
+Đường dẫn tương đối từ gốc repo. BE router = src/clinicai/api/v1/routers/, service = src/clinicai/services/,
+FE = src/dashboard/app/(dashboard)/, proxy = src/dashboard/app/api/, migration = supabase/migrations/.
+Mọi API dưới /api/v1. Tìm migration theo tên bảng: grep -l "<bảng>" supabase/migrations/*.sql
+
+TOPIC: Auth / roles / identity
+UI: src/dashboard/lib/roles.ts (NAV_ROLES, roleLanding), src/dashboard/lib/identity-authority.ts, src/dashboard/app/(auth)/login
+API: routers/auth.py, routers/identity.py (GET /me, /me/vi-tri-hom-nay)
+SERVICE: src/clinicai/api/identity.py (StaffIdentity, ClinicRole, get_current_identity, RoleGuard, RoleGuardCoTheMo, VAI_THEO_VI_TRI, dung_vai, co_vai), services/auth_service.py, services/staff_service.py
+SQL/TABLE: auth.users, staff(auth_user_id, primary_department), clinic_membership(role), RLS: *tenant_scoped_rls*, *role_scoped_clinical_read*
+TESTS: src/tests/test_identity.py, test_api_auth.py, test_vai_theo_vi_tri.py, test_mo_quyen_tam_thoi.py, test_nav_role_drift.py, test_me_contract.py, src/dashboard/tests/identity-authority-boundary.test.mts
+
+TOPIC: Sidebar / multi-role / acting context
+UI: app/(dashboard)/Nav.tsx, nav-items.ts, Shell.tsx, lib/roles.ts
+API: /me, /me/vi-tri-hom-nay
+SERVICE: api/identity.py (vai_theo_vi_tri, vai_tai_khoan, vai_goc, RoleGuard hoán vai), services/booking_service.py apply_action (dung_vai), audit: record_event metadata clinic_role + vai_tai_khoan
+SQL/TABLE: work_roster(station, shift, status), roster_week, clinic.settings.vai_lich_theo_ca (TẮT)
+TESTS: test_vai_theo_vi_tri.py, test_vai_man_hinh.py, test_go_ca_theo_khung_gio.py, test_go_ca_truc_go_bac_si.py
+
+TOPIC: Booking / capacity
+UI: appointments/BookingHub, customers/DatLichModal, customers/AppointmentEditModal
+API: routers/booking.py (/appointments/*), routers/scheduling.py
+SERVICE: booking_service.py, capacity_service.py, slot_hold_service.py, booking_override_service.py
+SQL/TABLE: appointment, work_roster, roster_week, clinic_hours_for_date(), slot holds
+TESTS: test_booking_service.py, services/test_capacity_*.py, services/test_slot_hold.py, supabase/tests/lich_vuot_suc_chua.sql, suc_chua_chi_chan_khi_da_cong_bo.sql
+
+TOPIC: Reception / check-in / queue
+UI: reception/queue (QueueBoard), queue
+API: POST /luot-kham/check-in; /queue, /queue/keo; /appointments/{id} PATCH (hoàn tác, không đến)
+SERVICE: luot_kham_service.check_in → booking_service.apply_action("checkin"); queue_order.py, queue_rows.py, thu_tu_kham_service.py
+SQL/TABLE: appointment, visit, encounter_flow, queue_entry, work_item (kế hoạch bước đời cũ tạo lúc check-in)
+TESTS: services/test_check_in_lai_sau_hoan_tac_db.py, test_queue_order.py, services/test_thu_tu_kham_va_uu_tien.py, supabase/tests/visit_workflow_instantiation.sql
+
+TOPIC: Vitals
+UI: do-sinh-hieu/BangDoSinhHieu.tsx
+API: POST /luot-kham/visits/{visit_id}/goi-do, /vitals
+SERVICE: luot_kham_service.goi_do_sinh_hieu, record_vitals, dong_bo_sinh_hieu_tu_ho_so
+SQL/TABLE: vital_measurement, encounter_flow.vitals_status
+TESTS: services/test_sinh_hieu_bat_buoc_va_lich_su.py, supabase/tests/sinh_hieu_chi_them.sql
+
+TOPIC: Bàn khám (clinical workspace)
+UI: ban-kham/BanKham.tsx (nhóm hàng chờ, HoSo, ChiDinhPanel, ThanhTab <1536px), ChoBacSiQuyet.tsx, ThaiKy.tsx, tasks/ClinicalRecordForm.tsx, tasks/ServiceFormEngine.tsx, tasks/ClinicalSignPanel.tsx
+API: GET /luot-kham/bang, /luot-kham/hang-cho; POST /luot-kham/hang-cho/{q}/goi, /consultations/{c}/start|notes|kham-xong|complete
+SERVICE: luot_kham_service (bang, hang_cho, goi_khach, start_consultation, save_note, kham_xong, complete_consultation, _evaluate_rounds, _ket_thuc_neu_xong)
+SQL/TABLE: consultation, clinical_record, clinical_form_response, queue_entry, review_round
+TESTS: services/test_luot_kham_service_db.py, test_luat_1509_*.py, src/dashboard/tests/hang-cho-bac-si-boundary.test.mts
+
+TOPIC: PK (Phụ khoa)
+UI: lib/form-schemas/pk.ts qua ServiceFormEngine
+API: GET/PUT /clinical-forms
+SERVICE: clinical_form_service.py, clinical_sign_service.py (gate ký)
+SQL/TABLE: clinical_form_response(service_code='PK'), clinical_form_catalogue
+TESTS: services/test_clinical_sign.py, services/test_phieu_chuyen_khoa_pham_vi_thu_ky.py, supabase/tests/clinical_form_quarantine.sql
+
+TOPIC: SK / Pregnancy
+UI: lib/form-schemas/sk.ts, ban-kham/ThaiKy.tsx, app/api/thai-ky/route.ts
+API: GET/POST /thai-ky, PATCH /thai-ky/{pregnancy_id}
+SERVICE: thai_ky_service.py (chỉ DOCTOR ghi)
+SQL/TABLE: pregnancy (+ 20260918000003_thai_ky_bac_si_xac_nhan.sql: edd_nguon, created_by, updated_by, unique ONGOING)
+TESTS: services/test_thai_ky_db.py
+
+TOPIC: NT / MHT
+UI: lib/form-schemas/nt.ts (mht_yeu_to_chi_dinh / mht_chong_chi_dinh / mht_than_trong / mht_quyet_dinh / mht_duong_dung)
+API: /clinical-forms
+SERVICE: clinical_sign_service.py (soap_plan fallback gồm mht_quyet_dinh, mht_phac_do, dieu_tri_ho_tro*)
+SQL/TABLE: clinical_form_response(service_code='NT')
+TESTS: services/test_clinical_sign.py, src/dashboard/tests/mht-ngu-nghia-boundary.test.mts
+
+TOPIC: NK (Nam khoa)
+UI: lib/form-schemas/nk.ts, tasks/AndrologyReview.tsx
+API: /clinical-forms, POST /clinical-forms/andrology-review
+SERVICE: andrology_service.py, andrology_review_service.py, clinical_sign_service.py
+SQL/TABLE: clinical_form_response(service_code='NK')
+TESTS: services/test_andrology.py, services/test_andrology_review.py
+
+TOPIC: HMVS
+UI: lib/form-schemas/hmvs.ts
+API: /clinical-forms
+SERVICE: clinical_sign_service.py (đang đánh giá ⇒ bắt buộc hướng xử trí)
+SQL/TABLE: clinical_form_response(service_code='HMVS')
+TESTS: services/test_clinical_sign.py
+
+TOPIC: Service orders
+UI: ban-kham/BanKham.tsx ChiDinhPanel (Chỉ định thêm / Duyệt chỉ định)
+API: POST /luot-kham/consultations/{c}/draft-orders (TKYK), /authorize-orders (DOCTOR)
+SERVICE: luot_kham_service.propose_orders, authorize_orders (tự xếp phòng theo clinic_room_node), service_order_service.py (đời cũ)
+SQL/TABLE: service_order, service_price, node_definition, clinic_room, clinic_room_node
+TESTS: services/test_order_authorization_db.py, services/test_service_order_draft.py, services/test_dieu_phoi_chi_chi_dinh_da_duyet.py, supabase/tests/order_services.sql
+
+TOPIC: Trưởng ca
+UI: truong-ca/* (ChiDinhHomNay.tsx, điều phối)
+API: POST /luot-kham/orders/{o}/dispatch; GET /luot-kham/chi-dinh-hom-nay; /dispatch/* (overview, alerts, move, transfer-room, doi-bac-si)
+SERVICE: luot_kham_service.dispatch_order, chi_dinh_hom_nay; dispatch_service.py; doi_bac_si_service.py
+SQL/TABLE: service_order.room_id/assigned_*, queue_entry, visit.current_node_code, move_visit_to_station()
+TESTS: services/test_dispatch_rules.py, services/test_dieu_phoi_chi_chi_dinh_da_duyet.py, supabase/tests/dieu_phoi_chi_chi_dinh_da_duyet.sql
+
+TOPIC: Service rooms (chung)
+UI: phong/[ma]/PhongDichVu.tsx (+ _lam-viec/KhungTep.tsx)
+API: GET /luot-kham/phong-hom-nay, /hang-cho; POST /hang-cho/{q}/goi, /orders/{o}/start, /orders/{o}/complete
+SERVICE: luot_kham_service.start_service, complete_service, sau_khi_co_ket_qua
+SQL/TABLE: service_order, queue_entry, tep_ket_qua
+TESTS: services/test_dich_vu_rail_moi_db.py, services/test_luot_kham_service_db.py
+
+TOPIC: Ultrasound
+UI: phong/KN-SA-T1|KN-SA1|KN-SA2 (PhongDichVu), sieu-am/*, sono (đã chuyển hướng)
+API: rail mới như Service rooms; đời cũ routers/ultrasound.py (/ultrasound/*)
+SERVICE: luot_kham_service; ultrasound_service.py, ultrasound_board_service.py (đời cũ)
+SQL/TABLE: service_order(node DICHVU-SIEUAM), ultrasound records (đời cũ)
+TESTS: services/test_ultrasound_board.py, services/test_luat_1509_sieu_am_va_hang_cho.py
+
+TOPIC: Procedures (thủ thuật)
+UI: phong/KN-THUTHUAT|KN-TTNG|KN-SANCHAU|KN-SAN-BIO
+API: như Service rooms; GET/PUT /visits/{visit_id}/theo-doi-thu-thuat
+SERVICE: luot_kham_service; theo_doi_thu_thuat_service.py
+SQL/TABLE: service_order(node DICHVU-THUTHUAT)
+TESTS: services/test_theo_doi_thu_thuat.py, services/test_dich_vu_rail_moi_db.py
+
+TOPIC: External partner
+UI: app/doi-tac/BangDoiTac.tsx
+API: GET /doi-tac/viec; POST /doi-tac/viec/{id}/da-lay-mau, /cho-tai-lieu; POST /doi-tac/ket-qua
+SERVICE: luot_kham_service.viec_doi_tac, doi_tac_da_lay_mau, doi_tac_cho_tai_lieu; tep_ket_qua_service
+SQL/TABLE: service_order (doi_tac_cho_tai_lieu_luc), service_price.doi_tac_lay_mau, clinic_room.la_doi_tac
+TESTS: services/test_luot_kham_service_db.py (đối tác), services/test_luot_kham_notifications_db.py
+
+TOPIC: Result / file
+UI: _lam-viec/KhungTep.tsx, customers/TepKetQua.tsx, tasks/TepCuaLuotKham.tsx
+API: upload (proxy src/dashboard/app/api/{luot-kham,doi-tac,cskh/ket-qua}/route.ts → /doi-tac/ket-qua, /cskh/ket-qua/tep), GET /cskh/ket-qua/tep/{id}/noi-dung
+SERVICE: tep_ket_qua_service.py, media_service.py, nhan_tep_luong.py, bao_ket_qua_ve.py
+SQL/TABLE: tep_ket_qua(service_order_id, cho_phep_gui_luc, gui_luc, sha256), MEDIA_DIR (ổ ngoài)
+TESTS: services/test_tep_ket_qua_bac_si_cho_phep_gui.py, services/test_media.py
+
+TOPIC: Doctor result approval
+UI: duyet-ket-qua/DuyetKetQua.tsx; ban-kham ("Kết quả cần đọc")
+API: GET /luot-kham/ket-qua-cho-duyet; POST /luot-kham/orders/{o}/duyet-ket-qua
+SERVICE: luot_kham_service.ket_qua_cho_duyet, duyet_ket_qua (REVIEW_ROLES)
+SQL/TABLE: service_order.duyet_luc/bac_si_danh_gia, tep_ket_qua.cho_phep_gui_luc, follow_up_case
+TESTS: services/test_luot_kham_service_db.py (duyệt + tệp bản mới), services/test_slice1_rail_db.py
+
+TOPIC: Follow-up
+UI: ban-kham/ChoBacSiQuyet.tsx; customers (việc CSKH)
+API: GET /luot-kham/cho-quyet; POST /luot-kham/yeu-cau/{r}/quyet (WAIVE / FOLLOW_UP)
+SERVICE: luot_kham_service.quyet_yeu_cau, _evaluate_rounds; luot_kham_rules.py
+SQL/TABLE: round_requirement(status follow_up, follow_up_case_id), follow_up_case, view v_viec_cskh (20260918000002)
+TESTS: services/test_slice1_rail_db.py, test_dong_luot_giu_viec_ket_qua.py, test_rail_cu_da_nghi_slice1.py
+
+TOPIC: Payment
+UI: thu-ngan/TabThuNgan.tsx, QuayThuNgan, GiaoDich.tsx; cashier (CashierView)
+API: GET /cashier/board, /cashier/giao-dich; POST/DELETE /payments
+SERVICE: cashier_board_service.py, payment_service.py (khoá visit+appointment; chỉ thu khi appointment COMPLETED), pos_*
+SQL/TABLE: payment(status PAID/VOIDED, kind), service_price
+TESTS: test_payment_service.py, services/test_cashier_board.py, supabase/tests/payment_audit.sql
+
+TOPIC: Checkout
+UI: reception/checkout (ChiTietLuot.tsx)
+API: GET /reception/checkout, /reception/checkout/chi-tiet/{v}, /ton-dong; POST /reception/checkout
+SERVICE: checkout_service.py (readiness/blockers, chi_tiet: event_log timeline + tệp thật, close/incomplete)
+SQL/TABLE: visit.closed_at, work_item LUOTKHAM-15, event_log, tep_ket_qua, follow_up_case
+TESTS: services/test_checkout_blockers.py, services/test_slice1_rail_db.py (checkout_*), supabase/tests/luot_da_dong_thi_dung_yen.sql
+
+TOPIC: Pharmacy / inventory
+UI: pharmacy/PharmacyBoard.tsx; thu-ngan/thuoc
+API: /pharmacy/queue|inventory|receive|dispense|refuse|close-line|adjust|discard
+SERVICE: pharmacy_service.py, clinical_prescription_service.py
+SQL/TABLE: prescription, inventory (20260802000001_pharmacy_inventory.sql …), cap_phat
+TESTS: services/test_pharmacy_dispense_units*.py, test_don_thuoc_da_cap_khong_bi_xoa.py, supabase/tests/inventory_write_guards.sql, cap_phat_thuoc_mot_phan.sql
+
+TOPIC: CSKH
+UI: customers/CustomersView.tsx, VungLamViecKhach.tsx, ThanhLuotKham.tsx, TepKetQua.tsx, nhac-tai-kham
+API: routers/cskh.py (/cskh/man-khach-hang, recall-jobs, tuong-tac, hen-goi-lai, phan-hoi, ket-qua/*, zalo)
+SERVICE: cskh_service.py, man_khach_hang_service.py, tuong_tac_cskh_service.py, recall_service.py, recall_job_service.py, phan_hoi_khach_service.py, providers/zalo.py
+SQL/TABLE: v_viec_cskh, cskh_* bảng, recall jobs, tep_ket_qua
+TESTS: test_man_khach_hang_kieu_tra_ve.py, services/test_zalo_provider.py, src/dashboard/tests/cskh-*.test.mts
+
+TOPIC: Read-only / history viewer
+UI: _lam-viec/XemLuot.tsx, NutXemLuot.tsx (mở từ BanKham, BangDoSinhHieu, PhongDichVu, ChiDinhHomNay, QueueBoard, GiaoDich, PharmacyBoard)
+API: GET /xem-luot/{visit_id}
+SERVICE: xem_luot_service.py (muc_duoc_xem theo vai; doc_su_kien_luot dùng chung với checkout)
+SQL/TABLE: đọc visit, service_order, event_log, vital_measurement, clinical_record, payment, prescription
+TESTS: services/test_xem_luot_db.py
+
+TOPIC: Audit / events
+UI: audit-log
+API: routers/audit_log.py, routers/events.py
+SERVICE: services/audit.py (record_event), audit_labels.py, audit_log_service.py, event_service.py
+SQL/TABLE: event_log (RLS: supabase/tests/event_log_rls.sql)
+TESTS: test_audit_labels_drift.py, supabase/tests/event_log_rls.sql
+
+TOPIC: Roster / acting context
+UI: schedule, work-sessions, RosterGrid.tsx, settings
+API: routers/config.py (roster), routers/scheduling.py
+SERVICE: config_service.py (ROSTER_ADMIN_ROLES=MANAGEMENT, MA_CA_KHAM_BAC_SI), api/identity.py
+SQL/TABLE: work_roster, roster_week, clinic.settings (ca_lam_viec, vai_lich_theo_ca), la_ca_kham_bac_si()
+TESTS: test_lich_truc_cong_bo_chan_sua_lich.py, test_khoi_phuc_lich_khi_xep_lai_ca.py, supabase/tests/tuan_lich_truc_da_ap_dung.sql
+
+TOPIC: RLS / tenant isolation
+UI: —
+API: mọi truy vấn service phải lọc clinic_id
+SERVICE: scripts/tests/tenant-scope-audit.py (CI: 0 câu thiếu clinic_id), scripts/tests/tenant-scope-runtime-check.py
+SQL/TABLE: migrations *multi_tenant*, *tenant_scoped_rls*, *role_scoped_clinical_read*, *thu_ky_rls_theo_bac_si*
+TESTS: test_tenant_scope_audit.py, supabase/tests/multi_tenant_foundation.sql, tenant_scoped_rls.sql, role_scoped_clinical_read.sql, thu_ky_rls_theo_bac_si.sql
