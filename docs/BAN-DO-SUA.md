@@ -346,6 +346,13 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `D/_lam-viec/ViecTaiKham.tsx` → `S/hen_tai_kham_service.py`, `S/recall_service.py`;
   chuông tới hạn = consumer `src/clinicai/events/consumers/nhac_tai_kham.py`. Test:
   `T/services/test_hen_tai_kham_db.py`, `T/unit/test_recall_service.py`.
+- **Bác sĩ đặt LỊCH HẸN THẬT ngay ở ô Ngày tái khám (02/10):** khung
+  `D/_lam-viec/phieu-kham/DatLichTaiKham.tsx` (bảng `D/appointments/BangBacSiTuan.tsx`
+  chế độ `chiNgay`) → `/api/phieu-kham` (`dat-lich-tai-kham` / `huy-lich-tai-kham`)
+  → `S/lich_tai_kham_service.py` `LichTaiKhamService` (qua `BookingService.create`);
+  cột `appointment.hen_tu_visit_id` + trigger không đóng việc gọi của chính lượt:
+  mig `20261003720000_lich_hen_tu_phieu_kham.sql`. Test:
+  `T/services/test_lich_tai_kham_tu_phieu_db.py`.
 
 ## 13. Lịch làm việc · phòng · tầng
 

@@ -18,6 +18,14 @@ export interface ChiTietHen {
   chan_doan: string | null;
   can_kiem_tra: string[];
   ghi_chu_bac_si: string | null;
+  /** Lịch hẹn THẬT bác sĩ đã đặt ngay trên phiếu (02/10/2026) — CSKH gọi chốt
+   *  giờ / phân bác sĩ cho lịch này thay vì đặt lịch mới. */
+  lich_bac_si_dat?: {
+    ngay: string;
+    gio: string;
+    den: string;
+    bac_si: string | null;
+  } | null;
 }
 
 /** Nhãn hiển thị cho mã tình trạng máy chủ tính (`hen_tai_kham_service.tinh_trang`). */
@@ -86,6 +94,16 @@ export default function ViecTaiKham({
             <>
               <dt className="text-ink-muted">Ghi chú BS</dt>
               <dd>{chiTiet.ghi_chu_bac_si}</dd>
+            </>
+          ) : null}
+          {chiTiet.lich_bac_si_dat ? (
+            <>
+              <dt className="text-ink-muted">BS đã đặt lịch</dt>
+              <dd className="tabular-nums">
+                {chiTiet.lich_bac_si_dat.gio}–{chiTiet.lich_bac_si_dat.den} ·{" "}
+                {fmtDate(chiTiet.lich_bac_si_dat.ngay)} ·{" "}
+                {chiTiet.lich_bac_si_dat.bac_si ?? "Chưa phân bác sĩ"}
+              </dd>
             </>
           ) : null}
         </dl>

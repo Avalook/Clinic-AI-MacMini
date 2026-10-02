@@ -111,6 +111,12 @@ export default function ThanhLuotKham({
               <div className="flex gap-1.5">
                 {c.luot.map((l, j) => {
                   const chon = l.id === luotDangXem;
+                  // Lịch ĐÃ HUỶ vẫn hiện (dấu vết) nhưng không ăn số lần khám:
+                  // bác sĩ huỷ để đặt lại trên phiếu (02/10/2026) thì lịch mới
+                  // vẫn là "Tái khám 1", không nhảy thành 2, 3.
+                  const soLan = c.luot
+                    .slice(0, j)
+                    .filter((x) => x.status !== "CANCELLED").length;
                   return (
                     <button
                       key={l.id}
@@ -136,8 +142,9 @@ export default function ThanhLuotKham({
                         {ngay(l.slot_start)}
                       </span>
                       <span className="block">
-                        {j === 0 ? "Lần đầu" : `Tái khám ${j}`} ·{" "}
-                        {NHAN_TRANG_THAI[l.status] ?? l.status}
+                        {l.status === "CANCELLED"
+                          ? "Đã huỷ"
+                          : `${soLan === 0 ? "Lần đầu" : `Tái khám ${soLan}`} · ${NHAN_TRANG_THAI[l.status] ?? l.status}`}
                       </span>
                     </button>
                   );

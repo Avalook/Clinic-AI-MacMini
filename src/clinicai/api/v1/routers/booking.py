@@ -52,6 +52,12 @@ router = APIRouter()
 # Đặt lịch / giữ chỗ hỏi QUYỀN "Đặt lịch" (24/09/2026 — thay INTAKE_ROLES, cùng
 # người: CSKH, Lễ tân, Quản lý, Trưởng ca).
 _BOOKING_GUARD = cua_quyen("booking.create")
+# ĐỌC còn chỗ (bảng tuần, khung giờ, chỗ đang giữ): thêm người ghi phiếu khám —
+# bác sĩ đặt lịch tái khám ngay trên phiếu (02/10/2026). Chỉ đọc; ghi lịch đi
+# đường của phiếu (`lich_tai_kham_service`), không qua cửa này.
+_DOC_CHO_GUARD = cua_quyen(
+    "booking.create", "clinical.record.write", "clinical.intake.perform"
+)
 # Bảng chuyển trạng thái trong BookingService quyết từng thao tác: vai, hoặc
 # QUYỀN với check-in / huỷ check-in / vắng mặt (CORE-B3, 23/09/2026). Cửa ngoài
 # chỉ còn "đã đăng nhập" — liệt kê vai ở đây thì người được cấp quyền check-in
@@ -444,7 +450,7 @@ async def capacity_quote(
     date: str,
     location_id: str | None = None,
     doctor_id: str | None = None,
-    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    identity: StaffIdentity = Depends(_DOC_CHO_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Read-only capacity quote for the slot picker UI (CAP-01).
@@ -499,7 +505,7 @@ async def luoi_ngay_dat_cho(
 async def cho_trong_tuan(
     week_start: str,
     location_id: str | None = None,
-    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    identity: StaffIdentity = Depends(_DOC_CHO_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Bảng Bác sĩ × 7 ngày: còn chỗ / ít chỗ / đầy / nghỉ / đặt tự do.
@@ -837,7 +843,7 @@ async def release_slot(
 @router.get("/appointments/slot-hold")
 async def list_slot_holds(
     date: str,
-    identity: StaffIdentity = Depends(_BOOKING_GUARD),
+    identity: StaffIdentity = Depends(_DOC_CHO_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Chỗ NGƯỜI KHÁC đang giữ trong ngày, để lưới tô đúng ô."""

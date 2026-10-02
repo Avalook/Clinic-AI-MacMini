@@ -19,6 +19,7 @@ import {
   taiBangTuan,
   taiQuote,
   type BangTuan,
+  type HangBacSi,
   type QuoteNgay,
   type ThongTinKhung,
   type TrangThaiNgay,
@@ -51,6 +52,7 @@ export default function BangBacSiTuan({
   chon,
   onChonKhung,
   doiTuan,
+  chiNgay,
 }: {
   /** Thứ Hai của tuần, yyyy-mm-dd. */
   weekStart: string;
@@ -71,6 +73,9 @@ export default function BangBacSiTuan({
   }) => void;
   /** Có = vẽ nút tuần trước / sau / tuần này ngay trên bảng (form khách mới). */
   doiTuan?: { truoc: () => void; sau: () => void; homNay: () => void };
+  /** Có = chỉ vẽ cột của NGÀY này, và chỉ các bác sĩ có ca hôm ấy (hàng
+   *  "Chưa phân bác sĩ" luôn còn) — ô Ngày tái khám của phiếu (02/10/2026). */
+  chiNgay?: string;
 }) {
   const [bang, setBang] = useState<BangTuan | null>(null);
   const [loi, setLoi] = useState(false);
@@ -126,9 +131,18 @@ export default function BangBacSiTuan({
     if (moLoc) oTim.current?.focus();
   }, [moLoc]);
 
-  const hang = (bang?.bac_si ?? []).filter((b) =>
-    loc === "all" ? true : loc === "none" ? b.id === null : b.id === loc,
-  );
+  // Chế độ một ngày: cột chỉ còn ngày ấy; bác sĩ nghỉ hôm ấy không chiếm hàng.
+  const cot = (bang?.ngay ?? []).filter((d) => !chiNgay || d === chiNgay);
+  const oCua = (b: HangBacSi) =>
+    b.o.filter((o) => !chiNgay || o.date === chiNgay);
+  const hang = (bang?.bac_si ?? [])
+    .filter((b) => (loc === "all" ? true : loc === "none" ? b.id === null : b.id === loc))
+    .filter(
+      (b) =>
+        !chiNgay ||
+        b.id === null ||
+        b.o.some((o) => o.date === chiNgay && moDuoc(o)),
+    );
   const tenLoc = (bang?.bac_si ?? []).find((b) => (b.id ?? "none") === loc)?.full_name;
   const timThay = (bang?.bac_si ?? []).filter((b) =>
     unaccentVi(b.full_name).includes(unaccentVi(timLoc.trim())),
@@ -267,7 +281,10 @@ export default function BangBacSiTuan({
         <p className="px-3 py-6 text-center text-body text-ink-muted">Đang tải lịch tuần…</p>
       ) : (
         <div className="overflow-x-auto rounded-card border border-hairline">
-          <table className="w-full min-w-130 border-collapse text-body">
+          {/* Bảy cột cần bề rộng tối thiểu (cuộn ngang); một ngày thì vừa 375. */}
+          <table
+            className={`w-full border-collapse text-body ${chiNgay ? "" : "min-w-130"}`}
+          >
             <thead>
               <tr className="bg-surface-muted">
                 {/* CỘT "BÁC SĨ" LÀ BỘ LỌC (Tuyền 16/09/2026).
@@ -293,14 +310,14 @@ export default function BangBacSiTuan({
                     <ChevronDown className="size-3.5 shrink-0" />
                   </button>
                 </th>
-                {bang.ngay.map((d, i) => (
+                {cot.map((d) => (
                   <th
                     key={d}
                     className={`px-1 py-2 text-center text-label font-semibold ${
                       d === homNay ? "text-brand-700" : "text-ink-muted"
                     }`}
                   >
-                    <span className="block">{THU[i]}</span>
+                    <span className="block">{THU[bang.ngay.indexOf(d)]}</span>
                     <span className="block tabular-nums">{ddmm(d)}</span>
                   </th>
                 ))}
@@ -329,7 +346,7 @@ export default function BangBacSiTuan({
                       </span>
                     </span>
                   </th>
-                  {b.o.map((o) => {
+                  {oCua(b).map((o) => {
                     const dangChon =
                       chon && chon.date === o.date && (chon.doctorId ?? null) === b.id;
                     return (

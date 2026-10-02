@@ -63,7 +63,9 @@ LY_DO_DONG: dict[str, str] = {
     "NGAY_DA_QUA": "Ngày hẹn đã qua",
 }
 
-_LICH_SONG = ("SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN")
+#: Lịch còn sống — cùng tập với chỉ mục `uq_appointment_mot_lich_song_tu_luot`.
+LICH_SONG = ("SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN")
+_LICH_SONG = LICH_SONG
 
 
 # ---------------------------------------------------------------------------
@@ -228,6 +230,52 @@ async def chi_tiet_viec(
         "chan_doan": await doc_chan_doan(conn, clinic_id=clinic_id, visit_id=visit_id),
         "can_kiem_tra": hen_luot["can_kiem_tra"],
         "ghi_chu_bac_si": hen_luot["ghi_chu_bac_si"],
+        # Bác sĩ đã đặt sẵn lịch trên phiếu → CSKH gọi chốt giờ / phân bác sĩ.
+        "lich_bac_si_dat": await doc_lich_tu_luot(conn, clinic_id, visit_id),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Lịch THẬT bác sĩ đặt từ phiếu (02/10/2026 — `lich_tai_kham_service`)
+# ---------------------------------------------------------------------------
+def _gio(moc: datetime) -> str:
+    return moc.astimezone(CLINIC_TZ).strftime("%H:%M")
+
+
+async def doc_lich_tu_luot(
+    conn: asyncpg.Connection, clinic_id: str, visit_id: str
+) -> dict[str, Any] | None:
+    """Lịch tái khám còn sống bác sĩ đã đặt từ phiếu của lượt — None nếu chưa."""
+    r = await conn.fetchrow(
+        """
+        SELECT a.id::text AS id, a.slot_start, a.slot_end, a.status,
+               a.doctor_id::text AS doctor_id, s.full_name AS bac_si,
+               st.name AS dich_vu
+          FROM appointment a
+          LEFT JOIN staff s ON s.id = a.doctor_id
+          LEFT JOIN service_type st ON st.id = a.service_type_id
+         WHERE a.clinic_id = $1::uuid AND a.hen_tu_visit_id = $2::uuid
+           AND a.status = ANY($3::text[])
+         ORDER BY a.created_at DESC
+         LIMIT 1
+        """,
+        clinic_id,
+        visit_id,
+        list(LICH_SONG),
+    )
+    if r is None:
+        return None
+    return {
+        "appointment_id": r["id"],
+        "ngay": r["slot_start"].astimezone(CLINIC_TZ).date().isoformat(),
+        "gio": _gio(r["slot_start"]),
+        "den": _gio(r["slot_end"]),
+        "status": r["status"],
+        "doctor_id": r["doctor_id"],
+        "bac_si": r["bac_si"],
+        "dich_vu": r["dich_vu"],
+        # Khách đã tới (check-in) thì lịch là của quầy — phiếu không huỷ nữa.
+        "huy_duoc": r["status"] != "CHECKED_IN",
     }
 
 
@@ -409,16 +457,20 @@ async def dong_bo(
         if r["id"] != giu:
             await _dong(conn, identity, r["id"], "BS_DOI_NGAY")
 
+    # Lịch bác sĩ đặt từ phiếu của CHÍNH lượt này không tính (02/10/2026):
+    # CSKH vẫn phải gọi chốt giờ / phân bác sĩ — cùng luật trigger mig 20261003720000.
     lich = await conn.fetchval(
         "SELECT id::text FROM appointment"
         " WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid"
         "   AND status = ANY($3::text[])"
         "   AND (slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= $4::date"
+        "   AND hen_tu_visit_id IS DISTINCT FROM $5::uuid"
         " ORDER BY slot_start LIMIT 1",
         cid,
         pid,
         list(_LICH_SONG),
         han,
+        visit_id,
     )
     dong_vi = "DA_CO_LICH" if lich else None
     trang_thai = "KHONG_CAN" if lich else "CHO_GOI"
@@ -498,6 +550,7 @@ async def dong_bo(
 __all__ = [
     "GIO_BAO",
     "HEN_NHAC_TAI_KHAM",
+    "LICH_SONG",
     "LY_DO_DONG",
     "NGUON_CHUONG",
     "SO_NGAY_TRUOC",
@@ -505,6 +558,7 @@ __all__ = [
     "chi_tiet_viec",
     "cho_toi_luc_bao",
     "doc_hen_luot",
+    "doc_lich_tu_luot",
     "doc_ngay_hen",
     "dong_bo",
     "ghi_chu_hen",
