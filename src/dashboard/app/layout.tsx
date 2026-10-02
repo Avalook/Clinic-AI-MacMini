@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { DaiStaging } from "@/components/ui/DaiStaging";
+import { GacHetPhien } from "@/components/GacHetPhien";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -47,6 +48,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <DaiStaging />
+        <GacHetPhien />
         {children}
       </body>
     </html>
