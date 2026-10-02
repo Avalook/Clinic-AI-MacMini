@@ -51,12 +51,14 @@ async def test_bo_tick_tich_lai_doi_so_mua(q: Quay) -> None:
     await svc.chon(prescription_id=rx, mua=True, identity=q.thu_ngan)
     await svc.doi_so_luong(prescription_id=rx, so_luong=6, identity=q.thu_ngan)
     [d] = (await svc.doc(visit_id=q.visit_id, identity=q.thu_ngan))["dong"]
-    assert (d["mua"], d["so_ke"], d["so_mua"]) == (True, "10", "6")
-    # Không vượt số kê — muốn thêm thì thêm dòng quầy.
-    with pytest.raises(ValidationError, match="Lấy thêm"):
-        await svc.doi_so_luong(prescription_id=rx, so_luong=12, identity=q.thu_ngan)
+    # C19: số quầy đặt thành SỐ CỦA DÒNG (bác sĩ kê 10 giữ ở so_ke_goc).
+    assert (d["mua"], d["so_ke"], d["so_ke_goc"]) == (True, "6", "10 viên")
+    # Không còn trần số kê: tăng vượt số bác sĩ kê cũng được.
+    await svc.doi_so_luong(prescription_id=rx, so_luong=12, identity=q.thu_ngan)
+    [d] = (await svc.doc(visit_id=q.visit_id, identity=q.thu_ngan))["dong"]
+    assert (d["so_ke"], d["so_ke_goc"]) == ("12", "10 viên")
     hanh_dong = [e["hanh_dong"] for e in await _su_kien(q, "medicine.counter_changed")]
-    assert hanh_dong == ["BO_CHON", "CHON_LAI", "SO_LUONG"]
+    assert hanh_dong == ["BO_CHON", "CHON_LAI", "SUA_SO_LUONG", "SUA_SO_LUONG"]
 
 
 async def test_lay_them_thuoc_khong_lot_vao_don_bac_si(q: Quay) -> None:

@@ -573,6 +573,8 @@ export interface DongThuoc {
   /** C14: số lượng do QUẦY THU THUỐC điền (bác sĩ để trống) — máy chủ trả; chỉ
    *  để hiện nhãn "SL do thu ngân điền", không gửi ngược lên. */
   so_luong_do_thu_ngan?: boolean;
+  /** C19: số bác sĩ kê GỐC khi quầy đã đặt số khác (null = bác sĩ để trống). */
+  so_luong_ke_goc?: string | null;
 }
 
 /** Chọn một thuốc từ danh mục gợi ý → dòng đơn điền sẵn, bác sĩ sửa được. */
@@ -650,6 +652,8 @@ export interface DongDonMayChu {
   dvt_kho?: string | null;
   /** C14: quầy thu thuốc điền số lượng bác sĩ để trống. */
   so_luong_do_thu_ngan?: boolean;
+  /** C19: số bác sĩ kê gốc khi quầy đã sửa. */
+  so_luong_ke_goc?: string | null;
 }
 
 const NOI = " — ";
@@ -677,7 +681,14 @@ export function dongTuDon(r: DongDonMayChu): DongThuoc {
     don_gia: r.don_gia ?? null,
     dvt_kho: r.dvt_kho ?? null,
     so_luong_do_thu_ngan: r.so_luong_do_thu_ngan ?? false,
+    so_luong_ke_goc: r.so_luong_ke_goc ?? null,
   };
+}
+
+/** Phần SỐ của chữ số lượng ("10 viên" → "10"). */
+function phanSo(chu: string | null | undefined): string {
+  const m = /^([\d.,/]+)/.exec((chu ?? "").trim());
+  return m ? m[1] : "";
 }
 
 /**
@@ -690,10 +701,19 @@ export function gopSoLuongQuayDien(hienTai: DongThuoc[], may: DongThuoc[]): Dong
   const ra = hienTai.map((d) => {
     const m = d.id ? may.find((x) => x.id === d.id) : undefined;
     if (!m || !m.so_luong_do_thu_ngan) return d;
-    if (d.so_luong.trim() !== "" && !d.so_luong_do_thu_ngan) return d;
+    // Bác sĩ đang gõ số KHÁC số mình đã lưu thì không đè; còn nguyên số đã lưu
+    // (= số kê gốc quầy vừa sửa) thì theo số của quầy (C19).
+    const nguyenSoCu = !!m.so_luong_ke_goc && d.so_luong === phanSo(m.so_luong_ke_goc);
+    if (d.so_luong.trim() !== "" && !d.so_luong_do_thu_ngan && !nguyenSoCu) return d;
     if (d.so_luong === m.so_luong && d.don_vi === m.don_vi && d.so_luong_do_thu_ngan) return d;
     doi = true;
-    return { ...d, so_luong: m.so_luong, don_vi: m.don_vi, so_luong_do_thu_ngan: true };
+    return {
+      ...d,
+      so_luong: m.so_luong,
+      don_vi: m.don_vi,
+      so_luong_do_thu_ngan: true,
+      so_luong_ke_goc: m.so_luong_ke_goc ?? null,
+    };
   });
   return doi ? ra : null;
 }

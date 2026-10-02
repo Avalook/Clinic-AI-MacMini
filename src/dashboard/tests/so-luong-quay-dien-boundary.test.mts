@@ -41,3 +41,18 @@ test("dòng không do quầy điền thì bỏ qua", () => {
   const hienTai = [dongTuDon(may("a", null, false))];
   assert.equal(gopSoLuongQuayDien(hienTai, [dongTuDon(may("a", "10 viên", false))]), null);
 });
+
+test("C19: quầy sửa số bác sĩ ĐÃ kê → màn kê đơn theo kịp khi bác sĩ chưa gõ gì khác", () => {
+  const hienTai = [dongTuDon(may("a", "10 viên", false))];
+  const moi = { ...may("a", "20 viên", true), so_luong_ke_goc: "10 viên" };
+  const gop = gopSoLuongQuayDien(hienTai, [dongTuDon(moi)]);
+  assert.ok(gop);
+  assert.equal(gop[0].so_luong, "20");
+  assert.equal(gop[0].so_luong_ke_goc, "10 viên");
+});
+
+test("C19: bác sĩ đã gõ số khác số đã lưu thì quầy KHÔNG đè", () => {
+  const hienTai = [dongTuDon(may("a", "12 viên", false))];
+  const moi = { ...may("a", "20 viên", true), so_luong_ke_goc: "10 viên" };
+  assert.equal(gopSoLuongQuayDien(hienTai, [dongTuDon(moi)]), null);
+});

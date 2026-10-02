@@ -299,8 +299,12 @@ test `T/services/test_thu_ngan_thanh_ngay_db.py`, `D/tests/quay-thu-thanh-ngay-b
 
 - **Bác sĩ quên số lượng thuốc → quầy thu thuốc điền (C14, 01/10)** — màn `/thu-ngan/thuoc`,
   khối `D/thu-ngan/ChinhDonQuay.tsx` (dòng tô nổi + ô Số lượng) → `S/quay_thuoc_service.py`
-  `QuayThuocService.doi_so_luong` / `_dien_so_luong` (không trần; dấu người + lúc ở
-  `prescription.so_luong_dien_boi/_luc`; sự kiện `DIEN_SO_LUONG`). Câu báo + loại dòng
+  `QuayThuocService.doi_so_luong` / `_dien_so_luong` (không trần — **C19 02/10: quầy đặt số
+  TUỲ Ý, tăng hay giảm, kể cả dòng bác sĩ đã ghi số**; dấu người + lúc ở
+  `prescription.so_luong_dien_boi/_luc`, số bác sĩ kê gốc ở `so_luong_ke_goc`; sự kiện
+  `DIEN_SO_LUONG` / `SUA_SO_LUONG`; lưới DB: trigger `prescription_dinh_chinh_guard`, mig
+  `20261003500000`; mốc "lấy bớt" của `medicine.declined` = số kê gốc,
+  `payment_service._phat_thuoc_bi_bo`-nhóm). Test: `T/services/test_quay_thuoc_dien_so_luong_db.py` (`test_c19_*`). Câu báo + loại dòng
   khỏi tổng: `S/bill_service.py` `THIEU_SO_LUONG`, `ghep_thuoc`. Nhãn "SL do thu ngân điền"
   ở màn kê đơn: `D/_lam-viec/phieu-kham/DonThuocPhieu.tsx`, gộp tự động
   `D/_lam-viec/phieu-kham/PhieuKhamLuot.tsx` + `lib/phieu-kham.ts` `gopSoLuongQuayDien`;
