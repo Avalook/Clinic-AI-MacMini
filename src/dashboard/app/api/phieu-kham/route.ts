@@ -12,6 +12,9 @@
 //   PUT /api/phieu-kham {thao_tac: "luu-phieu", visit_id, form_id, thay_doi}  (chỉ ô vừa đổi — lát 2)
 //   PUT /api/phieu-kham {thao_tac: "luu-phieu", visit_id, form_id, du_lieu, expected_revision}  (cả gói — cũ)
 //   PUT /api/phieu-kham {thao_tac: "luu-don", visit_id, dong, ly_do?}
+//   GET /api/phieu-kham?visit_id=…&xem=lich-tai-kham → lịch tái khám bác sĩ đã đặt (02/10)
+//   PUT /api/phieu-kham {thao_tac: "dat-lich-tai-kham", visit_id, slot_start, slot_end, doctor_id|null}
+//   PUT /api/phieu-kham {thao_tac: "huy-lich-tai-kham", visit_id, appointment_id}
 //
 // Chỗ lưu: bảng `phieu_kham_luot` (migration 20260924000008). Tầng này chỉ kiểm
 // HÌNH của mã để chuỗi tự do không nối được vào đường dẫn backend; luật ở máy chủ.
@@ -64,6 +67,9 @@ export async function GET(request: Request) {
       const hoi = f ? `?form_id=${f}` : "";
       return proxyJsonToBackend("GET", `/api/v1/phieu-kham/luot/${visitId}/lich-su` + hoi, undefined);
     }
+    if (xem === "lich-tai-kham") {
+      return proxyJsonToBackend("GET", `/api/v1/phieu-kham/luot/${visitId}/lich-tai-kham`, undefined);
+    }
     const duoi =
       xem === "dau-phieu"
         ? "dau-phieu"
@@ -96,6 +102,18 @@ export async function PUT(request: Request) {
   }
   if (thao_tac === "luu-don") {
     return proxyJsonToBackend("PUT", `/api/v1/phieu-kham/luot/${visit_id}/don-thuoc`, con);
+  }
+  if (thao_tac === "dat-lich-tai-kham") {
+    return proxyJsonToBackend("POST", `/api/v1/phieu-kham/luot/${visit_id}/lich-tai-kham`, con);
+  }
+  if (thao_tac === "huy-lich-tai-kham") {
+    const lich = con.appointment_id;
+    if (typeof lich !== "string" || !UUID_RE.test(lich)) return sai("Mã lịch hẹn không hợp lệ.");
+    return proxyJsonToBackend(
+      "DELETE",
+      `/api/v1/phieu-kham/luot/${visit_id}/lich-tai-kham/${lich}`,
+      undefined,
+    );
   }
   return sai("Thao tác không hợp lệ.");
 }

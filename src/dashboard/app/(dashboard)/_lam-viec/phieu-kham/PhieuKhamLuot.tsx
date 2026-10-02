@@ -46,6 +46,8 @@ import DanhMucChiDinh from "./DanhMucChiDinh";
 import OLamTruocThuSau from "../OLamTruocThuSau";
 import HanhTrinhLuot from "./HanhTrinhLuot";
 import LichSuSuaPhieu from "./LichSuSuaPhieu";
+import DatLichTaiKham from "./DatLichTaiKham";
+import { KhungDatLichTaiKham } from "./ONhapPhieu";
 import PhieuKham, { type KetQuaLuu, type ThamChieu } from "./PhieuKham";
 
 interface PhieuLuot extends DinhNghiaPhieu {
@@ -476,7 +478,15 @@ export default function PhieuKhamLuot({
   // định hướng điều trị — nhóm do máy chủ gửi.
   const dsNhomThuThuat: NhomCls[] = nhomThuThuat(tc?.thu_thuat);
 
+  // Ô "Ngày tái khám" → khung đặt LỊCH HẸN THẬT dưới nhóm Hẹn khám (02/10/2026).
+  // Bàn tư vấn (chỉ mục B) và chế độ chỉ xem không vẽ.
+  const veDatLich =
+    choGhi && !chiMuc
+      ? (ngay: string) => <DatLichTaiKham visitId={visitId} ngay={ngay} />
+      : null;
+
   return (
+    <KhungDatLichTaiKham.Provider value={veDatLich}>
     <div className="space-y-2">
       <PhieuKham
         key={`${phieu.form_id}-${phieu.version}`}
@@ -596,5 +606,6 @@ export default function PhieuKhamLuot({
         }}
       />
     </div>
+    </KhungDatLichTaiKham.Provider>
   );
 }

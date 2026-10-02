@@ -27,7 +27,7 @@
 //     khi có ô điền.
 
 import { Plus } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -55,6 +55,10 @@ import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 type Doi = (ma: string, v: GiaTriO) => void;
 /** Câu lỗi máy chủ trả theo từng ô (`canh_bao` khi lưu) — mã ô → câu. */
 type LoiO = Readonly<Record<string, string>>;
+
+/** Khung ĐẶT LỊCH HẸN THẬT vẽ dưới nhóm có ô "Ngày tái khám" (02/10/2026). Shell
+ *  của lượt cấp (nó biết lượt nào); null = không vẽ (chỉ xem, bàn tư vấn). */
+export const KhungDatLichTaiKham = createContext<((ngay: string) => ReactNode) | null>(null);
 
 /** Mã phần tử DOM của một ô phiếu khám — link "tới ô" cuộn về đây. */
 export const idOPhieu = (ma: string) => `pk-o-${ma}`;
@@ -114,6 +118,7 @@ export function NhomOPhieu({
     setDaMo((cu) => new Set(cu).add(ma));
   };
 
+  const veDatLich = useContext(KhungDatLichTaiKham);
   const hien = (o: OPhieu) => oDangHien(o, gia, daMo);
   const donVi = nhom.don_vi.filter((d) => d.loai !== "o" || hien(d.o));
   const chipAn = chiDoc ? [] : oThuGonDangAn(nhom, gia, daMo);
@@ -192,6 +197,11 @@ export function NhomOPhieu({
   if (donVi.length === 0 && !chipThuGon) return null;
 
   const soDien = nhom.gap ? soODaDien(oCuaNhom(nhom), gia) : 0;
+  // Ô "Ngày tái khám" của nhóm → khung đặt lịch hẹn THẬT trải hết bề ngang
+  // dưới nhóm (cột ghi kèm của phiếu có ô chọn quá hẹp cho bảng bác sĩ).
+  const oNgayHen = chiDoc
+    ? undefined
+    : oLe.find((o) => o.kieu === "ngay" && laONgayTaiKham(o.ma));
   return (
     <div ref={vung} className="border-t border-hairline pt-3 first:border-t-0 first:pt-0">
       {nhom.tieu_de ? (
@@ -208,6 +218,9 @@ export function NhomOPhieu({
       ) : (
         than
       )}
+      {veDatLich && oNgayHen ? (
+        <div className="mt-3">{veDatLich(chu(gia[oNgayHen.ma]))}</div>
+      ) : null}
     </div>
   );
 }

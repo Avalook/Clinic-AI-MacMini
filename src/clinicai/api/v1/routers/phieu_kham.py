@@ -16,6 +16,7 @@ nên không hỏi quyền phiếu.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -27,6 +28,7 @@ from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.y_khoa import ghi_mo_ho_so
 from clinicai.phieu_kham.khung import FORM_IDS, dinh_nghia
+from clinicai.services.lich_tai_kham_service import LichTaiKhamService
 from clinicai.services.phieu_kham_service import (
     KiemQuyen,
     PhieuKhamService,
@@ -227,4 +229,53 @@ async def luu_don_thuoc(
         dong=[d.model_dump() for d in body.dong],
         ly_do=body.ly_do,
         identity=identity,
+    )
+
+
+# ── Lịch tái khám THẬT đặt từ ô "Ngày tái khám" (Tuyền 02/10/2026) ──────────
+# Khách / dịch vụ / lịch trước lấy từ LƯỢT ở máy chủ; luật đặt lịch đi qua
+# BookingService.create. Quyền = người ghi được phiếu (kiem_quyen_core).
+
+
+class DatLichTaiKham(BaseModel):
+    slot_start: datetime
+    slot_end: datetime
+    #: Trống = "Chưa phân bác sĩ" (rơi vào màn Chờ xếp bác sĩ).
+    doctor_id: UUID | None = None
+
+
+@router.get("/phieu-kham/luot/{visit_id}/lich-tai-kham")
+async def doc_lich_tai_kham(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LichTaiKhamService(pool).doc(visit_id=str(visit_id), identity=identity)
+
+
+@router.post("/phieu-kham/luot/{visit_id}/lich-tai-kham", status_code=201)
+async def dat_lich_tai_kham(
+    visit_id: UUID,
+    body: DatLichTaiKham,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LichTaiKhamService(pool).dat(
+        visit_id=str(visit_id),
+        identity=identity,
+        slot_start=body.slot_start,
+        slot_end=body.slot_end,
+        doctor_id=str(body.doctor_id) if body.doctor_id else None,
+    )
+
+
+@router.delete("/phieu-kham/luot/{visit_id}/lich-tai-kham/{appointment_id}")
+async def huy_lich_tai_kham(
+    visit_id: UUID,
+    appointment_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await LichTaiKhamService(pool).huy(
+        visit_id=str(visit_id), appointment_id=str(appointment_id), identity=identity
     )

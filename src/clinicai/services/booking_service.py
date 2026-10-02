@@ -487,8 +487,12 @@ class BookingService:
         lich_truoc_id: str | None = None,
         xac_minh_cach: str | None = None,
         nguoi_gioi_thieu: str | None = None,
+        hen_tu_visit_id: str | None = None,
     ) -> dict[str, Any]:
         """Book one appointment. Returns its id and the status it landed in.
+
+        `hen_tu_visit_id` = lượt khám mà bác sĩ đặt lịch tái khám này từ phiếu
+        (`lich_tai_kham_service`, 02/10/2026). Màn Đặt lịch không truyền.
 
         `xac_minh_cach` TUỲ CHỌN khi lịch là VÃNG LAI TRONG NGÀY (đường này tự
         check-in) — gửi thì ghi như nút check-in, không gửi thì không ghi gì.
@@ -658,11 +662,12 @@ class BookingService:
                             clinic_id, clinic_patient_id, doctor_id, service_type_id,
                             location_id, slot_start, slot_end, booking_channel,
                             queue_number, status, patient_kind, thanh_min, sono_min,
-                            need_sono, is_walkin, notes, lich_truoc_id
+                            need_sono, is_walkin, notes, lich_truoc_id,
+                            hen_tu_visit_id
                         )
                         VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid,
                                 $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-                                $17::uuid)
+                                $17::uuid, $18::uuid)
                         RETURNING id
                         """,
                         identity.clinic_id,
@@ -688,6 +693,7 @@ class BookingService:
                         is_walkin(channel),
                         (notes or "").strip() or None,
                         lich_truoc_id,
+                        hen_tu_visit_id,
                     )
                 except asyncpg.ExclusionViolationError as exc:
                     raise ConflictError(
@@ -921,15 +927,18 @@ class BookingService:
         nguoi_gioi_thieu: str | None = None,
         cho_ngoai_ca: bool = False,
         xoa_so_thu_tu: bool = False,
+        quyen_da_kiem: bool = False,
     ) -> _KetQuaHanhDong:
         """Một hành động lịch hẹn TRONG giao dịch của người gọi.
 
         Tách khỏi `apply_action` (29/09/2026) để lệnh "đổi lịch nhanh" chạy
         đổi lịch rồi check-in trong CÙNG một giao dịch, qua đúng một đường luật.
         `cho_ngoai_ca` / `xoa_so_thu_tu` chỉ lệnh ấy dùng — xem `doi_lich_nhanh`.
+        `quyen_da_kiem` = người gọi đã gác bằng luật riêng (bác sĩ huỷ lịch
+        CHÍNH MÌNH đặt từ phiếu — `lich_tai_kham_service.huy_lich`).
         """
         visit_vua_mo: str | None = None
-        if transition.quyen is not None:
+        if transition.quyen is not None and not quyen_da_kiem:
             # Đứng vị trí Lễ tân hôm nay KHÔNG tự cấp quyền check-in:
             # người đó phải được cấp quyền (CORE-B3).
             await doi_quyen(conn, identity, transition.quyen)
