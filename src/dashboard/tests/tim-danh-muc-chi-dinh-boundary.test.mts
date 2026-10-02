@@ -80,3 +80,35 @@ test("ngăn 'Dịch vụ khác' gom theo nhóm hàng, giữ thứ tự", () => {
     ],
   );
 });
+
+// C21 (02/10/2026): bác sĩ phụ khoa tìm "Ghế điện từ trường" ở Chỉ định cận lâm
+// sàng không thấy (nó chỉ nằm ở danh sách thủ thuật phiếu Sàn chậu). Máy chủ nay
+// gửi MỌI dịch vụ ở mục C; màn: ô tìm + nút Tìm luôn hiện, danh mục mở sẵn.
+test("gõ 'ghe dien' ra Ghế điện từ trường; ô tìm luôn hiện + nút Tìm + mở sẵn", async () => {
+  const ds: NhomCls[] = [
+    ...DS,
+    {
+      nhom: `Dịch vụ khác${HAU_TO_DANH_MUC_PK}`,
+      muc: [muc("Ghế điện từ trường", "CLS_GHE_DTT", { nhom_hang: "Dịch vụ khác" })],
+    },
+    {
+      nhom: `Phí khám${HAU_TO_DANH_MUC_PK}`,
+      muc: [muc("Khám nam khoa", "KHAM_NAM_KHOA", { nhom_hang: "Phí khám" })],
+    },
+  ];
+  assert.deepEqual(
+    timDanhMucChiDinh(ds, "ghe dien").flatMap((n) => n.muc.map((m) => m.service_code)),
+    ["CLS_GHE_DTT"],
+  );
+  assert.equal(timDanhMucChiDinh(ds, "kham nam").flatMap((n) => n.muc).length, 1);
+
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(
+    new URL("../app/(dashboard)/_lam-viec/phieu-kham/DanhMucChiDinh.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(src, /\{!chiDoc \|\| hienDanhMuc \? \(\s*<form/, "ô tìm hiện cả khi danh mục gập");
+  assert.match(src, /<Button type="submit" variant="secondary">\s*Tìm\s*<\/Button>/);
+  assert.match(src, /useState\(true\)/, "danh mục mở sẵn");
+  assert.match(src, /<NganGap\s+moSan/, "ngăn Dịch vụ khác mở sẵn");
+});

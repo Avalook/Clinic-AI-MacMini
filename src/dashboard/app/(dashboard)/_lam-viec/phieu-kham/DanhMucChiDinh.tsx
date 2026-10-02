@@ -5,8 +5,9 @@
 // KIỂU PHIẾU GIẤY — Y HỆT bản giao diện mẫu (27/09/2026, mục 4; M/app.js
 // `danhMuc`, M/style.css `.dm`): mọi nhóm của phiếu chỉ định giấy LUÔN MỞ, lưới
 // 3/2/1 cột; mỗi dòng [ô tick | tên | giá + chip mẫu]. Dịch vụ có trong bảng giá
-// mà phiếu giấy không có (nhóm "(danh mục phòng khám)") gom vào MỘT ngăn gập
-// "Dịch vụ khác trong bảng giá". Tick nhiều mục rồi bấm MỘT lần → thành chỉ định
+// mà phiếu giấy không có (nhóm "(danh mục phòng khám)") gom vào MỘT ngăn
+// "Dịch vụ khác trong bảng giá" — MỞ SẴN (C21, 02/10/2026); mục C chứa MỌI dịch
+// vụ đang bán (kể cả phí khám và thủ thuật của phiếu giấy). Tick nhiều mục rồi bấm MỘT lần → thành chỉ định
 // thật (lệnh PlaceServiceOrders).
 //
 // Mã dịch vụ và giá do MÁY CHỦ gắn (bảng ghép viết tay `anh_xa_danh_muc.py`) —
@@ -14,7 +15,8 @@
 //
 // CHỈ ĐỊNH THÊM (Tuyền 25/09/2026): trong CÙNG một lượt khám bác sĩ chỉ định
 // được 2, 3 lần — mỗi lần vẫn đi thanh toán rồi làm như lần đầu. Lượt đã có chỉ
-// định thì danh mục gập sau nút [+ Chỉ định thêm (lần N)]. Hộp tóm tắt "Đã chỉ
+// định thì danh mục vẫn MỞ SẴN (C21, 02/10/2026); [Thu gọn] gập sau nút
+// [+ Chỉ định thêm (lần N)]. Hộp tóm tắt "Đã chỉ
 // định — Lần 1 · …" cũ đã BỎ (27/09): thẻ "Đã chỉ định & kết quả" ngay trên
 // (`KetQuaChiDinh`) gom theo lần rồi — và ô "bắt buộc" của chỉ định ĐÃ đặt
 // chuyển vào thẻ ấy (mỗi chỉ định một ô, đúng thẻ của nó).
@@ -66,7 +68,9 @@ export default function DanhMucChiDinh({
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
-  const [moThem, setMoThem] = useState(false);
+  // Danh mục MỞ SẴN kể cả khi lượt đã có chỉ định (C21, 02/10/2026 — Tuyền:
+  // "cho hiện full ra"); [Thu gọn] gập lại, [+ Chỉ định thêm] / ô tìm mở ra.
+  const [moThem, setMoThem] = useState(true);
   // DỊCH VỤ BẮT BUỘC (Tuyền 25/09/2026): mặc định KHÔNG tick.
   const [batBuoc, setBatBuoc] = useState<string[]>([]);
   // TÌM (01/10/2026): gõ "PRP", "NIPT", "liên cầu" ra ngay mọi dịch vụ đang
@@ -83,7 +87,7 @@ export default function DanhMucChiDinh({
     if (c.lan != null) lanCua.set(c.service_code, Math.max(c.lan, lanCua.get(c.service_code) ?? 0));
   }
   const lanCuoi = Math.max(0, ...daChiDinh.map((c) => c.lan ?? 0));
-  // Lượt đã có chỉ định → danh mục gập sau nút [+ Chỉ định thêm].
+  // Lượt đã có chỉ định: bấm [Thu gọn] → gập sau nút [+ Chỉ định thêm].
   const coTruoc = daChiDinh.length > 0;
   const hienDanhMuc = !coTruoc || moThem || chon.length > 0;
 
@@ -112,7 +116,6 @@ export default function DanhMucChiDinh({
     setBao(`Đã chỉ định ${chon.length} mục — khách vào hàng chờ phòng sau khi thu tiền.`);
     setChon([]);
     setBatBuoc([]);
-    setMoThem(false);
   };
 
   /** Một dòng kiểu phiếu giấy: ô tick (20px) · tên · giá + chip mẫu. */
@@ -192,18 +195,36 @@ export default function DanhMucChiDinh({
           Phiếu chỉ xem — các chỉ định đã đặt nằm ở thẻ “Đã chỉ định &amp; kết quả”.
         </p>
       ) : null}
-      {hienDanhMuc ? (
-        <label className="flex min-h-10 items-center gap-2 rounded-control border border-line bg-surface px-2.5 focus-within:border-brand-500 sm:min-h-8">
-          <Search aria-hidden className="size-4 shrink-0 text-ink-muted" />
-          <span className="sr-only">Tìm dịch vụ để chỉ định</span>
-          <input
-            type="search"
-            value={tim}
-            onChange={(e) => setTim(e.target.value)}
-            placeholder="Tìm dịch vụ — vd “PRP”, “NIPT”, “liên cầu”, “siêu âm thai”"
-            className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-faint"
-          />
-        </label>
+      {/* Ô TÌM LUÔN HIỆN (C21, 02/10/2026 — Tuyền: "thêm nút tìm nữa cho
+          tiện"): kể cả khi danh mục đang gập sau [+ Chỉ định thêm] — gõ hoặc
+          bấm Tìm là mở danh mục, ra kết quả ngay. */}
+      {!chiDoc || hienDanhMuc ? (
+        <form
+          role="search"
+          className="flex items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setMoThem(true);
+          }}
+        >
+          <label className="flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-control border border-line bg-surface px-2.5 focus-within:border-brand-500 sm:min-h-8">
+            <Search aria-hidden className="size-4 shrink-0 text-ink-muted" />
+            <span className="sr-only">Tìm dịch vụ để chỉ định</span>
+            <input
+              type="search"
+              value={tim}
+              onChange={(e) => {
+                setTim(e.target.value);
+                if (e.target.value.trim()) setMoThem(true);
+              }}
+              placeholder="Tìm dịch vụ — vd “ghế điện”, “PRP”, “NIPT”, “siêu âm thai”"
+              className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-faint"
+            />
+          </label>
+          <Button type="submit" variant="secondary">
+            Tìm
+          </Button>
+        </form>
       ) : null}
       {hienDanhMuc && tim.trim() ? (
         ketQuaTim.length === 0 ? (
@@ -233,13 +254,17 @@ export default function DanhMucChiDinh({
             ))}
           </div>
           {khac.length > 0 ? (
+            // Mở sẵn (C21): bác sĩ thấy ĐỦ mọi dịch vụ đang bán, gập lại được.
             <NganGap
+              moSan
               tieuDe={`Dịch vụ khác trong bảng giá — không có trên phiếu giấy (${khac.length})`}
               chip={chonTrongKhac > 0 ? <Chip tone="brand">{chonTrongKhac} đang chọn</Chip> : null}
             >
-              <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {/* HAI CỘT CHẢY DỌC từ trên xuống (Tuyền 02/10/2026): xếp hàng hết
+                  ra cho nhân viên dò nhanh; nhóm không bị cắt đôi giữa hai cột. */}
+              <div className="gap-6 md:columns-2">
                 {gomTheoNhomGoc(khac).map(([ten, ds]) => (
-                  <div key={ten} className="min-w-0">
+                  <div key={ten} className="mb-3 min-w-0 break-inside-avoid">
                     <h4 className="mb-1 text-label font-semibold uppercase tracking-wide text-ink-muted">
                       {ten}
                     </h4>

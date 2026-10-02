@@ -197,7 +197,12 @@ FT `phieu-kham-boundary.test.mts`, `npm run test:phieu-kham`.
 (`chi-dinh`) → `S/chi_dinh_service.py` `ChiDinhService.dat_chi_dinh`. Test:
 `T/services/test_chi_dinh_db.py`, `T/services/test_chi_dinh_bat_buoc_db.py`.
 Danh mục chọn được (thiếu dịch vụ nào thì xem đây): `S/phieu_kham_service.py`
-`tham_chieu_that` ← hàm `danh_muc_dich_vu` (mọi dịch vụ đang bán trừ phí khám);
+`tham_chieu_that` ← hàm `danh_muc_dich_vu` — MỌI dịch vụ đang bán, kể cả phí
+khám và thủ thuật của phiếu giấy, đều có ở mục C (C21, 02/10/2026; mig
+`20261003700000_phi_kham_chi_dinh_duoc.sql`). Tiền khám không tính hai lần:
+`S/phi_kham_service.py` `chan_trung_dich_vu_kham` (gọi từ `LuotKhamService._services`
+và `PhiKhamService.chon`). Ô tìm + nút Tìm luôn hiện, danh mục mở sẵn
+(`DanhMucChiDinh.tsx`);
 ô tìm `timDanhMucChiDinh` (`src/dashboard/lib/phieu-kham.ts`). Test:
 `T/services/test_danh_muc_dich_vu_chuan_db.py` (`test_moi_dich_vu_dang_ban_deu_chi_dinh_duoc`).
 

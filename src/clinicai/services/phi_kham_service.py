@@ -154,6 +154,68 @@ async def _chan_bo_dich_vu_da_thu(
         )
 
 
+async def chan_trung_dich_vu_kham(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    visit_id: str,
+    *,
+    ma_chi_dinh: list[str] | None = None,
+    id_tick: list[str] | None = None,
+) -> None:
+    """Tiền khám không tính HAI lần (02/10/2026, C21 — phí khám chỉ định được).
+
+    Một dịch vụ đang tick ở "Dịch vụ khám" (`luot_phi_kham` còn sống) thì không
+    chỉ định lại (`ma_chi_dinh`); một dịch vụ đang là chỉ định còn tính tiền
+    (`service_order` chưa huỷ / chưa "không làm") thì không tick thêm ở Dịch vụ
+    khám (`id_tick` = id `service_price`). Gọi trong giao dịch đã khoá lượt.
+    """
+    if ma_chi_dinh:
+        trung = await conn.fetch(
+            """
+            SELECT DISTINCT sp.name
+              FROM public.luot_phi_kham l
+              JOIN public.service_price sp
+                ON sp.id = l.service_price_id AND sp.clinic_id = l.clinic_id
+             WHERE l.clinic_id = $1::uuid AND l.visit_id = $2::uuid
+               AND l.bo_luc IS NULL AND sp.service_code = ANY($3::text[])
+             ORDER BY sp.name
+            """,
+            clinic_id,
+            visit_id,
+            ma_chi_dinh,
+        )
+        if trung:
+            raise ValidationError(
+                "Đã tính ở Dịch vụ khám: "
+                + ", ".join(r["name"] for r in trung)
+                + ". Không chỉ định lại — bỏ tick ở Dịch vụ khám nếu muốn làm"
+                " thành chỉ định."
+            )
+    if id_tick:
+        trung = await conn.fetch(
+            """
+            SELECT DISTINCT sp.name
+              FROM public.service_order o
+              JOIN public.service_price sp
+                ON sp.clinic_id = o.clinic_id AND sp.service_code = o.service_code
+               AND sp."group" = 'dich_vu'
+             WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+               AND o.exec_status NOT IN ('cancelled', 'not_performed')
+               AND sp.id = ANY($3::uuid[])
+             ORDER BY sp.name
+            """,
+            clinic_id,
+            visit_id,
+            id_tick,
+        )
+        if trung:
+            raise ValidationError(
+                "Đã chỉ định: "
+                + ", ".join(r["name"] for r in trung)
+                + ". Tiền tính ở chỉ định — không tick thêm ở Dịch vụ khám."
+            )
+
+
 class PhiKhamService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -216,6 +278,8 @@ class PhiKhamService:
             them = [i for i in muon if i not in cu]
             if bo:
                 await _chan_bo_dich_vu_da_thu(conn, cid, vid, bo, hien["lua_chon"])
+            if them:
+                await chan_trung_dich_vu_kham(conn, cid, vid, id_tick=them)
             if bo:
                 await conn.execute(
                     "UPDATE public.luot_phi_kham SET bo_luc = now(), bo_boi = $4::uuid"
@@ -278,4 +342,4 @@ class PhiKhamService:
         return kq
 
 
-__all__ = ["QUYEN_TICK", "PhiKhamService"]
+__all__ = ["QUYEN_TICK", "PhiKhamService", "chan_trung_dich_vu_kham"]
