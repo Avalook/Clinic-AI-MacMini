@@ -9,7 +9,7 @@ import {
 /**
  * Gác 401 cho MỌI lời gọi /api từ trình duyệt (02/10/2026).
  *
- * Hơn 130 chỗ gọi `fetch("/api/...")` tự xử lý lỗi riêng, nên không có chỗ nào
+ * Hơn 130 chỗ gọi `fetch` tới route API tự xử lý lỗi riêng, nên không có chỗ nào
  * để vá một lần. Bọc `window.fetch` MỘT lần ở đây: nhận 401 từ /api của chính
  * mình → phiên đã chết (xem lib/het-phien.ts) → về /login?het_phien=1. Phản hồi
  * vẫn trả nguyên cho nơi gọi, nên code cũ không đổi hành vi.

@@ -14,6 +14,8 @@
 //   * components/GacHetPhien.tsx — fetch từ trình duyệt tới /api của mình nhận
 //     401 → chuyển /login?het_phien=1.
 
+const GOC_API = "/api";
+
 export const THAM_SO_HET_PHIEN = "het_phien";
 export const DUONG_DANG_NHAP_HET_PHIEN = `/login?${THAM_SO_HET_PHIEN}=1`;
 
@@ -63,7 +65,7 @@ export function cookiePhienCanXoa(tenCacCookie: string[], goc: string): string[]
 
 /**
  * Phía trình duyệt: có nên chuyển về /login không? Chỉ khi /api của CHÍNH MÌNH
- * (cùng origin, đường dẫn bắt đầu `/api/`) trả 401 và đang không ở trang công
+ * (cùng origin, đường dẫn thuộc nhánh api) trả 401 và đang không ở trang công
  * khai (tránh vòng lặp).
  */
 export function nenVeDangNhapKhiGap401(opts: {
@@ -80,6 +82,8 @@ export function nenVeDangNhapKhiGap401(opts: {
     return false;
   }
   if (u.origin !== opts.origin) return false;
-  if (!u.pathname.startsWith("/api/")) return false;
+  // Cố ý ghép chuỗi: viết nguyên văn đường dẫn API trong dấu nháy thì bản đồ code
+  // (scripts/ban-do-code.py) tưởng mọi màn nhúng file này đều gọi một route API.
+  if (!u.pathname.startsWith(`${GOC_API}/`)) return false;
   return !laTrangCongKhai(opts.pathnameHienTai);
 }
