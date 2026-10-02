@@ -158,3 +158,5 @@ scripts/staff-emails.csv
 
 # CI chạy trên máy (scripts/ci-may.sh) — log từng job
 .ci-may/
+src/dashboard/test-results/
+playwright-report/
