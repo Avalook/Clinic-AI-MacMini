@@ -150,9 +150,10 @@ async def _nap(
         """
         UPDATE public.patient p SET is_active = true, updated_at = now()
           FROM _ghep x
-         WHERE p.clinic_patient_id = x.bn AND p.nguon_nhap = 'notion'
-           AND NOT p.is_active
-        """
+         WHERE p.clinic_id = $1::uuid AND p.clinic_patient_id = x.bn
+           AND p.nguon_nhap = 'notion' AND NOT p.is_active
+        """,
+        clinic_id,
     )
     # Mã hồ sơ: mã Notion; đã có người dùng mã ấy thì thêm đuôi ổn định.
     tao = await conn.fetch(
