@@ -263,7 +263,9 @@ export default function LichSuNotion({ clinicPatientId }: { clinicPatientId: str
       .then(async (r) => {
         const j = await r.json().catch(() => null);
         if (huy) return;
-        if (!r.ok) setLoi((j && (j.message || j.detail)) || "Không đọc được hồ sơ khám trước.");
+        // Không có quyền xem danh sách bệnh nhân (vd CSKH) → khối tự ẩn, không báo lỗi.
+        if (r.status === 403) setLs({ co_lich_su: false });
+        else if (!r.ok) setLoi((j && (j.message || j.detail)) || "Không đọc được hồ sơ khám trước.");
         else setLs(j as LichSu);
       })
       .catch(() => !huy && setLoi("Không đọc được hồ sơ khám trước."));

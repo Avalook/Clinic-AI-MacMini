@@ -19,6 +19,7 @@ import pytest
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.danh_sach_benh_nhan_service import DanhSachBenhNhanService
 from clinicai.services.lich_su_notion_service import chi_tiet_luot, lich_su
 from clinicai.services.nhap_lich_su_notion import nap
 from tests.services.test_luot_kham_service_db import CLINIC, KichBan
@@ -295,3 +296,36 @@ async def test_khong_co_quyen_phieu_kham_thi_chi_thay_danh_sach(
     assert ls["luot"][0]["chan_doan"] is None
     with pytest.raises(SafetyGateError):
         await chi_tiet_luot(kb.pool, identity=khong_quyen, luot_id=ls["luot"][0]["id"])
+
+
+async def test_ho_so_cu_chua_hoat_dong_khong_vao_danh_sach_benh_nhan(
+    kb: KichBan, tmp_path: Path
+) -> None:
+    """Danh sách bệnh nhân nạp HẾT về trình duyệt: 8.600 hồ sơ cũ chưa hoạt động
+    không được chen vào; khách cũ quay lại (có lượt) thì hiện như mọi khách."""
+    key = f"hc:{uuid.uuid4()}"
+    ma = f"KHACH-T{random.randint(1, 10**6)}"
+    goi = _goi(
+        tmp_path / "goi",
+        nguoi=[{"nguoi_key": key, "ten": "Đỗ Thị Cũ Thử", "sdt": _sdt(), "ma": ma}],
+        luot=[],
+    )
+    await nap(kb.pool, goi, that=True, clinic_id=CLINIC)
+    async with kb.pool.acquire() as conn:
+        bn = await conn.fetchval(
+            "SELECT clinic_patient_id::text FROM patient WHERE patient_code = $1", ma
+        )
+
+    async def co_trong_danh_sach() -> bool:
+        ds = await DanhSachBenhNhanService(kb.pool).lay(identity=kb.bac_si)
+        return any(d["ho_so"]["clinic_patient_id"] == bn for d in ds["dong"])
+
+    assert not await co_trong_danh_sach()
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO visit (clinic_id, clinic_patient_id, status, checked_in_at)"
+            " VALUES ($1::uuid, $2::uuid, 'OPEN', now())",
+            CLINIC,
+            bn,
+        )
+    assert await co_trong_danh_sach()
