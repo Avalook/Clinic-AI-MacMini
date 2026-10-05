@@ -353,6 +353,13 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   cột `appointment.hen_tu_visit_id` + trigger không đóng việc gọi của chính lượt:
   mig `20261003720000_lich_hen_tu_phieu_kham.sql`. Test:
   `T/services/test_lich_tai_kham_tu_phieu_db.py`.
+- **Lịch sử khám cũ từ Notion (05/10):** khối `D/patient-list/LichSuNotion.tsx` trong
+  hồ sơ khách `/patient-list` → `/api/lich-su-notion` (`?khach=` / `?luot=`, tệp PDF
+  `/api/lich-su-notion/tep`) → `S/lich_su_notion_service.py` (đọc schema
+  `lich_su_notion`, mig `20261005100000_lich_su_notion.sql`). Nạp / nạp lại / gỡ:
+  `S/nhap_lich_su_notion.py`, `scripts/nhap-lich-su-notion.sh`,
+  `scripts/hoan-tac-lich-su-notion.sql` — xem `docs/NHAP-LICH-SU-NOTION.md`. Test:
+  `T/services/test_lich_su_notion_db.py`.
 
 ## 13. Lịch làm việc · phòng · tầng
 
@@ -407,6 +414,8 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
 - Lỗi & cảnh báo: màn `/ops` (tab Lỗi & cảnh báo, Nhật ký vận hành) → kho lỗi
   `S/kho_loi.py`, canh gác `S/canh_gac.py`, nhật ký `S/nhat_ky_van_hanh.py`.
 - Sao lưu kéo về Mac: `cat ~/Projects/ClinicAI-Backups/TRANG-THAI.txt` phải "BÌNH THƯỜNG".
+- Lịch sử Notion: schema `lich_su_notion` NGOÀI `public` — bản 15 phút không lấy; bản
+  đêm lấy thành `*_lich_su_notion.sql.gz` (`BACKUP_LICH_SU_NOTION=1` ở `clinicai-backup.service`).
 
 ## 18. Giao diện chung
 

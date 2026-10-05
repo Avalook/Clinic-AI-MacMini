@@ -540,6 +540,25 @@ if [ "$TEP_VPS_COUNT" -gt 0 ]; then
 fi
 log "NOTICE: sessions/MFA and Supabase platform config remain outside this backup; retain PITR."
 
+# ---- lịch sử khám cũ nhập từ Notion (05/10/2026) ---------------------------
+# Schema `lich_su_notion` nằm NGOÀI `public` CÓ CHỦ Ý: nó tĩnh (~50 MB nén) và nếu
+# ở trong `public` thì mỗi bản 15 phút phình theo — 2 ngày × 96 bản ≈ đầy ổ 48G.
+# Chỉ bản ĐÊM lấy nó (unit clinicai-backup.service đặt BACKUP_LICH_SU_NOTION=1),
+# thành tệp đi kèm `*_lich_su_notion.sql.gz`, xoá theo cùng KEEP_DAYS ở dưới.
+# Lỗi ở đây KHÔNG làm hỏng bản sao lưu chính: dữ liệu dựng lại được từ gói nhập.
+if [ "${BACKUP_LICH_SU_NOTION:-0}" = "1" ]; then
+    LSN_FILE="${BACKUP_FILE%.sql.gz}_lich_su_notion.sql.gz"
+    if "$PG_DUMP_BIN" --format=plain --schema=lich_su_notion --no-owner --no-acl \
+            2>> "$LOG" | gzip > "${LSN_FILE}.tmp" && gzip -t "${LSN_FILE}.tmp"; then
+        mv "${LSN_FILE}.tmp" "$LSN_FILE"
+        chmod 600 "$LSN_FILE"
+        log "Lịch sử Notion: $LSN_FILE ($(du -h "$LSN_FILE" | cut -f1)) — nạp SAU bản public"
+    else
+        rm -f "${LSN_FILE}.tmp"
+        log "WARNING: không dump được lịch sử Notion — bản public vẫn đủ; gói nhập dựng lại được"
+    fi
+fi
+
 # Prune old backups (keep last KEEP_DAYS days).
 DELETED=$(find "$BACKUP_DIR" -name "clinicai_*.sql.gz" -mtime +${KEEP_DAYS} -print -delete 2>> "$LOG" | wc -l | tr -d ' ')
 find "$BACKUP_DIR" -name "clinicai_*.sql.gz.manifest" -mtime +${KEEP_DAYS} -delete 2>> "$LOG"

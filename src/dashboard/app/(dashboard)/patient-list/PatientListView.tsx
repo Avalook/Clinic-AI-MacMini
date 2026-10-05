@@ -26,6 +26,7 @@ import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorApptRow";
 import KenhDoiHuy, { type CoKenhDoiHuy } from "../customers/KenhDoiHuy";
 import SplitPane from "../SplitPane";
+import LichSuNotion from "./LichSuNotion";
 import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 
 /** Khối hành chính của bệnh nhân — cùng hình dạng với `appt.patient`. */
@@ -571,6 +572,10 @@ export default function PatientListView({
               </div>
             </section>
           )}
+
+          {/* LỊCH SỬ KHÁM CŨ TỪ NOTION (05/10/2026) — chỉ đọc; khách không có
+              lịch sử Notion thì khối tự ẩn. */}
+          <LichSuNotion key={selected.clinic_patient_id} clinicPatientId={selected.clinic_patient_id} />
 
           {/* Nút mở phiếu khám CHỈ cho vai lâm sàng.
               
