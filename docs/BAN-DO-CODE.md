@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-02 17:24. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-05 16:39. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -212,11 +212,11 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/patient-list` — Danh sách bệnh nhân
 - page: `src/dashboard/app/(dashboard)/patient-list/page.tsx` · quyền: lego `ds_benh_nhan` (Danh sách bệnh nhân · mặc định: CSKH, lễ tân)
-- thành phần: PatientListView.tsx, app/(dashboard)/tasks/DoctorApptRow.ts, app/(dashboard)/SplitPane.tsx, app/(dashboard)/customers/KenhDoiHuy.tsx, app/(dashboard)/tasks/ClinicalRecordForm.tsx
-- gọi API Next: `/api/clinical-record`, `/api/catalog`, `/api/clinical/[visit_id]/[action]`, `/api/clinical-form`, `/api/ultrasound`, `/api/visits/[id]/theo-doi-thu-thuat`, `/api/patients/sdt-them`, `/api/patients`, `/api/phieu-kham`, `/api/appointments` (+1)
+- thành phần: PatientListView.tsx, app/(dashboard)/tasks/DoctorApptRow.ts, app/(dashboard)/SplitPane.tsx, app/(dashboard)/customers/KenhDoiHuy.tsx, LichSuNotion.tsx, app/(dashboard)/tasks/ClinicalRecordForm.tsx
+- gọi API Next: `/api/lich-su-notion/tep`, `/api/lich-su-notion`, `/api/clinical-record`, `/api/catalog`, `/api/clinical/[visit_id]/[action]`, `/api/clinical-form`, `/api/ultrasound`, `/api/visits/[id]/theo-doi-thu-thuat`, `/api/patients/sdt-them`, `/api/patients` (+3)
 - gọi thẳng backend (server): `/api/v1/patients/danh-sach`
-- service: ho_so_lam_sang_doc · y_khoa · ClinicalRecordService.save · ClinicalSignService.{status, amend, release} · ClinicalFormService.{get_form, save_form} · UltrasoundBoardService.{queue, save_draft} (+10 service)
-- test: test_phieu_kham_db.py, test_phieu_kham_luot_db.py, test_danh_muc_dich_vu_chuan_db.py, test_tep_ket_qua.py, test_kho_tep_ghi.py (+38)
+- service: lich_su_notion_service · tep_ket_qua_service · TepMoDoc · ho_so_lam_sang_doc · y_khoa · ClinicalRecordService.save (+13 service)
+- test: test_phieu_kham_db.py, test_phieu_kham_luot_db.py, test_tep_ket_qua.py, test_danh_muc_dich_vu_chuan_db.py, test_xac_nhan_tep_ket_qua_db.py (+41)
 
 ### `/patients/[id]`
 - page: `src/dashboard/app/(dashboard)/patients/[id]/page.tsx` · quyền: ?
@@ -527,7 +527,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: TepKetQuaService.{cho_xac_nhan, xac_nhan_tep, mo_de_doc} · media_service · tep_ket_qua_service
 - test: test_xac_nhan_tep_ket_qua_db.py, test_tep_ket_qua.py, test_cho_xac_nhan_queue_va_doc_tep_db.py, test_full_chi_dinh_slice_ab_db.py, test_slice1_rail_db.py (+1)
 
-## 2. API Next → backend (108)
+## 2. API Next → backend (110)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -884,6 +884,17 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [doi-thu-tu] PUT `/api/v1/lam-them/cau-hinh-thu-tu` → `src/clinicai/api/v1/routers/lam_them_tai_quay.py:doi_thu_tu` → LamThemTaiQuayService.doi_thu_tu
 - test: src/tests/services/test_lam_them_tai_quay_db.py, src/tests/services/test_ket_qua_chung_lam_them_db.py
 - màn dùng: /do-sinh-hieu, /reception/queue, /settings/day-noi
+
+#### `/api/lich-su-notion` · `src/dashboard/app/api/lich-su-notion/route.ts`
+- GET `/api/v1/patients/{id:uuid}/lich-su-notion` → `src/clinicai/api/v1/patients.py:lich_su_notion_cua_khach` → lich_su
+- GET `/api/v1/lich-su-notion/luot/{luot_id:uuid}` → `src/clinicai/api/v1/patients.py:lich_su_notion_mot_luot` → chi_tiet_luot
+- test: src/tests/services/test_lich_su_notion_db.py
+- màn dùng: /patient-list
+
+#### `/api/lich-su-notion/tep` · `src/dashboard/app/api/lich-su-notion/tep/route.ts`
+- GET `/api/v1/lich-su-notion/xet-nghiem/{xn_id:uuid}/tep/{i}` → `src/clinicai/api/v1/patients.py:lich_su_notion_tep_xet_nghiem` → khoa_tep_xet_nghiem, _tim_ban, doc_dan, TepMoDoc
+- test: src/tests/services/test_full_chi_dinh_slice_ab_db.py, src/tests/services/test_xac_nhan_tep_ket_qua_db.py, src/tests/services/test_lich_su_notion_db.py (+2)
+- màn dùng: /patient-list
 
 #### `/api/loi` · `src/dashboard/app/api/loi/route.ts`
 - POST `/api/v1/loi-trinh-duyet` → `src/clinicai/api/v1/routers/ops.py:loi_trinh_duyet` → kho_loi.ghi_loi_web
@@ -1316,7 +1327,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/api/test_visit_work_items_read.py, src/tests/test_work_item_service.py
 - màn dùng: /viec-can-xu-ly
 
-## 3. Service → màn (150)
+## 3. Service → màn (152)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1399,6 +1410,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `LamThemTaiQuayService` | `src/clinicai/services/lam_them_tai_quay_service.py` | /do-sinh-hieu, /reception/queue, /settings/day-noi |
 | `LamTruocThuSauService` | `src/clinicai/services/lam_truoc_thu_sau.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /duyet-ket-qua, /hanh-trinh, /home, /pharmacy, /phong (+7) |
 | `lich_hen_doc` | `src/clinicai/services/lich_hen_doc.py` | /appointments, /appointments/cho-xep-bac-si, /ban-kham, /ban-kham/[phong], /customers, /home, /patient-list, /patients/new (+2) |
+| `lich_su_notion_service` | `src/clinicai/services/lich_su_notion_service.py` | /patient-list |
 | `LichPhongService` | `src/clinicai/services/lich_phong_service.py` | /settings/clinic-config |
 | `LichTaiKhamService` | `src/clinicai/services/lich_tai_kham_service.py` | /ban-kham, /ban-kham/[phong], /patient-list, /pharmacy, /print/ket-qua-luot/[visitId], /print/phieu-kham/[visitId], /thu-ngan/dich-vu, /thu-ngan/thuoc (+1) |
 | `LuatBacSiService` | `src/clinicai/services/luat_bac_si_service.py` | /settings/booking-policy |
@@ -1449,8 +1461,9 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `SinhHieuService` | `src/clinicai/services/sinh_hieu_service.py` | /do-sinh-hieu |
 | `SlotHoldService` | `src/clinicai/services/slot_hold_service.py` | /appointments, /patients/new |
 | `StaffService` | `src/clinicai/services/staff_service.py` | /nhan-su, /phan-quyen |
-| `tep_ket_qua_service` | `src/clinicai/services/tep_ket_qua_service.py` | /ban-kham, /ban-kham/[phong], /customers, /doi-tac, /duyet-ket-qua, /phong/[ma], /print/ket-qua/[orderId], /print/phieu-kham/[visitId] (+2) |
+| `tep_ket_qua_service` | `src/clinicai/services/tep_ket_qua_service.py` | /ban-kham, /ban-kham/[phong], /customers, /doi-tac, /duyet-ket-qua, /patient-list, /phong/[ma], /print/ket-qua/[orderId] (+3) |
 | `TepKetQuaService` | `src/clinicai/services/tep_ket_qua_service.py` | /ban-kham, /ban-kham/[phong], /customers, /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /patient-list, /pharmacy (+5) |
+| `TepMoDoc` | `src/clinicai/services/tep_ket_qua_service.py` | /patient-list |
 | `ThaiKyService` | `src/clinicai/services/thai_ky_service.py` | /ban-kham, /ban-kham/[phong], /tu-van |
 | `TheoDoiThuThuatService` | `src/clinicai/services/theo_doi_thu_thuat_service.py` | /ban-kham, /ban-kham/[phong], /patient-list, /tu-van |
 | `ThongBaoService` | `src/clinicai/services/thong_bao_service.py` | /customers, /doi-tac |
@@ -1573,7 +1586,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `node_definition_version` | `20260730000005_workflow_kernel.sql` | 0 |
 | `node_dependency` | `20260730000005_workflow_kernel.sql` | 0 |
 | `owner_feedback` | `20260801000004_owner_feedback.sql` | 0 |
-| `patient` | `20260714000001_baseline_schema.sql` | 4 |
+| `patient` | `20260714000001_baseline_schema.sql` | 5 |
 | `patient_contact_channel` | `20260801000003_adopt_prod_only_tables.sql` | 0 |
 | `patient_link` | `20260804000020_patient_link_consent.sql` | 0 |
 | `patient_medical_profile` | `20260714000001_baseline_schema.sql` | 0 |

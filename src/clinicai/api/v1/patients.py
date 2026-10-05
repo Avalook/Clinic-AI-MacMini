@@ -6,7 +6,7 @@ from uuid import UUID
 import asyncpg
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from clinicai.api.identity import (
@@ -339,4 +339,85 @@ async def dat_khach_uu_tien(
         clinic_patient_id=str(id),
         uu_tien=body.uu_tien,
         ly_do=body.ly_do,
+    )
+
+
+# ── Lịch sử khám cũ nhập từ Notion (05/10/2026) ─────────────────────────────
+# Cùng cửa màn Danh sách bệnh nhân; NỘI DUNG khám thì dịch vụ còn hỏi đúng quyền
+# xem lịch sử phiếu khám (`lich_su_notion_service.co_quyen_noi_dung`).
+
+
+@router.get("/patients/{id:uuid}/lich-su-notion")
+async def lich_su_notion_cua_khach(
+    id: UUID,
+    identity: StaffIdentity = Depends(_DANH_SACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Các lượt khám + lịch hẹn cũ trên Notion của một khách (chỉ đọc)."""
+    from clinicai.services.lich_su_notion_service import lich_su
+
+    kq: dict[str, Any] = jsonable_encoder(
+        await lich_su(pool, identity=identity, clinic_patient_id=str(id))
+    )
+    return kq
+
+
+@router.get("/lich-su-notion/luot/{luot_id:uuid}")
+async def lich_su_notion_mot_luot(
+    luot_id: UUID,
+    identity: StaffIdentity = Depends(_DANH_SACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Toàn bộ một lượt khám cũ — khám/tư vấn, dịch vụ + kết quả, XN, thuốc."""
+    from clinicai.services.lich_su_notion_service import chi_tiet_luot
+
+    kq: dict[str, Any] = jsonable_encoder(
+        await chi_tiet_luot(pool, identity=identity, luot_id=str(luot_id))
+    )
+    return kq
+
+
+@router.get("/lich-su-notion/xet-nghiem/{xn_id:uuid}/tep/{i}")
+async def lich_su_notion_tep_xet_nghiem(
+    xn_id: UUID,
+    i: int,
+    tai: bool = False,
+    identity: StaffIdentity = Depends(_DANH_SACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """Tệp kết quả (PDF) của một xét nghiệm cũ — theo luồng, cùng đường đọc kho
+    với tệp kết quả hiện hành (ổ VPS trước, CFS sau, ngắt mạch khi CFS treo)."""
+    import mimetypes
+
+    from clinicai.api.v1.routers.cskh import _cach_mo_tep
+    from clinicai.core.kho_tep import chay_tren_kho, don_tren_kho
+    from clinicai.services.lich_su_notion_service import khoa_tep_xet_nghiem
+    from clinicai.services.tep_ket_qua_service import TepMoDoc, _tim_ban, doc_dan
+
+    khoa, ten = await khoa_tep_xet_nghiem(
+        pool, identity=identity, xn_id=str(xn_id), i=i
+    )
+    duong, kho, f = await _tim_ban(khoa, "cfs", mo=True)
+    assert f is not None
+    try:
+        so_byte = int((await chay_tren_kho(duong.stat, kho=kho)).st_size)
+    except BaseException:
+        await don_tren_kho(f.close, viec=f"dong_tep:{duong}", kho=kho)
+        raise
+    tep = TepMoDoc(
+        f=f,
+        kho=kho,
+        duong=duong,
+        mime=mimetypes.guess_type(ten)[0] or "application/octet-stream",
+        so_byte=so_byte,
+        ten=ten,
+    )
+    headers = {
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": _cach_mo_tep(ten, tai),
+        "Content-Length": str(so_byte),
+    }
+    return StreamingResponse(
+        doc_dan(tep, 0, max(so_byte - 1, 0)), media_type=tep.mime, headers=headers
     )

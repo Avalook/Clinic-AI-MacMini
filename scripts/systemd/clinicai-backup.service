@@ -18,6 +18,8 @@ Environment=CLINIC_DB_CONTAINER=clinicai_db
 Environment=BACKUP_ENV_FILE=/home/clinicai/clinicai/.env.prod
 Environment=CLINIC_BACKUP_LOG=/home/clinicai/.local/state/clinicai-backup.log
 Environment=CLINIC_BACKUP_DIR=/home/clinicai/backups/clinicai
+# Bản đêm lấy thêm schema lich_su_notion (tĩnh) — bản 15 phút KHÔNG (xem backup-db.sh).
+Environment=BACKUP_LICH_SU_NOTION=1
 
 ExecStart=/home/clinicai/clinicai/scripts/backup-db.sh
 
