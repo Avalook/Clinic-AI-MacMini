@@ -134,7 +134,7 @@ function DongKetQua({ k }: { k: KetQua }) {
         <p className="mt-1 text-meta text-ink-muted">Ký: {k.bac_si_ky.join(" · ")}</p>
       ) : null}
       {!k.da_co_noi_dung ? (
-        <p className="mt-1 text-meta text-ink-muted">Nội dung tờ kết quả chưa lấy xong từ Notion.</p>
+        <p className="mt-1 text-meta text-ink-muted">Nội dung tờ kết quả đang được bổ sung.</p>
       ) : null}
       {k.link_drive_cu ? (
         <a
@@ -242,31 +242,9 @@ function NoiDungLuot({ ct }: { ct: ChiTiet }) {
           </ul>
         </div>
       ) : null}
-      {ct.bat_thuong.length > 0 ? (
-        <div className="flex flex-wrap gap-1.5">
-          {ct.bat_thuong.map((b, i) => (
-            <Chip key={i} tone="warning" title={b.chi_tiet ?? undefined}>
-              {b.chi_tiet ?? b.loai}
-            </Chip>
-          ))}
-        </div>
-      ) : null}
       <p className="text-meta text-ink-muted">
-        Phiếu {ct.ma ?? "—"} · Ngày lấy từ: {ct.nguon_ngay}
-        {ct.co_so_goc ? ` · Cơ sở ghi trên Notion: ${ct.co_so_goc}` : ""}
-        {ct.notion_url ? (
-          <>
-            {" · "}
-            <a
-              href={ct.notion_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-brand-700 hover:underline"
-            >
-              Trang Notion gốc
-            </a>
-          </>
-        ) : null}
+        Phiếu cũ số {ct.ma ?? "—"} · Ngày khám lấy theo: {ct.nguon_ngay}
+        {ct.co_so_goc ? ` · Cơ sở ghi trong hồ sơ: ${ct.co_so_goc}` : ""}
       </p>
     </div>
   );
@@ -285,10 +263,10 @@ export default function LichSuNotion({ clinicPatientId }: { clinicPatientId: str
       .then(async (r) => {
         const j = await r.json().catch(() => null);
         if (huy) return;
-        if (!r.ok) setLoi((j && (j.message || j.detail)) || "Không đọc được lịch sử Notion.");
+        if (!r.ok) setLoi((j && (j.message || j.detail)) || "Không đọc được hồ sơ khám trước.");
         else setLs(j as LichSu);
       })
-      .catch(() => !huy && setLoi("Không đọc được lịch sử Notion."));
+      .catch(() => !huy && setLoi("Không đọc được hồ sơ khám trước."));
     return () => {
       huy = true;
     };
@@ -318,12 +296,12 @@ export default function LichSuNotion({ clinicPatientId }: { clinicPatientId: str
   const hen = ls.lich_hen ?? [];
 
   return (
-    <section className="border-t border-line px-5 py-4" aria-label="Lịch sử khám từ Notion">
+    <section className="border-t border-line px-5 py-4" aria-label="Hồ sơ khám trước 10/2026">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-          <History size={15} className="text-brand-600" /> Lịch sử khám từ Notion ({luot.length})
+          <History size={15} className="text-brand-600" /> Hồ sơ khám trước 10/2026 ({luot.length})
         </h3>
-        <Chip tone="info">Nhập từ Notion</Chip>
+        <Chip tone="info">Hồ sơ cũ</Chip>
         {(ls.nguoi?.ho_so_notion ?? []).map((m) => (
           <Chip key={m}>{m}</Chip>
         ))}
@@ -396,7 +374,7 @@ export default function LichSuNotion({ clinicPatientId }: { clinicPatientId: str
 
       {hen.length > 0 ? (
         <details className="mt-3">
-          <summary className="cursor-pointer text-meta text-ink-muted">Lịch hẹn cũ trên Notion ({hen.length})</summary>
+          <summary className="cursor-pointer text-meta text-ink-muted">Lịch hẹn trước 10/2026 ({hen.length})</summary>
           <div className="mt-2 overflow-x-auto">
             <table className="w-full border-collapse text-body">
               <thead>

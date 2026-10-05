@@ -25,8 +25,8 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 
 GHI_CHU_CO_DINH = (
-    "Lịch sử nhập từ Notion. Chỉ có NGÀY khám, không có giờ vào/ra. "
-    '"Lần thứ N" tính trên dữ liệu Notion có từ 04/2025 — trước đó không '
+    "Hồ sơ khám trước khi dùng hệ thống này. Chỉ có NGÀY khám, không có giờ "
+    'vào/ra. "Lần thứ N" tính trên dữ liệu có từ 04/2025 — trước đó không '
     "có dữ liệu."
 )
 
