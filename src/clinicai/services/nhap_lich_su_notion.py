@@ -77,7 +77,7 @@ async def _nap_tam(conn: asyncpg.Connection, thu_muc: Path) -> dict[str, int]:
         await conn.execute(f"CREATE TEMP TABLE _g_{ten} (d jsonb) ON COMMIT DROP")
         tep = thu_muc / f"{ten}.jsonl"
         dong = (
-            [(ln,) for ln in tep.read_text().splitlines() if ln.strip()]
+            [[ln] for ln in tep.read_text().splitlines() if ln.strip()]
             if tep.exists()
             else []
         )
