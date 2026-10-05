@@ -246,8 +246,17 @@ async def test_khach_moi_tu_notion_va_trung_sdt_khac_ten(
 
 
 async def test_khong_co_quyen_phieu_kham_thi_chi_thay_danh_sach(
-    kb: KichBan, tmp_path: Path
+    kb: KichBan, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # Cố định "không có quyền xem phiếu khám": quyền mặc định của vai trên DB test
+    # dùng chung bị test khác đổi (chạy riêng thì qua, chạy cả bộ thì không).
+    # Điều cần kiểm ở đây là CÁCH dịch vụ chặn nội dung, không phải bảng quyền.
+    import clinicai.services.lich_su_notion_service as lsn
+
+    async def khong_co_quyen(conn: Any, identity: Any) -> bool:
+        return False
+
+    monkeypatch.setattr(lsn, "co_quyen_noi_dung", khong_co_quyen)
     async with kb.pool.acquire() as conn:
         a = await _khach_he_thong(conn, kb.location_id, "Phạm Thị Quyền Thử", _sdt())
         sid = await conn.fetchval(
