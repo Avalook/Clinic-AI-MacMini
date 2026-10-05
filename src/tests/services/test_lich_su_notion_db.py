@@ -338,3 +338,26 @@ async def test_ho_so_cu_chua_hoat_dong_khong_vao_danh_sach_benh_nhan(
             bn,
         )
     assert await co_trong_danh_sach()
+
+
+async def test_man_dat_lich_nap_kem_khach_cu_theo_ma(
+    kb: KichBan, tmp_path: Path
+) -> None:
+    """Màn Đặt lịch chỉ nạp 200 khách: hồ sơ cũ chưa hoạt động không chiếm chỗ,
+    nhưng "Đặt lịch" từ Quản lý khách hàng (`?bn=<mã>`) phải chọn sẵn được."""
+    from clinicai.services.man_dat_lich_doc import hub_dat_lich
+
+    key = f"hc:{uuid.uuid4()}"
+    ma = f"KHACH-T{random.randint(1, 10**6)}"
+    goi = _goi(
+        tmp_path / "goi",
+        nguoi=[
+            {"nguoi_key": key, "ten": "Vũ Thị Đặt Lịch Thử", "sdt": _sdt(), "ma": ma}
+        ],
+        luot=[],
+    )
+    await nap(kb.pool, goi, that=True, clinic_id=CLINIC)
+    khong = await hub_dat_lich(kb.pool, identity=kb.le_tan)
+    assert ma not in {p["patient_code"] for p in khong["patients"]}
+    co = await hub_dat_lich(kb.pool, identity=kb.le_tan, bn=ma)
+    assert co["patients"][0]["patient_code"] == ma

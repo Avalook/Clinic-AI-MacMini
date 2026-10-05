@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-05 17:25. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-05 17:40. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -21,9 +21,9 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - page: `src/dashboard/app/(dashboard)/appointments/page.tsx` · quyền: lego `dat_lich` (Đặt lịch · mặc định: CSKH, lễ tân)
 - thành phần: BookingHub.tsx, app/(dashboard)/patients/new/NewPatientForm.tsx, app/(dashboard)/BookingPolicyContext.tsx, app/(dashboard)/DateField.tsx, app/(dashboard)/QuyenContext.tsx, app/(dashboard)/SearchSelect.tsx, BangBacSiTuan.tsx, LichSapToiCuaKhach.tsx (+7)
 - gọi API Next: `/api/appointments/slot-hold`, `/api/appointments/cho-trong-tuan`, `/api/appointments/quote`, `/api/cskh-action`, `/api/wards`, `/api/patients/check-duplicate`, `/api/appointments/doi-lich-nhanh`, `/api/appointments/service-history`, `/api/appointments/luoi-ngay`, `/api/roster` (+3)
-- gọi thẳng backend (server): `/api/v1/appointments/hub-dat-lich`, `/api/v1/staff/bac-si-dat-duoc`
+- gọi thẳng backend (server): `/api/v1/appointments/hub-dat-lich${maKhach`, `/api/v1/staff/bac-si-dat-duoc`
 - service: SlotHoldService.{release, active, hold} · capacity_service · CapacityService.quote · CskhService.record_action · MPIService.find_candidates · doi_lich_nhanh.o_doi_lich (+5 service)
-- test: test_clinical_cluster.py, test_capacity_roster_gate.py, test_lich_hen_doc_db.py, test_pham_vi_vi_tri_lich_truc.py, test_capacity_quote_params.py (+18)
+- test: test_clinical_cluster.py, test_capacity_roster_gate.py, test_lich_hen_doc_db.py, test_pham_vi_vi_tri_lich_truc.py, test_capacity_quote_params.py (+19)
 
 ### `/appointments/cho-xep-bac-si` — Chờ xếp bác sĩ
 - page: `src/dashboard/app/(dashboard)/appointments/cho-xep-bac-si/page.tsx` · quyền: lego `dat_lich` (Đặt lịch · mặc định: CSKH, lễ tân)

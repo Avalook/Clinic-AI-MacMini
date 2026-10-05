@@ -14,8 +14,17 @@ import { canWriteIntake } from "../../../lib/roles";
 
 export const dynamic = "force-dynamic";
 
-export default async function AppointmentsPage() {
+export default async function AppointmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ bn?: string }>;
+}) {
   await requireNavAccess("/appointments");
+  // `?bn=<mã khách>` (bấm "Đặt lịch" từ Quản lý khách hàng): máy chủ nạp KÈM
+  // đúng khách ấy — danh sách chỉ có 200 khách gần nhất, khách cũ (hồ sơ trước
+  // 10/2026) nằm ngoài đó thì trước đây không chọn sẵn được.
+  const { bn } = await searchParams;
+  const maKhach = typeof bn === "string" ? bn.trim().slice(0, 40) : "";
   // 24/09/2026: một lần đọc ở backend (`GET /api/v1/appointments/hub-dat-lich`)
   // thay vì tự đọc 6 bảng bằng Supabase — kể cả luật "khách khám lần mấy /
   // đang trong chuỗi tái khám" (services/man_dat_lich_doc.py). Ở đây chỉ còn
@@ -28,7 +37,7 @@ export default async function AppointmentsPage() {
       patients: PatientLite[];
       appts: ApptLite[];
       lan_kham: Record<string, { soLanKham: number; laTaiKham: boolean }>;
-    }>("/api/v1/appointments/hub-dat-lich"),
+    }>(`/api/v1/appointments/hub-dat-lich${maKhach ? `?bn=${encodeURIComponent(maKhach)}` : ""}`),
     listBookableDoctors(),
   ]);
 

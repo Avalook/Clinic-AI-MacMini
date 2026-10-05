@@ -134,13 +134,18 @@ _DOC_LICH_GUARD = cua_quyen(
 
 @router.get("/appointments/hub-dat-lich")
 async def hub_dat_lich(
+    bn: str | None = None,
     identity: StaffIdentity = Depends(
         cua_quyen("booking.create", "reception.checkin.perform")
     ),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Dữ liệu màn Đặt lịch (CSKH + Lễ tân) — kèm "khách khám lần mấy"."""
-    return await man_dat_lich_doc.hub_dat_lich(pool, identity=identity)
+    """Dữ liệu màn Đặt lịch (CSKH + Lễ tân) — kèm "khách khám lần mấy".
+
+    ``bn`` = mã khách cần có sẵn (link "Đặt lịch" từ Quản lý khách hàng)."""
+    return await man_dat_lich_doc.hub_dat_lich(
+        pool, identity=identity, bn=(bn or "")[:40] or None
+    )
 
 
 @router.get("/appointments/bac-si-tu-choi")
