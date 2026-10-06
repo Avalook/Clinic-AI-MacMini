@@ -433,6 +433,7 @@ UNION ALL
 SELECT replace(p.source_ref, 'ho-so-cu-', '')::uuid, 'prescription', p.id, _ts.lan
   FROM prescription p CROSS JOIN _ts JOIN _nhom n ON n.visit = p.visit_id
  WHERE p.clinic_id = _ts.clinic AND p.source_ref LIKE 'ho-so-cu-%'
+   AND p.removed_at IS NULL
 ON CONFLICT DO NOTHING
 """,
     ),

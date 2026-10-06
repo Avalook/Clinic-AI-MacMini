@@ -37,6 +37,11 @@ BO_QUA_THU_MUC = ("node_modules", ".next", "dist", "build", "__pycache__")
 # Những chỗ CỐ Ý không nhắc tới trạng thái mới. Mỗi dòng phải có lý do đọc được
 # — danh sách miễn trừ không lý do là danh sách sẽ dài mãi.
 MIEN_TRU: dict[str, str] = {
+    "services/chuyen_luot_that.py": (
+        "Bộ chuyển hồ sơ cũ (06/10/2026) chỉ GHI lượt đã khám xong trong quá khứ "
+        "(IN_PROGRESS rồi FINALIZED trong cùng giao dịch), không phân nhánh theo "
+        "trạng thái của lượt đang có."
+    ),
     "api/v1/routers/visit_progress.py": (
         "Bảng điều phối chỉ hiện người ĐANG TRONG phòng khám. Khách về giữa "
         "chừng không được đếm vào hàng đợi của phòng nào."
