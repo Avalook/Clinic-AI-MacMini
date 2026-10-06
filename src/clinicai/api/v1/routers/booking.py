@@ -148,6 +148,21 @@ async def hub_dat_lich(
     )
 
 
+@router.get("/appointments/tim-khach")
+async def tim_khach_dat_lich(
+    q: str | None = None,
+    identity: StaffIdentity = Depends(
+        cua_quyen("booking.create", "reception.checkin.perform")
+    ),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ô tìm khách màn Đặt lịch — trên TOÀN BỘ hồ sơ (06/10/2026), tối đa 20.
+
+    Cùng cửa với ``hub-dat-lich``. ``q`` rác (rỗng, < 2 ký tự, quá dài, toàn
+    ký tự lạ) → danh sách rỗng, không 422 / 500."""
+    return await man_dat_lich_doc.tim_khach(pool, identity=identity, q=q)
+
+
 @router.get("/appointments/bac-si-tu-choi")
 async def lich_bac_si_tu_choi(
     identity: StaffIdentity = Depends(_DOC_LICH_GUARD),
