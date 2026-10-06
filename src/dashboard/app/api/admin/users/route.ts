@@ -1,22 +1,22 @@
-// Admin-only account management endpoint.
+// Tài khoản đăng nhập của nhân viên (/settings/tai-khoan, /settings/new-user).
 //
 //   GET                                       → { emails: { staffId: email } }
-//   POST   { email, password, staffId }      → create Auth user + link staff
-//   PATCH  { staffId, action: "reset_password", password }  → reset password
+//   POST   { email, password, staffId }      → tạo người dùng GoTrue + nối nhân viên
+//   PATCH  { staffId, action: "reset_password", password }  → đặt lại mật khẩu
 //   PATCH  { staffId, action: "change_email", email }        → đổi tên đăng nhập
-//   PATCH  { staffId, action: "unlink" }      → revoke: null the FK + delete
-//                                               the Auth user (staff row kept)
+//   PATCH  { staffId, action: "unlink" }      → thu hồi: gỡ nối + khoá
+//                                               app_credential, rồi xoá GoTrue
 //
-// Every method:
-//   1. Verifies the caller's Supabase session and that the linked staff
-//      row has primary_department === 'MANAGEMENT'. Anything else → 403.
-//   2. Uses the service-role client for the privileged Auth ops.
+// CHIA VIỆC (06/10/2026). File này CHỈ còn giữ lời gọi quản trị GoTrue — thứ
+// duy nhất cần khoá service-role (ADR-0012). Không đọc/ghi bảng nào: ai thuộc
+// phòng khám nào, nối/gỡ `staff.auth_user_id`, khoá `app_credential`, nhật ký
+// đều ở FastAPI (`TaiKhoanService`, cửa `account.manage`, lọc theo phòng khám
+// của người gọi). Mỗi lời gọi GoTrue đi SAU một lời gọi backend đã gác quyền
+// và phạm vi cho đúng nhân viên ấy.
 //
 // SECURITY
-// - SUPABASE_SERVICE_ROLE_KEY is read from the server environment only.
-//   It is never sent to the client.
-// - Unknown methods get the default 405.
-// - If SUPABASE_SERVICE_ROLE_KEY is unset, every method fails closed (503).
+// - SUPABASE_SERVICE_ROLE_KEY chỉ đọc từ môi trường máy chủ, không ra trình duyệt.
+// - Thiếu khoá → mọi phương thức 503 (đóng cửa, không mở).
 
 import { NextResponse } from "next/server";
 import {
@@ -25,20 +25,26 @@ import {
 } from "../../../../lib/ten-dang-nhap";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { fetchFromBackend, proxyJsonToBackend } from "../../../../lib/backend-proxy";
 import {
-  resolveLinkedStaffAuthority,
-  resolveSingleActiveMembership,
-} from "../../../../lib/identity-authority";
+  docTuBackend,
+  fetchFromBackend,
+  proxyJsonToBackend,
+} from "../../../../lib/backend-proxy";
 
 const MIN_PASSWORD = 8;
 
-// NHẬT KÝ (15/09/2026): mọi thao tác tài khoản thành công ghi vào event_log qua
-// FastAPI — trước đây route này không để lại dấu vết nào. Không gửi mật khẩu.
-// Ghi hỏng thì không huỷ thao tác đã xong, nhưng báo ra log máy chủ.
+interface TaiKhoan {
+  id: string;
+  full_name: string;
+  auth_user_id: string | null;
+}
+
+// Đổi mật khẩu / đổi tên đăng nhập: GoTrue làm xong mới ghi. Ghi hỏng thì không
+// huỷ thao tác đã xong, nhưng báo ra log máy chủ. Không gửi mật khẩu.
+// (Tạo / thu hồi ghi nhật ký trong giao dịch của backend.)
 async function ghiNhatKy(
   staffId: string,
-  hanhDong: "tao" | "doi_mat_khau" | "doi_ten_dang_nhap" | "thu_hoi",
+  hanhDong: "doi_mat_khau" | "doi_ten_dang_nhap",
 ): Promise<void> {
   const res = await proxyJsonToBackend(
     "POST",
@@ -50,15 +56,21 @@ async function ghiNhatKy(
   }
 }
 
+/** Nhân viên cùng phòng khám (backend gác `account.manage` + phạm vi), hoặc lỗi. */
+function docTaiKhoan(staffId: string) {
+  return docTuBackend<TaiKhoan>(
+    `/api/v1/staff/${encodeURIComponent(staffId)}/tai-khoan`,
+  );
+}
+
 type AuthResult =
-  | { ok: true; admin: SupabaseClient; clinicId: string }
+  | { ok: true; admin: SupabaseClient }
   | { ok: false; res: NextResponse };
 
-// Shared gate: env present + caller authenticated + caller có quyền account.manage.
-// Returns a ready service-role client on success, or the error response.
+// Cổng chung: có phiên + có khoá + người gọi có quyền account.manage. Backend gác
+// lại ở từng lời gọi; cổng này để không lời gọi GoTrue nào chạy trước khi biết.
 async function authorizeAdmin(): Promise<AuthResult> {
-  // Authenticate first. A clinic_role cookie is intentionally ignored because
-  // cookies are client-controlled presentation state, not authorization.
+  // Cookie clinic_role do trình duyệt giữ — không phải bằng chứng quyền.
   const callerClient = await getSupabaseServer();
   const {
     data: { user },
@@ -86,69 +98,20 @@ async function authorizeAdmin(): Promise<AuthResult> {
     };
   }
 
+  // LEGO 19 "Nhân sự & phân quyền": hỏi QUYỀN `account.manage` ở backend (nguồn
+  // sự thật duy nhất về quyền và phòng khám), bằng phiên của chính người gọi.
+  const quyen = await fetchFromBackend<{ quyen: string[] }>("/api/v1/phan-quyen/toi");
+  if (!quyen?.quyen.includes("account.manage")) {
+    return {
+      ok: false,
+      res: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
   const admin = createClient(SUPABASE_URL, khoaDichVu, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data: callerStaff, error: callerStaffError } = await admin
-    .from("staff")
-    .select("id, auth_user_id, primary_department, is_active")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-  const callerIdentity = resolveLinkedStaffAuthority(user.id, callerStaff);
-  if (callerStaffError || !callerIdentity) {
-    return {
-      ok: false,
-      res: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
-    };
-  }
-
-  // clinic_membership.role is the tenant authority. primary_department is
-  // descriptive staff data and may differ between clinics.
-  const { data: memberships, error: membershipError } = await admin
-    .from("clinic_membership")
-    .select("clinic_id, role, is_active")
-    .eq("staff_id", callerIdentity.id)
-    .eq("is_active", true);
-  // LEGO 19 "Nhân sự & phân quyền" (Tuyền 25/09/2026): tạo tài khoản / đặt lại
-  // mật khẩu hỏi QUYỀN `account.manage`, không hỏi vai MANAGEMENT — thu lego là
-  // mất quyền ngay. Hỏi BACKEND (nguồn sự thật duy nhất về quyền), bằng phiên
-  // của chính người gọi. (Cũ: `resolveSingleManagementClinic` — OFF.)
-  const clinicId = resolveSingleActiveMembership(memberships ?? [])?.clinic_id ?? null;
-  const quyen = await fetchFromBackend<{ quyen: string[] }>("/api/v1/phan-quyen/toi");
-  if (membershipError || !clinicId || !quyen?.quyen.includes("account.manage")) {
-    return {
-      ok: false,
-      res: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
-    };
-  }
-
-  return { ok: true, admin, clinicId };
-}
-
-async function requireTargetMembership(
-  admin: SupabaseClient,
-  staffId: string,
-  clinicId: string,
-): Promise<NextResponse | null> {
-  const { data, error } = await admin
-    .from("clinic_membership")
-    .select("staff_id")
-    .eq("staff_id", staffId)
-    .eq("clinic_id", clinicId)
-    .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  if (!data) {
-    // Do not reveal whether the id exists in another tenant.
-    return NextResponse.json(
-      { error: "Nhân viên không tồn tại trong phòng khám hiện tại." },
-      { status: 404 },
-    );
-  }
-  return null;
+  return { ok: true, admin };
 }
 
 interface CreateBody {
@@ -157,36 +120,26 @@ interface CreateBody {
   staffId?: string;
 }
 
-// Create a new Auth user and link it to an existing, unlinked staff row.
 // Tên đăng nhập của từng nhân viên. `auth.users` chỉ khoá dịch vụ đọc được, và
 // ADR-0012 cấm file khác với ra khoá đó — nên nó phải đi qua đúng route này.
 // MỘT lượt gọi cho cả bảng, không phải mỗi dòng một lượt.
 export async function GET() {
   const auth = await authorizeAdmin();
   if (!auth.ok) return auth.res;
-  const { admin, clinicId } = auth;
+  const { admin } = auth;
 
-  const [{ data: users }, { data: staff }] = await Promise.all([
+  const [{ data: users }, nhanVien] = await Promise.all([
     admin.auth.admin.listUsers({ perPage: 1000 }),
-    admin
-      .from("clinic_membership")
-      .select("staff:staff!staff_id(id, auth_user_id)")
-      .eq("clinic_id", clinicId)
-      .eq("is_active", true),
+    docTuBackend<TaiKhoan[]>("/api/v1/staff/tai-khoan"),
   ]);
+  if (!nhanVien.ok) return nhanVien.res;
 
   const theoUid = new Map(
     (users?.users ?? []).map((u) => [u.id, u.email ?? ""]),
   );
   const emails: Record<string, string> = {};
-  for (const row of staff ?? []) {
-    // Nhúng nhiều-một của PostgREST trả về OBJECT, nhưng kiểu sinh ra khai là
-    // mảng — nhận cả hai để không lệ thuộc vào chỗ đó.
-    const raw = (row as { staff: unknown }).staff;
-    const s = (Array.isArray(raw) ? raw[0] : raw) as
-      | { id: string; auth_user_id: string | null }
-      | undefined;
-    if (!s?.auth_user_id) continue;
+  for (const s of nhanVien.data) {
+    if (!s.auth_user_id) continue;
     const mail = theoUid.get(s.auth_user_id);
     if (mail) emails[s.id] = mail;
   }
@@ -196,7 +149,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await authorizeAdmin();
   if (!auth.ok) return auth.res;
-  const { admin, clinicId } = auth;
+  const { admin } = auth;
 
   let body: CreateBody;
   try {
@@ -224,37 +177,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const membershipError = await requireTargetMembership(
-    admin,
-    staffId,
-    clinicId,
-  );
-  if (membershipError) return membershipError;
-
-  // Target staff exists + still unlinked?
-  const { data: targetStaff, error: targetErr } = await admin
-    .from("staff")
-    .select("id, full_name, auth_user_id")
-    .eq("id", staffId)
-    .maybeSingle();
-  if (targetErr) {
-    return NextResponse.json({ error: targetErr.message }, { status: 500 });
-  }
-  if (!targetStaff) {
-    return NextResponse.json(
-      { error: "Nhân viên không tồn tại." },
-      { status: 404 },
-    );
-  }
-  if (targetStaff.auth_user_id) {
+  // Cùng phòng khám + còn chưa nối? Hỏi trước để không tạo người dùng GoTrue
+  // thừa trong ca thường gặp; backend vẫn kiểm lại lúc nối (khoá dòng).
+  const doc = await docTaiKhoan(staffId);
+  if (!doc.ok) return doc.res;
+  if (doc.data.auth_user_id) {
     return NextResponse.json(
       { error: "Nhân viên này đã được link với tài khoản khác." },
       { status: 409 },
     );
   }
 
-  // Create the Auth user (auto-confirmed so the operator can hand over the
-  // credentials immediately).
+  // Tự xác nhận email để quản lý giao thông tin đăng nhập ngay.
   const created = await admin.auth.admin.createUser({
     email,
     password,
@@ -268,34 +202,32 @@ export async function POST(request: Request) {
   }
   const newUserId = created.data.user.id;
 
-  // Link staff.auth_user_id. Rollback the Auth user on failure so we don't
-  // strand an unlinkable account.
-  const linkRes = await admin
-    .from("staff")
-    .update({ auth_user_id: newUserId })
-    .eq("id", staffId)
-    .is("auth_user_id", null)
-    .select("id")
-    .maybeSingle();
-  if (linkRes.error || !linkRes.data) {
+  // Nối + mở lại app_credential đã thu hồi (hoàn tác) + nhật ký: một giao dịch.
+  // Hỏng thì xoá người dùng GoTrue vừa tạo, không để tài khoản mồ côi.
+  const noi = await proxyJsonToBackend(
+    "POST",
+    `/api/v1/staff/${encodeURIComponent(staffId)}/tai-khoan/noi`,
+    { auth_user_id: newUserId },
+  );
+  if (!noi.ok) {
     await admin.auth.admin.deleteUser(newUserId);
+    const loi = (await noi.json().catch(() => ({}))) as { error?: string };
     return NextResponse.json(
       {
         error:
-          "Linked staff row update failed; the Auth user was rolled back. " +
-          (linkRes.error?.message ?? "Staff was linked concurrently."),
+          "Không nối được nhân viên; tài khoản vừa tạo đã được xoá. " +
+          (loi.error ?? ""),
       },
-      { status: linkRes.error ? 500 : 409 },
+      { status: noi.status },
     );
   }
 
-  await ghiNhatKy(staffId, "tao");
   return NextResponse.json({
     ok: true,
     userId: newUserId,
     email,
     staffId,
-    staffName: targetStaff.full_name,
+    staffName: doc.data.full_name,
   });
 }
 
@@ -306,12 +238,11 @@ interface PatchBody {
   email?: string;
 }
 
-// Manage an already-linked account: reset its password, or revoke it
-// entirely (unlink + delete the Auth user, keeping the staff row).
+// Tài khoản đã nối: đặt lại mật khẩu, đổi tên đăng nhập, hoặc thu hồi.
 export async function PATCH(request: Request) {
   const auth = await authorizeAdmin();
   if (!auth.ok) return auth.res;
-  const { admin, clinicId } = auth;
+  const { admin } = auth;
 
   let body: PatchBody;
   try {
@@ -325,28 +256,11 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Thiếu staffId." }, { status: 400 });
   }
 
-  const membershipError = await requireTargetMembership(
-    admin,
-    staffId,
-    clinicId,
-  );
-  if (membershipError) return membershipError;
-
-  const { data: target, error: targetErr } = await admin
-    .from("staff")
-    .select("id, full_name, auth_user_id")
-    .eq("id", staffId)
-    .maybeSingle();
-  if (targetErr) {
-    return NextResponse.json({ error: targetErr.message }, { status: 500 });
-  }
-  if (!target) {
-    return NextResponse.json(
-      { error: "Nhân viên không tồn tại." },
-      { status: 404 },
-    );
-  }
-  if (!target.auth_user_id) {
+  const doc = await docTaiKhoan(staffId);
+  if (!doc.ok) return doc.res;
+  const target = doc.data;
+  const authUserId = target.auth_user_id;
+  if (!authUserId) {
     return NextResponse.json(
       { error: "Nhân viên này chưa có tài khoản đăng nhập." },
       { status: 409 },
@@ -361,10 +275,9 @@ export async function PATCH(request: Request) {
         { status: 400 },
       );
     }
-    const { error } = await admin.auth.admin.updateUserById(
-      target.auth_user_id,
-      { password },
-    );
+    const { error } = await admin.auth.admin.updateUserById(authUserId, {
+      password,
+    });
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -386,10 +299,10 @@ export async function PATCH(request: Request) {
     // luôn thì GoTrue treo địa chỉ mới ở trạng thái chờ và gửi thư xác nhận —
     // phòng khám không có hòm thư nào để nhận, nên người đó mất đường vào cho
     // tới khi ai đó sửa tay trong database.
-    const { error } = await admin.auth.admin.updateUserById(
-      target.auth_user_id,
-      { email, email_confirm: true },
-    );
+    const { error } = await admin.auth.admin.updateUserById(authUserId, {
+      email,
+      email_confirm: true,
+    });
     if (error) {
       // GoTrue trả 422 khi email đã có người dùng. Nói ra bằng tiếng Việt chứ
       // đừng để quản lý đọc "email address has already been registered".
@@ -413,37 +326,24 @@ export async function PATCH(request: Request) {
   }
 
   if (action === "unlink") {
-    // Null the FK first so the staff row is never left pointing at a
-    // deleted Auth user, then delete the Auth user to revoke login.
-    const upd = await admin
-      .from("staff")
-      .update({ auth_user_id: null })
-      .eq("id", staffId)
-      .eq("auth_user_id", target.auth_user_id)
-      .select("id")
-      .maybeSingle();
-    if (upd.error || !upd.data) {
-      return NextResponse.json(
-        {
-          error:
-            upd.error?.message ??
-            "Tài khoản đã thay đổi; vui lòng tải lại trước khi gỡ.",
-        },
-        { status: upd.error ? 500 : 409 },
-      );
-    }
-    await ghiNhatKy(staffId, "thu_hoi");
-    const del = await admin.auth.admin.deleteUser(target.auth_user_id);
+    // Backend TRƯỚC (gỡ nối + khoá app_credential + nhật ký, một giao dịch,
+    // 409 nếu tài khoản đã đổi từ lúc đọc), GoTrue SAU. Xoá GoTrue hỏng thì
+    // người dùng ấy không còn nối nhân viên nào — không vào được gì.
+    const thuHoi = await proxyJsonToBackend(
+      "POST",
+      `/api/v1/staff/${encodeURIComponent(staffId)}/tai-khoan/thu-hoi`,
+      { auth_user_id: authUserId },
+    );
+    if (!thuHoi.ok) return thuHoi;
+    const del = await admin.auth.admin.deleteUser(authUserId);
     if (del.error) {
-      // FK already cleared; the orphan Auth user can be removed in the
-      // console. Surface it rather than pretend full success.
       return NextResponse.json(
         {
           ok: true,
           action,
           staffName: target.full_name,
           warning:
-            "Đã gỡ liên kết, nhưng xoá tài khoản Auth lỗi: " + del.error.message,
+            "Đã thu hồi, nhưng xoá tài khoản GoTrue lỗi: " + del.error.message,
         },
         { status: 200 },
       );
@@ -456,7 +356,7 @@ export async function PATCH(request: Request) {
   }
 
   return NextResponse.json(
-    { error: "action không hợp lệ (reset_password | unlink)." },
+    { error: "action không hợp lệ (reset_password | change_email | unlink)." },
     { status: 400 },
   );
 }

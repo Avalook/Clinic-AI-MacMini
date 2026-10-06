@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 13:16. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 13:59. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -433,16 +433,16 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: NewUserForm.tsx
 - gọi API Next: `/api/admin/users`
 - gọi thẳng backend (server): `/api/v1/staff/tai-khoan`
-- service: audit · can
-- test: test_doi_nguoi_trong_ca_db.py, test_permission_db.py, test_rabbitmq_connectivity.py, test_smoke_main_174_175_db.py
+- service: audit · TaiKhoanService.{doc, noi, thu_hoi} · can
+- test: test_dieu_phoi_api_1509.py, test_doi_nguoi_trong_ca_db.py, test_permission_db.py, test_rabbitmq_connectivity.py, test_smoke_main_174_175_db.py
 
 ### `/settings/tai-khoan` — Thiết lập tài khoản cho nhân viên
 - page: `src/dashboard/app/(dashboard)/settings/tai-khoan/page.tsx` · quyền: lego `nhan_su` (Nhân sự & phân quyền · mặc định: Quản lý)
 - thành phần: app/(dashboard)/settings/AccountActions.tsx
 - gọi API Next: `/api/admin/users`
 - gọi thẳng backend (server): `/api/v1/staff/tai-khoan`
-- service: audit · can
-- test: test_doi_nguoi_trong_ca_db.py, test_permission_db.py, test_rabbitmq_connectivity.py, test_smoke_main_174_175_db.py
+- service: audit · TaiKhoanService.{doc, noi, thu_hoi} · can
+- test: test_dieu_phoi_api_1509.py, test_doi_nguoi_trong_ca_db.py, test_permission_db.py, test_rabbitmq_connectivity.py, test_smoke_main_174_175_db.py
 
 ### `/sieu-am`
 - page: `src/dashboard/app/(dashboard)/sieu-am/page.tsx` · quyền: ?
@@ -533,9 +533,12 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 
 #### `/api/admin/users` · `src/dashboard/app/api/admin/users/route.ts`
 - POST `/api/v1/staff/{id}/nhat-ky-tai-khoan` → `src/clinicai/api/v1/routers/staff.py:ghi_nhat_ky_tai_khoan` → record_event + SQL ngay trong router
+- GET `/api/v1/staff/{id}/tai-khoan` → `src/clinicai/api/v1/routers/staff.py:doc_tai_khoan` → TaiKhoanService.doc
 - GET `/api/v1/phan-quyen/toi` → `src/clinicai/api/v1/routers/phan_quyen.py:quyen_cua_toi` → quyen_hieu_luc
-- ⚠ đọc DB thẳng: clinic_membership, staff
-- test: src/tests/integration/test_rabbitmq_connectivity.py, src/tests/services/test_doi_nguoi_trong_ca_db.py, src/tests/services/test_permission_db.py (+1)
+- GET `/api/v1/staff/tai-khoan` → `src/clinicai/api/v1/routers/staff.py:danh_sach_tai_khoan` → (SQL ngay trong router, không qua service)
+- POST `/api/v1/staff/{id}/tai-khoan/noi` → `src/clinicai/api/v1/routers/staff.py:noi_tai_khoan` → TaiKhoanService.noi
+- POST `/api/v1/staff/{id}/tai-khoan/thu-hoi` → `src/clinicai/api/v1/routers/staff.py:thu_hoi_tai_khoan` → TaiKhoanService.thu_hoi
+- test: src/tests/api/test_dieu_phoi_api_1509.py, src/tests/integration/test_rabbitmq_connectivity.py, src/tests/services/test_doi_nguoi_trong_ca_db.py (+2)
 - màn dùng: /settings/new-user, /settings/tai-khoan
 
 #### `/api/appointments` · `src/dashboard/app/api/appointments/route.ts`
@@ -1335,7 +1338,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/api/test_visit_work_items_read.py, src/tests/test_work_item_service.py
 - màn dùng: /viec-can-xu-ly
 
-## 3. Service → màn (154)
+## 3. Service → màn (155)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1471,6 +1474,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `SlotHoldService` | `src/clinicai/services/slot_hold_service.py` | /appointments, /patients/new |
 | `SoSuaChiDinhService` | `src/clinicai/services/so_sua_chi_dinh_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /pharmacy (+8) |
 | `StaffService` | `src/clinicai/services/staff_service.py` | /nhan-su, /phan-quyen |
+| `TaiKhoanService` | `src/clinicai/services/tai_khoan_service.py` | /settings/new-user, /settings/tai-khoan |
 | `tep_ket_qua_service` | `src/clinicai/services/tep_ket_qua_service.py` | /ban-kham, /ban-kham/[phong], /customers, /doi-tac, /duyet-ket-qua, /patient-list, /phong/[ma], /print/ket-qua/[orderId] (+3) |
 | `TepKetQuaService` | `src/clinicai/services/tep_ket_qua_service.py` | /ban-kham, /ban-kham/[phong], /customers, /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /patient-list, /pharmacy (+5) |
 | `TepMoDoc` | `src/clinicai/services/tep_ket_qua_service.py` | /customers, /patient-list |
@@ -1520,7 +1524,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | Bảng | Tạo ở migration | Số migration sửa sau |
 |---|---|---|
 | `anh_chuyen_khoan` | `20261002300000_thu_nhieu_hinh_thuc.sql` | 0 |
-| `app_credential` | `20260806000002_app_credential.sql` | 0 |
+| `app_credential` | `20260806000002_app_credential.sql` | 1 |
 | `appointment` | `20260714000001_baseline_schema.sql` | 9 |
 | `appointment_doi_lich` | `20260924000004_ket_qua_chuong_doi_lich.sql` | 0 |
 | `block_budget` | `20260714000001_baseline_schema.sql` | 0 |

@@ -14,6 +14,7 @@ from clinicai.services.auth_service import (
     AUDIENCE,
     MAX_FAILED,
     TAI_KHOAN_CHUA_NOI,
+    TAI_KHOAN_DA_THU_HOI,
     AuthService,
 )
 
@@ -47,6 +48,7 @@ def _row(**over: Any) -> dict[str, Any]:
         "password_hash": HASH,
         "locked_until": None,
         "failed_attempts": 0,
+        "thu_hoi_luc": None,
         "auth_user_id": "22222222-2222-4222-8222-222222222222",
         "is_active": True,
     }
@@ -110,9 +112,9 @@ async def test_chua_noi_tai_khoan_thi_khong_cap_token(
 ) -> None:
     """staff.auth_user_id NULL → từ chối, không cấp token `sub="None"`.
 
-    Nút "Thu hồi" ở /admin/users đặt auth_user_id về NULL nhưng để nguyên
-    app_credential. Bản cũ vẫn cấp token với sub="None"; identity.py ép chuỗi
-    ấy sang uuid → asyncpg ném → mọi request sau đó là 500.
+    FK GoTrue ON DELETE SET NULL / script nối tay để auth_user_id NULL mà
+    app_credential còn nguyên. Bản cũ vẫn cấp token với sub="None"; identity.py
+    ép chuỗi ấy sang uuid → asyncpg ném → mọi request sau đó là 500.
     """
     monkeypatch.setenv("SUPABASE_JWT_SECRET", KHOA_KY_THU)
     pool, conn = _pool(_row(auth_user_id=None))
@@ -123,6 +125,39 @@ async def test_chua_noi_tai_khoan_thi_khong_cap_token(
     assert str(e.value) == TAI_KHOAN_CHUA_NOI
     # Không đánh dấu đăng nhập thành công (last_login_at, xoá bộ đếm).
     conn.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_da_thu_hoi_thi_khong_cap_token_ke_ca_da_noi_lai(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """app_credential.thu_hoi_luc có giá trị → từ chối, dù auth_user_id đã có lại.
+
+    Đây đúng là kẽ hở cũ: thu hồi rồi nối lại bằng đường khác (script nối tay)
+    thì chuỗi băm cũ mở cửa như chưa từng bị thu hồi.
+    """
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", KHOA_KY_THU)
+    pool, conn = _pool(_row(thu_hoi_luc=datetime.now(timezone.utc)))
+
+    with pytest.raises(ValidationError) as e:
+        await AuthService(pool).login(email="bs.a@dr4women.local", password="dung")
+
+    assert str(e.value) == TAI_KHOAN_DA_THU_HOI
+    conn.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_da_thu_hoi_ma_sai_mat_khau_thi_van_mot_cau_chung(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Sai mật khẩu thì không lộ "đã thu hồi" — kẻ dò không biết email có thật."""
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", KHOA_KY_THU)
+    pool, _ = _pool(_row(thu_hoi_luc=datetime.now(timezone.utc)), khop=False)
+
+    with pytest.raises(ValidationError) as e:
+        await AuthService(pool).login(email="bs.a@dr4women.local", password="sai")
+
+    assert str(e.value) == "Email hoặc mật khẩu không đúng."
 
 
 @pytest.mark.asyncio
