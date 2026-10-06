@@ -677,18 +677,14 @@ function KhachTrongPhong({
           mau={th.mau_ket_qua}
           mauMacDinh={th.phieu?.[0]?.form_id?.replace(/^KQ_/, "") ?? th.mau_goi_y ?? null}
           onCacBen={setCacBen}
-          onHoanTat={({ daDongDichVu, viSao, laLanSua, conTrong }) => {
-            // Đợt 3: dịch vụ đóng xong thì dòng này rời hàng chờ và phiếu đóng
-            // lại — nhắc "còn trống" phải đi theo câu báo, không mất cùng phiếu.
-            const nhacTrong = conTrong.length
-              ? ` Còn ${conTrong.length} mục trống: ${conTrong.join(", ")} (chỉ nhắc).`
-              : "";
+          onHoanTat={({ daDongDichVu, viSao, laLanSua }) => {
+            // 06/10/2026 (Tuyền: dải vàng "xấu và AI quá"): hoàn tất êm thì
+            // không báo gì — phiếu đã hiện "Phiếu đã hoàn tất". Chỉ nói khi
+            // dịch vụ CHƯA đóng được, vì đó là việc người bấm phải biết.
             setBao(
-              (laLanSua
-                ? "Đã ghi bản sửa của kết quả."
-                : daDongDichVu
-                  ? "Đã hoàn tất phiếu, đóng dịch vụ và báo có kết quả."
-                  : `Đã hoàn tất phiếu. Dịch vụ CHƯA đóng: ${viSao ?? "không rõ lý do"}.`) + nhacTrong,
+              laLanSua || daDongDichVu
+                ? null
+                : `Dịch vụ chưa đóng: ${viSao ?? "không rõ lý do"}.`,
             );
             docLai();
             onDaBam();
