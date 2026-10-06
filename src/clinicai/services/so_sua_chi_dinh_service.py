@@ -342,10 +342,12 @@ async def bao_bac_si_chinh(
         """
         SELECT s.id::text, s.visit_id::text, s.nhom, s.ten_muc, s.boi_staff_id::text,
                s.boi_ten, s.boi_vai, s.bac_si_chinh_id::text, s.da_thu, s.tien_thua,
-               s.ly_do, p.full_name AS ten_khach
+               s.ly_do, p.full_name AS ten_khach, o.lan_chi_dinh,
+               to_char(s.luc AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') AS gio
           FROM so_sua_chi_dinh s
           LEFT JOIN visit v ON v.visit_id = s.visit_id AND v.clinic_id = s.clinic_id
           LEFT JOIN patient p ON p.clinic_patient_id = v.clinic_patient_id
+          LEFT JOIN service_order o ON o.id = s.service_order_id
          WHERE s.id = $1::uuid
         """,
         so_id,
@@ -354,9 +356,16 @@ async def bao_bac_si_chinh(
         return False
     if so["bac_si_chinh_id"] == so["boi_staff_id"]:
         return False  # chính bác sĩ chính bỏ — không tự báo mình
+    # "Quản lý Nguyễn A đã xoá cận lâm sàng “X” (lần 1) lúc 10:32" — ai, vai,
+    # lúc nào (Tuyền 06/10/2026). Mỗi lần bỏ một thông báo riêng; hoàn tác hay
+    # chỉ định lại thì thông báo ấy đóng (mig 20261006200002) — không treo câu cũ.
     vai = nhan_vai(so["boi_vai"])[0]
-    noi = f"{so['boi_ten'] or 'Một người'}{f' ({vai})' if vai else ''} bỏ"
-    noi += f" {NHAN_NHOM.get(so['nhom'], '').lower()} “{so['ten_muc']}”"
+    ai = " ".join(x for x in (vai, so["boi_ten"]) if x) or "Một người"
+    noi = f"{ai} đã xoá {NHAN_NHOM.get(so['nhom'], '').lower()} “{so['ten_muc']}”"
+    if so["lan_chi_dinh"]:
+        noi += f" (lần {so['lan_chi_dinh']})"
+    if so["gio"]:
+        noi += f" lúc {so['gio']}"
     if int(so["da_thu"] or 0) > 0:
         noi += (
             f" — đã thu {_tien(int(so['da_thu']))}, thành tiền thừa"
@@ -541,6 +550,74 @@ async def doc_so(
         "bi_cat": bi_cat,
         "dong": [dong_so(dict(r), chi_xem=chi_xem) for r in rows],
     }
+
+
+def cau_xoa(r: dict[str, Any]) -> str:
+    """ "Quản lý Nguyễn A (thay BS Hùng) đã xoá chỉ định này" — ai xoá, vai, làm
+    thay bác sĩ nào. Thiếu dữ liệu thì bỏ vế ấy, không ném."""
+    vai = nhan_vai(r.get("boi_vai"))[0]
+    ten = r.get("boi_ten")
+    ai = " ".join(x for x in (vai, ten) if x) or "Không rõ ai"
+    bs = r.get("bac_si_chinh_ten")
+    if (
+        bs
+        and r.get("bac_si_chinh_id")
+        and str(r.get("bac_si_chinh_id")) != str(r.get("boi_staff_id"))
+    ):
+        ai += f" (thay BS {bs})"
+    return f"{ai} đã xoá chỉ định này"
+
+
+async def da_bo_cua_cac_luot(
+    conn: asyncpg.Connection, clinic_id: str, visit_ids: list[str]
+) -> dict[str, list[dict[str, Any]]]:
+    """Chỉ định ĐÃ XOÁ (chưa hoàn tác) của các lượt — quầy thu vẫn thấy dòng ấy,
+    gạch ngang + ai xoá, lúc nào, lần mấy, đã thu chưa (Tuyền 06/10/2026: không
+    biến mất im lặng). Chỉ đọc."""
+    if not visit_ids:
+        return {}
+    rows = await conn.fetch(
+        """
+        SELECT s.id::text, s.visit_id::text, s.nhom, s.ten_muc, s.boi_staff_id,
+               s.boi_ten, s.boi_vai, s.bac_si_chinh_id, s.bac_si_chinh_ten, s.luc,
+               s.ly_do, s.da_thu, s.tien_thua,
+               s.service_order_id::text AS order_id, o.lan_chi_dinh,
+               (SELECT sp.unit_price FROM service_price sp
+                 WHERE sp.clinic_id = s.clinic_id
+                   AND sp.service_code = coalesce(o.service_code, s.ma_muc)
+                 ORDER BY sp.active DESC LIMIT 1) AS gia
+          FROM so_sua_chi_dinh s
+          LEFT JOIN service_order o ON o.id = s.service_order_id
+          LEFT JOIN luot_phi_kham k ON k.id = s.luot_phi_kham_id
+         WHERE s.clinic_id = $1::uuid AND s.visit_id::text = ANY($2::text[])
+           AND s.hanh_dong = 'BO' AND s.nhom <> 'THUOC'
+           AND s.hoan_tac_luc IS NULL
+           AND (o.exec_status = 'cancelled' OR k.bo_luc IS NOT NULL)
+         ORDER BY s.stt
+        """,
+        clinic_id,
+        visit_ids,
+    )
+    out: dict[str, list[dict[str, Any]]] = {}
+    for r in rows:
+        d = dict(r)
+        out.setdefault(d["visit_id"], []).append(
+            {
+                "so_id": d["id"],
+                "order_id": d["order_id"],
+                "nhom": d["nhom"],
+                "nhom_nhan": NHAN_NHOM.get(str(d["nhom"]), ""),
+                "ten": d["ten_muc"],
+                "lan": d["lan_chi_dinh"],
+                "gia": int(d["gia"]) if d["gia"] is not None else None,
+                "cau": cau_xoa(d),
+                "luc": _iso(d["luc"]),
+                "ly_do": d["ly_do"],
+                "da_thu": int(d["da_thu"] or 0),
+                "tien_thua": int(d["tien_thua"] or 0),
+            }
+        )
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -824,7 +901,9 @@ __all__ = [
     "ThayDoiThuoc",
     "bao_bac_si_chinh",
     "cau_so",
+    "cau_xoa",
     "chan_ho_so_cu",
+    "da_bo_cua_cac_luot",
     "dat_ngu_canh",
     "doc_don_de_so",
     "doc_so",

@@ -143,6 +143,10 @@ async def ket_qua_chi_dinh(
             visit_id=str(visit_id), identity=identity
         ),
         "mau_du_phong": await svc.mau_du_phong(identity=identity),
+        # Lần hiện tại / lần nút "Chỉ định thêm" sẽ mở (06/10/2026).
+        "lan_chi_dinh": await svc.lan_chi_dinh(
+            visit_id=str(visit_id), identity=identity
+        ),
         # Tệp cùng khách + cùng lịch hẹn nhưng chưa gắn chỉ định (đợt 3).
         "tep_chua_gan": await svc.tep_chua_gan(
             visit_id=str(visit_id), identity=identity

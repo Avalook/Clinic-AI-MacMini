@@ -68,6 +68,61 @@ _CHUA_THU_MANG_DUOC = frozenset(
 )
 
 ACTION = "chi_dinh.dat"
+
+
+def doc_lan_dang_thay(v: Any) -> int | None:
+    """Lần hiện tại màn gửi kèm lệnh "mở lần mới" → số nguyên 0..9999, rác → None
+    (không ném: đầu vào người dùng)."""
+    if isinstance(v, bool):
+        return None
+    try:
+        n = int(v)
+    except (TypeError, ValueError):
+        return None
+    return n if 0 <= n <= 9999 else None
+
+
+async def dat_mo_lan_moi(
+    conn: asyncpg.Connection, clinic_id: str, visit_id: str, thay: int | None
+) -> None:
+    """Báo trigger `gan_lan_chi_dinh`: giao dịch này MỞ LẦN MỚI. Không biết màn
+    thấy lần nào thì lấy lần hiện tại (= luôn mở lần kế)."""
+    if thay is None:
+        thay = int(
+            await conn.fetchval(
+                "SELECT coalesce(hien_tai, 0) FROM public.lan_chi_dinh_cua_luot("
+                "$1::uuid, $2::uuid)",
+                clinic_id,
+                visit_id,
+            )
+            or 0
+        )
+    await conn.execute(
+        "SELECT set_config($1, $2, true)",
+        "clinicai.lan_moi_" + str(visit_id).replace("-", ""),
+        str(thay),
+    )
+
+
+async def lan_cua_luot(
+    conn: asyncpg.Connection, clinic_id: str, visit_id: str
+) -> dict[str, Any]:
+    """Lần hiện tại / lần nút "Chỉ định thêm" sẽ mở — màn chỉ vẽ, không tự đếm."""
+    r = await conn.fetchrow(
+        "SELECT hien_tai, ke_tiep, mo_moi_duoc"
+        "  FROM public.lan_chi_dinh_cua_luot($1::uuid, $2::uuid)",
+        clinic_id,
+        visit_id,
+    )
+    if r is None:
+        return {"hien_tai": None, "ke_tiep": 1, "mo_moi_duoc": False}
+    return {
+        "hien_tai": r["hien_tai"],
+        "ke_tiep": int(r["ke_tiep"]),
+        "mo_moi_duoc": bool(r["mo_moi_duoc"]),
+    }
+
+
 ORIGIN = "api:chi-dinh"
 
 
@@ -85,11 +140,20 @@ class ChiDinhService:
         identity: StaffIdentity,
         idempotency_key: str | None = None,
         bat_buoc_codes: list[str] | None = None,
+        lan_moi: bool = False,
+        lan_dang_thay: Any = None,
     ) -> dict[str, Any]:
-        """Chốt một loạt chỉ định cho phiên khám. Trả về danh sách id đã tạo.
+        """Chốt một loạt chỉ định cho phiên khám. Trả về danh sách id đã tạo
+        + `lan` máy chủ gán.
 
         `bat_buoc_codes`: dịch vụ bác sĩ tick "Bắt buộc" (Tuyền 25/09/2026) —
         quầy thu không bỏ được.
+
+        LẦN (Tuyền 06/10/2026): mặc định vào LẦN HIỆN TẠI của lượt — vào ra màn,
+        tải lại, bấm gửi nhiều lần không đổi lần. Chỉ `lan_moi=True` (nút "Chỉ
+        định thêm (lần N)") mới mở lần kế; `lan_dang_thay` = lần hiện tại màn
+        đang thấy, để hai người cùng bấm mở lần mới không đẻ hai lần (luật ở
+        trigger `gan_lan_chi_dinh`, mig 20261006200001).
         """
         cid = identity.clinic_id
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
@@ -100,11 +164,14 @@ class ChiDinhService:
         codes = list(dict.fromkeys(codes))
 
         bat_buoc = {c.strip() for c in (bat_buoc_codes or []) if isinstance(c, str)}
-        payload_bien_nhan = {
+        thay = doc_lan_dang_thay(lan_dang_thay)
+        payload_bien_nhan: dict[str, Any] = {
             "consultation_id": con_id,
             "codes": sorted(codes),
             "bat_buoc": sorted(bat_buoc & set(codes)),
         }
+        if lan_moi:
+            payload_bien_nhan["lan_moi"] = thay
         luot_kham = LuotKhamService(self._pool)
 
         async with self._pool.acquire() as conn, conn.transaction():
@@ -122,6 +189,8 @@ class ChiDinhService:
                 return cached
 
             consultation = await luot_kham._consultation_in_progress(conn, cid, con_id)
+            if lan_moi:
+                await dat_mo_lan_moi(conn, cid, vid, thay)
 
             dich_vu = await luot_kham._services(conn, cid, codes, visit_id=vid)
             ids: list[str] = []
@@ -191,7 +260,15 @@ class ChiDinhService:
                 },
             )
 
-            result = {"ok": True, "order_ids": ids}
+            lan = (
+                await conn.fetchval(
+                    "SELECT lan_chi_dinh FROM service_order WHERE id = $1::uuid",
+                    ids[0],
+                )
+                if ids
+                else None
+            )
+            result = {"ok": True, "order_ids": ids, "lan": lan}
             await bien_nhan_ghi(
                 conn,
                 identity,
