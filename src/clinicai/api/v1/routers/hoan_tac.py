@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.services.hoan_tac_service import HoanTacService
+from clinicai.services.so_sua_chi_dinh_service import SoSuaChiDinhService
 
 router = APIRouter()
 
@@ -112,4 +113,32 @@ async def thu_hoi_duyet(
         identity=identity,
         ly_do=b.ly_do,
         xac_nhan=b.xac_nhan,
+    )
+
+
+# ── Sổ sửa / bỏ chỉ định (Khối 2, Tuyền chốt 06/10/2026) ─────────────────────
+
+
+@router.get("/luot-kham/visits/{visit_id}/so-sua-chi-dinh")
+async def so_sua_chi_dinh(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch sử thêm / bỏ / hoàn tác chỉ định của lượt (Khám · CLS · Điều trị ·
+    Thuốc) — mới nhất trước; `chi_xem` = lượt hồ sơ cũ."""
+    return await SoSuaChiDinhService(pool).doc(visit_id=str(visit_id), identity=identity)
+
+
+@router.post("/luot-kham/so-sua-chi-dinh/{so_id}/hoan-tac")
+async def hoan_tac_bo_chi_dinh(
+    so_id: UUID,
+    body: HoanTacBody | None = None,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tác một lần BỎ chỉ định (nút duy nhất của thông báo bác sĩ chính)."""
+    b = body or HoanTacBody()
+    return await SoSuaChiDinhService(pool).hoan_tac(
+        so_id=str(so_id), identity=identity, ly_do=b.ly_do
     )

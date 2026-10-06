@@ -30,6 +30,11 @@ from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
 from clinicai.services.lenh_kham_core import khoa_luot
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
+from clinicai.services.so_sua_chi_dinh_service import (
+    bao_bac_si_chinh,
+    dat_ngu_canh,
+    dong_bo_moi_nhat,
+)
 
 #: Có MỘT trong các quyền này thì tick được: người khám, người ghi bệnh án,
 #: người tư vấn, quầy thu tiền dịch vụ.
@@ -252,6 +257,9 @@ class PhiKhamService:
             if not await _co_quyen_tick(conn, identity):
                 raise SafetyGateError("Bạn không có quyền chọn dịch vụ khám.")
             luot = await khoa_luot(conn, cid, vid, cho_phep_da_ky=True)
+            # Sổ sửa chỉ định (Khối 2, 06/10/2026): trigger trên luot_phi_kham
+            # ghi tick / bỏ tick — đặt người bấm + vai đang dùng cho nó.
+            await dat_ngu_canh(conn, identity)
             if luot["closed_at"] is not None:
                 raise ValidationError(
                     "Lượt đã check-out — không thể đổi dịch vụ khám sau khi khách về."
@@ -281,15 +289,23 @@ class PhiKhamService:
             if them:
                 await chan_trung_dich_vu_kham(conn, cid, vid, id_tick=them)
             if bo:
-                await conn.execute(
+                da_bo = await conn.fetch(
                     "UPDATE public.luot_phi_kham SET bo_luc = now(), bo_boi = $4::uuid"
                     " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
-                    " AND service_price_id = ANY($3::uuid[]) AND bo_luc IS NULL",
+                    " AND service_price_id = ANY($3::uuid[]) AND bo_luc IS NULL"
+                    " RETURNING id::text",
                     cid,
                     vid,
                     bo,
                     identity.staff_id,
                 )
+                # Người khác bác sĩ chính bỏ dịch vụ khám → báo bác sĩ chính.
+                for r in da_bo:
+                    await bao_bac_si_chinh(
+                        conn,
+                        identity,
+                        await dong_bo_moi_nhat(conn, luot_phi_kham_id=r["id"]),
+                    )
             for i in them:
                 await conn.execute(
                     "INSERT INTO public.luot_phi_kham"

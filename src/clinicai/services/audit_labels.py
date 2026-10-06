@@ -105,6 +105,7 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.counter_changed": "Quầy thuốc chỉnh đơn bán (tích / số lượng / thêm)",
     "thong_bao.lich_mat_bac_si": "Báo CSKH và Trưởng ca lịch mất bác sĩ khi công bố",
     "thong_bao.ket_qua_ve": "Báo CSKH và bác sĩ kết quả vừa về",
+    "thong_bao.bo_chi_dinh": "Báo bác sĩ chính: chỉ định bị bỏ",
     "thong_bao.hen_goi_lai": "Đặt nhắc gọi lại đúng giờ",
     "nhac_tai_kham.hen_doi": "Bác sĩ đặt / đổi / bỏ ngày tái khám (việc CSKH theo)",
     # ── Nhà thuốc ───────────────────────────────────────────────────────────
@@ -241,6 +242,7 @@ EVENT_LABELS: dict[str, str] = {
     # HOÀN TÁC mọi thao tác (Tuyền 01/10/2026).
     "consult.reopened": "Hoàn tác khám xong — mở lại phiên khám",
     "service_order.cancelled": "Bỏ chỉ định",
+    "service_order.restored": "Hoàn tác bỏ chỉ định",
     "service.completion_undone": "Hoàn tác “Xong” của dịch vụ",
     "visit.reopened": "Hoàn tác check-out — mở lại lượt khám",
     "result.approval_revoked": "Thu hồi duyệt kết quả — về chờ bác sĩ duyệt",
