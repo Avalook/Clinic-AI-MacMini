@@ -360,6 +360,14 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `S/nhap_lich_su_notion.py`, `scripts/nhap-lich-su-notion.sh`,
   `scripts/hoan-tac-lich-su-notion.sql` — xem `docs/NHAP-LICH-SU-NOTION.md`. Test:
   `T/services/test_lich_su_notion_db.py`.
+- **Danh sách bệnh nhân `/patient-list` — tìm, tab, xếp, phân trang (06/10):** mọi luật
+  ở `S/danh_sach_benh_nhan_service.py` (`_CO_SO`: số lượt / đang mở / mốc xếp / khớp ô
+  tìm; `MOT_TRANG` = 50; `LOC_THEO_SO_LUOT` = tab) qua `GET /api/v1/patients/danh-sach
+  ?trang&q&loc&sap&chon`; màn `D/patient-list/page.tsx` (đọc URL) +
+  `PatientListView.tsx` (ô tìm debounce, tab, chọn khách ghi `?chon=`); thanh số trang
+  `src/dashboard/components/ui/ThanhSoTrang.tsx` + `src/dashboard/lib/so-trang.ts`. Test:
+  `T/services/test_danh_sach_benh_nhan_phan_trang_db.py`,
+  `T/unit/test_danh_sach_benh_nhan.py`, `lib/so-trang.test.mts` (`npm run test:so-trang`).
 
 ## 13. Lịch làm việc · phòng · tầng
 

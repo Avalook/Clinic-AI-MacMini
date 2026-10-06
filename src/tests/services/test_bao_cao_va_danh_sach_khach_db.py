@@ -290,14 +290,16 @@ async def test_danh_sach_benh_nhan_xep_theo_hoat_dong_gan_nhat(
     from clinicai.services.danh_sach_benh_nhan_service import DanhSachBenhNhanService
 
     ca = await _dung(pool)
-    k = await _bon_khach(pool, ca, uuid.uuid4().hex[:8])
-    out = await DanhSachBenhNhanService(pool).lay(identity=ca.le_tan)
-    cua_toi = set(k.values())
-    thu_tu = [
-        d["ho_so"]["clinic_patient_id"]
-        for d in out["dong"]
-        if d["ho_so"]["clinic_patient_id"] in cua_toi
-    ]
+    duoi = uuid.uuid4().hex[:8]
+    k = await _bon_khach(pool, ca, duoi)
+    # Phân trang phía máy chủ (06/10/2026): tìm không dấu để bốn khách nằm
+    # chung một trang dù DB test dùng chung có hàng nghìn hồ sơ.
+    out = await DanhSachBenhNhanService(pool).lay(identity=ca.le_tan, q=f"le {duoi}")
+    thu_tu = [d["ho_so"]["clinic_patient_id"] for d in out["dong"]]
     # coalesce(lượt, lịch, ngày tạo): khách vừa khám hôm nay lên đầu; lịch
     # tương lai đặt 40 ngày trước tính theo LÚC ĐẶT, không theo giờ hẹn.
     assert thu_tu == [k["cu_kham"], k["moi"], k["giua"], k["tuong_lai"]]
+    xa = await DanhSachBenhNhanService(pool).lay(
+        identity=ca.le_tan, q=f"le {duoi}", sap="xa"
+    )
+    assert [d["ho_so"]["clinic_patient_id"] for d in xa["dong"]] == thu_tu[::-1]

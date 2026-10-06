@@ -285,8 +285,14 @@ async def test_doi_lich_mo_doi_dich_vu_kenh_gioi_thieu_va_ly_do_hien_o_danh_sach
     assert dong["nguoi_gioi_thieu"] == "Chị Mai" and dong["kenh_dat"] == "REFERRAL"
     assert dong["doi_huy_gan_nhat"]["loai"] == "DOI"
     assert "bận đột xuất" in dong["doi_huy_gan_nhat"]["ly_do"]
-    bn = await DanhSachBenhNhanService(pool).lay(identity=cskh)
-    [h] = [d["ho_so"] for d in bn["dong"] if d["ho_so"]["clinic_patient_id"] == pid]
+    # Danh sách phân trang (06/10/2026): mở thẳng khách bằng ``chon`` — nằm
+    # trong trang thì ở ``dong``, ngoài trang thì ở ``chon``.
+    bn = await DanhSachBenhNhanService(pool).lay(identity=cskh, chon=pid)
+    [h] = [
+        d["ho_so"]
+        for d in [*bn["dong"], bn["chon"]]
+        if d and d["ho_so"]["clinic_patient_id"] == pid
+    ]
     assert h["doi_huy_gan_nhat"]["loai"] == "DOI"
 
 

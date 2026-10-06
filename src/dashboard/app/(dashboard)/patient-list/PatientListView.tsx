@@ -4,7 +4,7 @@
 // một dòng lịch hẹn gần nhất. Không dựng sinh hiệu, bệnh sử hay nghĩa vụ giả khi
 // API của màn này chưa tải chúng; người có quyền lâm sàng vẫn mở phiếu khám thật.
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -15,19 +15,19 @@ import {
   FileText,
   Phone,
   Search,
-  SlidersHorizontal,
   Stethoscope,
   UserRound,
   UsersRound,
 } from "lucide-react";
 import { fmtDate, fmtDateTimeOrDate } from "../../../lib/datetime";
-import { unaccentVi } from "../../../lib/validation";
 import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorApptRow";
 import KenhDoiHuy, { type CoKenhDoiHuy } from "../customers/KenhDoiHuy";
 import SplitPane from "../SplitPane";
 import LichSuNotion from "./LichSuNotion";
 import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
+import { khoangDong } from "../../../lib/so-trang";
+import ThanhSoTrang from "../../../components/ui/ThanhSoTrang";
 
 /** Khối hành chính của bệnh nhân — cùng hình dạng với `appt.patient`. */
 type PatientFull = NonNullable<DoctorApptRow["patient"]> & {
@@ -66,13 +66,29 @@ export interface ExaminedRow {
   appt: DoctorApptRow | null;
 }
 
-type Filter = "all" | "first" | "return" | "none";
+/** Tab lọc = giá trị `?loc=` máy chủ hiểu ("" = tất cả). */
+type Filter = "" | "lan-dau" | "tai-kham" | "chua-kham";
+const CAC_LOC: readonly Filter[] = ["", "lan-dau", "tai-kham", "chua-kham"];
 
-/** Chiều xếp (Tuyền 29/09/2026): máy chủ trả sẵn hoạt động GẦN NHẤT trước
- *  (`KHOA_XEP`); "Xa nhất trước" chỉ đảo thứ tự hiển thị. Nhớ trên máy người
- *  dùng — tiện ích, không phải dữ liệu. */
+/** Số đếm trên TOÀN BỘ hồ sơ (máy chủ tính) — ô tổng + số ở tab. */
+export interface TongDanhSach {
+  ho_so: number;
+  dang_mo: number;
+  lan_dau: number;
+  tai_kham: number;
+  chua_kham: number;
+}
+
+/** Chiều xếp (Tuyền 29/09/2026): máy chủ xếp hoạt động GẦN NHẤT trước;
+ *  "Xa nhất trước" đảo trên TOÀN BỘ danh sách (`?sap=xa`, 06/10/2026 — trước
+ *  đó chỉ đảo các dòng đã tải). Lựa chọn vẫn được nhớ trên máy người dùng —
+ *  tiện ích, không phải dữ liệu: mở màn không có `?sap` mà máy nhớ "xa" thì
+ *  tự chuyển sang `?sap=xa`. */
 type ChieuXep = "gan" | "xa";
 const KHOA_CHIEU_XEP = "clinicai.ds-benh-nhan.chieu-xep";
+
+/** Gõ xong bao lâu mới tìm (ms) — đủ để không gửi một yêu cầu mỗi phím. */
+const CHO_GO = 350;
 
 const STATUS_PRESENTATION: Record<string, { label: string; className: string }> = {
   SCHEDULED: { label: "Chưa xác nhận", className: "bg-warning-bg text-warning" },
@@ -173,6 +189,10 @@ function HangHanhChinh({
 
 export default function PatientListView({
   rows,
+  chonRow = null,
+  tong,
+  phanTrang,
+  boLoc,
   enablePopup = false,
   canEditAdmin = false,
   showRebook = false,
@@ -180,7 +200,16 @@ export default function PatientListView({
   canBook = false,
   chonSan = null,
 }: {
+  /** MỘT trang hồ sơ máy chủ đã tìm + lọc + xếp (06/10/2026). */
   rows: ExaminedRow[];
+  /** Khách `?chon=` khi không nằm trong trang này (mở từ link, hoặc chọn rồi
+   *  chuyển trang) — để hồ sơ đang mở không biến mất theo trang. */
+  chonRow?: ExaminedRow | null;
+  /** Số đếm TOÀN BỘ hồ sơ — nhãn tab. */
+  tong: TongDanhSach;
+  phanTrang: { trang: number; soTrang: number; soKhop: number; motTrang: number };
+  /** Giá trị đang có trên URL (`null` = không có). */
+  boLoc: { q: string | null; loc: string | null; sap: string | null };
   /** Chỉ vai lâm sàng mở phiếu khám thật ở vùng SplitPane. */
   enablePopup?: boolean;
   canEditAdmin?: boolean;
@@ -193,37 +222,92 @@ export default function PatientListView({
   chonSan?: string | null;
 }) {
   const router = useRouter();
-  const [term, setTerm] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
-  const [chieuXep, setChieuXep] = useState<ChieuXep>("gan");
+  const [dangTai, batDauTai] = useTransition();
+  const filter: Filter = CAC_LOC.includes(boLoc.loc as Filter) ? (boLoc.loc as Filter) : "";
+  const chieuXep: ChieuXep = boLoc.sap === "xa" ? "xa" : "gan";
+  const qUrl = boLoc.q ?? "";
+
+  /** Đổi tham số trên URL rồi để máy chủ dựng lại trang. Đọc URL HIỆN TẠI
+   *  (không theo prop) để giữ `?chon=` vừa ghi bằng `history.replaceState`. */
+  const di = useCallback(
+    (doi: Record<string, string | null>) => {
+      const ts = new URLSearchParams(window.location.search);
+      for (const [k, v] of Object.entries(doi)) {
+        if (v) ts.set(k, v);
+        else ts.delete(k);
+      }
+      const chuoi = ts.toString();
+      batDauTai(() => {
+        router.replace(`/patient-list${chuoi ? `?${chuoi}` : ""}`, { scroll: false });
+      });
+    },
+    [router],
+  );
+
+  // Ô TÌM: gõ tại chỗ, nghỉ CHO_GO ms mới gửi `?q=` (về trang 1). `daGui` nhớ
+  // chuỗi vừa gửi: khi máy chủ trả về đúng chuỗi ấy thì KHÔNG ghi đè ô (người
+  // dùng có thể đã gõ thêm); URL đổi vì lý do khác (nút Lùi) thì ô theo URL.
+  const [term, setTerm] = useState(qUrl);
+  const [daGui, setDaGui] = useState(qUrl);
+  const [qDaThay, setQDaThay] = useState(qUrl);
+  if (qUrl !== qDaThay) {
+    setQDaThay(qUrl);
+    if (qUrl !== daGui) {
+      setTerm(qUrl);
+      setDaGui(qUrl);
+    }
+  }
   useEffect(() => {
+    const t = term.trim();
+    if (t === daGui.trim()) return;
+    const hen = setTimeout(() => {
+      setDaGui(t);
+      di({ q: t || null, trang: null });
+    }, CHO_GO);
+    return () => clearTimeout(hen);
+  }, [term, daGui, di]);
+
+  // Máy nhớ "xa" mà URL chưa nói gì → chuyển sang `?sap=xa` một lần.
+  useEffect(() => {
+    if (boLoc.sap !== null) return;
     try {
-      // Đọc sau khi gắn để máy chủ và trình duyệt vẽ giống nhau lúc đầu.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (localStorage.getItem(KHOA_CHIEU_XEP) === "xa") setChieuXep("xa");
+      if (localStorage.getItem(KHOA_CHIEU_XEP) === "xa") di({ sap: "xa", trang: null });
     } catch {
       /* trình duyệt chặn bộ nhớ — giữ mặc định */
     }
-  }, []);
-  const doiChieuXep = () =>
-    setChieuXep((c) => {
-      const moi: ChieuXep = c === "gan" ? "xa" : "gan";
-      try {
-        localStorage.setItem(KHOA_CHIEU_XEP, moi);
-      } catch {
-        /* không nhớ được thì thôi */
-      }
-      return moi;
-    });
+  }, [boLoc.sap, di]);
+  const doiChieuXep = () => {
+    const moi: ChieuXep = chieuXep === "gan" ? "xa" : "gan";
+    try {
+      localStorage.setItem(KHOA_CHIEU_XEP, moi);
+    } catch {
+      /* không nhớ được thì thôi */
+    }
+    di({ sap: moi === "xa" ? "xa" : null, trang: null });
+  };
   // MỞ MÀN LÀ BẢNG TRA CỨU, chưa chọn ai (Tuyền 16/09/2026: *"lấy giống của
   // cskh cái danh sách khách hàng sang là được, để tra cứu thôi mà"*). Trước
   // đó màn này tự chọn hồ sơ ĐẦU DANH SÁCH rồi mở luôn ba vùng — người vào tra
   // cứu một cái tên lại phải đọc hồ sơ của một người mình không hỏi.
-  const [selectedId, setSelectedId] = useState<string | null>(() =>
-    chonSan && rows.some((r) => r.clinic_patient_id === chonSan) ? chonSan : null,
-  );
+  const [selectedId, setSelectedId] = useState<string | null>(chonSan);
   const [openAppt, setOpenAppt] = useState<DoctorApptRow | null>(null);
   const [moDanhSachLuot, setMoDanhSachLuot] = useState(false);
+
+  /** Chọn / bỏ chọn một khách. Ghi `?chon=` lên URL KHÔNG dựng lại trang
+   *  (`history.replaceState` — Next đồng bộ nó với router): F5 vẫn mở đúng
+   *  khách, và sang trang khác thì máy chủ trả kèm khách ấy (`chonRow`). */
+  const chonKhach = (id: string | null) => {
+    setSelectedId(id);
+    const ts = new URLSearchParams(window.location.search);
+    if (id) ts.set("chon", id);
+    else ts.delete("chon");
+    const chuoi = ts.toString();
+    window.history.replaceState(null, "", `/patient-list${chuoi ? `?${chuoi}` : ""}`);
+  };
+  /** Đổi ô tìm / tab: như bản lọc tại chỗ cũ, khách không còn khớp thì cột hồ
+   *  sơ đóng lại — nên bỏ `?chon=` để máy chủ không trả kèm. */
+  const doiLoc = (loc: Filter) => di({ loc: loc || null, trang: null, chon: null });
+  const doiTrang = (so: number) => di({ trang: so > 1 ? String(so) : null });
 
   // "TÁI KHÁM" ĐI TỚI MÀN ĐẶT LỊCH THẬT.
   //
@@ -241,25 +325,11 @@ export default function PatientListView({
     router.push(`/appointments${ma ? `?bn=${encodeURIComponent(ma)}` : ""}`);
   }
 
-  const shown = useMemo(() => {
-    const normalized = unaccentVi(term.trim());
-    const loc = rows.filter((row) => {
-      if (filter === "first" && row.phan_loai !== "Khám lần đầu") return false;
-      if (filter === "return" && row.phan_loai !== "Tái khám") return false;
-      if (filter === "none" && row.phan_loai !== "Chưa khám") return false;
-      if (!normalized) return true;
-      return (
-        unaccentVi(row.full_name).includes(normalized) ||
-        unaccentVi(row.patient_code).includes(normalized) ||
-        unaccentVi(row.phone_primary ?? "").includes(normalized)
-      );
-    });
-    return chieuXep === "gan" ? loc : [...loc].reverse();
-  }, [chieuXep, filter, rows, term]);
-
-  // Đổi bộ lọc không được để panel tiếp tục hiện một BN đã bị lọc ra.
+  // Danh sách = đúng trang máy chủ trả (đã tìm, lọc, xếp). Khách đang chọn
+  // lấy từ trang này, hoặc từ `chonRow` khi khách nằm ở trang khác.
   const selected = selectedId
-    ? (shown.find((item) => item.clinic_patient_id === selectedId) ?? null)
+    ? (rows.find((item) => item.clinic_patient_id === selectedId) ??
+      (chonRow?.clinic_patient_id === selectedId ? chonRow : null))
     : null;
   /** Khối hành chính của BN đang chọn.
    *
@@ -268,15 +338,18 @@ export default function PatientListView({
    */
   const hc = selected?.hoso;
 
-  const firstCount = rows.filter((row) => row.phan_loai === "Khám lần đầu").length;
-  const returnCount = rows.filter((row) => row.phan_loai === "Tái khám").length;
-  const noneCount = rows.filter((row) => row.phan_loai === "Chưa khám").length;
+  // Số ở tab đếm trên TOÀN BỘ hồ sơ (máy chủ), không theo trang đang xem.
   const filters: { key: Filter; label: string }[] = [
-    { key: "all", label: `Tất cả (${rows.length})` },
-    { key: "first", label: `${nhanPhanLoaiKham("Khám lần đầu")} (${firstCount})` },
-    { key: "return", label: `${nhanPhanLoaiKham("Tái khám")} (${returnCount})` },
-    { key: "none", label: `Chưa khám (${noneCount})` },
+    { key: "", label: `Tất cả (${tong.ho_so})` },
+    { key: "lan-dau", label: `${nhanPhanLoaiKham("Khám lần đầu")} (${tong.lan_dau})` },
+    { key: "tai-kham", label: `${nhanPhanLoaiKham("Tái khám")} (${tong.tai_kham})` },
+    { key: "chua-kham", label: `Chưa khám (${tong.chua_kham})` },
   ];
+  const { tu, den } = khoangDong(phanTrang.trang, phanTrang.motTrang, rows.length);
+  const dongHienThi =
+    phanTrang.soKhop === 0
+      ? "Không có hồ sơ phù hợp"
+      : `Hiển thị ${tu}–${den} trên ${phanTrang.soKhop} hồ sơ`;
 
   // Một nút đảo chiều, dùng ở cả bảng tra cứu lẫn danh sách bên cạnh hồ sơ.
   const nutChieuXep = (
@@ -307,14 +380,14 @@ export default function PatientListView({
                 muốn tra người khác phải tải lại trang. */}
             <button
               type="button"
-              onClick={() => setSelectedId(null)}
+              onClick={() => chonKhach(null)}
               className="mt-1 text-xs font-semibold text-brand-700 hover:underline"
             >
               ← Về danh sách
             </button>
           </div>
-          <span className="rounded-chip bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-800">
-            {shown.length}
+          <span className="rounded-chip bg-brand-50 px-2 py-1 text-xs font-semibold tabular-nums text-brand-800">
+            {phanTrang.soKhop}
           </span>
         </div>
         <label className="relative mt-4 block">
@@ -327,6 +400,7 @@ export default function PatientListView({
             value={term}
             onChange={(event) => setTerm(event.target.value)}
             placeholder="Tìm tên, mã BN hoặc SĐT"
+            aria-label="Tìm tên, mã BN hoặc SĐT"
             className="h-10 w-full rounded-control border border-line bg-white pl-9 pr-3 text-sm text-ink outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
           />
         </label>
@@ -335,7 +409,7 @@ export default function PatientListView({
             <button
               key={item.key}
               type="button"
-              onClick={() => setFilter(item.key)}
+              onClick={() => doiLoc(item.key)}
               aria-pressed={filter === item.key}
               className={
                 "rounded-chip px-2.5 py-1.5 text-xs font-semibold transition-colors " +
@@ -348,25 +422,26 @@ export default function PatientListView({
             </button>
           ))}
           {nutChieuXep}
-          <span className="ml-auto inline-flex items-center gap-1 px-1 text-label text-ink-faint">
-            <SlidersHorizontal size={12} /> Lọc cục bộ
-          </span>
         </div>
       </div>
 
-      <ul className="max-h-[62vh] divide-y divide-line overflow-y-auto" aria-label="Kết quả tìm bệnh nhân">
-        {shown.length === 0 ? (
+      <ul
+        className={`max-h-[62vh] divide-y divide-line overflow-y-auto transition-opacity ${dangTai ? "opacity-60" : ""}`}
+        aria-label="Kết quả tìm bệnh nhân"
+        aria-busy={dangTai}
+      >
+        {rows.length === 0 ? (
           <li className="px-5 py-12 text-center text-sm text-ink-muted">
             Không tìm thấy bệnh nhân phù hợp.
           </li>
         ) : (
-          shown.map((row) => {
+          rows.map((row) => {
             const active = selected?.clinic_patient_id === row.clinic_patient_id;
             return (
               <li key={row.clinic_patient_id}>
                 <button
                   type="button"
-                  onClick={() => setSelectedId(row.clinic_patient_id)}
+                  onClick={() => chonKhach(row.clinic_patient_id)}
                   aria-pressed={active}
                   className={
                     "flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors " +
@@ -402,8 +477,16 @@ export default function PatientListView({
           })
         )}
       </ul>
-      <div className="border-t border-line px-4 py-3 text-xs text-ink-muted">
-        Hiển thị {shown.length} trên {rows.length} hồ sơ
+      <div className="space-y-2 border-t border-line px-4 py-3">
+        <p className="text-xs tabular-nums text-ink-muted">{dongHienThi}</p>
+        <ThanhSoTrang
+          trang={phanTrang.trang}
+          soTrang={phanTrang.soTrang}
+          onChon={doiTrang}
+          nhan="Chuyển trang danh sách bệnh nhân"
+          hep
+          dangTai={dangTai}
+        />
       </div>
     </section>
   );
@@ -724,10 +807,11 @@ export default function PatientListView({
               <UsersRound size={16} className="text-brand-600" /> Danh sách bệnh nhân
             </p>
             <p className="mt-0.5 text-xs text-ink-muted">
-              {shown.length} hồ sơ · bấm một dòng để xem chi tiết
+              <span className="tabular-nums">{phanTrang.soKhop}</span> hồ sơ · bấm một dòng để xem chi tiết
+              {dangTai ? <span className="ml-2 text-ink-faint">Đang tải…</span> : null}
             </p>
           </div>
-          <label className="relative min-w-60 flex-1 md:max-w-80">
+          <label className="relative w-full md:w-auto md:min-w-60 md:max-w-80 md:flex-1">
             <Search
               size={16}
               aria-hidden="true"
@@ -737,6 +821,7 @@ export default function PatientListView({
               value={term}
               onChange={(event) => setTerm(event.target.value)}
               placeholder="Tìm tên, mã BN hoặc SĐT"
+              aria-label="Tìm tên, mã BN hoặc SĐT"
               className="h-10 w-full rounded-control border border-line bg-white pl-9 pr-3 text-sm text-ink outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
             />
           </label>
@@ -746,7 +831,7 @@ export default function PatientListView({
             <button
               key={item.key}
               type="button"
-              onClick={() => setFilter(item.key)}
+              onClick={() => doiLoc(item.key)}
               aria-pressed={filter === item.key}
               className={
                 "rounded-chip px-2.5 py-1.5 text-xs font-semibold transition-colors " +
@@ -760,8 +845,13 @@ export default function PatientListView({
           ))}
           <span className="ml-auto">{nutChieuXep}</span>
         </div>
-        <div className="overflow-x-auto">
-          <div className="min-w-180">
+        {/* Từ 768px là bảng 6 cột (cuộn ngang nếu hẹp quá); dưới đó mỗi dòng
+            xếp dọc nên KHÔNG đặt bề rộng tối thiểu — 375px không cuộn ngang. */}
+        <div
+          className={`overflow-x-auto transition-opacity ${dangTai ? "opacity-60" : ""}`}
+          aria-busy={dangTai}
+        >
+          <div className="md:min-w-180">
             <div className="hidden gap-2 border-b border-hairline bg-surface-muted px-4 py-2 text-label font-semibold uppercase tracking-wide text-ink-muted md:grid md:grid-cols-[1.5fr_1fr_0.8fr_0.5fr_0.8fr_1fr]">
               <span>Khách hàng</span>
               <span>Số điện thoại</span>
@@ -770,17 +860,17 @@ export default function PatientListView({
               <span>Lần gần nhất</span>
               <span>Bác sĩ gần nhất</span>
             </div>
-            {shown.length === 0 ? (
+            {rows.length === 0 ? (
               <p className="px-4 py-12 text-center text-sm text-ink-muted">
                 Không tìm thấy bệnh nhân phù hợp.
               </p>
             ) : (
               <div className="divide-y divide-hairline">
-                {shown.map((row) => (
+                {rows.map((row) => (
                   <button
                     key={row.clinic_patient_id}
                     type="button"
-                    onClick={() => setSelectedId(row.clinic_patient_id)}
+                    onClick={() => chonKhach(row.clinic_patient_id)}
                     className="flex w-full flex-col gap-2 px-4 py-3 text-left transition-colors hover:bg-surface-sunken md:grid md:items-center md:gap-2 md:grid-cols-[1.5fr_1fr_0.8fr_0.5fr_0.8fr_1fr]"
                   >
                     <span className="min-w-0">
@@ -812,6 +902,16 @@ export default function PatientListView({
               </div>
             )}
           </div>
+        </div>
+        <div className="flex flex-col items-center gap-2 border-t border-line px-4 py-3 sm:flex-row sm:justify-between">
+          <p className="text-xs tabular-nums text-ink-muted">{dongHienThi}</p>
+          <ThanhSoTrang
+            trang={phanTrang.trang}
+            soTrang={phanTrang.soTrang}
+            onChon={doiTrang}
+            nhan="Chuyển trang danh sách bệnh nhân"
+            dangTai={dangTai}
+          />
         </div>
       </section>
     );

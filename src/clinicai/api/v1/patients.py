@@ -277,18 +277,30 @@ _DANH_SACH_GUARD = cua_quyen("patient.list.view")
 
 @router.get("/patients/danh-sach")
 async def danh_sach_benh_nhan(
+    trang: str | None = None,
+    q: str | None = None,
+    loc: str | None = None,
+    sap: str | None = None,
+    chon: str | None = None,
     identity: StaffIdentity = Depends(_DANH_SACH_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Hồ sơ + các lượt khám (khách ĐÃ TỚI, bất kể ngày) + số tổng.
+    """Một trang (50) hồ sơ + các lượt khám (khách ĐÃ TỚI, bất kể ngày) + số tổng.
 
     Thay truy vấn Supabase của màn Danh sách bệnh nhân — bản cũ chỉ đếm lượt
     COMPLETED hoặc CHECKED_IN trong HÔM NAY nên qua nửa đêm mất hết lượt đang mở
     (16/09/2026). Thư ký y khoa chỉ nhận khách của bác sĩ mình.
+
+    06/10/2026: phân trang + tìm phía máy chủ. ``trang`` là chuỗi, không phải
+    int — ``?trang=abc`` về trang 1 thay vì 422. ``q`` tìm tên không dấu / mã /
+    một phần SĐT; ``loc`` = lan-dau | tai-kham | chua-kham; ``sap`` = gan | xa;
+    ``chon`` = mã khách mở sẵn (trả riêng ở ``chon`` nếu ngoài trang).
     """
     from clinicai.services.danh_sach_benh_nhan_service import DanhSachBenhNhanService
 
-    return await DanhSachBenhNhanService(pool).lay(identity=identity)
+    return await DanhSachBenhNhanService(pool).lay(
+        identity=identity, trang=trang, q=q, loc=loc, sap=sap, chon=chon
+    )
 
 
 @router.get("/patients", response_model=list[PatientDTO])
