@@ -9,6 +9,10 @@
 // chờ khám". Luật đếm lượt + lọc thư ký theo bác sĩ giờ ở
 // danh_sach_benh_nhan_service.py.
 //
+// PHÂN TRANG Ở MÁY CHỦ (06/10/2026): ~8.700 hồ sơ (8.600 nhập từ Notion). Mỗi
+// lần dựng trang chỉ nhận 50 dòng + số đếm toàn bộ; tìm / tab / xếp / trang đi
+// qua URL rồi xuống `/api/v1/patients/danh-sach`.
+//
 // Bấm tên BN: chỉ vai LÂM SÀNG được bật hồ sơ lâm sàng ở panel phải; route
 // /api/clinical-record còn chặn độc lập.
 
@@ -27,7 +31,7 @@ import {
   canWriteIntake,
   isDoctorRole,
 } from "../../../lib/roles";
-import PatientListView, { type ExaminedRow } from "./PatientListView";
+import PatientListView, { type ExaminedRow, type TongDanhSach } from "./PatientListView";
 import type { DoctorApptRow } from "../tasks/DoctorApptRow";
 
 export const dynamic = "force-dynamic";
@@ -46,23 +50,81 @@ interface LuotApi {
   closed_at: string | null;
 }
 
+interface DongApi {
+  ho_so: PatientFull & { patient_sdt_them?: { so_dien_thoai: string; loai: string }[] };
+  so_luot: number;
+  phan_loai: ExaminedRow["phan_loai"];
+  dang_mo: boolean;
+  luot: LuotApi[];
+}
+
 interface DanhSachApi {
-  tong: { ho_so: number; dang_mo: number; lan_dau: number; tai_kham: number; chua_kham: number };
-  dong: {
-    ho_so: PatientFull & { patient_sdt_them?: { so_dien_thoai: string; loai: string }[] };
-    so_luot: number;
-    phan_loai: ExaminedRow["phan_loai"];
-    dang_mo: boolean;
-    luot: LuotApi[];
-  }[];
+  /** Đếm trên TOÀN BỘ hồ sơ (ô tổng + số ở tab), không theo ô tìm / tab / trang. */
+  tong: TongDanhSach;
+  /** MỘT trang (≤ `mot_trang` dòng) đã tìm + lọc + xếp ở máy chủ. */
+  dong: DongApi[];
+  trang: number;
+  mot_trang: number;
+  so_trang: number;
+  /** Số hồ sơ khớp ô tìm + tab — "Hiển thị x–y trên N". */
+  so_khop: number;
+  /** Khách `?chon=` khi KHÔNG nằm trong trang trả về. */
+  chon: DongApi | null;
+}
+
+/** Một dòng API → một dòng màn hình. */
+function thanhDong(d: DongApi): ExaminedRow {
+  const ganNhat = d.luot[0] ?? null;
+  return {
+    clinic_patient_id: d.ho_so.clinic_patient_id,
+    patient_code: d.ho_so.patient_code,
+    full_name: d.ho_so.full_name,
+    phone_primary: d.ho_so.phone_primary,
+    date_of_birth: d.ho_so.date_of_birth,
+    gender: d.ho_so.gender,
+    visit_count: d.so_luot,
+    visits: d.luot.map((l) => ({
+      id: l.id,
+      slot_start: l.slot_start,
+      status: l.status,
+      service_name: l.service_name,
+      doctor_name: l.doctor_name,
+    })),
+    latest: ganNhat?.slot_start ?? null,
+    phan_loai: d.phan_loai,
+    dang_mo: d.dang_mo,
+    hoso: d.ho_so,
+    appt: ganNhat
+      ? ({
+          id: ganNhat.id,
+          slot_start: ganNhat.slot_start,
+          status: ganNhat.status,
+          queue_number: ganNhat.queue_number,
+          booking_channel: ganNhat.booking_channel,
+          patient: d.ho_so,
+          service: ganNhat.service_name ? { name: ganNhat.service_name } : null,
+        } as unknown as DoctorApptRow)
+      : null,
+  };
+}
+
+/** Lấy một giá trị chuỗi từ searchParams (Next có thể trả mảng khi lặp khoá). */
+function mot(v: string | string[] | undefined): string | null {
+  const x = Array.isArray(v) ? v[0] : v;
+  return typeof x === "string" && x !== "" ? x : null;
 }
 
 export default async function PatientListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ chon?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { chon } = await searchParams;
+  // TRẠNG THÁI MÀN NẰM TRÊN URL (06/10/2026): `?trang=&q=&loc=&sap=&chon=` —
+  // F5 hay gửi link vẫn đúng trang, đúng ô tìm, đúng tab. Máy chủ đọc rác thành
+  // mặc định (trang chữ → 1, tab lạ → tất cả), nên ở đây chỉ chuyển tiếp.
+  const sp = await searchParams;
+  const chon = mot(sp.chon);
+  const boLoc = { q: mot(sp.q), loc: mot(sp.loc), sap: mot(sp.sap) };
   await requireNavAccess("/patient-list");
   const vaiHomNay = await getVaiHomNay();
   const role = await getVaiChinh();
@@ -89,42 +151,16 @@ export default async function PatientListPage({
     canManageAppt(role) || canWriteIntake(role),
   );
 
-  const goi = await fetchFromBackend<DanhSachApi>("/api/v1/patients/danh-sach");
+  const thamSo = new URLSearchParams();
+  for (const [k, v] of Object.entries({ trang: mot(sp.trang), ...boLoc, chon })) {
+    if (v) thamSo.set(k, v);
+  }
+  const goi = await fetchFromBackend<DanhSachApi>(
+    `/api/v1/patients/danh-sach${thamSo.size ? `?${thamSo.toString()}` : ""}`,
+  );
 
-  const rows: ExaminedRow[] = (goi?.dong ?? []).map((d) => {
-    const ganNhat = d.luot[0] ?? null;
-    return {
-      clinic_patient_id: d.ho_so.clinic_patient_id,
-      patient_code: d.ho_so.patient_code,
-      full_name: d.ho_so.full_name,
-      phone_primary: d.ho_so.phone_primary,
-      date_of_birth: d.ho_so.date_of_birth,
-      gender: d.ho_so.gender,
-      visit_count: d.so_luot,
-      visits: d.luot.map((l) => ({
-        id: l.id,
-        slot_start: l.slot_start,
-        status: l.status,
-        service_name: l.service_name,
-        doctor_name: l.doctor_name,
-      })),
-      latest: ganNhat?.slot_start ?? null,
-      phan_loai: d.phan_loai,
-      dang_mo: d.dang_mo,
-      hoso: d.ho_so,
-      appt: ganNhat
-        ? ({
-            id: ganNhat.id,
-            slot_start: ganNhat.slot_start,
-            status: ganNhat.status,
-            queue_number: ganNhat.queue_number,
-            booking_channel: ganNhat.booking_channel,
-            patient: d.ho_so,
-            service: ganNhat.service_name ? { name: ganNhat.service_name } : null,
-          } as unknown as DoctorApptRow)
-        : null,
-    };
-  });
+  const rows: ExaminedRow[] = (goi?.dong ?? []).map(thanhDong);
+  const chonRow = goi?.chon ? thanhDong(goi.chon) : null;
   const t = goi?.tong ?? { ho_so: 0, dang_mo: 0, lan_dau: 0, tai_kham: 0, chua_kham: 0 };
 
   return (
@@ -149,13 +185,22 @@ export default async function PatientListPage({
         // trang /patients/[id] và PATCH /api/patients.
         <PatientListView
           rows={rows}
+          chonRow={chonRow}
+          tong={t}
+          phanTrang={{
+            trang: goi.trang ?? 1,
+            soTrang: goi.so_trang ?? 1,
+            soKhop: goi.so_khop ?? rows.length,
+            motTrang: goi.mot_trang ?? 50,
+          }}
+          boLoc={boLoc}
           enablePopup={enablePopup}
           canEditAdmin={canEditAdmin}
           /* Nút Tái khám: CSKH/Lễ tân. Pager lượt khám: Bác sĩ. */
           showRebook={showRebook}
           enableVisitPager={showPager}
           canBook={canBook}
-          chonSan={typeof chon === "string" ? chon : null}
+          chonSan={chon}
         />
       )}
     </div>

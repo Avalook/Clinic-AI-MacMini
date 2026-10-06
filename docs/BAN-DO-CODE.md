@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-05 17:40. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 09:09. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -214,7 +214,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - page: `src/dashboard/app/(dashboard)/patient-list/page.tsx` · quyền: lego `ds_benh_nhan` (Danh sách bệnh nhân · mặc định: CSKH, lễ tân)
 - thành phần: PatientListView.tsx, app/(dashboard)/tasks/DoctorApptRow.ts, app/(dashboard)/SplitPane.tsx, app/(dashboard)/customers/KenhDoiHuy.tsx, LichSuNotion.tsx, app/(dashboard)/tasks/ClinicalRecordForm.tsx
 - gọi API Next: `/api/lich-su-notion/tep`, `/api/lich-su-notion`, `/api/clinical-record`, `/api/catalog`, `/api/clinical/[visit_id]/[action]`, `/api/clinical-form`, `/api/ultrasound`, `/api/visits/[id]/theo-doi-thu-thuat`, `/api/patients/sdt-them`, `/api/patients` (+3)
-- gọi thẳng backend (server): `/api/v1/patients/danh-sach`
+- gọi thẳng backend (server): `/api/v1/patients/danh-sach`, `/api/v1/patients/danh-sach${thamSo.size`
 - service: lich_su_notion_service · tep_ket_qua_service · TepMoDoc · ho_so_lam_sang_doc · y_khoa · ClinicalRecordService.save (+13 service)
 - test: test_phieu_kham_db.py, test_phieu_kham_luot_db.py, test_tep_ket_qua.py, test_danh_muc_dich_vu_chuan_db.py, test_xac_nhan_tep_ket_qua_db.py (+41)
 

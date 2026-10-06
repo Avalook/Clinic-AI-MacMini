@@ -126,7 +126,7 @@ job_frontend() {
   if [ "$SACH" = 1 ] || [ ! -d node_modules ]; then npm ci; fi
   ./node_modules/.bin/tsc --noEmit
   npm run lint -- --max-warnings=0
-  for t in audit ops boundary roster luu-nhap khung gio-ca bo-nho nhip hanh-trinh sua-mau phieu-kham thanh-ngay o-so clinical-sync tu-luu lam-them; do
+  for t in audit ops boundary roster luu-nhap khung gio-ca bo-nho nhip hanh-trinh sua-mau phieu-kham thanh-ngay o-so clinical-sync tu-luu lam-them so-trang; do
     npm run "test:$t"
   done
   # Dựng vào `.next` của CÂY NÀY (như CI). Đang chạy `next dev` ở chính cây

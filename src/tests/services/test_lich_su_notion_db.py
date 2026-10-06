@@ -307,11 +307,12 @@ async def test_khong_co_quyen_phieu_kham_thi_chi_thay_danh_sach(
         await chi_tiet_luot(kb.pool, identity=khong_quyen, luot_id=ls["luot"][0]["id"])
 
 
-async def test_ho_so_cu_chua_hoat_dong_khong_vao_danh_sach_benh_nhan(
+async def test_ho_so_cu_chua_hoat_dong_van_vao_danh_sach_benh_nhan(
     kb: KichBan, tmp_path: Path
 ) -> None:
-    """Danh sách bệnh nhân nạp HẾT về trình duyệt: 8.600 hồ sơ cũ chưa hoạt động
-    không được chen vào; khách cũ quay lại (có lượt) thì hiện như mọi khách."""
+    """06/10/2026: Danh sách bệnh nhân phân trang + tìm phía máy chủ, nên MỌI hồ
+    sơ cũ từ Notion đều vào danh sách (bản 05/10 giấu hồ sơ chưa hoạt động vì
+    màn nạp hết về trình duyệt); khách cũ quay lại (có lượt) vẫn hiện."""
     key = f"hc:{uuid.uuid4()}"
     ma = f"KHACH-T{random.randint(1, 10**6)}"
     goi = _goi(
@@ -326,10 +327,10 @@ async def test_ho_so_cu_chua_hoat_dong_khong_vao_danh_sach_benh_nhan(
         )
 
     async def co_trong_danh_sach() -> bool:
-        ds = await DanhSachBenhNhanService(kb.pool).lay(identity=kb.bac_si)
+        ds = await DanhSachBenhNhanService(kb.pool).lay(identity=kb.bac_si, q=ma)
         return any(d["ho_so"]["clinic_patient_id"] == bn for d in ds["dong"])
 
-    assert not await co_trong_danh_sach()
+    assert await co_trong_danh_sach()
     async with kb.pool.acquire() as conn:
         await conn.execute(
             "INSERT INTO visit (clinic_id, clinic_patient_id, status, checked_in_at)"

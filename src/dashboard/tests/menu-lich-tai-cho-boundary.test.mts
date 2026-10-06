@@ -60,7 +60,10 @@ test("nút '+ Thêm khách hàng' ở thanh QueueBoard trỏ cùng màn", () => 
 
 test("Mở hồ sơ khách → Danh sách bệnh nhân chọn sẵn khách, cùng tab", () => {
   assert.equal(hrefHoSoKhach("abc-1"), "/patient-list?chon=abc-1");
-  assert.match(danhSachBn, /chonSan=\{typeof chon === "string" \? chon : null\}/);
+  // 06/10/2026: `chon` đọc qua `mot()` (bỏ mảng / chuỗi rỗng) và còn đi xuống
+  // máy chủ (`?chon=`) để khách ngoài trang đang xem vẫn mở được.
+  assert.match(danhSachBn, /const chon = mot\(sp\.chon\)/);
+  assert.match(danhSachBn, /chonSan=\{chon\}/);
   const i = menu.indexOf("Mở hồ sơ khách");
   assert.ok(i > 0);
   const truoc = menu.slice(Math.max(0, i - 120), i);
