@@ -267,7 +267,9 @@ async def test_khong_co_quyen_phieu_kham_thi_chi_thay_danh_sach(
         )
         await conn.execute(
             "INSERT INTO clinic_membership (clinic_id, staff_id, role, is_active)"
-            " VALUES ($1::uuid, $2::uuid, 'CSKH', true)",
+            " VALUES ($1::uuid, $2::uuid, 'CSKH', true)"
+            # Bộ chạy song song: trigger/test khác có thể đã tạo dòng thành viên.
+            " ON CONFLICT DO NOTHING",
             CLINIC,
             sid,
         )
