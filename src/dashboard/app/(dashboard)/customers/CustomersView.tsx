@@ -2208,12 +2208,26 @@ export default function CustomersView({
           // KHÁCH. Khách có hai đợt song song (Phụ khoa + Nội tiết) thì nó khoá
           // dịch vụ theo đợt kia, bất kể người trực đang đọc đợt nào — và
           // `lich_truoc_id` cũng nối sai chuỗi, âm thầm.
+          //
+          // CHỈ KHOÁ KHI DỊCH VỤ ẤY CÒN BẬT. `services` là danh mục đang bật;
+          // lượt cũ mang dịch vụ đã tắt (Sản 2/3, "Không ghi loại khám"… —
+          // 06/10/2026: ~2.966 khách) mà vẫn khoá thì backend từ chối và lễ
+          // tân bế tắc. Khi ấy mở ô chọn, vẫn nối chuỗi qua `lichTruocId`.
           khoaDichVu={
-            datLich === "tai-kham" && luotDangXem?.service_type_id
+            datLich === "tai-kham" &&
+            luotDangXem?.service_type_id &&
+            services.some((s) => s.id === luotDangXem.service_type_id)
               ? {
                   serviceId: luotDangXem.service_type_id,
                   label: luotDangXem.service_name ?? "Dịch vụ của lượt này",
                 }
+              : undefined
+          }
+          dichVuDaNgung={
+            datLich === "tai-kham" &&
+            luotDangXem?.service_type_id &&
+            !services.some((s) => s.id === luotDangXem.service_type_id)
+              ? (luotDangXem.service_name ?? "của lượt này")
               : undefined
           }
           lichTruocId={

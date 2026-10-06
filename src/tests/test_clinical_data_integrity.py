@@ -624,6 +624,7 @@ async def test_booking_rejects_reference_outside_clinic(
         "patient_ok": True,
         "location_ok": True,
         "service_ok": True,
+        "service_da_ngung": None,
         "doctor_ok": True,
     }
     refs[missing] = False

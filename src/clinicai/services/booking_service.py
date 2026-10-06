@@ -1993,6 +1993,12 @@ class BookingService:
                        AND s.is_active
                 ) AS service_ok,
                 (
+                    SELECT s.name FROM service_type s
+                     WHERE s.id = $3::uuid
+                       AND s.clinic_id = $5::uuid
+                       AND s.is_active IS NOT TRUE
+                ) AS service_da_ngung,
+                (
                     $4::uuid IS NULL
                     OR EXISTS (
                         SELECT 1
@@ -2019,6 +2025,18 @@ class BookingService:
         if not refs["location_ok"]:
             raise ValidationError("Mã cơ sở không thuộc phòng khám này")
         if not refs["service_ok"]:
+            # DỊCH VỤ ĐÃ NGỪNG ≠ DỊCH VỤ CỦA PHÒNG KHÁM KHÁC.
+            #
+            # 06/10/2026: lễ tân đặt tái khám cho một khách có lượt trước là
+            # "Sản 3" (tắt khi chuẩn hoá danh mục 02/10) và nhận câu "không
+            # thuộc phòng khám này" — đúng chữ của trường hợp kia, nên không ai
+            # đoán ra phải chọn dịch vụ khác. Lúc ấy ~2.966 khách có lượt gần
+            # nhất mang dịch vụ đã tắt.
+            if refs["service_da_ngung"] is not None:
+                raise ValidationError(
+                    f"Dịch vụ “{refs['service_da_ngung']}” đã ngừng sử dụng — "
+                    "chọn dịch vụ đang dùng."
+                )
             raise ValidationError("Mã dịch vụ không thuộc phòng khám này")
         if not refs["doctor_ok"]:
             raise ValidationError("Mã bác sĩ không thuộc phòng khám này")

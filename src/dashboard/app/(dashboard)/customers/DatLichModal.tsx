@@ -33,6 +33,7 @@ export default function DatLichModal({
   locations,
   defaultLocationId,
   khoaDichVu,
+  dichVuDaNgung,
   lichTruocId,
   onDong,
   onXong,
@@ -45,6 +46,9 @@ export default function DatLichModal({
   defaultLocationId?: string;
   /** Có = TÁI KHÁM (dịch vụ khoá theo lượt trước). Không có = khám mới. */
   khoaDichVu?: KhoaDichVu;
+  /** Tên dịch vụ của lượt trước khi nó ĐÃ NGỪNG — không khoá được, phải chọn
+   *  dịch vụ thay thế (vẫn là tái khám nếu có `lichTruocId`). */
+  dichVuDaNgung?: string;
   /** Có = lịch mới nối vào chuỗi tái khám (`appointment.lich_truoc_id`). */
   lichTruocId?: string;
   onDong: () => void;
@@ -83,6 +87,11 @@ export default function DatLichModal({
                     <>
                       Giữ nguyên dịch vụ <b>{khoaDichVu.label}</b> của lượt đang
                       xem.{" "}
+                    </>
+                  ) : dichVuDaNgung ? (
+                    <>
+                      Dịch vụ <b>{dichVuDaNgung}</b> của lượt đang xem đã ngừng
+                      sử dụng — chọn dịch vụ thay thế bên dưới.{" "}
                     </>
                   ) : (
                     <>Lượt đang xem chưa chọn dịch vụ — chọn dịch vụ bên dưới. </>
