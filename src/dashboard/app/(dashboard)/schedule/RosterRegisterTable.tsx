@@ -33,6 +33,7 @@ import {
   nhanMuc,
   taiPhienBan,
   tenHien,
+  type OPhienBan,
   type PhienBanTraVe,
 } from "./PhienBanLich";
 import { fmtDate, fmtDateTime } from "../../../lib/datetime";
@@ -327,22 +328,47 @@ export default function RosterRegisterTable({
   // ngang tại chỗ cũ) thay cho lịch hiện tại — chỉ xem.
   const dx = xemMa !== null ? (pb?.dang_xem ?? null) : null;
   const chiXem = dx !== null;
-  const rowsBan: RegisterRow[] = dx
-    ? [...dx.dong, ...dx.da_xoa].map((o) => ({
-        id: o.id,
-        work_date: o.work_date,
-        station: o.station,
-        shift: o.shift as Shift,
-        staff_id: o.staff_id,
-        staff_name: tenHien(o),
-        status: "APPROVED",
-        reject_reason: null,
-        vai_ngan: o.vai_ngan,
-        thay_doi: o.thay_doi,
-        truoc_ten: o.truoc_ten ? doctorName(o.truoc_ten) || o.truoc_ten : null,
-      }))
-    : [];
-  const rowsBang = chiXem ? rowsBan : effRows;
+  const oSangDong = (o: OPhienBan): RegisterRow => ({
+    id: o.id,
+    work_date: o.work_date,
+    station: o.station,
+    shift: o.shift as Shift,
+    staff_id: o.staff_id,
+    staff_name: tenHien(o),
+    status: "APPROVED",
+    reject_reason: null,
+    vai_ngan: o.vai_ngan,
+    thay_doi: o.thay_doi,
+    truoc_ten: o.truoc_ten ? doctorName(o.truoc_ten) || o.truoc_ten : null,
+  });
+  const rowsBan: RegisterRow[] = dx ? [...dx.dong, ...dx.da_xoa].map(oSangDong) : [];
+
+  // HIỆN TẠI CŨNG TÔ MÀU (Tuyền thử staging 06/10): bảng vẫn sửa được, nhưng ô
+  // khác bản LIỀN TRƯỚC tô y như khi xem phiên bản. Phần khác do MÁY CHỦ tính
+  // (`dang_xem` của gói phiên bản mới nhất — nạp lại sau mỗi thao tác); ở đây
+  // chỉ gắn nhãn vào dòng cùng id và vẽ ca vừa xoá thành "bóng" chỉ xem.
+  const banMoiNhat = !chiXem && pb?.dang_xem?.moi_nhat ? pb.dang_xem : null;
+  const nhanMoiNhat = new Map(
+    (banMoiNhat?.dong ?? [])
+      .filter((o) => o.thay_doi)
+      .map((o) => [o.id, o] as const),
+  );
+  const rowsHienTai: RegisterRow[] = effRows.map((r) => {
+    const o = nhanMoiNhat.get(r.id);
+    // Chỉ gắn khi dòng sống còn đúng người máy chủ so — lệch (vừa sửa, chưa nạp
+    // lại phiên bản) thì thôi tô, không tô sai.
+    return o && r.status === "APPROVED" && r.staff_id === o.staff_id
+      ? {
+          ...r,
+          thay_doi: o.thay_doi,
+          truoc_ten: o.truoc_ten ? doctorName(o.truoc_ten) || o.truoc_ten : null,
+        }
+      : r;
+  });
+  const bong: RegisterRow[] = (banMoiNhat?.da_xoa ?? []).map(oSangDong);
+  const rowsBang = chiXem ? rowsBan : [...rowsHienTai, ...bong];
+  /** Dòng "bóng": ca đã xoá — chỉ để xem, không phải người đang đứng ca. */
+  const laBong = (r: RegisterRow) => r.thay_doi === "XOA";
 
   // byCell[date|station] = các ca ở ô đó (mọi người, mọi trạng thái).
   const byCell = new Map<string, RegisterRow[]>();
@@ -363,7 +389,7 @@ export default function RosterRegisterTable({
   // "Đã đăng ký" chỉ tính ca ĐANG hiệu lực (Đã xếp) của mình. Ca bị gỡ không
   // tính → cho phép xếp lại ô đó.
   const myHere = openCellRows.find(
-    (r) => r.staff_id === myStaffId && r.status !== "REJECTED",
+    (r) => r.staff_id === myStaffId && r.status !== "REJECTED" && !laBong(r),
   );
 
   // AI ĐƯỢC XẾP VÀO Ô NÀY — lọc bằng ĐÚNG ma trận mà backend dùng để từ chối
@@ -373,7 +399,9 @@ export default function RosterRegisterTable({
   // Chức danh CHƯA KHAI dòng nào → cho qua, y như backend: phòng khám mới cài
   // đặt chưa có ma trận, chặn hết ở đây là màn xếp lịch chết câm ngày đầu.
   const daCoTrongO = new Set(
-    openCellRows.filter((r) => r.status !== "REJECTED").map((r) => r.staff_id),
+    openCellRows
+      .filter((r) => r.status !== "REJECTED" && !laBong(r))
+      .map((r) => r.staff_id),
   );
   const nhanVienHopLe = open
     ? staff.filter((s) => {
@@ -492,7 +520,7 @@ export default function RosterRegisterTable({
         staff_name: picked?.name ?? null,
         // Người xếp sau nằm ở hàng con dưới. Không gửi thì mọi dòng cùng sort=0
         // và thứ tự hai hàng đảo qua đảo lại giữa các lần tải trang.
-        sort: openCellRows.length,
+        sort: openCellRows.filter((r) => !laBong(r)).length,
       }),
     });
     setBusy(false);
@@ -608,7 +636,7 @@ export default function RosterRegisterTable({
   const oCuaBang = (st: Station, date: string, ca: Shift, rowSpan = 1) => {
     const station = st.key;
     const list = cuaCa(byCell.get(cellKey(date, station)) ?? [], ca);
-    const nen = (chiXem && nenThayDoi(list.map((r) => ({ loai: r.thay_doi ?? null })))) || nenO(st);
+    const nen = nenThayDoi(list.map((r) => ({ loai: r.thay_doi ?? null }))) || nenO(st);
     return (
       <td rowSpan={rowSpan} className={`border border-line-strong ${nen} p-0`}>
         <button
@@ -625,7 +653,7 @@ export default function RosterRegisterTable({
               const b = STATUS_BADGE[r.status];
               const vai = vaiKemTen(r.staff_name, r.vai_ngan);
               const loai = r.thay_doi ?? null;
-              if (chiXem) {
+              if (chiXem || loai) {
                 // Cùng cách vẽ với bảng xem phiên bản cũ: không chỉ bằng màu —
                 // "+" = thêm, gạch ngang = xoá, "cũ → mới" = đổi người.
                 return (
@@ -739,6 +767,17 @@ export default function RosterRegisterTable({
                 : "Phiên bản: có từ lúc bấm “Áp dụng tuần”"}
             </span>
           ) : null}
+          {/* Chú thích màu cạnh ô Phiên bản — ô tô màu = khác bản LIỀN TRƯỚC
+              (bản hiện tại cũng tô, 06/10). */}
+          {pb?.co_lich_su ? (
+            <span
+              className="flex flex-wrap items-center gap-1.5 text-meta text-ink-muted"
+              title="Ô tô màu = khác bản liền trước"
+            >
+              <span>So với bản trước:</span>
+              <ChuThichMau />
+            </span>
+          ) : null}
           {xepDuoc && !chiXem ? (
             <span className="ml-auto">
               <ApDungTuan
@@ -758,7 +797,6 @@ export default function RosterRegisterTable({
               Đang xem bản <b>{fmtDateTime(dx.luc)}</b> · chỉ xem
               {dx.truoc_ma === null ? " · bản đầu tiên, không có bản trước để so" : " · tô màu so với bản ngay trước"}
             </span>
-            <ChuThichMau />
             <Button size="sm" variant="soft" className="ml-auto" onClick={() => void chonBan(null)}>
               Về hiện tại
             </Button>
@@ -893,17 +931,22 @@ export default function RosterRegisterTable({
                     const loai = r.thay_doi ?? null;
                     // Quản lý gỡ được ca của BẤT KỲ AI — đúng luật của
                     // RosterService.remove. Người thường chỉ gỡ ca của mình.
+                    const bongXoa = loai === "XOA";
                     const goDuoc =
-                      !chiXem && xepDuoc && (isApprover || r.staff_id === myStaffId);
+                      !chiXem &&
+                      !bongXoa &&
+                      xepDuoc &&
+                      (isApprover || r.staff_id === myStaffId);
                     // Đổi người: máy chủ cho (`doi_nguoi`), ca đang hiệu lực, hôm
                     // nay trở đi — y như khối cũ chỉ bày ca từ hôm nay (máy chủ
                     // cũng chặn ca đã qua).
                     const doiDuoc =
                       !chiXem &&
+                      !bongXoa &&
                       doiNguoi &&
                       r.status !== "REJECTED" &&
                       (!homNay || r.work_date >= homNay);
-                    const vetDong = chiXem ? [] : (vetTheoDong.get(r.id) ?? []);
+                    const vetDong = chiXem || bongXoa ? [] : (vetTheoDong.get(r.id) ?? []);
                     return (
                       <li key={`${r.id}-${loai ?? ""}`} className="text-xs text-ink-soft">
                         <div className="flex items-center justify-between gap-2">
@@ -927,24 +970,29 @@ export default function RosterRegisterTable({
                                 ({SHIFT_LABEL[r.shift]})
                               </span>
                             )}
-                            {chiXem ? (
-                              loai ? (
-                                <Chip
-                                  className="ml-1.5"
-                                  tone={
-                                    loai === "THEM" ? "success" : loai === "XOA" ? "danger" : "info"
-                                  }
-                                >
-                                  {loai === "THEM" ? "Thêm" : loai === "XOA" ? "Xoá" : "Đổi người"}
-                                </Chip>
-                              ) : null
-                            ) : (
+                            {chiXem || bongXoa ? null : (
                               <span
                                 className={"ml-1.5 rounded px-1.5 py-0.5 font-medium " + b.cls}
                               >
                                 {b.label}
                               </span>
                             )}
+                            {loai ? (
+                              <Chip
+                                className="ml-1.5"
+                                tone={
+                                  loai === "THEM" ? "success" : loai === "XOA" ? "danger" : "info"
+                                }
+                              >
+                                {loai === "THEM"
+                                  ? "Mới thêm"
+                                  : loai === "XOA"
+                                    ? chiXem
+                                      ? "Xoá"
+                                      : "Vừa xoá · chỉ xem"
+                                    : "Vừa đổi người"}
+                              </Chip>
+                            ) : null}
                             {r.status === "REJECTED" && r.reject_reason && (
                               <span className="block text-danger">
                                 Lý do: {r.reject_reason}
