@@ -174,10 +174,10 @@ job_database() {
     echo "LỖI: cú pháp chỉ psql hiểu — Supabase CLI không chạy được"
     return 1
   fi
-  docker rm -f ci_may_db >/dev/null 2>&1 || true
+  docker rm -fv ci_may_db >/dev/null 2>&1 || true
   docker run -d --name ci_may_db -e POSTGRES_PASSWORD="${MK_DB_THU}" -p "127.0.0.1:${CONG_DB}:5432" \
     postgres:17 >/dev/null
-  trap 'docker rm -f ci_may_db >/dev/null 2>&1 || true' EXIT
+  trap 'docker rm -fv ci_may_db >/dev/null 2>&1 || true' EXIT
   for _ in $(seq 1 60); do
     docker exec ci_may_db pg_isready -U postgres >/dev/null 2>&1 && break
     sleep 1

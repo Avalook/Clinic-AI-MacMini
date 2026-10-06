@@ -16,7 +16,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 if [ -n "${DB_CONTAINER:-}" ]; then
     DB_PORT="${DB_PORT:-55433}"
-    docker rm -f "$DB_CONTAINER" >/dev/null 2>&1 || true
+    docker rm -fv "$DB_CONTAINER" >/dev/null 2>&1 || true
     docker run -d --name "$DB_CONTAINER" -p "127.0.0.1:${DB_PORT}:5432" \
         -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=postgres postgres:17 >/dev/null
     for _ in $(seq 1 60); do
