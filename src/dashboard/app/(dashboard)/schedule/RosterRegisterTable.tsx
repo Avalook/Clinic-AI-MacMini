@@ -7,12 +7,39 @@
 //     ngày, và đúng CA CỦA CỘT vừa bấm (chọn lại ca khác được trong popup).
 //   - Ô trống có dấu "+"; ô đã có người hiện tên + ca.
 // Ghi qua /api/roster (POST xếp, DELETE gỡ) rồi router.refresh().
+//
+// MỘT BẢNG CHO CẢ BA VIỆC (Tuyền 06/10/2026 — "cuộn quá nhiều vì 3 khối tách
+// lẻ"): khối "Đổi người trong ca" và "Lịch sử thay đổi" đã gộp vào đây.
+//   - Thanh công cụ DÍNH đầu bảng: ◀ Tuần ▶ · ô Phiên bản (chỉ khi máy chủ cho
+//     xem — trưởng ca / quản lý) · nút Áp dụng tuần · ngăn "Xem các thay đổi".
+//   - Popup ô: cạnh mỗi người có [Đổi người] (cùng API `/api/roster/thay-nguoi`
+//     khối cũ gọi) bên cạnh thùng rác; cuối popup "Lịch sử ô này".
+//   - Chọn một phiên bản → chính bảng này vẽ lịch tại bản ấy, tô màu so với bản
+//     ngay trước (token `MAU_THAY_DOI`), CHỈ XEM: không dấu +, popup chỉ đọc.
+//   - Mọi thao tác nạp lại ô Phiên bản ngay — không bắt tải lại trang.
 
+import Link from "next/link";
 import { Fragment, useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import Button, { buttonClass } from "../../../components/ui/Button";
+import NganGap from "../../../components/ui/NganGap";
+import OChon from "../../../components/ui/OChon";
+import ONhap from "../../../components/ui/ONhap";
+import ApDungTuan from "./ApDungTuan";
+import {
+  ChuThichMau,
+  DanhSachThayDoi,
+  nhanMuc,
+  taiPhienBan,
+  tenHien,
+  type PhienBanTraVe,
+} from "./PhienBanLich";
+import { fmtDate, fmtDateTime } from "../../../lib/datetime";
+import { doctorName } from "../../../lib/doctor-name";
 import {
   SHIFTS,
+  shiftWeek,
   SHIFT_LABEL,
   VI_TRI_LICH_KHAM,
   cotCuaTuan,
@@ -33,8 +60,27 @@ import {
 } from "../RosterGrid";
 import Chip from "../../../components/ui/Chip";
 import { vaiKemTen } from "../../../lib/doctor-name";
-import type { DongCaRow } from "../home/WorkRosterTable";
+import {
+  MAU_THAY_DOI,
+  nenThayDoi,
+  type DongCaRow,
+  type LoaiThayDoi,
+} from "../home/WorkRosterTable";
 import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
+
+/** Vết "Hà đứng tới 10:30 → B từ 10:30" của lần đổi người trong ca (29/09). */
+export interface VetThayNguoi {
+  roster_id: string | null;
+  nguoi_cu_ten: string;
+  nguoi_moi_ten: string;
+  gio: string;
+  boi_ten: string | null;
+}
+
+export interface NguoiChon {
+  id: string;
+  name: string;
+}
 
 export interface RegisterRow {
   id: string;
@@ -47,6 +93,9 @@ export interface RegisterRow {
   reject_reason: string | null;
   /** Vai ngắn do máy chủ trả (27/09/2026 đợt 3, A9) — chip cạnh tên. */
   vai_ngan?: string | null;
+  /** Chỉ khi đang xem một phiên bản: ô khác bản ngay trước thế nào. */
+  thay_doi?: LoaiThayDoi | null;
+  truoc_ten?: string | null;
 }
 
 /** Một người có thể xếp được, kèm chức danh để lọc theo phạm vi trạm. */
@@ -74,6 +123,12 @@ const STATUS_BADGE: Record<RegisterRow["status"], { cls: string; label: string }
   REJECTED: { cls: "bg-surface-sunken text-ink-faint", label: "Đã gỡ" },
 };
 
+const NHAN_SR: Record<LoaiThayDoi, string> = {
+  THEM: "Mới thêm:",
+  XOA: "Đã xoá:",
+  DOI_NGUOI: "Đổi sang:",
+};
+
 function cellKey(date: string, station: string) {
   return `${date}|${station}`;
 }
@@ -81,6 +136,7 @@ function cellKey(date: string, station: string) {
 export default function RosterRegisterTable({
   stations,
   weekStart,
+  dates,
   rows,
   dong = [],
   myStaffId,
@@ -88,6 +144,13 @@ export default function RosterRegisterTable({
   staff = [],
   tramTheoVai = {},
   isApprover = false,
+  xepDuoc = true,
+  daApDung = false,
+  phienBan = null,
+  doiNguoi = false,
+  homNay,
+  vet = [],
+  nhanSuDoi = [],
 }: {
   /** Danh mục vị trí từ database — xem `viTriTuDb`. */
   stations: readonly Station[];
@@ -106,6 +169,20 @@ export default function RosterRegisterTable({
   tramTheoVai?: Record<string, string[]>;
   /** Quản lý hệ thống: được chọn NGƯỜI để xếp, và gỡ được ca của bất kỳ ai. */
   isApprover?: boolean;
+  /** Người xếp lịch (`roster.manage` / `config.clinic.manage`) — ô +, thùng rác, Áp dụng tuần.
+   *  Sai = người chỉ có quyền đổi người trong ca: bảng chỉ còn [Đổi người]. */
+  xepDuoc?: boolean;
+  daApDung?: boolean;
+  /** Lịch sử phiên bản của tuần; `null` = máy chủ không cho xem (không bày ô
+   *  Phiên bản, không "Lịch sử ô này"). */
+  phienBan?: PhienBanTraVe | null;
+  /** Máy chủ cho ĐỔI NGƯỜI trong ca (`lich-tuan` → `doi_nguoi`). */
+  doiNguoi?: boolean;
+  /** Hôm nay theo máy chủ (giờ VN) — ca đã qua không đổi người được. */
+  homNay?: string;
+  vet?: VetThayNguoi[];
+  /** Người vào thay được (không gồm tài khoản đối tác). */
+  nhanSuDoi?: NguoiChon[];
 }) {
   const router = useRouter();
   const STATION_LABEL = nhanViTri(stations);
@@ -121,6 +198,50 @@ export default function RosterRegisterTable({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [, startTransition] = useTransition();
+
+  // ── Phiên bản (Khối 3) ──────────────────────────────────────────────────
+  // `pb` = gói phiên bản mới nhất máy chủ trả (hoặc gói của bản đang xem);
+  // `xemMa` = mã bản đang xem; null = HIỆN TẠI (bảng sửa được).
+  const [pb, setPb] = useState<PhienBanTraVe | null>(phienBan);
+  const [xemMa, setXemMa] = useState<string | null>(null);
+  const [pbDangTai, setPbDangTai] = useState(false);
+  const [pbLoi, setPbLoi] = useState<string | null>(null);
+  const coPhienBan = pb !== null;
+
+  /** Nạp lại bản MỚI NHẤT sau mỗi thao tác — ô Phiên bản và "Lịch sử ô này"
+   *  có ngay lần sửa vừa rồi. Đang xem bản cũ thì giữ nguyên chỗ đang xem. */
+  async function napLaiPhienBan() {
+    if (!coPhienBan || xemMa !== null) return;
+    const kq = await taiPhienBan(weekStart);
+    if (typeof kq !== "string") setPb(kq);
+  }
+
+  async function chonBan(ma: string | null) {
+    setPbLoi(null);
+    setOpen(null);
+    setPbDangTai(true);
+    const kq = await taiPhienBan(weekStart, ma);
+    setPbDangTai(false);
+    if (typeof kq === "string") {
+      setPbLoi(kq);
+      return;
+    }
+    setPb(kq);
+    setXemMa(ma && kq.dang_xem ? kq.dang_xem.ma : null);
+  }
+
+  // ── Đổi người trong ca (gộp từ khối riêng 29/09) ────────────────────────
+  // Ghi đè tạm người đứng theo id dòng — bảng đổi tên NGAY khi máy chủ nhận,
+  // không chờ router.refresh(). Chỉ áp khi dòng máy chủ CÒN người cũ: máy chủ
+  // đã đổi (sang người mới, hay người khác ở tab khác) thì máy chủ thắng.
+  const [doiTen, setDoiTen] = useState<
+    Record<string, { cu: string | null; staff_id: string; staff_name: string }>
+  >({});
+  const [doiDangMo, setDoiDangMo] = useState<string | null>(null);
+  const [nguoiMoi, setNguoiMoi] = useState("");
+  const [lyDo, setLyDo] = useState("");
+  const [doiBusy, setDoiBusy] = useState(false);
+  const [baoXong, setBaoXong] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -161,6 +282,13 @@ export default function RosterRegisterTable({
 
   const refresh = () => startTransition(() => router.refresh());
 
+  const apDoiTen = (r: RegisterRow): RegisterRow => {
+    const d = doiTen[r.id];
+    return d && r.staff_id === d.cu
+      ? { ...r, staff_id: d.staff_id, staff_name: d.staff_name }
+      : r;
+  };
+
   // Danh sách hiệu lực = data server + áp optimistic (TÍNH KHI RENDER, không dùng
   // effect): ẩn ca REMOVED, đổi trạng thái theo override, thêm ca vừa xếp nếu
   // server chưa trả về (dedupe theo người+ngày+trạm để không trùng sau khi refetch).
@@ -168,9 +296,11 @@ export default function RosterRegisterTable({
     ...rows
       .filter((r) => overrides[r.id] !== "REMOVED")
       .map((r) =>
-        overrides[r.id]
-          ? { ...r, status: overrides[r.id] as RegisterRow["status"] }
-          : r,
+        apDoiTen(
+          overrides[r.id]
+            ? { ...r, status: overrides[r.id] as RegisterRow["status"] }
+            : r,
+        ),
       ),
     // Ca vừa xếp rồi GỠ ngay (28/09/2026): phải ẩn cả ở đây. Trước chỉ ẩn dòng
     // của máy chủ — gỡ xong, tải lại, máy chủ không còn dòng ấy nên dòng tạm
@@ -190,12 +320,33 @@ export default function RosterRegisterTable({
               r.work_date === o.work_date &&
               r.station === o.station),
         ),
-    ),
+    ).map(apDoiTen),
   ];
+
+  // ĐANG XEM MỘT PHIÊN BẢN: bảng vẽ lịch tại bản ấy (kể cả ca đã xoá, gạch
+  // ngang tại chỗ cũ) thay cho lịch hiện tại — chỉ xem.
+  const dx = xemMa !== null ? (pb?.dang_xem ?? null) : null;
+  const chiXem = dx !== null;
+  const rowsBan: RegisterRow[] = dx
+    ? [...dx.dong, ...dx.da_xoa].map((o) => ({
+        id: o.id,
+        work_date: o.work_date,
+        station: o.station,
+        shift: o.shift as Shift,
+        staff_id: o.staff_id,
+        staff_name: tenHien(o),
+        status: "APPROVED",
+        reject_reason: null,
+        vai_ngan: o.vai_ngan,
+        thay_doi: o.thay_doi,
+        truoc_ten: o.truoc_ten ? doctorName(o.truoc_ten) || o.truoc_ten : null,
+      }))
+    : [];
+  const rowsBang = chiXem ? rowsBan : effRows;
 
   // byCell[date|station] = các ca ở ô đó (mọi người, mọi trạng thái).
   const byCell = new Map<string, RegisterRow[]>();
-  for (const r of effRows) {
+  for (const r of rowsBang) {
     const k = cellKey(r.work_date, r.station);
     const list = byCell.get(k) ?? [];
     list.push(r);
@@ -239,7 +390,67 @@ export default function RosterRegisterTable({
     // người ấy vào cả Sáng lẫn Chiều mà không ai để ý.
     setShift(ca);
     setPickedId("");
+    setDoiDangMo(null);
+    setBaoXong(null);
     setOpen({ date, station, shift: ca });
+  }
+
+  function moDoiNguoi(id: string) {
+    setError(null);
+    setBaoXong(null);
+    setNguoiMoi("");
+    setLyDo("");
+    setDoiDangMo(id);
+  }
+
+  /** ĐỔI NGƯỜI TRONG CA — đúng lệnh khối "Đổi người trong ca" cũ gửi
+   *  (`POST /api/roster/thay-nguoi`). Máy chủ giữ mọi luật: ai được đổi, ca đã
+   *  qua không đổi, người mới có ngay quyền vị trí, lịch hẹn rơi ra ngoài. */
+  async function doiNguoiTrongCa(r: RegisterRow) {
+    if (!nguoiMoi) {
+      setError("Chọn người vào thay.");
+      return;
+    }
+    if (r.id.startsWith("temp-")) {
+      setError("Ca này chưa lưu xong. Bấm làm mới rồi đổi lại.");
+      refresh();
+      return;
+    }
+    setError(null);
+    setDoiBusy(true);
+    const res = await fetch("/api/roster/thay-nguoi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: r.id, staff_id: nguoiMoi, ly_do: lyDo.trim() || null }),
+    });
+    const kq = (await res.json().catch(() => ({}))) as {
+      nguoi_moi_ten?: string;
+      so_lich_cho_xep?: number;
+    };
+    setDoiBusy(false);
+    if (!res.ok) {
+      setError(loiDocDuoc(kq, "Chưa đổi được người — thử lại."));
+      return;
+    }
+    const tenMoi =
+      nhanSuDoi.find((n) => n.id === nguoiMoi)?.name ??
+      (kq.nguoi_moi_ten ? doctorName(kq.nguoi_moi_ten) || kq.nguoi_moi_ten : "người mới");
+    setDoiTen((cu) => ({
+      ...cu,
+      [r.id]: { cu: r.staff_id, staff_id: nguoiMoi, staff_name: tenMoi },
+    }));
+    // Dòng vừa xếp trong phiên này (optimistic, đã mang id thật) cũng đổi tên.
+    setOptimistic((opt) =>
+      opt.map((o) => (o.id === r.id ? { ...o, staff_id: nguoiMoi, staff_name: tenMoi } : o)),
+    );
+    const choXep = kq.so_lich_cho_xep ?? 0;
+    setBaoXong(
+      `${r.staff_name || "Người cũ"} → ${tenMoi}: đã đổi, quyền áp dụng ngay.` +
+        (choXep > 0 ? ` ${choXep} lịch hẹn của người cũ chuyển sang "Lịch chờ xếp bác sĩ".` : ""),
+    );
+    setDoiDangMo(null);
+    void napLaiPhienBan();
+    refresh();
   }
 
   /** Quản lý xếp NGƯỜI ĐƯỢC CHỌN; vai khác tự đăng ký chính mình. */
@@ -314,6 +525,7 @@ export default function RosterRegisterTable({
     // GIỮ POPUP MỞ. Mỗi ngày có tới hai người mỗi trạm; đóng lại sau người thứ
     // nhất là bắt quản lý bấm vào đúng ô ấy thêm một lần nữa.
     setPickedId("");
+    void napLaiPhienBan();
     refresh();
   }
 
@@ -372,10 +584,11 @@ export default function RosterRegisterTable({
       return;
     }
     setOptimistic((opt) => opt.filter((o) => o.id !== id));
+    void napLaiPhienBan();
     refresh();
   }
 
-  const cot = cotCuaTuan(weekStart, effRows);
+  const cot = cotCuaTuan(weekStart, rowsBang);
 
   const dongO = new Map(
     dong.map((d) => [`${d.station}|${d.work_date}|${d.shift}`, d.ly_do] as const),
@@ -384,9 +597,10 @@ export default function RosterRegisterTable({
     dong: dongO.get(`${st.key}|${c.date}|${c.shift}`) ?? null,
     // Gộp dọc CHỈ theo người đang có hiệu lực — một ca đã gỡ không được làm hai
     // ô dính nhau vì còn lưu tên cũ.
+    // Kèm loại thay đổi khi xem phiên bản: ô đổi không gộp với ô không đổi.
     khoa: cuaCa(byCell.get(cellKey(c.date, st.key)) ?? [], c.shift)
       .filter((r) => r.status !== "REJECTED")
-      .map((r) => r.staff_id ?? r.staff_name)
+      .map((r) => `${r.staff_id ?? r.staff_name}~${r.thay_doi ?? ""}~${r.truoc_ten ?? ""}`)
       .sort()
       .join("|"),
   });
@@ -394,8 +608,9 @@ export default function RosterRegisterTable({
   const oCuaBang = (st: Station, date: string, ca: Shift, rowSpan = 1) => {
     const station = st.key;
     const list = cuaCa(byCell.get(cellKey(date, station)) ?? [], ca);
+    const nen = (chiXem && nenThayDoi(list.map((r) => ({ loai: r.thay_doi ?? null })))) || nenO(st);
     return (
-      <td rowSpan={rowSpan} className={`border border-line-strong ${nenO(st)} p-0`}>
+      <td rowSpan={rowSpan} className={`border border-line-strong ${nen} p-0`}>
         <button
           type="button"
           onClick={() => moO(date, station, ca)}
@@ -403,11 +618,36 @@ export default function RosterRegisterTable({
           className="flex h-full min-h-8 w-full flex-col gap-0.5 px-1.5 py-1 text-center transition-colors hover:bg-brand-50"
         >
           {list.length === 0 ? (
-            <span className="text-brand-200">+</span>
+            // Xem phiên bản: không có dấu + (chỉ xem).
+            chiXem ? null : <span className="text-brand-200">+</span>
           ) : (
             list.map((r) => {
               const b = STATUS_BADGE[r.status];
               const vai = vaiKemTen(r.staff_name, r.vai_ngan);
+              const loai = r.thay_doi ?? null;
+              if (chiXem) {
+                // Cùng cách vẽ với bảng xem phiên bản cũ: không chỉ bằng màu —
+                // "+" = thêm, gạch ngang = xoá, "cũ → mới" = đổi người.
+                return (
+                  <span
+                    key={`${r.id}-${loai ?? ""}`}
+                    className="flex items-center justify-center gap-1 whitespace-nowrap leading-snug text-ink"
+                  >
+                    {loai === "DOI_NGUOI" && r.truoc_ten ? (
+                      <>
+                        <span className="text-ink-muted line-through">{r.truoc_ten}</span>
+                        <span aria-hidden="true">→</span>
+                      </>
+                    ) : null}
+                    {loai === "THEM" ? <span aria-hidden="true">+</span> : null}
+                    {loai ? <span className="sr-only">{NHAN_SR[loai]}</span> : null}
+                    <span className={loai ? MAU_THAY_DOI[loai].chu : undefined}>
+                      {r.staff_name}
+                    </span>
+                    {vai && loai !== "XOA" ? <Chip>{vai}</Chip> : null}
+                  </span>
+                );
+              }
               return (
                 <span
                   key={r.id}
@@ -432,8 +672,116 @@ export default function RosterRegisterTable({
     );
   };
 
+  const soCaDaXep = effRows.filter((r) => r.status === "APPROVED").length;
+  const nhatKy = pb?.nhat_ky ?? [];
+  const vetTheoDong = new Map<string, VetThayNguoi[]>();
+  for (const v of vet) {
+    if (v.roster_id) vetTheoDong.set(v.roster_id, [...(vetTheoDong.get(v.roster_id) ?? []), v]);
+  }
+  // Lịch sử của ĐÚNG ô đang mở — cùng luật "người trực cả ngày thuộc mọi ca"
+  // với chính ô ấy trên bảng (`cuaCa`).
+  const lichSuO = open
+    ? nhatKy.filter(
+        (n) =>
+          n.work_date === open.date &&
+          n.station === open.station &&
+          (n.shift === open.shift || n.shift === "FULL"),
+      )
+    : [];
+
   return (
     <>
+      {/* THANH CÔNG CỤ DÍNH (06/10/2026) — dính dưới thanh đầu trang (`top-12`
+          = cao GlobalHeader) suốt lúc cuộn qua bảng. */}
+      <div className="sticky top-12 z-20 -mx-4 space-y-2 border-b border-line bg-surface px-4 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1">
+            <Link
+              href={`/schedule?week=${shiftWeek(weekStart, -1)}`}
+              aria-label="Tuần trước"
+              className={buttonClass("secondary", "sm")}
+            >
+              <ChevronLeft className="size-4" aria-hidden="true" />
+            </Link>
+            <span className="whitespace-nowrap px-1 text-body font-medium text-ink">
+              Tuần {fmtDayMonth(dates[0])} – {fmtDayMonth(dates[dates.length - 1])}
+            </span>
+            <Link
+              href={`/schedule?week=${shiftWeek(weekStart, 1)}`}
+              aria-label="Tuần sau"
+              className={buttonClass("secondary", "sm")}
+            >
+              <ChevronRight className="size-4" aria-hidden="true" />
+            </Link>
+          </span>
+          {pb?.co_lich_su ? (
+            <label className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+              <span className="shrink-0 text-meta text-ink-muted">Phiên bản</span>
+              <OChon
+                value={xemMa ?? ""}
+                disabled={pbDangTai}
+                onChange={(e) => void chonBan(e.target.value || null)}
+                className="min-w-0 flex-1 sm:max-w-md sm:flex-none"
+              >
+                <option value="">Hiện tại — sửa được</option>
+                {pb.phien_ban.map((p, i) => (
+                  <option key={p.ma} value={p.ma}>
+                    {nhanMuc(p, i === 0)}
+                  </option>
+                ))}
+              </OChon>
+              {pbDangTai ? <span className="text-meta text-ink-muted">Đang tải…</span> : null}
+            </label>
+          ) : pb ? (
+            <span className="text-meta text-ink-muted">
+              {pb.da_ap_dung
+                ? `Phiên bản: tuần chưa có lịch sử${pb.lich_su_tu ? ` (chỉ ghi từ ${fmtDate(pb.lich_su_tu)})` : ""}`
+                : "Phiên bản: có từ lúc bấm “Áp dụng tuần”"}
+            </span>
+          ) : null}
+          {xepDuoc && !chiXem ? (
+            <span className="ml-auto">
+              <ApDungTuan
+                gon
+                weekStart={weekStart}
+                daApDung={daApDung}
+                laQuanLy={xepDuoc}
+                soCa={soCaDaXep}
+                onXong={() => void napLaiPhienBan()}
+              />
+            </span>
+          ) : null}
+        </div>
+        {dx ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-control bg-surface-sunken px-3 py-1.5 text-meta text-ink">
+            <span>
+              Đang xem bản <b>{fmtDateTime(dx.luc)}</b> · chỉ xem
+              {dx.truoc_ma === null ? " · bản đầu tiên, không có bản trước để so" : " · tô màu so với bản ngay trước"}
+            </span>
+            <ChuThichMau />
+            <Button size="sm" variant="soft" className="ml-auto" onClick={() => void chonBan(null)}>
+              Về hiện tại
+            </Button>
+          </div>
+        ) : null}
+        {pbLoi ? (
+          <p className="rounded-control bg-danger-bg px-3 py-1.5 text-meta text-danger">{pbLoi}</p>
+        ) : null}
+      </div>
+
+      {nhatKy.length > 0 ? (
+        <NganGap tieuDe={`Xem các thay đổi của tuần (${nhatKy.length})`}>
+          <div className="max-h-72 overflow-y-auto rounded-control border border-line p-2">
+            <DanhSachThayDoi
+              nhatKy={nhatKy}
+              nhan={STATION_LABEL}
+              dangXemMa={xemMa}
+              onXemBan={(ma) => void chonBan(ma)}
+            />
+          </div>
+        </NganGap>
+      ) : null}
+
       <div className="max-h-[88vh] min-h-[180px] max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
         <table className="w-full min-w-max border-collapse text-xs">
           <RosterGridHead cot={cot} minWidth={112} />
@@ -482,7 +830,7 @@ export default function RosterRegisterTable({
               </td>
               {cot.map((c) => {
                 const n = demBacSiTruc(
-                  effRows.filter((r) => r.status !== "REJECTED"),
+                  rowsBang.filter((r) => r.status !== "REJECTED" && r.thay_doi !== "XOA"),
                   c.date,
                   c.shift,
                 );
@@ -516,13 +864,14 @@ export default function RosterRegisterTable({
           >
             <div className="mb-3 flex items-start justify-between gap-2">
               <h3 id={dialogTitleId} className="text-sm font-semibold text-ink">
-                {isApprover ? "Xếp ca" : "Đăng ký ca"} · {dayShort(open.date)}{" "}
+                {chiXem ? "Xem ca" : isApprover ? "Xếp ca" : "Đăng ký ca"} · {dayShort(open.date)}{" "}
                 {fmtDayMonth(open.date)}
                 <span className="block text-xs font-normal text-ink-muted">
                   {STATION_LABEL[open.station] ?? open.station}
                 </span>
               </h3>
               <button
+                type="button"
                 onClick={() => setOpen(null)}
                 aria-label="Đóng"
                 autoFocus
@@ -536,19 +885,40 @@ export default function RosterRegisterTable({
             {openCellRows.length > 0 && (
               <div className="mb-3 rounded-lg border border-surface-sunken bg-surface-muted p-2">
                 <p className="mb-1 text-xs font-medium text-ink-muted">
-                  Đang xếp ở ô này
+                  {chiXem ? "Ô này ở phiên bản đang xem" : "Đang xếp ở ô này"}
                 </p>
                 <ul className="space-y-1">
                   {openCellRows.map((r) => {
                     const b = STATUS_BADGE[r.status];
+                    const loai = r.thay_doi ?? null;
                     // Quản lý gỡ được ca của BẤT KỲ AI — đúng luật của
                     // RosterService.remove. Người thường chỉ gỡ ca của mình.
-                    const goDuoc = isApprover || r.staff_id === myStaffId;
+                    const goDuoc =
+                      !chiXem && xepDuoc && (isApprover || r.staff_id === myStaffId);
+                    // Đổi người: máy chủ cho (`doi_nguoi`), ca đang hiệu lực, hôm
+                    // nay trở đi — y như khối cũ chỉ bày ca từ hôm nay (máy chủ
+                    // cũng chặn ca đã qua).
+                    const doiDuoc =
+                      !chiXem &&
+                      doiNguoi &&
+                      r.status !== "REJECTED" &&
+                      (!homNay || r.work_date >= homNay);
+                    const vetDong = chiXem ? [] : (vetTheoDong.get(r.id) ?? []);
                     return (
-                      <li key={r.id} className="text-xs text-ink-soft">
+                      <li key={`${r.id}-${loai ?? ""}`} className="text-xs text-ink-soft">
                         <div className="flex items-center justify-between gap-2">
                           <span className="min-w-0">
-                            <span className="font-medium text-ink">
+                            {loai === "DOI_NGUOI" && r.truoc_ten ? (
+                              <span className="text-ink-muted line-through">
+                                {r.truoc_ten}{" "}
+                              </span>
+                            ) : null}
+                            {loai === "DOI_NGUOI" && r.truoc_ten ? "→ " : null}
+                            <span
+                              className={
+                                loai ? MAU_THAY_DOI[loai].chu : "font-medium text-ink"
+                              }
+                            >
                               {r.staff_name}
                             </span>
                             {r.shift !== "FULL" && (
@@ -557,27 +927,106 @@ export default function RosterRegisterTable({
                                 ({SHIFT_LABEL[r.shift]})
                               </span>
                             )}
-                            <span
-                              className={"ml-1.5 rounded px-1.5 py-0.5 font-medium " + b.cls}
-                            >
-                              {b.label}
-                            </span>
+                            {chiXem ? (
+                              loai ? (
+                                <Chip
+                                  className="ml-1.5"
+                                  tone={
+                                    loai === "THEM" ? "success" : loai === "XOA" ? "danger" : "info"
+                                  }
+                                >
+                                  {loai === "THEM" ? "Thêm" : loai === "XOA" ? "Xoá" : "Đổi người"}
+                                </Chip>
+                              ) : null
+                            ) : (
+                              <span
+                                className={"ml-1.5 rounded px-1.5 py-0.5 font-medium " + b.cls}
+                              >
+                                {b.label}
+                              </span>
+                            )}
                             {r.status === "REJECTED" && r.reject_reason && (
                               <span className="block text-danger">
                                 Lý do: {r.reject_reason}
                               </span>
                             )}
+                            {vetDong.map((v, i) => (
+                              <span key={i} className="block text-meta text-ink-muted">
+                                {v.nguoi_cu_ten} đứng tới {v.gio} → {v.nguoi_moi_ten} từ {v.gio}
+                                {v.boi_ten ? ` · ${v.boi_ten} đổi` : ""}
+                              </span>
+                            ))}
                           </span>
-                          {goDuoc && (
-                            <button
-                              onClick={() => remove(r.id)}
-                              aria-label={`Gỡ ${r.staff_name} khỏi ca này`}
-                              className="shrink-0 rounded p-1 text-ink-faint hover:bg-danger-bg hover:text-danger disabled:opacity-50"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          )}
+                          <span className="flex shrink-0 items-center gap-1">
+                            {doiDuoc && doiDangMo !== r.id ? (
+                              <Button size="sm" onClick={() => moDoiNguoi(r.id)}>
+                                Đổi người
+                              </Button>
+                            ) : null}
+                            {goDuoc && (
+                              <button
+                                type="button"
+                                onClick={() => remove(r.id)}
+                                aria-label={`Gỡ ${r.staff_name} khỏi ca này`}
+                                className="shrink-0 rounded p-1 text-ink-faint hover:bg-danger-bg hover:text-danger disabled:opacity-50"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </span>
                         </div>
+                        {doiDangMo === r.id ? (
+                          <div className="mt-2 space-y-2 rounded-control bg-surface-sunken p-2">
+                            <label className="block text-meta text-ink-muted">
+                              Người vào thay
+                              <OChon
+                                value={nguoiMoi}
+                                onChange={(e) => {
+                                  setNguoiMoi(e.target.value);
+                                  setError(null);
+                                }}
+                                className="mt-1 w-full"
+                              >
+                                <option value="">— Chọn người —</option>
+                                {nhanSuDoi
+                                  .filter((n) => n.id !== r.staff_id)
+                                  .map((n) => (
+                                    <option key={n.id} value={n.id}>
+                                      {n.name}
+                                    </option>
+                                  ))}
+                              </OChon>
+                            </label>
+                            <label className="block text-meta text-ink-muted">
+                              Lý do (không bắt buộc)
+                              <ONhap
+                                value={lyDo}
+                                onChange={(e) => setLyDo(e.target.value)}
+                                maxLength={500}
+                                placeholder="VD: có việc đột xuất phải về"
+                                className="mt-1 w-full"
+                              />
+                            </label>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                disabled={doiBusy || !nguoiMoi}
+                                onClick={() => void doiNguoiTrongCa(r)}
+                              >
+                                {doiBusy ? "Đang đổi…" : "Đổi người"}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={doiBusy}
+                                onClick={() => setDoiDangMo(null)}
+                              >
+                                Thôi
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
                       </li>
                     );
                   })}
@@ -590,6 +1039,11 @@ export default function RosterRegisterTable({
                 {error}
               </p>
             )}
+            {baoXong && (
+              <p className="mb-2 rounded-control bg-status-in-progress-bg px-3 py-2 text-sm text-status-in-progress">
+                {baoXong}
+              </p>
+            )}
 
             {/* QUẢN LÝ: chọn người + chọn ca rồi xếp.
 
@@ -597,7 +1051,11 @@ export default function RosterRegisterTable({
                 (09/08), popup chỉ hiện đúng câu "Chưa có ai đăng ký ô này" cho
                 quản lý — tức là dấu "+" mở ra một ngõ cụt và cả phòng khám không
                 còn đường nào xếp lịch trực. */}
-            {isApprover ? (
+            {chiXem ? (
+              <p className="rounded-control bg-surface-sunken px-3 py-2 text-sm text-ink-muted">
+                Đang xem phiên bản cũ — chỉ xem. Bấm <b>Về hiện tại</b> trên thanh công cụ để sửa.
+              </p>
+            ) : !xepDuoc ? null : isApprover ? (
               <div className="space-y-2">
                 <div>
                   <label
@@ -651,6 +1109,7 @@ export default function RosterRegisterTable({
                     </select>
                   </div>
                   <button
+                    type="button"
                     onClick={xepCa}
                     disabled={busy || !pickedId}
                     className="rounded-control bg-brand-600 px-4 py-2 text-sm font-medium text-surface hover:bg-brand-700 disabled:opacity-50"
@@ -694,6 +1153,7 @@ export default function RosterRegisterTable({
                   </select>
                 </div>
                 <button
+                  type="button"
                   onClick={xepCa}
                   disabled={busy}
                   className="rounded-control bg-brand-600 px-4 py-2 text-sm font-medium text-surface hover:bg-brand-700 disabled:opacity-50"
@@ -702,6 +1162,29 @@ export default function RosterRegisterTable({
                 </button>
               </div>
             )}
+
+            {/* LỊCH SỬ Ô NÀY — các lần thêm / xoá / đổi người ở đúng ô (ngày ×
+                vị trí × ca), ai và lúc nào; cùng nguồn với ô Phiên bản. */}
+            {pb ? (
+              <div className="mt-4 border-t border-line pt-3">
+                <p className="mb-1.5 text-xs font-medium text-ink-muted">Lịch sử ô này</p>
+                {!pb.co_lich_su ? (
+                  <p className="text-meta text-ink-muted">
+                    Tuần chưa có lịch sử — lịch gốc được chốt khi bấm “Áp dụng tuần”, mọi lần sửa
+                    sau đó được ghi lại.
+                  </p>
+                ) : lichSuO.length === 0 ? (
+                  <p className="text-meta text-ink-muted">Ô này chưa đổi gì kể từ lịch gốc.</p>
+                ) : (
+                  <DanhSachThayDoi
+                    nhatKy={lichSuO}
+                    nhan={STATION_LABEL}
+                    boO
+                    dangXemMa={xemMa}
+                  />
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       )}

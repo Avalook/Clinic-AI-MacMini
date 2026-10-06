@@ -256,6 +256,48 @@ def loc_phien_ban(
     return ket
 
 
+def nhat_ky_thay_doi(
+    ds: list[tuple[PhienBan, dict[str, list[dict[str, Any]]] | None]],
+) -> list[dict[str, Any]]:
+    """Mọi lần thêm / xoá / đổi người của tuần, MỚI NHẤT TRƯỚC — một dòng một ô.
+
+    Nuôi "Lịch sử ô này" trong popup xếp ca và ngăn "Xem các thay đổi"
+    (06/10/2026: gộp khối Lịch sử thay đổi vào bảng xếp ca). Tính từ ĐÚNG phần
+    khác mà ô chọn phiên bản dùng, nên hai chỗ không bao giờ nói khác nhau. Ảnh
+    đầu tiên (lịch gốc) không có bản trước → không sinh dòng.
+    """
+    ket: list[dict[str, Any]] = []
+    for p, k in reversed(ds):
+        if not k:
+            continue
+        dong: list[dict[str, Any]] = [
+            {"loai": "DOI_NGUOI", "o": d["o"], "truoc": d["truoc"]}
+            for d in k["doi_nguoi"]
+        ]
+        dong += [{"loai": "XOA", "o": o, "truoc": None} for o in k["xoa"]]
+        dong += [{"loai": "THEM", "o": o, "truoc": None} for o in k["them"]]
+        for d in sorted(dong, key=lambda d: _cho(d["o"])):
+            o, truoc = d["o"], d["truoc"]
+            ket.append(
+                {
+                    "ma": str(p.txid),
+                    "loai_ban": p.loai,
+                    "luc": p.luc,
+                    "boi_staff_id": p.boi_staff_id,
+                    "loai": d["loai"],
+                    "roster_id": str(o.get("id")),
+                    "work_date": str(o.get("work_date")),
+                    "shift": o.get("shift"),
+                    "station": o.get("station"),
+                    "staff_id": _str(o.get("staff_id")),
+                    "staff_name": o.get("staff_name"),
+                    "truoc_staff_id": _str(truoc.get("staff_id")) if truoc else None,
+                    "truoc_ten": truoc.get("staff_name") if truoc else None,
+                }
+            )
+    return ket
+
+
 # ── Service ──────────────────────────────────────────────────────────────────
 _ANH_SQL = """
 SELECT id, loai, txid, luc, boi_staff_id::text AS boi_staff_id, ca
@@ -329,10 +371,13 @@ class LichTrucPhienBanService:
             chon, khac = ds[chon_i]
             truoc = ds[chon_i - 1][0] if chon_i > 0 else None
 
+            nhat_ky = nhat_ky_thay_doi(ds)
             ma_nv: set[str] = {p.boi_staff_id for p, _ in ds if p.boi_staff_id}
             for o in _hien(chon.trang_thai).values():
                 if o.get("staff_id"):
                     ma_nv.add(str(o["staff_id"]))
+            for n in nhat_ky:
+                ma_nv.update(x for x in (n["staff_id"], n["truoc_staff_id"]) if x)
             nv = {
                 r["id"]: dict(r)
                 for r in await conn.fetch(
@@ -393,6 +438,21 @@ class LichTrucPhienBanService:
             for o in sorted((khac or {}).get("xoa", []), key=_cho)
         ]
 
+        def dong_nhat_ky(n: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "ma": n["ma"],
+                "loai_ban": n["loai_ban"],
+                "luc": n["luc"].isoformat() if n["luc"] else None,
+                "boi_ten": ten(n["boi_staff_id"]),
+                "loai": n["loai"],
+                "roster_id": n["roster_id"],
+                "work_date": n["work_date"],
+                "shift": n["shift"],
+                "station": n["station"],
+                "ten": ten(n["staff_id"]) or n["staff_name"],
+                "truoc_ten": ten(n["truoc_staff_id"]) or n["truoc_ten"],
+            }
+
         return {
             "tuan": dau.isoformat(),
             "co_lich_su": True,
@@ -407,6 +467,9 @@ class LichTrucPhienBanService:
                 "dong": dong,
                 "da_xoa": da_xoa,
             },
+            # Mọi lần thêm / xoá / đổi người của tuần (mới nhất trước) — "Lịch sử
+            # ô này" và ngăn "Xem các thay đổi" đọc từ đây.
+            "nhat_ky": [dong_nhat_ky(n) for n in nhat_ky],
         }
 
 
@@ -420,4 +483,5 @@ def _khong_co(
         "lich_su_tu": moc.isoformat() if moc else None,
         "phien_ban": [],
         "dang_xem": None,
+        "nhat_ky": [],
     }
