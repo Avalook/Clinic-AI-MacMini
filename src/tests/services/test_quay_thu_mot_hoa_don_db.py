@@ -21,6 +21,7 @@ import pytest
 
 from clinicai.api.exceptions import BillChangedError, NotFoundError
 from clinicai.services.cashier_board_service import CashierBoardService
+from clinicai.services.chot_0d import CHOT_0D
 from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.lenh_kham_core import LuotKhamConflictError
 from clinicai.services.payment_service import KHONG_CON_KHOAN, PaymentService
@@ -370,3 +371,68 @@ def test_cua_so_thu_va_xuat_theo_quyen_thu() -> None:
             assert cashier._GUARD in deps, p  # noqa: SLF001
         if p in in_phieu:
             assert cashier._PHIEU_GUARD in deps, p  # noqa: SLF001
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_hoa_don_0d_chot_thi_roi_quay_va_ghi_nhan(pool: asyncpg.Pool) -> None:
+    """Khám xong, dịch vụ phòng khám thu đều 0đ (Tuyền 06/10/2026): bấm "Chốt
+    dịch vụ" phải GHI NHẬN (ai, lúc nào) rồi khách rời hàng chờ như đã thu —
+    không đứng tại chỗ. Chưa bấm thì vẫn chờ; chỉ định thêm thì quay lại chờ."""
+    q = await tao_quay(pool)
+    await pool.execute(
+        "UPDATE service_type SET di_thang_phong = true WHERE clinic_id = $1::uuid"
+        " AND code = $2",
+        CLINIC,
+        f"KT-{q.duoi}",
+    )
+    await _gia(q, f"TV0-{q.duoi}", 0, "DICHVU-SIEUAM", ben="CLINIC")
+    tv = await _cd(q, f"TV0-{q.duoi}")
+    d = await _dong(q)
+    assert d["quay_thu"]["tong"] == 0 and d["cho_thu"] is True
+    assert q.visit_id in d["_bang"]["ds_cho_thu"]
+
+    kq = await PaymentService(pool).record_payment(
+        visit_id=q.visit_id,
+        kind="dich_vu",
+        amount=None,
+        clinic_patient_id=None,
+        identity=q.thu_ngan,
+        method="CASH",
+        idempotency_key=_khoa(),
+        chon={
+            "order_ids_seen": [tv],
+            "selected_order_ids": [tv],
+            "expected_selection_revision": 0,
+        },
+    )
+    assert kq["status"] == KHONG_CON_KHOAN and kq["payment_cycle_id"] is None
+    b = (await _dong(q))["_bang"]
+    assert q.visit_id not in b["ds_cho_thu"]
+    assert {"visit_id": q.visit_id, "kind": "dich_vu"} in b["paid"]
+    nk = await pool.fetchrow(
+        "SELECT payload FROM event_log WHERE clinic_id = $1::uuid"
+        " AND aggregate_id = $2::uuid AND event_type = $3",
+        CLINIC,
+        q.visit_id,
+        CHOT_0D,
+    )
+    assert nk is not None, "chốt 0đ phải để lại nhật ký"
+
+    # Bấm lại khi đã chốt (chỉ định đã SELECTED, không còn lựa chọn) — trước
+    # đây ném "không còn khoản nào phải thu"; nay chốt lại được, không lỗi.
+    kq2 = await PaymentService(pool).record_payment(
+        visit_id=q.visit_id,
+        kind="dich_vu",
+        amount=None,
+        clinic_patient_id=None,
+        identity=q.thu_ngan,
+        method="CASH",
+        idempotency_key=_khoa(),
+    )
+    assert kq2["status"] == KHONG_CON_KHOAN
+
+    # Bác sĩ chỉ định thêm (có tiền) → hoá đơn đổi → khách quay lại hàng chờ.
+    await _gia(q, f"SA-{q.duoi}", 250_000, "DICHVU-SIEUAM", ben="CLINIC")
+    await _cd(q, f"SA-{q.duoi}")
+    assert q.visit_id in (await _dong(q))["_bang"]["ds_cho_thu"]

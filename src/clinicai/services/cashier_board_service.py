@@ -42,6 +42,7 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, doc_ngay_xem, hom_nay_vn
 from clinicai.permissions.can import can
 from clinicai.services.anh_chuyen_khoan_service import anh_cua_cac_lan_thu
+from clinicai.services.chot_0d import da_chot_0d, doc_chot_0d
 from clinicai.services.doi_hinh_thuc_service import trang_thai_doi
 from clinicai.services.hoan_tac_service import tien_thua_cua_luot
 from clinicai.services.hoan_tien_service import co_quyen_hoan, hoan_cua_cac_lan_thu
@@ -465,6 +466,9 @@ class CashierBoardService:
             chon: dict[str, dict[str, Any]] = {}
             phong: dict[str, list[dict[str, Any]]] = {}
             pq = PhongQuay(conn, identity.clinic_id)
+            chot0 = (
+                await doc_chot_0d(conn, identity.clinic_id, vids) if want_svc else {}
+            )
             if want_svc:
                 chon = await cho_khach_quyet(conn, identity.clinic_id, vids)
                 # Đã trả, chưa bắt đầu → xếp / đổi phòng SAU khi thu (24/09).
@@ -492,7 +496,11 @@ class CashierBoardService:
                     # nói "khách trả trực tiếp cho đối tác", nhưng KHÔNG tính là
                     # còn nợ — lượt không kẹt ở quầy.
                     if k == "dich_vu" and tinh.dong:
-                        con_no_dv.add(item["visit_id"])
+                        # Hoá đơn 0đ quầy đã bấm chốt (đúng bản này) = xong tiền.
+                        if da_chot_0d(tinh, chot0.get(item["visit_id"])):
+                            item["da_chot_0d"] = True
+                        else:
+                            con_no_dv.add(item["visit_id"])
                     hd[k] = tinh.cho_api()
                 item["hoa_don"] = hd
                 if want_svc:
@@ -671,7 +679,10 @@ def _xep_hang_cho_thu(out: dict[str, Any], *, cho: set[str]) -> None:
         )
         dang_cho = (
             item["visit_id"] in cho
-            or any(r.get("chon") for r in qt.get("phong_kham", []))
+            or (
+                any(r.get("chon") for r in qt.get("phong_kham", []))
+                and not item.get("da_chot_0d")
+            )
             or cho_quyet
             # Còn tiền thừa phải hoàn / trừ (hoàn tác chỉ định đã thu).
             or bool(item.get("tien_thua"))
