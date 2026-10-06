@@ -934,7 +934,12 @@ async def benh_an_cho_ho_so(
 async def lich_su_cho_ho_so(
     conn: asyncpg.Connection, ngu_canh: NguCanhHoSo
 ) -> dict[str, Any]:
-    """8 lượt khám gần nhất (bỏ chính lượt của lịch đang mở)."""
+    """Các lượt khám trước (bỏ chính lượt của lịch đang mở), mới nhất trước.
+
+    06/10/2026: bỏ trần 8 — lịch sử khám cũ đã chuyển thành lượt thật, khách
+    quen có 20+ lượt; thẻ "Khám cũ" đánh "Lần N" theo số lượt nạp về nên thiếu
+    lượt là đánh số sai. Trần 200 chỉ để chặn dữ liệu hỏng.
+    """
     rows = await conn.fetch(
         """
         SELECT v.visit_id::text, v.status, v.created_at,
@@ -946,7 +951,7 @@ async def lich_su_cho_ho_so(
           LEFT JOIN clinical_record r
             ON r.visit_id = v.visit_id AND r.clinic_id = v.clinic_id
          WHERE v.clinic_patient_id = $1::uuid AND v.clinic_id = $2::uuid
-         ORDER BY v.created_at DESC LIMIT 8
+         ORDER BY v.created_at DESC LIMIT 200
         """,
         ngu_canh.khach,
         ngu_canh.clinic_id,
