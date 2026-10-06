@@ -47,6 +47,26 @@ Giao việc cho AI khác theo `docs/MAU-GIAO-VIEC.md`.
 8. **Tài nguyên:** Docker local (Colima) 8 CPU / 16 GB / 100 GB; container thử dùng
    xong phải xoá; không chạy CI theo cách khác `ci-may.sh`; VPS chỉ đọc khi làm việc.
 
+## MỨC VIỆC — làm nhanh mà không ẩu (Tuyền chốt 06/10/2026)
+
+Bổ sung cho QUY TRÌNH ở trên (không thay chữ nào của nó). **Dòng đầu câu trả lời
+khi nhận việc: "Mức N · ước ~X phút".** Sai mức thì Tuyền nói ngay.
+
+| Mức | Gồm | Cách làm | Ước |
+|---|---|---|---|
+| **0** hỏi/tra/giải thích | "chỗ này làm gì", "vì sao lỗi" | trả lời ngay, không đụng code | 1–3′ |
+| **1** nhỏ, ít rủi ro | docs, comment, test, script dev, sửa chữ | sửa → kiểm tại chỗ (hook ruff/LSP + đúng test liên quan) → **gom việc cùng loại vào MỘT PR, MỘT lượt CI**; không bấm trình duyệt nếu không đụng giao diện | 5–10′ |
+| **2** đổi hành vi | logic backend, màn hình | `tim-cho-sua` → sửa → test liên quan → bấm thật 375/1280 nếu đụng giao diện → CI một lần → PR có kịch bản bấm thử | 20–60′ |
+| **3** rủi ro cao | migration, quyền, tiền, dữ liệu prod, hạ tầng | **kế hoạch ngắn cho Tuyền duyệt TRƯỚC** → làm → diễn tập → staging | theo kế hoạch |
+
+- **PR CHỈ docs thì KHÔNG chạy CI máy** — chỉ tệp `.md` (docs/, CLAUDE.md,
+  `.claude/rules|skills|agents/*.md`), trừ `docs/BAN-DO-CODE.md` (tệp sinh — sửa nó
+  là đổi code/route, phải CI). Có tệp nào khác `.md` → theo mức của tệp đó.
+- **Kiểm nhanh khi đang làm, CI đầy đủ một lần ở cuối** — không chạy `ci-may.sh` giữa chừng.
+- **Chỉ hỏi khi cần Tuyền quyết nghiệp vụ**; chọn lựa kỹ thuật thì tự chọn, báo lý do một dòng.
+- **Việc độc lập chạy song song bằng agent nền**, báo trước giờ xong dự kiến.
+- **Báo cáo một khuôn:** kết quả trước · một bảng · cuối là việc Tuyền làm (lệnh bấm được).
+
 > Máy Mac **không chạy prod** (chữ "MacMini" trong tên thư mục là dấu vết lịch sử).
 > Nó là máy dev — stack thử (`scripts/dev-up.sh`), staging local từ bản sao lưu
 > (`scripts/staging-tu-ban-sao.sh`), CI (`scripts/ci-may.sh`) — và là chỗ **nhận
