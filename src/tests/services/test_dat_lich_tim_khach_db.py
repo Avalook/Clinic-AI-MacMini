@@ -18,6 +18,7 @@ from __future__ import annotations
 import random
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import asyncpg
 import pytest
@@ -87,7 +88,7 @@ async def _luot_da_xong(pool: asyncpg.Pool, ca: Ca, pid: str, ngay_truoc: int) -
     )
 
 
-def _ma(out: dict) -> list[str]:
+def _ma(out: dict[str, Any]) -> list[str]:
     return [p["clinic_patient_id"] for p in out["patients"]]
 
 
