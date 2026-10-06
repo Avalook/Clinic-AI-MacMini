@@ -717,3 +717,73 @@ def test_buoc_kham_mang_dong_dich_vu_kham() -> None:
     )
     kham = next(b for b in kq["buoc"] if b["ma"] == "KHAM")
     assert kham["dich_vu_kham"].startswith("Loại khám Khám phụ khoa · 0đ")
+
+
+def _luot_cu(ho_so_cu: bool) -> dict[str, Any]:
+    # Lượt chuyển từ Notion: mọi mốc 00:00 giờ VN, chỉ định đã làm nhưng KHÔNG có
+    # dòng thu (da_tra sai) — y như chuyen_luot_that tạo.
+    nua_dem = datetime(2026, 9, 26, 17, 0, tzinfo=timezone.utc)
+    return dung_hanh_trinh_khach(
+        luot={
+            "visit_id": "v-cu",
+            "status": "FINALIZED",
+            "checked_in_at": nua_dem,
+            "closed_at": nua_dem,
+            "dat_luc": None,
+            "ho_so_cu": ho_so_cu,
+        },
+        su_kien=[],
+        chi_dinh=[
+            {
+                **_cd(
+                    "cd-sa", "Siêu âm vú", "Phòng siêu âm 1", xong=True, ex="COMPLETED"
+                ),
+                "da_tra": False,
+                "tra_luc": None,
+                "bat_dau_luc": nua_dem,
+                "xong_luc": nua_dem,
+            }
+        ],
+        hang=[],
+        phien=[
+            {
+                "kind": "PRIMARY",
+                "status": "completed",
+                "started_at": nua_dem,
+                "completed_at": nua_dem,
+                "bac_si": "Thành",
+                "doctor_staff_id": BS,
+            }
+        ],
+        dich_vu_kham={"loai": "Nội tiết", "gia_mac_dinh": 0, "dich_vu": []},
+    )
+
+
+def _co_gio(x: Any) -> bool:
+    if isinstance(x, datetime):
+        return True
+    if isinstance(x, dict):
+        return any(_co_gio(v) for v in x.values())
+    if isinstance(x, list):
+        return any(_co_gio(v) for v in x)
+    return False
+
+
+def test_ho_so_cu_khong_gio_khong_thu_tien_giu_trang_thai() -> None:
+    thuong, cu = _luot_cu(False), _luot_cu(True)
+    # Lượt thường vẫn in giờ + "chờ thu" như cũ — chỉ hồ sơ cũ bị bỏ.
+    assert _co_gio(thuong["buoc"]) and _buoc(thuong)["KHAM"]["dich_vu_kham"]
+    assert (
+        not _co_gio(cu["buoc"]) and not _co_gio(cu["gon"]) and not _co_gio(cu["dang_o"])
+    )
+    kham = _buoc(cu)["KHAM"]
+    assert kham["cho_thu"] == 0 and kham["thu_luc"] is None
+    assert kham["dich_vu_kham"] is None
+    assert "Thu tiền" not in cu["gon"]["con_cho"]
+    assert cu["ho_so_cu"] and cu["gon"]["ho_so_cu"] and cu["dang_o"]["ho_so_cu"]
+    # Trạng thái từng bước / đoạn màu không đổi.
+    assert [b["trang_thai"] for b in cu["buoc"]] == [
+        b["trang_thai"] for b in thuong["buoc"]
+    ]
+    assert cu["gon"]["doan"] == thuong["gon"]["doan"]
+    assert cu["dang_o"]["trang_thai"] == "DA_VE"

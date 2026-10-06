@@ -16,6 +16,7 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { isVnMidnight } from "@/lib/datetime";
 
 import { docBang, gioVn } from "./api";
 import DoiPhong from "./DoiPhong";
@@ -72,6 +73,8 @@ interface DuLieuXem {
   /** Người xem đọc được hồ sơ khám → hiện [In phiếu khám] (cùng luật trang in). */
   in_phieu?: boolean;
   hanh_chinh: {
+    /** Lượt hồ sơ cũ chuyển từ Notion — chỉ có ngày, không có dòng thu. */
+    ho_so_cu?: boolean;
     check_in_luc: string | null;
     trang_thai_luot: string;
     dich_vu_kham: string | null;
@@ -148,12 +151,16 @@ const YEU_CAU: Record<string, string> = {
   follow_up: "chuyển theo dõi",
 };
 
+// Mốc đúng 00:00 giờ VN = nguồn chỉ có NGÀY (hồ sơ cũ) — in ngày, không in giờ giả.
 function ngayGio(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? "—"
-    : d.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" });
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    dateStyle: "short",
+    ...(isVnMidnight(d) ? {} : { timeStyle: "short" as const }),
+  });
 }
 function tien(n: number | null): string {
   return n === null ? "—" : `${n.toLocaleString("vi-VN")} đ`;
@@ -293,7 +300,10 @@ export default function XemLuot({
                   <HanhTrinhKhachTuTai visitId={dangXem} />
                 </div>
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-3">
-                  <Truong nhan="Check-in" gia={ngayGio(hc.check_in_luc)} />
+                  <Truong
+                    nhan="Check-in"
+                    gia={hc.ho_so_cu ? "Hồ sơ cũ · không rõ giờ" : ngayGio(hc.check_in_luc)}
+                  />
                   <Truong nhan="Loại khám" gia={hc.dich_vu_kham ?? "—"} />
                   <Truong nhan="Bác sĩ" gia={hc.bac_si ?? "—"} />
                   <Truong
@@ -306,7 +316,10 @@ export default function XemLuot({
                   />
                   <Truong nhan="Khám xong" gia={ngayGio(hc.kham_xong_luc)} />
                   <Truong nhan="Đang ở" gia={hc.dong_luot_luc ? "Đã về" : (hc.dang_o ?? "—")} />
-                  <Truong nhan="Thu dịch vụ" gia={hc.da_thu_dich_vu ? "Đã thu" : "Chưa thu"} />
+                  <Truong
+                    nhan="Thu dịch vụ"
+                    gia={hc.ho_so_cu ? "—" : hc.da_thu_dich_vu ? "Đã thu" : "Chưa thu"}
+                  />
                   <Truong nhan="Thu thuốc" gia={hc.da_thu_thuoc ? "Đã thu" : "—"} />
                   <Truong nhan="Đóng lượt" gia={ngayGio(hc.dong_luot_luc)} />
                   <Truong nhan="Lịch tiếp theo" gia={ngayGio(hc.lich_tiep_theo)} />

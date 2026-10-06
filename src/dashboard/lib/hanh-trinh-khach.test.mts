@@ -50,6 +50,12 @@ test("đã về: xong buổi, tên chỗ là giờ check-out", () => {
   assert.equal(noiGon(g), "Check-out 11:20");
 });
 
+test("hồ sơ cũ (Notion): không in giờ check-out giả", () => {
+  const g = gon({ trang_thai: "DA_VE", nhan: "Đã về", noi: "Check-out", tu_luc: null, ho_so_cu: true });
+  assert.equal(noiGon(g), "Hồ sơ cũ · không rõ giờ");
+  assert.deepEqual(chipGon(g, bay(200)), { nhan: "xong buổi", tone: "success" });
+});
+
 test("dòng phụ: x/y dịch vụ xong · còn chờ", () => {
   assert.equal(dongPhuGon(gon({})), "2/3 dịch vụ xong · còn chờ: Lấy mẫu · KQ đối tác");
   assert.equal(dongPhuGon(gon({ dv_tong: 0, dv_xong: 0, con_cho: [] })), "");
