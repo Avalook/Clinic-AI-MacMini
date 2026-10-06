@@ -197,6 +197,7 @@ EVENT_LABELS: dict[str, str] = {
     "payment.confirmed": "Đã nhận tiền",
     "payment.pending_verification": "Ghi chuyển khoản/QR chờ xác minh",
     "payment.pending_cancelled": "Huỷ lần chuyển khoản/QR chờ xác minh",
+    "payment.service_zero_confirmed": "Quầy chốt dịch vụ 0đ (không có khoản thu)",
     "payment.reconciliation_needed": "Đã nhận tiền nhưng hoá đơn đổi — cần đối soát",
     "payment.sale_not_applied": "Đã nhận tiền nhưng chưa ghi bán thuốc — cần đối soát",
     "payment.drug_return_needed": (
