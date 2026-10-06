@@ -1,0 +1,22 @@
+{
+  "include": [
+    "src/clinicai",
+    "src/tests",
+    "scripts"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "src/dashboard",
+    "docs",
+    "supabase",
+    "typings"
+  ],
+  "extraPaths": [
+    "src"
+  ],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic",
+  "stubPath": "typings",
+  "reportMissingImports": "warning"
+}

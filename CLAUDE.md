@@ -9,6 +9,7 @@ Giải thích code từ A tới Z (từng file, từng hàm, kèm những bẫy 
 **Tìm chỗ sửa — trước khi grep:** đọc `docs/BAN-DO-SUA.md` (muốn sửa gì → màn
 hay file + hàm + test; việc dữ liệu thì làm trên màn), rồi tìm route trong
 `docs/BAN-DO-CODE.md` (sinh bởi `scripts/ban-do-code.py`, CI canh không lệch).
+Việc chạm nhiều tầng → giao agent `tim-cho-sua` (chỉ đọc, trả danh sách điểm sửa).
 Giao việc cho AI khác theo `docs/MAU-GIAO-VIEC.md`.
 
 ## QUY TRÌNH LÀM VIỆC CHUẨN — mọi phiên, mọi AI làm theo (Tuyền chốt 01/10/2026)
@@ -36,7 +37,7 @@ Giao việc cho AI khác theo `docs/MAU-GIAO-VIEC.md`.
    + áp migration lên DB staging). Người thật bấm theo kịch bản.
 6. **ĐẠT → merge cả đợt → deploy prod MỘT lần**, ghim đúng SHA đã thử trên staging
    (`scripts/len-prod.sh` khi có; tạm thời quy trình sao lưu → diễn tập migration →
-   áp → deploy ở mục "Đưa code lên máy chủ"). Việc nào lỗi thì tách ra sửa, không
+   áp → deploy ở skill `len-prod`). Việc nào lỗi thì tách ra sửa, không
    giữ cả đợt. Lệnh ghi lên VPS (merge, deploy) do Tuyền chạy; AI soạn sẵn lệnh.
 7. **Không bao giờ:** đẩy thẳng `main` · lên prod khi chưa qua staging (trừ sửa
    khẩn — ghi lý do trong PR) · mở đường hầm (cloudflared…) từ Mac khi DB local là
@@ -46,19 +47,14 @@ Giao việc cho AI khác theo `docs/MAU-GIAO-VIEC.md`.
 8. **Tài nguyên:** Docker local (Colima) 8 CPU / 16 GB / 100 GB; container thử dùng
    xong phải xoá; không chạy CI theo cách khác `ci-may.sh`; VPS chỉ đọc khi làm việc.
 
-> Tên thư mục còn chữ "MacMini" là dấu vết lịch sử. Máy Mac **không chạy prod**.
+> Máy Mac **không chạy prod** (chữ "MacMini" trong tên thư mục là dấu vết lịch sử).
 > Nó là máy dev — stack thử (`scripts/dev-up.sh`), staging local từ bản sao lưu
 > (`scripts/staging-tu-ban-sao.sh`), CI (`scripts/ci-may.sh`) — và là chỗ **nhận
-> bản sao lưu**, có chủ ý: bản sao phải nằm ở máy khác với thứ nó sao lưu. Sao lưu
-> trên VPS: mỗi 15 phút (`clinicai-backup-15p`, giữ 2 ngày) + đêm 02:15 (giữ 7
-> ngày) → Viettel CFS; Mac kéo về 0:30 và 6:30 (`~/Projects/ClinicAI-Backups/keo-ve.sh`).
-> Kiểm nhanh: `cat ~/Projects/ClinicAI-Backups/TRANG-THAI.txt` phải "BÌNH THƯỜNG"
-> (từng hỏng 12→27/09 vì script trỏ VPS cũ — đã sửa). Mac từng còn LaunchDaemon
-> `com.dr4women.*` cố dựng prod mỗi 5 phút (quét 01/10): `launchctl list | grep dr4women`
-> còn thấy thì gỡ (cần sudo).
+> bản sao lưu** (chi tiết + cách kiểm: skill `len-prod`).
 >
 > **Đã chết, đừng dùng:** VPS cũ `clinic-vps` (222.255.215.219), VPS Vietnix,
 > staging cổng 8080 và `/home/clinicai/staging`, Vercel, Supabase cloud,
+> Supabase Realtime (`postgres_changes`/publication — thay bằng LISTEN/NOTIFY),
 > Cloudflare Tunnel, Tailscale, Sentry, CD qua GitHub Actions (`cd.yml` đã gỡ),
 > `supabase db push`. Tài liệu thời đó nằm trong `docs/legacy/` — chỉ để tra lịch sử.
 
@@ -78,105 +74,35 @@ khách → Caddy (TLS Let's Encrypt) → dashboard (Next.js, chỉ giao diện)
 
 - **Frontend chỉ là giao diện.** Mọi *quyết định* nằm ở FastAPI hoặc SQL. Frontend
   chỉ nói chuyện thẳng với Supabase (bộ tự dựng) cho **đăng nhập**. Tin thời gian
-  thực đi kênh CỦA MÌNH: Postgres `LISTEN/NOTIFY` → FastAPI SSE → `/api/events/stream`
-  → `RealtimeRefresher` / `useNgheBang` (27/09: bỏ Supabase Realtime — nó hỏng vì
-  Postgres từ chối `wal2json`).
+  thực đi kênh CỦA MÌNH: trigger `notify_row_change` → `pg_notify` → FastAPI SSE
+  `/api/events/stream` → `RealtimeRefresher` / `useNgheBang`.
 - **Theo dõi lỗi:** kho lỗi `loi_nhom` + bộ canh gác `canh_bao` (mỗi phút, trong
   su-kien) + nhật ký vận hành — xem ở `/ops` tab "Lỗi & cảnh báo", "Nhật ký vận hành".
-- Lịch trên VPS đều là systemd timer (không crontab): ops-status 1 phút, backup-15p,
-  backup 02:15 (unit trong `scripts/systemd/`), và `clinicai-traffic-report` 10 phút
-  nuôi `/traffic` — cái cuối nằm **ngoài git** (công cụ lạ cài 30/09), chờ chốt.
+- Lịch trên VPS đều là systemd timer (không crontab), unit trong `scripts/systemd/`;
+  `clinicai-traffic-report` (nuôi `/traffic`) nằm **ngoài git** (công cụ lạ cài 30/09), chờ chốt.
 - **Mọi thứ chạy trong container, cấu hình qua biến môi trường** — không địa chỉ
-  hay khoá viết cứng.
-- Tệp kết quả (ảnh/video/PDF) nằm trên ổ Viettel CFS gắn vào VPS
-  (`/mnt/viettel-cfs`).
-- Chi tiết "cái gì được phép ở frontend": `docs/SO-LUAT.md` Phần 3.
+  hay khoá viết cứng. Tệp kết quả (ảnh/video/PDF) nằm trên ổ Viettel CFS gắn vào
+  VPS (`/mnt/viettel-cfs`).
 
 ## Môi trường
 
 | | Ở đâu | Dữ liệu |
 |---|---|---|
 | **prod** — đang đón bệnh nhân | VPS `/home/clinicai/clinicai`, nhánh `main`, cổng 80/443 | thật |
-| **staging** (01/10) | cùng VPS, `/home/clinicai/clinicai-staging`, https://staging.dr4women.io.vn, Supabase/DB/khoá/mạng **riêng** — `docs/STAGING.md` | bản sao prod **đã che** thông tin khách |
+| **staging** | cùng VPS, `/home/clinicai/clinicai-staging`, https://staging.dr4women.io.vn, Supabase/DB/khoá/mạng **riêng**, nạp lại bản sao prod mỗi đêm 03:30 — `docs/STAGING.md` | bản sao prod **đã che** thông tin khách |
 | **staging local** | Mac, `scripts/staging-tu-ban-sao.sh` (nạp bản sao lưu đêm, đăng nhập bằng tài khoản prod) | bản sao prod **chưa che** — cấm mở đường hầm ra ngoài |
 | **dev local** | Mac, `scripts/dev-up.sh` (cả stack bằng chính `docker-compose.supabase.yml`) | thử |
 
-Staging: project compose / database / env / ảnh / khoá deploy RIÊNG; dữ liệu =
-bản sao lưu prod nạp lại mỗi đêm 03:30, **dữ liệu khách đã che**; đăng nhập bằng
-tài khoản prod. Đưa PR lên thử: `./scripts/deploy-staging.sh <số PR>` (trong
-thư mục staging). Mọi thứ — chốt bảo vệ prod, cách tắt, rủi ro — ở
-**`docs/STAGING.md`**. Staging cũ cổng 8080 (`dung-staging.sh`) đã gỡ.
+## Nhánh, CI, deploy, database
 
-Thử trên máy dev: `scripts/dev-up.sh` dựng cả stack local bằng chính
-`docker-compose.supabase.yml`. Nghiệm thu giao diện: local hoặc staging, rồi mới
-lên prod.
-
-## Nhánh: chỉ có `main`
-
-- **`main` là nhánh dài hạn DUY NHẤT.** Nhánh việc → PR → `main` → xoá nhánh.
-- Nhánh việc sống tối đa **2 ngày**. Đây là luật về *kích thước một lần làm*.
-- **Vì sao không có nhánh dài thứ hai:** đã xảy ra hai lần. Lần đầu `main` tụt
-  **63 commit** sau `staging`. Lần hai (02–13/08) một nhánh `codex/staging-…`
-  sống 11 ngày, đi trước `main` **204 commit** và đi sau **122** — và 79 commit
-  của prod chỉ nằm trên ổ đĩa VPS, không có bản sao ở đâu cả.
-
-## Đưa code lên máy chủ
-
-- **CI chạy trên máy dev**, không trên GitHub (GitHub Actions hỏng thanh toán từ
-  25/09/2026): `./scripts/ci-may.sh --bao-github` — sau khi commit + push, cây
-  sạch. Nó chạy y hệt `ci.yml`: ruff · mypy · pytest · máy kiểm phạm vi phòng
-  khám · tsc · eslint · test frontend · migration chạy thật (`--anh` để dựng
-  thêm ảnh amd64). **Xanh mới được merge, xanh mới được deploy.**
-- **Không có CD tự động.** Runner của VPS cũ đã chết; `cd.yml` đã gỡ (01/10).
-- **Deploy prod = làm tay trên VPS, ghim đúng SHA đã soát**, theo thứ tự:
-  1. **Soát:** `git fetch origin` rồi `git log --oneline HEAD..origin/main` — đọc
-     từng commit (migration? commit lạ?), chốt **một SHA**. Soát và deploy là hai
-     lệnh riêng, không nối `&&`.
-  2. Sao lưu database (lệnh ở mục "Lệnh hay dùng").
-  3. Có migration mới → **diễn tập trước** trên bản sao (worktree tách ở đúng SHA
-     đó + container Postgres phụ nạp dữ liệu prod, áp thử, số dòng bảng chính
-     không đổi; xong xoá **kèm volume** `docker rm -fv` — 52 volume bản sao từng
-     treo vì thiếu `-v`), rồi mới áp thật + `NOTIFY pgrst`.
-  4. `git checkout -B main <sha-đã-soát>` — **không** fetch lại, **không**
-     `origin/main` (30/09: phiên khác merge #291 kèm migration chen vào 5 phút
-     giữa soát và deploy → prod lên bản chưa soát).
-  5. `./scripts/deploy-backend.sh prod` (đòi đứng trên nhánh `main`, không detached).
-  6. Kiểm: container api được tạo lại, log api 0 lỗi, `/health/su-kien` ok, 0 sự kiện kẹt.
-- Khuôn chạy cả chuỗi: `~/Projects/ClinicAI-Backups/ban-giao-2909/deploy_3009_chung.sh`
-  (trên Mac, chép lên VPS rồi chạy) — **thay `origin/main` trong đó bằng SHA đã soát**.
-  Lệnh đưa người khác chạy trên VPS phải bọc `ssh clinic-vps-moi '…'`.
-- Khi nào deploy: xong + CI xanh là deploy, **từng nhánh một**, không gom đợt
-  (thực tế từ 25/09; khung 1h–4h cũ đã bỏ). Deploy dựng lại container nên người
-  đang dùng thấy 502 khoảng một phút. `.release-source-prod/` giữ mọi bản (chưa tự dọn).
-
-## Database — chỉ qua migration
-
-- Lược đồ = `supabase/migrations/*.sql` (theo git). Áp bằng
-  **`scripts/apply-pending-migrations.sh`** — nó so thư mục với sổ ghi và áp mỗi
-  migration cùng dòng ghi sổ trong một giao dịch. **Không dùng `supabase db push`.**
-- Áp xong: `NOTIFY pgrst, 'reload schema'` để PostgREST thấy cột/bảng mới.
-- **Không bao giờ** sửa lược đồ bằng tay.
-- **Không chạy migration trong lúc deploy** — đó là một bước riêng, có người xem.
-
-## Lệnh hay dùng
-
-```bash
-ssh clinic-vps-moi                                    # vào máy chủ
-cd /home/clinicai/clinicai
-
-# sao lưu — PHẢI kèm env như unit systemd; chạy trần thì thoát 1 im lặng
-PG_DUMP_BIN=scripts/pg-dump-qua-container.sh CLINIC_DB_CONTAINER=clinicai_db \
-  BACKUP_ENV_FILE=.env.prod CLINIC_BACKUP_DIR=/home/clinicai/backups/clinicai \
-  ./scripts/backup-db.sh
-
-CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh          # thử khô
-CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh --apply  # áp thật
-docker exec clinicai_db psql -U postgres -c "NOTIFY pgrst, 'reload schema'"
-
-git checkout -B main <sha-đã-soát>                   # KHÔNG origin/main
-./scripts/deploy-backend.sh prod
-CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai_prod ps
-```
+- **`main` là nhánh dài hạn DUY NHẤT.** Nhánh việc → PR → `main` → xoá nhánh; sống
+  tối đa **2 ngày** (luật về *kích thước một lần làm* — hai lần có nhánh dài thứ hai
+  thì `main` tụt 63 rồi 204 commit, 79 commit prod chỉ còn trên ổ VPS).
+- **CI chạy trên máy dev:** `./scripts/ci-may.sh --bao-github`. Xanh mới merge, xanh
+  mới deploy. **Không có CD.** Deploy prod làm tay, ghim SHA đã soát — skill `len-prod`.
+- **Database chỉ qua migration** (`supabase/migrations/`, áp bằng
+  `scripts/apply-pending-migrations.sh`, không `supabase db push`, không sửa tay,
+  không áp trong lúc deploy). Chi tiết: `.claude/rules/migration.md`.
 
 ## Luật
 
@@ -184,46 +110,31 @@ CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai
   trong code**, không bao giờ dán vào khung chat.
 - Router mỏng; luật nghiệp vụ nằm trong hàm dịch vụ (Python thuần, test được).
   **Không luật nghiệp vụ nào trong TSX.**
-- Giao diện: mọi thay đổi kích thước/màu/bo góc lấy từ thang trong **`DESIGN.md`**
-  (hiến pháp giao diện, chốt 15/08/2026). "To ra" = nhích một bậc thang, và
-  nghiệm thu ở đủ ba cỡ màn 375/768/1280.
-- Mọi bất biến có kẽ hở tranh chấp phải ép ở Postgres, không tự cài khoá trong
-  Python. Xem `docs/SO-LUAT.md` Phần 6.
+- Mọi bất biến có kẽ hở tranh chấp phải ép ở Postgres (`docs/SO-LUAT.md` Phần 6).
 - Hàm nhận ngày/giờ từ người dùng phải **trả giá trị rỗng thay vì ném**, và phải
   có test cho đầu vào rác. Đã có ba lần 500 vì luật này bị bỏ qua.
 - Trước khi đề xuất hạ tầng mới (Redis, message broker, máy tìm kiếm, thêm bản
   sao ứng dụng): **đọc `docs/SO-LUAT.md` Phần 7**. Nó ghi thứ đã cân nhắc và
   loại **ở quy mô này (~1 lượt gọi/giây, một người vận hành)**, kèm ngưỡng đo
   được để mở lại. Đừng đề xuất lại từ best-practice chung.
+- Luật riêng từng vùng tự nạp khi Claude đọc/sửa file trong vùng đó
+  (`.claude/rules/`): **giao diện** `src/dashboard/**` (tra SITEMAP trước, sửa đủ
+  mọi lối, bấm thật 375/1280) · **backend** `src/clinicai/**` · **migration**.
 
-## Sửa giao diện — quy trình bắt buộc (Tuyền chốt 18/09/2026)
+## Cách làm việc với code (harness, 06/10/2026)
 
-Vì sao có mục này: các lần sửa giao diện trước hay **sửa nhầm bản cũ** hoặc
-**sửa một lối, sót lối khác**. Ví dụ có thật ngày 17/09: nút QR được gỡ ở màn
-thu ngân cũ (`/tasks`), trong khi màn đang dùng là `/thu-ngan/*`.
-
-1. **Trước khi sửa, tra `docs/SITEMAP.md`.** Mục A cho biết route nào là màn
-   chuẩn. Mục B liệt kê mọi lối vào của cùng một chức năng. Phải sửa **đủ mọi
-   lối** trong hàng đó, hoặc ghi rõ lối nào cố ý bỏ và vì sao. Không có trong
-   bảng thì grep theo **component và API**, không grep theo tên màn.
-2. **Không sửa màn đã đánh dấu GỘP hay ĐÃ CHUYỂN HƯỚNG.** Sửa ở màn chuẩn.
-3. **Không tự chế giao diện.**
-   - Màu, cỡ và bo góc lấy từ `DESIGN.md` và token trong `globals.css`.
-   - Nút và thành phần lấy từ `src/dashboard/components/ui`. Thiếu thì thêm vào
-     đó trước, rồi mới dùng.
-   - Không viết hex, px tự chế hay `style={{}}` mới.
-   - Không thêm `window.confirm` mới.
-   - `<button>` luôn có `type=`.
-4. **Thêm, xoá hay đổi một route, một mục thanh bên, hoặc quyền trong
-   `NAV_ROLES`:** sửa `docs/SITEMAP.md` trong **cùng commit**.
-5. **Báo cáo sau khi sửa phải có bảng "nút/link đã đụng"**, gồm: màn → nút →
-   đi đâu hoặc gọi API nào → vai nào thấy.
-6. **Chưa bấm thật thì không báo "xong".** Ghi rõ đã kiểm ở lớp nào:
-   - test;
-   - API;
-   - bấm trên trình duyệt, ở cỡ 375 và 1280.
-
-   Kiểm bằng API không chứng minh được giao diện.
+- **Đọc/sửa file nguồn bằng tool Read/Edit/Write, không `cat`/`sed` qua Bash** — luật
+  theo vùng ở `.claude/rules/` và chẩn đoán LSP chỉ chạy khi dùng các tool đó.
+- **LSP** (plugin `pyright-lsp`, `typescript-lsp`): chẩn đoán về **trễ một nhịp** —
+  khối `<new-diagnostics>` gắn vào lượt tool KẾ TIẾP sau Edit, không vào kết quả Edit.
+  Sửa xong thì làm thêm ít nhất một bước (Read lại file) trước khi báo xong; có lỗi
+  thì sửa trước khi đi tiếp. Tìm định nghĩa/chỗ gọi bằng tool `LSP` thay vì grep chữ.
+  Cấu hình pyright: `pyrightconfig.json` + `typings/`.
+- **Hook sau khi sửa** (`.claude/hooks/kiem-sau-sua.sh`): chạy đúng bản ruff của CI
+  trên file `.py` vừa sửa; báo lỗi thì sửa ngay.
+- **Comment:** giữ comment nói *vì sao* / *bẫy đã cắn*; comment chỉ kể *đổi lúc nào*
+  thì đưa vào commit message. Đụng file nào, gọt comment lịch sử lỗi thời của file đó.
+- **PR nhỏ:** quá ~400 dòng (không tính test, migration, tệp sinh) thì tách.
 
 ## Đang làm dở
 

@@ -68,8 +68,15 @@ caddy/them/*.bak.*
 .DS_Store
 Thumbs.db
 
-# Claude Code local artifacts (worktrees = nested git clones, never commit)
-.claude/
+# Claude Code: worktree, settings.local.json… là đồ riêng từng máy — không commit.
+# Harness dùng chung cho MỌI phiên/worktree/AI thì commit (06/10/2026): luật theo
+# đường dẫn, skill, agent, hook và settings.json của dự án.
+.claude/*
+!.claude/rules/
+!.claude/skills/
+!.claude/agents/
+!.claude/hooks/
+!.claude/settings.json
 
 # Headroom local agent memory. Some legacy files are still tracked; remove them
 # from the Git index in a coordinated clean change without deleting local state.

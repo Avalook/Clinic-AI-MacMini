@@ -416,7 +416,7 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
 
 ## 17. Vận hành (deploy, sao lưu, lỗi)
 
-- Deploy/sao lưu/migration: đúng thứ tự trong `CLAUDE.md` mục "Đưa code lên máy chủ";
+- Deploy/sao lưu/migration: đúng thứ tự trong skill `len-prod` (`.claude/skills/len-prod/SKILL.md`);
   `scripts/deploy-backend.sh`, `scripts/backup-db.sh`, `scripts/apply-pending-migrations.sh`,
   sổ tay `docs/VAN-HANH-MAY-CHU.md`. CI: `scripts/ci-may.sh`; chạy test: `docs/CHAY-TEST.md`.
 - Lỗi & cảnh báo: màn `/ops` (tab Lỗi & cảnh báo, Nhật ký vận hành) → kho lỗi
