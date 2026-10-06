@@ -705,11 +705,14 @@ def csv_lich_su(khach: Iterable[Mapping[str, Any]]) -> str:
     )
     for g in khach:
         for s in g.get("su_kien") or []:
+            # `loai` luôn là chuỗi "thu"/"huy"/"hoan" do lich_su() tự gán; str()
+            # chỉ để kiểu của .get(loai, loai) là str chứ không `str | None`.
+            loai = str(s["loai"])
             w.writerow(
                 [
                     _o(_gio(s.get("luc"))),
                     _o(
-                        _NHAN_LOAI.get(s["loai"], s["loai"])
+                        _NHAN_LOAI.get(loai, loai)
                         + (" (chờ chuyển)" if s.get("cho") else "")
                     ),
                     _o(s.get("ma")),
