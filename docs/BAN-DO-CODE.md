@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 13:44. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 13:55. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -434,7 +434,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/admin/users`
 - gọi thẳng backend (server): `/api/v1/staff/tai-khoan`
 - service: audit · TaiKhoanService.{doc, noi, thu_hoi} · can
-- test: test_doi_nguoi_trong_ca_db.py, test_permission_db.py, test_rabbitmq_connectivity.py, test_smoke_main_174_175_db.py
+- test: test_dieu_phoi_api_1509.py, test_doi_nguoi_trong_ca_db.py, test_permission_db.py, test_rabbitmq_connectivity.py, test_smoke_main_174_175_db.py
 
 ### `/settings/tai-khoan` — Thiết lập tài khoản cho nhân viên
 - page: `src/dashboard/app/(dashboard)/settings/tai-khoan/page.tsx` · quyền: lego `nhan_su` (Nhân sự & phân quyền · mặc định: Quản lý)
@@ -442,7 +442,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/admin/users`
 - gọi thẳng backend (server): `/api/v1/staff/tai-khoan`
 - service: audit · TaiKhoanService.{doc, noi, thu_hoi} · can
-- test: test_doi_nguoi_trong_ca_db.py, test_permission_db.py, test_rabbitmq_connectivity.py, test_smoke_main_174_175_db.py
+- test: test_dieu_phoi_api_1509.py, test_doi_nguoi_trong_ca_db.py, test_permission_db.py, test_rabbitmq_connectivity.py, test_smoke_main_174_175_db.py
 
 ### `/sieu-am`
 - page: `src/dashboard/app/(dashboard)/sieu-am/page.tsx` · quyền: ?
@@ -538,7 +538,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/staff/tai-khoan` → `src/clinicai/api/v1/routers/staff.py:danh_sach_tai_khoan` → (SQL ngay trong router, không qua service)
 - POST `/api/v1/staff/{id}/tai-khoan/noi` → `src/clinicai/api/v1/routers/staff.py:noi_tai_khoan` → TaiKhoanService.noi
 - POST `/api/v1/staff/{id}/tai-khoan/thu-hoi` → `src/clinicai/api/v1/routers/staff.py:thu_hoi_tai_khoan` → TaiKhoanService.thu_hoi
-- test: src/tests/integration/test_rabbitmq_connectivity.py, src/tests/services/test_doi_nguoi_trong_ca_db.py, src/tests/services/test_permission_db.py (+1)
+- test: src/tests/api/test_dieu_phoi_api_1509.py, src/tests/integration/test_rabbitmq_connectivity.py, src/tests/services/test_doi_nguoi_trong_ca_db.py (+2)
 - màn dùng: /settings/new-user, /settings/tai-khoan
 
 #### `/api/appointments` · `src/dashboard/app/api/appointments/route.ts`
