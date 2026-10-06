@@ -1093,9 +1093,7 @@ class HanhTrinhKhachService:
             )
             # Sổ thêm / bỏ / hoàn tác chỉ định (Khối 2, 06/10/2026) — cùng dữ
             # liệu mục "Lịch sử sửa" của phiếu khám.
-            kq[ma[0]]["so_sua_chi_dinh"] = await doc_so(
-                conn, identity.clinic_id, ma[0]
-            )
+            kq[ma[0]]["so_sua_chi_dinh"] = await doc_so(conn, identity.clinic_id, ma[0])
         return kq[ma[0]]
 
     async def gon_nhieu_luot(

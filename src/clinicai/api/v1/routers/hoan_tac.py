@@ -127,7 +127,9 @@ async def so_sua_chi_dinh(
 ) -> dict[str, Any]:
     """Lịch sử thêm / bỏ / hoàn tác chỉ định của lượt (Khám · CLS · Điều trị ·
     Thuốc) — mới nhất trước; `chi_xem` = lượt hồ sơ cũ."""
-    return await SoSuaChiDinhService(pool).doc(visit_id=str(visit_id), identity=identity)
+    return await SoSuaChiDinhService(pool).doc(
+        visit_id=str(visit_id), identity=identity
+    )
 
 
 @router.post("/luot-kham/so-sua-chi-dinh/{so_id}/hoan-tac")

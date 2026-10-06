@@ -32,6 +32,7 @@ from clinicai.services.lenh_kham_core import khoa_luot
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.so_sua_chi_dinh_service import (
     bao_bac_si_chinh,
+    chan_ho_so_cu,
     dat_ngu_canh,
     dong_bo_moi_nhat,
 )
@@ -260,6 +261,7 @@ class PhiKhamService:
             # Sổ sửa chỉ định (Khối 2, 06/10/2026): trigger trên luot_phi_kham
             # ghi tick / bỏ tick — đặt người bấm + vai đang dùng cho nó.
             await dat_ngu_canh(conn, identity)
+            await chan_ho_so_cu(conn, vid)
             if luot["closed_at"] is not None:
                 raise ValidationError(
                     "Lượt đã check-out — không thể đổi dịch vụ khám sau khi khách về."

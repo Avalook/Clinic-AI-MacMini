@@ -218,7 +218,8 @@ def cau_so(d: dict[str, Any]) -> str:
             cau += " · " + "; ".join(ve)
     da_thu = int(d.get("da_thu") or 0)
     if d.get("hanh_dong") == "BO" and da_thu > 0:
-        cau += f" · đã thu {_tien(da_thu)} → tiền thừa {_tien(int(d.get('tien_thua') or 0))}"
+        thua = _tien(int(d.get("tien_thua") or 0))
+        cau += f" · đã thu {_tien(da_thu)} → tiền thừa {thua}"
     return cau
 
 
@@ -293,7 +294,9 @@ async def dat_ngu_canh(
 
 
 async def la_ho_so_cu(conn: asyncpg.Connection, visit_id: str) -> bool:
-    return bool(await conn.fetchval("SELECT public.la_luot_ho_so_cu($1::uuid)", visit_id))
+    return bool(
+        await conn.fetchval("SELECT public.la_luot_ho_so_cu($1::uuid)", visit_id)
+    )
 
 
 async def chan_ho_so_cu(conn: asyncpg.Connection, visit_id: str) -> None:
@@ -314,18 +317,17 @@ async def dong_bo_moi_nhat(
 ) -> str | None:
     """Dòng BỎ vừa ghi (chưa hoàn tác) của một chỉ định / một dịch vụ khám."""
     if service_order_id:
-        return await conn.fetchval(
-            "SELECT id::text FROM so_sua_chi_dinh WHERE service_order_id = $1::uuid"
-            " AND hanh_dong = 'BO' AND hoan_tac_luc IS NULL ORDER BY stt DESC LIMIT 1",
-            service_order_id,
-        )
-    if luot_phi_kham_id:
-        return await conn.fetchval(
-            "SELECT id::text FROM so_sua_chi_dinh WHERE luot_phi_kham_id = $1::uuid"
-            " AND hanh_dong = 'BO' AND hoan_tac_luc IS NULL ORDER BY stt DESC LIMIT 1",
-            luot_phi_kham_id,
-        )
-    return None
+        cot, ma = "service_order_id", service_order_id
+    elif luot_phi_kham_id:
+        cot, ma = "luot_phi_kham_id", luot_phi_kham_id
+    else:
+        return None
+    v = await conn.fetchval(
+        f"SELECT id::text FROM so_sua_chi_dinh WHERE {cot} = $1::uuid"
+        " AND hanh_dong = 'BO' AND hoan_tac_luc IS NULL ORDER BY stt DESC LIMIT 1",
+        ma,
+    )
+    return str(v) if v is not None else None
 
 
 async def bao_bac_si_chinh(
@@ -551,7 +553,8 @@ class SoSuaChiDinhService:
         vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
         async with self._pool.acquire() as conn:
             co = await conn.fetchval(
-                "SELECT 1 FROM visit WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
+                "SELECT 1 FROM visit"
+                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
                 identity.clinic_id,
                 vid,
             )
@@ -591,8 +594,10 @@ class SoSuaChiDinhService:
             )
             if so is None:
                 raise NotFoundError("Không tìm thấy dòng lịch sử này.")
-            if so["hanh_dong"] != "BO" or so["nhom"] == "THUOC" or not (
-                so["service_order_id"] or so["luot_phi_kham_id"]
+            if (
+                so["hanh_dong"] != "BO"
+                or so["nhom"] == "THUOC"
+                or not (so["service_order_id"] or so["luot_phi_kham_id"])
             ):
                 raise LuotKhamValidationError(
                     "KHONG_HOAN_TAC_DUOC",
@@ -772,7 +777,8 @@ class SoSuaChiDinhService:
             return {"already": True}
         await chan_trung(conn, cid, k["visit_id"], id_tick=[k["service_price_id"]])
         await conn.execute(
-            "INSERT INTO luot_phi_kham (clinic_id, visit_id, service_price_id, chon_boi)"
+            "INSERT INTO luot_phi_kham"
+            " (clinic_id, visit_id, service_price_id, chon_boi)"
             " VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid)",
             cid,
             k["visit_id"],
@@ -791,7 +797,9 @@ class SoSuaChiDinhService:
                     {
                         "id": k["service_price_id"],
                         "ten": k["name"],
-                        "gia": int(k["unit_price"]) if k["unit_price"] is not None else None,
+                        "gia": int(k["unit_price"])
+                        if k["unit_price"] is not None
+                        else None,
                     }
                 ],
             ),
