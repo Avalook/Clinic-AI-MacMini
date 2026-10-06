@@ -262,7 +262,9 @@ class ChiDinhService:
 
             lan = (
                 await conn.fetchval(
-                    "SELECT lan_chi_dinh FROM service_order WHERE id = $1::uuid",
+                    "SELECT lan_chi_dinh FROM service_order"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                    identity.clinic_id,
                     ids[0],
                 )
                 if ids
