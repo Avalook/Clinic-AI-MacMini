@@ -48,7 +48,7 @@ Quyết định Tuyền: memory `quyet-dinh-2909-doi-nguoi-lay-mau`. Đã gộp 
 ## 27/09/2026 — HIỆN TRẠNG (đọc mục này trước, nó đè mọi mô tả hạ tầng cũ bên dưới)
 
 - **Máy:** CHỈ prod trên `clinic-vps-moi` (222.255.214.133), https://dr4women.io.vn. KHÔNG staging, KHÔNG CD. `clinic-vps` (222.255.215.219) đã chết — mọi lệnh `ssh clinic-vps` bên dưới là lịch sử.
-- **CI:** `./scripts/ci-may.sh --bao-github` trên máy dev. **Deploy:** tay trên VPS, sao lưu trước, migration diễn tập trên bản sao rồi mới áp thật (CLAUDE.md "Đưa code lên máy chủ"). Sổ tay máy chủ: `docs/VAN-HANH-MAY-CHU.md`.
+- **CI:** `./scripts/ci-may.sh --bao-github` trên máy dev. **Deploy:** tay trên VPS, sao lưu trước, migration diễn tập trên bản sao rồi mới áp thật (skill `len-prod`, `.claude/skills/len-prod/SKILL.md`). Sổ tay máy chủ: `docs/VAN-HANH-MAY-CHU.md`.
 - **Kiểm toán toàn hệ thống:** `docs/KIEM-TOAN-HE-THONG-2709.md` — mục 6 là các quyết định; Tuyền 27/09 đã chốt: dựng lại VPS trên **Ubuntu 24.04 LTS** (khung đêm có người xem), mở in phiếu cho quầy, xử lý hết lego/realtime/dọn file.
 - **Đã làm 27/09:** theo dõi lỗi Pha 0 + Pha 1 (kho lỗi `loi_nhom`, bộ canh gác `canh_bao` mỗi phút trong su-kien, /ops tab Lỗi & cảnh báo + Nhật ký vận hành); journal lưu bền + lịch collector (sudo đã chạy); sao lưu kéo về Mac chạy lại; Realtime bỏ Supabase → SSE của mình (`useNgheBang`); khung khách (ghi chú · tự nhắc · mọi thứ của khách) ở /customers + /reception/queue, thanh ngày ngang; quầy in được phiếu khám; dọn file thừa → `docs/legacy/`.
 - **CHỜ TUYỀN (cần sudo / tài khoản):** `sudo ./scripts/may-chu/cung-co-may-chu.sh` (swap, SSH chỉ khoá, fail2ban — bộ kiểm tự động chặn Claude chạy); dựng Kuma; nhóm Telegram ops + `TELEGRAM_OPS_CHAT_ID`; VPS mới 24.04 LTS; gia hạn Viettel CFS trước 16/10.

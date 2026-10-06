@@ -444,3 +444,74 @@ async def test_chuyen_luot_cu_thanh_luot_that(kb: KichBan, tmp_path: Path) -> No
     ls = await lich_su(kb.pool, identity=kb.bac_si, clinic_patient_id=a)
     assert [x["ngay_kham"] for x in ls["luot"]] == ["2026-05-02"]
     assert ls["so_luot_da_chuyen"] == 2
+
+
+async def test_bo_sung_noi_dung_va_lien_ket_cho_luot_da_chuyen(
+    kb: KichBan, tmp_path: Path
+) -> None:
+    """06/10: thân tờ kết quả tải bù SAU lần chuyển và link xem kết quả (trang
+    xem phim, trang trả KQ lab — không phải tệp) phải vào lượt thật đã chuyển;
+    chạy lại không lặp link; không ghi đè chữ đã có."""
+    from clinicai.services.chuyen_luot_that import chuyen
+
+    sdt = _sdt()
+    async with kb.pool.acquire() as conn:
+        await _khach_he_thong(conn, kb.location_id, "Lê Thị Bổ Sung", sdt)
+    key = f"hc:{uuid.uuid4()}"
+    lk = _luot(key, "2026-03-03", lan=1)
+    goi = _goi(
+        tmp_path / "goi",
+        nguoi=[{"nguoi_key": key, "ten": "Lê Thị Bổ Sung", "sdt": sdt}],
+        luot=[lk],
+    )
+    # Tờ kết quả CHƯA có thân (tải sau) + một xét nghiệm chỉ có link xem.
+    kq = json.loads((goi / "ket_qua.jsonl").read_text().splitlines()[0])
+    kq.update(mo_ta=None, ket_luan=None, da_co_noi_dung=False)
+    _ghi(goi, "ket_qua", [kq])
+    xn_id = str(uuid.uuid4())
+    link = "https://viewer.example.vn/viewer?session=abc-123"
+    _ghi(
+        goi,
+        "xet_nghiem",
+        [
+            {
+                "notion_id": xn_id,
+                "nguoi_key": key,
+                "luot_kham_id": lk["notion_id"],
+                "ma": "XN-T",
+                "ngay": "2026-03-03",
+                "noi_lam": ["Lab thử"],
+                "ket_qua": "HPV (-)",
+                "tep": [{"ten": link, "khoa": None}],
+            }
+        ],
+    )
+    await nap(kb.pool, goi, that=True, clinic_id=CLINIC)
+    await chuyen(kb.pool, that=True)
+
+    q_xn = (
+        "SELECT f.du_lieu->>'noi_dung' FROM lich_su_notion.ban_ghi_that b"
+        " JOIN form_instance f ON f.service_order_id = b.ban_ghi_id"
+        " WHERE b.notion_id = $1::uuid"
+    )
+    q_kq = (
+        "SELECT f.du_lieu->>'ket_luan' FROM lich_su_notion.ban_ghi_that b"
+        " JOIN form_instance f ON f.service_order_id = b.ban_ghi_id"
+        " WHERE b.notion_id = $1::uuid"
+    )
+    async with kb.pool.acquire() as conn:
+        noi_dung = await conn.fetchval(q_xn, xn_id)
+        assert noi_dung.startswith("HPV (-)") and link in noi_dung
+        assert await conn.fetchval(q_kq, kq["notion_id"]) is None, "chưa có thân"
+        # Thân tờ kết quả tải bù rồi nạp lại gói.
+        await conn.execute(
+            "UPDATE lich_su_notion.ket_qua SET mo_ta = 'Tử cung bình thường',"
+            " ket_luan = 'Không thấy bất thường' WHERE notion_id = $1::uuid",
+            kq["notion_id"],
+        )
+    await chuyen(kb.pool, that=True)
+    await chuyen(kb.pool, that=True)
+    async with kb.pool.acquire() as conn:
+        assert await conn.fetchval(q_kq, kq["notion_id"]) == "Không thấy bất thường"
+        noi_dung = await conn.fetchval(q_xn, xn_id)
+        assert noi_dung.count(link) == 1, "chạy lại không lặp link"

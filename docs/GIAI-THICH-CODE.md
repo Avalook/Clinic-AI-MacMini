@@ -631,7 +631,7 @@ bỏ được hẳn nhịp hỏi lại.
 > ⚠️ **Bước 2 (CI) và 4–6 (CD, staging 8080, nút bấm GitHub) dưới đây là thiết kế cũ.**
 > Từ 25/09/2026 GitHub Actions hỏng thanh toán và runner VPS cũ đã chết: CI chạy trên máy
 > dev (`./scripts/ci-may.sh --bao-github`, y hệt `ci.yml`), deploy prod làm tay trên VPS
-> theo `CLAUDE.md` mục "Đưa code lên máy chủ" (ghim SHA đã soát). Bước 7 vẫn đúng.
+> theo skill `len-prod` (`.claude/skills/len-prod/SKILL.md`) (ghim SHA đã soát). Bước 7 vẫn đúng.
 
 ```
 1. Viết code ở nhánh riêng, tên tiếng Việt nói ra việc

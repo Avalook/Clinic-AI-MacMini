@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 11:31. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 12:12. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -20,10 +20,10 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 ### `/appointments` — Đặt lịch
 - page: `src/dashboard/app/(dashboard)/appointments/page.tsx` · quyền: lego `dat_lich` (Đặt lịch · mặc định: CSKH, lễ tân)
 - thành phần: BookingHub.tsx, app/(dashboard)/patients/new/NewPatientForm.tsx, app/(dashboard)/BookingPolicyContext.tsx, app/(dashboard)/DateField.tsx, app/(dashboard)/QuyenContext.tsx, app/(dashboard)/SearchSelect.tsx, BangBacSiTuan.tsx, LichSapToiCuaKhach.tsx (+7)
-- gọi API Next: `/api/appointments/slot-hold`, `/api/appointments/cho-trong-tuan`, `/api/appointments/quote`, `/api/cskh-action`, `/api/wards`, `/api/patients/check-duplicate`, `/api/appointments/doi-lich-nhanh`, `/api/appointments/service-history`, `/api/appointments/luoi-ngay`, `/api/roster` (+3)
+- gọi API Next: `/api/appointments/tim-khach`, `/api/appointments/slot-hold`, `/api/appointments/cho-trong-tuan`, `/api/appointments/quote`, `/api/cskh-action`, `/api/wards`, `/api/patients/check-duplicate`, `/api/appointments/doi-lich-nhanh`, `/api/appointments/service-history`, `/api/appointments/luoi-ngay` (+4)
 - gọi thẳng backend (server): `/api/v1/appointments/hub-dat-lich${maKhach`, `/api/v1/staff/bac-si-dat-duoc`
-- service: SlotHoldService.{release, active, hold} · capacity_service · CapacityService.quote · CskhService.record_action · MPIService.find_candidates · doi_lich_nhanh.o_doi_lich (+6 service)
-- test: test_clinical_cluster.py, test_capacity_roster_gate.py, test_lich_hen_doc_db.py, test_lich_truc_phien_ban_db.py, test_pham_vi_vi_tri_lich_truc.py (+20)
+- service: man_dat_lich_doc.{tim_khach, hub_dat_lich} · SlotHoldService.{release, active, hold} · capacity_service · CapacityService.quote · CskhService.record_action · MPIService.find_candidates (+6 service)
+- test: test_clinical_cluster.py, test_capacity_roster_gate.py, test_lich_hen_doc_db.py, test_lich_truc_phien_ban_db.py, test_pham_vi_vi_tri_lich_truc.py (+21)
 
 ### `/appointments/cho-xep-bac-si` — Chờ xếp bác sĩ
 - page: `src/dashboard/app/(dashboard)/appointments/cho-xep-bac-si/page.tsx` · quyền: lego `dat_lich` (Đặt lịch · mặc định: CSKH, lễ tân)
@@ -527,7 +527,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: TepKetQuaService.{cho_xac_nhan, xac_nhan_tep, mo_de_doc} · media_service · tep_ket_qua_service
 - test: test_xac_nhan_tep_ket_qua_db.py, test_tep_ket_qua.py, test_cho_xac_nhan_queue_va_doc_tep_db.py, test_full_chi_dinh_slice_ab_db.py, test_slice1_rail_db.py (+1)
 
-## 2. API Next → backend (110)
+## 2. API Next → backend (111)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -589,6 +589,11 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/appointments/slot-hold` → `src/clinicai/api/v1/routers/booking.py:list_slot_holds` → SlotHoldService.active
 - POST `/api/v1/appointments/slot-hold` → `src/clinicai/api/v1/routers/booking.py:hold_slot` → SlotHoldService.hold
 - màn dùng: /appointments, /patients/new
+
+#### `/api/appointments/tim-khach` · `src/dashboard/app/api/appointments/tim-khach/route.ts`
+- GET `/api/v1/appointments/tim-khach` → `src/clinicai/api/v1/routers/booking.py:tim_khach_dat_lich` → man_dat_lich_doc.tim_khach
+- test: src/tests/services/test_dat_lich_tim_khach_db.py
+- màn dùng: /appointments
 
 #### `/api/booking-overrides/doctor/[id]` · `src/dashboard/app/api/booking-overrides/doctor/[id]/route.ts`
 - DELETE `/api/v1/booking-overrides/doctor/{override_id}` → `src/clinicai/api/v1/routers/config.py:delete_doctor_override` → BookingOverrideService.delete_doctor_override

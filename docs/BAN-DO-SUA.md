@@ -129,6 +129,13 @@ vấn / đi thẳng phòng · chuông sự kiện báo ai**
 - Test: `T/test_booking_service.py`, `T/services/test_capacity_roster_gate.py`. Luật:
   SO-LUAT 6.5 (sức chứa là ghế của MỘT bác sĩ, kiểm lúc xếp bác sĩ).
 
+**Ô tìm khách ở màn Đặt lịch (tìm trên toàn bộ hồ sơ, 06/10/2026)**
+- Màn: `/appointments` → `D/appointments/BookingHub.tsx` (`ketQuaTim`, debounce 300 ms, từ 2
+  ký tự) → route `app/api/appointments/tim-khach/route.ts` (chỉ chuyển tiếp).
+- Code: `S/man_dat_lich_doc.py` `tim_khach` + `_TIM_SQL` (dùng chung `chuoi_tim`/`mau_so`
+  của `S/danh_sach_benh_nhan_service.py`; đổi cách tìm thì đổi CẢ HAI màn). Trần `TRAN_TIM`.
+- Test: `T/services/test_dat_lich_tim_khach_db.py`, FT `dat-lich-tim-khach-boundary.test.mts`.
+
 ## 4. Tiếp đón · check-in · sinh hiệu
 
 **Check-in / Không đến / Hoàn tác** — màn duy nhất `/reception/queue`
@@ -424,7 +431,7 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
 
 ## 17. Vận hành (deploy, sao lưu, lỗi)
 
-- Deploy/sao lưu/migration: đúng thứ tự trong `CLAUDE.md` mục "Đưa code lên máy chủ";
+- Deploy/sao lưu/migration: đúng thứ tự trong skill `len-prod` (`.claude/skills/len-prod/SKILL.md`);
   `scripts/deploy-backend.sh`, `scripts/backup-db.sh`, `scripts/apply-pending-migrations.sh`,
   sổ tay `docs/VAN-HANH-MAY-CHU.md`. CI: `scripts/ci-may.sh`; chạy test: `docs/CHAY-TEST.md`.
 - Lỗi & cảnh báo: màn `/ops` (tab Lỗi & cảnh báo, Nhật ký vận hành) → kho lỗi

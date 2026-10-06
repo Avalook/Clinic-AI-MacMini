@@ -447,6 +447,96 @@ SELECT replace(p.source_ref, 'ho-so-cu-', '')::uuid, 'prescription', p.id, _ts.l
 ON CONFLICT DO NOTHING
 """,
     ),
+    # ── BỔ SUNG cho lượt ĐÃ chuyển (chạy mọi lần, chạy lại không đổi gì) ──
+    # Nội dung đến SAU lần chuyển (thân tờ kết quả tải bù, gói nạp lại): chỉ ĐIỀN
+    # chỗ còn trống, không ghi đè chữ nhân viên đã sửa.
+    (
+        "bo_sung_noi_dung_tam",
+        """
+    CREATE TEMP TABLE _bs ON COMMIT DROP AS
+SELECT DISTINCT ON (b.ban_ghi_id) b.ban_ghi_id AS so, so.visit_id,
+       nullif(btrim(k.mo_ta), '') AS mo_ta, nullif(btrim(k.ket_luan), '') AS ket_luan,
+       NULL::text AS lien_ket
+  FROM lich_su_notion.ban_ghi_that b
+  JOIN lich_su_notion.ket_qua k ON k.notion_id = b.notion_id
+  JOIN service_order so ON so.id = b.ban_ghi_id
+  CROSS JOIN _ts
+ WHERE b.bang = 'service_order' AND so.clinic_id = _ts.clinic
+   AND (nullif(btrim(k.mo_ta), '') IS NOT NULL OR nullif(btrim(k.ket_luan), '') IS NOT NULL)
+ ORDER BY b.ban_ghi_id, k.notion_id
+""",
+    ),
+    # Xét nghiệm có "tệp" là LINK web (trang xem phim chụp, trang trả kết quả của
+    # lab) — không có gì để tải; ghi link vào kết quả để bấm mở.
+    (
+        "bo_sung_lien_ket_tam",
+        """
+    INSERT INTO _bs (so, visit_id, mo_ta, ket_luan, lien_ket)
+SELECT b.ban_ghi_id, so.visit_id, NULL, NULL,
+       string_agg(DISTINCT btrim(t.ten), E'\\n')
+  FROM lich_su_notion.ban_ghi_that b
+  JOIN lich_su_notion.xet_nghiem x ON x.notion_id = b.notion_id
+  JOIN service_order so ON so.id = b.ban_ghi_id
+  CROSS JOIN _ts
+  CROSS JOIN LATERAL jsonb_to_recordset(
+      CASE WHEN jsonb_typeof(x.tep) = 'array' THEN x.tep ELSE '[]'::jsonb END)
+      AS t(ten text, khoa text)
+ WHERE b.bang = 'service_order' AND so.clinic_id = _ts.clinic
+   AND t.khoa IS NULL AND btrim(t.ten) ~* '^https?://'
+ GROUP BY 1, 2
+""",
+    ),
+    (
+        "bo_sung_tao_to_ket_qua",
+        """
+    INSERT INTO form_instance (clinic_id, service_order_id, form_id, version, trang_thai, du_lieu,
+                           revision, nhap_boi, thuc_hien_boi, hoan_tat_boi, hoan_tat_luc,
+                           tao_luc, sua_luc)
+SELECT _ts.clinic, b.so, 'KQ_CHUNG', 1, 'READY',
+       jsonb_strip_nulls(jsonb_build_object(
+           'noi_dung', concat_ws(E'\\n\\n', b.mo_ta, 'Link kết quả:' || E'\\n' || b.lien_ket),
+           'ket_luan', b.ket_luan)),
+       1, so.performed_by, so.performed_by, coalesce(so.performed_by, _ts.may),
+       so.finished_at, so.finished_at, so.finished_at
+  FROM _bs b CROSS JOIN _ts JOIN service_order so ON so.id = b.so
+ WHERE NOT EXISTS (SELECT 1 FROM form_instance f
+                    WHERE f.service_order_id = b.so AND f.form_id = 'KQ_CHUNG')
+ON CONFLICT DO NOTHING
+""",
+    ),
+    (
+        "bo_sung_dien_to_ket_qua",
+        """
+    UPDATE form_instance f SET du_lieu = f.du_lieu || jsonb_strip_nulls(jsonb_build_object(
+           'noi_dung', CASE
+               WHEN nullif(btrim(f.du_lieu->>'noi_dung'), '') IS NULL
+                   THEN nullif(concat_ws(E'\\n\\n', b.mo_ta,
+                                         'Link kết quả:' || E'\\n' || b.lien_ket), '')
+               WHEN b.lien_ket IS NOT NULL
+                    AND position(split_part(b.lien_ket, E'\\n', 1) IN f.du_lieu->>'noi_dung') = 0
+                   THEN (f.du_lieu->>'noi_dung') || E'\\n\\nLink kết quả:\\n' || b.lien_ket
+           END,
+           'ket_luan', CASE WHEN nullif(btrim(f.du_lieu->>'ket_luan'), '') IS NULL
+                            THEN b.ket_luan END))
+  FROM _bs b, _ts
+ WHERE f.clinic_id = _ts.clinic AND f.service_order_id = b.so AND f.form_id = 'KQ_CHUNG'
+   AND ((nullif(btrim(f.du_lieu->>'noi_dung'), '') IS NULL
+         AND (b.mo_ta IS NOT NULL OR b.lien_ket IS NOT NULL))
+        OR (nullif(btrim(f.du_lieu->>'ket_luan'), '') IS NULL AND b.ket_luan IS NOT NULL)
+        OR (b.lien_ket IS NOT NULL
+            AND position(split_part(b.lien_ket, E'\\n', 1)
+                         IN coalesce(f.du_lieu->>'noi_dung', '')) = 0))
+""",
+    ),
+    (
+        "bo_sung_ket_luan_chi_dinh",
+        """
+    UPDATE service_order so SET result_note = b.ket_luan
+  FROM _bs b, _ts
+ WHERE so.clinic_id = _ts.clinic AND so.id = b.so
+   AND nullif(btrim(so.result_note), '') IS NULL AND b.ket_luan IS NOT NULL
+""",
+    ),
 ]
 
 

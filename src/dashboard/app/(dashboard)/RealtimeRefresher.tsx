@@ -78,8 +78,9 @@ import { nhipKhiHien, taoGopBatKip } from "../../lib/nhip-khi-hien";
 // cũng chẳng có dòng nào để mà rớt.
 const POLL_MS = 60_000;
 
-// Các bảng ĐANG được publish (20260803000004). Đổi ở đây thì phải đổi cả ở
-// migration — một danh sách lệch nhau là cách "realtime" chết trong im lặng.
+// Các bảng màn nghe tức thời. Mỗi bảng phải có trigger `trg_notify_<bảng>` gọi
+// `notify_row_change` (pg_notify → FastAPI SSE; mẫu 20260806000001) — thêm bảng
+// ở đây mà thiếu trigger thì danh sách im lặng vô dụng.
 const LIVE_TABLES = [
   "appointment",
   "visit",
@@ -107,11 +108,7 @@ const LIVE_TABLES = [
   // BỐN BẢNG CỦA MÀN CHĂM SÓC (08/08/2026). Thiếu chúng ở đây thì hai CSKH
   // ngồi cạnh nhau không thấy việc của nhau: người này ghi xong cuộc gọi, màn
   // người kia vẫn sáng "Làm bước này" — và khách nghe máy hai lần trong một
-  // buổi, đúng thứ chuỗi bước sinh ra để chống.
-  //
-  // Nghe thôi CHƯA ĐỦ: bảng còn phải nằm trong publication `supabase_realtime`
-  // (migration 20260809000009), nếu không Postgres không phát gì cả và danh
-  // sách này im lặng vô dụng.
+  // buổi, đúng thứ chuỗi bước sinh ra để chống. Trigger: 20260814000001.
   "tuong_tac_cskh",
   "tep_ket_qua",
   "phan_hoi_khach",
