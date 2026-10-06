@@ -27,5 +27,7 @@ export interface DongSoSua {
 
 export interface SoSua {
   chi_xem: boolean;
+  /** Sổ chạm trần dòng máy chủ trả (300) — màn nói ra, không cắt im lặng. */
+  bi_cat?: boolean;
   dong: DongSoSua[];
 }

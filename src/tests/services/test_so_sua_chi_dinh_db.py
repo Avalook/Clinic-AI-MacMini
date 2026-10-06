@@ -227,7 +227,8 @@ async def test_le_tan_khong_co_quyen_chi_dinh_thi_khong_hoan_tac(
         )
         await conn.execute(
             "INSERT INTO clinic_membership (clinic_id, staff_id, role, is_active)"
-            " VALUES ($1::uuid, $2::uuid, 'CSKH', true)",
+            " VALUES ($1::uuid, $2::uuid, 'CSKH', true)"
+            " ON CONFLICT (clinic_id, staff_id, role) DO NOTHING",
             CLINIC,
             sid,
         )

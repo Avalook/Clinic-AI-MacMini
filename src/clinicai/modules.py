@@ -99,6 +99,8 @@ MODULE: dict[str, Module] = {
                 "service_order.desk_added",
                 "service_order.desk_removed",
                 "service_order.cancelled",
+                # Hoàn tác bỏ chỉ định (Khối 2, 06/10/2026).
+                "service_order.restored",
             ],
             bang=["service_order", "lam_them_tai_quay"],
             quyen=["clinical.order.place"],
@@ -318,6 +320,7 @@ MODULE: dict[str, Module] = {
                 # Hoàn tác (01/10/2026) — lên dòng thời gian của lượt.
                 "service.completion_undone",
                 "service_order.cancelled",
+                "service_order.restored",
                 "consultation.reopened",
                 "visit.reopened",
                 "result.approval_revoked",
@@ -438,6 +441,7 @@ MODULE: dict[str, Module] = {
                 "payment.medicine_collected",
                 "service_selection.confirmed",
                 "service_order.desk_added",
+                "service_order.restored",
                 "visit.defer_payment_set",
                 "visit.checked_out",
                 "visit.left_early",

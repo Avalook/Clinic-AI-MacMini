@@ -344,9 +344,8 @@ class ThongBaoService:
             )
         # `chi_hoan_tac`: máy chủ nói thông báo nào KHÔNG có nút "Xong" (chỉ
         # Hoàn tác) — giao diện không tự suy từ `nguon`.
-        return [
-            {**dict(r), "chi_hoan_tac": r["nguon"] in NGUON_CHI_HOAN_TAC} for r in rows
-        ]
+        ra = [dict(r) for r in rows]
+        return [{**d, "chi_hoan_tac": d.get("nguon") in NGUON_CHI_HOAN_TAC} for d in ra]
 
     async def danh_dau_da_doc(self, *, identity: StaffIdentity) -> dict[str, Any]:
         """Đóng dấu ĐÃ ĐỌC cho mọi thông báo đang mở của vai này.
@@ -390,17 +389,8 @@ class ThongBaoService:
         Thông báo "chỉ định bị bỏ" KHÔNG đóng ở đây (Tuyền 06/10: chỉ có nút
         Hoàn tác) — đóng bằng hoàn tác, hoặc tự hết hạn cuối ngày."""
         async with self._pool.acquire() as conn:
-            nguon = await conn.fetchval(
-                "SELECT nguon FROM public.thong_bao"
-                " WHERE id::text = $1 AND clinic_id = $2::uuid",
-                str(thong_bao_id),
-                identity.clinic_id,
-            )
-            if nguon in NGUON_CHI_HOAN_TAC:
-                raise ValidationError(
-                    "Thông báo bỏ chỉ định chỉ có nút Hoàn tác — không đánh dấu"
-                    " xong được."
-                )
+            # Lọc ngay trong câu UPDATE (một vòng hỏi, không kẽ hở giữa đọc
+            # và ghi); không đóng được thì hỏi lại vì sao để nói đúng lỗi.
             row = await conn.fetchrow(
                 """
                 UPDATE public.thong_bao
@@ -410,6 +400,7 @@ class ThongBaoService:
                        da_doc_luc = coalesce(da_doc_luc, now())
                  WHERE id = $1::uuid AND clinic_id = $2::uuid
                    AND da_xu_ly_luc IS NULL
+                   AND nguon <> ALL($5::text[])
                 RETURNING id::text,
                           extract(epoch FROM (now() - tao_luc))::int AS giay_phan_hoi
                 """,
@@ -417,7 +408,20 @@ class ThongBaoService:
                 identity.clinic_id,
                 identity.staff_id,
                 (ghi_chu or "").strip() or None,
+                sorted(NGUON_CHI_HOAN_TAC),
             )
+            if row is None:
+                nguon = await conn.fetchval(
+                    "SELECT nguon FROM public.thong_bao"
+                    " WHERE id::text = $1 AND clinic_id = $2::uuid",
+                    str(thong_bao_id),
+                    identity.clinic_id,
+                )
+                if isinstance(nguon, str) and nguon in NGUON_CHI_HOAN_TAC:
+                    raise ValidationError(
+                        "Thông báo bỏ chỉ định chỉ có nút Hoàn tác — không đánh"
+                        " dấu xong được."
+                    )
         if row is None:
             raise NotFoundError(
                 "Không tìm thấy thông báo đang mở với mã này — "

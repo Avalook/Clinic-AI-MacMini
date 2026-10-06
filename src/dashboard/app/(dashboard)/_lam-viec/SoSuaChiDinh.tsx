@@ -115,6 +115,9 @@ export function SoSuaChiDinhTuTai({ visitId }: { visitId: string }) {
         <p className="text-meta text-ink-muted">Lượt chuyển từ hồ sơ cũ — chỉ xem.</p>
       ) : null}
       <DanhSachSoSua so={kq.so} choHoanTac onDoi={napLai} />
+      {kq.so.bi_cat ? (
+        <p className="text-meta text-ink-muted">Chỉ hiện các lần sửa gần nhất.</p>
+      ) : null}
     </div>
   );
 }
