@@ -2,14 +2,15 @@
 
 // Per-row account actions on the Settings staff table. Only rendered for
 // staff that already have a linked login account. Calls PATCH
-// /api/admin/users (the server re-checks the caller is MANAGEMENT).
+// /api/admin/users (máy chủ gác lại quyền `account.manage`).
 //
 // Ba việc, đều làm tại chỗ (không window.alert/confirm):
 //   - "Đổi tên đăng nhập": hiện ô tên + Lưu/Huỷ. Gõ tên trần được, đuôi
 //     mail do hệ thống gắn (xem lib/ten-dang-nhap.ts).
 //   - "Đặt lại mật khẩu": hiện ô mật khẩu + Lưu/Huỷ.
-//   - "Gỡ tài khoản": hai bước (bấm → "Xác nhận?") vì nó xoá hẳn tài khoản
-//     đăng nhập, không lùi lại được.
+//   - "Gỡ tài khoản": hai bước (bấm → "Xác nhận?"). Gỡ nối, khoá app_credential
+//     (cửa đăng nhập ứng dụng) và xoá login GoTrue. Hoàn tác = "Tạo tài khoản"
+//     lại cho người ấy: login GoTrue mới + app_credential mở lại.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";

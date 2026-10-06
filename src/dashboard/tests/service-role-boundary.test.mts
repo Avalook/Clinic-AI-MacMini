@@ -25,7 +25,8 @@ const ALLOWED = new Map<string, string>([
   ["lib/supabase-service.ts", "the factory, and the presence check the settings page asks it for"],
   // Creating a login, resetting a password and revoking one go through the
   // Supabase Auth admin API, which has no anon-key equivalent. This is the one
-  // capability the backend cannot take over, so this entry is the floor.
+  // capability the backend does not hold, so this entry is the floor — and the
+  // route uses it for GoTrue calls only (see the last test).
   ["app/api/admin/users/route.ts", "keeps the key: Supabase Auth admin API"],
 ]);
 
@@ -116,10 +117,14 @@ test("reference data is read through the caller's own session", () => {
   assert.deepEqual(bypassing, []);
 });
 
-test("the Auth-admin exception remains tenant- and membership-scoped", () => {
+test("the Auth-admin exception holds the key for GoTrue only, never for tables", () => {
+  // 06/10/2026: tenant + membership scoping moved to FastAPI (TaiKhoanService,
+  // guarded by account.manage, filtered by the caller's clinic). The route may
+  // call the Auth admin API, but it must not query a table with the key —
+  // `.from(` / `.rpc(` here would bypass RLS AND the backend's tenant filter.
   assert.ok(adminRoute);
-  assert.match(adminRoute.text, /\.from\(["']clinic_membership["']\)/);
-  assert.match(adminRoute.text, /\.eq\(["']clinic_id["'], clinicId\)/);
-  assert.match(adminRoute.text, /resolveSingleManagementClinic/);
-  assert.match(adminRoute.text, /\.eq\(["']auth_user_id["'], target\.auth_user_id\)/);
+  assert.doesNotMatch(adminRoute.text, /\.from\(|\.rpc\(/);
+  assert.match(adminRoute.text, /\/api\/v1\/staff\/\$\{[^}]+\}\/tai-khoan`/);
+  assert.match(adminRoute.text, /\/tai-khoan\/noi`/);
+  assert.match(adminRoute.text, /\/tai-khoan\/thu-hoi`/);
 });

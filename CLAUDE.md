@@ -162,5 +162,5 @@ khách → Caddy (TLS Let's Encrypt) → dashboard (Next.js, chỉ giao diện)
 Các quyết định còn chờ chốt: `docs/KIEM-TOAN-HE-THONG-2709.md` mục 6.
 
 Việc lớn còn lại: **đưa nốt luật nghiệp vụ ra khỏi `src/dashboard`**. Route Next
-chạm thẳng database: **2** (27/09/2026; 13/08 là 42/63) — con số ấy **chỉ được
-giảm**. Còn khoảng 123 chỗ `if` theo vai trong TSX.
+chạm thẳng database: **1** (06/10/2026 — chỉ còn `check-phone`, đã tắt; 27/09 là 2,
+13/08 là 42/63) — con số ấy **chỉ được giảm**. Còn khoảng 123 chỗ `if` theo vai trong TSX.
