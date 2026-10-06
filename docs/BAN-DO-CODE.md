@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 13:59. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 14:09. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -373,10 +373,10 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/schedule` — Lịch làm việc
 - page: `src/dashboard/app/(dashboard)/schedule/page.tsx` · quyền: lego `lich_lam_viec` (Lịch làm việc · mặc định: Mọi người)
-- thành phần: app/(dashboard)/home/WorkRosterTable.tsx, ApDungTuan.tsx, DoiNguoiTrongCa.tsx, LichTheoNguoi.tsx, NgoaiLeCaTruc.tsx, OfficialRosterTable.tsx, PhienBanLich.tsx, RosterRegisterTable.tsx (+2)
-- gọi API Next: `/api/roster/thay-nguoi`, `/api/roster/ngoai-le-ca-truc`, `/api/roster`
+- thành phần: app/(dashboard)/home/WorkRosterTable.tsx, ApDungTuan.tsx, LichTheoNguoi.tsx, NgoaiLeCaTruc.tsx, OfficialRosterTable.tsx, PhienBanLich.tsx, RosterRegisterTable.tsx, TabLichLamViec.tsx (+1)
+- gọi API Next: `/api/roster/ngoai-le-ca-truc`, `/api/roster/thay-nguoi`, `/api/roster`
 - gọi thẳng backend (server): `/api/v1/roster/lich-tuan`, `/api/v1/roster/phien-ban`, `/api/v1/roster/clinical-exceptions`
-- service: RosterService.{thay_nguoi, applied_weeks, tram_cho_nhan_vien, bac_si_trong_ngay, +5} · NgoaiLeCaTrucService.{danh_sach, mo, huy} · LichTrucPhienBanService.xem
+- service: NgoaiLeCaTrucService.{danh_sach, mo, huy} · RosterService.{thay_nguoi, applied_weeks, tram_cho_nhan_vien, bac_si_trong_ngay, +5} · LichTrucPhienBanService.xem
 - test: test_ca_truc_lam_sang_db.py, test_clinical_cluster.py, test_lich_truc_phien_ban_db.py, test_pham_vi_vi_tri_lich_truc.py, test_doi_nguoi_trong_ca_db.py (+4)
 
 ### `/service-queue`

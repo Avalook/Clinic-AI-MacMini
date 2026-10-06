@@ -117,6 +117,7 @@ async def test_ap_dung_doi_xoa_them_moi_lan_mot_phien_ban(
     assert chua["co_lich_su"] is False
     assert chua["da_ap_dung"] is False
     assert chua["phien_ban"] == [] and chua["dang_xem"] is None
+    assert chua["nhat_ky"] == []
 
     await roster.apply_week(week_start=d2, identity=tc)  # ngày giữa tuần → thứ Hai
     goc = await lich_su.xem(identity=tc, tuan=tuan.isoformat())
@@ -159,6 +160,18 @@ async def test_ap_dung_doi_xoa_them_moi_lan_mot_phien_ban(
     assert theo_id[a]["thay_doi"] is None
     assert theo_id[a]["staff_id"] == kb.bs_sieu_am.staff_id
     assert dx["da_xoa"] == []
+
+    # Nhật ký tuần (nuôi "Lịch sử ô này"): ba dòng, mới nhất trước, tên chuẩn.
+    nk = moi["nhat_ky"]
+    assert [(n["loai"], n["roster_id"]) for n in nk] == [
+        ("THEM", e),
+        ("XOA", b),
+        ("DOI_NGUOI", a),
+    ]
+    assert nk[2]["truoc_ten"] == kb.bac_si.full_name
+    assert nk[2]["ten"] == kb.bs_sieu_am.full_name
+    assert all(n["boi_ten"] == tc.full_name for n in nk)
+    assert (nk[1]["work_date"], nk[1]["station"]) == (d2.isoformat(), tram_bs)
 
     # Bản đổi người: a là "BS cũ → BS mới", b còn nguyên.
     doi = (await lich_su.xem(identity=tc, tuan=tuan.isoformat(), ban=ma_doi))[

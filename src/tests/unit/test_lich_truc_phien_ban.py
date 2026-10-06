@@ -17,6 +17,7 @@ from clinicai.services.lich_truc_phien_ban_service import (
     doc_tuan,
     dung_phien_ban,
     loc_phien_ban,
+    nhat_ky_thay_doi,
     so_sanh,
 )
 
@@ -271,3 +272,53 @@ def test_anh_dang_chuoi_json_van_doc_duoc() -> None:
     ]
     ds = loc_phien_ban(dung_phien_ban(anh, so))
     assert ds[-1][1] is not None and ds[-1][1]["doi_nguoi"][0]["o"]["staff_name"] == "B"
+
+
+def test_nhat_ky_moi_nhat_truoc_moi_dong_mot_o() -> None:
+    """Nhật ký nuôi "Lịch sử ô này": mỗi lần thêm / xoá / đổi người là một dòng
+    mang đúng ô (ngày × ca × vị trí), mới nhất trước; lịch gốc không sinh dòng."""
+    anh = [
+        {
+            "id": 1,
+            "loai": "GOC",
+            "txid": 100,
+            "luc": None,
+            "boi_staff_id": "q",
+            "ca": [_o("a", "Thành"), _o("b", "Hà", tram="BS2")],
+        }
+    ]
+
+    def so(i: int, tx: int, rid: str, hd: str, truoc: Any, sau: Any) -> dict[str, Any]:
+        return {
+            "id": i,
+            "txid": tx,
+            "roster_id": rid,
+            "hanh_dong": hd,
+            "truoc": truoc,
+            "sau": sau,
+            "luc": None,
+            "boi_staff_id": "tc",
+        }
+
+    ds = loc_phien_ban(
+        dung_phien_ban(
+            anh,
+            [
+                so(1, 110, "a", "DOI_NGUOI", _o("a", "Thành"), _o("a", "Hằng")),
+                so(2, 120, "b", "XOA", _o("b", "Hà", tram="BS2"), None),
+                so(3, 130, "e", "THEM", None, _o("e", "Minh", ca="SANG", tram="BS2")),
+            ],
+        )
+    )
+    nk = nhat_ky_thay_doi(ds)
+    assert [(n["ma"], n["loai"], n["station"], n["shift"]) for n in nk] == [
+        ("130", "THEM", "BS2", "SANG"),
+        ("120", "XOA", "BS2", "FULL"),
+        ("110", "DOI_NGUOI", "BS1", "FULL"),
+    ]
+    doi = nk[-1]
+    assert (doi["truoc_ten"], doi["staff_name"]) == ("Thành", "Hằng")
+    assert doi["truoc_staff_id"] == "s-Thành" and doi["boi_staff_id"] == "tc"
+    assert all(n["work_date"] == "2090-01-02" for n in nk)
+    # Chỉ có lịch gốc → nhật ký rỗng.
+    assert nhat_ky_thay_doi(loc_phien_ban(dung_phien_ban(anh, []))) == []

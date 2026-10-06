@@ -102,7 +102,7 @@ const NHAN_SR: Record<LoaiThayDoi, string> = {
   DOI_NGUOI: "Đổi sang:",
 };
 
-function nenThayDoi(ds: NguoiTrongO[]): string | null {
+export function nenThayDoi(ds: Pick<NguoiTrongO, "loai">[]): string | null {
   const loai = THU_TU_NANG.find((l) => ds.some((n) => n.loai === l));
   return loai ? MAU_THAY_DOI[loai].nen : null;
 }
