@@ -52,6 +52,11 @@ export interface Notif {
    *  (`POST /api/thong-bao/{id}/da-xu-ly`); thông báo ca làm việc sinh ở trình
    *  duyệt thì không có, và cũng không có việc gì để đóng. */
   thongBaoId?: string;
+  /** Thông báo "chỉ định bị bỏ" (Khối 2, 06/10/2026): máy chủ nói nó KHÔNG có
+   *  nút "Xong" — nút duy nhất là Hoàn tác dòng sổ `hoanTacSoId` (null = đã
+   *  hoàn tác / không còn hoàn tác được). */
+  chiHoanTac?: boolean;
+  hoanTacSoId?: string | null;
 }
 
 interface MyRow {
@@ -70,6 +75,8 @@ interface NotificationCtx {
   markAllRead: () => void;
   /** ĐÓNG một việc: bỏ hẳn khỏi chuông, cho mọi người cùng vai. */
   danhDauDaXuLy: (thongBaoId: string) => Promise<void>;
+  /** Đọc lại danh sách từ máy chủ (vd. sau khi bấm Hoàn tác trong chuông). */
+  docLai: () => void;
   dismissTransient: (key: string) => void;
 }
 
@@ -79,6 +86,7 @@ const Ctx = createContext<NotificationCtx>({
   transient: [],
   markAllRead: () => {},
   danhDauDaXuLy: async () => {},
+  docLai: () => {},
   dismissTransient: () => {},
 });
 
@@ -132,12 +140,16 @@ export function NotificationProvider({
             duong_dan: string | null;
             nguoi_goi: string | null;
             da_doc_luc: string | null;
+            chi_hoan_tac?: boolean;
+            hoan_tac_so_id?: string | null;
           }[];
         };
         setThongBao(
           (d.items ?? []).map((t) => ({
             key: `tb:${t.id}`,
             thongBaoId: t.id,
+            chiHoanTac: Boolean(t.chi_hoan_tac),
+            hoanTacSoId: t.hoan_tac_so_id ?? null,
             approved: false,
             khan: t.muc_do === "KHAN",
             daDoc: Boolean(t.da_doc_luc),
@@ -396,6 +408,7 @@ export function NotificationProvider({
         transient,
         markAllRead,
         danhDauDaXuLy,
+        docLai: () => void docThongBao(),
         dismissTransient: (key) =>
           setTransient((t) => t.filter((x) => x.key !== key)),
       }}

@@ -342,7 +342,11 @@ class ThongBaoService:
                 identity.ds_vai(),
                 identity.staff_id,
             )
-        return [dict(r) for r in rows]
+        # `chi_hoan_tac`: máy chủ nói thông báo nào KHÔNG có nút "Xong" (chỉ
+        # Hoàn tác) — giao diện không tự suy từ `nguon`.
+        return [
+            {**dict(r), "chi_hoan_tac": r["nguon"] in NGUON_CHI_HOAN_TAC} for r in rows
+        ]
 
     async def danh_dau_da_doc(self, *, identity: StaffIdentity) -> dict[str, Any]:
         """Đóng dấu ĐÃ ĐỌC cho mọi thông báo đang mở của vai này.

@@ -13,6 +13,8 @@ import { buttonClass } from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { giaTriDoc, type DinhNghiaPhieu, type GiaTriO, type OPhieu } from "@/lib/phieu-kham";
 
+import { SoSuaChiDinhTuTai } from "../SoSuaChiDinh";
+
 interface DongLichSu {
   id: string;
   sua_boi: string | null;
@@ -84,7 +86,18 @@ export default function LichSuSuaPhieu({
         {mo ? "Ẩn lịch sử sửa" : "Lịch sử sửa"}
       </button>
       {mo ? (
-        <div className="basis-full rounded-control border border-line bg-surface-sunken p-3">
+        <div className="basis-full space-y-3 rounded-control border border-line bg-surface-sunken p-3">
+          {/* Khối 2 (06/10/2026): thêm / bỏ / hoàn tác chỉ định của lượt —
+              Khám · CLS · Điều trị · Thuốc, ai bấm, tiền thừa, ai hoàn tác. */}
+          <section aria-label="Lịch sử chỉ định" className="space-y-1">
+            <h4 className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+              Chỉ định
+            </h4>
+            <SoSuaChiDinhTuTai visitId={visitId} />
+          </section>
+          <h4 className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+            Phiếu khám
+          </h4>
           {loi ? <p className="text-body text-danger">{loi}</p> : null}
           {!loi && dong === null ? <p className="text-meta text-ink-muted">Đang đọc…</p> : null}
           {dong && dong.length === 0 ? (
