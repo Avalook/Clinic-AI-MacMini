@@ -156,7 +156,9 @@ export function NotificationProvider({
             title: t.tieu_de,
             duongDan: t.duong_dan,
             detail:
-              (t.nguoi_goi ? `${t.nguoi_goi} gọi · ` : "") + t.noi_dung,
+              // "Chỉ định bị bỏ": câu máy chủ đã nêu tên người bỏ — không
+              // thêm "X gọi ·" (đó là khuôn của trưởng ca gọi bộ phận).
+              (t.nguoi_goi && !t.chi_hoan_tac ? `${t.nguoi_goi} gọi · ` : "") + t.noi_dung,
             at: new Date(t.tao_luc).toLocaleTimeString("vi-VN", {
               hour: "2-digit",
               minute: "2-digit",

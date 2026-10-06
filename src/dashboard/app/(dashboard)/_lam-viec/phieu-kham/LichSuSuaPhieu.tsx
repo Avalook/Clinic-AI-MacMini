@@ -86,7 +86,9 @@ export default function LichSuSuaPhieu({
         {mo ? "Ẩn lịch sử sửa" : "Lịch sử sửa"}
       </button>
       {mo ? (
-        <div className="basis-full space-y-3 rounded-control border border-line bg-surface-sunken p-3">
+        // Điện thoại: khung nằm trong dải bước cuộn ngang — cho bề rộng cố định
+        // theo thang (w-72) để chữ xuống dòng, không kéo dải dài ra (06/10/2026).
+        <div className="w-72 shrink-0 basis-auto space-y-3 rounded-control border border-line bg-surface-sunken p-3 lg:w-auto lg:basis-full">
           {/* Khối 2 (06/10/2026): thêm / bỏ / hoàn tác chỉ định của lượt —
               Khám · CLS · Điều trị · Thuốc, ai bấm, tiền thừa, ai hoàn tác. */}
           <section aria-label="Lịch sử chỉ định" className="space-y-1">
