@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 16:46. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 17:01. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -171,7 +171,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - page: `src/dashboard/app/(dashboard)/lich-do-ve/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
 - gọi thẳng backend (server): `/api/v1/appointments/week`
 - service: WeekAppointmentsService.week
-- test: test_thu_thuat_nhu_kham_thuong_db.py, test_week_appointments.py
+- test: test_lich_su_notion_db.py, test_week_appointments.py
 
 ### `/login`
 - page: `src/dashboard/app/(auth)/login/page.tsx` · quyền: ?

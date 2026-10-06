@@ -82,12 +82,20 @@ async def hub_dat_lich(
                -- "Đặt lịch" từ Quản lý khách hàng) thì LUÔN có, đứng đầu.
                AND (p.nguon_nhap IS NULL
                     OR p.patient_code = $2
+                    -- "hoạt động trên hệ thống" = lịch / lượt KHÔNG phải lượt
+                    -- cũ chuyển từ Notion (06/10/2026).
                     OR EXISTS (SELECT 1 FROM appointment a
                                 WHERE a.clinic_id = p.clinic_id
-                                  AND a.clinic_patient_id = p.clinic_patient_id)
+                                  AND a.clinic_patient_id = p.clinic_patient_id
+                                  AND NOT EXISTS (
+                                      SELECT 1 FROM lich_su_notion.luot_that t
+                                       WHERE t.appointment_id = a.id))
                     OR EXISTS (SELECT 1 FROM visit v
                                 WHERE v.clinic_id = p.clinic_id
-                                  AND v.clinic_patient_id = p.clinic_patient_id))
+                                  AND v.clinic_patient_id = p.clinic_patient_id
+                                  AND NOT EXISTS (
+                                      SELECT 1 FROM lich_su_notion.luot_that t
+                                       WHERE t.visit_id = v.visit_id)))
              ORDER BY (p.patient_code = $2) DESC NULLS LAST, p.created_at DESC
              LIMIT 200
             """,

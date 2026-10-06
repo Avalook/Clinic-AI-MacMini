@@ -67,6 +67,11 @@ WITH tuan AS (
        AND a.slot_start >= $2
        AND a.slot_start <  $3
        AND a.status <> ALL($4::text[])
+       -- Lịch hồ sơ cũ chuyển từ Notion (00:00, chỉ có ngày) không lên lưới
+       -- tuần — lưới y như trước khi nhập. `som_nhat` dưới vẫn đếm chúng:
+       -- khách có lịch sử Notion là TÁI KHÁM thật (Tuyền 06/10/2026).
+       AND NOT EXISTS (SELECT 1 FROM lich_su_notion.luot_that t
+                           WHERE t.appointment_id = a.id)
      -- THỨ TỰ PHẢI XÁC ĐỊNH, và bản cũ thì không.
      --
      -- Prod đang có BA lịch hẹn cùng mốc 10:15 ngày 15/07. Với `ORDER BY

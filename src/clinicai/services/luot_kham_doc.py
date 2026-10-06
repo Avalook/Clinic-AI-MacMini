@@ -122,6 +122,10 @@ class BangLuotKham:
                    AND v.checked_in_at IS NOT NULL
                    AND (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                        = $4::date
+                   -- Lượt hồ sơ cũ (Notion, giờ 00:00 giả) không phải khách
+                   -- của ngày ấy trên hệ thống: xem ở hồ sơ khách.
+                   AND NOT EXISTS (SELECT 1 FROM lich_su_notion.luot_that t
+                                    WHERE t.visit_id = v.visit_id)
                    -- Thư ký chỉ thấy lượt của bác sĩ mình (20260915000020).
                    AND coalesce(v.attending_doctor_id::text, '~')
                        = ANY(coalesce(
@@ -823,6 +827,8 @@ class BangLuotKham:
                      WHERE v.clinic_id = $1::uuid AND v.checked_in_at IS NOT NULL
                        AND (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                            = $6::date
+                       AND NOT EXISTS (SELECT 1 FROM lich_su_notion.luot_that t
+                                        WHERE t.visit_id = v.visit_id)
                 )
                 SELECT q.id::text AS id, q.status, q.lane, q.reason,
                        q.ref_id::text AS ref_id, q.visit_id::text AS visit_id,

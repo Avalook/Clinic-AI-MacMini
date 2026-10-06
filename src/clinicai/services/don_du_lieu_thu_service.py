@@ -426,6 +426,10 @@ WITH lich AS (
       FROM appointment a
      WHERE a.clinic_id = $1::uuid
        AND (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2::date
+       -- Lịch hồ sơ cũ (Notion) là dữ liệu THẬT, không phải dữ liệu thử: không
+       -- liệt kê để không ai tick xoá nhầm.
+       AND NOT EXISTS (SELECT 1 FROM lich_su_notion.luot_that t
+                           WHERE t.appointment_id = a.id)
 ), luot AS (
     SELECT 'luot'::text AS loai, v.visit_id AS id, v.clinic_patient_id AS khach_id,
            coalesce(v.checked_in_at, v.created_at) AS luc, NULL::int AS so_booking,
