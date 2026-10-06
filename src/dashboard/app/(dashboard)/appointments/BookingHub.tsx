@@ -400,13 +400,27 @@ export default function BookingHub({
   //
   // Giá trị KHỞI TẠO của state mới là chỗ chọn sẵn người đầu tiên (xem
   // useState ở trên); ở đây thì null nghĩa là null.
+  //
+  // Khách chọn từ KẾT QUẢ TÌM (06/10/2026) có thể không nằm trong 200 khách
+  // nạp sẵn — nhớ họ ở `khachTuTim` để thẻ khách / panel / nút đặt vẫn thấy.
+  const [khachTuTim, setKhachTuTim] = useState<Record<string, PatientLite>>({});
+  const [lanKhamTuTim, setLanKhamTuTim] = useState<
+    Record<string, { soLanKham: number; laTaiKham: boolean }>
+  >({});
   const activePatient = useMemo(
     () =>
       selectedPatientId === null
         ? null
         : (patients.find((p) => p.clinic_patient_id === selectedPatientId) ??
+          khachTuTim[selectedPatientId] ??
           null),
-    [patients, selectedPatientId],
+    [patients, khachTuTim, selectedPatientId],
+  );
+  // Nhãn "khám lần mấy": của hub cho 200 khách nạp sẵn, của ô tìm cho khách
+  // chọn từ kết quả tìm — cùng một hàm máy chủ (`dem_lan_kham`) tính cả hai.
+  const lanKhamGop = useMemo(
+    () => ({ ...lanKham, ...lanKhamTuTim }),
+    [lanKham, lanKhamTuTim],
   );
 
   // Selected Slot
@@ -588,7 +602,9 @@ export default function BookingHub({
 
 
 
-  // Filtered patients for search list
+  // LỌC TẠI CHỖ trên 200 khách nạp sẵn — chỉ là thứ hiện NGAY trong lúc chờ
+  // máy chủ (và khi ô tìm < 2 ký tự / máy chủ không trả lời). Kết quả thật
+  // của ô tìm là `ketQuaTim` bên dưới.
   const filteredPatients = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return patients;
@@ -600,6 +616,89 @@ export default function BookingHub({
         p.patient_code.toLowerCase().includes(q),
     );
   }, [patients, searchQuery]);
+
+  // TÌM TRÊN TOÀN BỘ HỒ SƠ (06/10/2026).
+  //
+  // Sáng 06/10 nạp ~8.600 khách cũ từ Notion; 200 khách nạp sẵn là khách MỚI
+  // TẠO gần nhất, nên lễ tân gõ tên / số một khách cũ thì không ra và tạo hồ sơ
+  // trùng. Từ 2 ký tự, sau 300 ms ngừng gõ, hỏi máy chủ
+  // (`GET /api/appointments/tim-khach` → `man_dat_lich_doc.tim_khach`: tên
+  // không dấu / mã / một phần SĐT, khớp đúng mã-số lên trước, tối đa 20).
+  //
+  // KẾT QUẢ ĐI KÈM CHUỖI ĐÃ HỎI và chỉ hiện khi khớp ô tìm hiện tại — cùng cách
+  // với `lichDaNap`: gõ tiếp thì kết quả cũ tự thôi hiện, không cần lệnh dọn
+  // trong thân effect, và một câu trả lời về muộn không đè lên chuỗi mới.
+  const TIM_TOI_THIEU = 2;
+  const qTim = searchQuery.trim();
+  const timMayChu = qTim.length >= TIM_TOI_THIEU;
+  const [ketQuaTim, setKetQuaTim] = useState<
+    | {
+        q: string;
+        ok: true;
+        patients: PatientLite[];
+        lanKham: Record<string, { soLanKham: number; laTaiKham: boolean }>;
+      }
+    | { q: string; ok: false }
+    | null
+  >(null);
+  useEffect(() => {
+    if (!timMayChu) return;
+    const q = qTim;
+    let con = true;
+    const hen = setTimeout(() => {
+      fetch(`/api/appointments/tim-khach?q=${encodeURIComponent(q)}`)
+        .then(async (r) => {
+          if (!r.ok) throw new Error(String(r.status));
+          return (await r.json()) as {
+            patients?: PatientLite[];
+            lan_kham?: Record<string, { soLanKham: number; laTaiKham: boolean }>;
+          };
+        })
+        .then((d) => {
+          if (con)
+            setKetQuaTim({
+              q,
+              ok: true,
+              patients: d.patients ?? [],
+              lanKham: d.lan_kham ?? {},
+            });
+        })
+        // Hỏng thì NÓI là hỏng (dòng dưới ô tìm) và vẫn hiện lọc tại chỗ — im
+        // lặng thì lễ tân tưởng "không có khách này" rồi tạo hồ sơ trùng.
+        .catch(() => {
+          if (con) setKetQuaTim({ q, ok: false });
+        });
+    }, 300);
+    return () => {
+      con = false;
+      clearTimeout(hen);
+    };
+  }, [qTim, timMayChu]);
+  const ketQuaHienTai = timMayChu && ketQuaTim?.q === qTim ? ketQuaTim : null;
+  const danhSachKhach =
+    ketQuaHienTai && ketQuaHienTai.ok ? ketQuaHienTai.patients : filteredPatients;
+  const TRAN_TIM = 20;
+  const dongTrangThaiTim: string | null = !timMayChu
+    ? null
+    : !ketQuaHienTai
+      ? "Đang tìm trên toàn bộ hồ sơ…"
+      : !ketQuaHienTai.ok
+        ? "Không tìm được trên toàn bộ hồ sơ — đang hiện trong 200 khách gần nhất."
+        : ketQuaHienTai.patients.length === 0
+          ? "Không có khách nào khớp."
+          : ketQuaHienTai.patients.length >= TRAN_TIM
+            ? `Hiện ${TRAN_TIM} khách khớp nhất — gõ thêm để thu hẹp.`
+            : null;
+
+  /** Chọn một khách trong danh sách tìm: nhớ hồ sơ + nhãn "khám lần mấy" của
+   *  họ nếu họ đến từ kết quả máy chủ (có thể ngoài 200 khách nạp sẵn). */
+  function nhoKhachTuTim(p: PatientLite) {
+    if (!ketQuaHienTai || !ketQuaHienTai.ok) return;
+    const id = p.clinic_patient_id;
+    setKhachTuTim((cu) => ({ ...cu, [id]: p }));
+    const lk = ketQuaHienTai.lanKham[id];
+    if (lk) setLanKhamTuTim((cu) => ({ ...cu, [id]: lk }));
+  }
 
 
   // SỐ KHÔNG TĂNG SAU KHI ĐẶT — đây là chỗ gây ra nó.
@@ -1130,9 +1229,14 @@ export default function BookingHub({
                     className="w-full bg-transparent text-xs outline-none"
                   />
                 </label>
+                {dongTrangThaiTim ? (
+                  <p role="status" className="text-label text-ink-muted">
+                    {dongTrangThaiTim}
+                  </p>
+                ) : null}
                 {/* Expanded scroll list */}
                 <div className="max-h-95 overflow-y-auto divide-y divide-line text-xs pr-0.5">
-                  {filteredPatients.map((p) => {
+                  {danhSachKhach.map((p) => {
                     const selected = p.clinic_patient_id === selectedPatientId;
                     return (
                       <button
@@ -1148,6 +1252,7 @@ export default function BookingHub({
                           // biểu mẫu khách mới, panel phải vẫn ẩn, nên không có
                           // cách nào đặt lịch cho người vừa chọn. Người dùng
                           // chọn xong lại phải đi tìm đường ra.
+                          nhoKhachTuTim(p);
                           chonKhach(p.clinic_patient_id);
                           setMode("grid");
                         }}
@@ -1367,10 +1472,10 @@ export default function BookingHub({
                               lý khách hàng. Người đang đặt lịch cần biết đây là
                               lần đầu hay khách đang theo một chuỗi tái khám,
                               TRƯỚC khi chọn dịch vụ. */}
-                          {nhanLanKham(lanKham?.[activePatient.clinic_patient_id]) && (
+                          {nhanLanKham(lanKhamGop[activePatient.clinic_patient_id]) && (
                             <span className="rounded-chip bg-brand-100 px-1.5 py-0.5 text-label font-semibold text-brand-800">
                               {nhanLanKham(
-                                lanKham?.[activePatient.clinic_patient_id],
+                                lanKhamGop[activePatient.clinic_patient_id],
                               )}
                             </span>
                           )}
