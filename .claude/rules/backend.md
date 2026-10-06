@@ -21,6 +21,8 @@ paths:
 - pytest dùng DB chung `chung_test_db`
   (`postgresql://postgres:postgres@127.0.0.1:55600/postgres`) — không tự dựng
   container DB, không reset DB chung. Chi tiết: `docs/CHAY-TEST.md`.
-- Kiểu: CI chạy **mypy strict**. LSP pyright (Claude Code) dùng `pyrightconfig.json`
-  + stub `typings/asyncpg` để nhìn asyncpg giống mypy; pyright báo mà mypy không
-  báo thì kiểm tay, đừng sửa mù.
+- Kiểu: CI chạy **mypy strict** (`ignore_missing_imports`). LSP pyright của Claude
+  Code dùng `pyrightconfig.json` với `useLibraryCodeForTypes: false` — thư viện không
+  công bố kiểu (không `py.typed`, vd asyncpg) coi là Unknown, ĐÚNG như mypy coi là
+  Any; đừng bật lại (asyncpg sẽ sinh ~970 lỗi giả `PoolConnectionProxy`). Pyright báo
+  mà mypy không báo thì kiểm tay, đừng sửa mù.

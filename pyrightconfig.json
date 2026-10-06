@@ -9,14 +9,15 @@
     "**/__pycache__",
     "src/dashboard",
     "docs",
-    "supabase",
-    "typings"
+    "supabase"
   ],
   "extraPaths": [
     "src"
   ],
   "pythonVersion": "3.12",
   "typeCheckingMode": "basic",
-  "stubPath": "typings",
-  "reportMissingImports": "warning"
+  "reportMissingImports": "warning",
+  "useLibraryCodeForTypes": false,
+  "venvPath": ".",
+  "venv": ".venv"
 }

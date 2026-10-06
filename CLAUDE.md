@@ -129,7 +129,7 @@ khách → Caddy (TLS Let's Encrypt) → dashboard (Next.js, chỉ giao diện)
   khối `<new-diagnostics>` gắn vào lượt tool KẾ TIẾP sau Edit, không vào kết quả Edit.
   Sửa xong thì làm thêm ít nhất một bước (Read lại file) trước khi báo xong; có lỗi
   thì sửa trước khi đi tiếp. Tìm định nghĩa/chỗ gọi bằng tool `LSP` thay vì grep chữ.
-  Cấu hình pyright: `pyrightconfig.json` + `typings/`.
+  Cấu hình pyright: `pyrightconfig.json` (nhìn thư viện không kiểu giống mypy).
 - **Hook sau khi sửa** (`.claude/hooks/kiem-sau-sua.sh`): chạy đúng bản ruff của CI
   trên file `.py` vừa sửa; báo lỗi thì sửa ngay.
 - **Comment:** giữ comment nói *vì sao* / *bẫy đã cắn*; comment chỉ kể *đổi lúc nào*
