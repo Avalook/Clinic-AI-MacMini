@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 14:49. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 16:02. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -195,7 +195,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: NhanSuBoard.tsx
 - gọi API Next: `/api/staff`
 - gọi thẳng backend (server): `/api/v1/staff`, `/api/v1/clinic-config/overview`
-- service: StaffService.{list_assignable, list_active, update_staff, create_staff} · ClinicConfigService.overview
+- service: StaffService.{list_assignable, list_active, create_staff, update_staff} · ClinicConfigService.overview
 - test: test_staff_service.py, test_phong_la_tai_nguyen_db.py, test_phong_lam_theo_dich_vu_db.py, test_quyen_khoi_dong_db.py
 
 ### `/ops` — Vận hành hệ thống
@@ -1238,6 +1238,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 
 #### `/api/staff` · `src/dashboard/app/api/staff/route.ts`
 - GET `/api/v1/staff` → `src/clinicai/api/v1/routers/staff.py:list_staff` → StaffService.list_assignable, StaffService.list_active
+- POST `/api/v1/staff` → `src/clinicai/api/v1/routers/staff.py:create_staff` → StaffService.create_staff
 - PATCH `/api/v1/staff/{id}` → `src/clinicai/api/v1/routers/staff.py:update_staff` → StaffService.update_staff
 - test: src/tests/unit/test_staff_service.py, src/tests/services/test_quyen_khoi_dong_db.py
 - màn dùng: /nhan-su
