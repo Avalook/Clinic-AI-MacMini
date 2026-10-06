@@ -82,6 +82,17 @@ SELECT p.clinic_patient_id::text AS clinic_patient_id, p.patient_code,
  WHERE p.clinic_id = $1::uuid
    AND p.clinic_patient_id::text
        = ANY(coalesce($2::text[], ARRAY[p.clinic_patient_id::text]))
+   -- Hồ sơ cũ chuyển từ Notion (05/10/2026, ~8.600 khách) chỉ vào danh sách khi
+   -- đã có hoạt động trên hệ thống: danh sách này nạp HẾT về trình duyệt (trần
+   -- TRAN_HO_SO) rồi lọc tại chỗ — để nguyên thì màn vẽ 5.000 dòng và khách cũ
+   -- vượt trần không tìm được. Tra khách cũ: Quản lý khách hàng (tìm phía máy chủ).
+   AND (p.nguon_nhap IS NULL
+        OR EXISTS (SELECT 1 FROM appointment a
+                    WHERE a.clinic_id = p.clinic_id
+                      AND a.clinic_patient_id = p.clinic_patient_id)
+        OR EXISTS (SELECT 1 FROM visit v
+                    WHERE v.clinic_id = p.clinic_id
+                      AND v.clinic_patient_id = p.clinic_patient_id))
  -- Mã khách là khoá phụ: hai khách cùng mốc không đổi chỗ giữa hai lần tải.
  ORDER BY hd.luc DESC, p.clinic_patient_id
  LIMIT $3

@@ -263,7 +263,9 @@ export default function LichSuNotion({ clinicPatientId }: { clinicPatientId: str
       .then(async (r) => {
         const j = await r.json().catch(() => null);
         if (huy) return;
-        if (!r.ok) setLoi((j && (j.message || j.detail)) || "Không đọc được hồ sơ khám trước.");
+        // Không có quyền xem danh sách bệnh nhân (vd CSKH) → khối tự ẩn, không báo lỗi.
+        if (r.status === 403) setLs({ co_lich_su: false });
+        else if (!r.ok) setLoi((j && (j.message || j.detail)) || "Không đọc được hồ sơ khám trước.");
         else setLs(j as LichSu);
       })
       .catch(() => !huy && setLoi("Không đọc được hồ sơ khám trước."));
@@ -296,7 +298,13 @@ export default function LichSuNotion({ clinicPatientId }: { clinicPatientId: str
   const hen = ls.lich_hen ?? [];
 
   return (
-    <section className="border-t border-line px-5 py-4" aria-label="Hồ sơ khám trước 10/2026">
+    // `w-0 min-w-full`: lấp đúng bề rộng khung chứa nhưng KHÔNG góp bề rộng tối
+    // thiểu — bảng lịch hẹn / dòng chẩn đoán dài không kéo khung khách (lưới
+    // không min-w-0 ở /customers) rộng quá màn 375.
+    <section
+      className="w-0 min-w-full border-t border-line px-5 py-4"
+      aria-label="Hồ sơ khám trước 10/2026"
+    >
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
           <History size={15} className="text-brand-600" /> Hồ sơ khám trước 10/2026 ({luot.length})

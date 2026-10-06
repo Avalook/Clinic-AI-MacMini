@@ -19,6 +19,7 @@ import pytest
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.danh_sach_benh_nhan_service import DanhSachBenhNhanService
 from clinicai.services.lich_su_notion_service import chi_tiet_luot, lich_su
 from clinicai.services.nhap_lich_su_notion import nap
 from tests.services.test_luot_kham_service_db import CLINIC, KichBan
@@ -245,8 +246,17 @@ async def test_khach_moi_tu_notion_va_trung_sdt_khac_ten(
 
 
 async def test_khong_co_quyen_phieu_kham_thi_chi_thay_danh_sach(
-    kb: KichBan, tmp_path: Path
+    kb: KichBan, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # Cố định "không có quyền xem phiếu khám": quyền mặc định của vai trên DB test
+    # dùng chung bị test khác đổi (chạy riêng thì qua, chạy cả bộ thì không).
+    # Điều cần kiểm ở đây là CÁCH dịch vụ chặn nội dung, không phải bảng quyền.
+    import clinicai.services.lich_su_notion_service as lsn
+
+    async def khong_co_quyen(conn: Any, identity: Any) -> bool:
+        return False
+
+    monkeypatch.setattr(lsn, "co_quyen_noi_dung", khong_co_quyen)
     async with kb.pool.acquire() as conn:
         a = await _khach_he_thong(conn, kb.location_id, "Phạm Thị Quyền Thử", _sdt())
         sid = await conn.fetchval(
@@ -295,3 +305,59 @@ async def test_khong_co_quyen_phieu_kham_thi_chi_thay_danh_sach(
     assert ls["luot"][0]["chan_doan"] is None
     with pytest.raises(SafetyGateError):
         await chi_tiet_luot(kb.pool, identity=khong_quyen, luot_id=ls["luot"][0]["id"])
+
+
+async def test_ho_so_cu_chua_hoat_dong_khong_vao_danh_sach_benh_nhan(
+    kb: KichBan, tmp_path: Path
+) -> None:
+    """Danh sách bệnh nhân nạp HẾT về trình duyệt: 8.600 hồ sơ cũ chưa hoạt động
+    không được chen vào; khách cũ quay lại (có lượt) thì hiện như mọi khách."""
+    key = f"hc:{uuid.uuid4()}"
+    ma = f"KHACH-T{random.randint(1, 10**6)}"
+    goi = _goi(
+        tmp_path / "goi",
+        nguoi=[{"nguoi_key": key, "ten": "Đỗ Thị Cũ Thử", "sdt": _sdt(), "ma": ma}],
+        luot=[],
+    )
+    await nap(kb.pool, goi, that=True, clinic_id=CLINIC)
+    async with kb.pool.acquire() as conn:
+        bn = await conn.fetchval(
+            "SELECT clinic_patient_id::text FROM patient WHERE patient_code = $1", ma
+        )
+
+    async def co_trong_danh_sach() -> bool:
+        ds = await DanhSachBenhNhanService(kb.pool).lay(identity=kb.bac_si)
+        return any(d["ho_so"]["clinic_patient_id"] == bn for d in ds["dong"])
+
+    assert not await co_trong_danh_sach()
+    async with kb.pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO visit (clinic_id, clinic_patient_id, status, checked_in_at)"
+            " VALUES ($1::uuid, $2::uuid, 'OPEN', now())",
+            CLINIC,
+            bn,
+        )
+    assert await co_trong_danh_sach()
+
+
+async def test_man_dat_lich_nap_kem_khach_cu_theo_ma(
+    kb: KichBan, tmp_path: Path
+) -> None:
+    """Màn Đặt lịch chỉ nạp 200 khách: hồ sơ cũ chưa hoạt động không chiếm chỗ,
+    nhưng "Đặt lịch" từ Quản lý khách hàng (`?bn=<mã>`) phải chọn sẵn được."""
+    from clinicai.services.man_dat_lich_doc import hub_dat_lich
+
+    key = f"hc:{uuid.uuid4()}"
+    ma = f"KHACH-T{random.randint(1, 10**6)}"
+    goi = _goi(
+        tmp_path / "goi",
+        nguoi=[
+            {"nguoi_key": key, "ten": "Vũ Thị Đặt Lịch Thử", "sdt": _sdt(), "ma": ma}
+        ],
+        luot=[],
+    )
+    await nap(kb.pool, goi, that=True, clinic_id=CLINIC)
+    khong = await hub_dat_lich(kb.pool, identity=kb.le_tan)
+    assert ma not in {p["patient_code"] for p in khong["patients"]}
+    co = await hub_dat_lich(kb.pool, identity=kb.le_tan, bn=ma)
+    assert co["patients"][0]["patient_code"] == ma

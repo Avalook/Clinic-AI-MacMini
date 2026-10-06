@@ -48,6 +48,7 @@ import { todayVn } from "@/lib/roster";
 import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
 import { khoangTuKy, type Khoang } from "@/lib/thanh-ngay";
 import KhungKhach from "../_lam-viec/KhungKhach";
+import LichSuNotion from "../patient-list/LichSuNotion";
 import LichTrungCuaKhach from "./LichTrungCuaKhach";
 import DatLichModal from "./DatLichModal";
 import LichSuCacLanKham from "./LichSuCacLanKham";
@@ -2037,6 +2038,13 @@ export default function CustomersView({
                     clinicPatientId={selected.clinic_patient_id}
                   />
                 )}
+
+                {/* HỒ SƠ KHÁM TRƯỚC 10/2026 (05/10/2026) — khách cũ chuyển từ Notion
+                    tìm được ở đây (tìm phía máy chủ); khối tự ẩn khi không có. */}
+                <LichSuNotion
+                  key={`cu-${selected.clinic_patient_id}`}
+                  clinicPatientId={selected.clinic_patient_id}
+                />
 
                 {canEdit && !selectedAppt?.upcoming ? (
                   <button

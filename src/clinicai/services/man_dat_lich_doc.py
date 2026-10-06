@@ -41,7 +41,7 @@ def dem_lan_kham(lich: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
 
 
 async def hub_dat_lich(
-    pool: asyncpg.Pool, *, identity: StaffIdentity
+    pool: asyncpg.Pool, *, identity: StaffIdentity, bn: str | None = None
 ) -> dict[str, Any]:
     cid = identity.clinic_id
     dau = datetime.combine(now_vn().date(), time.min, tzinfo=CLINIC_TZ)
@@ -65,12 +65,24 @@ async def hub_dat_lich(
             SELECT clinic_patient_id::text, patient_code, full_name, phone_primary,
                    sdt_tim_kiem, date_of_birth, gender, address,
                    location_id::text
-              FROM patient
-             WHERE clinic_id = $1::uuid
-             ORDER BY created_at DESC
+              FROM patient p
+             WHERE p.clinic_id = $1::uuid
+               -- Hồ sơ cũ chuyển từ Notion (05/10/2026, ~8.600) chưa hoạt động
+               -- trên hệ thống không chiếm 200 chỗ; khách trong `?bn=` (bấm
+               -- "Đặt lịch" từ Quản lý khách hàng) thì LUÔN có, đứng đầu.
+               AND (p.nguon_nhap IS NULL
+                    OR p.patient_code = $2
+                    OR EXISTS (SELECT 1 FROM appointment a
+                                WHERE a.clinic_id = p.clinic_id
+                                  AND a.clinic_patient_id = p.clinic_patient_id)
+                    OR EXISTS (SELECT 1 FROM visit v
+                                WHERE v.clinic_id = p.clinic_id
+                                  AND v.clinic_patient_id = p.clinic_patient_id))
+             ORDER BY (p.patient_code = $2) DESC NULLS LAST, p.created_at DESC
              LIMIT 200
             """,
             cid,
+            (bn or "").strip() or None,
         )
         lich_hom_nay = await conn.fetch(
             """
