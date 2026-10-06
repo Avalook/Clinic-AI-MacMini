@@ -135,16 +135,13 @@ UPDATE public.clinic_membership m
   JOIN auth.users u ON u.id = s.auth_user_id
  WHERE m.staff_id = s.id AND u.email = :'email';
 
--- ④ Mật khẩu cho cửa đăng nhập của chính ứng dụng (/api/v1/auth/login).
-INSERT INTO public.app_credential (staff_id, email, password_hash)
-SELECT s.id, :'email', extensions.crypt(:'pw', extensions.gen_salt('bf'))
-  FROM public.staff s
-  JOIN auth.users u ON u.id = s.auth_user_id
- WHERE u.email = :'email'
-    ON CONFLICT (staff_id) DO UPDATE
-   SET password_hash = EXCLUDED.password_hash,
-       failed_attempts = 0,
-       locked_until = NULL;
+-- ④ Cửa đăng nhập của chính ứng dụng (/api/v1/auth/login): chép đúng chuỗi băm
+--    vừa đặt ở ① — GoTrue là nguồn sự thật (20261006420000). Dòng đã thu hồi
+--    giữ nguyên khoá; mở lại là việc của "Tạo tài khoản" ở /settings/tai-khoan.
+SELECT * FROM public.dong_bo_app_credential(
+    (SELECT s.id FROM public.staff s
+       JOIN auth.users u ON u.id = s.auth_user_id
+      WHERE u.email = :'email'));
 
 COMMIT;
 SQL

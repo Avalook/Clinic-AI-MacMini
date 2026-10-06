@@ -247,6 +247,10 @@ async def main() -> int:
                         json={"ban_duration": KHOA_LAU},
                     )
                 print(f"  ✓ khoá {k['ten']}")
+        # Mật khẩu GoTrue → app_credential (20261006420000); quên thì su-kien
+        # cũng chép trong vòng một phút.
+        db = await conn.fetchrow("SELECT * FROM public.dong_bo_app_credential()")
+        print(f"app_credential: thêm {db['them']}, sửa {db['sua']}")
         print(
             "\nXong. Quyền người mới: chạy tiếp"
             " scripts/ky-nang-tu-file.py --that --cap-quyen."

@@ -13,7 +13,8 @@ vì cái nào.
 
 MẬT KHẨU KHÔNG ĐỔI. auth.users lưu bcrypt và pgcrypto `crypt()` kiểm đúng định
 dạng ấy, nên bảng app_credential chép nguyên chuỗi băm sang: không ai phải đặt
-lại mật khẩu.
+lại mật khẩu. GoTrue là nguồn sự thật; mỗi lần đổi mật khẩu/tên đăng nhập được
+chép lại (`dong_bo_mat_khau`, ngay sau thao tác + mỗi phút trong su-kien).
 """
 
 from __future__ import annotations
@@ -96,6 +97,10 @@ class AuthService:
                       FROM public.app_credential c
                       JOIN public.staff s ON s.id = c.staff_id
                      WHERE lower(c.email) = lower($1)
+                     -- Email chỉ duy nhất giữa các dòng CÒN DÙNG (20261006420000):
+                     -- dòng thu hồi của người cũ có thể trùng email người mới.
+                     ORDER BY c.thu_hoi_luc IS NOT NULL
+                     LIMIT 1
                      FOR UPDATE OF c
                     """,
                     email,

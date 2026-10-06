@@ -310,6 +310,13 @@ def test_nhat_ky_tai_khoan_nhan_su(db: list[SqlConn]) -> None:
     # ở đây nữa là ghi hai lần.
     for da_chuyen in ("tao", "thu_hoi"):
         assert c.post(url, json={"hanh_dong": da_chuyen}).status_code == 422
-    db[0] = pool(("SELECT s.full_name FROM staff s", "BS B"))
+    dong_bo = {"them": 0, "sua": 1, "mo_lai": 0, "trung_email": 0}
+    db[0] = pool(
+        ("SELECT s.full_name FROM staff s", "BS B"),
+        ("dong_bo_app_credential", dong_bo),
+    )
     ok = c.post(url, json={"hanh_dong": "doi_mat_khau"})
     assert ok.status_code in (200, 201) and db[0].events()
+    # Cùng giao dịch: chép mật khẩu GoTrue sang app_credential, KHÔNG mở lại.
+    assert db[0].da_goi("dong_bo_app_credential")[0][-1] is False
+    assert ok.json()["dong_bo"] == dong_bo

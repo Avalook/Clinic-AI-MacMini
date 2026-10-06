@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 13:55. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-06 14:12. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -433,16 +433,16 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: NewUserForm.tsx
 - gọi API Next: `/api/admin/users`
 - gọi thẳng backend (server): `/api/v1/staff/tai-khoan`
-- service: audit · TaiKhoanService.{doc, noi, thu_hoi} · can
-- test: test_dieu_phoi_api_1509.py, test_doi_nguoi_trong_ca_db.py, test_permission_db.py, test_rabbitmq_connectivity.py, test_smoke_main_174_175_db.py
+- service: TaiKhoanService.{da_doi, doc, noi, thu_hoi} · can
+- test: test_dieu_phoi_api_1509.py, test_doi_nguoi_trong_ca_db.py, test_permission_db.py
 
 ### `/settings/tai-khoan` — Thiết lập tài khoản cho nhân viên
 - page: `src/dashboard/app/(dashboard)/settings/tai-khoan/page.tsx` · quyền: lego `nhan_su` (Nhân sự & phân quyền · mặc định: Quản lý)
 - thành phần: app/(dashboard)/settings/AccountActions.tsx
 - gọi API Next: `/api/admin/users`
 - gọi thẳng backend (server): `/api/v1/staff/tai-khoan`
-- service: audit · TaiKhoanService.{doc, noi, thu_hoi} · can
-- test: test_dieu_phoi_api_1509.py, test_doi_nguoi_trong_ca_db.py, test_permission_db.py, test_rabbitmq_connectivity.py, test_smoke_main_174_175_db.py
+- service: TaiKhoanService.{da_doi, doc, noi, thu_hoi} · can
+- test: test_dieu_phoi_api_1509.py, test_doi_nguoi_trong_ca_db.py, test_permission_db.py
 
 ### `/sieu-am`
 - page: `src/dashboard/app/(dashboard)/sieu-am/page.tsx` · quyền: ?
@@ -532,13 +532,13 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
 #### `/api/admin/users` · `src/dashboard/app/api/admin/users/route.ts`
-- POST `/api/v1/staff/{id}/nhat-ky-tai-khoan` → `src/clinicai/api/v1/routers/staff.py:ghi_nhat_ky_tai_khoan` → record_event + SQL ngay trong router
+- POST `/api/v1/staff/{id}/nhat-ky-tai-khoan` → `src/clinicai/api/v1/routers/staff.py:ghi_nhat_ky_tai_khoan` → TaiKhoanService.da_doi
 - GET `/api/v1/staff/{id}/tai-khoan` → `src/clinicai/api/v1/routers/staff.py:doc_tai_khoan` → TaiKhoanService.doc
 - GET `/api/v1/phan-quyen/toi` → `src/clinicai/api/v1/routers/phan_quyen.py:quyen_cua_toi` → quyen_hieu_luc
 - GET `/api/v1/staff/tai-khoan` → `src/clinicai/api/v1/routers/staff.py:danh_sach_tai_khoan` → (SQL ngay trong router, không qua service)
 - POST `/api/v1/staff/{id}/tai-khoan/noi` → `src/clinicai/api/v1/routers/staff.py:noi_tai_khoan` → TaiKhoanService.noi
 - POST `/api/v1/staff/{id}/tai-khoan/thu-hoi` → `src/clinicai/api/v1/routers/staff.py:thu_hoi_tai_khoan` → TaiKhoanService.thu_hoi
-- test: src/tests/api/test_dieu_phoi_api_1509.py, src/tests/integration/test_rabbitmq_connectivity.py, src/tests/services/test_doi_nguoi_trong_ca_db.py (+2)
+- test: src/tests/api/test_dieu_phoi_api_1509.py, src/tests/services/test_doi_nguoi_trong_ca_db.py, src/tests/services/test_permission_db.py
 - màn dùng: /settings/new-user, /settings/tai-khoan
 
 #### `/api/appointments` · `src/dashboard/app/api/appointments/route.ts`
@@ -1335,7 +1335,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/api/test_visit_work_items_read.py, src/tests/test_work_item_service.py
 - màn dùng: /viec-can-xu-ly
 
-## 3. Service → màn (153)
+## 3. Service → màn (152)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1343,7 +1343,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `AnhChuyenKhoanService` | `src/clinicai/services/anh_chuyen_khoan_service.py` | /pharmacy, /thu-ngan/dich-vu, /thu-ngan/thuoc |
 | `append` | `src/clinicai/tools/event_log/append.py` | — (chỉ API/worker) |
 | `AppendEventInput` | `src/clinicai/tools/event_log/append.py` | — (chỉ API/worker) |
-| `audit` | `src/clinicai/services/audit.py` | /settings/new-user, /settings/tai-khoan |
 | `AuditLogService` | `src/clinicai/services/audit_log_service.py` | /audit-log |
 | `AuthService` | `src/clinicai/services/auth_service.py` | — (chỉ API/worker) |
 | `ban_thuoc_service` | `src/clinicai/services/ban_thuoc_service.py` | /pharmacy |

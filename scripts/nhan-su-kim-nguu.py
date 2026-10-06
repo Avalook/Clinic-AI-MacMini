@@ -900,6 +900,10 @@ async def main() -> int:
                 them += 1
                 print(f"  ✓ thêm {n['vai']:<18} {n['ten_day_du']:<24} {email}")
 
+        # Mật khẩu GoTrue → app_credential (20261006420000); quên thì su-kien
+        # cũng chép trong vòng một phút.
+        db = await conn.fetchrow("SELECT * FROM public.dong_bo_app_credential()")
+        print(f"app_credential: thêm {db['them']}, sửa {db['sua']}")
         print(
             f"\nXong. {so_vt} dòng vị trí · {so_ten} hồ sơ đổi sang tên đầy đủ · "
             f"{them} người mới · tất cả về cơ sở {TEN_CO_SO}."

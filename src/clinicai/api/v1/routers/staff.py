@@ -30,7 +30,6 @@ from clinicai.schemas.staff import (
 from clinicai.schemas.staff import (
     StaffUpdateDTO as StaffUpdate,
 )
-from clinicai.services.audit import record_event
 from clinicai.services.staff_service import (
     StaffService,
 )
@@ -207,33 +206,14 @@ async def ghi_nhat_ky_tai_khoan(
     identity: StaffIdentity = Depends(_TAI_KHOAN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
-    """Ghi nhật ký thao tác TÀI KHOẢN ĐĂNG NHẬP của nhân sự (15/09/2026).
+    """Sau đổi mật khẩu / đổi tên đăng nhập ở GoTrue: chép sang app_credential
+    + ghi nhật ký, một giao dịch.
 
     Đổi mật khẩu / đổi tên đăng nhập chạy ở route Next bằng khoá quản trị GoTrue
     (backend không giữ khoá ấy); route gọi đây sau khi GoTrue nhận. Không bao
-    giờ nhận mật khẩu.
+    giờ nhận mật khẩu — chuỗi băm đọc thẳng từ auth.users.
     """
-
-    async with pool.acquire() as conn, conn.transaction():
-        ten = await conn.fetchval(
-            "SELECT s.full_name FROM staff s JOIN clinic_membership m"
-            "  ON m.staff_id = s.id AND m.clinic_id = $2::uuid"
-            " WHERE s.id = $1::uuid",
-            str(id),
-            identity.clinic_id,
-        )
-        if ten is None:
-            raise NotFoundError("Không tìm thấy nhân sự này.")
-        await record_event(
-            conn,
-            event_type=f"staff.account_{body.hanh_dong}",
-            aggregate_type="staff",
-            aggregate_id=str(id),
-            identity=identity,
-            origin="api:staff-account",
-            payload={"staff_id": str(id), "hanh_dong": body.hanh_dong},
-        )
-    return {"ok": True}
+    return await TaiKhoanService(pool, identity).da_doi(str(id), body.hanh_dong)
 
 
 # ── Tài khoản đăng nhập: phần dữ liệu (06/10/2026) ──────────────────────────

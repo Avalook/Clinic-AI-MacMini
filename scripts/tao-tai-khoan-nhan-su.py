@@ -276,6 +276,10 @@ async def main() -> int:
                             staff_id,
                         )
                 print(f"  ✓ {k['vai']:<18} {k['ten']:<24} {email}")
+        # Mật khẩu GoTrue → app_credential (20261006420000); quên thì su-kien
+        # cũng chép trong vòng một phút.
+        db = await conn.fetchrow("SELECT * FROM public.dong_bo_app_credential()")
+        print(f"app_credential: thêm {db['them']}, sửa {db['sua']}")
         print("\nXong. Mật khẩu chung — BẮT đổi ngay buổi đầu.")
         return 0
     finally:

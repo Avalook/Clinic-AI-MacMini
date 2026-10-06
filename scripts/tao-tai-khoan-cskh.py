@@ -178,6 +178,10 @@ async def main() -> int:
                 )
             print(f"  ✓ {ten:24} {email}")
 
+    # Mật khẩu GoTrue → app_credential (20261006420000); quên thì su-kien cũng
+    # chép trong vòng một phút.
+    db = await conn.fetchrow("SELECT * FROM public.dong_bo_app_credential()")
+    print(f"app_credential: thêm {db['them']}, sửa {db['sua']}")
     n = await conn.fetchval(
         """
         SELECT count(*) FROM public.clinic_membership m

@@ -33,6 +33,10 @@
 #      ./scripts/provision-staff-logins.sh --apply    # gửi lời mời + gắn link
 #
 # CHẠY LẠI ĐƯỢC. Người đã có auth_user_id thì bỏ qua, không mời lại.
+#
+# app_credential (cửa /api/v1/auth/login): script không đụng. Mật khẩu chỉ có
+# khi người được mời tự đặt ở GoTrue; vòng su-kien chép sang trong vòng một phút
+# (`dong_bo_app_credential`, 20261006420000).
 
 set -euo pipefail
 

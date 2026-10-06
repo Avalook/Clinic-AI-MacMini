@@ -39,9 +39,11 @@ interface TaiKhoan {
   auth_user_id: string | null;
 }
 
-// Đổi mật khẩu / đổi tên đăng nhập: GoTrue làm xong mới ghi. Ghi hỏng thì không
-// huỷ thao tác đã xong, nhưng báo ra log máy chủ. Không gửi mật khẩu.
-// (Tạo / thu hồi ghi nhật ký trong giao dịch của backend.)
+// Đổi mật khẩu / đổi tên đăng nhập: GoTrue làm xong mới báo backend — backend
+// chép mật khẩu/email mới sang app_credential (GoTrue là nguồn sự thật) + ghi
+// nhật ký, một giao dịch. Hỏng thì không huỷ thao tác đã xong, báo ra log máy
+// chủ; vòng su-kien mỗi phút chép bù. Không gửi mật khẩu.
+// (Tạo / thu hồi làm việc ấy trong giao dịch `noi` / `thu-hoi` của backend.)
 async function ghiNhatKy(
   staffId: string,
   hanhDong: "doi_mat_khau" | "doi_ten_dang_nhap",

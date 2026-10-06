@@ -2,8 +2,10 @@
 
 Route Next `/api/admin/users` giữ khoá quản trị GoTrue (tạo/xoá/đổi mật khẩu
 người dùng GoTrue — backend không giữ khoá ấy, ADR-0012). Mọi thứ còn lại — ai
-thuộc phòng khám nào, nối/gỡ `staff.auth_user_id`, khoá `app_credential`, ghi
-nhật ký — nằm ở đây, mỗi việc MỘT giao dịch, lọc theo phòng khám của người gọi.
+thuộc phòng khám nào, nối/gỡ `staff.auth_user_id`, khoá `app_credential`, chép
+mật khẩu GoTrue sang `app_credential` (GoTrue là nguồn sự thật, xem
+`dong_bo_mat_khau`), ghi nhật ký — nằm ở đây, mỗi việc MỘT giao dịch, lọc theo
+phòng khám của người gọi.
 
 THỨ TỰ VỚI GOTRUE. Thu hồi: giao dịch này chạy TRƯỚC, xoá người dùng GoTrue
 SAU. Xoá GoTrue hỏng thì người dùng ấy còn đó nhưng không nối nhân viên nào —
@@ -20,6 +22,7 @@ import asyncpg
 from clinicai.api.exceptions import ConflictError, NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.audit import record_event
+from clinicai.services.dong_bo_mat_khau import dong_bo
 
 #: Cùng `origin` với nhật ký tài khoản cũ (`/staff/{id}/nhat-ky-tai-khoan`) để
 #: màn Lịch sử thao tác gom một nhóm.
@@ -63,8 +66,8 @@ class TaiKhoanService:
         """Nối người dùng GoTrue vừa tạo vào nhân viên chưa có tài khoản.
 
         Đây cũng là đường HOÀN TÁC của thu hồi: hàng app_credential bị thu hồi
-        của đúng nhân viên này được mở lại (xoá dấu, xoá đếm sai) trong cùng
-        giao dịch.
+        của đúng nhân viên này được mở lại VỚI MẬT KHẨU MỚI vừa đặt ở GoTrue
+        (chưa có hàng thì tạo) — trong cùng giao dịch.
         """
         async with self._pool.acquire() as conn, conn.transaction():
             row = await conn.fetchrow(
@@ -86,19 +89,8 @@ class TaiKhoanService:
                 staff_id,
                 auth_user_id,
             )
-            mo_lai = await conn.fetchval(
-                """
-                WITH mo AS (
-                    UPDATE app_credential
-                       SET thu_hoi_luc = NULL, thu_hoi_boi = NULL,
-                           failed_attempts = 0, locked_until = NULL,
-                           updated_at = now()
-                     WHERE staff_id = $1::uuid AND thu_hoi_luc IS NOT NULL
-                    RETURNING 1)
-                SELECT count(*) > 0 FROM mo
-                """,
-                staff_id,
-            )
+            dong_bo_ket = await dong_bo(conn, staff_id, mo_lai=True)
+            mo_lai = dong_bo_ket["mo_lai"] > 0
             await record_event(
                 conn,
                 event_type="staff.account_tao",
@@ -109,14 +101,48 @@ class TaiKhoanService:
                 payload={
                     "staff_id": staff_id,
                     "hanh_dong": "tao",
-                    "mo_lai_khoa_ung_dung": bool(mo_lai),
+                    "mo_lai_khoa_ung_dung": mo_lai,
+                    "dong_bo": dong_bo_ket,
                 },
             )
         return {
             "ok": True,
             "full_name": row["full_name"],
-            "mo_lai_khoa_ung_dung": bool(mo_lai),
+            "mo_lai_khoa_ung_dung": mo_lai,
+            "dong_bo": dong_bo_ket,
         }
+
+    async def da_doi(self, staff_id: str, hanh_dong: str) -> dict[str, Any]:
+        """Sau "Đặt lại mật khẩu" / "Đổi tên đăng nhập" (GoTrue đã nhận): chép
+        mật khẩu + email mới sang app_credential và ghi nhật ký — một giao dịch.
+
+        Không mở hàng đã thu hồi (chỉ "Tạo tài khoản" mở). Không bao giờ nhận
+        mật khẩu: chuỗi băm đọc thẳng từ auth.users.
+        """
+        async with self._pool.acquire() as conn, conn.transaction():
+            ten = await conn.fetchval(
+                f"SELECT s.full_name FROM staff s WHERE s.id = $1::uuid"
+                f" AND {_THUOC_PHONG_KHAM}",
+                staff_id,
+                self._ai.clinic_id,
+            )
+            if ten is None:
+                raise NotFoundError(KHONG_TIM_THAY)
+            dong_bo_ket = await dong_bo(conn, staff_id)
+            await record_event(
+                conn,
+                event_type=f"staff.account_{hanh_dong}",
+                aggregate_type="staff",
+                aggregate_id=staff_id,
+                identity=self._ai,
+                origin=ORIGIN,
+                payload={
+                    "staff_id": staff_id,
+                    "hanh_dong": hanh_dong,
+                    "dong_bo": dong_bo_ket,
+                },
+            )
+        return {"ok": True, "dong_bo": dong_bo_ket}
 
     async def thu_hoi(self, staff_id: str, auth_user_id: str) -> dict[str, Any]:
         """Gỡ nối + khoá app_credential + ghi nhật ký — một giao dịch.
