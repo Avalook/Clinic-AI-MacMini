@@ -612,6 +612,10 @@ class ChiDinhBody(BaseModel):
     service_codes: list[str] = Field(min_length=1, max_length=30)
     #: Dịch vụ bác sĩ tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được.
     bat_buoc_codes: list[str] = Field(default_factory=list, max_length=30)
+    #: Nút "Chỉ định thêm (lần N)" (06/10/2026): mở lần mới. Mặc định vào lần
+    #: hiện tại. `lan_dang_thay` = lần hiện tại màn đang thấy.
+    lan_moi: bool = False
+    lan_dang_thay: int | None = None
 
 
 class BatBuocBody(BaseModel):
@@ -633,6 +637,8 @@ async def dat_chi_dinh(
         identity=identity,
         idempotency_key=idempotency_key,
         bat_buoc_codes=body.bat_buoc_codes,
+        lan_moi=body.lan_moi,
+        lan_dang_thay=body.lan_dang_thay,
     )
 
 

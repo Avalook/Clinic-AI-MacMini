@@ -1,8 +1,8 @@
-"""Lần chỉ định (26/09/2026 — lát 4 bản giao diện mẫu).
+"""Lần chỉ định (26/09/2026 — lát 4; ỔN ĐỊNH 06/10/2026).
 
-Mỗi lần bấm chốt chỉ định = MỘT lần, kể cả khi cùng một vòng khám (trước đó
-lần suy từ vòng khám nên "chỉ định thêm" trong cùng phiên vẫn hiện Lần 1).
-Dịch vụ đã chỉ định ở lần trước chỉ định lại được — là một dòng mới, lần mới.
+Tuyền thử thật 06/10: vào ra Bàn khám rồi tick thêm thì TỰ thành lần 2. Nay:
+mặc định vào LẦN HIỆN TẠI; chỉ lệnh "mở lần mới" (nút "Chỉ định thêm (lần N)")
+mới sang lần kế. Dịch vụ đã chỉ định chỉ định lại được — là một dòng mới.
 """
 
 from __future__ import annotations
@@ -13,7 +13,11 @@ import asyncpg
 import pytest
 
 from clinicai.phieu_kham.ket_qua_chi_dinh import doc_ket_qua_theo_chi_dinh
-from clinicai.services.chi_dinh_service import ChiDinhService
+from clinicai.services.chi_dinh_service import (
+    ChiDinhService,
+    doc_lan_dang_thay,
+    lan_cua_luot,
+)
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
@@ -36,14 +40,29 @@ async def _lan(pool: asyncpg.Pool, visit: str) -> dict[str, int | None]:  # noqa
     return {d["service_order_id"]: d["lan"] for d in ds}
 
 
-async def test_chi_dinh_lai_cung_dich_vu_cung_phien_la_lan_moi(
+async def _lan_luot(pool: asyncpg.Pool, visit: str) -> dict[str, object]:  # noqa: F811
+    async with pool.acquire() as conn:
+        return await lan_cua_luot(conn, CLINIC, visit)
+
+
+async def test_bam_gui_lan_hai_van_lan_1_chi_nut_mo_lan_moi_moi_sang_lan_2(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
+    """Kịch bản Tuyền: tick 3 → bỏ 2 → ra vào → tick thêm = vẫn lần 1;
+    bấm "Chỉ định thêm (lần 2)" mới sang lần 2."""
+    from clinicai.services.hoan_tac_service import HoanTacService
+
     ca = await _dung(pool)
     visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
     await chay_hanh_trinh(pool)
     con, don_1 = await _kham_va_chi_dinh(pool, ca, visit)
-    kq = await ChiDinhService(pool).dat_chi_dinh(
+    assert await _lan_luot(pool, visit) == {
+        "hien_tai": 1,
+        "ke_tiep": 2,
+        "mo_moi_duoc": True,
+    }
+    svc = ChiDinhService(pool)
+    kq = await svc.dat_chi_dinh(
         consultation_id=con,
         service_codes=[ca.ma_dv],
         identity=ca.bac_si,
@@ -51,9 +70,79 @@ async def test_chi_dinh_lai_cung_dich_vu_cung_phien_la_lan_moi(
     )
     don_2 = str(kq["order_ids"][0])
     assert don_2 != don_1, "chỉ định lại là một dòng MỚI, không gộp vào dòng cũ"
+    assert kq["lan"] == 1, "bấm gửi lần hai (vào lại màn) KHÔNG tự sang lần 2"
+    # Bỏ chỉ định không đổi lần; gửi tiếp vẫn lần 1.
+    await HoanTacService(pool).huy_chi_dinh(
+        order_id=don_2, identity=ca.bac_si, ly_do="nhầm", xac_nhan=True
+    )
+    kq = await svc.dat_chi_dinh(
+        consultation_id=con,
+        service_codes=[ca.ma_dv],
+        identity=ca.bac_si,
+        idempotency_key=_khoa(),
+    )
+    assert kq["lan"] == 1
+    # Nút "Chỉ định thêm (lần 2)".
+    kq = await svc.dat_chi_dinh(
+        consultation_id=con,
+        service_codes=[ca.ma_dv],
+        identity=ca.bac_si,
+        idempotency_key=_khoa(),
+        lan_moi=True,
+        lan_dang_thay=1,
+    )
+    assert kq["lan"] == 2
+    # Sau đó gửi thường = vào lần 2 (lần hiện tại), không nhảy lần 3.
+    kq = await svc.dat_chi_dinh(
+        consultation_id=con,
+        service_codes=[ca.ma_dv],
+        identity=ca.bac_si,
+        idempotency_key=_khoa(),
+    )
+    assert kq["lan"] == 2
     lan = await _lan(pool, visit)
     assert lan[don_1] == 1
-    assert lan[don_2] == 2, "cùng vòng khám nhưng bấm lần hai → lần 2"
+    assert await _lan_luot(pool, visit) == {
+        "hien_tai": 2,
+        "ke_tiep": 3,
+        "mo_moi_duoc": True,
+    }
+
+
+async def test_mo_lan_moi_khi_lan_hien_tai_toan_dong_bo_thi_dung_lai(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    from clinicai.services.hoan_tac_service import HoanTacService
+
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    await chay_hanh_trinh(pool)
+    con, don_1 = await _kham_va_chi_dinh(pool, ca, visit)
+    await HoanTacService(pool).huy_chi_dinh(
+        order_id=don_1, identity=ca.bac_si, ly_do="nhầm", xac_nhan=True
+    )
+    assert await _lan_luot(pool, visit) == {
+        "hien_tai": 1,
+        "ke_tiep": 1,
+        "mo_moi_duoc": False,
+    }
+    kq = await ChiDinhService(pool).dat_chi_dinh(
+        consultation_id=con,
+        service_codes=[ca.ma_dv],
+        identity=ca.bac_si,
+        idempotency_key=_khoa(),
+        lan_moi=True,
+        lan_dang_thay="rác",
+    )
+    assert kq["lan"] == 1, "không đẻ lần rỗng"
+
+
+async def test_doc_lan_dang_thay_rac_tra_none() -> None:
+    assert doc_lan_dang_thay("rác") is None
+    assert doc_lan_dang_thay(None) is None
+    assert doc_lan_dang_thay(True) is None
+    assert doc_lan_dang_thay(-1) is None
+    assert doc_lan_dang_thay("2") == 2
 
 
 async def test_mot_lan_bam_nhieu_dich_vu_chung_mot_lan(
@@ -77,12 +166,14 @@ async def test_mot_lan_bam_nhieu_dich_vu_chung_mot_lan(
         idempotency_key=_khoa(),
     )
     lan = await _lan(pool, visit)
-    assert {lan[str(i)] for i in kq["order_ids"]} == {2}
+    assert {lan[str(i)] for i in kq["order_ids"]} == {1}, "một lần bấm = một lần"
 
 
-async def test_hai_nguoi_bam_cung_luc_khong_trung_lan(
+async def test_hai_nguoi_cung_bam_mo_lan_moi_chi_ra_mot_lan(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
+    """Hai máy cùng thấy lần 1, cùng bấm "Chỉ định thêm (lần 2)": người sau vào
+    lần 2 người trước vừa mở, không đẻ lần 3 (advisory lock + lần đang thấy)."""
     ca = await _dung(pool)
     visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
     await chay_hanh_trinh(pool)
@@ -95,12 +186,14 @@ async def test_hai_nguoi_bam_cung_luc_khong_trung_lan(
                 service_codes=[ca.ma_dv],
                 identity=ca.bac_si,
                 idempotency_key=_khoa(),
+                lan_moi=True,
+                lan_dang_thay=1,
             )
             for _ in range(2)
         )
     )
     lan = await _lan(pool, visit)
-    assert {lan[str(a["order_ids"][0])], lan[str(b["order_ids"][0])]} == {2, 3}
+    assert {lan[str(a["order_ids"][0])], lan[str(b["order_ids"][0])]} == {2}
 
 
 async def test_trigger_nhap_nhan_so_luc_duyet_mang_sang_khong_so(
@@ -153,7 +246,7 @@ async def test_trigger_nhap_nhan_so_luc_duyet_mang_sang_khong_so(
             [nhap, mang],
         )
     }
-    assert so[nhap] == 2, "nháp nhận số lúc được duyệt"
+    assert so[nhap] == 1, "nháp nhận số lúc được duyệt — vào lần hiện tại"
     assert so[mang] is None, "mang sang từ lượt trước không thuộc lần nào"
 
 

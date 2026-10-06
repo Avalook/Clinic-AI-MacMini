@@ -11,6 +11,7 @@ trong đơn rồi lưu → sổ có dòng "bỏ thuốc". Lượt hồ sơ cũ c
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 import json
 import uuid
@@ -497,3 +498,99 @@ async def test_bat_bien_bat_duoc_dong_thu_lac(pool: asyncpg.Pool) -> None:  # no
         )
     loi = await _bat_bien(pool, visit)
     assert [r["loai"] for r in loi] == ["LECH_TONG"]
+
+
+async def test_quan_ly_thay_bac_si_xoa_quay_thay_dong_da_xoa_va_thong_bao_doi_theo(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Kịch bản Tuyền thử thật 06/10: Quản lý thay BS chỉ định 2 mục, xoá 1.
+
+    Quầy thu vẫn thấy dòng đã xoá (ai, thay BS nào, lần mấy); bác sĩ chính nhận
+    thông báo nêu đúng người + lần; tick lại chính mục ấy → thông báo cũ đóng
+    ("Đã chỉ định lại"), không treo câu cũ. Sổ + thông báo phát NOTIFY.
+    """
+    from clinicai.core.change_broker import CHANNEL
+    from clinicai.services.chi_dinh_service import ChiDinhService
+
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    await chay_hanh_trinh(pool)
+    con, giu = await _kham_va_chi_dinh(pool, ca, visit)
+    async with pool.acquire() as conn:
+        ql = await _nguoi(conn, ca.loc, "MANAGEMENT")
+    kq = await ChiDinhService(pool).dat_chi_dinh(
+        consultation_id=con,
+        service_codes=[ca.ma_dv],
+        identity=ql,
+        idempotency_key=uuid.uuid4().hex,
+    )
+    assert kq["lan"] == 1, "Quản lý chỉ định thêm (không bấm nút lần mới) = lần 1"
+    xoa = str(kq["order_ids"][0])
+
+    tin: list[str] = []
+
+    def nghe(_c: object, _p: object, _ch: object, payload: object) -> None:
+        tin.append(str(payload))
+
+    async with pool.acquire() as listener:
+        await listener.add_listener(CHANNEL, nghe)
+        try:
+            bo = await HoanTacService(pool).huy_chi_dinh(
+                order_id=xoa, identity=ql, xac_nhan=True, ly_do="Bấm nhầm"
+            )
+            for _ in range(20):
+                if any("so_sua_chi_dinh" in t for t in tin) and any(
+                    "thong_bao" in t for t in tin
+                ):
+                    break
+                await asyncio.sleep(0.05)
+        finally:
+            await listener.remove_listener(CHANNEL, nghe)
+    assert any('"so_sua_chi_dinh"' in t for t in tin), tin
+    assert any('"thong_bao"' in t for t in tin), tin
+    assert bo["da_bao_bac_si_chinh"] is True
+
+    # Quầy thu: dòng đã xoá vẫn thấy, kèm ai xoá (thay BS nào) + lần.
+    bang = await CashierBoardService(pool).board(
+        identity=ca.thu_ngan, modes=["dich_vu"]
+    )
+    [item] = [i for i in bang["items"] if i["visit_id"] == visit]
+    [d] = item["da_bo_chi_dinh"]
+    assert d["order_id"] == xoa and d["lan"] == 1 and d["luc"]
+    assert d["cau"].endswith("đã xoá chỉ định này")
+    assert ql.full_name in d["cau"] and f"(thay BS {ca.bac_si.full_name})" in d["cau"]
+    assert d["ly_do"] == "Bấm nhầm"
+    # Dòng còn hiệu lực có nhãn lần.
+    dong = {
+        x["id"]: x for x in item["quay_thu"]["phong_kham"] if x["loai"] == "chi_dinh"
+    }
+    assert dong[giu]["lan"] == 1
+
+    # Bác sĩ chính nhận thông báo nêu đúng người + lần.
+    [tb] = [
+        t
+        for t in await ThongBaoService(pool).cua_toi(identity=ca.bac_si)
+        if t["hoan_tac_so_id"] == bo["so_sua_id"]
+    ]
+    assert f"{ql.full_name} đã xoá" in tb["noi_dung"] and "(lần 1)" in tb["noi_dung"]
+
+    # Tick lại chính dịch vụ ấy (chỉ định MỚI) → thông báo cũ đóng ngay.
+    await ChiDinhService(pool).dat_chi_dinh(
+        consultation_id=con,
+        service_codes=[ca.ma_dv],
+        identity=ql,
+        idempotency_key=uuid.uuid4().hex,
+    )
+    assert not [
+        t
+        for t in await ThongBaoService(pool).cua_toi(identity=ca.bac_si)
+        if t["hoan_tac_so_id"] == bo["so_sua_id"]
+    ]
+    assert (
+        await pool.fetchval(
+            "SELECT ghi_chu_xu_ly FROM thong_bao WHERE nguon = 'bo_chi_dinh'"
+            " AND nguon_id = $1",
+            bo["so_sua_id"],
+        )
+        == "Đã chỉ định lại"
+    )

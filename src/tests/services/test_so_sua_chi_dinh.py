@@ -94,3 +94,29 @@ def test_dong_so_co_hoan_tac() -> None:
     assert dong_so({**goc, "nhom": "THUOC"})["hoan_tac_duoc"] is False
     assert dong_so({**goc, "con_bo": False})["hoan_tac_duoc"] is False
     assert dong_so({**goc, "hanh_dong": "THEM"})["hoan_tac_duoc"] is False
+
+
+def test_cau_xoa_ai_vai_lam_thay_va_rac() -> None:
+    from clinicai.services.so_sua_chi_dinh_service import cau_xoa
+
+    assert cau_xoa(
+        {
+            "boi_ten": "Nguyễn A",
+            "boi_vai": "MANAGEMENT",
+            "boi_staff_id": "1",
+            "bac_si_chinh_id": "2",
+            "bac_si_chinh_ten": "Hùng",
+        }
+    ).endswith("Nguyễn A (thay BS Hùng) đã xoá chỉ định này")
+    # Chính bác sĩ chính xoá: không ghi "thay".
+    assert "thay" not in cau_xoa(
+        {
+            "boi_ten": "Hùng",
+            "boi_staff_id": "2",
+            "bac_si_chinh_id": "2",
+            "bac_si_chinh_ten": "Hùng",
+        }
+    )
+    # Rác / thiếu dữ liệu: không ném.
+    assert cau_xoa({}) == "Không rõ ai đã xoá chỉ định này"
+    assert cau_xoa({"boi_vai": 123, "boi_ten": None}).endswith("đã xoá chỉ định này")

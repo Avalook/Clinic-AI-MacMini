@@ -271,6 +271,9 @@ def dung_hoa_don_quay(
             "trong_lua_chon": True,
             "bat_buoc": bool(c.get("bat_buoc")),
             "mang_sang": bool(c.get("mang_sang")),
+            # Lần chỉ định (06/10/2026) — quầy ghi "Lần 1 / Lần 2"; NULL = mang
+            # sang / làm thêm tại quầy (không thuộc lần bác sĩ chốt).
+            "lan": c.get("lan_chi_dinh"),
             # Làm thêm tại quầy (01/10/2026): "Làm thêm tại quầy tiếp đón".
             "lam_them": c.get("lam_them"),
             "doi_tac_lam": bool(c.get("doi_tac")),

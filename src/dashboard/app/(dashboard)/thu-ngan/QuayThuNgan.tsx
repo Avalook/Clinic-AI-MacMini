@@ -101,6 +101,23 @@ interface Luot {
   /** TIỀN THỪA (hoàn tác 01/10/2026): đã thu cho chỉ định nay đã bỏ / không
    *  làm — máy chủ tính (đã trừ khoản hoàn). */
   tien_thua?: TienThua | null;
+  /** Chỉ định ĐÃ XOÁ (chưa hoàn tác) — 06/10/2026: vẫn thấy, gạch ngang. */
+  da_bo_chi_dinh?: DaBoChiDinh[];
+}
+
+/** Một chỉ định đã xoá — câu "ai đã xoá" do máy chủ viết. */
+interface DaBoChiDinh {
+  so_id: string;
+  order_id: string | null;
+  nhom_nhan: string;
+  ten: string | null;
+  lan: number | null;
+  gia: number | null;
+  cau: string;
+  luc: string | null;
+  ly_do: string | null;
+  da_thu: number;
+  tien_thua: number;
 }
 
 interface TienThua {
@@ -251,7 +268,18 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
   // xếp phòng (dây H4) ngay sau khi thu — màn vẫn hiện "chưa xếp phòng" với số
   // phiên bản cũ, bấm "Xếp phòng" thì bị báo "vừa được điều phối bởi người khác".
   useNgheBang(
-    ["service_order", "visit", "queue_entry", "payment", "payment_cycle", "prescription", "luot_vat_tu"],
+    [
+      "service_order",
+      "visit",
+      "queue_entry",
+      "payment",
+      "payment_cycle",
+      "prescription",
+      "luot_vat_tu",
+      // Sổ sửa chỉ định (06/10/2026): xoá / hoàn tác → dòng "đã xoá" đổi ngay.
+      "so_sua_chi_dinh",
+      "luot_phi_kham",
+    ],
     () => void tai(),
   );
 
@@ -720,6 +748,8 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
 
             {l.tien_thua && l.tien_thua.tong > 0 ? <TienThuaKhoi tt={l.tien_thua} /> : null}
 
+            {quay !== "thuoc" && l.da_bo_chi_dinh?.length ? <DaBoChiDinhKhoi ds={l.da_bo_chi_dinh} /> : null}
+
             {quay !== "thuoc" ? (
               <XepPhongDaThu
                 ds={l.xep_phong ?? []}
@@ -827,6 +857,41 @@ function TienThuaKhoi({ tt }: { tt: TienThua }) {
         Hoàn tiền / huỷ phiếu thu: tab “Đã thanh toán hôm nay”. Khách đổi sang dịch vụ khác thì
         trừ khoản này khi thu dịch vụ mới.
       </p>
+    </div>
+  );
+}
+
+/** Chỉ định đã xoá (06/10/2026 — Tuyền: "không biến mất im lặng"): gạch
+ *  ngang, lần mấy, ai xoá + lúc nào, đã thu chưa. Máy chủ viết câu, màn chỉ vẽ. */
+function DaBoChiDinhKhoi({ ds }: { ds: DaBoChiDinh[] }) {
+  return (
+    <div className="border-b border-line px-4 py-3">
+      <p className="text-label font-semibold uppercase text-ink-muted">Chỉ định đã xoá</p>
+      <ul className="mt-1 divide-y divide-line">
+        {ds.map((d) => (
+          <li key={d.so_id} className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-1.5">
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="text-body text-ink-faint line-through">{d.ten ?? "—"}</span>
+                {d.lan ? <Chip tone="neutral">Lần {d.lan}</Chip> : null}
+                <Chip tone="danger">Đã xoá</Chip>
+              </span>
+              <span className="block text-meta text-ink-muted">
+                {d.cau}
+                {gio(d.luc) ? ` · ${gio(d.luc)}` : ""}
+                {d.ly_do ? ` · Lý do: ${d.ly_do}` : ""}
+              </span>
+            </span>
+            <span className="shrink-0 text-right text-meta tabular-nums text-ink-muted">
+              {d.da_thu > 0
+                ? `đã thu ${tien(d.da_thu)} → tiền thừa ${tien(d.tien_thua)}`
+                : d.gia != null
+                  ? `${tien(d.gia)} · không thu`
+                  : "không thu"}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

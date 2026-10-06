@@ -845,6 +845,17 @@ class PhieuKhamService:
                 conn, clinic_id=identity.clinic_id, visit_id=visit_id
             )
 
+    async def lan_chi_dinh(
+        self, *, visit_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Lần chỉ định hiện tại / lần kế tiếp của lượt (06/10/2026) — màn chỉ vẽ
+        nhãn "lần N" theo đây, không tự đếm."""
+        from clinicai.services.chi_dinh_service import lan_cua_luot
+
+        async with self._pool.acquire() as conn:
+            await self._kiem_quyen(conn, identity, "doc_ket_qua_cls")
+            return await lan_cua_luot(conn, identity.clinic_id, visit_id)
+
     async def tep_chua_gan(
         self, *, visit_id: str, identity: StaffIdentity
     ) -> list[dict[str, Any]]:
