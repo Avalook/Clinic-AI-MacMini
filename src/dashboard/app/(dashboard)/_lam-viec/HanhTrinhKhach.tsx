@@ -47,7 +47,6 @@ import {
 import { khoang } from "@/lib/hanh-trinh";
 
 import { useNgheBang } from "../dung-nghe-bang";
-import { DanhSachSoSua } from "./SoSuaChiDinh";
 import { docBang } from "./api";
 
 const BANG_NGHE = [
@@ -57,8 +56,6 @@ const BANG_NGHE = [
   "payment",
   "visit",
   "consultation",
-  // Sổ thêm / bỏ / hoàn tác chỉ định (Khối 2, 06/10/2026).
-  "so_sua_chi_dinh",
 ] as const;
 
 const MAU_DOAN: Record<TrangThaiBuoc, string> = {
@@ -345,16 +342,6 @@ export function KhungHanhTrinh({ ht, bayGio }: { ht: HanhTrinhKhach; bayGio: num
           />
         ))}
       </ol>
-      {ht.so_sua_chi_dinh && ht.so_sua_chi_dinh.dong.length > 0 ? (
-        // Khối 2 (06/10/2026): ai thêm / bỏ / hoàn tác chỉ định — chỉ xem ở
-        // đây; nút Hoàn tác nằm ở thông báo bác sĩ chính và Lịch sử sửa.
-        <section aria-label="Lịch sử sửa chỉ định" className="space-y-1 border-t border-hairline p-4">
-          <h3 className="text-label font-semibold uppercase tracking-wide text-ink-muted">
-            Lịch sử sửa chỉ định
-          </h3>
-          <DanhSachSoSua so={ht.so_sua_chi_dinh} />
-        </section>
-      ) : null}
       <p className="border-t border-hairline px-4 py-2 text-meta text-ink-muted">
         Xanh lá = xong · xanh dương = đang làm · cam = đang chờ · tím = chờ kết quả đối tác
         (không giữ khách) · xám = chưa tới.

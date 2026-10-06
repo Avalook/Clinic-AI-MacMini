@@ -5,7 +5,6 @@
 // bắt đầu / xong. Ở đây chỉ còn: đổi thời điểm thành "chờ 12′", "làm 6′" theo
 // đồng hồ trình duyệt, và ghép câu hiển thị. Hàm thuần — test bằng node.
 
-import type { SoSua } from "./so-sua-chi-dinh.ts";
 import { fmtTime } from "./datetime.ts";
 
 /** Trạng thái một bước / một đoạn thanh. `khong` = lúc về vẫn chưa làm. */
@@ -123,8 +122,6 @@ export interface HanhTrinhKhach {
   buoc: BuocHanhTrinh[];
   /** Lịch sử xếp / đổi phòng theo mã chỉ định (29/09/2026) — câu máy chủ viết. */
   lich_su_phong?: Record<string, DongLichSuPhong[]>;
-  /** Sổ thêm / bỏ / hoàn tác chỉ định (Khối 2, 06/10/2026) — dạng `SoSua`. */
-  so_sua_chi_dinh?: SoSua;
 }
 
 export interface DongLichSuPhong {
