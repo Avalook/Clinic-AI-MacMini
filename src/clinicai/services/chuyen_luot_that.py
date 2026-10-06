@@ -224,7 +224,8 @@ SELECT n.appt, _ts.clinic, n.clinic_patient_id, NULL, _ts.co_so, n.loai_that, NU
         "appointment_bac_si",
         """
     UPDATE appointment a SET doctor_id = n.bs
-  FROM _nhom n WHERE a.id = n.appt AND NOT n.trung AND n.bs IS NOT NULL
+  FROM _nhom n, _ts
+     WHERE a.clinic_id = _ts.clinic AND a.id = n.appt AND NOT n.trung AND n.bs IS NOT NULL
 """,
     ),
     (
@@ -416,7 +417,8 @@ SELECT gen_random_uuid(), _ts.clinic, 'ho-so-cu-' || k.notion_id, n.clinic_patie
         """
     UPDATE visit v SET status = 'FINALIZED', finalized_at = n.luc, finalized_by = n.bs,
        exam_completed_at = n.luc, closed_at = n.luc
-  FROM _nhom n WHERE v.visit_id = n.visit AND NOT n.trung
+  FROM _nhom n, _ts
+     WHERE v.clinic_id = _ts.clinic AND v.visit_id = n.visit AND NOT n.trung
 """,
     ),
     (
@@ -430,7 +432,7 @@ SELECT c.kq_id, 'service_order', c.so, _ts.lan FROM _cd c CROSS JOIN _ts
 UNION ALL
 SELECT replace(p.source_ref, 'ho-so-cu-', '')::uuid, 'prescription', p.id, _ts.lan
   FROM prescription p CROSS JOIN _ts JOIN _nhom n ON n.visit = p.visit_id
- WHERE p.source_ref LIKE 'ho-so-cu-%'
+ WHERE p.clinic_id = _ts.clinic AND p.source_ref LIKE 'ho-so-cu-%'
 ON CONFLICT DO NOTHING
 """,
     ),
