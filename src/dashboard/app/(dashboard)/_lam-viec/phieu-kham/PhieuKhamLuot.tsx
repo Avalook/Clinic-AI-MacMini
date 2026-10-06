@@ -32,7 +32,10 @@ import {
   nhomThuThuat,
   phanThayDoi,
   type ChiDinhVaKetQua,
+  type DatChiDinh,
   type KetQuaMotChiDinh,
+  type LanChiDinh,
+  type LenhLanChiDinh,
   type DauPhieu,
   type DinhNghiaPhieu,
   type DongDonMayChu,
@@ -104,17 +107,16 @@ export default function PhieuKhamLuot({
   chanRay,
   onTomTat,
   xemLai = false,
+  onDaBoChiDinh,
 }: {
   visitId: string;
   clinicPatientId: string;
   /** Người đang mở được ghi (bác sĩ / thư ký của lượt) — máy chủ vẫn kiểm lại. */
   choGhi: boolean;
-  datChiDinh: (
-    codes: string[],
-    /** Mã dịch vụ bác sĩ tick "Bắt buộc" (25/09/2026). */
-    batBuoc: string[],
-  ) => Promise<{ ok: true } | { ok: false; loi: string }>;
+  datChiDinh: DatChiDinh;
   onDaDat: () => void;
+  /** Vừa bỏ một chỉ định — màn cha tắt câu "Đã chỉ định N…" cũ (06/10/2026). */
+  onDaBoChiDinh?: () => void;
   /** Báo cho nút Hoàn tất: còn đang lưu dở / lỗi lưu thì nói ra. */
   onTrangThai?: (g: ClinicalCompletionGate) => void;
   /** Chỉ vẽ các mục này của phiếu (bàn tư vấn: `["B"]`). */
@@ -133,6 +135,8 @@ export default function PhieuKhamLuot({
   const [chonDuoc, setChonDuoc] = useState<{ form_id: string; ten: string }[] | null>(null);
   const [dau, setDau] = useState<DauPhieu | null>(null);
   const [ketQua, setKetQua] = useState<ChiDinhVaKetQua[]>([]);
+  // Lần hiện tại / lần kế tiếp — máy chủ trả cùng danh sách chỉ định.
+  const [lanChiDinh, setLanChiDinh] = useState<LanChiDinh | null>(null);
   // Tệp của lượt CHƯA gắn chỉ định (tải ở màn Khách hàng — đợt 3, 27/09).
   const [tepChuaGan, setTepChuaGan] = useState<KetQuaMotChiDinh[]>([]);
   const [mauDuPhong, setMauDuPhong] = useState<MauKetQuaNgan[]>([]);
@@ -182,9 +186,11 @@ export default function PhieuKhamLuot({
       chi_dinh: ChiDinhVaKetQua[];
       mau_du_phong: MauKetQuaNgan[];
       tep_chua_gan?: KetQuaMotChiDinh[];
+      lan_chi_dinh?: LanChiDinh;
     }>(`/api/phieu-kham?visit_id=${visitId}`);
     if (d) {
       setKetQua(d.chi_dinh);
+      setLanChiDinh(d.lan_chi_dinh ?? null);
       setMauDuPhong(d.mau_du_phong);
       setTepChuaGan(d.tep_chua_gan ?? []);
     }
@@ -421,8 +427,8 @@ export default function PhieuKhamLuot({
     return ra;
   }, [tc]);
 
-  const dat = async (codes: string[], batBuoc: string[]) => {
-    const kq = await datChiDinh(codes, batBuoc);
+  const dat = async (codes: string[], batBuoc: string[], lan?: LenhLanChiDinh) => {
+    const kq = await datChiDinh(codes, batBuoc, lan);
     if (kq.ok) {
       onDaDat();
       void napKetQua();
@@ -574,6 +580,7 @@ export default function PhieuKhamLuot({
             nhom={tc?.chi_dinh_cls ?? []}
             daDat={daDat}
             daChiDinh={ketQua}
+            lan={lanChiDinh}
             onDat={dat}
             chiDoc={!choGhi}
           />
@@ -583,6 +590,7 @@ export default function PhieuKhamLuot({
             nhom={dsNhomThuThuat}
             daDat={daDat}
             daChiDinh={ketQua}
+            lan={lanChiDinh}
             onDat={dat}
             chiDoc={!choGhi}
           />
@@ -596,7 +604,14 @@ export default function PhieuKhamLuot({
           onDoiBatBuoc: choGhi ? doiBatBuoc : undefined,
           // Hoàn tác chỉ định (01/10/2026) — quầy thu cập nhật ngay (hoá đơn
           // máy chủ dựng lại); đã thu thì hỏi xác nhận, thành tiền thừa.
-          onBoChiDinh: choGhi && !xemLai ? (id) => lenhHoanTac("huy-chi-dinh", id) : undefined,
+          onBoChiDinh:
+            choGhi && !xemLai
+              ? (id) => async (duLieu) => {
+                  const r = await lenhHoanTac("huy-chi-dinh", id)(duLieu);
+                  if (r.ok) onDaBoChiDinh?.();
+                  return r;
+                }
+              : undefined,
           choDien: choGhi,
           clinicPatientId,
           onDoi: () => {

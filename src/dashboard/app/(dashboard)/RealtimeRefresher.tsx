@@ -118,6 +118,8 @@ const LIVE_TABLES = [
   // dịch gốc. Trigger ở 20260926000007 — form_instance chỉ báo khi đổi trạng thái.
   "form_instance",
   "luot_dong_thoi_gian",
+  // Sổ sửa / bỏ chỉ định (Khối 2, 06/10/2026) — trigger ở 20261006200000.
+  "so_sua_chi_dinh",
   // CỐ Ý KHÔNG CÓ `thong_bao` (27/09/2026): chuông tự hỏi lại danh sách của nó
   // qua `useNgheBang` — dựng lại cả trang cho mỗi cuộc gọi của trưởng ca là
   // việc thừa. Cùng lý do `slot_hold` không nằm đây.

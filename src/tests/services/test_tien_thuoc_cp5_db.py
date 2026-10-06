@@ -286,10 +286,27 @@ async def test_r7_huy_phieu_sau_khi_da_hoan_van_duoc(q: Quay) -> None:
     assert await _kd(q, lo) == 100
 
 
-async def test_r8_chi_vai_hoan_tam_thoi_duoc_hoan(q: Quay) -> None:
+async def test_r8_hoan_tien_theo_lego_thu_khong_theo_vai(q: Quay) -> None:
+    """Tuyền 06/10/2026 (thay HOLD J4): ai có lego Thu tiền thuốc hoàn được —
+    không cần vai Quản lý; không có lego thì không hoàn được."""
+    from tests.services.test_luot_kham_service_db import _nguoi
+
     _, _, lan = await _da_thu_giao(q, 0)
-    with pytest.raises(SafetyGateError, match="tạm thời chỉ Quản lý"):
-        await _hoan(q, lan, 1, identity=q.thu_ngan)
+    async with q.pool.acquire() as conn:
+        loc = await conn.fetchval(
+            "SELECT id::text FROM clinic_location WHERE clinic_id = $1::uuid"
+            " AND is_active ORDER BY created_at, id LIMIT 1",
+            CLINIC,
+        )
+        cskh = await _nguoi(conn, loc, "CSKH")
+        # Thu hết lego của người này: chỉ còn "thuộc phòng khám", không quyền.
+        await conn.execute(
+            "DELETE FROM capability_grant WHERE staff_id = $1::uuid", cskh.staff_id
+        )
+    with pytest.raises(SafetyGateError, match="chưa được cấp lego"):
+        await _hoan(q, lan, 1, identity=cskh)
+    kq = await _hoan(q, lan, 1, identity=q.thu_ngan)
+    assert kq["status"] == "COMPLETED"
 
 
 async def test_r9_hai_khoan_hoan_dong_thoi_khong_vuot(q: Quay) -> None:

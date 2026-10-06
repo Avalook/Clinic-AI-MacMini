@@ -20,6 +20,7 @@ import { gopCong, type ClinicalCompletionGate } from "@/lib/clinical-completion"
 
 import CongTacThongTinCoBan from "../_lam-viec/phieu-kham/CongTacThongTinCoBan";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
+import type { DatChiDinh } from "@/lib/phieu-kham";
 import ONhapTuVan from "./ONhapTuVan";
 
 export default function BanTuVan({
@@ -41,10 +42,7 @@ export default function BanTuVan({
   coPhieu: boolean;
   choGhi: boolean;
   onTrangThai: (g: ClinicalCompletionGate) => void;
-  datChiDinh: (
-    codes: string[],
-    batBuoc: string[],
-  ) => Promise<{ ok: true } | { ok: false; loi: string }>;
+  datChiDinh: DatChiDinh;
   onDaDat: () => void;
   /** Nút [Xong tư vấn — chuyển bác sĩ chính] + lỗi của nó (null = chưa bắt đầu). */
   nutXong: ReactNode;

@@ -792,6 +792,17 @@ async def hoa_don_con_no(
                AND bl.source_id = ANY($2::text[])
                AND bl.billing_owner = 'CLINIC'
                AND c.status IN ('PENDING_VERIFICATION', 'PAID')
+               -- Đã HOÀN HẾT thì không còn phủ (06/10/2026, E5/E7): bỏ dịch
+               -- vụ khám đã thu → hoàn tiền thừa → tick lại = nợ mới. Cùng
+               -- luật trigger payment_bill_line_mot_lan_phu (20261006200003).
+               AND coalesce((
+                   SELECT sum(rl.quantity)
+                     FROM public.payment_refund_line rl
+                     JOIN public.payment_refund r
+                       ON r.refund_id = rl.refund_id AND r.clinic_id = rl.clinic_id
+                    WHERE rl.clinic_id = bl.clinic_id
+                      AND rl.payment_bill_line_id = bl.id
+                      AND r.status IN ('PENDING', 'COMPLETED')), 0) < bl.quantity
             """,
             clinic_id,
             nguon_hien_tai,

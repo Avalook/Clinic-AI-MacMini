@@ -36,7 +36,7 @@ from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
-from clinicai.events.catalogue import ChiDinhDatLai, DichVuKhamDaDoi
+from clinicai.events.catalogue import ChiDinhDaDat, ChiDinhDatLai, DichVuKhamDaDoi
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
@@ -217,6 +217,10 @@ def cau_so(d: dict[str, Any]) -> str:
         ]
         if ve:
             cau += " · " + "; ".join(ve)
+    ct_raw = d.get("chi_tiet")
+    ct0: dict[str, Any] = ct_raw if isinstance(ct_raw, dict) else {}
+    if d.get("hanh_dong") == "HOAN_TAC" and ct0.get("chi_dinh_moi"):
+        cau += " · tiền đã hoàn trước đó → chỉ định MỚI, quầy thu lại"
     da_thu = int(d.get("da_thu") or 0)
     if d.get("hanh_dong") == "BO" and da_thu > 0:
         thua = _tien(int(d.get("tien_thua") or 0))
@@ -342,10 +346,12 @@ async def bao_bac_si_chinh(
         """
         SELECT s.id::text, s.visit_id::text, s.nhom, s.ten_muc, s.boi_staff_id::text,
                s.boi_ten, s.boi_vai, s.bac_si_chinh_id::text, s.da_thu, s.tien_thua,
-               s.ly_do, p.full_name AS ten_khach
+               s.ly_do, p.full_name AS ten_khach, o.lan_chi_dinh,
+               to_char(s.luc AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') AS gio
           FROM so_sua_chi_dinh s
           LEFT JOIN visit v ON v.visit_id = s.visit_id AND v.clinic_id = s.clinic_id
           LEFT JOIN patient p ON p.clinic_patient_id = v.clinic_patient_id
+          LEFT JOIN service_order o ON o.id = s.service_order_id
          WHERE s.id = $1::uuid
         """,
         so_id,
@@ -354,9 +360,16 @@ async def bao_bac_si_chinh(
         return False
     if so["bac_si_chinh_id"] == so["boi_staff_id"]:
         return False  # chính bác sĩ chính bỏ — không tự báo mình
+    # "Quản lý Nguyễn A đã xoá cận lâm sàng “X” (lần 1) lúc 10:32" — ai, vai,
+    # lúc nào (Tuyền 06/10/2026). Mỗi lần bỏ một thông báo riêng; hoàn tác hay
+    # chỉ định lại thì thông báo ấy đóng (mig 20261006200002) — không treo câu cũ.
     vai = nhan_vai(so["boi_vai"])[0]
-    noi = f"{so['boi_ten'] or 'Một người'}{f' ({vai})' if vai else ''} bỏ"
-    noi += f" {NHAN_NHOM.get(so['nhom'], '').lower()} “{so['ten_muc']}”"
+    ai = " ".join(x for x in (vai, so["boi_ten"]) if x) or "Một người"
+    noi = f"{ai} đã xoá {NHAN_NHOM.get(so['nhom'], '').lower()} “{so['ten_muc']}”"
+    if so["lan_chi_dinh"]:
+        noi += f" (lần {so['lan_chi_dinh']})"
+    if so["gio"]:
+        noi += f" lúc {so['gio']}"
     if int(so["da_thu"] or 0) > 0:
         noi += (
             f" — đã thu {_tien(int(so['da_thu']))}, thành tiền thừa"
@@ -543,6 +556,74 @@ async def doc_so(
     }
 
 
+def cau_xoa(r: dict[str, Any]) -> str:
+    """ "Quản lý Nguyễn A (thay BS Hùng) đã xoá chỉ định này" — ai xoá, vai, làm
+    thay bác sĩ nào. Thiếu dữ liệu thì bỏ vế ấy, không ném."""
+    vai = nhan_vai(r.get("boi_vai"))[0]
+    ten = r.get("boi_ten")
+    ai = " ".join(x for x in (vai, ten) if x) or "Không rõ ai"
+    bs = r.get("bac_si_chinh_ten")
+    if (
+        bs
+        and r.get("bac_si_chinh_id")
+        and str(r.get("bac_si_chinh_id")) != str(r.get("boi_staff_id"))
+    ):
+        ai += f" (thay BS {bs})"
+    return f"{ai} đã xoá chỉ định này"
+
+
+async def da_bo_cua_cac_luot(
+    conn: asyncpg.Connection, clinic_id: str, visit_ids: list[str]
+) -> dict[str, list[dict[str, Any]]]:
+    """Chỉ định ĐÃ XOÁ (chưa hoàn tác) của các lượt — quầy thu vẫn thấy dòng ấy,
+    gạch ngang + ai xoá, lúc nào, lần mấy, đã thu chưa (Tuyền 06/10/2026: không
+    biến mất im lặng). Chỉ đọc."""
+    if not visit_ids:
+        return {}
+    rows = await conn.fetch(
+        """
+        SELECT s.id::text, s.visit_id::text, s.nhom, s.ten_muc, s.boi_staff_id,
+               s.boi_ten, s.boi_vai, s.bac_si_chinh_id, s.bac_si_chinh_ten, s.luc,
+               s.ly_do, s.da_thu, s.tien_thua,
+               s.service_order_id::text AS order_id, o.lan_chi_dinh,
+               (SELECT sp.unit_price FROM service_price sp
+                 WHERE sp.clinic_id = s.clinic_id
+                   AND sp.service_code = coalesce(o.service_code, s.ma_muc)
+                 ORDER BY sp.active DESC LIMIT 1) AS gia
+          FROM so_sua_chi_dinh s
+          LEFT JOIN service_order o ON o.id = s.service_order_id
+          LEFT JOIN luot_phi_kham k ON k.id = s.luot_phi_kham_id
+         WHERE s.clinic_id = $1::uuid AND s.visit_id::text = ANY($2::text[])
+           AND s.hanh_dong = 'BO' AND s.nhom <> 'THUOC'
+           AND s.hoan_tac_luc IS NULL
+           AND (o.exec_status = 'cancelled' OR k.bo_luc IS NOT NULL)
+         ORDER BY s.stt
+        """,
+        clinic_id,
+        visit_ids,
+    )
+    out: dict[str, list[dict[str, Any]]] = {}
+    for r in rows:
+        d = dict(r)
+        out.setdefault(d["visit_id"], []).append(
+            {
+                "so_id": d["id"],
+                "order_id": d["order_id"],
+                "nhom": d["nhom"],
+                "nhom_nhan": NHAN_NHOM.get(str(d["nhom"]), ""),
+                "ten": d["ten_muc"],
+                "lan": d["lan_chi_dinh"],
+                "gia": int(d["gia"]) if d["gia"] is not None else None,
+                "cau": cau_xoa(d),
+                "luc": _iso(d["luc"]),
+                "ly_do": d["ly_do"],
+                "da_thu": int(d["da_thu"] or 0),
+                "tien_thua": int(d["tien_thua"] or 0),
+            }
+        )
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Lệnh
 # ---------------------------------------------------------------------------
@@ -664,7 +745,11 @@ class SoSuaChiDinhService:
                     "luot_phi_kham_id": so["luot_phi_kham_id"],
                 },
             )
-        return {"ok": True, "so_id": sid, "visit_id": vid}
+        out: dict[str, Any] = {"ok": True, "so_id": sid, "visit_id": vid}
+        if kq.get("chi_dinh_moi"):
+            # Đã hoàn tiền trước đó → chỉ định MỚI, quầy thu lại (E5).
+            out["chi_dinh_moi"] = kq["chi_dinh_moi"]
+        return out
 
     async def _dat_lai_chi_dinh(
         self,
@@ -685,6 +770,15 @@ class SoSuaChiDinhService:
         )
         if o is None or o["exec_status"] != "cancelled":
             return {"already": True}
+        # ĐÃ HOÀN TIỀN cho khách rồi mới hoàn tác (Tuyền chốt 06/10/2026, E5):
+        # THÀNH NỢ MỚI. Đặt lại chính dòng cũ thì lần thu đã hoàn vẫn "phủ" nó
+        # → không ra nợ, không thu lại được, cửa làm chặn (kẹt im lặng). Nên
+        # tạo chỉ định MỚI (nguồn mới → hoá đơn mới → khoản chưa thu ở quầy).
+        from clinicai.services.hoan_tac_service import tien_da_thu_cua_chi_dinh
+
+        tien = (await tien_da_thu_cua_chi_dinh(conn, cid, [oid])).get(oid)
+        if tien and int(tien["da_hoan"]) > 0:
+            return await self._chi_dinh_moi_thay(conn, identity, so, oid, ly)
         trung = await conn.fetchval(
             "SELECT service_name FROM service_order WHERE clinic_id = $1::uuid"
             " AND visit_id = $2::uuid AND service_code = $3 AND id <> $4::uuid"
@@ -753,6 +847,106 @@ class SoSuaChiDinhService:
             correlation_id=o["visit_id"],
         )
         return {"ok": True}
+
+    async def _chi_dinh_moi_thay(
+        self,
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        so: asyncpg.Record,
+        oid: str,
+        ly: str | None,
+    ) -> dict[str, Any]:
+        """Hoàn tác bỏ khi tiền đã hoàn: chỉ định MỚI chép từ dòng cũ (cùng lần,
+        cùng phiên, cùng "bắt buộc"), chờ khách chọn + thu như mới. Sổ: dòng
+        HOÀN TÁC trỏ về dòng BỎ, ghi rõ "chỉ định mới, thu lại"."""
+        cid = identity.clinic_id
+        trung = await conn.fetchval(
+            "SELECT o2.service_name FROM service_order o JOIN service_order o2"
+            "   ON o2.clinic_id = o.clinic_id AND o2.visit_id = o.visit_id"
+            "  AND o2.service_code = o.service_code AND o2.id <> o.id"
+            "  AND o2.exec_status NOT IN ('cancelled', 'not_performed', 'draft')"
+            " WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid LIMIT 1",
+            cid,
+            oid,
+        )
+        if trung:
+            raise LuotKhamConflictError(
+                "DA_CO_CHI_DINH_MOI",
+                f"Lượt đã có chỉ định “{trung}” còn hiệu lực — không đặt lại lần nữa.",
+            )
+        # Sổ của dòng MỚI ghi tay (dòng HOÀN TÁC), không để trigger ghi "Thêm".
+        await conn.execute("SELECT set_config('clinicai.so_bo_qua', 'on', true)")
+        moi = await conn.fetchrow(
+            """
+            INSERT INTO service_order
+                (clinic_id, visit_id, consultation_id, service_code, service_name,
+                 node_code, exec_status, recorded_by, authorized_by, authorized_at,
+                 selection_status, routing_status, bat_buoc, lan_chi_dinh,
+                 nguon_lam_them)
+            SELECT o.clinic_id, o.visit_id, o.consultation_id, o.service_code,
+                   o.service_name, o.node_code, 'authorized', $3::uuid, $3::uuid,
+                   now(), 'PENDING', 'UNASSIGNED', o.bat_buoc, o.lan_chi_dinh,
+                   o.nguon_lam_them
+              FROM service_order o
+             WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid
+            RETURNING id::text, visit_id::text, service_code, service_name,
+                      consultation_id::text
+            """,
+            cid,
+            oid,
+            identity.staff_id,
+        )
+        await conn.execute("SELECT set_config('clinicai.so_bo_qua', '', true)")
+        assert moi is not None
+        await conn.execute(
+            """
+            INSERT INTO so_sua_chi_dinh
+                (clinic_id, visit_id, nhom, hanh_dong, service_order_id, ma_muc,
+                 ten_muc, chi_tiet, boi_staff_id, boi_ten, boi_vai, phong_kham_ten,
+                 bac_si_chinh_id, bac_si_chinh_ten, chi_dinh_goc_boi_id,
+                 chi_dinh_goc_boi_ten, ly_do, hoan_tac_cua)
+            SELECT b.clinic_id, b.visit_id, b.nhom, 'HOAN_TAC', $2::uuid, b.ma_muc,
+                   b.ten_muc,
+                   jsonb_build_object('chi_dinh_moi', true,
+                                      'thay_cho', b.service_order_id),
+                   ai.staff_id, ai.ten, ai.vai, b.phong_kham_ten,
+                   b.bac_si_chinh_id, b.bac_si_chinh_ten, b.chi_dinh_goc_boi_id,
+                   b.chi_dinh_goc_boi_ten, $3, b.id
+              FROM so_sua_chi_dinh b,
+                   LATERAL public.so_chi_dinh_nguoi(b.clinic_id, NULL) ai
+             WHERE b.id = $1::uuid
+            """,
+            so["id"],
+            moi["id"],
+            ly,
+        )
+        await conn.execute(
+            "UPDATE so_sua_chi_dinh SET hoan_tac_boi_id = $2::uuid,"
+            "       hoan_tac_boi_ten = coalesce($3, 'Không rõ'), hoan_tac_luc = now()"
+            " WHERE id = $1::uuid AND hoan_tac_luc IS NULL",
+            so["id"],
+            identity.staff_id,
+            identity.full_name,
+        )
+        await emit_event(
+            conn,
+            ten="service_order.placed",
+            clinic_id=cid,
+            aggregate_id=moi["id"],
+            aggregate_version=1,
+            payload=ChiDinhDaDat(
+                order_id=moi["id"],
+                service_code=moi["service_code"],
+                service_name=moi["service_name"],
+                consultation_id=moi["consultation_id"] or "",
+                visit_id=moi["visit_id"],
+                selection_status="PENDING",
+                billing_status="UNPAID",
+            ),
+            boi=nguoi(identity),
+            correlation_id=moi["visit_id"],
+        )
+        return {"ok": True, "chi_dinh_moi": moi["id"]}
 
     async def _tick_lai_kham(
         self,
@@ -824,7 +1018,9 @@ __all__ = [
     "ThayDoiThuoc",
     "bao_bac_si_chinh",
     "cau_so",
+    "cau_xoa",
     "chan_ho_so_cu",
+    "da_bo_cua_cac_luot",
     "dat_ngu_canh",
     "doc_don_de_so",
     "doc_so",

@@ -56,6 +56,8 @@ export interface DongQuay {
   mang_sang?: boolean;
   /** Làm thêm tại quầy (01/10/2026) — câu máy chủ viết; null = bác sĩ chỉ định. */
   lam_them?: string | null;
+  /** Lần chỉ định (06/10/2026) — máy chủ trả; null = mang sang / làm thêm tại quầy. */
+  lan?: number | null;
   doi_tac_lam?: boolean;
   doi_tac_da_thu?: boolean | null;
   phong_chon_duoc?: PhongChon[];
@@ -383,6 +385,7 @@ function DanhSach({
                   {d.ten ?? "—"}
                 </span>
                 {!co ? <span className="text-meta text-ink-muted">khách không làm</span> : null}
+                {d.lan ? <Chip tone="brand">Lần {d.lan}</Chip> : null}
                 {d.bat_buoc ? <Chip tone="warning">Bắt buộc</Chip> : null}
                 {d.mang_sang ? <Chip tone="neutral">Mang sang</Chip> : null}
                 {d.lam_them ? <Chip tone="info">{d.lam_them}</Chip> : null}

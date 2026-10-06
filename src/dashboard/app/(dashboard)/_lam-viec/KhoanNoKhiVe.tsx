@@ -31,12 +31,24 @@ export interface DongNo {
   so_tien: number | null;
 }
 
+/** Tiền thừa lúc về (06/10/2026, E2a) — máy chủ tính, màn chỉ vẽ. */
+export interface TienThuaKhiVe {
+  tong: number;
+  dong: { ten: string | null; so_tien: number; loai: string; ly_do: string | null }[];
+  giu_lai: { id: string; so_tien: number; ly_do: string; boi: string | null; luc: string | null } | null;
+  /** Còn tiền thừa chưa hoàn / chưa giữ lại phủ đủ → chặn check-out. */
+  chan: boolean;
+}
+
 /** Hình dạng `no_khi_ve` của `GET /api/v1/reception/checkout*`. */
 export interface NoKhiVe {
   tong: number;
   dong: DongNo[];
-  /** Còn nợ mà chưa ghi nợ phủ đủ → máy chủ chặn check-out. */
+  /** Còn nợ (hoặc tiền thừa chưa xử lý) → máy chủ chặn check-out. */
   chan: boolean;
+  /** Chỉ phần NỢ chặn (06/10/2026); thiếu = dữ liệu cũ, dùng `chan`. */
+  chan_no?: boolean;
+  tien_thua?: TienThuaKhiVe | null;
   /** Quầy thu nhận lượt này ngay chưa, theo loại — máy chủ quyết. */
   thu_ngay?: Partial<Record<"dich_vu" | "thuoc", boolean>>;
   ghi_no: {
@@ -54,7 +66,10 @@ const tien = (n: number | null | undefined) =>
 
 /** Có gì để vẽ không (còn nợ, hoặc đã ghi nợ). */
 export function coNo(no: NoKhiVe | null | undefined): no is NoKhiVe {
-  return !!no && (no.dong.length > 0 || no.ghi_no !== null);
+  return (
+    !!no &&
+    (no.dong.length > 0 || no.ghi_no !== null || (no.tien_thua?.tong ?? 0) > 0)
+  );
 }
 
 export default function KhoanNoKhiVe({
@@ -72,7 +87,7 @@ export default function KhoanNoKhiVe({
   onDoi: () => void;
 }) {
   const quyen = useQuyen();
-  const [mo, setMo] = useState<"ghi" | "huy" | null>(null);
+  const [mo, setMo] = useState<"ghi" | "huy" | "giu" | null>(null);
   const [lyDo, setLyDo] = useState("");
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
@@ -87,7 +102,18 @@ export default function KhoanNoKhiVe({
       : null,
   ]).filter((x): x is { href: string; nhan: string } => x !== null);
 
-  async function gui(hanhDong: "ghi_no" | "huy_ghi_no") {
+  // Nợ chặn riêng (tiền thừa có hộp riêng bên dưới).
+  const chanNo = no.chan_no ?? no.chan;
+  const tt = no.tien_thua ?? null;
+
+  async function gui(
+    hanhDong:
+      | "ghi_no"
+      | "huy_ghi_no"
+      | "hoan_tien_thua"
+      | "giu_lai_tien_thua"
+      | "huy_giu_lai_tien_thua",
+  ) {
     setLoi(null);
     setDangGui(true);
     try {
@@ -121,9 +147,9 @@ export default function KhoanNoKhiVe({
     >
       {no.dong.length > 0 ? (
         <>
-          <p className={`text-body font-semibold ${no.chan ? "text-danger" : "text-ink"}`}>
+          <p className={`text-body font-semibold ${chanNo ? "text-danger" : "text-ink"}`}>
             Khách còn nợ {tien(no.tong)}
-            {no.chan ? " — chưa check-out được" : ""}
+            {chanNo ? " — chưa check-out được" : ""}
           </p>
           <ul className="space-y-0.5 text-meta text-ink">
             {no.dong.map((d) => (
@@ -148,12 +174,68 @@ export default function KhoanNoKhiVe({
         </p>
       ) : null}
 
+      {tt && tt.tong > 0 ? (
+        <div className="space-y-1 border-t border-line pt-2">
+          <p className={`text-body font-semibold ${tt.chan ? "text-danger" : "text-ink"}`}>
+            Tiền thừa {tien(tt.tong)}
+            {tt.chan ? " — hoàn cho khách hoặc giữ lại (ghi lý do) rồi mới check-out" : ""}
+          </p>
+          <ul className="space-y-0.5 text-meta text-ink">
+            {tt.dong.map((d, i) => (
+              <li key={`${d.ten ?? ""}-${i}`} className="flex justify-between gap-3">
+                <span className="min-w-0 truncate">
+                  {d.ten ?? "—"} · {d.loai === "KHONG_LAM" ? "không làm" : "đã bỏ"}
+                </span>
+                <span className="shrink-0 tabular-nums">{tien(d.so_tien)}</span>
+              </li>
+            ))}
+          </ul>
+          {tt.giu_lai ? (
+            <p className="text-meta text-ink-muted">
+              Đã giữ lại {tien(tt.giu_lai.so_tien)}
+              {tt.giu_lai.boi ? ` · ${tt.giu_lai.boi}` : ""} — “{tt.giu_lai.ly_do}”
+            </p>
+          ) : null}
+          {mo === null ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {tt.chan ? (
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={dangGui}
+                  onClick={() => void gui("hoan_tien_thua")}
+                >
+                  {dangGui ? "Đang hoàn…" : `Đã hoàn cho khách — hoàn ${tien(tt.tong)} tiền mặt`}
+                </Button>
+              ) : null}
+              {tt.chan ? (
+                <Button size="sm" variant="secondary" onClick={() => setMo("giu")}>
+                  Giữ lại
+                </Button>
+              ) : null}
+              {tt.giu_lai ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={dangGui}
+                  onClick={() => void gui("huy_giu_lai_tien_thua")}
+                >
+                  Huỷ giữ lại
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {mo ? (
         <div className="space-y-2">
           <label className="block text-meta text-ink-muted">
             {mo === "ghi"
               ? "Lý do ghi nợ (bắt buộc) — vd: khách quên ví, hẹn mai chuyển khoản"
-              : "Lý do huỷ ghi nợ (bắt buộc)"}
+              : mo === "giu"
+                ? "Lý do giữ lại tiền thừa (bắt buộc) — vd: khách để lại trừ lần sau"
+                : "Lý do huỷ ghi nợ (bắt buộc)"}
             <input
               value={lyDo}
               onChange={(e) => setLyDo(e.target.value)}
@@ -165,11 +247,19 @@ export default function KhoanNoKhiVe({
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
-              variant={mo === "ghi" ? "primary" : "danger"}
+              variant={mo === "huy" ? "danger" : "primary"}
               disabled={dangGui || lyDo.trim().length < 3}
-              onClick={() => void gui(mo === "ghi" ? "ghi_no" : "huy_ghi_no")}
+              onClick={() =>
+                void gui(mo === "ghi" ? "ghi_no" : mo === "giu" ? "giu_lai_tien_thua" : "huy_ghi_no")
+              }
             >
-              {dangGui ? "Đang lưu…" : mo === "ghi" ? `Ghi nợ ${tien(no.tong)}` : "Huỷ ghi nợ"}
+              {dangGui
+                ? "Đang lưu…"
+                : mo === "ghi"
+                  ? `Ghi nợ ${tien(no.tong)}`
+                  : mo === "giu"
+                    ? `Giữ lại ${tien(tt?.tong ?? 0)}`
+                    : "Huỷ ghi nợ"}
             </Button>
             <Button
               size="sm"
@@ -186,17 +276,17 @@ export default function KhoanNoKhiVe({
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          {no.chan
+          {chanNo
             ? thuDuoc.map((t) => (
                 <Link key={t.href} href={t.href} className={buttonClass("primary", "sm")}>
                   {t.nhan}
                 </Link>
               ))
             : null}
-          {no.chan && thuDuoc.length === 0 && choThuNgay ? (
+          {chanNo && thuDuoc.length === 0 && choThuNgay ? (
             <span className="text-meta text-ink-muted">Nhờ thu ngân thu, hoặc</span>
           ) : null}
-          {no.chan ? (
+          {chanNo ? (
             <Button size="sm" variant="secondary" onClick={() => setMo("ghi")}>
               Ghi nợ
             </Button>

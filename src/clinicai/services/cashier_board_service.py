@@ -47,6 +47,7 @@ from clinicai.services.hoan_tac_service import tien_thua_cua_luot
 from clinicai.services.hoan_tien_service import co_quyen_hoan, hoan_cua_cac_lan_thu
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_thu import doc_phan_db
+from clinicai.services.so_sua_chi_dinh_service import da_bo_cua_cac_luot
 
 if TYPE_CHECKING:
     from clinicai.services.bill_service import HoaDon
@@ -335,10 +336,12 @@ class CashierBoardService:
                 conn, identity.clinic_id, [r["id"] for r in rows]
             )
             quyen = await quyen_thu_theo_loai(conn, identity)
+            # Hoàn tiền theo lego thu (Tuyền 06/10/2026, thay HOLD J4 chỉ Quản lý).
+            co_hoan = await co_quyen_hoan(conn, identity, kind)
         return {
             "tu": a.isoformat(),
             "den": b.isoformat(),
-            "co_quyen_hoan": co_quyen_hoan(identity),
+            "co_quyen_hoan": co_hoan,
             "giao_dich": [
                 {
                     "id": r["id"],
@@ -525,8 +528,17 @@ class CashierBoardService:
             # Tiền thừa (hoàn tác 01/10/2026): đã thu cho chỉ định nay đã bỏ /
             # không làm — quầy hoàn cho khách hoặc trừ vào dịch vụ khác.
             thua = await tien_thua_cua_luot(conn, identity.clinic_id, vids)
+            # Chỉ định đã xoá (06/10/2026): vẫn hiện ở quầy dịch vụ — gạch
+            # ngang, ai xoá, lúc nào, lần mấy — không biến mất im lặng.
+            da_bo = (
+                await da_bo_cua_cac_luot(conn, identity.clinic_id, vids)
+                if want_svc
+                else {}
+            )
             for item in out["items"]:
                 item["tien_thua"] = thua.get(item["visit_id"])
+                if want_svc:
+                    item["da_bo_chi_dinh"] = da_bo.get(item["visit_id"], [])
         if want_svc:
             _xep_hang_cho_thu(out, cho={v for v, k in cho if k == "dich_vu"})
             out["dem"] = {

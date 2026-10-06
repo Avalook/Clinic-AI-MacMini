@@ -13,6 +13,8 @@ import {
   LogOut,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
+import NutHoanTac from "@/components/ui/NutHoanTac";
+import { lenhHoanTac } from "./_lam-viec/hoan-tac";
 import { ROLE_LABEL, type ClinicRole } from "@/lib/roles";
 import { NAV, navLabelFor } from "./nav-items";
 import { NHOM_CONG_VIEC } from "./nav-items";
@@ -193,7 +195,7 @@ export default function GlobalHeader({
   // Nguồn thật hiện có: quyết định duyệt/từ chối ca làm việc của CHÍNH mình
   // (NotificationContext, realtime + poll). Ít hơn ba dòng kia rất nhiều, và
   // chuông im khi không có gì — đó mới là điều làm nó đáng tin.
-  const { notifs, unread: unreadCount, markAllRead, danhDauDaXuLy } =
+  const { notifs, unread: unreadCount, markAllRead, danhDauDaXuLy, docLai } =
     useNotifications();
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -507,7 +509,19 @@ export default function GlobalHeader({
                     //
                     // Không đóng hộ khi bấm vào đường dẫn: đi xem một việc
                     // không phải là đã làm xong nó.
-                    const nutXong = n.thongBaoId ? (
+                    // "Chỉ định bị bỏ" (Khối 2, Tuyền 06/10/2026): nút DUY
+                    // NHẤT là Hoàn tác — không có "Xong"/"Đã biết". Hoàn tác
+                    // xong máy chủ tự đóng thông báo.
+                    const nutXong = n.chiHoanTac ? (
+                      n.hoanTacSoId ? (
+                        <NutHoanTac
+                          className="shrink-0 self-start"
+                          goi={lenhHoanTac("hoan-tac-bo-chi-dinh", n.hoanTacSoId)}
+                          onXong={docLai}
+                          moTa="Đặt lại chỉ định vừa bị bỏ"
+                        />
+                      ) : null
+                    ) : n.thongBaoId ? (
                       <button
                         type="button"
                         onClick={(e) => {

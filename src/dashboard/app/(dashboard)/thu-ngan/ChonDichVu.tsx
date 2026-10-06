@@ -57,6 +57,8 @@ export interface ChiDinhChoQuyet {
   bat_buoc?: boolean;
   /** Làm thêm tại quầy (01/10/2026) — câu máy chủ viết; null = bác sĩ chỉ định. */
   lam_them?: string | null;
+  /** Lần chỉ định (06/10/2026) — máy chủ gán; null = mang sang / làm thêm tại quầy. */
+  lan_chi_dinh?: number | null;
 }
 
 export interface ChoKhachQuyet {
@@ -228,6 +230,11 @@ export default function ChonDichVu({
               />
               <span className="min-w-0 flex-1 text-body text-ink">
                 {c.ten}
+                {c.lan_chi_dinh ? (
+                  <span className="ml-2">
+                    <Chip tone="brand">Lần {c.lan_chi_dinh}</Chip>
+                  </span>
+                ) : null}
                 {c.bat_buoc ? (
                   <span
                     className="ml-2"

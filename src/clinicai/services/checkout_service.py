@@ -1038,6 +1038,7 @@ async def _gan_doi_tac_tu_thu(
     """
     from clinicai.services.bill_service import hoa_don_con_no, tinh_hoa_don
     from clinicai.services.cong_no_service import no_khi_ve
+    from clinicai.services.tien_thua_service import tien_thua_khi_ve
 
     out: list[dict[str, Any]] = []
     for r in rows:
@@ -1057,6 +1058,15 @@ async def _gan_doi_tac_tu_thu(
                     conn, clinic_id=clinic_id, visit_id=visit_id, hd_dich_vu=dich_vu
                 )
             ).cho_api()
+            # TIỀN THỪA (Tuyền chốt 06/10/2026, E2a): còn tiền thừa chưa hoàn /
+            # chưa "giữ lại" (kèm lý do) → chặn check-out, nhưng hai lối qua
+            # ngay trong hộp. `chan` của no_khi_ve gộp cả hai để mọi nút
+            # Check-out khoá đúng; `chan_no` giữ nghĩa cũ (chỉ nợ).
+            tt = await tien_thua_khi_ve(conn, clinic_id, visit_id)
+            nkv = d["no_khi_ve"]
+            nkv["chan_no"] = bool(nkv.get("chan"))
+            nkv["tien_thua"] = tt
+            nkv["chan"] = bool(nkv.get("chan")) or bool(tt["chan"])
             if d.get("has_drug") and not d.get("paid_drug"):
                 thuoc = await tinh_hoa_don(
                     conn, clinic_id=clinic_id, visit_id=visit_id, kind="thuoc"
@@ -1081,7 +1091,7 @@ def build_blockers(row: dict[str, Any]) -> list[dict[str, Any]]:
     # Đã ghi nợ phủ đủ thì không còn vướng tiền nào.
     no = row.get("no_khi_ve") or {}
     loai_no = {str(d.get("loai")) for d in no.get("dong") or []}
-    if no.get("chan"):
+    if no.get("chan_no", no.get("chan")):
         from clinicai.services.cong_no_service import tien_vn
 
         chua_gia = sum(1 for d in no["dong"] if d.get("so_tien") is None)
@@ -1093,6 +1103,22 @@ def build_blockers(row: dict[str, Any]) -> list[dict[str, Any]]:
                     f"Khách còn nợ {tien_vn(no.get('tong'))}đ"
                     + (f" (+{chua_gia} khoản chưa có giá)" if chua_gia else "")
                     + " — thu ngay hoặc ghi nợ (kèm lý do) mới check-out được"
+                ),
+            }
+        )
+
+    tt = no.get("tien_thua") or {}
+    if tt.get("chan"):
+        from clinicai.services.cong_no_service import tien_vn
+
+        out.append(
+            {
+                "type": "tien_thua",
+                "chan": True,
+                "message": (
+                    f"Còn tiền thừa {tien_vn(tt.get('tong'))}đ chưa xử lý — bấm"
+                    " “Đã hoàn cho khách” (máy hoàn đúng số) hoặc “Giữ lại” (ghi"
+                    " lý do) rồi mới check-out được"
                 ),
             }
         )

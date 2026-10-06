@@ -90,11 +90,15 @@ class ChangeBroker:
         """
         while not self._stopping:
             try:
-                self._conn = await asyncpg.connect(self._dsn)
-                await self._conn.add_listener(CHANNEL, self._on_notify)
+                # Biến cục bộ để kiểu là Connection, không phải `| None` của
+                # self._conn: chỉ stop() gán None, và nó huỷ task này rồi await
+                # xong mới gán, nên trong vòng này kết nối không thể thành None.
+                conn: asyncpg.Connection = await asyncpg.connect(self._dsn)
+                self._conn = conn
+                await conn.add_listener(CHANNEL, self._on_notify)
                 logger.info("change_broker_listening", channel=CHANNEL)
                 # Ngồi im cho tới khi bị huỷ hoặc kết nối chết.
-                while not self._stopping and not self._conn.is_closed():
+                while not self._stopping and not conn.is_closed():
                     await asyncio.sleep(1.0)
             except asyncio.CancelledError:
                 raise

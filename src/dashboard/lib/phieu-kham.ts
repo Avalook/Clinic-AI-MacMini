@@ -95,6 +95,32 @@ export interface KetQuaMotChiDinh {
   du_lieu?: Record<string, ONhap> | null;
 }
 
+/** LẦN CHỈ ĐỊNH của lượt (06/10/2026) — MÁY CHỦ quyết, màn chỉ vẽ nhãn.
+ *  Mặc định chỉ định vào `hien_tai`; chỉ nút "Chỉ định thêm (lần `ke_tiep`)"
+ *  mới mở lần mới (`mo_moi_duoc` = lần hiện tại còn chỉ định sống). */
+export interface LanChiDinh {
+  hien_tai: number | null;
+  ke_tiep: number;
+  mo_moi_duoc: boolean;
+}
+
+/** Lệnh "mở lần mới" gửi kèm chỉ định: `lan_dang_thay` = lần hiện tại màn thấy. */
+export interface LenhLanChiDinh {
+  lan_moi: boolean;
+  lan_dang_thay: number | null;
+}
+
+export type KetQuaDatChiDinh =
+  | { ok: true; order_ids?: string[]; lan?: number | null }
+  | { ok: false; loi: string };
+
+export type DatChiDinh = (
+  codes: string[],
+  /** Mã tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được. */
+  batBuoc: string[],
+  lan?: LenhLanChiDinh,
+) => Promise<KetQuaDatChiDinh>;
+
 export interface ChiDinhVaKetQua {
   service_order_id: string;
   service_code: string;

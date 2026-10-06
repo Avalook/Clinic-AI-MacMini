@@ -21,6 +21,11 @@
 // (`KetQuaChiDinh`) gom theo lần rồi — và ô "bắt buộc" của chỉ định ĐÃ đặt
 // chuyển vào thẻ ấy (mỗi chỉ định một ô, đúng thẻ của nó).
 //
+// LẦN ỔN ĐỊNH (Tuyền thử thật 06/10/2026): lần do MÁY CHỦ quyết (`lan`). Bấm
+// gửi bao nhiêu lần, vào ra màn, tải lại — vẫn vào LẦN HIỆN TẠI. Chỉ nút
+// [+ Chỉ định thêm (lần N)] mới chuyển sang chế độ "mở lần mới" cho lần gửi kế.
+// Câu "Đã chỉ định N mục" tính lại theo danh sách máy chủ: bỏ bớt thì câu đổi.
+//
 // CHỈ ĐỊNH LẠI (26/09/2026 — lát 4): dịch vụ đã chỉ định ở lần trước vẫn tick
 // được ở lần mới (vd siêu âm lại sau thủ thuật) — tên tô brand đậm + "đã chỉ
 // định ở lần n" (bản mẫu `.da-truoc`). Số lần do máy chủ gán.
@@ -39,6 +44,9 @@ import {
   timDanhMucChiDinh,
   tienVn,
   type ChiDinhVaKetQua,
+  type KetQuaDatChiDinh,
+  type LanChiDinh,
+  type LenhLanChiDinh,
   tongPhongKham,
   type MucCls,
   type NhomCls,
@@ -48,6 +56,7 @@ export default function DanhMucChiDinh({
   nhom,
   daDat,
   daChiDinh = [],
+  lan = null,
   onDat,
   chiDoc,
   nhanNut = "Chỉ định",
@@ -57,18 +66,24 @@ export default function DanhMucChiDinh({
   daDat: ReadonlySet<string>;
   /** Mọi chỉ định (chưa huỷ) của lượt — để biết "đã chỉ định ở lần n". */
   daChiDinh?: readonly ChiDinhVaKetQua[];
+  /** Lần hiện tại / lần kế tiếp — máy chủ trả (06/10/2026). */
+  lan?: LanChiDinh | null;
   onDat: (
     codes: string[],
     /** Mã tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được. */
     batBuoc: string[],
-  ) => Promise<{ ok: true } | { ok: false; loi: string }>;
+    lan?: LenhLanChiDinh,
+  ) => Promise<KetQuaDatChiDinh>;
   chiDoc: boolean;
   nhanNut?: string;
 }) {
   const [chon, setChon] = useState<string[]>([]);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
-  const [bao, setBao] = useState<string | null>(null);
+  // Lần gửi vừa rồi: id máy chủ trả + lần — câu báo tính lại theo danh sách.
+  const [vuaDat, setVuaDat] = useState<{ ids: string[]; lan: number | null } | null>(null);
+  // Đã bấm [+ Chỉ định thêm (lần N)]: lần gửi kế mở lần mới.
+  const [moLanMoi, setMoLanMoi] = useState(false);
   // Danh mục MỞ SẴN kể cả khi lượt đã có chỉ định (C21, 02/10/2026 — Tuyền:
   // "cho hiện full ra"); [Thu gọn] gập lại, [+ Chỉ định thêm] / ô tìm mở ra.
   const [moThem, setMoThem] = useState(true);
@@ -87,9 +102,22 @@ export default function DanhMucChiDinh({
   for (const c of daChiDinh) {
     if (c.lan != null) lanCua.set(c.service_code, Math.max(c.lan, lanCua.get(c.service_code) ?? 0));
   }
-  const lanCuoi = Math.max(0, ...daChiDinh.map((c) => c.lan ?? 0));
   // Lượt đã có chỉ định: bấm [Thu gọn] → gập sau nút [+ Chỉ định thêm].
   const coTruoc = daChiDinh.length > 0;
+  // Số lần do máy chủ trả — màn không tự đếm.
+  const lanKeTiep = lan?.ke_tiep ?? null;
+  const moMoi = moLanMoi && Boolean(lan?.mo_moi_duoc);
+  const lanGui = moMoi ? lanKeTiep : (lan?.hien_tai ?? lanKeTiep);
+  const conSong = new Set(daChiDinh.map((c) => c.service_order_id));
+  const bao = (() => {
+    if (!vuaDat || vuaDat.ids.length === 0) return null;
+    const con = vuaDat.ids.filter((id) => conSong.has(id)).length;
+    const bo = vuaDat.ids.length - con;
+    const vao = vuaDat.lan ? ` vào lần ${vuaDat.lan}` : "";
+    if (con === 0) return `Đã bỏ cả ${vuaDat.ids.length} mục vừa chỉ định${vao}.`;
+    if (bo > 0) return `Đã chỉ định${vao}: còn ${con} mục (đã bỏ ${bo}) — khách vào hàng chờ phòng sau khi thu tiền.`;
+    return `Đã chỉ định ${con} mục${vao} — khách vào hàng chờ phòng sau khi thu tiền.`;
+  })();
   const hienDanhMuc = !coTruoc || moThem || chon.length > 0;
 
   // Chỉ cộng phần PHÒNG KHÁM thu — mục khách trả đối tác (cờ máy chủ) không cộng.
@@ -104,17 +132,19 @@ export default function DanhMucChiDinh({
   const dat = async () => {
     setDang(true);
     setLoi(null);
-    setBao(null);
+    setVuaDat(null);
     const kq = await onDat(
       chon,
       batBuoc.filter((c) => chon.includes(c)),
+      moMoi ? { lan_moi: true, lan_dang_thay: lan?.hien_tai ?? 0 } : undefined,
     );
     setDang(false);
     if (!kq.ok) {
       setLoi(kq.loi);
       return;
     }
-    setBao(`Đã chỉ định ${chon.length} mục — khách vào hàng chờ phòng sau khi thu tiền.`);
+    setVuaDat({ ids: kq.order_ids ?? [], lan: kq.lan ?? null });
+    setMoLanMoi(false);
     setChon([]);
     setBatBuoc([]);
   };
@@ -190,10 +220,31 @@ export default function DanhMucChiDinh({
 
   return (
     <div className="space-y-3">
-      {coTruoc && !chiDoc && !hienDanhMuc ? (
-        <Button type="button" variant="secondary" onClick={() => setMoThem(true)}>
-          + Chỉ định thêm (lần {lanCuoi + 1})
+      {coTruoc && !chiDoc && lan?.mo_moi_duoc && !moMoi ? (
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => {
+            setMoLanMoi(true);
+            setMoThem(true);
+          }}
+        >
+          + Chỉ định thêm (lần {lanKeTiep})
         </Button>
+      ) : null}
+      {coTruoc && !chiDoc && !hienDanhMuc && !lan?.mo_moi_duoc ? (
+        <Button type="button" variant="secondary" onClick={() => setMoThem(true)}>
+          Mở danh mục chỉ định{lanGui ? ` (lần ${lanGui})` : ""}
+        </Button>
+      ) : null}
+      {moMoi && !chiDoc ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-control bg-surface-selected px-3 py-2">
+          <Chip tone="brand">Lần {lanKeTiep}</Chip>
+          <span className="text-meta text-ink">Các mục tick dưới đây là chỉ định LẦN {lanKeTiep}.</span>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setMoLanMoi(false)}>
+            Thôi, vẫn lần {lan?.hien_tai}
+          </Button>
+        </div>
       ) : null}
       {coTruoc && chiDoc ? (
         <p className="text-meta text-ink-muted">
@@ -292,8 +343,8 @@ export default function DanhMucChiDinh({
             {dang
               ? "Đang ghi…"
               : chon.length > 0
-                ? `${coTruoc ? "Chỉ định thêm" : nhanNut} ${chon.length} mục · ${tienVn(tong)}`
-                : `Tick mục cần ${(coTruoc ? "chỉ định thêm" : nhanNut).toLowerCase()}`}
+                ? `${nhanNut} ${chon.length} mục${lanGui ? ` · lần ${lanGui}` : ""} · ${tienVn(tong)}`
+                : `Tick mục cần ${nhanNut.toLowerCase()}${lanGui ? ` (lần ${lanGui})` : ""}`}
           </Button>
           {coTruoc && chon.length === 0 ? (
             <Button type="button" variant="ghost" onClick={() => setMoThem(false)}>

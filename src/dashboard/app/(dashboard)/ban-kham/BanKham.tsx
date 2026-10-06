@@ -63,6 +63,7 @@ import DoiPhong from "../_lam-viec/DoiPhong";
 import { TomTatLuotContext } from "../_lam-viec/phieu-kham/TomTatLuot";
 import XemLuot from "../_lam-viec/XemLuot";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
+import type { DatChiDinh } from "@/lib/phieu-kham";
 import BanTuVan from "./BanTuVan";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -862,21 +863,22 @@ function HoSo({
 
   // Chỉ định xong → "Đã chỉ định N dịch vụ · Hoàn tác" (01/10/2026): hoàn tác
   // = bỏ đúng các chỉ định vừa tạo (máy chủ trả `order_ids`), quầy thu bớt ngay.
-  const datChiDinh = async (
-    codes: string[],
-    batBuoc: string[],
-  ): Promise<{ ok: true } | { ok: false; loi: string }> => {
+  // Lần do máy chủ gán (06/10/2026): mặc định lần hiện tại; `lan.lan_moi` chỉ
+  // khi bác sĩ bấm "Chỉ định thêm (lần N)".
+  const datChiDinh: DatChiDinh = async (codes, batBuoc, lan) => {
     const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
       service_codes: codes,
       bat_buoc_codes: batBuoc,
+      ...(lan?.lan_moi ? { lan_moi: true, lan_dang_thay: lan.lan_dang_thay } : {}),
     });
     if (!kq.ok) return { ok: false, loi: kq.loi };
     const ids = Array.isArray(kq.data.order_ids)
       ? kq.data.order_ids.filter((x): x is string => typeof x === "string")
       : [];
+    const lanGan = typeof kq.data.lan === "number" ? kq.data.lan : null;
     if (ids.length > 0) {
       setThongBao({
-        cau: `Đã chỉ định ${ids.length} dịch vụ — ${dong.ten}`,
+        cau: `Đã chỉ định ${ids.length} dịch vụ${lanGan ? ` (lần ${lanGan})` : ""} — ${dong.ten}`,
         goi: async (duLieu) => {
           for (const id of ids) {
             const r = await lenhHoanTac("huy-chi-dinh", id)(duLieu);
@@ -886,7 +888,7 @@ function HoSo({
         },
       });
     }
-    return { ok: true };
+    return { ok: true, order_ids: ids, lan: lanGan };
   };
 
   const gui = async (thaoTac: "nhan-kham" | "kham-xong" | "xong-tu-van") => {
@@ -1274,6 +1276,7 @@ function HoSo({
               choGhi={choBam}
               datChiDinh={datChiDinh}
               onDaDat={onDaBam}
+              onDaBoChiDinh={dongThongBao}
               onTrangThai={baoGate}
               chanRay={laPhieuMoi ? nutHoanTat : undefined}
             />
