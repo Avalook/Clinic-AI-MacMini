@@ -135,12 +135,12 @@ _COT_HO_SO = f"""
        p.clinic_patient_id::text AS clinic_patient_id, p.patient_code,
        p.full_name, p.date_of_birth, p.phone_primary, p.phone_secondary,
        p.gender, p.ethnicity, p.nationality, p.occupation, p.patient_objection,
-       p.address, p.guardian_name, t.luc AS hoat_dong_gan_nhat,
+       p.address, p.guardian_name, tr.luc AS hoat_dong_gan_nhat,
        coalesce((
-           SELECT json_agg(json_build_object('so_dien_thoai', s.so_dien_thoai,
-                                             'loai', s.loai))
-             FROM patient_sdt_them s
-            WHERE s.clinic_patient_id = p.clinic_patient_id
+           SELECT json_agg(json_build_object('so_dien_thoai', t.so_dien_thoai,
+                                             'loai', t.loai))
+             FROM patient_sdt_them t
+            WHERE t.clinic_patient_id = p.clinic_patient_id
        ), '[]'::json) AS patient_sdt_them,
 {COT_KENH_DOI_HUY}
 """
@@ -150,8 +150,8 @@ _COT_HO_SO = f"""
 #: cả khoá phụ mã khách — hai khách cùng mốc không đổi chỗ giữa hai lần tải →
 #: phân trang không lặp / sót.
 _XEP = {
-    "gan": ("luc DESC, clinic_patient_id", "t.luc DESC, p.clinic_patient_id"),
-    "xa": ("luc ASC, clinic_patient_id DESC", "t.luc ASC, p.clinic_patient_id DESC"),
+    "gan": ("luc DESC, clinic_patient_id", "tr.luc DESC, p.clinic_patient_id"),
+    "xa": ("luc ASC, clinic_patient_id DESC", "tr.luc ASC, p.clinic_patient_id DESC"),
 }
 
 
@@ -162,14 +162,15 @@ def _trang_sql(xep: str) -> str:
     return (
         _CO_SO
         + f"""
-, t AS (
+, tr AS (
     SELECT clinic_patient_id, luc FROM co_so
      WHERE khop
      ORDER BY {trong}
      OFFSET $8 LIMIT $9
 )
 SELECT {_COT_HO_SO}
-  FROM t JOIN patient p ON p.clinic_patient_id = t.clinic_patient_id
+  FROM tr JOIN patient p
+    ON p.clinic_id = $1::uuid AND p.clinic_patient_id = tr.clinic_patient_id
  ORDER BY {ngoai}
 """
     )
@@ -183,9 +184,10 @@ _TRANG_SQL = {k: _trang_sql(k) for k in _XEP}
 _MOT_SQL = (
     _CO_SO
     + f"""
-, t AS (SELECT clinic_patient_id, luc FROM co_so WHERE clinic_patient_id = $8::uuid)
+, tr AS (SELECT clinic_patient_id, luc FROM co_so WHERE clinic_patient_id = $8::uuid)
 SELECT {_COT_HO_SO}
-  FROM t JOIN patient p ON p.clinic_patient_id = t.clinic_patient_id
+  FROM tr JOIN patient p
+    ON p.clinic_id = $1::uuid AND p.clinic_patient_id = tr.clinic_patient_id
 """
 )
 

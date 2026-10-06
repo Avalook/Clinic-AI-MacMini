@@ -148,7 +148,7 @@ async def test_thu_ky_chi_nhan_khach_cua_bac_si_minh() -> None:
         ("AS id FROM public.appointment a", [{"id": "k1"}]),
         ("AS khop FROM co_so", _DEM),
         (
-            "FROM t JOIN patient p",
+            "FROM tr JOIN patient p",
             [
                 {
                     "clinic_patient_id": "k1",
@@ -164,7 +164,7 @@ async def test_thu_ky_chi_nhan_khach_cua_bac_si_minh() -> None:
     # Mã khách được xem đi xuống câu ĐẾM lẫn câu TRANG — lọc ở database; lượt
     # chỉ nạp cho đúng khách trong trang.
     assert p.da_goi("AS khop FROM co_so")[0][1] == ["k1"]
-    assert p.da_goi("FROM t JOIN patient p")[0][1] == ["k1"]
+    assert p.da_goi("FROM tr JOIN patient p")[0][1] == ["k1"]
     assert p.da_goi("a.queue_number")[0][1] == ["k1"]
     assert out["dong"][0]["ho_so"]["patient_sdt_them"][0]["loai"] == "CHINH"
     assert out["tong"]["ho_so"] == 1 and out["so_khop"] == 1 and out["trang"] == 1
@@ -182,7 +182,7 @@ async def test_trang_vuot_qua_ve_trang_cuoi_tham_so_rac_khong_nem() -> None:
     )
     # 120 dòng / 50 = 3 trang → trang 999 về trang 3 (offset 100, limit 50).
     assert (out["trang"], out["so_trang"], out["so_khop"]) == (3, 3, 120)
-    [args] = p.da_goi("FROM t JOIN patient p")
+    [args] = p.da_goi("FROM tr JOIN patient p")
     assert args[-2:] == (100, 50)
     assert args[5:7] == (0, None)  # tab rác → tất cả
     assert out["chon"] is None and out["dong"] == []
@@ -220,7 +220,7 @@ async def test_luot_chi_nap_cho_khach_trong_trang_va_khach_dang_chon() -> None:
     p = pool(
         ("AS khop FROM co_so", {**_DEM, "khop": 2}),
         ("= $8::uuid", _r(chon)),
-        ("FROM t JOIN patient p", [_r("a"), _r("b")]),
+        ("FROM tr JOIN patient p", [_r("a"), _r("b")]),
         ("a.queue_number", [luot]),
     )
     out = await DanhSachBenhNhanService(p).lay(identity=who(ClinicRole.CSKH), chon=chon)

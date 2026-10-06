@@ -67,7 +67,10 @@ test("the patient directory follows the three-region reference layout without st
   ]) {
     assert.match(patients, new RegExp(`aria-label="${label}"`));
   }
-  assert.match(patients, /shown\.find\(\(item\) => item\.clinic_patient_id === selectedId\) \?\?/);
+  // 06/10/2026 (phân trang ở máy chủ): khách đang chọn lấy từ TRANG đang hiện,
+  // hoặc từ `chonRow` máy chủ trả kèm — không giữ một dòng cũ đã bị lọc ra.
+  assert.match(patients, /rows\.find\(\(item\) => item\.clinic_patient_id === selectedId\) \?\?/);
+  assert.match(patients, /chonRow\?\.clinic_patient_id === selectedId \? chonRow : null/);
 
   // Phiếu khám vẫn mở được — nhưng CHỈ cho vai lâm sàng. Với Lễ tân nút đó chỉ
   // là liên kết sang trang hành chính, tức là bấm để đọc đúng khối hành chính
