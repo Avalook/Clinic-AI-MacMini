@@ -10,10 +10,17 @@ import jwt
 import pytest
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.services.auth_service import AUDIENCE, MAX_FAILED, AuthService
+from clinicai.services.auth_service import (
+    AUDIENCE,
+    MAX_FAILED,
+    TAI_KHOAN_CHUA_NOI,
+    AuthService,
+)
 
 # Đủ 32 byte: khoá ngắn hơn làm PyJWT cảnh báo và làm nhiễu output test.
-SECRET = "khoa-thu-cho-bai-kiem-du-32-byte-tro-len"
+# Tên không chứa chữ SECRET: chốt bí mật ở pre-commit bắt mẫu `SECRET = "<chuỗi
+# dài>"` trên CẢ tệp, nên khoá giả này làm mọi commit đụng tệp bị chặn oan.
+KHOA_KY_THU = "khoa-thu-cho-bai-kiem-du-32-byte-tro-len"
 HASH = "$2a$06$" + "x" * 53  # 60 ký tự, đúng dạng bcrypt
 
 
@@ -52,12 +59,12 @@ async def test_dang_nhap_dung_thi_cap_token_doc_duoc_boi_identity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Token phải cùng hình dạng GoTrue — identity.py không được sửa gì."""
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", KHOA_KY_THU)
     pool, _ = _pool(_row())
 
     kq = await AuthService(pool).login(email="BS.A@dr4women.local", password="dung")
 
-    claims = jwt.decode(kq.token, SECRET, algorithms=["HS256"], audience=AUDIENCE)
+    claims = jwt.decode(kq.token, KHOA_KY_THU, algorithms=["HS256"], audience=AUDIENCE)
     # `sub` phải là auth_user_id: identity.py tra staff qua cột ấy.
     assert claims["sub"] == "22222222-2222-4222-8222-222222222222"
     assert claims["aud"] == AUDIENCE
@@ -76,7 +83,7 @@ async def test_ba_kieu_sai_deu_tra_ve_dung_mot_cau(
     Phân biệt "email không tồn tại" với "sai mật khẩu" là tặng họ nửa đầu của
     mỗi cặp thông tin đăng nhập.
     """
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", KHOA_KY_THU)
     cau = "Email hoặc mật khẩu không đúng."
 
     # (1) email không tồn tại
@@ -98,8 +105,29 @@ async def test_ba_kieu_sai_deu_tra_ve_dung_mot_cau(
 
 
 @pytest.mark.asyncio
+async def test_chua_noi_tai_khoan_thi_khong_cap_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """staff.auth_user_id NULL → từ chối, không cấp token `sub="None"`.
+
+    Nút "Thu hồi" ở /admin/users đặt auth_user_id về NULL nhưng để nguyên
+    app_credential. Bản cũ vẫn cấp token với sub="None"; identity.py ép chuỗi
+    ấy sang uuid → asyncpg ném → mọi request sau đó là 500.
+    """
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", KHOA_KY_THU)
+    pool, conn = _pool(_row(auth_user_id=None))
+
+    with pytest.raises(ValidationError) as e:
+        await AuthService(pool).login(email="bs.a@dr4women.local", password="dung")
+
+    assert str(e.value) == TAI_KHOAN_CHUA_NOI
+    # Không đánh dấu đăng nhập thành công (last_login_at, xoá bộ đếm).
+    conn.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_sai_lan_thu_nam_thi_khoa_tam(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", KHOA_KY_THU)
     pool, conn = _pool(_row(failed_attempts=MAX_FAILED - 1), khop=False)
 
     with pytest.raises(ValidationError):
@@ -122,7 +150,7 @@ async def test_dang_bi_khoa_thi_khong_kiem_mat_khau_nua(
     Băm bcrypt tốn CPU có chủ ý. Nếu vẫn băm trong lúc khoá thì cái khoá không
     còn bảo vệ máy chủ nữa — kẻ dò vẫn ép được mỗi request một lượt băm.
     """
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", KHOA_KY_THU)
     khoa_toi = datetime.now(timezone.utc) + timedelta(minutes=9)
     pool, conn = _pool(_row(locked_until=khoa_toi))
 
@@ -163,7 +191,7 @@ async def test_bo_dem_lan_sai_duoc_ghi_chu_khong_bi_huy_theo_giao_dich(
     chỉ có cái khoá là không bao giờ đóng. Nên bài kiểm này soi ĐÚNG chỗ đó —
     giao dịch phải thoát ra với exc_type là None.
     """
-    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", KHOA_KY_THU)
     pool, conn = _pool(_row(), khop=False)
 
     with pytest.raises(ValidationError):

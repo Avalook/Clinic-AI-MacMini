@@ -21,6 +21,7 @@ async def test_llm_classify_real_haiku_scheduling() -> None:
     try:
         node = make_classify_intent_llm_node(client)
         state: OrchestratorState = {
+            "clinic_id": uuid4(),
             "trace_id": uuid4(),
             "user_message": "Em muốn đặt lịch khám thai vào thứ Hai tuần sau",
         }

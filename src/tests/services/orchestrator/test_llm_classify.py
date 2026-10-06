@@ -31,6 +31,7 @@ async def test_llm_classify_scheduling_route() -> None:
     )
     node = make_classify_intent_llm_node(mock)
     state: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "đặt lịch khám",
     }
@@ -46,7 +47,11 @@ async def test_llm_classify_markdown_fence_stripped() -> None:
         '```json\n{"route": "lab", "confidence": 0.9, "reasoning": "ok"}\n```'
     )
     node = make_classify_intent_llm_node(mock)
-    state: OrchestratorState = {"trace_id": uuid4(), "user_message": "kết quả xn"}
+    state: OrchestratorState = {
+        "clinic_id": uuid4(),
+        "trace_id": uuid4(),
+        "user_message": "kết quả xn",
+    }
     result = await node(state)
     assert result == {"route": "lab"}
 
@@ -59,6 +64,7 @@ async def test_llm_classify_invalid_route_falls_back() -> None:
     )
     node = make_classify_intent_llm_node(mock)
     state: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "đặt lịch hẹn ngày mai",
     }
@@ -73,6 +79,7 @@ async def test_llm_classify_api_error_falls_back() -> None:
     mock.chat = AsyncMock(side_effect=ConnectionError("network down"))
     node = make_classify_intent_llm_node(mock)
     state: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "xét nghiệm máu",
     }
@@ -86,7 +93,11 @@ async def test_llm_classify_empty_message_returns_unknown() -> None:
     mock = MagicMock(spec=AnthropicClient)
     mock.chat = AsyncMock()
     node = make_classify_intent_llm_node(mock)
-    state: OrchestratorState = {"trace_id": uuid4(), "user_message": "   "}
+    state: OrchestratorState = {
+        "clinic_id": uuid4(),
+        "trace_id": uuid4(),
+        "user_message": "   ",
+    }
     result = await node(state)
     assert result == {"route": "unknown"}
     mock.chat.assert_not_called()
@@ -107,6 +118,7 @@ async def test_llm_classify_logs_never_include_reasoning_or_raw_response(
 
     await node(
         {
+            "clinic_id": uuid4(),
             "trace_id": uuid4(),
             "user_message": "đặt lịch",
         }
@@ -119,7 +131,7 @@ async def test_llm_classify_logs_never_include_reasoning_or_raw_response(
     fake_logger.reset_mock()
     mock = _make_mock_llm(pii)
     node = make_classify_intent_llm_node(mock)
-    await node({"trace_id": uuid4(), "user_message": "đặt lịch"})
+    await node({"clinic_id": uuid4(), "trace_id": uuid4(), "user_message": "đặt lịch"})
 
     rendered_calls = repr(fake_logger.method_calls)
     assert pii not in rendered_calls

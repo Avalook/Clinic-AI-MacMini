@@ -45,6 +45,10 @@ LOCK_FOR = timedelta(minutes=15)
 #: GoTrue đặt aud = "authenticated"; identity.py kiểm đúng giá trị này.
 AUDIENCE = "authenticated"
 
+#: Đúng mật khẩu nhưng nhân viên chưa nối với tài khoản đăng nhập
+#: (staff.auth_user_id NULL) — việc của quản lý, không phải của người gõ.
+TAI_KHOAN_CHUA_NOI = "Tài khoản chưa được nối — báo quản lý."
+
 
 @dataclass(frozen=True)
 class LoginResult:
@@ -144,6 +148,18 @@ class AuthService:
                             "login_inactive_staff", staff_id=str(row["staff_id"])
                         )
                         ket_qua = "sai"
+                    elif row["auth_user_id"] is None:
+                        # staff.auth_user_id được phép NULL, và nút "Thu hồi"
+                        # ở /admin/users đặt nó về NULL mà KHÔNG xoá hàng
+                        # app_credential. Cấp token lúc này là `sub="None"`:
+                        # identity.py ép "None" sang uuid → asyncpg ném → MỌI
+                        # request sau đó là 500, không phải 401/403. Nên chặn
+                        # ngay tại cửa. Nói thật (như "khoa") vì người gọi đã
+                        # đúng mật khẩu — không còn gì để giấu kẻ dò.
+                        logger.warning(
+                            "login_unlinked_staff", staff_id=str(row["staff_id"])
+                        )
+                        ket_qua = "chua_noi"
                     else:
                         await conn.execute(
                             """
@@ -168,6 +184,8 @@ class AuthService:
             # biết email nào CÓ THẬT, tức tặng họ nửa đầu của mỗi cặp thông tin
             # đăng nhập.
             raise ValidationError("Email hoặc mật khẩu không đúng.")
+        if ket_qua == "chua_noi":
+            raise ValidationError(TAI_KHOAN_CHUA_NOI)
 
         # row là None thì ket_qua đã thành "sai" và ta đã ném ở trên; assert để
         # kiểu khớp (pyright không tin `async with` không nuốt lỗi).

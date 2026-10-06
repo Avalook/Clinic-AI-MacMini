@@ -46,7 +46,7 @@ def test_route_by_intent_unknown_fallback_general() -> None:
 
 
 def test_route_by_intent_missing_route_defaults_general() -> None:
-    state: OrchestratorState = {}
+    state: OrchestratorState = {"clinic_id": uuid4()}
     assert route_by_intent(state) == "general"
 
 
@@ -56,6 +56,7 @@ async def test_graph_routes_scheduling_to_stub() -> None:
     mock_llm = _mock_llm_with_route("scheduling")
     graph = build_orchestrator_graph(llm_client=mock_llm, use_llm_respond=False)
     initial: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "đặt lịch khám ngày mai",
     }
@@ -101,6 +102,7 @@ async def test_graph_routes_scheduling_to_real_subgraph(
         scheduling_location_id=uuid4(),
     )
     initial: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "đặt lịch khám tối mai",
         # Pre-fill so we go straight to find_doctor and exercise the real tool path.
@@ -122,6 +124,7 @@ async def test_graph_routes_general_to_respond() -> None:
     mock_llm = _mock_llm_with_route("general")
     graph = build_orchestrator_graph(llm_client=mock_llm, use_llm_respond=False)
     initial: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "Xin chào bác sĩ",
     }
@@ -146,7 +149,11 @@ async def test_graph_routes_general_to_respond() -> None:
 async def test_all_5_stubs_set_handled_by_marker(
     stub_node: Callable[..., Any], expected_marker: str, expected_name: str
 ) -> None:
-    state: OrchestratorState = {"trace_id": uuid4(), "user_message": "x"}
+    state: OrchestratorState = {
+        "clinic_id": uuid4(),
+        "trace_id": uuid4(),
+        "user_message": "x",
+    }
     result = await stub_node(state)
     assert result["handled_by"] == expected_marker
     assert f"[STUB-{expected_name}]" in result["response"]
