@@ -47,6 +47,7 @@ from clinicai.services.lenh_kham_core import (
 )
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.luot_kham_service import LuotKhamService
+from clinicai.services.so_sua_chi_dinh_service import dat_ngu_canh
 
 #: Quyền cần có để chỉ định. KHÔNG phải một tập vai: ai được cấp khối "Chỉ định
 #: dịch vụ" thì làm được, kể cả vai mà hôm nay chưa nghĩ tới. Bác sĩ và thư ký y
@@ -111,6 +112,8 @@ class ChiDinhService:
             await doi_quyen(conn, identity, QUYEN_CHI_DINH)
             vid = await luot_cua(conn, "consultation", cid, con_id)
             await khoa_luot(conn, cid, vid)
+            # Sổ sửa chỉ định (Khối 2): trigger ghi "Thêm" — người bấm + vai.
+            await dat_ngu_canh(conn, identity)
 
             cached = await bien_nhan_doc(
                 conn, identity, ACTION, idempotency_key, payload_bien_nhan

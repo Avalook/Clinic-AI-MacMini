@@ -590,7 +590,19 @@ async def luu_don_chua_ky(
     ly_do: str | None,
 ) -> dict[str, Any]:
     """Người gọi ĐÃ khoá `visit` (thứ tự khoá: visit → prescription →
-    prescription_allocation). Trả tóm tắt việc đã làm."""
+    prescription_allocation). Trả tóm tắt việc đã làm.
+
+    Sổ sửa chỉ định (Khối 2, 06/10/2026): so đơn TRƯỚC / SAU lần lưu này rồi
+    ghi nhóm THUỐC (dòng thêm, dòng bỏ, đổi liều) — kể cả đơn đã giao quầy
+    (đi đường đính chính bên dưới, lý do ghi kèm)."""
+    from clinicai.services.so_sua_chi_dinh_service import (
+        chan_ho_so_cu,
+        doc_don_de_so,
+        ghi_so_thuoc,
+    )
+
+    await chan_ho_so_cu(conn, str(visit_id))
+    anh_truoc = await doc_don_de_so(conn, clinic_id, visit_id) if clinic_id else []
     cu = [
         dict(r)
         for r in await conn.fetch(
@@ -786,6 +798,18 @@ async def luu_don_chua_ky(
             item=m,
             created_by=created_by,
             lan=None,
+        )
+
+    if clinic_id:
+        await ghi_so_thuoc(
+            conn,
+            clinic_id=str(clinic_id),
+            visit_id=str(visit_id),
+            staff_id=identity.staff_id if identity is not None else created_by,
+            vai=identity.role.value if identity is not None else None,
+            truoc=anh_truoc,
+            sau=await doc_don_de_so(conn, clinic_id, visit_id),
+            ly_do=ly_do,
         )
 
     if lan is not None and identity is not None:

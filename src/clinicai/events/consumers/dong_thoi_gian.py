@@ -125,6 +125,8 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
         "tien_thua",
         "ly_do",
     ],
+    # Khối 2 (06/10/2026): hoàn tác bỏ chỉ định — tên dịch vụ + lý do.
+    "service_order.restored": ["service_code", "service_name", "ly_do"],
     "service.completion_undone": ["attempt_no", "mo_lai_kham_xong", "ly_do"],
     "visit.reopened": ["tu_ve_giua_chung", "ly_do"],
     "result.approval_revoked": ["tep_da_gui", "ly_do"],

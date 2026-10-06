@@ -61,12 +61,90 @@ NGUON: dict[str, tuple[str, str]] = {
     # Kết quả xét nghiệm / tệp kết quả của đối tác vừa về (Tuyền chốt 15/09/2026)
     # → báo CSKH và bác sĩ của khách; bác sĩ cho phép thì CSKH gửi.
     "ket_qua_ve": ("thong_bao.ket_qua_ve", "api:ket-qua"),
+    # Người khác bác sĩ chính bỏ một chỉ định của lượt (Khối 2, 06/10/2026) →
+    # báo đích danh bác sĩ chính. Thông báo này CHỈ có nút "Hoàn tác" (không có
+    # "Xong"): đóng khi có người hoàn tác, tự hết hạn cuối ngày.
+    "bo_chi_dinh": ("thong_bao.bo_chi_dinh", "api:hoan-tac"),
 }
+
+#: Nguồn chỉ đóng bằng HOÀN TÁC (hoặc hết ngày) — không có nút "Xong".
+NGUON_CHI_HOAN_TAC = frozenset({"bo_chi_dinh"})
 
 #: Nguồn duy nhất trước 09/08/2026 — giữ tên cũ vì `dispatch.py` gọi theo nó.
 NGUON_CANH_BAO = "dispatch_alert"
 
 MUC_DO_HOP_LE = frozenset({"KHAN", "THUONG"})
+
+
+async def ghi_thong_bao_nguoi(
+    conn: asyncpg.Connection,
+    *,
+    identity: StaffIdentity,
+    nguoi_nhan_staff_id: str,
+    tieu_de: str,
+    noi_dung: str,
+    nguon: str,
+    nguon_id: str,
+    muc_do: str = "THUONG",
+    duong_dan: str | None = None,
+) -> str | None:
+    """Báo ĐÍCH DANH một người, TRONG giao dịch của người gọi (thông báo đi cùng
+    thao tác: thao tác cuộn lại thì không có thông báo mồ côi). Trùng việc đang
+    mở thì không tạo thêm — trả None."""
+    if muc_do not in MUC_DO_HOP_LE:
+        raise ValidationError(f"Mức độ không hợp lệ: {muc_do!r}.")
+    if nguon not in NGUON:
+        raise ValidationError(f"Nguồn thông báo không hợp lệ: {nguon!r}.")
+    ma_su_kien, duong_ghi = NGUON[nguon]
+    row = await conn.fetchrow(
+        """
+        INSERT INTO public.thong_bao
+            (clinic_id, nguoi_nhan_staff_id, muc_do, tieu_de, noi_dung,
+             nguon, nguon_id, duong_dan, nguoi_goi_staff_id)
+        VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9::uuid)
+        ON CONFLICT (clinic_id, nguon, nguon_id, nguoi_nhan_staff_id)
+            WHERE da_xu_ly_luc IS NULL
+              AND nguon_id IS NOT NULL
+              AND vai_nhan IS NULL
+        DO NOTHING
+        RETURNING id::text
+        """,
+        identity.clinic_id,
+        nguoi_nhan_staff_id,
+        muc_do,
+        tieu_de.strip(),
+        noi_dung.strip(),
+        nguon,
+        nguon_id,
+        duong_dan,
+        identity.staff_id,
+    )
+    if row is None:
+        return None
+    await conn.execute(
+        """
+        INSERT INTO public.event_log
+            (clinic_id, event_type, aggregate_type, aggregate_id,
+             payload, metadata, source, event_published)
+        VALUES ($1::uuid, $2, 'thong_bao', $3::uuid, $4::jsonb, $5::jsonb,
+                $6, FALSE)
+        """,
+        identity.clinic_id,
+        ma_su_kien,
+        row["id"],
+        json.dumps({"nguoi_nhan_staff_id": nguoi_nhan_staff_id, "nguon_id": nguon_id}),
+        json.dumps(
+            {
+                "actor_auth_user_id": identity.auth_user_id,
+                "clinic_staff_id": identity.staff_id,
+                "clinic_role": identity.role.value,
+                # Vai tài khoản gốc (vai dùng có thể khác).
+                "vai_tai_khoan": identity.vai_goc.value,
+            }
+        ),
+        duong_ghi,
+    )
+    return str(row["id"])
 
 
 class ThongBaoService:
@@ -206,63 +284,21 @@ class ThongBaoService:
     ) -> dict[str, Any]:
         """Báo ĐÍCH DANH một người (vd. bác sĩ của khách). Trùng việc đang mở
         thì không tạo thêm (uq_thong_bao_dang_mo_nguoi, 20260915000019)."""
-        if muc_do not in MUC_DO_HOP_LE:
-            raise ValidationError(f"Mức độ không hợp lệ: {muc_do!r}.")
-        if nguon not in NGUON:
-            raise ValidationError(f"Nguồn thông báo không hợp lệ: {nguon!r}.")
-        ma_su_kien, duong_ghi = NGUON[nguon]
         async with self._pool.acquire() as conn, conn.transaction():
-            row = await conn.fetchrow(
-                """
-                INSERT INTO public.thong_bao
-                    (clinic_id, nguoi_nhan_staff_id, muc_do, tieu_de, noi_dung,
-                     nguon, nguon_id, duong_dan, nguoi_goi_staff_id)
-                VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9::uuid)
-                ON CONFLICT (clinic_id, nguon, nguon_id, nguoi_nhan_staff_id)
-                    WHERE da_xu_ly_luc IS NULL
-                      AND nguon_id IS NOT NULL
-                      AND vai_nhan IS NULL
-                DO NOTHING
-                RETURNING id::text
-                """,
-                identity.clinic_id,
-                nguoi_nhan_staff_id,
-                muc_do,
-                tieu_de.strip(),
-                noi_dung.strip(),
-                nguon,
-                nguon_id,
-                duong_dan,
-                identity.staff_id,
+            tb_id = await ghi_thong_bao_nguoi(
+                conn,
+                identity=identity,
+                nguoi_nhan_staff_id=nguoi_nhan_staff_id,
+                tieu_de=tieu_de,
+                noi_dung=noi_dung,
+                nguon=nguon,
+                nguon_id=nguon_id,
+                muc_do=muc_do,
+                duong_dan=duong_dan,
             )
-            if row is None:
-                return {"ok": True, "da_goi_tu_truoc": True}
-            await conn.execute(
-                """
-                INSERT INTO public.event_log
-                    (clinic_id, event_type, aggregate_type, aggregate_id,
-                     payload, metadata, source, event_published)
-                VALUES ($1::uuid, $2, 'thong_bao', $3::uuid, $4::jsonb, $5::jsonb,
-                        $6, FALSE)
-                """,
-                identity.clinic_id,
-                ma_su_kien,
-                row["id"],
-                json.dumps(
-                    {"nguoi_nhan_staff_id": nguoi_nhan_staff_id, "nguon_id": nguon_id}
-                ),
-                json.dumps(
-                    {
-                        "actor_auth_user_id": identity.auth_user_id,
-                        "clinic_staff_id": identity.staff_id,
-                        "clinic_role": identity.role.value,
-                        # Vai tài khoản gốc (vai dùng có thể khác).
-                        "vai_tai_khoan": identity.vai_goc.value,
-                    }
-                ),
-                duong_ghi,
-            )
-        return {"ok": True, "id": row["id"]}
+        if tb_id is None:
+            return {"ok": True, "da_goi_tu_truoc": True}
+        return {"ok": True, "id": tb_id}
 
     async def cua_toi(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
         """Thông báo CHƯA XỬ LÝ dành cho vai của tôi, hoặc đích danh tôi."""
@@ -276,13 +312,29 @@ class ThongBaoService:
                        t.duong_dan,
                        t.tao_luc,
                        t.da_doc_luc,
-                       s.full_name AS nguoi_goi
+                       t.nguon,
+                       s.full_name AS nguoi_goi,
+                       -- Thông báo "chỉ định bị bỏ": nút DUY NHẤT là Hoàn tác
+                       -- dòng sổ ấy (máy chủ nói có hoàn tác được không).
+                       CASE WHEN t.nguon = 'bo_chi_dinh'
+                                 AND so.hanh_dong = 'BO'
+                                 AND so.hoan_tac_luc IS NULL
+                            THEN so.id::text END AS hoan_tac_so_id
                   FROM public.thong_bao t
                   LEFT JOIN public.staff s ON s.id = t.nguoi_goi_staff_id
+                  LEFT JOIN public.so_sua_chi_dinh so
+                    ON t.nguon = 'bo_chi_dinh' AND so.clinic_id = t.clinic_id
+                   AND so.id::text = t.nguon_id
                  WHERE t.clinic_id = $1::uuid
                    AND t.da_xu_ly_luc IS NULL
                    AND (t.vai_nhan = ANY($2::text[])
                         OR t.nguoi_nhan_staff_id = $3::uuid)
+                   -- "Chỉ định bị bỏ" không có nút Xong: hết ngày thì thôi hiện
+                   -- (việc của buổi khám ấy) — sổ vẫn giữ ở Lịch sử sửa.
+                   AND NOT (t.nguon = 'bo_chi_dinh'
+                            AND t.tao_luc < (date_trunc(
+                                    'day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
+                                AT TIME ZONE 'Asia/Ho_Chi_Minh'))
                  ORDER BY (t.muc_do = 'KHAN') DESC, t.tao_luc DESC
                  LIMIT 50
                 """,
@@ -290,7 +342,10 @@ class ThongBaoService:
                 identity.ds_vai(),
                 identity.staff_id,
             )
-        return [dict(r) for r in rows]
+        # `chi_hoan_tac`: máy chủ nói thông báo nào KHÔNG có nút "Xong" (chỉ
+        # Hoàn tác) — giao diện không tự suy từ `nguon`.
+        ra = [dict(r) for r in rows]
+        return [{**d, "chi_hoan_tac": d.get("nguon") in NGUON_CHI_HOAN_TAC} for d in ra]
 
     async def danh_dau_da_doc(self, *, identity: StaffIdentity) -> dict[str, Any]:
         """Đóng dấu ĐÃ ĐỌC cho mọi thông báo đang mở của vai này.
@@ -329,8 +384,13 @@ class ThongBaoService:
     async def da_xu_ly(
         self, *, identity: StaffIdentity, thong_bao_id: str, ghi_chu: str | None
     ) -> dict[str, Any]:
-        """Bên nhận đóng việc. Từ đây đo được thời gian phản hồi."""
+        """Bên nhận đóng việc. Từ đây đo được thời gian phản hồi.
+
+        Thông báo "chỉ định bị bỏ" KHÔNG đóng ở đây (Tuyền 06/10: chỉ có nút
+        Hoàn tác) — đóng bằng hoàn tác, hoặc tự hết hạn cuối ngày."""
         async with self._pool.acquire() as conn:
+            # Lọc ngay trong câu UPDATE (một vòng hỏi, không kẽ hở giữa đọc
+            # và ghi); không đóng được thì hỏi lại vì sao để nói đúng lỗi.
             row = await conn.fetchrow(
                 """
                 UPDATE public.thong_bao
@@ -340,6 +400,7 @@ class ThongBaoService:
                        da_doc_luc = coalesce(da_doc_luc, now())
                  WHERE id = $1::uuid AND clinic_id = $2::uuid
                    AND da_xu_ly_luc IS NULL
+                   AND nguon <> ALL($5::text[])
                 RETURNING id::text,
                           extract(epoch FROM (now() - tao_luc))::int AS giay_phan_hoi
                 """,
@@ -347,7 +408,20 @@ class ThongBaoService:
                 identity.clinic_id,
                 identity.staff_id,
                 (ghi_chu or "").strip() or None,
+                sorted(NGUON_CHI_HOAN_TAC),
             )
+            if row is None:
+                nguon = await conn.fetchval(
+                    "SELECT nguon FROM public.thong_bao"
+                    " WHERE id::text = $1 AND clinic_id = $2::uuid",
+                    str(thong_bao_id),
+                    identity.clinic_id,
+                )
+                if isinstance(nguon, str) and nguon in NGUON_CHI_HOAN_TAC:
+                    raise ValidationError(
+                        "Thông báo bỏ chỉ định chỉ có nút Hoàn tác — không đánh"
+                        " dấu xong được."
+                    )
         if row is None:
             raise NotFoundError(
                 "Không tìm thấy thông báo đang mở với mã này — "

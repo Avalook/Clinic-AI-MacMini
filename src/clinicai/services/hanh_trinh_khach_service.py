@@ -50,6 +50,7 @@ from clinicai.phieu_kham.hanh_trinh import (
 )
 from clinicai.services.lan_bac_si import noi_lam
 from clinicai.services.lich_su_phong import lich_su_phong_cua_luot
+from clinicai.services.so_sua_chi_dinh_service import doc_so
 from clinicai.services.xem_luot_service import goi_duoc
 
 #: Trạng thái một bước / một đoạn thanh (giao diện map sang màu token).
@@ -1091,6 +1092,9 @@ class HanhTrinhKhachService:
                     conn, clinic_id=identity.clinic_id, visit_id=ma[0]
                 )
             )
+            # Sổ thêm / bỏ / hoàn tác chỉ định (Khối 2, 06/10/2026) — cùng dữ
+            # liệu mục "Lịch sử sửa" của phiếu khám.
+            kq[ma[0]]["so_sua_chi_dinh"] = await doc_so(conn, identity.clinic_id, ma[0])
         return kq[ma[0]]
 
     async def gon_nhieu_luot(

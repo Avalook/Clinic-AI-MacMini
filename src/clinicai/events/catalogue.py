@@ -967,6 +967,19 @@ class ChiDinhDaHuy(PayloadSuKien):
     ly_do: str | None = None
 
 
+class ChiDinhDatLai(PayloadSuKien):
+    """`service_order.restored` — HOÀN TÁC một lần bỏ chỉ định (Khối 2,
+    06/10/2026): chỉ định quay lại "chưa xếp phòng", khoản đã thu (nếu có) thôi
+    là tiền thừa. Thường do bác sĩ chính bấm ở thông báo "chỉ định bị bỏ"."""
+
+    visit_id: str
+    service_order_id: str
+    service_code: str
+    service_name: str
+    so_sua_id: str
+    ly_do: str | None = None
+
+
 class DichVuHoanTacXong(PayloadSuKien):
     """`service.completion_undone` — hoàn tác "Xong" của một dịch vụ: lần làm
     về lại đang làm, khách về lại phòng (kết quả đã gõ giữ nguyên)."""
@@ -1308,6 +1321,17 @@ DANH_MUC: dict[str, SuKien] = {
             payload=ChiDinhDaHuy,
             nhan="Bỏ chỉ định",
             consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="service_order.restored",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_order",
+            payload=ChiDinhDatLai,
+            nhan="Hoàn tác bỏ chỉ định",
+            # HÀNH TRÌNH: chỉ định vừa quay lại đi đúng cửa làm như lúc khách
+            # vừa chốt (đã thu → xếp phòng ngay).
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
         ),
         SuKien(
             ten="consultation.reopened",
@@ -1830,6 +1854,7 @@ __all__ = [
     "DANH_MUC",
     "HANH_TRINH",
     "ChiDinhDaHuy",
+    "ChiDinhDatLai",
     "DichVuHoanTacXong",
     "KetQuaThuHoiDuyet",
     "LuotMoLai",

@@ -101,6 +101,9 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "mo-lai-luot": (id) => `/api/v1/luot-kham/visits/${id}/mo-lai-luot`,
   // id = CHỈ ĐỊNH: thu hồi lần bác sĩ duyệt kết quả (về chờ duyệt).
   "thu-hoi-ket-qua": (id) => `/api/v1/luot-kham/orders/${id}/thu-hoi-duyet`,
+  // Khối 2 (06/10/2026): id = DÒNG SỔ sửa chỉ định — hoàn tác một lần BỎ chỉ
+  // định (nút duy nhất của thông báo bác sĩ chính + Lịch sử sửa).
+  "hoan-tac-bo-chi-dinh": (id) => `/api/v1/luot-kham/so-sua-chi-dinh/${id}/hoan-tac`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
@@ -132,6 +135,11 @@ function duongDoc(url: URL): string | null {
   if (xem === "lam-truoc-thu-sau") {
     const luot = url.searchParams.get("luot") ?? "";
     return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/lam-truoc-thu-sau` : null;
+  }
+  // Sổ thêm / bỏ / hoàn tác chỉ định của một lượt (Khối 2, 06/10/2026).
+  if (xem === "so-sua-chi-dinh") {
+    const luot = url.searchParams.get("luot") ?? "";
+    return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/so-sua-chi-dinh` : null;
   }
   // Dịch vụ khám chọn được + đã chọn của một lượt (28/09/2026).
   if (xem === "phi-kham") {

@@ -467,7 +467,12 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
   const conCho = ds.filter(
     (l) =>
       (quay !== "thuoc" &&
-        ((l.services.length > 0 && !daThuCua(l.visit_id, "dich_vu")) || choQuyet(l))) ||
+        ((l.services.length > 0 && !daThuCua(l.visit_id, "dich_vu")) ||
+          choQuyet(l) ||
+          // Đã thu đủ nhưng còn TIỀN THỪA (bỏ chỉ định sau khi thu — Khối 2,
+          // 06/10/2026): máy chủ xếp lượt vào hàng chờ xử lý (`ds_cho_thu`);
+          // thiếu vế này thì khối "Tiền thừa" không bao giờ hiện ở quầy.
+          (l.tien_thua?.tong ?? 0) > 0)) ||
       (quay !== "dich_vu" && l.drugs.length > 0 && !daThuCua(l.visit_id, "thuoc")),
   );
 
