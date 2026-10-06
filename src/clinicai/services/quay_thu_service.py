@@ -764,8 +764,15 @@ SELECT v.visit_id::text AS visit_id, p.full_name AS ten, p.patient_code AS ma_bn
 _DONG_SQL = """
 SELECT bl.id::text AS id, bl.payment_cycle_id::text AS cycle_id, bl.source_id,
        bl.source_type, bl.name_snapshot AS ten, bl.quantity AS so_luong,
-       bl.line_total AS thanh_tien
+       bl.line_total AS thanh_tien,
+       -- Phiếu ghi "Lần k" của chỉ định và "đã bỏ" khi in lại sau khi bỏ
+       -- (06/10/2026, E3) — dòng vẫn in (tiền đã thu là sự thật).
+       o.lan_chi_dinh AS lan,
+       coalesce(o.exec_status IN ('cancelled', 'not_performed'), false) AS da_bo
   FROM payment_bill_line bl
+  LEFT JOIN service_order o
+    ON bl.source_type = 'service_order' AND o.clinic_id = bl.clinic_id
+   AND o.id::text = bl.source_id
  WHERE bl.clinic_id = $1::uuid AND bl.payment_cycle_id = ANY($2::uuid[])
    AND bl.billing_owner = 'CLINIC'
  ORDER BY bl.source_type = 'exam' DESC, bl.created_at, bl.id
@@ -1052,7 +1059,10 @@ class QuayThuService:
                         )
             # Huỷ phiếu: cùng quyền thu đúng loại tiền (PaymentService.void_payment).
             co_huy = await can(conn, identity, QUYEN_THU[0 if loai == "dich_vu" else 1])
-        from clinicai.services.hoan_tien_service import co_quyen_hoan
+            # Hoàn tiền theo lego thu đúng loại tiền (Tuyền 06/10/2026, thay HOLD J4).
+            from clinicai.services.hoan_tien_service import co_quyen_hoan
+
+            quyen_hoan = await co_quyen_hoan(conn, identity, loai)
 
         return {
             "tu": a.isoformat(),
@@ -1060,7 +1070,7 @@ class QuayThuService:
             "tong": tong_lich_su(loc),
             "nguoi_thu": ds_nguoi,
             "khach": loc,
-            "co_quyen_hoan": co_quyen_hoan(identity),
+            "co_quyen_hoan": quyen_hoan,
             "co_quyen_huy": co_huy,
         }
 
@@ -1281,7 +1291,9 @@ class QuayThuService:
                         "ten": r["ten"],
                         "so_luong": float(r["so_luong"]),
                         "thanh_tien": _so(r["thanh_tien"]),
-                        **_phong_cua_dong(r, phong),
+                        "lan": r["lan"],
+                        "da_bo": bool(r["da_bo"]),
+                        **({} if r["da_bo"] else _phong_cua_dong(r, phong)),
                     }
                     for r in await conn.fetch(_DONG_SQL, cid, [id_])
                 ]

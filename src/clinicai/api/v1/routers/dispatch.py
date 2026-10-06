@@ -452,6 +452,59 @@ async def checkout_huy_ghi_no(
     )
 
 
+class TienThuaRequest(BaseModel):
+    visit_id: UUID
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+#: Hoàn tiền thừa = lego Thu tiền dịch vụ (Tuyền 06/10/2026, "ai có node cũng
+#: được"); lệnh tự kiểm lại trong giao dịch.
+_HOAN_TIEN_THUA_GUARD = cua_quyen("payment.service.collect")
+
+
+@router.post("/reception/checkout/hoan-tien-thua")
+async def checkout_hoan_tien_thua(
+    body: TienThuaRequest,
+    identity: StaffIdentity = Depends(_HOAN_TIEN_THUA_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """ "Đã hoàn cho khách": máy hoàn ĐÚNG phần tiền thừa còn lại (tiền mặt) của
+    lượt — chỉ định đã bỏ / không làm, dịch vụ khám đã bỏ (06/10/2026, E2)."""
+    from clinicai.services.hoan_tien_service import HoanTienService
+
+    return await HoanTienService(pool).hoan_tien_thua(
+        identity=identity, visit_id=str(body.visit_id), reason=body.ly_do
+    )
+
+
+@router.post("/reception/checkout/giu-lai-tien-thua")
+async def checkout_giu_lai_tien_thua(
+    body: TienThuaRequest,
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Khách không lấy lại tiền thừa — ghi lý do (bắt buộc), ai, lúc nào."""
+    from clinicai.services.tien_thua_service import TienThuaService
+
+    return await TienThuaService(pool).giu_lai(
+        identity=identity, visit_id=str(body.visit_id), ly_do=body.ly_do
+    )
+
+
+@router.post("/reception/checkout/huy-giu-lai-tien-thua")
+async def checkout_huy_giu_lai_tien_thua(
+    body: TienThuaRequest,
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tác "giữ lại tiền thừa" — chỉ khi khách chưa check-out."""
+    from clinicai.services.tien_thua_service import TienThuaService
+
+    return await TienThuaService(pool).huy_giu_lai(
+        identity=identity, visit_id=str(body.visit_id), ly_do=body.ly_do
+    )
+
+
 class ThresholdRequest(BaseModel):
     """``room_id`` để trống = ngưỡng mặc định của phòng khám."""
 

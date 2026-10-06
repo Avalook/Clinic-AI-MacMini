@@ -339,6 +339,32 @@ async def tien_thua_cua_luot(
     """
     if not visit_ids:
         return {}
+    out = await _tien_thua_chi_dinh(conn, clinic_id, visit_ids)
+    # Dịch vụ khám đã thu rồi bỏ tick (06/10/2026, E7) — cũng là tiền thừa.
+    from clinicai.services.tien_thua_service import dong_tien_thua
+
+    for vid, ds in (await dong_tien_thua(conn, clinic_id, visit_ids)).items():
+        for d in ds:
+            if d["source_type"] != "exam":
+                continue
+            muc = out.setdefault(vid, {"tong": 0, "dong": []})
+            muc["tong"] += d["so_tien"]
+            muc["dong"].append(
+                {
+                    "order_id": None,
+                    "line_id": d["line_id"],
+                    "ten": d["ten"],
+                    "so_tien": d["so_tien"],
+                    "loai": "BO_DICH_VU_KHAM",
+                    "ly_do": None,
+                }
+            )
+    return out
+
+
+async def _tien_thua_chi_dinh(
+    conn: asyncpg.Connection, clinic_id: str, visit_ids: list[str]
+) -> dict[str, dict[str, Any]]:
     don = await conn.fetch(
         """
         SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
@@ -747,7 +773,9 @@ class HoanTacService:
             if tien["cho_xac_minh"] > 0:
                 hau_qua.append(
                     f"Có khoản chuyển khoản {_tien(tien['cho_xac_minh'])} đang chờ"
-                    " xác minh cho dịch vụ này — quầy thu xử lý sau khi bỏ."
+                    " xác minh cho dịch vụ này — sau khi bỏ, quầy bấm “Huỷ lần chờ”"
+                    " rồi thu lại theo hoá đơn mới (xác minh nguyên số thì phần của"
+                    " dịch vụ này thành tiền thừa)."
                 )
             doi_xac_nhan(ly_do=ly, xac_nhan=xac_nhan, hau_qua=hau_qua)
 

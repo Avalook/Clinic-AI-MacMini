@@ -56,6 +56,16 @@ export async function POST(request: Request) {
   // check-out; máy chủ quyết mọi thứ (`cong_no_service`).
   const hanhDong =
     body && typeof body === "object" ? (body as { hanh_dong?: unknown }).hanh_dong : null;
+  // TIỀN THỪA (06/10/2026): hoàn đúng số / giữ lại (lý do) / huỷ giữ lại.
+  const DUONG_TIEN_THUA: Record<string, string> = {
+    hoan_tien_thua: "/api/v1/reception/checkout/hoan-tien-thua",
+    giu_lai_tien_thua: "/api/v1/reception/checkout/giu-lai-tien-thua",
+    huy_giu_lai_tien_thua: "/api/v1/reception/checkout/huy-giu-lai-tien-thua",
+  };
+  if (typeof hanhDong === "string" && hanhDong in DUONG_TIEN_THUA) {
+    const { visit_id, ly_do } = body as { visit_id?: unknown; ly_do?: unknown };
+    return proxyJsonToBackend("POST", DUONG_TIEN_THUA[hanhDong], { visit_id, ly_do });
+  }
   if (hanhDong === "ghi_no" || hanhDong === "huy_ghi_no") {
     const { visit_id, ly_do } = body as { visit_id?: unknown; ly_do?: unknown };
     return proxyJsonToBackend(

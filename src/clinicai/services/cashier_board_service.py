@@ -336,10 +336,12 @@ class CashierBoardService:
                 conn, identity.clinic_id, [r["id"] for r in rows]
             )
             quyen = await quyen_thu_theo_loai(conn, identity)
+            # Hoàn tiền theo lego thu (Tuyền 06/10/2026, thay HOLD J4 chỉ Quản lý).
+            co_hoan = await co_quyen_hoan(conn, identity, kind)
         return {
             "tu": a.isoformat(),
             "den": b.isoformat(),
-            "co_quyen_hoan": co_quyen_hoan(identity),
+            "co_quyen_hoan": co_hoan,
             "giao_dich": [
                 {
                     "id": r["id"],
