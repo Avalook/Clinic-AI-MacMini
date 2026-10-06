@@ -176,14 +176,19 @@ export default function RosterRegisterTable({
     // của máy chủ — gỡ xong, tải lại, máy chủ không còn dòng ấy nên dòng tạm
     // hiện lại: người vừa gỡ vẫn "Đã xếp", biến khỏi danh sách chọn, bấm gỡ lần
     // nữa thì máy chủ báo "Không tìm thấy ca trực".
+    // Ca vừa xếp rồi ĐỔI NGƯỜI (06/10/2026, Tuyền bấm trên staging): máy chủ
+    // sửa ĐÚNG dòng ấy (cùng id) sang người mới, nên so người+ngày+trạm không
+    // còn khớp và dòng tạm mang tên người cũ hiện lại như ô có hai người. Máy
+    // chủ đã có dòng cùng id thì dòng tạm hết việc, bỏ luôn.
     ...optimistic.filter(
       (o) =>
         overrides[o.id] !== "REMOVED" &&
         !rows.some(
           (r) =>
-            r.staff_id === o.staff_id &&
-            r.work_date === o.work_date &&
-            r.station === o.station,
+            r.id === o.id ||
+            (r.staff_id === o.staff_id &&
+              r.work_date === o.work_date &&
+              r.station === o.station),
         ),
     ),
   ];
