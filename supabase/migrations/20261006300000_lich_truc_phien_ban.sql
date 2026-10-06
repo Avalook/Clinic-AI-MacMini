@@ -19,14 +19,22 @@
 -- thì vẫn ghi được thay đổi, chỉ thiếu tên người — không bao giờ chặn thao tác.
 --
 -- Lịch sử chỉ có từ lúc migration này chạy: thay đổi trước đó không có sổ.
+-- Tuần ĐÃ áp dụng trước ngày lên bản được chụp một ảnh `LEN_BAN` ngay trong
+-- migration — để thay đổi từ nay về sau của tuần ấy có một mốc mà so.
+--
+-- Hàm trigger là SECURITY DEFINER: ai ghi được lịch trực thì sổ cũng ghi được,
+-- không phụ thuộc quyền/RLS của vai đang ghi (API ghi bằng `postgres`, nhưng
+-- một lối ghi sau này bằng vai khác không được làm hỏng cú xếp ca).
 
 -- ── Ảnh lịch lúc áp dụng tuần ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.lich_truc_anh (
     id            bigserial   PRIMARY KEY,
-    clinic_id     uuid        NOT NULL REFERENCES public.clinic(id) ON DELETE RESTRICT,
+    -- CASCADE: xoá phòng khám (dọn dữ liệu thử) không bị sổ lịch sử chặn lại.
+    clinic_id     uuid        NOT NULL REFERENCES public.clinic(id) ON DELETE CASCADE,
     week_start    date        NOT NULL,
-    -- GOC = lần áp dụng đầu tiên; AP_DUNG_LAI = quản lý sửa rồi bấm áp dụng lại.
-    loai          text        NOT NULL CHECK (loai IN ('GOC', 'AP_DUNG_LAI')),
+    -- GOC = lần áp dụng đầu tiên; AP_DUNG_LAI = sửa rồi bấm áp dụng lại;
+    -- LEN_BAN = tuần đã áp dụng TRƯỚC ngày lên bản này (chụp trong migration).
+    loai          text        NOT NULL CHECK (loai IN ('GOC', 'AP_DUNG_LAI', 'LEN_BAN')),
     txid          bigint      NOT NULL DEFAULT txid_current(),
     luc           timestamptz NOT NULL DEFAULT now(),
     boi_staff_id  uuid        REFERENCES public.staff(id) ON DELETE SET NULL,
@@ -39,7 +47,7 @@ CREATE INDEX IF NOT EXISTS lich_truc_anh_tuan
 -- ── Sổ từng thay đổi ô lịch ────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.lich_truc_thay_doi (
     id            bigserial   PRIMARY KEY,
-    clinic_id     uuid        NOT NULL REFERENCES public.clinic(id) ON DELETE RESTRICT,
+    clinic_id     uuid        NOT NULL REFERENCES public.clinic(id) ON DELETE CASCADE,
     week_start    date        NOT NULL,
     roster_id     uuid        NOT NULL,           -- work_roster.id (dòng có thể đã xoá)
     hanh_dong     text        NOT NULL CHECK (hanh_dong IN ('THEM', 'XOA', 'DOI_NGUOI', 'SUA')),
@@ -86,6 +94,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.lich_truc_ghi_thay_doi()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     hd text;
@@ -107,6 +117,20 @@ BEGIN
     -- UPDATE: chỉ ghi khi đổi thứ người xem thấy trên bảng lịch (đổi thứ tự
     -- sắp xếp / dấu thời gian thì bỏ qua).
     IF public.lich_truc_o(OLD) = public.lich_truc_o(NEW) THEN
+        RETURN NEW;
+    END IF;
+    -- Dòng chuyển sang TUẦN KHÁC (đổi ngày): mỗi tuần một sổ, nên tuần cũ thấy
+    -- ca biến mất, tuần mới thấy ca xuất hiện.
+    IF OLD.week_start IS DISTINCT FROM NEW.week_start
+       OR OLD.clinic_id IS DISTINCT FROM NEW.clinic_id THEN
+        INSERT INTO public.lich_truc_thay_doi
+            (clinic_id, week_start, roster_id, hanh_dong, truoc, boi_staff_id)
+        VALUES (OLD.clinic_id, OLD.week_start, OLD.id, 'XOA',
+                public.lich_truc_o(OLD), public.lich_truc_nguoi_bam());
+        INSERT INTO public.lich_truc_thay_doi
+            (clinic_id, week_start, roster_id, hanh_dong, sau, boi_staff_id)
+        VALUES (NEW.clinic_id, NEW.week_start, NEW.id, 'THEM',
+                public.lich_truc_o(NEW), public.lich_truc_nguoi_bam());
         RETURN NEW;
     END IF;
     hd := CASE
@@ -132,6 +156,8 @@ CREATE TRIGGER lich_truc_ghi_thay_doi
 CREATE OR REPLACE FUNCTION public.lich_truc_chup_anh()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 BEGIN
     INSERT INTO public.lich_truc_anh (clinic_id, week_start, loai, boi_staff_id, ca)
@@ -153,3 +179,23 @@ DROP TRIGGER IF EXISTS lich_truc_chup_anh ON public.roster_week;
 CREATE TRIGGER lich_truc_chup_anh
     AFTER INSERT OR UPDATE OF applied_at ON public.roster_week
     FOR EACH ROW EXECUTE FUNCTION public.lich_truc_chup_anh();
+
+-- ── Mốc cho tuần đã áp dụng trước ngày lên bản ─────────────────────────────
+-- Không có ảnh này thì đổi người trong tuần đang chạy (đã áp dụng hôm qua)
+-- không có gì để so, và màn sẽ báo "chưa có lịch sử" cho đúng tuần cần xem nhất.
+INSERT INTO public.lich_truc_anh (clinic_id, week_start, loai, ca)
+SELECT rw.clinic_id, rw.week_start, 'LEN_BAN',
+       coalesce((SELECT jsonb_agg(public.lich_truc_o(w)
+                                  ORDER BY w.work_date, w.shift, w.station, w.sort)
+                   FROM public.work_roster w
+                  WHERE w.clinic_id = rw.clinic_id
+                    AND w.week_start = rw.week_start), '[]'::jsonb)
+  FROM public.roster_week rw
+ WHERE NOT EXISTS (SELECT 1 FROM public.lich_truc_anh a
+                    WHERE a.clinic_id = rw.clinic_id
+                      AND a.week_start = rw.week_start);
+
+COMMENT ON TABLE public.lich_truc_anh IS
+'Ảnh cả tuần lịch trực lúc áp dụng tuần (GOC / AP_DUNG_LAI) hoặc lúc lên bản (LEN_BAN). Chỉ thêm — trigger lich_truc_chup_anh ghi.';
+COMMENT ON TABLE public.lich_truc_thay_doi IS
+'Sổ từng thay đổi ô lịch trực (THEM/XOA/DOI_NGUOI/SUA), một giao dịch = một phiên bản (txid). Chỉ thêm — trigger lich_truc_ghi_thay_doi ghi.';

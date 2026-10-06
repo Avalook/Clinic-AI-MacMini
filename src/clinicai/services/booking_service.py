@@ -89,6 +89,7 @@ from clinicai.services.doi_dich_vu_kham import (
     doc_trang_thai,
 )
 from clinicai.services.lenh_kham_core import ma_uuid
+from clinicai.services.lich_truc_phien_ban_service import giao_dich_lich_truc
 from clinicai.services.slot_hold_service import release_on_booking
 
 logger = structlog.get_logger()
@@ -1581,20 +1582,22 @@ class BookingService:
         # `week_start` là thứ Hai của tuần chứa ngày ấy — cùng công thức mà
         # `roster_week` và màn Lịch làm việc dùng.
         tuan = ngay - timedelta(days=ngay.isoweekday() - 1)
-        await conn.execute(
-            """
-            INSERT INTO public.work_roster
-                (clinic_id, week_start, work_date, shift, station,
-                 staff_id, staff_name, status)
-            VALUES ($1::uuid, $2, $3, $4, 'LICH_KHAM', $5::uuid, $6, 'APPROVED')
-            """,
-            identity.clinic_id,
-            tuan,
-            ngay,
-            ca,
-            doctor_id,
-            ten,
-        )
+        # Người bấm cho sổ lịch sử lịch trực (trigger, Khối 3 06/10/2026).
+        async with giao_dich_lich_truc(conn, identity.staff_id):
+            await conn.execute(
+                """
+                INSERT INTO public.work_roster
+                    (clinic_id, week_start, work_date, shift, station,
+                     staff_id, staff_name, status)
+                VALUES ($1::uuid, $2, $3, $4, 'LICH_KHAM', $5::uuid, $6, 'APPROVED')
+                """,
+                identity.clinic_id,
+                tuan,
+                ngay,
+                ca,
+                doctor_id,
+                ten,
+            )
         await _log(
             conn,
             event_type="roster.tu_xep_theo_lich_hen",
