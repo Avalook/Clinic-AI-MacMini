@@ -1,0 +1,23 @@
+{
+  "include": [
+    "src/clinicai",
+    "src/tests",
+    "scripts"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "src/dashboard",
+    "docs",
+    "supabase"
+  ],
+  "extraPaths": [
+    "src"
+  ],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning",
+  "useLibraryCodeForTypes": false,
+  "venvPath": ".",
+  "venv": ".venv"
+}
