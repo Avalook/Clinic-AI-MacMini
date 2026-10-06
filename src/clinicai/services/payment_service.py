@@ -56,6 +56,7 @@ from clinicai.services.bill_service import (
     hoa_don_theo_anh_chup,
     tinh_hoa_don,
 )
+from clinicai.services.chot_0d import ghi_chot_0d
 from clinicai.services.lenh_kham_core import bien_nhan_doc, bien_nhan_ghi, khoa_luot
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import (
@@ -759,6 +760,17 @@ class PaymentService:
                     "Hoá đơn vừa thay đổi (chỉ định, lựa chọn của khách hoặc giá) —"
                     " tải lại rồi thu theo hoá đơn mới."
                 )
+            await ghi_chot_0d(conn, identity, visit_id, hoa_don)
+            return {"payment_cycle_id": None, "status": KHONG_CON_KHOAN}
+        if hoa_don.tong <= 0 and hoa_don.dong:
+            # Còn dòng phòng khám thu nhưng tất cả 0đ (khám không tính tiền):
+            # chốt để ghi nhận, khách đi tiếp như đã thu.
+            if bill_revision is not None and bill_revision != hoa_don.revision:
+                raise BillChangedError(
+                    "Hoá đơn vừa thay đổi (chỉ định, lựa chọn của khách hoặc giá) —"
+                    " tải lại rồi thu theo hoá đơn mới."
+                )
+            await ghi_chot_0d(conn, identity, visit_id, hoa_don)
             return {"payment_cycle_id": None, "status": KHONG_CON_KHOAN}
         if hoa_don.tong <= 0:
             if hoa_don.chi_doi_tac_thu:
