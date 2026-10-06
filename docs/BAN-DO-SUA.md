@@ -385,6 +385,14 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `add_shift`, `decide`); lịch phòng `S/lich_phong_service.py` `LichPhongService`.
   Nạp cả tuần từ bảng: `scripts/ap-lich-tuan-2809.py`. Test:
   `T/unit/test_lich_phong.py`, `T/services/test_doi_nguoi_trong_ca_db.py`.
+- **Lịch sử thay đổi lịch trực (06/10):** khối "Lịch sử thay đổi" ở `/schedule`
+  (`D/schedule/PhienBanLich.tsx`, tô màu ô trong `D/home/WorkRosterTable.tsx`
+  `MAU_THAY_DOI`) → `GET /api/v1/roster/phien-ban` → `S/lich_truc_phien_ban_service.py`
+  (`dung_phien_ban`, `so_sanh`, `LichTrucPhienBanService.xem`). Ghi bằng trigger
+  (mig `20261006300000_lich_truc_phien_ban.sql`); lối ghi lịch MỚI phải bọc câu ghi
+  bằng `giao_dich_lich_truc(conn, staff_id)` (hoặc `dat_nguoi_bam` trong giao dịch
+  sẵn có) để sổ có tên người sửa. Test: `T/unit/test_lich_truc_phien_ban.py`,
+  `T/services/test_lich_truc_phien_ban_db.py`.
 
 ## 14. Quyền · lego · tài khoản
 

@@ -32,6 +32,7 @@ import LichTheoNguoi from "./LichTheoNguoi";
 import TabLichLamViec from "./TabLichLamViec";
 import DoiNguoiTrongCa, { type VetThayNguoi } from "./DoiNguoiTrongCa";
 import NgoaiLeCaTruc, { type NgoaiLeCaTrucItem } from "./NgoaiLeCaTruc";
+import PhienBanLich, { type PhienBanTraVe } from "./PhienBanLich";
 import RosterRegisterTable, {
   type RegisterRow,
   type StaffOpt,
@@ -81,7 +82,9 @@ export default async function SchedulePage({
   // 24/09/2026: đọc qua backend `GET /api/v1/roster/lich-tuan` thay vì tự đọc
   // 5 bảng bằng Supabase. Nhân sự + trạm theo vai chỉ về khi người xem là người
   // xếp lịch (backend quyết); ở đây chỉ còn rút gọn tên để hiển thị.
-  const [lich, viTri] = await Promise.all([
+  // Lịch sử phiên bản (06/10/2026): MÁY CHỦ quyết ai xem (cửa người xếp lịch —
+  // trưởng ca / quản lý); không được xem → `null` → không bày khối.
+  const [lich, viTri, phienBan] = await Promise.all([
     fetchFromBackend<{
       da_ap_dung: boolean;
       doi_nguoi?: boolean;
@@ -101,6 +104,9 @@ export default async function SchedulePage({
       tram_theo_vai: { vai: string; tram_ma: string }[];
     }>(`/api/v1/roster/lich-tuan?tuan=${encodeURIComponent(week)}`),
     getViTriHomNay(),
+    fetchFromBackend<PhienBanTraVe>(
+      `/api/v1/roster/phien-ban?tuan=${encodeURIComponent(week)}`,
+    ),
   ]);
   const stations = viTriTuDb(viTri?.danh_muc);
   const dong = lich?.dong_ca ?? [];
@@ -201,6 +207,27 @@ export default async function SchedulePage({
           }
         />
       </section>
+
+      {/* LỊCH SỬ THAY ĐỔI (Khối 3, 06/10/2026) — kiểu lịch sử phiên bản Google
+          Docs. `key` theo bản mới nhất: sửa lịch xong trang làm mới → khối dựng
+          lại từ bản mới nhất thay vì giữ bản đang chọn cũ. */}
+      {phienBan && (
+        <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
+          <div>
+            <h2 className="font-semibold text-ink">Lịch sử thay đổi</h2>
+            <p className="mt-0.5 text-body text-ink-muted">
+              Chọn một phiên bản để xem lịch của tuần lúc đó. Ô khác bản ngay trước được tô màu.
+            </p>
+          </div>
+          <PhienBanLich
+            key={`${week}-${phienBan.phien_ban[0]?.ma ?? "rong"}`}
+            banDau={phienBan}
+            stations={stations}
+            dates={dates}
+            dong={dong}
+          />
+        </section>
+      )}
 
       {/* ĐỔI NGƯỜI TRONG CA (29/09/2026) — trưởng ca (quyền riêng trong lego
           Điều phối khách) hoặc người xếp lịch. Hôm nay và các ngày tới. */}

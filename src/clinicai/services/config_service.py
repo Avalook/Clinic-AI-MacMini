@@ -49,6 +49,10 @@ from clinicai.core.shifts import (
 )
 from clinicai.permissions import cache
 from clinicai.permissions.can import can
+from clinicai.services.lich_truc_phien_ban_service import (
+    dat_nguoi_bam,
+    giao_dich_lich_truc,
+)
 from clinicai.services.nhan_vai import gan_nhan_vai
 
 logger = structlog.get_logger()
@@ -204,25 +208,29 @@ class RosterService:
                 ten=target_name,
             )
 
-            row_id = await conn.fetchval(
-                """
-                INSERT INTO work_roster (
-                    clinic_id, week_start, work_date, shift, station,
-                    staff_id, staff_name, sort, status
+            # Người bấm vào sổ lịch sử lịch trực (trigger, Khối 3 06/10/2026).
+            # Giao dịch chỉ bọc câu ghi: tin báo CSKH bên dưới là việc phụ, tự
+            # nuốt lỗi — lỗi SQL của nó trong cùng giao dịch sẽ kéo đổ cú xếp ca.
+            async with giao_dich_lich_truc(conn, identity.staff_id):
+                row_id = await conn.fetchval(
+                    """
+                    INSERT INTO work_roster (
+                        clinic_id, week_start, work_date, shift, station,
+                        staff_id, staff_name, sort, status
+                    )
+                    VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7, $8, $9)
+                    RETURNING id
+                    """,
+                    identity.clinic_id,
+                    week_start_of(work_date),
+                    work_date,
+                    shift if shift in CAC_CA else "FULL",
+                    station,
+                    target_id,
+                    target_name,
+                    sort,
+                    "APPROVED" if is_admin else "PENDING",
                 )
-                VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7, $8, $9)
-                RETURNING id
-                """,
-                identity.clinic_id,
-                week_start_of(work_date),
-                work_date,
-                shift if shift in CAC_CA else "FULL",
-                station,
-                target_id,
-                target_name,
-                sort,
-                "APPROVED" if is_admin else "PENDING",
-            )
 
             # CA MỚI VÀO MÀ CÓ LỊCH ĐANG CHỜ XẾP BÁC SĨ → BÁO CSKH (câu hỏi
             # của Đặng Dương 17/08/2026: "có cơ chế thông báo tự động cho CSKH
@@ -511,7 +519,10 @@ class RosterService:
         # changed their mind about a shift they had turned down.
         reject_reason = (reason or "").strip() or None if status == "REJECTED" else None
 
-        async with self._pool.acquire() as conn:
+        async with (
+            self._pool.acquire() as conn,
+            giao_dich_lich_truc(conn, identity.staff_id),
+        ):
             updated = await conn.fetchval(
                 """
                 UPDATE work_roster
@@ -582,6 +593,7 @@ class RosterService:
                     raise SafetyGateError("Chỉ được xoá ca của chính mình")
 
                 if not dry_run:
+                    await dat_nguoi_bam(conn, identity.staff_id)
                     await conn.execute(
                         "DELETE FROM work_roster "
                         "WHERE id = $1::uuid AND clinic_id = $2::uuid",
@@ -891,6 +903,7 @@ class RosterService:
                     raise ConflictError(
                         f"{nv['full_name']} đã có trong ca này ở cùng vị trí."
                     )
+                await dat_nguoi_bam(conn, identity.staff_id)
                 await conn.execute(
                     """
                     UPDATE work_roster
@@ -1022,6 +1035,8 @@ class RosterService:
                         "Tuần này chưa xếp ca nào. Xếp lịch trước rồi mới áp dụng."
                     )
 
+                # Trigger chụp ảnh tuần (lịch gốc / áp dụng lại) đọc người bấm.
+                await dat_nguoi_bam(conn, identity.staff_id)
                 await conn.execute(
                     """
                     INSERT INTO roster_week
