@@ -835,9 +835,12 @@ export default function RosterRegisterTable({
       </div>
 
       {/* BÁC SĨ NHẬN LỊCH KHÁM — đứng NGOÀI bảng Excel, có chủ ý.
-          File Excel không có dòng này, và bảng trên phải y hệt file. Nhưng lưới
-          đặt lịch cần biết hôm nào nhận lịch cho bác sĩ nào, và đây là chỗ duy
-          nhất quản lý khai điều đó. */}
+          06/10/2026 Tuyền: bỏ cho gọn — đặt lịch đếm MỌI người có tên trong
+          lịch trực (capacity_service), nên xếp bác sĩ ở phòng là đủ; dòng này
+          trên prod chưa từng có ai. CHỈ hiện khi tuần có người ở đây (máy tự
+          thêm khi chọn bác sĩ cho lịch hẹn tuần chưa áp dụng —
+          booking_service), để không có ca trực bị giấu mà không gỡ được. */}
+      {rowsBang.some((r) => r.station === VI_TRI_LICH_KHAM.key) ? (
       <div className="mt-4 max-w-full overflow-auto rounded-card border border-line bg-surface shadow-card">
         <table className="w-full min-w-max border-collapse text-xs">
           <RosterGridHead cot={cot} minWidth={112} />
@@ -885,6 +888,7 @@ export default function RosterRegisterTable({
           </tbody>
         </table>
       </div>
+      ) : null}
 
       {/* Modal "nảy ra" khi click 1 ô */}
       {open && (
