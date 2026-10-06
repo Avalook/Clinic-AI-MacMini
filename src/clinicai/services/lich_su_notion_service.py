@@ -83,11 +83,26 @@ async def lich_su(
               LEFT JOIN public.service_type st ON st.id = l.service_type_id
               LEFT JOIN public.staff s ON s.id = l.staff_id
              WHERE l.clinic_id = $1::uuid AND l.clinic_patient_id = $2::uuid
+               -- Lượt đã chuyển thành lượt thật (06/10) hiện ở "Lịch sử các lượt
+               -- khám"; ở đây chỉ còn lượt trùng ngày với lượt có sẵn trên hệ thống.
+               AND NOT EXISTS (SELECT 1 FROM lich_su_notion.luot_that t
+                                WHERE t.notion_id = l.notion_id
+                                  AND t.visit_id IS NOT NULL)
              ORDER BY l.ngay_kham DESC, l.lan_thu DESC NULLS LAST
             """,
             identity.clinic_id,
             clinic_patient_id,
             noi_dung,
+        )
+        da_chuyen = await conn.fetchval(
+            """
+            SELECT count(DISTINCT t.visit_id) FROM lich_su_notion.luot_that t
+              JOIN lich_su_notion.luot_kham l ON l.notion_id = t.notion_id
+             WHERE l.clinic_id = $1::uuid AND l.clinic_patient_id = $2::uuid
+               AND t.visit_id IS NOT NULL
+            """,
+            identity.clinic_id,
+            clinic_patient_id,
         )
         hen = await conn.fetch(
             """
@@ -103,6 +118,7 @@ async def lich_su(
     return {
         "co_lich_su": True,
         "co_noi_dung": noi_dung,
+        "so_luot_da_chuyen": da_chuyen or 0,
         "ghi_chu_co_dinh": GHI_CHU_CO_DINH,
         "nguoi": {
             "ho_so_notion": list(nguoi["ho_so_notion"] or []),

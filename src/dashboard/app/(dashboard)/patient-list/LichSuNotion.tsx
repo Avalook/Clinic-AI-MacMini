@@ -36,6 +36,7 @@ type Luot = {
 type LichSu = {
   co_lich_su: boolean;
   co_noi_dung?: boolean;
+  so_luot_da_chuyen?: number;
   ghi_chu_co_dinh?: string;
   nguoi?: {
     ho_so_notion: string[];
@@ -315,6 +316,12 @@ export default function LichSuNotion({ clinicPatientId }: { clinicPatientId: str
         ))}
       </div>
       <p className="mt-1 text-meta text-ink-muted">{ls.ghi_chu_co_dinh}</p>
+      {ls.so_luot_da_chuyen ? (
+        <p className="mt-1 text-meta text-ink-muted">
+          {ls.so_luot_da_chuyen} lượt khám cũ đã nằm trong lịch sử các lượt khám (chỉ có ngày,
+          không có giờ). Dưới đây chỉ còn ghi chép cũ trùng ngày với lượt đã có trên hệ thống.
+        </p>
+      ) : null}
       {ls.nguoi?.ghi_chu_lan_dau ? (
         <p className="mt-1 rounded-control bg-warning-bg px-3 py-2 text-meta text-warning">
           {ls.nguoi.ghi_chu_lan_dau}

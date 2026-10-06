@@ -267,7 +267,9 @@ async def test_khong_co_quyen_phieu_kham_thi_chi_thay_danh_sach(
         )
         await conn.execute(
             "INSERT INTO clinic_membership (clinic_id, staff_id, role, is_active)"
-            " VALUES ($1::uuid, $2::uuid, 'CSKH', true)",
+            " VALUES ($1::uuid, $2::uuid, 'CSKH', true)"
+            # Bộ chạy song song: trigger/test khác có thể đã tạo dòng thành viên.
+            " ON CONFLICT DO NOTHING",
             CLINIC,
             sid,
         )
@@ -362,3 +364,83 @@ async def test_man_dat_lich_nap_kem_khach_cu_theo_ma(
     assert ma not in {p["patient_code"] for p in khong["patients"]}
     co = await hub_dat_lich(kb.pool, identity=kb.le_tan, bn=ma)
     assert co["patients"][0]["patient_code"] == ma
+
+
+async def test_chuyen_luot_cu_thanh_luot_that(kb: KichBan, tmp_path: Path) -> None:
+    """06/10: lượt cũ thành LƯỢT THẬT đã khám xong — đủ phiếu, chỉ định có kết
+    quả, đơn thuốc — không rò thành việc; ngày đã có lượt thật thì không nhân đôi;
+    chuyển lại không sinh trùng."""
+    from clinicai.services.chuyen_luot_that import chuyen
+
+    sdt = _sdt()
+    async with kb.pool.acquire() as conn:
+        a = await _khach_he_thong(conn, kb.location_id, "Trần Thị Chuyển Lượt", sdt)
+        # Lượt thật trên hệ thống ngày 2026-05-02 (nhập song song cả hai nơi).
+        await conn.execute(
+            "INSERT INTO visit (clinic_id, clinic_patient_id, location_id, status,"
+            " created_at) VALUES ($1::uuid, $2::uuid, $3::uuid, 'FINALIZED',"
+            " '2026-05-02 09:00+07')",
+            CLINIC,
+            a,
+            kb.location_id,
+        )
+    key = f"hc:{uuid.uuid4()}"
+    goi = _goi(
+        tmp_path / "goi",
+        nguoi=[{"nguoi_key": key, "ten": "Trần Thị Chuyển Lượt", "sdt": sdt}],
+        luot=[
+            _luot(key, "2026-04-01", lan=1),
+            _luot(key, "2026-04-20", lan=2),
+            _luot(key, "2026-05-02", lan=3),
+        ],
+    )
+    await nap(kb.pool, goi, that=True, clinic_id=CLINIC)
+
+    thu = await chuyen(kb.pool, that=False)
+    assert thu["thu_kho"] is True
+    await chuyen(kb.pool, that=True)
+    await chuyen(kb.pool, that=True)  # chạy lại: không nhân đôi
+
+    async with kb.pool.acquire() as conn:
+        luot = await conn.fetch(
+            "SELECT a.status AS hen, v.status AS luot, v.closed_at IS NOT NULL AS dong,"
+            " (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::time AS gio,"
+            " (SELECT du_lieu->'pk_dx'->>'gia_tri' FROM phieu_kham_luot p"
+            "   WHERE p.visit_id = v.visit_id) AS chan_doan,"
+            " (SELECT count(*) FROM phieu_kham_lich_su h JOIN phieu_kham_luot p"
+            "   ON p.id = h.phieu_id WHERE p.visit_id = v.visit_id) AS lich_su_sua"
+            " FROM lich_su_notion.luot_that t JOIN visit v ON v.visit_id = t.visit_id"
+            " JOIN appointment a ON a.id = t.appointment_id"
+            " WHERE v.clinic_patient_id = $1::uuid ORDER BY a.slot_start",
+            a,
+        )
+        assert [(r["hen"], r["luot"], r["dong"], str(r["gio"])) for r in luot] == [
+            ("COMPLETED", "FINALIZED", True, "00:00:00")
+        ] * 2, "2 lượt cũ khác ngày; ngày 02/05 đã có lượt thật thì không tạo thêm"
+        assert [r["chan_doan"] for r in luot] == ["Chẩn đoán lần 1", "Chẩn đoán lần 2"]
+        assert all(r["lich_su_sua"] == 0 for r in luot)
+        cd = await conn.fetch(
+            "SELECT s.exec_status, s.execution_status, s.selection_status,"
+            " f.trang_thai, f.du_lieu->>'ket_luan' AS ket_luan"
+            " FROM service_order s JOIN visit v ON v.visit_id = s.visit_id"
+            " LEFT JOIN form_instance f ON f.service_order_id = s.id"
+            " WHERE v.clinic_patient_id = $1::uuid AND s.service_code = 'HO_SO_CU'",
+            a,
+        )
+        assert [tuple(r) for r in cd] == [
+            ("performed", "COMPLETED", None, "READY", "Chưa thấy bất thường")
+        ] * 2
+        assert (
+            await conn.fetchval(
+                "SELECT count(*) FROM lich_su_notion.luot_that t"
+                " JOIN lich_su_notion.luot_kham l ON l.notion_id = t.notion_id"
+                " WHERE l.clinic_patient_id = $1::uuid AND t.trung_luot_co_san",
+                a,
+            )
+            == 1
+        )
+
+    # Khối hồ sơ cũ chỉ còn lượt trùng ngày; hai lượt kia đã vào lịch sử lượt khám.
+    ls = await lich_su(kb.pool, identity=kb.bac_si, clinic_patient_id=a)
+    assert [x["ngay_kham"] for x in ls["luot"]] == ["2026-05-02"]
+    assert ls["so_luot_da_chuyen"] == 2

@@ -69,3 +69,24 @@ Nạp lại sau khi gỡ sẽ nhận lại đúng các hồ sơ đã ẩn, khôn
 - Dữ liệu hệ thống mới không đổi: `visit` 109, `appointment` 133, `payment` 135.
 - Nạp lại lần hai: 0 hồ sơ mới.
 - Gỡ rồi nạp lại: 0 hồ sơ mới, các hồ sơ đã ẩn được bật lại.
+
+## Bước 2 — chuyển thành LƯỢT THẬT (06/10/2026)
+
+Sau khi nạp, `src/clinicai/services/chuyen_luot_that.py` chuyển mỗi nhóm (khách,
+ngày khám) cũ thành một lượt đã khám xong: appointment COMPLETED (slot 00:00 giờ
+VN, màn chỉ in ngày) → visit FINALIZED → consultation PRIMARY → phieu_kham_luot
+(chẩn đoán + mục A "khám – tư vấn") → service_order performed + form_instance
+KQ_CHUNG (mô tả/kết luận siêu âm, kết quả xét nghiệm) → tep_ket_qua (PDF) →
+prescription (đã đóng).
+
+- Ngày đó khách đã có lượt thật trên hệ thống → không tạo lượt thứ hai; bản cũ
+  còn xem ở khối "Hồ sơ khám trước 10/2026".
+- Người đứng tên khi lượt cũ không ghi ai: nhân sự HỆ THỐNG "Hồ sơ cũ" (không
+  hoạt động). Lượt không ghi loại khám: loại `HO_SO_CU` "Không ghi loại khám" (tắt).
+- Sổ ghép: `lich_su_notion.luot_that`, `ban_ghi_that`. Bộ nhắc tái khám bỏ qua lượt
+  chuyển (migration `20261006100000`).
+- Chạy: `scripts/chuyen-luot-that.sh prod <gói> [--that]` (cần `tep_meta.jsonl` trong
+  gói). Gỡ: `scripts/hoan-tac-luot-that.sql` — dừng nếu nhân viên đã ghi thêm vào lượt cũ.
+- Diễn tập trên bản sao prod 06/10 02:15: 14.131 lượt, 34.296 chỉ định, 26.382 tờ
+  kết quả, 6.553 tệp, 34.976 dòng thuốc, 75 giây; chỉ 8 bảng đổi số dòng; gỡ trả về
+  đúng số cũ.
