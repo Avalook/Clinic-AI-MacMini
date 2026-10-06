@@ -279,9 +279,10 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
       "payment_cycle",
       "prescription",
       "luot_vat_tu",
-      // Sổ sửa chỉ định (06/10/2026): xoá / hoàn tác → dòng "đã xoá" đổi ngay.
+      // Sổ sửa chỉ định: xoá / hoàn tác → dòng "đã xoá" đổi ngay. Phí khám
+      // thêm/bỏ cũng tới qua đây (trigger `trg_so_sua_phi_kham` ghi sổ) —
+      // `luot_phi_kham` không có trigger báo tin nên nghe thẳng nó là vô ích.
       "so_sua_chi_dinh",
-      "luot_phi_kham",
     ],
     () => void tai(),
   );
