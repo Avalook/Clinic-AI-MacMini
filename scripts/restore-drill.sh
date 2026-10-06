@@ -84,7 +84,7 @@ cleanup() {
     if [ "${DRILL_KEEP:-0}" = "1" ]; then
         echo "DRILL_KEEP=1 — container $CONTAINER left running"
     else
-        docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+        docker rm -fv "$CONTAINER" >/dev/null 2>&1 || true
     fi
 }
 trap cleanup EXIT
