@@ -1,4 +1,4 @@
-from typing import Any, Literal, NotRequired, Optional, TypedDict
+from typing import Any, Literal, NotRequired, Optional, Required, TypedDict
 from uuid import UUID
 
 RouteType = Literal[
@@ -25,10 +25,11 @@ class OrchestratorState(TypedDict, total=False):
     trace_id: UUID
     user_message: str
     patient_id: Optional[UUID]
-    # Tenant of the conversation. Required, not NotRequired: every sub-graph
-    # below reads the database, the backend bypasses RLS, and a conversation
-    # that does not know which clinic it is for has no safe default.
-    clinic_id: UUID
+    # Tenant of the conversation. Required (the class is total=False, so it
+    # must say so explicitly): every sub-graph below reads the database, the
+    # backend bypasses RLS, and a conversation that does not know which clinic
+    # it is for has no safe default.
+    clinic_id: Required[UUID]
     route: RouteType
     response: str
     error: Optional[str]

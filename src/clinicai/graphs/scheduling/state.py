@@ -1,4 +1,4 @@
-from typing import Any, Literal, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, Required, TypedDict
 from uuid import UUID
 
 SchedulingStep = Literal["ask_date", "ask_time", "find_doctor", "confirm", "done"]
@@ -11,7 +11,8 @@ class SchedulingState(TypedDict, total=False):
     # in the state and not in the graph's construction: one process serves
     # every clinic, so binding a clinic when the graph is built would make the
     # rota lookup answer for whichever clinic happened to start the process.
-    clinic_id: UUID
+    # Required[] because the class is total=False.
+    clinic_id: Required[UUID]
     turn_count: int
     step: SchedulingStep
     intent: NotRequired[SchedulingIntent | None]
