@@ -32,7 +32,9 @@ import ChonDichVuKham from "../_lam-viec/ChonDichVuKham";
 import VatTuQuay from "./VatTuQuay";
 import { useNgheBang } from "../dung-nghe-bang";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
+import Button from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
+import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 import SoLuot from "@/components/ui/SoLuot";
 import { nhanPhan, tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
 import { gio, nhanLamTruocThuSau, type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
@@ -123,10 +125,11 @@ interface DaBoChiDinh {
 interface TienThua {
   tong: number;
   dong: {
-    order_id: string;
+    order_id: string | null;
+    line_id?: string;
     ten: string | null;
     so_tien: number;
-    loai: "BO_CHI_DINH" | "KHONG_LAM";
+    loai: "BO_CHI_DINH" | "KHONG_LAM" | "BO_DICH_VU_KHAM";
     ly_do: string | null;
   }[];
 }
@@ -746,7 +749,9 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
 
             {quay !== "thuoc" && l.lam_truoc?.dich_vu?.length ? <DichVuLamTruocKhoi ds={l.lam_truoc.dich_vu} /> : null}
 
-            {l.tien_thua && l.tien_thua.tong > 0 ? <TienThuaKhoi tt={l.tien_thua} /> : null}
+            {l.tien_thua && l.tien_thua.tong > 0 ? (
+              <TienThuaKhoi tt={l.tien_thua} visitId={l.visit_id} onDoi={() => void tai()} />
+            ) : null}
 
             {quay !== "thuoc" && l.da_bo_chi_dinh?.length ? <DaBoChiDinhKhoi ds={l.da_bo_chi_dinh} /> : null}
 
@@ -835,7 +840,37 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
  *  nay đã bỏ / không làm. Quầy KHÔNG tự trả: hoàn cho khách (Hoàn tiền / Huỷ
  *  phiếu ở tab "Đã thanh toán hôm nay") hoặc trừ vào dịch vụ khác khi thu. Số
  *  tiền máy chủ tính, màn chỉ vẽ. */
-function TienThuaKhoi({ tt }: { tt: TienThua }) {
+function TienThuaKhoi({
+  tt,
+  visitId,
+  onDoi,
+}: {
+  tt: TienThua;
+  visitId: string;
+  onDoi: () => void;
+}) {
+  const [dang, setDang] = useState(false);
+  const [loi, setLoi] = useState<string | null>(null);
+  // HOÀN TIỀN THỪA (06/10/2026, E2b): máy hoàn ĐÚNG số còn thừa (tiền mặt) —
+  // không gõ số. Ai có lego Thu tiền dịch vụ; máy chủ kiểm lại.
+  const hoan = async () => {
+    setDang(true);
+    setLoi(null);
+    try {
+      const r = await fetch("/api/reception/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hanh_dong: "hoan_tien_thua", visit_id: visitId }),
+      });
+      const d = (await r.json().catch(() => null)) as { ok?: boolean } | null;
+      if (!r.ok || !d?.ok) setLoi(loiDocDuoc(d, `Chưa hoàn được (HTTP ${r.status}).`));
+      else onDoi();
+    } catch {
+      setLoi("Mất kết nối — chưa hoàn.");
+    } finally {
+      setDang(false);
+    }
+  };
   return (
     <div className="border-b border-line bg-warning-bg px-4 py-3">
       <p className="text-body font-semibold text-warning">
@@ -843,19 +878,39 @@ function TienThuaKhoi({ tt }: { tt: TienThua }) {
       </p>
       <ul className="mt-1 divide-y divide-line">
         {tt.dong.map((d) => (
-          <li key={d.order_id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+          <li
+            key={d.order_id ?? d.line_id ?? d.ten ?? ""}
+            className="flex flex-wrap items-center justify-between gap-2 py-1.5"
+          >
             <span className="flex min-w-0 flex-wrap items-center gap-2 text-body text-ink">
               {d.ten ?? "—"}
-              <Chip tone="warning">{d.loai === "BO_CHI_DINH" ? "Đã bỏ chỉ định" : "Không làm"}</Chip>
+              <Chip tone="warning">
+                {d.loai === "BO_CHI_DINH"
+                  ? "Đã bỏ chỉ định"
+                  : d.loai === "BO_DICH_VU_KHAM"
+                    ? "Đã bỏ dịch vụ khám"
+                    : "Không làm"}
+              </Chip>
               {d.ly_do ? <span className="text-meta text-ink-muted">{d.ly_do}</span> : null}
             </span>
             <span className="shrink-0 text-body tabular-nums text-ink">{tien(d.so_tien)}</span>
           </li>
         ))}
       </ul>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="primary" disabled={dang} onClick={() => void hoan()}>
+          {dang ? "Đang hoàn…" : `Hoàn tiền thừa ${tien(tt.tong)} (tiền mặt)`}
+        </Button>
+        {loi ? (
+          <span role="alert" className="text-meta text-danger">
+            {loi}
+          </span>
+        ) : null}
+      </div>
       <p className="mt-1 text-meta text-ink-muted">
-        Hoàn tiền / huỷ phiếu thu: tab “Đã thanh toán hôm nay”. Khách đổi sang dịch vụ khác thì
-        trừ khoản này khi thu dịch vụ mới.
+        Máy hoàn đúng số còn thừa của từng dòng. Hoàn chuyển khoản: tab “Đã thanh toán hôm nay”.
+        Khách không lấy lại: lúc check-out chọn “Giữ lại” và ghi lý do. Máy không tự trừ tiền
+        thừa vào dịch vụ khác — thu dịch vụ mới đủ số, rồi hoàn khoản thừa.
       </p>
     </div>
   );
@@ -892,6 +947,10 @@ function DaBoChiDinhKhoi({ ds }: { ds: DaBoChiDinh[] }) {
           </li>
         ))}
       </ul>
+      <p className="mt-1 text-meta text-ink-muted">
+        Có vật tư mua thêm đi kèm dịch vụ đã xoá thì kiểm lại ở khối “Mua thêm vật tư” — máy
+        không tự bỏ vật tư.
+      </p>
     </div>
   );
 }

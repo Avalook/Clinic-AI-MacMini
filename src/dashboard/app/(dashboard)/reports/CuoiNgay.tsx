@@ -86,6 +86,14 @@ interface BaoCao {
     ly_do: string | null;
   }[];
   top_dich_vu: { ten: string; so_luong: number; doanh_thu: number }[];
+  /** Tiền thừa của các lượt trong khoảng (06/10/2026): đã hoàn / giữ lại / còn
+   *  treo (chưa hoàn, chưa giữ lại). Báo cáo quầy thuốc: null. */
+  tien_thua?: {
+    da_hoan: number;
+    giu_lai: number;
+    con_treo: number;
+    so_luot_con_treo: number;
+  } | null;
   /** Khách còn nợ (01/10/2026): khoản ghi nợ lúc check-out còn CHƯA THU — tính
    *  tới hiện tại, không theo khoảng ngày. */
   khach_con_no?: {
@@ -312,6 +320,17 @@ export default function CuoiNgay() {
               />
             ) : null}
           </StatRow>
+          {bc.tien_thua ? (
+            <StatRow>
+              <StatCard label="Tiền thừa đã hoàn" value={tien(bc.tien_thua.da_hoan)} />
+              <StatCard label="Tiền thừa giữ lại" value={tien(bc.tien_thua.giu_lai)} />
+              <StatCard
+                label={`Tiền thừa còn treo: ${bc.tien_thua.so_luot_con_treo} lượt`}
+                value={tien(bc.tien_thua.con_treo)}
+                tone={bc.tien_thua.con_treo > 0 ? "warning" : "neutral"}
+              />
+            </StatRow>
+          ) : null}
           {bc.khach.so_luot_ban_le ? (
             <p className="text-meta text-ink-muted">
               Lượt bán lẻ thuốc (khách chỉ mua thuốc): {bc.khach.so_luot_ban_le} — không tính vào

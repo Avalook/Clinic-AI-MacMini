@@ -627,6 +627,15 @@ class BaoCaoCuoiNgayService:
             from clinicai.services.cong_no_service import doc_khach_con_no
 
             con_no = await doc_khach_con_no(conn, cid)
+            # Tiền thừa (06/10/2026, E2c): đã hoàn / giữ lại / còn treo — tiền
+            # DỊCH VỤ, báo cáo quầy thuốc không có.
+            from clinicai.services.tien_thua_service import bao_cao_tien_thua
+
+            tien_thua = (
+                await bao_cao_tien_thua(conn, cid, a, b)
+                if loai_loc != "thuoc"
+                else None
+            )
         lan_thu_ds = [dict(r) for r in lan_thu]
         hoan_ds = [dict(r) for r in hoan]
         doi_ht_ds = [dict(r) for r in doi_ht]
@@ -649,5 +658,6 @@ class BaoCaoCuoiNgayService:
             so_luot_khong_chon_dich_vu_kham=int(so_luot_khong_chon or 0),
         )
         bc["khach_con_no"] = con_no
+        bc["tien_thua"] = tien_thua
         bc["loai"] = loai_loc
         return bc

@@ -119,20 +119,31 @@ async def _chan_bo_dich_vu_da_thu(
     visit_id: str,
     bo: list[str],
     lua_chon: list[dict[str, Any]],
-) -> None:
-    """Tick THÊM sau khi thu thì được (thu lần 2); BỎ một dịch vụ khám ĐÃ THU thì
-    không — khoản đã thu sẽ biến khỏi hoá đơn mà không có hoàn tiền (30/09/2026).
+) -> dict[str, int]:
+    """BỎ một dịch vụ khám ĐÃ THU (Tuyền chốt 06/10/2026, E7): CHO BỎ NGAY như
+    chỉ định — khoản đã thu thành TIỀN THỪA ở quầy (`tien_thua_service`). Trả
+    {service_price_id: số tiền còn thừa} để ghi sổ.
 
-    Đã thu = dòng `exam-{visit}-selected-{id}` trong lần thu còn hiệu lực, hoặc
-    (thu trước V2) dòng gộp `exam-{visit}` mà tên ghép có tên dịch vụ này.
+    Chỉ còn chặn hai ca không tách được tiền đúng dòng:
+      * chuyển khoản đang CHỜ XÁC MINH — quầy xác minh / huỷ lần chờ trước;
+      * dòng gộp cũ `exam-{visit}` (thu trước V2) — tiền không tách theo dịch vụ.
     """
     rows = await conn.fetch(
         """
-        SELECT bl.source_id, bl.name_snapshot
+        SELECT bl.source_id, bl.name_snapshot, c.status, bl.line_total,
+               coalesce((SELECT sum(rl.amount)
+                           FROM public.payment_refund_line rl
+                           JOIN public.payment_refund r
+                             ON r.refund_id = rl.refund_id
+                            AND r.clinic_id = rl.clinic_id
+                          WHERE rl.clinic_id = bl.clinic_id
+                            AND rl.payment_bill_line_id = bl.id
+                            AND r.status IN ('PENDING', 'COMPLETED')), 0) AS da_hoan
           FROM public.payment_bill_line bl
           JOIN public.payment_cycle c
             ON c.clinic_id = bl.clinic_id AND c.payment_cycle_id = bl.payment_cycle_id
          WHERE bl.clinic_id = $1::uuid AND bl.source_type = 'exam'
+           AND bl.billing_owner = 'CLINIC'
            AND (bl.source_id = $2 OR bl.source_id LIKE $2 || '-selected-%')
            AND c.status IN ('PENDING_VERIFICATION', 'PAID')
         """,
@@ -140,24 +151,36 @@ async def _chan_bo_dich_vu_da_thu(
         f"exam-{visit_id}",
     )
     ten = {str(x["id"]): str(x.get("ten") or "") for x in lua_chon}
-    da_thu_nguon = {str(r["source_id"]) for r in rows}
     ten_gop = [
         str(r["name_snapshot"] or "").split(" + ")
         for r in rows
         if str(r["source_id"]) == f"exam-{visit_id}"
     ]
-    da_thu = [
+    cho = {str(r["source_id"]) for r in rows if r["status"] == "PENDING_VERIFICATION"}
+    chan = [
         i
         for i in bo
-        if f"exam-{visit_id}-selected-{i}" in da_thu_nguon
+        if f"exam-{visit_id}-selected-{i}" in cho
         or any(ten.get(i) and ten[i] in g for g in ten_gop)
     ]
-    if da_thu:
+    if chan:
         raise ValidationError(
-            "Dịch vụ khám đã thu tiền: "
-            + ", ".join(ten.get(i) or i for i in da_thu)
-            + ". Muốn bỏ phải huỷ phiếu thu / hoàn tiền trước."
+            "Dịch vụ khám "
+            + ", ".join(ten.get(i) or i for i in chan)
+            + " đang trong lần thu chuyển khoản chờ xác minh (hoặc phiếu gộp cũ)"
+            " — quầy xác minh / huỷ lần chờ trước rồi bỏ."
         )
+    thua: dict[str, int] = {}
+    for r in rows:
+        sid = str(r["source_id"])
+        if r["status"] != "PAID" or "-selected-" not in sid:
+            continue
+        spid = sid.rsplit("-selected-", 1)[1]
+        if spid in bo:
+            thua[spid] = thua.get(spid, 0) + max(
+                int(r["line_total"]) - int(r["da_hoan"]), 0
+            )
+    return thua
 
 
 async def chan_trung_dich_vu_kham(
@@ -286,8 +309,11 @@ class PhiKhamService:
                 )
             bo = sorted(cu - set(muon))
             them = [i for i in muon if i not in cu]
+            thua: dict[str, int] = {}
             if bo:
-                await _chan_bo_dich_vu_da_thu(conn, cid, vid, bo, hien["lua_chon"])
+                thua = await _chan_bo_dich_vu_da_thu(
+                    conn, cid, vid, bo, hien["lua_chon"]
+                )
             if them:
                 await chan_trung_dich_vu_kham(conn, cid, vid, id_tick=them)
             if bo:
@@ -295,7 +321,7 @@ class PhiKhamService:
                     "UPDATE public.luot_phi_kham SET bo_luc = now(), bo_boi = $4::uuid"
                     " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
                     " AND service_price_id = ANY($3::uuid[]) AND bo_luc IS NULL"
-                    " RETURNING id::text",
+                    " RETURNING id::text, service_price_id::text",
                     cid,
                     vid,
                     bo,
@@ -303,11 +329,17 @@ class PhiKhamService:
                 )
                 # Người khác bác sĩ chính bỏ dịch vụ khám → báo bác sĩ chính.
                 for r in da_bo:
-                    await bao_bac_si_chinh(
-                        conn,
-                        identity,
-                        await dong_bo_moi_nhat(conn, luot_phi_kham_id=r["id"]),
-                    )
+                    so_id = await dong_bo_moi_nhat(conn, luot_phi_kham_id=r["id"])
+                    # Đã thu (E7): sổ ghi đã thu → tiền thừa, như bỏ chỉ định.
+                    tien = thua.get(r["service_price_id"], 0)
+                    if so_id and tien > 0:
+                        await conn.execute(
+                            "UPDATE so_sua_chi_dinh SET da_thu = $2, tien_thua = $2"
+                            " WHERE id = $1::uuid",
+                            so_id,
+                            tien,
+                        )
+                    await bao_bac_si_chinh(conn, identity, so_id)
             for i in them:
                 await conn.execute(
                     "INSERT INTO public.luot_phi_kham"
