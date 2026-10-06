@@ -35,6 +35,7 @@ import asyncpg
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import ChiDinhDatLai, DichVuKhamDaDoi
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
@@ -523,6 +524,10 @@ _SQL_SO = """
      LIMIT 300
 """
 
+#: Trần số dòng sổ một lượt trả về (một lượt thật vài chục dòng). Chạm trần thì
+#: log kêu (`canh_bao_neu_day`) và màn nhận `bi_cat` — không cắt im lặng.
+TRAN_SO = 300
+
 
 async def doc_so(
     conn: asyncpg.Connection, clinic_id: str, visit_id: str
@@ -530,8 +535,10 @@ async def doc_so(
     """Sổ của một lượt (mới nhất trước) + cờ chỉ xem (hồ sơ cũ)."""
     chi_xem = await la_ho_so_cu(conn, visit_id)
     rows = await conn.fetch(_SQL_SO, clinic_id, visit_id)
+    bi_cat = canh_bao_neu_day("so_sua_chi_dinh", len(rows), TRAN_SO, visit_id=visit_id)
     return {
         "chi_xem": chi_xem,
+        "bi_cat": bi_cat,
         "dong": [dong_so(dict(r), chi_xem=chi_xem) for r in rows],
     }
 
