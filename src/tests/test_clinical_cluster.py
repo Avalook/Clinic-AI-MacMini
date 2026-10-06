@@ -515,14 +515,26 @@ class _StubConn:
     async def execute(self, sql: str, *args: object) -> None:
         self.calls.append((sql, args))
 
+    # Giao dịch giả có đếm độ sâu: lối ghi lịch trực đặt người bấm cho trigger
+    # lịch sử (`dat_nguoi_bam`, Khối 3 06/10/2026) và đòi đang trong giao dịch.
+    _sau_giao_dich = 0
+
+    def is_in_transaction(self) -> bool:
+        return self._sau_giao_dich > 0
+
     def transaction(self) -> "_StubConn":
         return self
 
     async def __aenter__(self) -> "_StubConn":
+        self._sau_giao_dich += 1
         return self
 
     async def __aexit__(self, *_: object) -> None:
-        return None
+        self._sau_giao_dich -= 1
+
+    def cau_nghiep_vu(self) -> list[tuple[str, tuple[object, ...]]]:
+        """Các câu đã chạy, bỏ câu đặt người bấm cho sổ lịch sử lịch trực."""
+        return [c for c in self.calls if "set_config('app.staff_id'" not in c[0]]
 
 
 def _staff(role: ClinicRole, staff_id: str = "s1") -> StaffIdentity:
@@ -705,7 +717,7 @@ class TestRosterAuthorisation:
                 identity=_staff(ClinicRole.MANAGEMENT),
             )
         )
-        assert "trùng ca" in pool.conn.calls[0][1]
+        assert "trùng ca" in pool.conn.cau_nghiep_vu()[0][1]
 
         pool = _StubPool("r1")
         asyncio.run(
@@ -716,7 +728,7 @@ class TestRosterAuthorisation:
                 identity=_staff(ClinicRole.MANAGEMENT),
             )
         )
-        assert "ignored" not in pool.conn.calls[0][1]
+        assert "ignored" not in pool.conn.cau_nghiep_vu()[0][1]
 
     def test_staff_may_only_remove_their_own_shift(self) -> None:
         pool = _StubPool({"staff_id": "someone-else"})
