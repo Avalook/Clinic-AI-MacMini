@@ -44,6 +44,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
 from clinicai.permissions.can import doi_quyen
 from clinicai.phieu_kham.mang_sang import doc_chan_doan
@@ -956,6 +957,7 @@ async def lich_su_cho_ho_so(
         ngu_canh.khach,
         ngu_canh.clinic_id,
     )
+    canh_bao_neu_day("ho_so.lich_su_luot", len(rows), 200)
     appt = ngu_canh.appointment_id
     ra: list[dict[str, Any]] = []
     for r in rows:
