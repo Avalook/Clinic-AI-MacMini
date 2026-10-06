@@ -445,6 +445,47 @@ async def test_chuyen_luot_cu_thanh_luot_that(kb: KichBan, tmp_path: Path) -> No
     assert [x["ngay_kham"] for x in ls["luot"]] == ["2026-05-02"]
     assert ls["so_luot_da_chuyen"] == 2
 
+    # Màn Hành trình khách (Tuyền 06/10): lượt cũ KHÔNG lên bảng; lượt thật cùng
+    # khách vẫn lên. Mở lượt cũ ở chỗ khác thì không có giờ 00:00 giả, không
+    # "chờ thu tiền".
+    from clinicai.services.bang_hanh_trinh_service import BangHanhTrinhService
+    from clinicai.services.hanh_trinh_khach_service import HanhTrinhKhachService
+    from clinicai.services.xem_luot_service import XemLuotService
+
+    async with kb.pool.acquire() as conn:
+        cu = await conn.fetchval(
+            "SELECT t.visit_id::text FROM lich_su_notion.luot_that t"
+            " JOIN visit v ON v.visit_id = t.visit_id"
+            " WHERE v.clinic_patient_id = $1::uuid"
+            "   AND (v.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"
+            "       = '2026-04-01'",
+            a,
+        )
+        that = await conn.fetchval(
+            "SELECT v.visit_id::text FROM visit v WHERE v.clinic_patient_id = $1::uuid"
+            " AND NOT EXISTS (SELECT 1 FROM lich_su_notion.luot_that t"
+            "                  WHERE t.visit_id = v.visit_id)",
+            a,
+        )
+    bang = BangHanhTrinhService(kb.pool)
+    assert cu not in {
+        x["visit_id"]
+        for x in (await bang.hom_nay(identity=kb.le_tan, ngay="2026-04-01"))["luot"]
+    }
+    assert that in {
+        x["visit_id"]
+        for x in (await bang.hom_nay(identity=kb.le_tan, ngay="2026-05-02"))["luot"]
+    }
+    ht = await HanhTrinhKhachService(kb.pool).mot_luot(visit_id=cu, identity=kb.le_tan)
+    assert ht["ho_so_cu"] is True and ht["gon"]["tu_luc"] is None
+    kham = next(b for b in ht["buoc"] if b["ma"] == "KHAM")
+    assert kham["cho_thu"] == 0 and kham["bat_dau"] is None
+    xem = XemLuotService(kb.pool)
+    assert (await xem.doc(visit_id=cu, identity=kb.le_tan))["hanh_chinh"]["ho_so_cu"]
+    assert not (await xem.doc(visit_id=that, identity=kb.le_tan))["hanh_chinh"][
+        "ho_so_cu"
+    ]
+
 
 async def test_bo_sung_noi_dung_va_lien_ket_cho_luot_da_chuyen(
     kb: KichBan, tmp_path: Path

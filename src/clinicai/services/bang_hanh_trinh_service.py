@@ -164,6 +164,12 @@ class BangHanhTrinhService:
                        AND v.created_at < $4
                        -- V8: lượt bán lẻ (chỉ mua thuốc) không có hành trình.
                        AND NOT v.ban_le
+                       -- Lượt HỒ SƠ CŨ chuyển từ Notion (chỉ có ngày, giờ
+                       -- 00:00 giả) không phải khách đi trong ngày: xem ở hồ
+                       -- sơ khách, không lên bảng hành trình (Tuyền 06/10).
+                       AND NOT EXISTS (
+                           SELECT 1 FROM lich_su_notion.luot_that t
+                            WHERE t.visit_id = v.visit_id)
                      -- Khách CÒN ở phòng khám trước, người mới tới trước: có
                      -- cắt ở trần thì cắt những lượt đã về lâu nhất.
                      ORDER BY (v.closed_at IS NOT NULL), v.created_at DESC

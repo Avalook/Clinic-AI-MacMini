@@ -780,13 +780,43 @@ def dung_hanh_trinh_khach(
         "dv_tong": len(the),
         "con_cho": con_cho,
     }
-    return {
+    kq = {
         "visit_id": luot.get("visit_id"),
         "gon": gon,
         "dang_o": o,
         "tiep_theo": tiep,
         "buoc": buoc,
     }
+    return _bo_gio_ho_so_cu(kq) if luot.get("ho_so_cu") else kq
+
+
+def _bo_gio_ho_so_cu(kq: dict[str, Any]) -> dict[str, Any]:
+    """Lượt HỒ SƠ CŨ (chuyển từ Notion, `lich_su_notion.luot_that`): Notion chỉ
+    có NGÀY khám — mọi giờ trong lượt là 00:00 giả (Tuyền chốt 05/10: không đoán
+    giờ). Bỏ hết giờ để màn không in "Check-out 00:00", và bỏ mọi chữ thu tiền:
+    lượt cũ cố ý không có dòng thu nên "chờ thu tiền" luôn sai. Trạng thái các
+    bước giữ nguyên."""
+    for b in kq["buoc"]:
+        b.update(vao=None, bat_dau=None, xong=None)
+        if b["ma"] == "SINH_HIEU":
+            b.update(do_lai=[], lan_do=[])
+        if b["ma"] == "KHAM":
+            b.update(
+                thu_luc=None,
+                nguoi_thu=None,
+                cho_thu=0,
+                mo_lai_luc=None,
+                dich_vu_kham=None,
+            )
+        for t in b.get("dich_vu") or []:
+            t.update(vao=None, bat_dau=None, xong=None, thu=None, lay_mau=None, lan=[])
+    for o in (kq["gon"], kq["dang_o"]):
+        o.update(tu_luc=None, ho_so_cu=True)
+    kq["gon"].update(
+        do_lai=[], con_cho=[c for c in kq["gon"]["con_cho"] if c != "Thu tiền"]
+    )
+    kq["ho_so_cu"] = True
+    return kq
 
 
 #: Thẻ dịch vụ → màu đoạn (cùng màu viền thẻ ở khung đầy đủ).
@@ -833,7 +863,9 @@ _SQL_LUOT = """
     SELECT v.visit_id::text AS visit_id, v.status, v.checked_in_at, v.closed_at,
            a.created_at AS dat_luc,
            (coalesce(v.checked_in_at, v.created_at)
-                AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS ngay
+                AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS ngay,
+           EXISTS (SELECT 1 FROM lich_su_notion.luot_that t
+                    WHERE t.visit_id = v.visit_id) AS ho_so_cu
       FROM visit v
       LEFT JOIN appointment a ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
      WHERE v.clinic_id = $1::uuid AND v.visit_id = ANY($2::uuid[])
