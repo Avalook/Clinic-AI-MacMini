@@ -421,6 +421,16 @@ SELECT gen_random_uuid(), _ts.clinic, 'ho-so-cu-' || k.notion_id, n.clinic_patie
      WHERE v.clinic_id = _ts.clinic AND v.visit_id = n.visit AND NOT n.trung
 """,
     ),
+    # Hồ sơ cũ coi như ĐÃ cho phép gửi: không hiện "CSKH chưa gửi được", và
+    # không ai bấm "cho phép gửi" rồi sinh việc gửi kết quả cho lượt năm ngoái.
+    (
+        "cho_phep_gui",
+        """
+    INSERT INTO clinical_release (clinic_id, visit_id, released_by, released_at, note)
+SELECT _ts.clinic, n.visit, coalesce(n.bs, _ts.may), n.luc, 'Hồ sơ cũ'
+  FROM _nhom n CROSS JOIN _ts WHERE NOT n.trung
+""",
+    ),
     (
         "so_ghep_ban_ghi",
         """
