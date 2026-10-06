@@ -456,7 +456,7 @@ async def test_bo_sung_noi_dung_va_lien_ket_cho_luot_da_chuyen(
 
     sdt = _sdt()
     async with kb.pool.acquire() as conn:
-        a = await _khach_he_thong(conn, kb.location_id, "Lê Thị Bổ Sung", sdt)
+        await _khach_he_thong(conn, kb.location_id, "Lê Thị Bổ Sung", sdt)
     key = f"hc:{uuid.uuid4()}"
     lk = _luot(key, "2026-03-03", lan=1)
     goi = _goi(
