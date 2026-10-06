@@ -169,6 +169,9 @@ class AuthService:
             # đăng nhập.
             raise ValidationError("Email hoặc mật khẩu không đúng.")
 
+        # row là None thì ket_qua đã thành "sai" và ta đã ném ở trên; assert để
+        # kiểu khớp (pyright không tin `async with` không nuốt lỗi).
+        assert row is not None, "ket_qua 'ok' mà không có hàng app_credential"
         expires_at = datetime.now(timezone.utc) + TOKEN_TTL
         token = _mint(
             subject=str(row["auth_user_id"]),

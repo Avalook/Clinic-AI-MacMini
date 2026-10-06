@@ -963,11 +963,12 @@ async def doc_hanh_trinh_khach(
     hang: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in await conn.fetch(_SQL_HANG, clinic_id, ids):
         q = dict(r)
-        so_truoc = q.get("so_truoc")
-        q["so_truoc"] = int(so_truoc) if so_truoc is not None else None
-        q["so_cho"] = q["so_truoc"] if q["status"] == "blocked" else None
+        so_truoc_tho = q.get("so_truoc")
+        so_truoc = int(so_truoc_tho) if so_truoc_tho is not None else None
+        q["so_truoc"] = so_truoc
+        q["so_cho"] = so_truoc if q["status"] == "blocked" else None
         q["stt"] = (
-            q["so_truoc"] + 1
+            so_truoc + 1
             if q["status"] in ("waiting", "called") and so_truoc is not None
             else None
         )
