@@ -616,6 +616,8 @@ class ChiDinhBody(BaseModel):
     #: hiện tại. `lan_dang_thay` = lần hiện tại màn đang thấy.
     lan_moi: bool = False
     lan_dang_thay: int | None = None
+    #: Tab lần đang chọn (06/10/2026) — chỉ định vào đúng lần ấy.
+    lan: int | None = None
 
 
 class BatBuocBody(BaseModel):
@@ -639,7 +641,18 @@ async def dat_chi_dinh(
         bat_buoc_codes=body.bat_buoc_codes,
         lan_moi=body.lan_moi,
         lan_dang_thay=body.lan_dang_thay,
+        lan=body.lan,
     )
+
+
+@router.post("/luot-kham/visits/{visit_id}/mo-lan-chi-dinh")
+async def mo_lan_chi_dinh(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(_CHI_DINH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Nút "+" cạnh các tab lần: mở lần chỉ định mới (máy chủ giữ)."""
+    return await ChiDinhService(pool).mo_lan(visit_id=str(visit_id), identity=identity)
 
 
 @router.post("/luot-kham/orders/{order_id}/bat-buoc")

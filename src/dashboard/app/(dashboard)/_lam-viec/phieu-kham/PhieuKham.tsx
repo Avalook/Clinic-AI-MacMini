@@ -165,6 +165,13 @@ export default function PhieuKham({
     /** Nút Hoàn tác chỉ định ở thẻ từng chỉ định (01/10/2026) — lệnh máy chủ
      *  của đúng chỉ định ấy. Không truyền = không có nút (chỉ xem). */
     onBoChiDinh?: (orderId: string) => (duLieu: DuLieuHoanTac) => Promise<KetQuaHoanTac>;
+    /** Tab lần đang chọn (06/10/2026) — null = lần hiện tại. Dùng chung với danh mục. */
+    lanChon?: number | null;
+    onChonLan?: (lan: number | null) => void;
+    /** Mọi lần máy chủ giữ (kể cả lần mới mở chưa tick gì). */
+    cacLan?: number[];
+    /** Nút "+" cạnh các tab lần — mở lần mới (máy chủ giữ). */
+    onMoLan?: () => Promise<{ ok: true } | { ok: false; loi: string }>;
   };
   /** Mã dịch vụ thủ thuật — kết quả của chúng hiện ở khối 3 (bản mẫu). */
   maThuThuat?: ReadonlySet<string>;

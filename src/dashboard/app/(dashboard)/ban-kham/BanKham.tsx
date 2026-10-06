@@ -863,13 +863,13 @@ function HoSo({
 
   // Chỉ định xong → "Đã chỉ định N dịch vụ · Hoàn tác" (01/10/2026): hoàn tác
   // = bỏ đúng các chỉ định vừa tạo (máy chủ trả `order_ids`), quầy thu bớt ngay.
-  // Lần do máy chủ gán (06/10/2026): mặc định lần hiện tại; `lan.lan_moi` chỉ
-  // khi bác sĩ bấm "Chỉ định thêm (lần N)".
+  // Lần do máy chủ gán (06/10/2026): vào đúng lần của tab đang chọn (`lan.lan`),
+  // không gửi = lần hiện tại. Lần mới chỉ mở bằng nút "+" cạnh các tab.
   const datChiDinh: DatChiDinh = async (codes, batBuoc, lan) => {
     const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
       service_codes: codes,
       bat_buoc_codes: batBuoc,
-      ...(lan?.lan_moi ? { lan_moi: true, lan_dang_thay: lan.lan_dang_thay } : {}),
+      ...(lan?.lan ? { lan: lan.lan } : {}),
     });
     if (!kq.ok) return { ok: false, loi: kq.loi };
     const ids = Array.isArray(kq.data.order_ids)

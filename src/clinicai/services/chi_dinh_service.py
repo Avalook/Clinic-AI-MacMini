@@ -104,6 +104,29 @@ async def dat_mo_lan_moi(
     )
 
 
+async def dat_lan_chon(
+    conn: asyncpg.Connection, clinic_id: str, visit_id: str, lan: int
+) -> None:
+    """Chỉ định vào ĐÚNG lần của tab (06/10/2026). Lần phải tồn tại: đã mở bằng
+    nút "+" hoặc đã có chỉ định; lượt chưa có lần nào thì chỉ nhận lần 1."""
+    cac = list(
+        await conn.fetchval(
+            "SELECT public.cac_lan_chi_dinh($1::uuid, $2::uuid)", clinic_id, visit_id
+        )
+        or []
+    )
+    if lan not in cac and not (lan == 1 and not cac):
+        raise ValidationError(
+            "LAN_CHUA_MO",
+            f"Lần {lan} chưa mở — bấm nút “+” cạnh các tab lần để mở lần mới.",
+        )
+    await conn.execute(
+        "SELECT set_config($1, $2, true)",
+        "clinicai.lan_chon_" + str(visit_id).replace("-", ""),
+        str(lan),
+    )
+
+
 async def lan_cua_luot(
     conn: asyncpg.Connection, clinic_id: str, visit_id: str
 ) -> dict[str, Any]:
@@ -114,12 +137,21 @@ async def lan_cua_luot(
         clinic_id,
         visit_id,
     )
+    cac = [
+        int(x)
+        for x in await conn.fetchval(
+            "SELECT public.cac_lan_chi_dinh($1::uuid, $2::uuid)", clinic_id, visit_id
+        )
+        or []
+    ]
     if r is None:
-        return {"hien_tai": None, "ke_tiep": 1, "mo_moi_duoc": False}
+        return {"hien_tai": None, "ke_tiep": 1, "mo_moi_duoc": False, "cac_lan": cac}
     return {
         "hien_tai": r["hien_tai"],
         "ke_tiep": int(r["ke_tiep"]),
         "mo_moi_duoc": bool(r["mo_moi_duoc"]),
+        # Mọi lần của lượt (đã mở ∪ có chỉ định) — tab "Lần 1 · Lần 2".
+        "cac_lan": cac,
     }
 
 
@@ -142,6 +174,7 @@ class ChiDinhService:
         bat_buoc_codes: list[str] | None = None,
         lan_moi: bool = False,
         lan_dang_thay: Any = None,
+        lan: Any = None,
     ) -> dict[str, Any]:
         """Chốt một loạt chỉ định cho phiên khám. Trả về danh sách id đã tạo
         + `lan` máy chủ gán.
@@ -154,6 +187,10 @@ class ChiDinhService:
         định thêm (lần N)") mới mở lần kế; `lan_dang_thay` = lần hiện tại màn
         đang thấy, để hai người cùng bấm mở lần mới không đẻ hai lần (luật ở
         trigger `gan_lan_chi_dinh`, mig 20261006200001).
+
+        `lan` (Tuyền chốt 06/10/2026 tối): số lần của TAB đang chọn — tick vào
+        đúng lần ấy, kể cả lần cũ. Lần phải đã mở (nút "+") hoặc đã có chỉ định;
+        máy chủ kiểm. Rác → bỏ qua (vào lần hiện tại), không ném.
         """
         cid = identity.clinic_id
         con_id = _uuid(consultation_id, "Mã phiên khám không hợp lệ.")
@@ -165,6 +202,9 @@ class ChiDinhService:
 
         bat_buoc = {c.strip() for c in (bat_buoc_codes or []) if isinstance(c, str)}
         thay = doc_lan_dang_thay(lan_dang_thay)
+        lan_chon = doc_lan_dang_thay(lan)
+        if lan_chon is not None and lan_chon < 1:
+            lan_chon = None
         payload_bien_nhan: dict[str, Any] = {
             "consultation_id": con_id,
             "codes": sorted(codes),
@@ -172,6 +212,8 @@ class ChiDinhService:
         }
         if lan_moi:
             payload_bien_nhan["lan_moi"] = thay
+        if lan_chon is not None:
+            payload_bien_nhan["lan"] = lan_chon
         luot_kham = LuotKhamService(self._pool)
 
         async with self._pool.acquire() as conn, conn.transaction():
@@ -189,7 +231,9 @@ class ChiDinhService:
                 return cached
 
             consultation = await luot_kham._consultation_in_progress(conn, cid, con_id)
-            if lan_moi:
+            if lan_chon is not None:
+                await dat_lan_chon(conn, cid, vid, lan_chon)
+            elif lan_moi:
                 await dat_mo_lan_moi(conn, cid, vid, thay)
 
             dich_vu = await luot_kham._services(conn, cid, codes, visit_id=vid)
@@ -260,7 +304,7 @@ class ChiDinhService:
                 },
             )
 
-            lan = (
+            lan_gan = (
                 await conn.fetchval(
                     "SELECT lan_chi_dinh FROM service_order WHERE id = $1::uuid",
                     ids[0],
@@ -268,7 +312,7 @@ class ChiDinhService:
                 if ids
                 else None
             )
-            result = {"ok": True, "order_ids": ids, "lan": lan}
+            result = {"ok": True, "order_ids": ids, "lan": lan_gan}
             await bien_nhan_ghi(
                 conn,
                 identity,
@@ -279,6 +323,25 @@ class ChiDinhService:
                 result,
             )
         return result
+
+    async def mo_lan(self, *, visit_id: str, identity: StaffIdentity) -> dict[str, Any]:
+        """Nút "+" cạnh các tab lần (Tuyền 06/10/2026): mở lần mới, máy chủ GIỮ
+        (ra/vào màn, tải lại vẫn còn). Lần lớn nhất đang rỗng thì dùng lại."""
+        from clinicai.services.so_sua_chi_dinh_service import chan_ho_so_cu
+
+        cid = identity.clinic_id
+        vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_quyen(conn, identity, QUYEN_CHI_DINH)
+            await khoa_luot(conn, cid, vid)
+            await chan_ho_so_cu(conn, vid)
+            lan = await conn.fetchval(
+                "SELECT public.mo_lan_chi_dinh($1::uuid, $2::uuid, $3::uuid)",
+                cid,
+                vid,
+                identity.staff_id,
+            )
+            return {"ok": True, "lan": int(lan), **await lan_cua_luot(conn, cid, vid)}
 
     async def doi_bat_buoc(
         self, *, order_id: str, bat_buoc: bool, identity: StaffIdentity

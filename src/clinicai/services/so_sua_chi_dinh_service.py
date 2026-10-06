@@ -200,6 +200,27 @@ def _tien(v: int) -> str:
     return f"{v:,}".replace(",", ".") + "đ"
 
 
+#: Trạng thái của chỉ định LÚC BỊ BỎ (06/10/2026) → nhãn người đọc.
+NHAN_TRANG_THAI_BO: dict[str, str] = {
+    "CHUA_LAM": "chưa làm",
+    "DANG_LAM": "đang làm",
+    "DA_LAM": "đã làm",
+}
+
+
+def trang_thai_luc_bo(truoc: Any) -> str:
+    """`chi_tiet.truoc` của dòng BỎ → CHUA_LAM | DANG_LAM | DA_LAM. Rác → CHUA_LAM."""
+    if not isinstance(truoc, dict):
+        return "CHUA_LAM"
+    ex = str(truoc.get("execution_status") or "").upper()
+    cu = str(truoc.get("exec_status") or "")
+    if ex == "COMPLETED" or cu == "performed":
+        return "DA_LAM"
+    if ex == "IN_PROGRESS" or cu == "in_progress":
+        return "DANG_LAM"
+    return "CHUA_LAM"
+
+
 def cau_so(d: dict[str, Any]) -> str:
     """Một dòng sổ → câu người đọc. "Bỏ CLS “Siêu âm …” · đã thu 300.000đ →
     tiền thừa 300.000đ". Thiếu dữ liệu thì bỏ vế ấy, không ném."""
@@ -221,6 +242,10 @@ def cau_so(d: dict[str, Any]) -> str:
     ct0: dict[str, Any] = ct_raw if isinstance(ct_raw, dict) else {}
     if d.get("hanh_dong") == "HOAN_TAC" and ct0.get("chi_dinh_moi"):
         cau += " · tiền đã hoàn trước đó → chỉ định MỚI, quầy thu lại"
+    if d.get("hanh_dong") == "BO" and d.get("nhom") != "THUOC":
+        tt = trang_thai_luc_bo(ct0.get("truoc"))
+        if tt != "CHUA_LAM":
+            cau += f" · lúc xoá: {NHAN_TRANG_THAI_BO[tt]}"
     da_thu = int(d.get("da_thu") or 0)
     if d.get("hanh_dong") == "BO" and da_thu > 0:
         thua = _tien(int(d.get("tien_thua") or 0))
@@ -346,7 +371,7 @@ async def bao_bac_si_chinh(
         """
         SELECT s.id::text, s.visit_id::text, s.nhom, s.ten_muc, s.boi_staff_id::text,
                s.boi_ten, s.boi_vai, s.bac_si_chinh_id::text, s.da_thu, s.tien_thua,
-               s.ly_do, p.full_name AS ten_khach, o.lan_chi_dinh,
+               s.ly_do, p.full_name AS ten_khach, o.lan_chi_dinh, s.chi_tiet,
                to_char(s.luc AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') AS gio
           FROM so_sua_chi_dinh s
           LEFT JOIN visit v ON v.visit_id = s.visit_id AND v.clinic_id = s.clinic_id
@@ -370,6 +395,12 @@ async def bao_bac_si_chinh(
         noi += f" (lần {so['lan_chi_dinh']})"
     if so["gio"]:
         noi += f" lúc {so['gio']}"
+    ct_so = so["chi_tiet"]
+    if isinstance(ct_so, str):
+        ct_so = json.loads(ct_so)
+    tt_bo = trang_thai_luc_bo((ct_so or {}).get("truoc"))
+    if tt_bo != "CHUA_LAM":
+        noi += f" (lúc xoá: {NHAN_TRANG_THAI_BO[tt_bo]})"
     if int(so["da_thu"] or 0) > 0:
         noi += (
             f" — đã thu {_tien(int(so['da_thu']))}, thành tiền thừa"
@@ -569,7 +600,17 @@ def cau_xoa(r: dict[str, Any]) -> str:
         and str(r.get("bac_si_chinh_id")) != str(r.get("boi_staff_id"))
     ):
         ai += f" (thay BS {bs})"
-    return f"{ai} đã xoá chỉ định này"
+    cau = f"{ai} đã xoá chỉ định này"
+    ct = r.get("chi_tiet")
+    if isinstance(ct, str):
+        try:
+            ct = json.loads(ct)
+        except ValueError:
+            ct = {}
+    tt = trang_thai_luc_bo((ct or {}).get("truoc") if isinstance(ct, dict) else None)
+    if tt != "CHUA_LAM":
+        cau += f" — lúc xoá: {NHAN_TRANG_THAI_BO[tt]}"
+    return cau
 
 
 async def da_bo_cua_cac_luot(
@@ -584,7 +625,7 @@ async def da_bo_cua_cac_luot(
         """
         SELECT s.id::text, s.visit_id::text, s.nhom, s.ten_muc, s.boi_staff_id,
                s.boi_ten, s.boi_vai, s.bac_si_chinh_id, s.bac_si_chinh_ten, s.luc,
-               s.ly_do, s.da_thu, s.tien_thua,
+               s.ly_do, s.da_thu, s.tien_thua, s.chi_tiet,
                s.service_order_id::text AS order_id, o.lan_chi_dinh,
                (SELECT sp.unit_price FROM service_price sp
                  WHERE sp.clinic_id = s.clinic_id
@@ -798,6 +839,8 @@ class SoSuaChiDinhService:
         ct = so["chi_tiet"]
         ct = json.loads(ct) if isinstance(ct, str) else dict(ct or {})
         truoc = ct.get("truoc") or {}
+        if trang_thai_luc_bo(truoc) in ("DANG_LAM", "DA_LAM") and truoc.get("room_id"):
+            return await self._tra_lai_dung_trang_thai(conn, identity, so, o, ct, ly)
         try:
             await conn.execute(
                 """
@@ -838,6 +881,80 @@ class SoSuaChiDinhService:
             payload=ChiDinhDatLai(
                 visit_id=o["visit_id"],
                 service_order_id=oid,
+                service_code=o["service_code"],
+                service_name=o["service_name"],
+                so_sua_id=so["id"],
+                ly_do=ly,
+            ),
+            boi=nguoi(identity),
+            correlation_id=o["visit_id"],
+        )
+        return {"ok": True}
+
+    async def _tra_lai_dung_trang_thai(
+        self,
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        so: asyncpg.Record,
+        o: asyncpg.Record,
+        ct: dict[str, Any],
+        ly: str | None,
+    ) -> dict[str, Any]:
+        """Hoàn tác bỏ một chỉ định ĐANG LÀM / ĐÃ LÀM (06/10/2026): trả đúng
+        trạng thái cũ — phòng, đang làm / đã xong, chỗ chờ đã đóng. Kết quả cũ
+        vẫn nằm nguyên (lệnh bỏ không xoá)."""
+        cid = identity.clinic_id
+        truoc = ct.get("truoc") or {}
+        await conn.execute(
+            """
+            UPDATE service_order
+               SET room_id = coalesce(room_id, $3::uuid),
+                   execution_status = $4,
+                   exec_status = $5,
+                   execution_revision = execution_revision + 1,
+                   routing_status = coalesce($6::text, routing_status),
+                   selection_status = coalesce($7::text, selection_status),
+                   authorized_by = coalesce(authorized_by, recorded_by),
+                   authorized_at = coalesce(authorized_at, created_at),
+                   cancelled_by = NULL, cancel_reason = NULL,
+                   version = version + 1, updated_at = now()
+             WHERE clinic_id = $1::uuid AND id = $2::uuid
+            """,
+            cid,
+            o["id"],
+            truoc.get("room_id"),
+            truoc.get("execution_status"),
+            truoc.get("exec_status"),
+            truoc.get("routing_status"),
+            truoc.get("selection_status"),
+        )
+        for h in ct.get("hang_cho") or []:
+            if not isinstance(h, dict) or not h.get("id") or not h.get("status"):
+                continue
+            try:
+                async with conn.transaction():
+                    await conn.execute(
+                        "UPDATE queue_entry SET status = $3, version = version + 1,"
+                        "       updated_at = now()"
+                        " WHERE clinic_id = $1::uuid AND id = $2::uuid"
+                        "   AND status = 'cancelled'",
+                        cid,
+                        str(h["id"]),
+                        str(h["status"]),
+                    )
+            except asyncpg.UniqueViolationError:
+                # Khách đang ở chỗ khác (một chỗ "đang phục vụ" mỗi lượt) — để
+                # chỗ chờ đóng, phòng gọi lại được; chỉ định vẫn đúng trạng thái.
+                continue
+        await emit_event(
+            conn,
+            ten="service_order.restored",
+            clinic_id=cid,
+            aggregate_id=o["id"],
+            so_ke_tiep=True,
+            payload=ChiDinhDatLai(
+                visit_id=o["visit_id"],
+                service_order_id=o["id"],
                 service_code=o["service_code"],
                 service_name=o["service_name"],
                 so_sua_id=so["id"],

@@ -26,6 +26,11 @@
 // chỉ định của lần đó, CHỈ XEM (không mở phiếu kết quả để sửa, không tải tệp) +
 // dải "Đang xem lần k — [Về lần n (đang mở)]". Lần cũ có kết quả chưa xem thì chip
 // có chấm nhắc. "Đã xem" chỉ ghi cho chỉ định đang HIỆN.
+//
+// SỬA MỌI LẦN (Tuyền chốt 06/10/2026 tối): bỏ khoá "chỉ xem" ở lần cũ — tab nào
+// đang chọn thì sửa / bỏ / tick thêm vào đúng lần ấy (danh mục dùng chung tab
+// đang chọn, máy chủ kiểm lần). Lần mới CHỈ mở bằng nút "+" cạnh các tab; danh
+// sách lần do máy chủ giữ (`cacLan`), kể cả lần vừa mở chưa tick gì.
 
 import { useEffect, useRef, useState } from "react";
 
@@ -201,8 +206,19 @@ export default function KetQuaChiDinh({
   nhanGiay = {},
   onDoiBatBuoc,
   onBoChiDinh,
+  lanChon = null,
+  onChonLan,
+  cacLan: cacLanMayChu = [],
+  onMoLan,
 }: {
   ds: ChiDinhVaKetQua[];
+  /** Tab lần đang chọn (null = lần hiện tại) — dùng chung với danh mục. */
+  lanChon?: number | null;
+  onChonLan?: (lan: number | null) => void;
+  /** Mọi lần máy chủ giữ (06/10/2026). */
+  cacLan?: number[];
+  /** Nút "+" — mở lần mới (máy chủ). */
+  onMoLan?: () => Promise<{ ok: true } | { ok: false; loi: string }>;
   /** Hoàn tác chỉ định (01/10/2026): bỏ chỉ định sai chỗ. Máy chủ quyết được
    *  không (đang làm / đã xong → hoàn tác ở phòng trước) và hỏi xác nhận khi
    *  đã thu tiền (khoản ấy thành tiền thừa ở quầy). */
@@ -236,14 +252,28 @@ export default function KetQuaChiDinh({
     const kq = await onDoiBatBuoc(d.service_order_id, co);
     if (!kq.ok) setLoiBatBuoc({ id: d.service_order_id, loi: kq.loi });
   };
-  /** Lần đang xem; null = lần hiện tại (mới nhất). */
-  const [xemLan, setXemLan] = useState<number | null>(null);
+  /** Lần đang xem; null = lần hiện tại. Có màn cha giữ thì theo màn cha. */
+  const [xemLanRieng, setXemLanRieng] = useState<number | null>(null);
+  const xemLan = onChonLan ? lanChon : xemLanRieng;
+  const setXemLan = onChonLan ?? setXemLanRieng;
+  const [dangMo, setDangMo] = useState(false);
+  const [loiMo, setLoiMo] = useState<string | null>(null);
+  const moLan = async () => {
+    if (!onMoLan) return;
+    setDangMo(true);
+    setLoiMo(null);
+    const kq = await onMoLan();
+    setDangMo(false);
+    if (!kq.ok) setLoiMo(kq.loi);
+  };
   const daGhi = useRef(new Set<string>());
 
   // Các lần — lần mới nhất lên đầu; chỉ định mang sang (lần 0) để cuối.
   // Làm thêm tại quầy (01/10/2026, lễ tân / người đo tick) không phải một "lần"
   // của bác sĩ: luôn hiện cùng lần đang mở để bác sĩ thấy kết quả ngay.
-  const cacLanBs = [...new Set(ds.filter((d) => !d.lam_them).map((d) => d.lan ?? 0))].sort(
+  const cacLanBs = [
+    ...new Set([...ds.filter((d) => !d.lam_them).map((d) => d.lan ?? 0), ...cacLanMayChu]),
+  ].sort(
     (a, b) => (b || -1) - (a || -1),
   );
   const cacLan = cacLanBs.length > 0 ? cacLanBs : [0];
@@ -251,9 +281,10 @@ export default function KetQuaChiDinh({
   const lanHienTai = cacLan.find((l) => l > 0) ?? cacLan[0] ?? 0;
   const lanCua = (d: ChiDinhVaKetQua) => (d.lam_them ? lanHienTai : (d.lan ?? 0));
   const lanXem = xemLan !== null && cacLan.includes(xemLan) ? xemLan : lanHienTai;
-  const chiXem = nhieuLan && lanXem !== lanHienTai;
+  // Không còn "chỉ xem" ở lần cũ (06/10/2026): lần nào cũng sửa được.
+  const chiXem = false;
   const dsHien = nhieuLan ? ds.filter((d) => lanCua(d) === lanXem) : ds;
-  const choSua = choDien && !chiXem;
+  const choSua = choDien;
 
   // Tóm tắt luôn hiện ⇒ khối 2 mở ra là đã xem: ghi MỘT lần mỗi kết quả chưa xem
   // — chỉ những chỉ định đang HIỆN (lần cũ chưa bấm xem thì chưa tính là xem).
@@ -276,7 +307,7 @@ export default function KetQuaChiDinh({
     const goiY = g ? mauDuPhong.filter((m) => m.ma === g) : [];
     return goiY.length > 0 ? [...goiY, ...mauDuPhong.filter((m) => m.ma !== g)] : mauDuPhong;
   };
-  if (ds.length === 0) {
+  if (ds.length === 0 && cacLanMayChu.length <= 1) {
     return <p className="text-body text-ink-faint">Chưa có chỉ định nào trong lượt này.</p>;
   }
   const dHop = hop ? ds.find((d) => d.service_order_id === hop.id) : undefined;
@@ -443,15 +474,16 @@ export default function KetQuaChiDinh({
         />
       ) : null}
       <div className="space-y-2">
-        {nhieuLan ? (
+        {nhieuLan || onMoLan ? (
+          <div className="flex flex-wrap items-center gap-2">
           <ChipLoc
-            nhan="Xem theo lần chỉ định"
+            nhan="Lần chỉ định"
             chon={lanXem}
             onChon={(l) => setXemLan(l === lanHienTai ? null : l)}
             muc={[...cacLan].reverse().map((l) => ({
               ma: l,
               nhan: tenLan(l),
-              title: l === lanHienTai ? "Lần đang mở" : `Xem lại ${tenLan(l).toLowerCase()} (chỉ xem)`,
+              title: `${tenLan(l)} — tick ở danh mục sẽ vào lần này`,
               nhac:
                 l !== lanHienTai &&
                 ds.some(
@@ -460,15 +492,24 @@ export default function KetQuaChiDinh({
                 ),
             }))}
           />
-        ) : null}
-        {chiXem ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-control bg-warning-bg px-3 py-2 text-body text-warning">
-            <span>
-              Đang xem <b>{tenLan(lanXem).toLowerCase()}</b> — chỉ xem, không sửa được.
-            </span>
-            <Button type="button" size="sm" variant="secondary" onClick={() => setXemLan(null)}>
-              Về {tenLan(lanHienTai).toLowerCase()} (đang mở)
+          {onMoLan ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={dangMo}
+              onClick={() => void moLan()}
+              aria-label="Mở lần chỉ định mới"
+              title="Mở lần chỉ định mới"
+            >
+              {dangMo ? "Đang mở…" : "+"}
             </Button>
+          ) : null}
+          {loiMo ? (
+            <span role="alert" className="text-meta text-danger">
+              {loiMo}
+            </span>
+          ) : null}
           </div>
         ) : null}
         {nhieuLan ? (

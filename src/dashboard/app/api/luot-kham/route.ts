@@ -37,6 +37,8 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // ngang quyền (Tuyền, tin số 149). Khoá gửi lại bắt buộc.
   // Hai đường cũ bên dưới còn sống cho tới khi mọi màn đã chuyển sang đây.
   "chi-dinh": (id) => `/api/v1/luot-kham/consultations/${id}/service-orders`,
+  // Nút "+" cạnh tab lần (06/10/2026) — id = lượt.
+  "mo-lan-chi-dinh": (id) => `/api/v1/luot-kham/visits/${id}/mo-lan-chi-dinh`,
   "nhap-chi-dinh": (id) =>
     `/api/v1/luot-kham/consultations/${id}/draft-orders`,
   "duyet-chi-dinh": (id) =>

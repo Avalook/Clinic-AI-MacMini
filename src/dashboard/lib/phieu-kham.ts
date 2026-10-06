@@ -102,12 +102,13 @@ export interface LanChiDinh {
   hien_tai: number | null;
   ke_tiep: number;
   mo_moi_duoc: boolean;
+  /** Mọi lần của lượt (đã mở bằng "+" ∪ có chỉ định), tăng dần — 06/10/2026. */
+  cac_lan?: number[];
 }
 
-/** Lệnh "mở lần mới" gửi kèm chỉ định: `lan_dang_thay` = lần hiện tại màn thấy. */
+/** Chỉ định vào ĐÚNG lần của tab đang chọn (06/10/2026); máy chủ kiểm lần. */
 export interface LenhLanChiDinh {
-  lan_moi: boolean;
-  lan_dang_thay: number | null;
+  lan: number | null;
 }
 
 export type KetQuaDatChiDinh =

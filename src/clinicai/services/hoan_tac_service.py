@@ -33,6 +33,7 @@ tiền — huỷ phiếu / hoàn tiền). Khoản ấy hiện ở quầy thu th�
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import asyncpg
@@ -745,18 +746,10 @@ class HoanTacService:
             assert o is not None
             if o["exec_status"] == "cancelled":
                 return {"ok": True, "order_id": oid, "already": True}
-            if "IN_PROGRESS" in (o["execution_status"], str(o["exec_status"]).upper()):
-                raise LuotKhamConflictError(
-                    "ORDER_IN_PROGRESS",
-                    "Dịch vụ đang làm ở phòng — phòng bấm “Huỷ bắt đầu nhầm” trước,"
-                    " rồi bỏ chỉ định.",
-                )
-            if o["execution_status"] == "COMPLETED" or o["exec_status"] == "performed":
-                raise LuotKhamConflictError(
-                    "ORDER_PERFORMED",
-                    "Dịch vụ đã làm xong — phòng bấm “Hoàn tác” ở dòng “Đã xong”"
-                    " trước, rồi bỏ chỉ định.",
-                )
+            # ĐANG LÀM / ĐÃ LÀM cũng bỏ được NGAY (Tuyền chốt 06/10/2026: "kể cả
+            # làm rồi cũng sửa được", không thêm hộp chặn). Kết quả / phiếu / tệp
+            # giữ nguyên; chỗ chờ / phòng đang làm đóng lại; hoàn tác trả đúng
+            # trạng thái cũ (sổ ghi phòng + chỗ chờ bị đóng).
             tien = (await tien_da_thu_cua_chi_dinh(conn, cid, [oid])).get(oid) or {
                 "da_thu": 0,
                 "da_hoan": 0,
@@ -782,6 +775,19 @@ class HoanTacService:
             # Sổ sửa chỉ định ghi bằng trigger trong chính lệnh UPDATE dưới —
             # đặt người bấm / vai đang dùng / lý do cho nó.
             await dat_ngu_canh(conn, identity, ly_do=ly)
+            hang_cho = await conn.fetch(
+                "SELECT id::text, status FROM queue_entry"
+                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+                "   AND reason = 'SERVICE' AND ref_id = $3::uuid"
+                "   AND status NOT IN ('done', 'left', 'cancelled')",
+                cid,
+                vid,
+                oid,
+            )
+            await conn.execute(
+                "SELECT set_config('clinicai.so_hang_cho', $1, true)",
+                json.dumps([{"id": r["id"], "status": r["status"]} for r in hang_cho]),
+            )
             await conn.execute(
                 """
                 UPDATE service_order
