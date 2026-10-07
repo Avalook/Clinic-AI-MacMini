@@ -329,6 +329,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:payment-doi-hinh-thuc": "Quầy thu — đổi hình thức thu (TM/CK/QR)",
     "api:phi-kham": "Bàn khám / quầy thu — chọn dịch vụ khám",
     "api:lam-truoc-thu-sau": "Bàn khám / quầy thu — tick Làm trước – thu sau",
+    "api:lam-tai-ban-kham": "Bàn khám — làm dịch vụ tại bàn khám (chốt khách làm)",
     "api:lam-them-tai-quay": "Tiếp đón / Đo sinh hiệu — làm thêm tại quầy",
     "api:quay-thuoc": "Quầy thu tiền thuốc — chỉnh đơn bán",
     "api:queue-reorder": "Hàng chờ tiếp nhận — đổi thứ tự khám",

@@ -650,7 +650,9 @@ function KhachTrongPhong({
                   ? `Lần làm #${th?.lan_dang_chay?.attempt_no} · bắt đầu ${gioVn(
                       th?.lan_dang_chay?.started_at ?? null,
                     )} · đã làm ${soPhutTu(th?.lan_dang_chay?.started_at ?? null)}`
-                  : daDung
+                  : th?.lam_o_ban_kham
+                    ? `Đang làm ở ${th.lam_o_ban_kham.noi} — bàn khám bấm Xong.`
+                    : daDung
                     ? `Lần làm #${th?.lan_da_dung?.attempt_no} đã dừng${
                         th?.lan_da_dung?.interruption_reason_code
                           ? ` — ${nhanLyDo(th.lan_da_dung.interruption_reason_code)}`

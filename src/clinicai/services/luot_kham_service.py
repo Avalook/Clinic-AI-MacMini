@@ -592,13 +592,19 @@ class LuotKhamService:
         Làm: huỷ chỗ chờ tư vấn / bác sĩ chính còn sống + các phiên đang chờ,
         xoá đường đi, rồi xếp lại. Chỗ chờ PHÒNG DỊCH VỤ (chỉ định) không đụng.
         """
-        trang_thai = await conn.fetchval(
-            "SELECT status FROM visit WHERE clinic_id = $1::uuid"
+        luot = await conn.fetchrow(
+            "SELECT status, closed_at FROM visit WHERE clinic_id = $1::uuid"
             " AND visit_id = $2::uuid FOR UPDATE",
             clinic_id,
             visit_id,
         )
-        if trang_thai not in ("OPEN", "IN_PROGRESS"):
+        # Đã check-out (chỉ `closed_at`, status vẫn IN_PROGRESS): khách đã về,
+        # không đưa lại hàng tư vấn / bác sĩ (review 07/10/2026).
+        if (
+            luot is None
+            or luot["status"] not in ("OPEN", "IN_PROGRESS")
+            or luot["closed_at"] is not None
+        ):
             return None
         if await conn.fetchval(
             "SELECT EXISTS (SELECT 1 FROM consultation WHERE clinic_id = $1::uuid"

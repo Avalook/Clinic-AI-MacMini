@@ -197,7 +197,8 @@ async def sinh_chi_dinh_dieu_tri(
     """
     r = await conn.fetchrow(
         """
-        SELECT v.status, v.checked_in_by::text, v.attending_doctor_id::text,
+        SELECT v.status, v.closed_at, v.checked_in_by::text,
+               v.attending_doctor_id::text,
                sp.service_code, sp.name, sp.node_code
           FROM public.visit v
           LEFT JOIN public.appointment a
@@ -213,8 +214,14 @@ async def sinh_chi_dinh_dieu_tri(
         clinic_id,
         visit_id,
     )
-    # Khách đã về (FINALIZED / AMENDED) hay về giữa chừng (INCOMPLETE): không sinh.
-    if r is None or r["status"] not in ("OPEN", "IN_PROGRESS"):
+    # Khách đã về (FINALIZED / AMENDED), về giữa chừng (INCOMPLETE) hay đã
+    # check-out (chỉ `closed_at`, status vẫn IN_PROGRESS): không sinh — chỉ định
+    # chưa thu cho lượt đã đóng là nợ ảo.
+    if (
+        r is None
+        or r["status"] not in ("OPEN", "IN_PROGRESS")
+        or r["closed_at"] is not None
+    ):
         return None
     if await conn.fetchval(
         "SELECT EXISTS (SELECT 1 FROM public.service_order"

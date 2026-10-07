@@ -65,7 +65,8 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     ],
     # Nhận khách tại phòng (07/10/2026): chỉ mã phòng + mã lý do.
     "service.room_released": ["room_id", "ly_do", "trang_thai_truoc", "sang_room_id"],
-    "service.room_receive_undone": ["room_id"],
+    "service.room_receive_undone": ["room_id", "tra_ve_room_id"],
+    "service.room_release_undone": ["room_id", "trang_thai", "ghi_chu"],
     "service.room_guided": ["room_id", "tu_room_id", "nguon"],
     "consultation.resumed": ["loai", "lan"],
     # Trưởng ca chuyển phòng khi đang làm (29/09/2026): lý do là chữ vận hành

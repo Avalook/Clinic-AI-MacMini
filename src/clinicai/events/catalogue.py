@@ -709,6 +709,9 @@ class DichVuDaBatDau(PayloadSuKien):
     execution_revision: int
     #: Nơi làm khi KHÔNG phải phòng của chỉ định: "BAN_KHAM" (07/10/2026).
     noi_lam: str | None = None
+    #: Làm tại bàn khám đã CHỐT HỘ lựa chọn của khách cho đúng chỉ định này
+    #: (bác sĩ làm = khách đồng ý) — hoàn tác Bắt đầu trả lại (07/10/2026).
+    chot_lua_chon: bool = False
 
 
 class ThuocQuayDaChinh(PayloadSuKien):
@@ -845,6 +848,9 @@ class DaXepPhong(PayloadSuKien):
     thu_tu_huong_dan: int | None = None
     thu_tu_thuc_te: int | None = None
     nhan_cheo_tu_room_id: str | None = None
+    #: Mã MỘT lần bấm Nhận tại phòng (cùng mã ở `service.room_released` của
+    #: lần ấy) — để hoàn tác dựng lại đúng chỗ ở phòng cũ.
+    lan_nhan_id: str | None = None
 
 
 class KhachRoiPhong(PayloadSuKien):
@@ -864,17 +870,43 @@ class KhachRoiPhong(PayloadSuKien):
     attempt_id: str | None = None
     routing_revision: int | None = None
     huong_dan_room_id: str | None = None
+    #: Mã MỘT lần bấm Nhận (cùng mã ở `service.routed` của lần ấy) — hoàn tác
+    #: Nhận biết chỗ nào ở phòng cũ do chính lần ấy đóng để dựng lại.
+    lan_nhan_id: str | None = None
 
 
 class NhanVaoPhongDaHoanTac(PayloadSuKien):
     """`service.room_receive_undone` — hoàn tác Nhận: chỉ định về "Sắp đến"
-    (không như huỷ xếp phòng — không đẻ việc cho trưởng ca)."""
+    (không như huỷ xếp phòng — không đẻ việc cho trưởng ca). Lần Nhận ấy là
+    NHẬN CHÉO (chỉ định đang chờ ở phòng khác) → chỉ định về lại đúng hàng phòng
+    cũ (`tra_ve_room_id`), giờ vào hàng cũ — không về "Sắp đến"."""
 
     visit_id: str
     service_order_id: str
     room_id: str
     hoan_tac_event_id: str | None = None
     routing_revision: int
+    tra_ve_room_id: str | None = None
+
+
+class NhaPhongDaHoanTac(PayloadSuKien):
+    """`service.room_release_undone` — hoàn tác lần Nhận chéo dựng lại chỗ của
+    khách ở phòng cũ (chỗ ấy đóng vì phòng khác Nhận). `trang_thai` = trạng thái
+    chỗ chờ được dựng lại ('waiting' / 'serving'); không dựng lại được nguyên
+    trạng (khách đang được làm ở chỗ khác) thì 'waiting' kèm `ghi_chu`."""
+
+    visit_id: str
+    service_order_id: str
+    room_id: str
+    trang_thai: str
+    hoan_tac_event_id: str | None = None
+    routing_revision: int | None = None
+    ghi_chu: str | None = None
+    #: Lần làm ở phòng cũ còn mở (khách đang LÀM lúc bị nhận chéo) — chuông
+    #: nhận chéo của lần ấy tự đóng.
+    attempt_id: str | None = None
+    #: Lựa chọn bác sĩ ở phòng cũ được dựng lại (đổi phòng đã xoá nó).
+    bac_si_id: str | None = None
 
 
 class HuongDanPhong(PayloadSuKien):
@@ -980,6 +1012,10 @@ class DichVuDaHuyBatDau(PayloadSuKien):
     room_id: str | None = None
     execution_revision: int
     noi_lam: str | None = None
+    #: Lần làm đã chốt hộ lựa chọn của khách → hoàn tác trả lựa chọn về giá trị
+    #: này (vd "PENDING"). None = không trả (không chốt hộ, hoặc quầy đã chốt
+    #: lại lượt sau đó — lựa chọn người sau giữ nguyên).
+    tra_lua_chon_ve: str | None = None
 
 
 # ── cong_no ─────────────────────────────────────────────────────────────────
@@ -1514,6 +1550,16 @@ DANH_MUC: dict[str, SuKien] = {
             theo_thu_tu=True,
         ),
         SuKien(
+            ten="service.room_release_undone",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_routing",
+            payload=NhaPhongDaHoanTac,
+            nhan="Hoàn tác khách rời phòng (về lại phòng cũ)",
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG_NHAN_CHEO],
+            theo_thu_tu=True,
+        ),
+        SuKien(
             ten="service.room_guided",
             version=1,
             aggregate_type="service_order",
@@ -1993,6 +2039,7 @@ __all__ = [
     "DichVuDaChuyenPhong",
     "HuongDanPhong",
     "KhachRoiPhong",
+    "NhaPhongDaHoanTac",
     "NhanVaoPhongDaHoanTac",
     "PhienKhamTiepTuc",
     "TienDichVuDaThu",

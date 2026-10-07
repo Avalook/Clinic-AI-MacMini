@@ -45,6 +45,9 @@ TRUOC_CHECK_IN = frozenset(
     {"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "DOCTOR_DECLINED"}
 )
 
+#: Lượt đã check-out (``visit.closed_at``) — mọi đường đổi dịch vụ khám.
+CAU_DA_CHECK_OUT = "Lượt đã check-out — mở lại lượt trước."
+
 _LICH_DA_XONG: dict[str, str] = {
     "COMPLETED": "Lịch đã khám xong",
     "CANCELLED": "Lịch đã huỷ",
@@ -61,6 +64,7 @@ def ly_do_khong_doi(
     da_thu_tien_kham: bool,
     da_chon_dich_vu_con: bool,
     trong_ho_so: bool = False,
+    da_check_out: bool = False,
 ) -> str | None:
     """Câu nói rõ vì sao KHÔNG đổi được dịch vụ khám; None = đổi được.
 
@@ -68,7 +72,13 @@ def ly_do_khong_doi(
     phiên đã bắt đầu, đã có phiếu, đã thu tiền khám, đã tick dịch vụ con đều
     ĐỔI ĐƯỢC (phiếu cũ giữ nguyên, tick giữ nguyên, chênh tiền theo luật tiền
     thừa / nợ). Chỉ lượt đã đóng (check-out) mới không đổi ở đây.
+
+    ``da_check_out``: check-out chỉ đặt ``visit.closed_at`` (status vẫn
+    IN_PROGRESS) — đổi dịch vụ sau khi khách về là đổi phí khám, xếp lại hàng
+    cho người không còn ở phòng khám (review 07/10/2026).
     """
+    if trang_thai_luot is not None and da_check_out:
+        return CAU_DA_CHECK_OUT
     if trong_ho_so:
         if trang_thai_luot is None:
             return "Lượt khám chưa mở — đổi dịch vụ ở dòng lịch hẹn."
@@ -123,6 +133,7 @@ class TrangThaiDoi:
     da_thu_tien_kham: bool
     da_chon_dich_vu_con: bool
     bac_si_con_kham: bool
+    da_check_out: bool = False
 
     @property
     def sau_check_in(self) -> bool:
@@ -137,6 +148,7 @@ class TrangThaiDoi:
             da_thu_tien_kham=self.da_thu_tien_kham,
             da_chon_dich_vu_con=self.da_chon_dich_vu_con,
             trong_ho_so=trong_ho_so,
+            da_check_out=self.da_check_out,
         )
 
 
@@ -147,6 +159,7 @@ SELECT a.id::text AS appointment_id, a.status, a.clinic_patient_id::text,
        a.doctor_id::text, a.service_type_id::text AS dich_vu_id,
        st.name AS ten_dich_vu,
        v.visit_id::text, v.status AS trang_thai_luot,
+       v.closed_at IS NOT NULL AS da_check_out,
        EXISTS (
            SELECT 1 FROM public.consultation c
             WHERE c.clinic_id = a.clinic_id AND c.visit_id = v.visit_id
@@ -195,6 +208,7 @@ async def doc_trang_thai(
         da_thu_tien_kham=bool(r["da_thu_tien_kham"]),
         da_chon_dich_vu_con=bool(r["da_chon_dich_vu_con"]),
         bac_si_con_kham=bool(r["bac_si_con_kham"]),
+        da_check_out=bool(r["da_check_out"]),
     )
 
 

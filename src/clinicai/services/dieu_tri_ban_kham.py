@@ -33,8 +33,12 @@ from clinicai.phieu_kham.mau_dieu_tri import MAU_PHIEU_DIEU_TRI
 from clinicai.phieu_kham.mau_goi_y import mau_cho_cac_dich_vu
 from clinicai.services.finance_gate import READY_STATES, states_for_orders
 from clinicai.services.lenh_kham_core import ma_uuid
+
+# Lượt đã check-out / đã đóng: thẻ chỉ đọc, lệnh bị từ chối — `CAU_LUOT_DA_DONG`
+# cùng câu với lệnh của module Thực hiện (kiểm lại TRONG giao dịch).
 from clinicai.services.service_execution_service import (
     CAU_KHONG_QUYEN_BAN_KHAM,
+    CAU_LUOT_DA_DONG,
     NOI_BAN_KHAM,
     QUYEN_LAM_TAI_BAN_KHAM,
     ServiceExecutionService,
@@ -135,10 +139,6 @@ _LUOT_SQL = """
 SELECT status, closed_at FROM public.visit
  WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
 """
-
-#: Lượt đã check-out / đã đóng: thẻ chỉ đọc, lệnh bị từ chối (Tuyền 07/10/2026 —
-#: staging: 15:37 vẫn bấm làm tại bàn khám cho khách check-out lúc 15:32).
-CAU_LUOT_DA_DONG = "Lượt đã check-out — muốn làm tiếp thì Mở lại lượt trước."
 
 
 def luot_da_dong(status: str | None, closed_at: Any) -> bool:
@@ -363,6 +363,7 @@ async def chi_dinh_dieu_tri_dang_co(
 
 
 __all__ = [
+    "CAU_LUOT_DA_DONG",
     "MA_DIEU_TRI_SQL",
     "NHAN",
     "THAO_TAC",

@@ -67,6 +67,13 @@ def _can_mo_viec(su_kien: SuKienDaNhan) -> str | None:
         # mọi trường hợp là cách nhanh nhất để người trực học cách bỏ qua việc.
         if not su_kien.payload.get("da_thu_tien"):
             return None
+    if (
+        su_kien.event_type == "service.routing_invalidated"
+        and su_kien.payload.get("ly_do") == "HUY_LAM_TAI_BAN_KHAM"
+    ):
+        # Hoàn tác [Làm tại bàn khám] gỡ phòng bàn khám tự xếp lúc bắt đầu —
+        # chỉ định về đúng chỗ cũ (chưa xếp), không có phòng nào mất để xếp lại.
+        return None
     return node
 
 
