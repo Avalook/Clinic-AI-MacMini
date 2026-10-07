@@ -24,6 +24,7 @@ from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.chi_dinh_service import ChiDinhService
 from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.luot_kham_service import LuotKhamService
+from clinicai.services.nhan_tai_phong import NhanTaiPhongService
 from clinicai.services.service_execution_service import ServiceExecutionService
 from clinicai.services.service_routing_service import KHONG_DOI, ServiceRoutingService
 from clinicai.services.service_selection_service import ServiceSelectionService
@@ -858,6 +859,76 @@ async def transfer_in_progress_service(
         ly_do=body.ly_do,
         identity=identity,
         idempotency_key=idempotency_key,
+    )
+
+
+class NhanTaiPhongBody(BaseModel):
+    # Any: kiểm UUID ở service để trả mã lỗi ổn định.
+    room_id: Any = None
+    #: Nhận chéo: khách đang ở phòng khác — bấm xác nhận (không bắt lý do).
+    xac_nhan: bool = False
+    #: Phòng nhiều bác sĩ: như lệnh xếp phòng (không gửi = giữ / tự gán).
+    bac_si_lam_id: Any = None
+    #: Nút Nhả: phòng hướng dẫn mới (tuỳ chọn).
+    huong_dan_room_id: Any = None
+
+
+# Nhận khách tại phòng (dây `nhan_tai_phong`, 07/10/2026) — id là LƯỢT KHÁM.
+# Cửa thật (quyền điều phối, khoá lượt, dây) ở NhanTaiPhongService.
+@router.post("/luot-kham/visits/{visit_id}/nhan-vao-phong")
+async def receive_at_room(
+    visit_id: UUID,
+    body: NhanTaiPhongBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await NhanTaiPhongService(pool).nhan(
+        visit_id=str(visit_id),
+        room_id=body.room_id,
+        identity=identity,
+        xac_nhan=body.xac_nhan,
+        bac_si_lam_id=_bac_si_gui(body),
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/luot-kham/visits/{visit_id}/hoan-tac-nhan")
+async def undo_receive_at_room(
+    visit_id: UUID,
+    body: NhanTaiPhongBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await NhanTaiPhongService(pool).hoan_tac_nhan(
+        visit_id=str(visit_id), room_id=body.room_id, identity=identity
+    )
+
+
+@router.post("/luot-kham/visits/{visit_id}/nha-khoi-phong")
+async def release_from_room(
+    visit_id: UUID,
+    body: NhanTaiPhongBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await NhanTaiPhongService(pool).nha(
+        visit_id=str(visit_id),
+        room_id=body.room_id,
+        identity=identity,
+        huong_dan_room_id=body.huong_dan_room_id,
+    )
+
+
+@router.post("/luot-kham/visits/{visit_id}/hoan-tac-nha")
+async def undo_release_from_room(
+    visit_id: UUID,
+    body: NhanTaiPhongBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await NhanTaiPhongService(pool).hoan_tac_nha(
+        visit_id=str(visit_id), room_id=body.room_id, identity=identity
     )
 
 

@@ -33,8 +33,10 @@ from clinicai.services.bac_si_phu_trach import (
 )
 from clinicai.services.doi_tac_service import trang_thai_doi_tac
 from clinicai.services.lan_bac_si import (
+    can_chon_bac_si,
     la_khach_lan_toi,
     lan_cua_toi_trong_phong,
+    lua_chon_bac_si,
     ten_bac_si,
 )
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
@@ -619,7 +621,15 @@ class BangLuotKham:
                 """,
                 identity.clinic_id,
             )
+            # Ba số mỗi phòng (07/10/2026): sắp đến (dây Nhận tại phòng bật) ·
+            # đang chờ · đang làm — số khách hôm nay.
+            from clinicai.services.nhan_tai_phong import dang_bat, dem_theo_phong
+
+            bat = await dang_bat(conn, identity.clinic_id)
+            dem = await dem_theo_phong(conn, identity.clinic_id, bat=bat)
+        trong = {"sap_den": 0 if bat else None, "dang_cho": 0, "dang_lam": 0}
         return {
+            "nhan_tai_phong": bat,
             "phong_cua_toi": [
                 {
                     "id": r["id"],
@@ -639,6 +649,7 @@ class BangLuotKham:
                     "tang": r["floor"],
                     "nodes": list(r["nodes"] or []),
                     "la_phong_dich_vu": la_phong_dich_vu(r["nodes"] or []),
+                    "dem": dem.get(r["id"], trong),
                 }
                 for r in tat_ca
             ],
@@ -708,10 +719,25 @@ class BangLuotKham:
             # Khách đã trả mà chưa xếp phòng — mọi phòng làm được đều thấy để
             # nhận (Tuyền 24/09/2026: "không chỉ định thì khách vẫn xuất hiện ở
             # hàng đợi và có thể khám ở các dịch vụ khả thi").
+            from clinicai.services import nhan_tai_phong as ntp
             from clinicai.services.service_routing_service import cho_nhan_vao_phong
 
+            # Dây Nhận tại phòng BẬT (07/10/2026): khối "Sắp đến" theo khách
+            # thay khối "chưa xếp phòng" (khách đã chốt, chưa xếp).
+            tai_phong = await ntp.dang_bat(conn, cid)
             chua_xep = (
-                await cho_nhan_vao_phong(conn, cid, rid) if rid and la_hom_nay else []
+                await cho_nhan_vao_phong(conn, cid, rid)
+                if rid and la_hom_nay and not tai_phong
+                else []
+            )
+            sap_den = (
+                await ntp.sap_den(conn, cid, rid)
+                if rid and la_hom_nay and tai_phong
+                else []
+            )
+            # Ô chọn bác sĩ cạnh nút Nhận — chỉ khi phòng có ≥2 bác sĩ trực.
+            bac_si_phong = (
+                (await lua_chon_bac_si(conn, cid, [rid]))[str(rid)] if sap_den else []
             )
             # Làn của người đang xem trong phòng này (phòng nhiều bác sĩ).
             lan_toi: dict[str, Any] = (
@@ -878,7 +904,19 @@ class BangLuotKham:
                    AND (q.status IN ('blocked', 'waiting', 'called', 'serving', 'done')
                         -- Ngày cũ: cả chỗ chờ khách đã về (`left`) — quay lại
                         -- làm / sửa được (Tuyền 29/09/2026).
-                        OR (q.status = 'left' AND NOT $7::boolean))
+                        OR (q.status = 'left' AND NOT $7::boolean)
+                        -- NHẬN CHÉO (07/10/2026): khách đã sang phòng khác mà
+                        -- lần làm ở phòng này còn mở — thẻ vẫn ở đây tới khi
+                        -- phòng bấm Xong / Gián đoạn (chỗ chờ mới nhất của chỉ
+                        -- định, đúng phòng của chỉ định).
+                        OR (q.status = 'cancelled' AND q.reason = 'SERVICE'
+                            AND o.execution_status = 'IN_PROGRESS'
+                            AND o.room_id = q.room_id
+                            AND q.id = (SELECT q2.id FROM queue_entry q2
+                                         WHERE q2.clinic_id = q.clinic_id
+                                           AND q2.reason = 'SERVICE'
+                                           AND q2.ref_id = q.ref_id
+                                         ORDER BY q2.updated_at DESC LIMIT 1)))
                    AND (
                         ($2::uuid IS NOT NULL AND q.lane = 'ROOM'
                              AND q.room_id = $2::uuid)
@@ -970,10 +1008,30 @@ class BangLuotKham:
                     tat_ca_bac_si,
                 )
             )
+            # Khách đang ở phòng nào khác (nhãn "đang chờ / đang làm ở phòng X"
+            # ở phòng dịch vụ và bàn khám) + thẻ của phòng bị nhận chéo.
+            o_dau = await ntp.dang_o_phong(
+                conn, cid, [r["visit_id"] for r in rows], ca_cho=tai_phong
+            )
+            sang = await ntp.da_sang_phong(
+                conn, cid, [r["ref_id"] for r in rows if r["status"] == "cancelled"]
+            )
+            dem_phong = (
+                (await ntp.dem_theo_phong(conn, cid, bat=tai_phong)).get(str(rid))
+                if rid and la_hom_nay
+                else None
+            )
         now_rows = [
             {
                 "id": r["id"],
-                "trang_thai": r["status"],
+                # Thẻ phòng bị nhận chéo: lần làm còn mở → vẫn là "đang làm".
+                "trang_thai": "serving" if r["status"] == "cancelled" else r["status"],
+                "da_sang_phong": sang.get(r["ref_id"]),
+                "dang_o_phong": (
+                    o_dau.get(r["visit_id"])
+                    if o_dau.get(r["visit_id"], {}).get("phong_id") != str(rid)
+                    else None
+                ),
                 "loai": (
                     "TU_VAN"
                     if r["reason"] == "TU_VAN"
@@ -1065,6 +1123,10 @@ class BangLuotKham:
             # Người xem đứng làn nào của phòng (co=False: không lọc được).
             "lan_cua_toi": lan_toi,
             "chua_xep_phong": chua_xep,
+            "nhan_tai_phong": tai_phong,
+            "sap_den_phong": sap_den,
+            "bac_si_phong": bac_si_phong if can_chon_bac_si(bac_si_phong) else [],
+            "dem": dem_phong,
             "sap_toi": [
                 {
                     "visit_id": r["visit_id"],

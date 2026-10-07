@@ -41,6 +41,7 @@ from clinicai.events.catalogue import (
     KhamXong,
     LuotDaKhamXong,
     PhienKhamBatDau,
+    PhienKhamTiepTuc,
     TuVanXong,
 )
 from clinicai.events.emit import HE_THONG, emit_event, nguoi, nguoi_lam_thay
@@ -1754,21 +1755,27 @@ class LuotKhamService:
                         )
                     # KHÁCH ĐÃ QUAY LẠI sau dịch vụ (phiên vẫn mở — "đợi quay
                     # lại", Tuyền 23/09): bấm Bắt đầu lần nữa = tiếp tục khám.
-                    quay_lai = await conn.fetchval(
+                    # `serving_at` là giờ HIỆN TẠI; mốc lần trước + giờ quay về
+                    # hàng đi vào `consultation.resumed` (07/10/2026) — không
+                    # cái gì sau đè mất cái trước.
+                    quay_lai = await conn.fetchrow(
                         """
-                        UPDATE queue_entry
+                        UPDATE queue_entry q
                            SET status = 'serving', serving_at = now(),
-                               eligible_at = coalesce(eligible_at, now()),
-                               version = version + 1, updated_at = now()
-                         WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                           AND ref_id = $3::uuid AND reason = $4
-                           AND status IN ('waiting', 'called')
+                               eligible_at = coalesce(q.eligible_at, now()),
+                               version = q.version + 1, updated_at = now()
+                          FROM queue_entry cu
+                         WHERE cu.id = q.id
+                           AND q.clinic_id = $1::uuid AND q.visit_id = $2::uuid
+                           AND q.ref_id = $3::uuid AND q.reason = $4
+                           AND q.status IN ('waiting', 'called')
                            AND NOT EXISTS (
                                SELECT 1 FROM queue_entry s
                                 WHERE s.clinic_id = $1::uuid
                                   AND s.visit_id = $2::uuid
                                   AND s.status = 'serving')
-                        RETURNING id::text
+                        RETURNING q.id::text AS id, cu.serving_at AS truoc,
+                                  cu.eligible_at AS ve_hang
                         """,
                         cid,
                         vid,
@@ -1776,8 +1783,37 @@ class LuotKhamService:
                         c["kind"],
                     )
                     if quay_lai is not None:
-                        await self._block_others(conn, cid, vid, quay_lai)
+                        await self._block_others(conn, cid, vid, quay_lai["id"])
                         await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)
+                        lan = 2 + int(
+                            await conn.fetchval(
+                                "SELECT count(*) FROM domain_event"
+                                " WHERE clinic_id = $1::uuid"
+                                "   AND aggregate_type = 'consultation'"
+                                "   AND aggregate_id = $2::uuid"
+                                "   AND event_type = 'consultation.resumed'",
+                                cid,
+                                con_id,
+                            )
+                        )
+                        await emit_event(
+                            conn,
+                            ten="consultation.resumed",
+                            clinic_id=cid,
+                            aggregate_id=con_id,
+                            payload=PhienKhamTiepTuc(
+                                visit_id=vid,
+                                consultation_id=con_id,
+                                loai=c["kind"],
+                                lan=lan,
+                                quay_ve_hang_luc=quay_lai["ve_hang"]
+                                and quay_lai["ve_hang"].isoformat(),
+                                bat_dau_lan_truoc_luc=quay_lai["truoc"]
+                                and quay_lai["truoc"].isoformat(),
+                            ),
+                            boi=nguoi_lam_thay(identity, bac_si_phien),
+                            correlation_id=vid,
+                        )
                     return {"ok": True, "consultation_id": con_id, "already": True}
                 raise LuotKhamConflictError(
                     "CONSULTATION_TAKEN", "Phiên khám này bác sĩ khác đang khám."

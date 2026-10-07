@@ -56,6 +56,7 @@ from clinicai.permissions.catalogue import tra_quyen
 from clinicai.permissions.lich import doi_lich_phong
 from clinicai.phieu_kham.mau_goi_y import mau_cho_dich_vu
 from clinicai.services import finance_gate
+from clinicai.services.day_noi import doc_day
 from clinicai.services.finance_gate import can_start
 from clinicai.services.hang_cho import (
     cap_nhat_vi_tri,
@@ -1179,7 +1180,11 @@ class ServiceExecutionService:
         if giu is None:
             return
         ten = giu["ten_phong"] or "khác"
-        da_dien = bool(
+        # Dây Nhận tại phòng BẬT (07/10/2026): phòng kia KHÔNG bị dừng hộ — đóng
+        # hàng chờ phòng kia, lần làm của nó giữ mở (phòng ấy tự Xong / Gián
+        # đoạn), nên không có công ai bị bỏ dở và không chặn vì phiếu đã điền.
+        tai_phong = bool(await doc_day(conn, clinic_id, "nhan_tai_phong"))
+        da_dien = not tai_phong and bool(
             await conn.fetchval(_PHIEU_DA_DIEN_SQL, clinic_id, giu["order_id"])
         )
         chi_tiet = {
@@ -1203,6 +1208,27 @@ class ServiceExecutionService:
                 chi_tiet,
             )
 
+        if tai_phong:
+            from clinicai.services.nhan_tai_phong import NHA_NHAN_CHEO, roi_phong
+
+            cho = await conn.fetch(
+                "SELECT id::text AS id, ref_id::text AS ref_id, room_id::text"
+                " AS room_id, status FROM queue_entry WHERE clinic_id = $1::uuid"
+                " AND visit_id = $2::uuid AND reason = 'SERVICE' AND status = 'serving'"
+                " AND ref_id <> $3::uuid",
+                clinic_id,
+                visit_id,
+                order_id,
+            )
+            await roi_phong(
+                conn,
+                identity,
+                vid=visit_id,
+                cho=cho,
+                ly_do=NHA_NHAN_CHEO,
+                sang_room_id=str(don["room_id"]) if don["room_id"] else None,
+            )
+            return
         oid = giu["order_id"]
         o = await conn.fetchrow(
             "SELECT execution_status, execution_revision FROM service_order"
@@ -1346,7 +1372,7 @@ class ServiceExecutionService:
             clinic_id,
             order_id,
         )
-        await conn.execute(
+        dong = await conn.execute(
             "UPDATE queue_entry SET status = 'done', done_at = now(),"
             "       version = version + 1, updated_at = now()"
             " WHERE clinic_id = $1::uuid AND ref_id = $2::uuid AND reason = 'SERVICE'"
@@ -1354,6 +1380,28 @@ class ServiceExecutionService:
             clinic_id,
             order_id,
         )
+        if dong == "UPDATE 0":
+            # Nhận chéo (07/10/2026): khách đã sang phòng khác, chỗ chờ ở phòng
+            # này đã đóng lúc khách rời ('cancelled', mốc ở sự kiện
+            # `service.room_released`) mà lần làm còn mở. Phòng bấm Xong muộn
+            # → chỗ ấy thành "đã xong" với giờ bấm — mốc rời phòng vẫn riêng.
+            await conn.execute(
+                """
+                UPDATE queue_entry q SET status = 'done', done_at = now(),
+                       version = q.version + 1, updated_at = now()
+                  FROM service_order o
+                 WHERE q.clinic_id = $1::uuid AND q.ref_id = $2::uuid
+                   AND q.reason = 'SERVICE' AND q.status = 'cancelled'
+                   AND o.clinic_id = q.clinic_id AND o.id = q.ref_id
+                   AND o.room_id = q.room_id
+                   AND q.id = (SELECT q2.id FROM queue_entry q2
+                                WHERE q2.clinic_id = q.clinic_id
+                                  AND q2.reason = 'SERVICE' AND q2.ref_id = q.ref_id
+                                ORDER BY q2.updated_at DESC LIMIT 1)
+                """,
+                clinic_id,
+                order_id,
+            )
         if vid is not None:
             await mo_cho_bi_chan(conn, clinic_id, vid)
 

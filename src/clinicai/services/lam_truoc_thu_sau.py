@@ -63,6 +63,7 @@ from clinicai.services.service_selection_service import (
     OrderFacts,
     SelectionInput,
     ap_lua_chon,
+    dang_nhan_tai_phong,
     decision_ids,
     validate_input,
 )
@@ -307,7 +308,7 @@ async def _chot_cho_quyet(
         for r in rows
     ]
     theo_id = {f.id: f for f in facts}
-    con_quyet = sorted(decision_ids(facts))
+    con_quyet = sorted(decision_ids(facts, await dang_nhan_tai_phong(conn, cid)))
     cho_quyet = [
         i
         for i in con_quyet

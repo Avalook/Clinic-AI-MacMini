@@ -54,7 +54,21 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service.patient_moved": ["attempt_no", "from_room_id", "to_room_id"],
     "service.start_cancelled": ["attempt_no", "room_id"],
     "service.routing_invalidated": ["ly_do"],
-    "service.routed": ["room_id", "ly_do", "tu_dong", "nguon"],
+    "service.routed": [
+        "room_id",
+        "ly_do",
+        "tu_dong",
+        "nguon",
+        "huong_dan_room_id",
+        "dung_huong_dan",
+        "nhan_cheo_tu_room_id",
+    ],
+    # Nhận khách tại phòng (07/10/2026): chỉ mã phòng + mã lý do.
+    "service.room_released": ["room_id", "ly_do", "trang_thai_truoc", "sang_room_id"],
+    "service.room_receive_undone": ["room_id"],
+    "service.room_release_undone": ["room_id"],
+    "service.room_guided": ["room_id", "tu_room_id", "nguon"],
+    "consultation.resumed": ["loai", "lan"],
     # Trưởng ca chuyển phòng khi đang làm (29/09/2026): lý do là chữ vận hành
     # trưởng ca gõ, Tuyền cần nó hiện ở lịch sử lượt.
     "service.room_transferred": ["from_room_id", "room_id", "ly_do", "nguon"],
