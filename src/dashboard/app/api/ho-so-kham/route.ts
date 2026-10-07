@@ -2,10 +2,11 @@
 // sơ, 07/10/2026). Chỉ chuyển tiếp; quyền + luật ở backend
 // (`services/ho_so_dich_vu.py`, SO-LUAT Phần 3).
 //
-//   GET  ?visit_id=…&xem=dich-vu | dieu-tri
+//   GET  ?visit_id=…&xem=dich-vu | dieu-tri   (dieu-tri = thẻ chỉ định điều trị)
 //   GET  ?clinic_patient_id=…&xem=lich-su[&tu&den&dich_vu_id]  (popup Lịch sử khám)
 //   POST { thao_tac: "doi-dich-vu", visit_id, service_type_id }
-//   PUT  { visit_id, cam_nhan, van_de_sau, phien_ban }   (khối Điều trị)
+//   POST { thao_tac: "ban-kham", visit_id, order_id, lenh, expected_execution_revision,
+//          attempt_id }   (Làm tại bàn khám / Xong / hoàn tác — khối 4 Điều trị)
 
 import { NextResponse } from "next/server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
@@ -46,29 +47,31 @@ export async function POST(request: Request) {
     thao_tac?: string;
     visit_id?: string;
     service_type_id?: string;
+    order_id?: string;
+    lenh?: string;
+    expected_execution_revision?: number;
+    attempt_id?: string | null;
   } | null;
   const vid = body?.visit_id ?? "";
-  if (body?.thao_tac !== "doi-dich-vu" || !UUID.test(vid)) {
+  if (!UUID.test(vid)) return NextResponse.json({ error: "Yêu cầu không hợp lệ." }, { status: 400 });
+  if (body?.thao_tac === "doi-dich-vu") {
+    return proxyJsonToBackend("POST", `/api/v1/ho-so-kham/${vid}/doi-dich-vu`, {
+      service_type_id: body.service_type_id ?? null,
+    });
+  }
+  // Thẻ chỉ định điều trị: lam | xong | huy-lam | hoan-tac-xong (máy chủ kiểm).
+  const oid = body?.order_id ?? "";
+  const lenh = body?.lenh ?? "";
+  if (body?.thao_tac !== "ban-kham" || !UUID.test(oid) || !/^[a-z-]{2,20}$/.test(lenh)) {
     return NextResponse.json({ error: "Yêu cầu không hợp lệ." }, { status: 400 });
   }
-  return proxyJsonToBackend("POST", `/api/v1/ho-so-kham/${vid}/doi-dich-vu`, {
-    service_type_id: body.service_type_id ?? null,
-  });
-}
-
-export async function PUT(request: Request) {
-  if (!(await daDangNhap())) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const body = (await request.json().catch(() => null)) as {
-    visit_id?: string;
-    cam_nhan?: string;
-    van_de_sau?: string;
-    phien_ban?: number;
-  } | null;
-  const vid = body?.visit_id ?? "";
-  if (!UUID.test(vid)) return NextResponse.json({ error: "Thiếu mã lượt khám." }, { status: 400 });
-  return proxyJsonToBackend("PUT", `/api/v1/ho-so-kham/${vid}/dieu-tri`, {
-    cam_nhan: body?.cam_nhan ?? "",
-    van_de_sau: body?.van_de_sau ?? "",
-    phien_ban: body?.phien_ban ?? 0,
-  });
+  return proxyJsonToBackend(
+    "POST",
+    `/api/v1/ho-so-kham/${vid}/dieu-tri/${oid}/${lenh}`,
+    {
+      expected_execution_revision: body.expected_execution_revision ?? 0,
+      attempt_id: body.attempt_id ?? null,
+    },
+    request.headers.get("Idempotency-Key") ?? undefined,
+  );
 }

@@ -66,7 +66,7 @@ INSERT INTO bang_xoa (ten) VALUES
   ('clinical_record'), ('clinical_form_response'), ('clinical_release'),
   ('phieu_kham_luot'), ('phieu_kham_lich_su'), ('ultrasound_record'), ('lab_result'),
   ('vital_measurement'), ('form_instance'), ('form_result_release'),
-  ('result_correction'),
+  ('result_correction'), ('form_instance_lich_su'),
   -- Chỉ định, đối tác, tệp kết quả
   ('service_order'), ('service_order_draft'), ('service_selection_state'),
   ('service_execution_attempt'), ('doi_tac_nhan_viec'), ('tep_ket_qua'),

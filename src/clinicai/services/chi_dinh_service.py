@@ -193,8 +193,21 @@ class ChiDinhService:
                 await dat_mo_lan_moi(conn, cid, vid, thay)
 
             dich_vu = await luot_kham._services(conn, cid, codes, visit_id=vid)
+            # ĐIỀU TRỊ (07/10/2026): lượt đặt lịch Điều trị đã SINH SẴN chỉ định
+            # (consumer `dieu_tri`); kê lại cùng dịch vụ điều trị trong lượt thì
+            # KHÔNG đẻ dòng thứ hai — quầy thu đúng một lần. Trả chỉ định đang có.
+            from clinicai.services.dieu_tri_ban_kham import (
+                chi_dinh_dieu_tri_dang_co,
+            )
+
+            da_co = await chi_dinh_dieu_tri_dang_co(
+                conn, cid, vid, [s["service_code"] for s in dich_vu]
+            )
             ids: list[str] = []
             for s in dich_vu:
+                if s["service_code"] in da_co:
+                    ids.append(da_co[s["service_code"]])
+                    continue
                 order_id = await conn.fetchval(
                     """
                     INSERT INTO service_order
@@ -255,7 +268,7 @@ class ChiDinhService:
                 payload={
                     "visit_id": vid,
                     "consultation_id": con_id,
-                    "order_ids": ids,
+                    "order_ids": [i for i in ids if i not in da_co.values()],
                     "round_no": consultation["round_no"],
                 },
             )
@@ -270,7 +283,12 @@ class ChiDinhService:
                 if ids
                 else None
             )
-            result = {"ok": True, "order_ids": ids, "lan": lan}
+            result = {
+                "ok": True,
+                "order_ids": ids,
+                "lan": lan,
+                "da_co_san": sorted(da_co),
+            }
             await bien_nhan_ghi(
                 conn,
                 identity,

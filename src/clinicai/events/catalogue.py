@@ -703,6 +703,8 @@ class DichVuDaBatDau(PayloadSuKien):
     attempt_no: int
     room_id: str | None = None
     execution_revision: int
+    #: Nơi làm khi KHÔNG phải phòng của chỉ định: "BAN_KHAM" (07/10/2026).
+    noi_lam: str | None = None
 
 
 class ThuocQuayDaChinh(PayloadSuKien):
@@ -786,6 +788,7 @@ class DichVuDaXong(PayloadSuKien):
     attempt_id: str
     attempt_no: int
     execution_revision: int
+    noi_lam: str | None = None
 
 
 class DichVuKhongLam(PayloadSuKien):
@@ -972,6 +975,7 @@ class DichVuDaHuyBatDau(PayloadSuKien):
     attempt_no: int
     room_id: str | None = None
     execution_revision: int
+    noi_lam: str | None = None
 
 
 # ── cong_no ─────────────────────────────────────────────────────────────────
@@ -1061,6 +1065,7 @@ class DichVuHoanTacXong(PayloadSuKien):
     execution_revision: int
     mo_lai_kham_xong: bool = False
     ly_do: str | None = None
+    noi_lam: str | None = None
 
 
 class KetQuaThuHoiDuyet(PayloadSuKien):

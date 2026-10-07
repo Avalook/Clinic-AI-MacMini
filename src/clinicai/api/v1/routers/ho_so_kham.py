@@ -1,7 +1,7 @@
-"""HỒ SƠ KHÁM của một lượt — dịch vụ của lượt + khối "Điều trị" (07/10/2026).
+"""HỒ SƠ KHÁM của một lượt — phần dịch vụ của lượt (07/10/2026).
 
 Router mỏng; luật ở `services/ho_so_dich_vu.py`. Plan
-docs/KE-HOACH-CHON-DICH-VU-HO-SO-KHAM.md (T1, T5, T6).
+docs/KE-HOACH-CHON-DICH-VU-HO-SO-KHAM.md (T1, T5).
 """
 
 from __future__ import annotations
@@ -10,14 +10,14 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Header, Query
+from pydantic import BaseModel
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.doc_bang import doi_mot_quyen
 from clinicai.permissions.y_khoa import doc_duoc_in_phieu
-from clinicai.services import ho_so_dich_vu, khoi_dieu_tri, lich_su_luot
+from clinicai.services import dieu_tri_ban_kham, ho_so_dich_vu, lich_su_luot
 from clinicai.services.doi_dich_vu_kham import QUYEN_DOI_TRONG_HO_SO
 
 router = APIRouter(tags=["ho-so-kham"])
@@ -58,11 +58,9 @@ class DoiDichVuBody(BaseModel):
     service_type_id: UUID
 
 
-class DieuTriBody(BaseModel):
-    cam_nhan: str = Field(default="", max_length=5000)
-    van_de_sau: str = Field(default="", max_length=5000)
-    #: Bản người dùng đang nhìn (0 = chưa có) — chống đè.
-    phien_ban: int = Field(default=0, ge=0)
+class LamTaiBanKhamBody(BaseModel):
+    expected_execution_revision: int
+    attempt_id: UUID | None = None
 
 
 @router.get("/ho-so-kham/{visit_id}/dich-vu")
@@ -71,7 +69,7 @@ async def doc_dich_vu(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Dịch vụ của lượt, đổi được không, lịch sử đổi, phiếu cũ, "Khách đã đặt"."""
+    """Dịch vụ của lượt, đổi được không, lịch sử đổi, phiếu cũ."""
     return await ho_so_dich_vu.doc(pool, identity=identity, visit_id=str(visit_id))
 
 
@@ -97,23 +95,31 @@ async def doc_dieu_tri(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Bản mới nhất của khối "Điều trị" (hồ sơ, bản in)."""
-    return await khoi_dieu_tri.doc(pool, identity=identity, visit_id=str(visit_id))
+    """Thẻ chỉ định điều trị của lượt: phiếu điều trị, trạng thái, nút."""
+    return await dieu_tri_ban_kham.doc_the(
+        pool, identity=identity, visit_id=str(visit_id)
+    )
 
 
-@router.put("/ho-so-kham/{visit_id}/dieu-tri")
-async def luu_dieu_tri(
+@router.post("/ho-so-kham/{visit_id}/dieu-tri/{order_id}/{lenh}")
+async def lam_tai_ban_kham(
     visit_id: UUID,
-    body: DieuTriBody,
+    order_id: UUID,
+    lenh: str,
+    body: LamTaiBanKhamBody,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:
-    """Tự lưu khối "Điều trị": thêm một phiên bản (không đè bản cũ)."""
-    return await khoi_dieu_tri.luu(
+    """[Làm tại bàn khám] · [Xong] · hoàn tác (lam | xong | huy-lam |
+    hoan-tac-xong) — luật + cửa tiền ở service."""
+    return await dieu_tri_ban_kham.thao_tac(
         pool,
         identity=identity,
         visit_id=str(visit_id),
-        cam_nhan=body.cam_nhan,
-        van_de_sau=body.van_de_sau,
-        phien_ban=body.phien_ban,
+        order_id=str(order_id),
+        lenh=lenh,
+        expected_execution_revision=body.expected_execution_revision,
+        attempt_id=str(body.attempt_id) if body.attempt_id else None,
+        idempotency_key=idempotency_key,
     )

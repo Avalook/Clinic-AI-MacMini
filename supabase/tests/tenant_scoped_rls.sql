@@ -190,7 +190,8 @@ BEGIN
     -- 100 → 102 (01/10/2026, C13): luot_vat_tu + vat_tu_goi_y (20261003000000).
     -- 102 → 103 (06/10/2026, Khối 2): so_sua_chi_dinh (20261006200000).
     -- 103 → 104 (06/10/2026, phần E): tien_thua_giu_lai (20261006200003).
-    -- 104 → 105 (07/10/2026): luot_dieu_tri_ghi (20261007610000, khối Điều trị).
+    -- 104 → 105 (07/10/2026): form_instance_lich_su (20261007630000, lịch sử sửa
+    -- mọi phiếu kết quả — chỉ thêm, trigger ghi).
     IF scoped_count <> 105 THEN
         RAISE EXCEPTION 'expected 105 tenant-scoped read policies, found %', scoped_count;
     END IF;

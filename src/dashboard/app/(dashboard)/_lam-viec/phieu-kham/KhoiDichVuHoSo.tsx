@@ -4,15 +4,14 @@
 //   · dịch vụ hiện tại + [Đổi dịch vụ] (bộ chọn 4 nhóm dùng chung) — đã có phiếu
 //     / đã thu / đã tick vẫn đổi được; phiếu cũ giữ nguyên, "Phiếu cũ: … [xem]";
 //   · lịch sử đổi (ai, lúc, từ → sang) hiện ngay tại đây;
-//   · lượt Điều trị: "Khách đã đặt: <dịch vụ>" — chỉ định đã sinh sẵn, mở phiếu
-//     thực hiện / kết quả NẾU MUỐN (tuỳ chọn, không gắn vào mẫu phiếu khám);
 //   · ghi chú CSKH lúc đặt lịch.
+// Lượt Điều trị: chỉ định đã sinh sẵn ("Khách đã đặt") nằm ở khối 4 "Điều trị"
+// (`KhoiDieuTri.tsx`, Tuyền 07/10 chiều — gộp vào thẻ chỉ định điều trị).
 // MÁY CHỦ quyết đổi được không, vì sao (`/api/ho-so-kham`); màn chỉ vẽ.
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import Button from "@/components/ui/Button";
-import Chip from "@/components/ui/Chip";
 import { nhanLoi } from "@/lib/loi-api";
 import { INPUT } from "../../form-ui";
 import ChonDichVuDatLich, { type NhomDichVuDatLich } from "../ChonDichVuDatLich";
@@ -24,7 +23,6 @@ interface GoiHoSo {
   nhom: NhomDichVuDatLich[];
   lich_su_doi: { luc: string | null; ai: string | null; tu: string | null; sang: string | null }[];
   phieu_cu: { form_id: string; ten: string; so_o: number }[];
-  khach_da_dat: { ten: string; order_id: string | null; trang_thai: string | null } | null;
   ghi_chu_dat: string | null;
 }
 
@@ -44,15 +42,12 @@ export default function KhoiDichVuHoSo({
   visitId,
   choGhi,
   onDaDoi,
-  veKetQua,
   vePhieuCu,
 }: {
   visitId: string;
   choGhi: boolean;
   /** Đổi xong — shell nạp lại phiếu theo dịch vụ mới + bảng hàng chờ. */
   onDaDoi: () => void;
-  /** Phiếu thực hiện / kết quả của chỉ định "Khách đã đặt" (shell dựng). */
-  veKetQua: (orderId: string) => ReactNode;
   /** Phiếu cũ của lượt, chỉ xem (shell dựng). */
   vePhieuCu: (formId: string) => ReactNode;
 }) {
@@ -61,7 +56,6 @@ export default function KhoiDichVuHoSo({
   const [chon, setChon] = useState("");
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
-  const [moKq, setMoKq] = useState(false);
   const [xemPhieu, setXemPhieu] = useState<string | null>(null);
 
   const doc = useCallback(async (): Promise<GoiHoSo | null> => {
@@ -108,7 +102,6 @@ export default function KhoiDichVuHoSo({
     onDaDoi();
   }
 
-  const kd = goi.khach_da_dat;
   return (
     <section aria-label="Dịch vụ của lượt" className="space-y-2 rounded-card border border-hairline bg-surface p-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -154,24 +147,6 @@ export default function KhoiDichVuHoSo({
         </div>
       ) : null}
       {goi.ghi_chu_dat ? <p className="text-body text-ink-soft">Ghi chú lúc đặt: {goi.ghi_chu_dat}</p> : null}
-      {kd ? (
-        <div className="space-y-2 rounded-control bg-surface-sunken p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-body text-ink">
-              Khách đã đặt: <b>{kd.ten}</b>
-            </span>
-            <Chip tone={kd.order_id ? "success" : "neutral"}>
-              {kd.order_id ? "chỉ định đã sinh sẵn" : "chưa có chỉ định"}
-            </Chip>
-            {kd.order_id ? (
-              <Button size="sm" variant="secondary" aria-expanded={moKq} onClick={() => setMoKq((x) => !x)}>
-                {moKq ? "Ẩn phiếu thực hiện / kết quả" : "Mở phiếu thực hiện / kết quả"}
-              </Button>
-            ) : null}
-          </div>
-          {moKq && kd.order_id ? veKetQua(kd.order_id) : null}
-        </div>
-      ) : null}
       {goi.phieu_cu.map((p) => (
         <div key={p.form_id} className="space-y-2">
           <p className="flex flex-wrap items-center gap-2 text-body text-ink-soft">
