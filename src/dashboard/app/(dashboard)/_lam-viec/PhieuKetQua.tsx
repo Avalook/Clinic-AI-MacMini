@@ -45,7 +45,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { nhanLoi } from "@/lib/loi-api";
 import {
-  ghepConTrong,
   gopGiaTri,
   KHOA_BANG,
   MAU_PHIEU_DIEU_TRI,
