@@ -1016,6 +1016,11 @@ class BangLuotKham:
             sang = await ntp.da_sang_phong(
                 conn, cid, [r["ref_id"] for r in rows if r["status"] == "cancelled"]
             )
+            # Chỉ định bác sĩ đang làm TẠI BÀN KHÁM: không phải việc của phòng
+            # (thẻ nói "đang làm ở bàn khám BS …", không Xong hộ).
+            ban_kham = await ntp.ban_kham_dang_lam(
+                conn, cid, [r["ref_id"] for r in rows if r["reason"] == "SERVICE"]
+            )
             # Phòng trống cũng có ba số 0 (bản trước trả None → màn rơi về
             # tiêu đề kiểu cũ thiếu "sắp đến", bấm thử staging 07/10).
             dem_phong = (
@@ -1044,6 +1049,9 @@ class BangLuotKham:
                 # Thẻ phòng bị nhận chéo: lần làm còn mở → vẫn là "đang làm".
                 "trang_thai": "serving" if r["status"] == "cancelled" else r["status"],
                 "da_sang_phong": sang.get(r["ref_id"]),
+                "lam_o_ban_kham": ban_kham.get(r["ref_id"])
+                if r["reason"] == "SERVICE"
+                else None,
                 "dang_o_phong": (
                     o_dau.get(r["visit_id"])
                     if o_dau.get(r["visit_id"], {}).get("phong_id") != str(rid)

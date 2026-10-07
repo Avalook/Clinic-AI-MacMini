@@ -35,6 +35,8 @@ _DONG: dict[str, str] = {
     "service.completed": "Phòng đã bấm Xong",
     "service.interrupted": "Phòng đã bấm Gián đoạn",
     "service.start_cancelled": "Phòng đã huỷ Bắt đầu",
+    # Phòng mới hoàn tác lần nhận chéo → khách về lại phòng cũ (07/10/2026).
+    "service.room_release_undone": "Hoàn tác nhận chéo — khách về lại phòng này",
 }
 
 

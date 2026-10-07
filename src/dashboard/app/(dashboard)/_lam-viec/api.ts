@@ -79,6 +79,16 @@ export interface DongHangCho {
   dang_o_phong?: DangOPhong | null;
   /** Nhận chéo: khách đã sang phòng khác khi lần làm ở đây còn mở. */
   da_sang_phong?: { phong: string | null; luc: string } | null;
+  /** Bác sĩ đang làm chỉ định này NGAY TẠI BÀN KHÁM — không phải việc của
+   *  phòng (không Xong / Gián đoạn hộ). `noi` = câu máy chủ viết. */
+  lam_o_ban_kham?: LamOBanKham | null;
+}
+
+/** Chỉ định đang làm tại bàn khám (07/10/2026) — máy chủ trả, màn chỉ vẽ. */
+export interface LamOBanKham {
+  bac_si: string | null;
+  luc: string | null;
+  noi: string;
 }
 
 /** Nơi khách đang ở (phòng dịch vụ): 'cho' = đã nhận, đang chờ · 'lam' = đang làm. */
@@ -112,6 +122,8 @@ export interface ChiDinhPhong {
   chuyen: boolean;
   chua_chot: boolean;
   nhan_duoc: boolean;
+  /** Đang chờ ở phòng khác mà tiền đang hoàn / sổ lệch — vì sao không Nhận. */
+  ly_do_khong_nhan?: string | null;
 }
 
 /** Nhãn trạng thái của một chỉ định trong ô khách — chỉ ghép chữ từ máy chủ. */
@@ -290,6 +302,8 @@ export interface ThucHien {
   phieu_chua_hoan_tat?: boolean;
   /** Hiện nút "Huỷ bắt đầu nhầm" (V4, 30/09/2026) — máy chủ quyết. */
   huy_bat_dau_duoc?: boolean;
+  /** Lần làm đang chạy do BÀN KHÁM mở — `lan_dang_chay` khi ấy là null. */
+  lam_o_ban_kham?: LamOBanKham | null;
   ly_do_khong_lam: string[];
   ly_do_gian_doan: string[];
 }
