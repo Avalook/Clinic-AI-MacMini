@@ -25,6 +25,7 @@ import asyncpg
 from clinicai.events.catalogue import DANH_MUC, DONG_THOI_GIAN_LUOT
 from clinicai.events.phat_lai import Projection, dang_ky_projection
 from clinicai.events.worker import SuKienDaNhan, dang_ky
+from clinicai.services.audit_labels import NHAN_NHAN_VAO_PHONG
 
 # Trường nào của payload được đưa lên màn. Whitelist, không phải blacklist: thêm
 # một trường vào payload không tự động làm nó hiện trên màn — và không vô tình
@@ -176,6 +177,9 @@ def _nhan_rieng(event_type: str, payload: dict[str, Any]) -> str | None:
         if cu is None:
             return f"Quầy thu thuốc điền số lượng thuốc (bác sĩ để trống): {moi}"
         return f"Quầy thu thuốc sửa số lượng thuốc đã điền: {cu} → {moi}"
+    if event_type == "service.routed" and payload.get("nguon") == "tai_phong":
+        # Phòng tự bấm Nhận (07/10/2026) — không phải "Đã xếp phòng".
+        return NHAN_NHAN_VAO_PHONG
     if event_type == "visit.exam_service_changed":
 
         def _ds(x: Any) -> str:

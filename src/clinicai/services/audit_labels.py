@@ -453,6 +453,19 @@ def action_label(event_type: str) -> str:
     )
 
 
+#: Nhãn thao tác Nhận tại phòng (`service.routed` nguồn `tai_phong`, 07/10/2026)
+#: — phòng tự nhận khách, KHÔNG phải nhân viên xếp phòng.
+NHAN_NHAN_VAO_PHONG = "Nhận vào phòng"
+
+
+def action_label_theo_nguon(event_type: str, nguon: object) -> str:
+    """`action_label` khi biết NGUỒN của sự kiện (payload `nguon`). Hiện chỉ
+    `service.routed` từ nút Nhận tại phòng có nhãn riêng; còn lại như cũ."""
+    if event_type == "service.routed" and nguon == "tai_phong":
+        return NHAN_NHAN_VAO_PHONG
+    return action_label(event_type)
+
+
 def _nhan_danh_muc(event_type: str) -> str | None:
     """Nhãn trong danh mục sự kiện nền (`events/catalogue.DANH_MUC[ma].nhan`) —
     sự kiện phát qua `emit_event` đã có tên ở đó, không cần chép tay sang đây."""

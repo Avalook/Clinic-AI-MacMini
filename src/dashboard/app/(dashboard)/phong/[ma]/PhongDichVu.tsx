@@ -88,6 +88,7 @@ import { lenhHoanTac } from "../../_lam-viec/hoan-tac";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { useNgheBang } from "../../dung-nghe-bang";
 import { tienVn } from "@/lib/phieu-kham";
+import { laMauDieuTri } from "@/lib/phieu-ket-qua";
 import { ngayNgan } from "@/lib/thanh-ngay";
 import { useNgayXem } from "../../_lam-viec/dung-ngay-xem";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
@@ -894,11 +895,16 @@ function KhachTrongPhong({
           onHoanTat={({ daDongDichVu, viSao, laLanSua }) => {
             // 06/10/2026 (Tuyền: dải vàng "xấu và AI quá"): hoàn tất êm thì
             // không báo gì — phiếu đã hiện "Phiếu đã hoàn tất". Chỉ nói khi
-            // dịch vụ CHƯA đóng được, vì đó là việc người bấm phải biết.
+            // dịch vụ CHƯA đóng được, vì đó là việc người bấm phải biết. Riêng
+            // phiếu điều trị không có bước Hoàn tất → báo "Đã xong <dịch vụ>".
+            const mauDung = th?.mau_ket_qua.length === 1 ? th.mau_ket_qua[0].ma : null;
+            const mau = th?.phieu?.[0]?.form_id ?? th?.mau_goi_y ?? mauDung;
             setBao(
-              laLanSua || daDongDichVu
-                ? null
-                : `Dịch vụ chưa đóng: ${viSao ?? "không rõ lý do"}.`,
+              !laLanSua && daDongDichVu && laMauDieuTri(mau)
+                ? `Đã xong ${dong.viec?.trim() || "dịch vụ"}.`
+                : laLanSua || daDongDichVu
+                  ? null
+                  : `Dịch vụ chưa đóng: ${viSao ?? "không rõ lý do"}.`,
             );
             docLai();
             onDaBam();
