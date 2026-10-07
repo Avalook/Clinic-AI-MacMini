@@ -217,22 +217,37 @@ async def test_e4_postgres_tu_choi_dong_thu_cua_chi_dinh_da_huy(q: Quay) -> None
 async def test_e4_quay_thu_va_bac_si_bo_cung_luc_khong_co_dong_thu_cho_chi_dinh_da_huy(
     q: Quay,
 ) -> None:
-    for _ in range(3):
+    async def _thu_tre(giay: float) -> object:
+        await asyncio.sleep(giay)
+        return await _thu(q)
+
+    # Lượt lẻ cho quầy thu trễ một chút để lệnh bỏ hay giữ khoá lượt trước —
+    # không trễ thì gần như lúc nào quầy cũng thắng, nhánh "bỏ trước" không
+    # được thử.
+    for i in range(4):
         sa = await _cd(q, "SA", 120_000)
         kq = await asyncio.gather(
-            _thu(q),
+            _thu_tre(0.02 if i % 2 else 0),
             HoanTacService(q.pool).huy_chi_dinh(
                 order_id=sa, identity=q.bac_si, xac_nhan=True, ly_do="Đổi ý"
             ),
             return_exceptions=True,
         )
         assert not any(isinstance(k, asyncpg.PostgresError) for k in kq), kq
-        # Không dòng thu nào được TẠO sau lúc chỉ định bị bỏ.
-        sai = await q.pool.fetchval(
-            "SELECT count(*) FROM payment_bill_line bl JOIN so_sua_chi_dinh s"
-            "  ON s.service_order_id::text = bl.source_id AND s.hanh_dong = 'BO'"
-            " WHERE bl.source_id = $1 AND bl.created_at > s.luc",
+        # Dòng thu chỉ được có nếu nó commit TRƯỚC lệnh bỏ — khi ấy lệnh bỏ đã
+        # thấy và ghi đúng số đó thành tiền thừa trên sổ. Đừng so
+        # `created_at > luc`: cả hai là now() = giờ BẮT ĐẦU giao dịch, mà giao
+        # dịch bỏ có thể mở trước rồi đứng chờ khoá lượt trong lúc quầy thu
+        # xong → đỏ chập chờn dù tiền đúng.
+        so = await q.pool.fetchrow(
+            "SELECT da_thu, tien_thua FROM so_sua_chi_dinh"
+            " WHERE service_order_id = $1::uuid AND hanh_dong = 'BO'",
             sa,
         )
-        assert sai == 0
+        thu = await q.pool.fetchval(
+            "SELECT coalesce(sum(line_total), 0) FROM payment_bill_line"
+            " WHERE source_id = $1",
+            sa,
+        )
+        assert (so["da_thu"], so["tien_thua"]) == (thu, thu)
     assert await _bat_bien(q) == []
