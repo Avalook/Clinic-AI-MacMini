@@ -57,6 +57,8 @@ export interface ChiDinhChoQuyet {
   bat_buoc?: boolean;
   /** Làm thêm tại quầy (01/10/2026) — câu máy chủ viết; null = bác sĩ chỉ định. */
   lam_them?: string | null;
+  /** Dây Nhận tại phòng bật (07/10/2026): ô phòng là hướng dẫn, không bắt buộc. */
+  huong_dan?: boolean;
 }
 
 export interface ChoKhachQuyet {
@@ -267,7 +269,9 @@ export default function ChonDichVu({
             </label>
             {chon.has(c.id) && (c.phong_chon_duoc?.length ?? 0) > 0 ? (
               <label className="ml-7 flex flex-wrap items-center gap-2 pb-1">
-                <span className="text-meta text-ink-muted">Làm ở phòng</span>
+                <span className="text-meta text-ink-muted">
+                  {c.huong_dan ? "Hướng dẫn phòng (không bắt buộc)" : "Làm ở phòng"}
+                </span>
                 <select
                   value={phong[c.id] ?? ""}
                   disabled={dang}
