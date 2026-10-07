@@ -32,7 +32,9 @@ def _khach(vid: str, **them: Any) -> dict[str, Any]:
     return k
 
 
-def _dong(vid: str, trang_thai: str, *, o_room_id: str | None, nhan: bool = False):
+def _dong(
+    vid: str, trang_thai: str, *, o_room_id: str | None, nhan: bool = False
+) -> tuple[dict[str, Any], dict[str, Any]]:
     r = {"visit_id": vid, "room_id": PHONG, "o_room_id": o_room_id, "accepting": True}
     c = {
         "trang_thai": trang_thai,
