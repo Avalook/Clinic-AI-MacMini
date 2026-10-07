@@ -130,6 +130,7 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('clinical_form_response', 'form_data', 'json'),
     ('form_instance', 'du_lieu', 'json'),
     ('form_instance', 'du_lieu_dang_sua', 'json'),
+    ('form_instance_lich_su', 'du_lieu', 'json'),
     ('phieu_kham_luot', 'du_lieu', 'json'),
     ('phieu_kham_lich_su', 'truoc', 'json'),
     ('phieu_kham_lich_su', 'sau', 'json'),
