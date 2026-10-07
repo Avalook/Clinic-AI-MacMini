@@ -36,7 +36,7 @@ from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import quyen_hieu_luc
 from clinicai.permissions.y_khoa import QUYEN_Y_KHOA, doc_duoc_in_phieu
 from clinicai.phieu_kham.mang_sang import doc_chan_doan
-from clinicai.services.audit_labels import action_label
+from clinicai.services.audit_labels import action_label_theo_nguon
 from clinicai.services.bac_si_ky import sql_join_bac_si_ky_luot
 from clinicai.services.luot_kham_rules import (
     doi_phong_duoc,
@@ -108,7 +108,8 @@ async def doc_su_kien_luot(
     rows = await conn.fetch(
         """
         SELECT e.event_type, e.occurred_at, s.full_name AS ai,
-               e.metadata ->> 'clinic_role' AS vai
+               e.metadata ->> 'clinic_role' AS vai,
+               e.payload ->> 'nguon' AS nguon
           FROM event_log e
           LEFT JOIN staff s
             ON s.id::text = e.metadata ->> 'clinic_staff_id'
@@ -124,7 +125,7 @@ async def doc_su_kien_luot(
     )
     return [
         {
-            "viec": action_label(r["event_type"]),
+            "viec": action_label_theo_nguon(r["event_type"], r["nguon"]),
             "ma": r["event_type"],
             "luc": _iso(r["occurred_at"]),
             "ai": r["ai"],
@@ -191,18 +192,32 @@ async def dong_thoi_gian_luot(
         cid,
         visit_id,
     )
-    return [
-        {
-            "luc": _iso(r["occurred_at"]),
-            "su_kien": r["event_type"],
-            "nhan": r["nhan"],
-            "chi_tiet": json.loads(r["chi_tiet"])
+    ra: list[dict[str, Any]] = []
+    for r in rows:
+        chi_tiet = (
+            json.loads(r["chi_tiet"])
             if isinstance(r["chi_tiet"], str)
-            else (r["chi_tiet"] or {}),
-            "ai": r["ai"] or ("Hệ thống" if r["actor_type"] == "SYSTEM" else None),
-        }
-        for r in rows
-    ]
+            else (r["chi_tiet"] or {})
+        )
+        nhan = r["nhan"]
+        if isinstance(chi_tiet, dict) and r["event_type"] == "service.routed":
+            # Dòng ghi TRƯỚC khi bên nhận biết nhãn "Nhận vào phòng" vẫn hiện
+            # đúng nghĩa — không cần phát lại projection.
+            nhan = (
+                action_label_theo_nguon("service.routed", chi_tiet.get("nguon"))
+                if chi_tiet.get("nguon") == "tai_phong"
+                else nhan
+            )
+        ra.append(
+            {
+                "luc": _iso(r["occurred_at"]),
+                "su_kien": r["event_type"],
+                "nhan": nhan,
+                "chi_tiet": chi_tiet,
+                "ai": r["ai"] or ("Hệ thống" if r["actor_type"] == "SYSTEM" else None),
+            }
+        )
+    return ra
 
 
 class XemLuotService:

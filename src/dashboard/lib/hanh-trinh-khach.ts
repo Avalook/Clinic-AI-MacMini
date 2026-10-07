@@ -89,6 +89,9 @@ export interface BuocHanhTrinh {
   dich_vu: TheDichVu[] | null;
   /** Bước CHƯA xảy ra (chữ giữ chỗ) — xám "dự kiến", không giờ. */
   du_kien?: boolean;
+  /** Bước Khám của lượt Điều trị / Khác chưa qua bàn khám (07/10/2026) — mờ
+   *  "tuỳ chọn", không phải việc còn thiếu. Máy chủ cũ chưa trả → không có. */
+  tuy_chon?: boolean;
   /** Chỗ là chữ giữ chỗ ("Bàn khám", chưa biết phòng thật). */
   noi_du_kien?: boolean;
   /** Sinh hiệu: giờ các lần đo lại + mọi lần đo kèm người đo. */

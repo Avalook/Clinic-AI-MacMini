@@ -32,7 +32,7 @@ import structlog
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.services.audit_labels import (
-    action_label,
+    action_label_theo_nguon,
     aggregate_label,
     source_label,
 )
@@ -204,7 +204,9 @@ class AuditLogService:
                 "actor_role": r["actor_role"],
                 "actor_staff_id": r["actor_staff_id"],
                 "subject_label": subject_label(r),
-                "action_label": action_label(r["event_type"]),
+                "action_label": action_label_theo_nguon(
+                    r["event_type"], (_payload_dict(r["payload"]) or {}).get("nguon")
+                ),
                 # `source` là thông tin có ích — nó chỉ không được đứng THAY
                 # tên người, nên trả về dưới nhãn riêng.
                 "nguon_thao_tac": r["nguon_thao_tac"],

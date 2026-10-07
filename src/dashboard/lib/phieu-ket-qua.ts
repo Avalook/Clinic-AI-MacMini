@@ -61,3 +61,34 @@ export function ghepConTrong(
   }
   return ra;
 }
+
+/** Mẫu PHIẾU ĐIỀU TRỊ? Nhận mã mẫu có hoặc không tiền tố (`PHIEU_DIEU_TRI`,
+ *  `KQ_PHIEU_DIEU_TRI` — mã phiếu, `MAU_PHIEU_DIEU_TRI`). Rỗng / rác → false. */
+export function laMauDieuTri(mau: string | null | undefined): boolean {
+  return typeof mau === "string" && mau.replace(/^(KQ_|MAU_)/, "") === "PHIEU_DIEU_TRI";
+}
+
+/** Câu báo ở phòng dịch vụ sau khi Hoàn tất / [Xong] phiếu (07/10/2026). Phiếu
+ *  điều trị đóng được dịch vụ → "Đã xong <tên dịch vụ>" (đó là buổi điều trị,
+ *  không phải "phiếu kết quả"); mẫu khác giữ câu cũ. */
+export function cauHoanTatPhieu(x: {
+  mau: string | null | undefined;
+  tenDichVu: string | null | undefined;
+  daDongDichVu: boolean;
+  viSao: string | null;
+  laLanSua: boolean;
+  conTrong: readonly string[];
+}): string {
+  const nhacTrong = x.conTrong.length
+    ? ` Còn ${x.conTrong.length} mục trống: ${x.conTrong.join(", ")} (chỉ nhắc).`
+    : "";
+  if (x.laLanSua) return "Đã ghi bản sửa của kết quả." + nhacTrong;
+  if (x.daDongDichVu && laMauDieuTri(x.mau)) {
+    return `Đã xong ${x.tenDichVu?.trim() || "dịch vụ"}.` + nhacTrong;
+  }
+  return (
+    (x.daDongDichVu
+      ? "Đã hoàn tất phiếu, đóng dịch vụ và báo có kết quả."
+      : `Đã hoàn tất phiếu. Dịch vụ CHƯA đóng: ${x.viSao ?? "không rõ lý do"}.`) + nhacTrong
+  );
+}

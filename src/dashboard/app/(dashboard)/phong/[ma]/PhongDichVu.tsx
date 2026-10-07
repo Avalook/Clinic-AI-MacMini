@@ -88,6 +88,7 @@ import { lenhHoanTac } from "../../_lam-viec/hoan-tac";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { useNgheBang } from "../../dung-nghe-bang";
 import { tienVn } from "@/lib/phieu-kham";
+import { cauHoanTatPhieu } from "@/lib/phieu-ket-qua";
 import { ngayNgan } from "@/lib/thanh-ngay";
 import { useNgayXem } from "../../_lam-viec/dung-ngay-xem";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
@@ -892,15 +893,17 @@ function KhachTrongPhong({
           onHoanTat={({ daDongDichVu, viSao, laLanSua, conTrong }) => {
             // Đợt 3: dịch vụ đóng xong thì dòng này rời hàng chờ và phiếu đóng
             // lại — nhắc "còn trống" phải đi theo câu báo, không mất cùng phiếu.
-            const nhacTrong = conTrong.length
-              ? ` Còn ${conTrong.length} mục trống: ${conTrong.join(", ")} (chỉ nhắc).`
-              : "";
+            // Phiếu điều trị: "Đã xong <tên dịch vụ>" (07/10/2026).
+            const mauDung = th?.mau_ket_qua.length === 1 ? th.mau_ket_qua[0].ma : null;
             setBao(
-              (laLanSua
-                ? "Đã ghi bản sửa của kết quả."
-                : daDongDichVu
-                  ? "Đã hoàn tất phiếu, đóng dịch vụ và báo có kết quả."
-                  : `Đã hoàn tất phiếu. Dịch vụ CHƯA đóng: ${viSao ?? "không rõ lý do"}.`) + nhacTrong,
+              cauHoanTatPhieu({
+                mau: th?.phieu?.[0]?.form_id ?? th?.mau_goi_y ?? mauDung,
+                tenDichVu: dong.viec,
+                daDongDichVu,
+                viSao,
+                laLanSua,
+                conTrong,
+              }),
             );
             docLai();
             onDaBam();
