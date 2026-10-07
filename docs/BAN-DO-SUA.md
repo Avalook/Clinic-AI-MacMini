@@ -222,13 +222,17 @@ không chặn check-out `S/checkout_service.py` (`exam_open`); tick dịch vụ 
 Điều trị / Khác + giữ tick khi đổi `S/phi_kham_service.py` `_doc`. Test:
 `T/services/test_ho_so_kham_db.py`, `T/unit/test_doi_dich_vu_kham.py`, FT `ho-so-dich-vu-boundary.test.mts`.
 
-**Khối 4 "Điều trị" của hồ sơ (Cảm nhận · Vấn đề sau điều trị, 07/10/2026)** — UI
-`D/_lam-viec/phieu-kham/KhoiDieuTri.tsx` (khối 4 của `PhieuKham.tsx` qua `oDieuTri`;
-`KHOI_PHIEU` ở `src/dashboard/lib/phieu-kham.ts`; cả hồ sơ tối giản) → `/api/ho-so-kham`
-(`PUT`, `xem=dieu-tri`) → `R/ho_so_kham.py` → `S/khoi_dieu_tri.py` (`luu` thêm phiên bản,
-`doc`); bảng chỉ thêm `luot_dieu_tri_ghi` (migration `20261007610000_luot_dieu_tri_ghi.sql`).
-In: `app/print/phieu-kham/[visitId]/InPhieuKham.tsx`. Test: `T/services/test_khoi_dieu_tri_db.py`,
-FT `khoi-dieu-tri-boundary.test.mts`.
+**Chỉ định điều trị trong hồ sơ — phiếu điều trị + làm tại bàn khám (07/10/2026)**
+— Phiếu điều trị = phiếu KẾT QUẢ mẫu `PHIEU_DIEU_TRI` (2 ô) gắn cho dịch vụ của loại
+khám nhóm DIEU_TRI (migration `20261007620000_phieu_dieu_tri_ban_kham.sql`; sửa ô = sửa
+mẫu ở màn mẫu kết quả, là DỮ LIỆU). Thẻ + nút (khối 4 "Điều trị" của hồ sơ) →
+`R/ho_so_kham.py` (`/ho-so-kham/{visit}/dieu-tri…`) → `S/dieu_tri_ban_kham.py`
+(`doc_the`, `thao_tac`) → lệnh `S/service_execution_service.py` `bat_dau_tai_ban_kham` /
+`xong_tai_ban_kham` / `huy_bat_dau_tai_ban_kham` / `hoan_tac_xong_tai_ban_kham` (lần làm
+`noi_lam = BAN_KHAM`; chỉ định chưa có phòng thì xếp vào phòng bàn khám; cửa tiền
+`cua_tien_ban_kham` = FinanceGate của phòng). Kê lại dịch vụ điều trị đã có trong lượt
+không đẻ dòng thứ hai: `S/chi_dinh_service.py` (`chi_dinh_dieu_tri_dang_co`). Test:
+`T/services/test_dieu_tri_ban_kham_db.py`, `T/unit/test_dieu_tri_ban_kham.py`.
 
 **Thai kỳ** — `D/ban-kham/ThaiKy.tsx` → `S/thai_ky_service.py`.
 
