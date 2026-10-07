@@ -184,6 +184,12 @@ MODULE: dict[str, Module] = {
                 "CancelMistakenStart",
                 # Hoàn tác "Xong" (01/10/2026) — lần làm về lại đang làm.
                 "UndoServiceCompletion",
+                # LÀM TẠI BÀN KHÁM (07/10/2026): bác sĩ làm chỉ định điều trị
+                # ngay ở bàn khám — lần làm `noi_lam = BAN_KHAM`, cùng cửa tiền.
+                "StartServiceAtDesk",
+                "CompleteServiceAtDesk",
+                "CancelDeskStart",
+                "UndoDeskCompletion",
             ],
             phat=[
                 "service.started",
@@ -742,6 +748,13 @@ MODULE: dict[str, Module] = {
             lenh=["DoiDichVuTrongHoSo"],
             nghe=["visit.routed"],
             ben_nhan=["dieu_tri_sinh_chi_dinh"],
+            # Thẻ chỉ định điều trị ở hồ sơ khám: [Làm tại bàn khám] → [Xong].
+            goi_dong_bo=[
+                "execution.StartServiceAtDesk",
+                "execution.CompleteServiceAtDesk",
+                "execution.CancelDeskStart",
+                "execution.UndoDeskCompletion",
+            ],
         ),
         Module(
             ma="van_hanh",

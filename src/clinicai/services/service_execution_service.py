@@ -53,9 +53,12 @@ from clinicai.events.catalogue import (
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can_o_phong_nao_do, doi_quyen
 from clinicai.permissions.catalogue import tra_quyen
+from clinicai.permissions.doc_bang import doi_mot_quyen
 from clinicai.permissions.lich import doi_lich_phong
+from clinicai.permissions.y_khoa import QUYEN_Y_KHOA
 from clinicai.phieu_kham.mau_goi_y import mau_cho_dich_vu
 from clinicai.services import finance_gate
+from clinicai.services.day_noi import giai_gia_tri
 from clinicai.services.finance_gate import can_start
 from clinicai.services.hang_cho import (
     cap_nhat_vi_tri,
@@ -123,6 +126,46 @@ LY_DO_HOAN_TAC_XONG = "RESULT_UNDONE"
 #: đón). Là DẤU để lệnh hoàn tác chỉ mở lại những lần làm do quầy đóng — dịch vụ
 #: do phòng làm xong thì hoàn tác ở phòng.
 GHI_CHU_TAI_QUAY = "Làm tại quầy — hoàn tất phiếu kết quả"
+#: LÀM TẠI BÀN KHÁM (Tuyền chốt 07/10/2026): bác sĩ làm chỉ định điều trị ngay
+#: tại bàn khám — lần làm mang `noi_lam = BAN_KHAM` (cột của bảng lần làm), phòng
+#: chụp là phòng bác sĩ. Quyền = khối y khoa ở bàn khám + trưởng ca (như đổi
+#: dịch vụ trong hồ sơ), không phải lego làm dịch vụ ở phòng của chỉ định.
+NOI_BAN_KHAM = "BAN_KHAM"
+QUYEN_LAM_TAI_BAN_KHAM: tuple[str, ...] = (*QUYEN_Y_KHOA, "dispatch.manage")
+CAU_KHONG_QUYEN_BAN_KHAM = "Bạn không có quyền làm dịch vụ tại bàn khám."
+CAU_KHACH_KHONG_CHON = (
+    "Khách đã chọn KHÔNG làm dịch vụ này ở quầy — muốn làm thì quầy chọn lại."
+)
+CAU_CHUA_BIET_PHONG_BAN_KHAM = (
+    "Chưa biết bàn khám ở phòng nào (bác sĩ chưa có lịch ở phòng nào hôm nay) —"
+    " xếp phòng cho dịch vụ ở quầy / trưởng ca rồi làm."
+)
+#: Phòng của bàn khám: chỗ chờ hàng BÁC SĨ có phòng; không thì phòng theo lịch
+#: trực HÔM NAY của bác sĩ phiên khám (rồi của người bấm) — cùng cách con trỏ
+#: "khách đang ở đâu" (`hang_cho.cap_nhat_vi_tri`) suy phòng bàn khám.
+_PHONG_BAN_KHAM_SQL = """
+SELECT coalesce(
+    (SELECT q.room_id FROM queue_entry q
+      WHERE q.clinic_id = $1::uuid AND q.visit_id = $2::uuid
+        AND q.lane = 'DOCTOR' AND q.room_id IS NOT NULL
+      ORDER BY (q.status = 'serving') DESC, q.updated_at DESC LIMIT 1),
+    (SELECT vt.room_id
+       FROM work_roster w
+       JOIN vi_tri_lam_viec vt ON vt.clinic_id = w.clinic_id AND vt.code = w.station
+      WHERE w.clinic_id = $1::uuid AND w.status <> 'REJECTED'
+        AND vt.room_id IS NOT NULL
+        AND w.work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+        AND w.staff_id IN (bs.id, $3::uuid)
+      ORDER BY (w.staff_id = bs.id) DESC, vt.sort LIMIT 1)
+)::text
+  FROM (SELECT coalesce(
+               (SELECT c.doctor_staff_id FROM consultation c
+                 WHERE c.clinic_id = $1::uuid AND c.visit_id = $2::uuid
+                   AND c.kind = 'PRIMARY' AND c.status <> 'cancelled'
+                 ORDER BY c.round_no DESC LIMIT 1),
+               (SELECT v.attending_doctor_id FROM visit v
+                 WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid)) AS id) bs
+"""
 
 
 def phieu_da_dien(trang_thai: str | None, revision: int | None) -> bool:
@@ -185,6 +228,57 @@ async def _doi_quyen_lam(
     """
     if not await can_o_phong_nao_do(conn, identity, quyen):
         raise SafetyGateError(f"Bạn không có quyền “{tra_quyen(quyen).ten}”.")
+
+
+def cua_tien_ban_kham(
+    tien: finance_gate.FinanceDecision | None,
+    *,
+    selection_status: str | None,
+    duoc_chua_thu: bool,
+) -> tuple[bool, str | None, bool]:
+    """Cửa tiền của [Làm tại bàn khám] — hàm THUẦN, MỘT luật cho nút trên màn và
+    cho lệnh. Trả (làm được, câu chặn, phải chốt lựa chọn của khách trước).
+
+    CÙNG FinanceGate với phòng (`FinanceDecision.duoc_lam` — dây
+    ``thu_truoc_khi_lam`` + tick "Làm trước – thu sau"). Khách chưa chốt
+    (NOT_APPLICABLE): đã chọn KHÔNG làm ở quầy → chặn; chưa quyết mà lượt được
+    làm khi chưa thu → làm được, chốt như lúc tick; còn lại → chặn câu "chưa
+    thu" gợi ý tick (ô tick có ở Bàn khám).
+    """
+    if tien is not None and tien.finance_state == finance_gate.NOT_APPLICABLE:
+        if selection_status == "NOT_SELECTED":
+            return False, CAU_KHACH_KHONG_CHON, False
+        if duoc_chua_thu:
+            return True, None, True
+        return False, finance_gate.CAU_CHUA_THU, False
+    if tien is None or not tien.duoc_lam:
+        return False, finance_gate.cau_chan_lam(tien), False
+    return True, None, False
+
+
+async def duoc_lam_khi_chua_thu(
+    conn: asyncpg.Connection, clinic_id: str, visit_ids: list[str]
+) -> dict[str, bool]:
+    """Lượt nào được làm khi CHƯA thu: dây thu trước tắt, hoặc lượt đã tick
+    "Làm trước – thu sau" (đúng `finance_gate.cua_lam` với một khoản DUE)."""
+    rows = await conn.fetch(
+        "SELECT v.visit_id::text AS vid, v.lam_truoc_thu_sau_luc IS NOT NULL AS tick,"
+        "       (SELECT dn.gia_tri FROM day_nghiep_vu dn"
+        "         WHERE dn.clinic_id = v.clinic_id AND dn.ma = $3) AS day"
+        "  FROM visit v"
+        " WHERE v.clinic_id = $1::uuid AND v.visit_id = ANY($2::uuid[])",
+        clinic_id,
+        visit_ids,
+        finance_gate.DAY_THU_TRUOC,
+    )
+    return {
+        r["vid"]: finance_gate.cua_lam(
+            finance_gate.DUE,
+            thu_truoc_khi_lam=bool(giai_gia_tri(finance_gate.DAY_THU_TRUOC, r["day"])),
+            lam_truoc_thu_sau=bool(r["tick"]),
+        )
+        for r in rows
+    }
 
 
 class ServiceExecutionService:
@@ -993,6 +1087,487 @@ class ServiceExecutionService:
                 ket_qua,
             )
         return ket_qua
+
+    # ------------------------------------------------------------------
+    # LÀM TẠI BÀN KHÁM (Tuyền chốt 07/10/2026) — bốn lệnh song song với lệnh
+    # của phòng, KHÔNG đổi hành vi đường phòng / quầy.
+    # ------------------------------------------------------------------
+    async def bat_dau_tai_ban_kham(
+        self,
+        *,
+        order_id: str,
+        expected_execution_revision: int,
+        identity: StaffIdentity,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """`StartServiceAtDesk` — bác sĩ làm chỉ định NGAY tại bàn khám.
+
+        Khác `bat_dau` (phòng): quyền khối y khoa ở bàn khám (không phải lego +
+        ca ở phòng của chỉ định); không đòi đã xếp phòng; KHÔNG đụng chỗ chờ
+        'serving' của phiên bác sĩ — khách vẫn ngồi ở bàn khám, và Postgres chỉ
+        cho MỘT chỗ 'serving' mỗi lượt (`uq_queue_entry_one_serving`). Chỗ chờ ở
+        phòng (nếu đã xếp) → 'blocked' (khách đang ở chỗ khác); Xong đóng nó.
+
+        GIỐNG `bat_dau` ở cửa tiền: CÙNG FinanceGate (`can_start` / `cua_lam`,
+        dây ``thu_truoc_khi_lam``). Chỉ định khách chưa chốt mà lượt được làm khi
+        chưa thu (tick "Làm trước – thu sau", hoặc dây tắt) → chốt như lúc tick
+        (`lam_truoc_thu_sau._chot_cho_quyet` — bác sĩ làm = khách đồng ý).
+        """
+        cid = identity.clinic_id
+        payload = {"order_id": order_id, "exec_rev": expected_execution_revision}
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_mot_quyen(
+                conn, identity, QUYEN_LAM_TAI_BAN_KHAM, cau=CAU_KHONG_QUYEN_BAN_KHAM
+            )
+            don, vid = await self._khoa_don(conn, cid, order_id)
+            cached = await bien_nhan_doc(
+                conn, identity, "service.start_desk", idempotency_key, payload
+            )
+            if cached is not None:
+                return cached
+            self._doi_revision(don, expected_execution_revision, "execution_revision")
+            if don["execution_status"] not in (None, "PENDING"):
+                raise LuotKhamConflictError(
+                    "EXECUTION_STATE_INVALID",
+                    f"Chỉ định đang ở trạng thái {don['execution_status']}.",
+                )
+            if await conn.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM service_execution_attempt"
+                " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+                "   AND status = 'IN_PROGRESS')",
+                cid,
+                order_id,
+            ):
+                raise LuotKhamConflictError(
+                    "EXECUTION_ALREADY_RUNNING", "Đang có một lần làm chạy dở."
+                )
+            await self._cua_tien_ban_kham(conn, identity, vid, order_id)
+
+            lan_truoc = await conn.fetchval(
+                "SELECT COALESCE(max(attempt_no), 0) FROM service_execution_attempt"
+                " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid",
+                cid,
+                order_id,
+            )
+            phong = await conn.fetchval(
+                _PHONG_BAN_KHAM_SQL, cid, vid, identity.staff_id
+            )
+            # Chỉ định CHƯA có phòng → xếp vào phòng bàn khám (nơi làm thật).
+            # Cột cũ `exec_status` in_progress/performed BẮT BUỘC có phòng (CHECK
+            # service_order_room_when_assigned), và công nợ check-out / vòng đọc /
+            # theo dõi thủ thuật còn đọc cột cũ: không có phòng thì dịch vụ đã
+            # làm vẫn bị coi là "chưa làm" — khách về không bị nhắc nợ.
+            gan_phong = don["room_id"] is None
+            if gan_phong:
+                if phong is None:
+                    raise LuotKhamConflictError(
+                        "DESK_ROOM_UNKNOWN", CAU_CHUA_BIET_PHONG_BAN_KHAM
+                    )
+                await conn.execute(
+                    "UPDATE service_order"
+                    "   SET room_id = $3::uuid, routing_status = 'ASSIGNED',"
+                    "       routing_nguon = 'khac', assigned_by = $4::uuid,"
+                    "       assigned_at = now(),"
+                    "       routing_revision = routing_revision + 1,"
+                    "       updated_at = now()"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                    cid,
+                    order_id,
+                    phong,
+                    identity.staff_id,
+                )
+            lan = await conn.fetchrow(
+                """
+                INSERT INTO service_execution_attempt
+                    (clinic_id, service_order_id, attempt_no, room_id_snapshot,
+                     routing_revision_snapshot, status, started_by, started_at,
+                     noi_lam, gan_phong_ban_kham)
+                VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, 'IN_PROGRESS',
+                        $6::uuid, now(), $7, $8)
+                RETURNING id::text, attempt_no, started_at
+                """,
+                cid,
+                order_id,
+                int(lan_truoc) + 1,
+                phong,
+                int(don["routing_revision"] or 0),
+                identity.staff_id,
+                NOI_BAN_KHAM,
+                gan_phong,
+            )
+            moi = await self._doi_trang_thai(conn, cid, order_id, "IN_PROGRESS")
+            await conn.execute(
+                "UPDATE queue_entry SET status = 'blocked',"
+                "       version = version + 1, updated_at = now()"
+                " WHERE clinic_id = $1::uuid AND ref_id = $2::uuid"
+                "   AND reason = 'SERVICE' AND status IN ('waiting', 'called')",
+                cid,
+                order_id,
+            )
+            await cap_nhat_vi_tri(conn, cid, vid)
+            await emit_event(
+                conn,
+                ten="service.started",
+                clinic_id=cid,
+                aggregate_id=order_id,
+                so_ke_tiep=True,
+                payload=DichVuDaBatDau(
+                    visit_id=vid,
+                    service_order_id=order_id,
+                    attempt_id=lan["id"],
+                    attempt_no=lan["attempt_no"],
+                    room_id=phong,
+                    execution_revision=moi,
+                    noi_lam=NOI_BAN_KHAM,
+                ),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
+            ket_qua = {
+                "ok": True,
+                "order_id": order_id,
+                "attempt_id": lan["id"],
+                "attempt_no": lan["attempt_no"],
+                "execution_status": "IN_PROGRESS",
+                "execution_revision": moi,
+                "noi_lam": NOI_BAN_KHAM,
+                "started_at": lan["started_at"].isoformat(),
+            }
+            await bien_nhan_ghi(
+                conn,
+                identity,
+                "service.start_desk",
+                idempotency_key,
+                payload,
+                vid,
+                ket_qua,
+            )
+        return ket_qua
+
+    async def xong_tai_ban_kham(
+        self,
+        *,
+        order_id: str,
+        attempt_id: str,
+        expected_execution_revision: int,
+        identity: StaffIdentity,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """`CompleteServiceAtDesk` — lần làm tại bàn khám xong. Chỉ đóng lần làm
+        do bàn khám mở (lần làm ở phòng thì bấm Xong ở phòng)."""
+        cid = identity.clinic_id
+        payload = {"order_id": order_id, "attempt_id": attempt_id}
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_mot_quyen(
+                conn, identity, QUYEN_LAM_TAI_BAN_KHAM, cau=CAU_KHONG_QUYEN_BAN_KHAM
+            )
+            don, vid = await self._khoa_don(conn, cid, order_id)
+            cached = await bien_nhan_doc(
+                conn, identity, "service.complete_desk", idempotency_key, payload
+            )
+            if cached is not None:
+                return cached
+            self._doi_revision(don, expected_execution_revision, "execution_revision")
+            if don["execution_status"] != "IN_PROGRESS":
+                raise LuotKhamConflictError(
+                    "EXECUTION_STATE_INVALID", "Chỉ định không đang được làm."
+                )
+            lan = await self._lan_ban_kham(conn, cid, order_id, attempt_id)
+            await conn.execute(
+                "UPDATE service_execution_attempt"
+                "   SET status = 'COMPLETED', completed_by = $3::uuid,"
+                "       completed_at = now(), updated_at = now()"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                cid,
+                lan["id"],
+                identity.staff_id,
+            )
+            moi = await self._doi_trang_thai(
+                conn, cid, order_id, "COMPLETED", nguoi_lam=identity.staff_id
+            )
+            await self._dong_hang_cho(conn, cid, order_id)
+            await cap_nhat_vi_tri(conn, cid, vid)
+            await emit_event(
+                conn,
+                ten="service.completed",
+                clinic_id=cid,
+                aggregate_id=order_id,
+                so_ke_tiep=True,
+                payload=DichVuDaXong(
+                    visit_id=vid,
+                    service_order_id=order_id,
+                    attempt_id=lan["id"],
+                    attempt_no=lan["attempt_no"],
+                    execution_revision=moi,
+                    noi_lam=NOI_BAN_KHAM,
+                ),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
+            ket_qua = {
+                "ok": True,
+                "order_id": order_id,
+                "attempt_id": lan["id"],
+                "execution_status": "COMPLETED",
+                "execution_revision": moi,
+            }
+            await bien_nhan_ghi(
+                conn,
+                identity,
+                "service.complete_desk",
+                idempotency_key,
+                payload,
+                vid,
+                ket_qua,
+            )
+        return ket_qua
+
+    async def huy_bat_dau_tai_ban_kham(
+        self,
+        *,
+        order_id: str,
+        attempt_id: str,
+        expected_execution_revision: int,
+        identity: StaffIdentity,
+    ) -> dict[str, Any]:
+        """Hoàn tác [Làm tại bàn khám] — cùng nghĩa `huy_bat_dau` (lần làm →
+        INTERRUPTED lý do STARTED_IN_ERROR, không xoá; chỉ định → chờ làm; chỗ
+        chờ ở phòng mở lại). KHÁC: phiếu đã ghi KHÔNG chặn — ở bàn khám phiếu ghi
+        được trước cả khi làm, và hoàn tác không đụng phiếu. Không đụng tiền."""
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_mot_quyen(
+                conn, identity, QUYEN_LAM_TAI_BAN_KHAM, cau=CAU_KHONG_QUYEN_BAN_KHAM
+            )
+            don, vid = await self._khoa_don(conn, cid, order_id)
+            if don["execution_status"] in (None, "PENDING"):
+                return {"ok": True, "order_id": order_id, "already": True}
+            self._doi_revision(don, expected_execution_revision, "execution_revision")
+            if don["execution_status"] != "IN_PROGRESS":
+                raise LuotKhamConflictError(
+                    "EXECUTION_STATE_INVALID", "Chỉ định không đang được làm."
+                )
+            lan = await self._lan_ban_kham(conn, cid, order_id, attempt_id)
+            await conn.execute(
+                "UPDATE service_execution_attempt"
+                "   SET status = 'INTERRUPTED', interrupted_by = $3::uuid,"
+                "       interrupted_at = now(), interruption_reason_code = $4,"
+                "       updated_at = now()"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                cid,
+                lan["id"],
+                identity.staff_id,
+                LY_DO_BAT_DAU_NHAM,
+            )
+            moi = await self._doi_trang_thai(conn, cid, order_id, "PENDING")
+            if lan["gan_phong_ban_kham"]:
+                # Gỡ đúng phòng bàn khám đã xếp lúc Bắt đầu: chỉ định về "chưa
+                # xếp" để quầy / tự xếp đưa vào phòng làm thật (cột cũ về
+                # authorized cùng câu — CHECK đòi phòng cho 'assigned').
+                await conn.execute(
+                    "UPDATE service_order"
+                    "   SET room_id = NULL, routing_status = 'UNASSIGNED',"
+                    "       exec_status = 'authorized', routing_nguon = NULL,"
+                    "       assigned_by = NULL, assigned_at = NULL,"
+                    "       routing_revision = routing_revision + 1,"
+                    "       updated_at = now()"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                    cid,
+                    order_id,
+                )
+            elif don["room_id"] is not None:
+                await ve_lai_hang_phong(conn, cid, vid, order_id, str(don["room_id"]))
+            await cap_nhat_vi_tri(conn, cid, vid)
+            await emit_event(
+                conn,
+                ten="service.start_cancelled",
+                clinic_id=cid,
+                aggregate_id=order_id,
+                so_ke_tiep=True,
+                payload=DichVuDaHuyBatDau(
+                    visit_id=vid,
+                    service_order_id=order_id,
+                    attempt_id=lan["id"],
+                    attempt_no=lan["attempt_no"],
+                    room_id=lan["room_id"],
+                    execution_revision=moi,
+                    noi_lam=NOI_BAN_KHAM,
+                ),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
+        return {
+            "ok": True,
+            "order_id": order_id,
+            "execution_status": "PENDING",
+            "execution_revision": moi,
+        }
+
+    async def hoan_tac_xong_tai_ban_kham(
+        self,
+        *,
+        order_id: str,
+        expected_execution_revision: int,
+        identity: StaffIdentity,
+    ) -> dict[str, Any]:
+        """Hoàn tác [Xong] của lần làm tại bàn khám — cùng nghĩa
+        `UndoServiceCompletion` (lần làm về đang làm, mốc "khám xong hẳn" mở lại
+        nếu chính lần Xong ấy khép lượt). Khách vẫn ở bàn khám: không dựng lại
+        chỗ chờ phòng thành 'đang làm'. Không đụng tiền, không đụng phiếu."""
+        from clinicai.events.catalogue import DichVuHoanTacXong
+        from clinicai.services.hoan_tac_service import mo_lai_moc_kham_xong
+        from clinicai.services.luot_kham_service import LuotKhamService
+
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn, conn.transaction():
+            await doi_mot_quyen(
+                conn, identity, QUYEN_LAM_TAI_BAN_KHAM, cau=CAU_KHONG_QUYEN_BAN_KHAM
+            )
+            don, vid = await self._khoa_don(conn, cid, order_id)
+            if don["execution_status"] == "IN_PROGRESS":
+                return {"ok": True, "order_id": order_id, "already": True}
+            self._doi_revision(don, expected_execution_revision, "execution_revision")
+            if don["execution_status"] != "COMPLETED":
+                raise LuotKhamConflictError(
+                    "EXECUTION_NOT_COMPLETED",
+                    "Dịch vụ này chưa ở trạng thái “Đã xong”.",
+                )
+            lan = await conn.fetchrow(
+                "SELECT id::text, attempt_no, noi_lam FROM service_execution_attempt"
+                " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+                "   AND status = 'COMPLETED'"
+                " ORDER BY attempt_no DESC LIMIT 1 FOR UPDATE",
+                cid,
+                order_id,
+            )
+            if lan is None or lan["noi_lam"] != NOI_BAN_KHAM:
+                raise LuotKhamConflictError(
+                    "NOT_DESK_EXAM_COMPLETED",
+                    "Dịch vụ này do phòng làm xong — hoàn tác ở phòng.",
+                )
+            await conn.execute(
+                "UPDATE service_execution_attempt"
+                "   SET status = 'IN_PROGRESS', completed_by = NULL,"
+                "       completed_at = NULL, updated_at = now()"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                cid,
+                lan["id"],
+            )
+            moi = await self._doi_trang_thai(conn, cid, order_id, "IN_PROGRESS")
+            # Chỗ chờ ở phòng (nếu có) về lại "đợi" — khách đang ở bàn khám.
+            await conn.execute(
+                "UPDATE queue_entry SET status = 'blocked', done_at = NULL,"
+                "       version = version + 1, updated_at = now()"
+                " WHERE id = (SELECT q.id FROM queue_entry q"
+                "              WHERE q.clinic_id = $1::uuid AND q.ref_id = $2::uuid"
+                "                AND q.reason = 'SERVICE' AND q.status = 'done'"
+                "              ORDER BY q.updated_at DESC LIMIT 1)"
+                "   AND NOT EXISTS (SELECT 1 FROM queue_entry s"
+                "                WHERE s.clinic_id = $1::uuid"
+                "                  AND s.ref_id = $2::uuid AND s.reason = 'SERVICE'"
+                "                  AND s.status NOT IN ('done', 'left', 'cancelled'))",
+                cid,
+                order_id,
+            )
+            luot = LuotKhamService(pool=None)
+            await luot._evaluate_rounds(conn, identity, vid)
+            mo_moc = await mo_lai_moc_kham_xong(conn, cid, vid)
+            if mo_moc and await luot._ket_thuc_neu_xong(conn, identity, vid):
+                mo_moc = False
+            await cap_nhat_vi_tri(conn, cid, vid)
+            await emit_event(
+                conn,
+                ten="service.completion_undone",
+                clinic_id=cid,
+                aggregate_id=order_id,
+                so_ke_tiep=True,
+                payload=DichVuHoanTacXong(
+                    visit_id=vid,
+                    service_order_id=order_id,
+                    attempt_id=lan["id"],
+                    attempt_no=int(lan["attempt_no"]),
+                    execution_revision=moi,
+                    mo_lai_kham_xong=mo_moc,
+                    noi_lam=NOI_BAN_KHAM,
+                ),
+                boi=nguoi(identity),
+                correlation_id=vid,
+            )
+        return {
+            "ok": True,
+            "order_id": order_id,
+            "attempt_id": lan["id"],
+            "execution_status": "IN_PROGRESS",
+            "execution_revision": moi,
+        }
+
+    @staticmethod
+    async def _lan_ban_kham(
+        conn: asyncpg.Connection, clinic_id: str, order_id: str, attempt_id: str
+    ) -> asyncpg.Record:
+        """Lần làm đang chạy, đúng lần người bấm thấy, và do BÀN KHÁM mở."""
+        lan = await conn.fetchrow(
+            "SELECT id::text, attempt_no, noi_lam, gan_phong_ban_kham,"
+            "       room_id_snapshot::text AS room_id"
+            "  FROM service_execution_attempt"
+            " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+            "   AND id = $3::uuid AND status = 'IN_PROGRESS' FOR UPDATE",
+            clinic_id,
+            order_id,
+            attempt_id,
+        )
+        if lan is None:
+            raise LuotKhamConflictError(
+                "EXECUTION_ATTEMPT_NOT_ACTIVE",
+                "Lần làm này không còn đang chạy — tải lại màn hình.",
+            )
+        if lan["noi_lam"] != NOI_BAN_KHAM:
+            raise LuotKhamConflictError(
+                "NOT_DESK_EXAM_ATTEMPT",
+                "Dịch vụ đang làm ở phòng — bấm Xong / huỷ ở phòng.",
+            )
+        return lan
+
+    @staticmethod
+    async def _cua_tien_ban_kham(
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        visit_id: str,
+        order_id: str,
+    ) -> None:
+        """Cửa tiền của [Làm tại bàn khám] (luật: `cua_tien_ban_kham`). Phải chốt
+        lựa chọn trước → chốt như lúc tick "Làm trước – thu sau" rồi hỏi lại."""
+        cid = identity.clinic_id
+        tien = await can_start(conn, cid, order_id)
+        sel = await conn.fetchval(
+            "SELECT selection_status FROM service_order"
+            " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+            cid,
+            order_id,
+        )
+        chua_thu = (await duoc_lam_khi_chua_thu(conn, cid, [visit_id])).get(
+            visit_id, False
+        )
+        duoc, cau, chot = cua_tien_ban_kham(
+            tien, selection_status=sel, duoc_chua_thu=chua_thu
+        )
+        if chot:
+            from clinicai.services.lam_truoc_thu_sau import _chot_cho_quyet
+
+            await _chot_cho_quyet(conn, identity, visit_id, None)
+            tien = await can_start(conn, cid, order_id)
+            if tien is not None and tien.finance_state == finance_gate.NOT_APPLICABLE:
+                raise LuotKhamConflictError(
+                    "FINANCE_NOT_READY",
+                    "Chưa chốt được dịch vụ cho khách — chốt ở quầy thu rồi làm.",
+                )
+            duoc, cau, _ = cua_tien_ban_kham(
+                tien, selection_status="SELECTED", duoc_chua_thu=chua_thu
+            )
+        if not duoc:
+            raise LuotKhamConflictError(
+                "FINANCE_NOT_READY", cau or finance_gate.CAU_CHUA_THU
+            )
 
     # ------------------------------------------------------------------
     # Nhìn (chỉ đọc)

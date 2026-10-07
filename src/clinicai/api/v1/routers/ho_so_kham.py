@@ -10,18 +10,23 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
-from clinicai.services import ho_so_dich_vu
+from clinicai.services import dieu_tri_ban_kham, ho_so_dich_vu
 
 router = APIRouter(tags=["ho-so-kham"])
 
 
 class DoiDichVuBody(BaseModel):
     service_type_id: UUID
+
+
+class LamTaiBanKhamBody(BaseModel):
+    expected_execution_revision: int
+    attempt_id: UUID | None = None
 
 
 @router.get("/ho-so-kham/{visit_id}/dich-vu")
@@ -47,4 +52,40 @@ async def doi_dich_vu(
         identity=identity,
         visit_id=str(visit_id),
         service_type_id=str(body.service_type_id),
+    )
+
+
+@router.get("/ho-so-kham/{visit_id}/dieu-tri")
+async def doc_dieu_tri(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thẻ chỉ định điều trị của lượt: phiếu điều trị, trạng thái, nút."""
+    return await dieu_tri_ban_kham.doc_the(
+        pool, identity=identity, visit_id=str(visit_id)
+    )
+
+
+@router.post("/ho-so-kham/{visit_id}/dieu-tri/{order_id}/{lenh}")
+async def lam_tai_ban_kham(
+    visit_id: UUID,
+    order_id: UUID,
+    lenh: str,
+    body: LamTaiBanKhamBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    """[Làm tại bàn khám] · [Xong] · hoàn tác (lam | xong | huy-lam |
+    hoan-tac-xong) — luật + cửa tiền ở service."""
+    return await dieu_tri_ban_kham.thao_tac(
+        pool,
+        identity=identity,
+        visit_id=str(visit_id),
+        order_id=str(order_id),
+        lenh=lenh,
+        expected_execution_revision=body.expected_execution_revision,
+        attempt_id=str(body.attempt_id) if body.attempt_id else None,
+        idempotency_key=idempotency_key,
     )
