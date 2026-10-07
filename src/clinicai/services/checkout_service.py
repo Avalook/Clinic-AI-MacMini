@@ -102,9 +102,14 @@ SELECT
                  AND q.status = 'open'), 0)                    AS lab_pending,
     -- ②b Bác sĩ chưa khám/đọc xong: còn phiên khám đang chờ hoặc đang khám,
     --     hoặc vòng đọc kết quả chưa đóng.
+    --     Lượt ĐIỀU TRỊ (07/10/2026): hàng bác sĩ là TUỲ CHỌN — phiên chưa ai
+    --     nhận ('queued') không tính là "bác sĩ chưa khám".
     (EXISTS (SELECT 1 FROM public.consultation c
               WHERE c.clinic_id = v.clinic_id AND c.visit_id = v.visit_id
-                AND c.status IN ('queued', 'in_progress'))
+                AND c.status IN ('queued', 'in_progress')
+                AND NOT (c.status = 'queued' AND EXISTS (
+                    SELECT 1 FROM public.service_type st
+                     WHERE st.id = v.service_type_id AND st.nhom = 'DIEU_TRI')))
      OR EXISTS (SELECT 1 FROM public.review_round r
                  WHERE r.clinic_id = v.clinic_id AND r.visit_id = v.visit_id
                    AND r.status <> 'closed'))                   AS exam_open,

@@ -69,6 +69,9 @@ DOI_TAC_NHAN_VIEC = "doi_tac_nhan_viec"
 #: Khối CÔNG NỢ (01/10/2026): nghe "đã thu tiền" → lượt có khoản ghi nợ mà nay
 #: hết nợ thì khoản ấy chuyển ĐÃ THU (`events/consumers/cong_no.py`).
 CONG_NO = "cong_no"
+#: Lịch ĐIỀU TRỊ (07/10/2026): khách đã vào hàng → sinh sẵn chỉ định đúng dịch vụ
+#: đã đặt (`events/consumers/dieu_tri.py`). Không xếp phòng, không thu tiền khám.
+DIEU_TRI_SINH_CHI_DINH = "dieu_tri_sinh_chi_dinh"
 
 
 @dataclass(frozen=True)
@@ -390,6 +393,9 @@ class LichDaDoiDichVu(PayloadSuKien):
     den_dich_vu_id: str
     tu_ten: str | None = None
     den_ten: str | None = None
+    #: Đổi ngay TRONG HỒ SƠ KHÁM (bác sĩ / ĐD / thư ký / trưởng ca / QL, 07/10/2026)
+    #: — đã có phiếu / đã thu / đã tick vẫn đổi được; phiếu cũ giữ nguyên.
+    trong_ho_so: bool = False
 
 
 class KhachKhongDen(PayloadSuKien):
@@ -1080,7 +1086,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="hanh_trinh",
             payload=DaXepDuongDi,
             nhan="Xếp khách vào hàng",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, DIEU_TRI_SINH_CHI_DINH],
         ),
         SuKien(
             ten="visit.exam_completed",
@@ -1824,6 +1830,7 @@ def moi_consumer() -> frozenset[str]:
 
 __all__ = [
     "CONG_NO",
+    "DIEU_TRI_SINH_CHI_DINH",
     "CongNoDaGhi",
     "CongNoDaHuy",
     "CongNoDaThu",

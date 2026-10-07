@@ -86,6 +86,7 @@ from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
 from clinicai.services.doi_dich_vu_kham import (
     CAU_BAC_SI_NGHI,
     QUYEN_DOI_DICH_VU_KHAM,
+    QUYEN_DOI_TRONG_HO_SO,
     doc_trang_thai,
 )
 from clinicai.services.lenh_kham_core import ma_uuid
@@ -1313,8 +1314,14 @@ class BookingService:
         appointment_id: str,
         service_type_id: str,
         identity: StaffIdentity,
+        trong_ho_so: bool = False,
     ) -> dict[str, Any]:
         """ĐỔI DỊCH VỤ KHÁM (V5, Tuyền chốt 30/09/2026) — menu ⋯ dòng lịch hẹn.
+
+        ``trong_ho_so`` (T5, 07/10/2026): đổi ngay trong hồ sơ khám — quyền khối
+        y khoa / trưởng ca (`QUYEN_DOI_TRONG_HO_SO`), đã có phiếu / đã thu / đã
+        tick vẫn đổi (`ly_do_khong_doi(trong_ho_so=True)`); luật bác sĩ bắt buộc
+        chỉ còn là lời nhắc. Phiếu cũ, tick dịch vụ con giữ nguyên.
 
         Trước check-in: đổi lịch. Sau check-in: đổi cả lượt khám, chỉ khi chưa
         vướng gì (`doi_dich_vu_kham.ly_do_khong_doi`); khối Hành trình nghe sự
@@ -1331,9 +1338,12 @@ class BookingService:
                 await doi_mot_quyen(
                     conn,
                     identity,
-                    QUYEN_DOI_DICH_VU_KHAM,
+                    QUYEN_DOI_TRONG_HO_SO if trong_ho_so else QUYEN_DOI_DICH_VU_KHAM,
                     cau=(
-                        "Bạn không có quyền đổi dịch vụ khám (cần “Quản lý lịch "
+                        "Bạn không có quyền đổi dịch vụ khám trong hồ sơ (cần khối"
+                        " khám / ghi bệnh án hoặc điều phối khách)."
+                        if trong_ho_so
+                        else "Bạn không có quyền đổi dịch vụ khám (cần “Quản lý lịch "
                         "hẹn” hoặc “Check-in khách”)."
                     ),
                 )
@@ -1369,10 +1379,10 @@ class BookingService:
                         "dich_vu": moi["name"],
                         "canh_bao": [],
                     }
-                ly_do = tt.ly_do_khong_doi()
+                ly_do = tt.ly_do_khong_doi(trong_ho_so=trong_ho_so)
                 if ly_do:
                     raise ConflictError(ly_do)
-                if not tt.bac_si_con_kham:
+                if not tt.bac_si_con_kham and not trong_ho_so:
                     raise ConflictError(CAU_BAC_SI_NGHI)
                 loi_bs = await self._luat_bac_si_bat_buoc(
                     conn,
@@ -1383,7 +1393,7 @@ class BookingService:
                 )
                 if loi_bs:
                     cau, chan = loi_bs
-                    if chan:
+                    if chan and not trong_ho_so:
                         raise ConflictError(
                             f"{cau} Đổi bác sĩ (Đổi lịch) trước rồi mới đổi dịch vụ."
                         )
@@ -1397,7 +1407,7 @@ class BookingService:
                     aid,
                     moi["id"],
                 )
-                visit_id = tt.visit_id if tt.sau_check_in else None
+                visit_id = tt.visit_id if (tt.sau_check_in or trong_ho_so) else None
                 if visit_id:
                     await conn.execute(
                         "UPDATE visit SET service_type_id = $3::uuid,"
@@ -1414,6 +1424,7 @@ class BookingService:
                     "den_dich_vu_id": moi["id"],
                     "tu_ten": tt.ten_dich_vu,
                     "den_ten": moi["name"],
+                    "trong_ho_so": trong_ho_so,
                 }
                 await record_event(
                     conn,
