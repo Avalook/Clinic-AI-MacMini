@@ -63,7 +63,8 @@ ACTION_NHAN = "service_routing.receive"
 #: Chỉ định CHƯA VÀO PHÒNG NÀO (alias ``o`` service_order, ``v`` visit): bác sĩ
 #: đã duyệt, khách chưa bỏ, chưa bắt đầu, lượt còn mở, không phải đối tác làm
 #: trọn, không bị bác sĩ dặn "làm sau khi đọc kết quả vòng trước". KHÔNG xét
-#: nguồn sinh ra chỉ định và KHÔNG đòi khách đã chốt / đã thu.
+#: nguồn sinh ra chỉ định và KHÔNG đòi khách đã chốt / đã thu. Lượt INCOMPLETE
+#: (khách về giữa chừng) cố ý loại: khách đã rời phòng khám thì không "sắp đến".
 CHUA_VAO_PHONG_SQL = f"""
        o.exec_status IN ('authorized', 'assigned')
    AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
