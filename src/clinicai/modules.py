@@ -634,6 +634,19 @@ MODULE: dict[str, Module] = {
             bang=["day_nhan_thong_bao"],
         ),
         Module(
+            ma="chuong_nhan_cheo",
+            ten="Chuông nhận chéo (phòng quên Xong)",
+            # CHỈ NGHE (07/10/2026): khách được phòng khác nhận lúc phòng cũ
+            # còn đang làm → réo phòng cũ; lần làm đóng → chuông tự đóng.
+            nghe=[
+                "service.room_released",
+                "service.completed",
+                "service.interrupted",
+                "service.start_cancelled",
+            ],
+            ben_nhan=["chuong_nhan_cheo"],
+        ),
+        Module(
             ma="booking",
             ten="Đặt lịch",
             lenh=[

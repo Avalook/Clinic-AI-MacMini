@@ -1,133 +1,107 @@
 "use client";
 
 // KHỐI "SẮP ĐẾN" — dây Nhận khách tại phòng (Tuyền chốt 07/10/2026,
-// docs/KE-HOACH-NHAN-TAI-PHONG.md). Danh sách THEO KHÁCH do máy chủ trả
-// (`sap_den_phong` của hàng chờ phòng): MỌI khách có chỉ định chưa vào phòng
-// nào mà phòng này làm được — kể cả khách chưa chốt ở quầy, KHÔNG ẩn theo phòng
-// chuyên ("ngu ngu tí nhưng pick ra dễ"). Khách có chỉ định tick sẵn (hướng
-// dẫn tới đây / phòng chuyên ★) đứng đầu (máy chủ xếp).
+// docs/KE-HOACH-NHAN-TAI-PHONG.md). Danh sách do máy chủ trả (`sap_den_phong`
+// của hàng chờ phòng): MỌI khách check-in hôm nay chưa check-out ("ngu ngu tí
+// nhưng pick ra dễ"), trừ khách đang chờ / làm ở chính phòng này. Máy chủ xếp:
+// có chỉ định nhận được mà ★ / được hướng dẫn tới đây → có chỉ định nhận được
+// → còn lại.
 //
-// MỖI KHÁCH MỘT Ô: trong ô các chỉ định phòng làm được + trạng thái. Bấm
-// [Nhận…] mở danh sách tick (`NhanChiDinh`) — nhận theo TỪNG CHỈ ĐỊNH.
+// MỖI KHÁCH ĐÚNG MỘT DÒNG GỌN (Tuyền chốt bố cục 07/10 tối): tên · mã · số ·
+// "N chỉ định" · nhãn nơi đang ở. KHÔNG liệt kê từng chỉ định ở đây (3 chỉ định
+// không được trông như 3 người, không vỡ chữ ở 375). Bấm dòng → khung bên phải
+// liệt kê chỉ định + nút Nhận.
 
-import { useState } from "react";
-
-import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
-import { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
+import SoLuot from "@/components/ui/SoLuot";
 
-import { cauChiDinhPhong, type ChiDinhPhong, type DangOPhong } from "../../_lam-viec/api";
-import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "../../_lam-viec/ChonBacSiLam";
-import NhanChiDinh from "./NhanChiDinh";
-
-/** "đang chờ / đang làm ở <phòng>" — giữ nguyên chữ hoa của tên phòng. */
-function cauKhachDangO(d: DangOPhong): string {
-  return `đang ${d.trang_thai === "lam" ? "làm" : "chờ"} ở ${d.phong ?? "phòng khác"}`;
-}
+import { type ChiDinhPhong } from "../../_lam-viec/api";
 
 export interface KhachSapDen {
   visit_id: string;
   khach: string | null;
   ma_khach: string | null;
+  so_tiep_don: number | null;
+  so_booking: number | null;
   duoc_huong_dan: boolean;
-  co_tick_san: boolean;
-  /** Khách vào số "sắp đến" (có chỉ định chưa vào phòng nào). False = đang
-   *  chờ / làm ở phòng khác — vẫn hiện để pick ra dễ, số đã đếm ở phòng kia. */
-  tinh_so?: boolean;
-  /** Còn chỉ định nhận được (chưa vào phòng / đang CHỜ ở phòng khác). */
-  nhan_duoc?: boolean;
+  /** Khách vào số "sắp đến" (có chỉ định chưa vào phòng nào mà phòng làm được). */
+  tinh_so: boolean;
   so_chi_dinh: number;
-  dang_o_phong: DangOPhong | null;
+  so_nhan_duoc: number;
+  /** Câu máy chủ viết: khách đang ở đâu / "chưa có chỉ định ở phòng này". */
+  dang_o: string | null;
   chi_dinh: ChiDinhPhong[];
 }
 
 export default function SapDenPhong({
-  roomId,
   ds,
-  bacSi,
-  onDaNhan,
-  onBao,
+  chon,
+  onChon,
 }: {
-  roomId: string;
   ds: KhachSapDen[];
-  /** Bác sĩ trực của phòng — chỉ có phần tử khi ≥2 bác sĩ (máy chủ quyết). */
-  bacSi: LuaChonBacSi[];
-  onDaNhan: () => void;
-  onBao: (tb: ThongBao) => void;
+  /** visit_id đang mở ở khung phải. */
+  chon: string | null;
+  onChon: (visitId: string) => void;
 }) {
-  const [mo, setMo] = useState<string | null>(null);
-  const [chonBs, setChonBs] = useState("");
-
   if (ds.length === 0) return null;
+  const soDem = ds.filter((k) => k.tinh_so).length;
 
   return (
-    <section aria-label="Khách sắp đến phòng" className="space-y-2 rounded-card border border-info bg-info-bg p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-meta font-semibold uppercase tracking-wide text-info">
-          Sắp đến ({ds.filter((k) => k.tinh_so !== false).length})
-          {ds.some((k) => k.tinh_so === false) ? (
-            <span className="font-normal normal-case">
-              {" "}
-              · +{ds.filter((k) => k.tinh_so === false).length} đang ở phòng khác
-            </span>
-          ) : null}
-        </p>
-        {coChonBacSi(bacSi) ? (
-          <ChonBacSiLam co="nho" ds={bacSi} value={chonBs} disabled={mo !== null} onChon={setChonBs} />
+    <section aria-label="Khách sắp đến phòng" className="space-y-1.5 rounded-card border border-info bg-info-bg p-2">
+      <p className="px-1 text-meta font-semibold uppercase tracking-wide text-info">
+        Sắp đến ({soDem})
+        {ds.length > soDem ? (
+          <span className="font-normal normal-case"> · +{ds.length - soDem} khách khác hôm nay</span>
         ) : null}
-      </div>
-      <ul className="space-y-2">
-        {ds.map((k) => (
-          <li key={k.visit_id} className="space-y-1 rounded-control bg-surface p-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="min-w-0 flex-1 text-body text-ink">
-                <span className="font-semibold">{k.khach ?? "—"}</span>
-                {k.ma_khach ? <span className="text-ink-muted"> · {k.ma_khach}</span> : null}
-                <span className="text-meta text-ink-muted"> · {k.so_chi_dinh} chỉ định</span>
-              </span>
-              {mo !== k.visit_id && k.nhan_duoc !== false ? (
-                <Button type="button" size="sm" variant="primary" onClick={() => setMo(k.visit_id)}>
-                  Nhận…
-                </Button>
-              ) : null}
-            </div>
-            <ul className="space-y-0.5 text-meta">
-              {k.chi_dinh.map((c) => (
-                <li key={c.id} className="flex flex-wrap items-baseline gap-x-1.5">
-                  <span className="text-ink">
-                    {c.ten ?? "—"}
-                    {c.chuyen ? " ★" : ""}
+      </p>
+      <ul className="space-y-1">
+        {ds.map((k) => {
+          const dangChon = k.visit_id === chon;
+          const sao = k.chi_dinh.some((c) => c.nhan_duoc && c.chuyen);
+          return (
+            <li key={k.visit_id}>
+              <button
+                type="button"
+                onClick={() => onChon(k.visit_id)}
+                aria-pressed={dangChon}
+                className={`flex w-full items-center gap-2 rounded-control border px-2 py-1.5 text-left ${
+                  dangChon ? "border-brand-500 bg-brand-50" : "border-line bg-surface"
+                }`}
+              >
+                <span
+                  title="Số check-in"
+                  className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-sunken text-meta font-bold text-ink"
+                >
+                  {k.so_tiep_don ?? "—"}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1">
+                    <span
+                      className={`truncate text-sm font-semibold ${k.so_nhan_duoc > 0 ? "text-ink" : "text-ink-muted"}`}
+                    >
+                      {k.khach ?? "—"}
+                    </span>
+                    <SoLuot booking={k.so_booking} className="shrink-0" />
                   </span>
-                  <span className={c.trang_thai === "sap_den" ? "text-ink-muted" : "text-warning"}>
-                    {cauChiDinhPhong(c)}
-                    {c.chua_chot ? " · chưa chốt" : ""}
+                  <span className="block truncate text-label text-ink-muted">
+                    {[k.ma_khach, k.so_chi_dinh > 0 ? `${k.so_chi_dinh} chỉ định` : null, k.dang_o]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
-                </li>
-              ))}
-            </ul>
-            {k.duoc_huong_dan || k.dang_o_phong ? (
-              <div className="flex flex-wrap gap-1">
-                {k.duoc_huong_dan ? <Chip tone="info">Được hướng dẫn đến đây</Chip> : null}
-                {k.dang_o_phong ? <Chip tone="warning">Khách {cauKhachDangO(k.dang_o_phong)}</Chip> : null}
-              </div>
-            ) : null}
-            {mo === k.visit_id ? (
-              <NhanChiDinh
-                roomId={roomId}
-                visitId={k.visit_id}
-                khach={k.khach}
-                chiDinh={k.chi_dinh}
-                bacSiLamId={chonBs}
-                onThoi={() => setMo(null)}
-                onBao={onBao}
-                onXong={() => {
-                  setMo(null);
-                  onDaNhan();
-                }}
-              />
-            ) : null}
-          </li>
-        ))}
+                </span>
+                {k.duoc_huong_dan ? (
+                  <Chip tone="info" className="shrink-0">
+                    Hướng dẫn tới đây
+                  </Chip>
+                ) : sao ? (
+                  <Chip tone="info" className="shrink-0">
+                    ★
+                  </Chip>
+                ) : null}
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

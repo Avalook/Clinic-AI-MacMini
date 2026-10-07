@@ -118,7 +118,7 @@ async def _nhan(
     xac_nhan: bool = False,
     visit_id: str | None = None,
 ) -> dict[str, Any]:
-    """Phòng bấm Nhận với các chỉ định được tick (không truyền = tick sẵn)."""
+    """Phòng bấm Nhận trên các dòng ``ids`` (không truyền = mọi chỉ định nhận được)."""
     return await ntp.NhanTaiPhongService(b.pool).nhan(
         visit_id=visit_id or b.visit_id,
         room_id=room,
@@ -243,9 +243,12 @@ async def test_sap_den_ngay_sau_chi_dinh_ke_ca_chua_chot(bat: RB) -> None:
     k = await _sap_den(bat, bat.sa1)
     assert k is not None
     assert [(c["id"], c["chua_chot"]) for c in k["chi_dinh"]] == [(o1, True)]
-    assert k["dang_o_phong"] is None and k["duoc_huong_dan"] is False
-    # Phòng không làm được dịch vụ ấy thì không thấy.
-    assert await _sap_den(bat, bat.sa2) is None
+    assert k["duoc_huong_dan"] is False and k["tinh_so"] is True
+    # Phòng không làm được dịch vụ ấy vẫn THẤY khách (mọi khách hôm nay), không
+    # có chỉ định nào để nhận, không vào số.
+    k2 = await _sap_den(bat, bat.sa2)
+    assert k2 is not None and k2["chi_dinh"] == [] and k2["so_nhan_duoc"] == 0
+    assert k2["tinh_so"] is False
     # Bàn khám / phòng đọc qua hàng chờ phòng: khối Sắp đến thay khối cũ.
     hang = await BangLuotKham(bat.pool).hang_cho(
         identity=bat.truong_ca, room_id=bat.sa1
@@ -282,17 +285,19 @@ async def test_nhan_bat_dau_xong_roi_nhan_phong_hai(bat: RB) -> None:
     o = await _o(bat, o1)
     assert (o["routing_status"], o["room_id"]) == ("ASSIGNED", bat.sa1)
     # Phòng hai thấy khách "đang chờ ở phòng một".
+    ten1 = await bat.pool.fetchval(
+        "SELECT name FROM clinic_room WHERE id = $1::uuid", bat.sa1
+    )
     k2 = await _sap_den(bat, bat.sa2)
-    assert k2 is not None and k2["dang_o_phong"]["phong_id"] == bat.sa1
-    assert k2["dang_o_phong"]["trang_thai"] == "cho"
+    assert k2 is not None and k2["dang_o"] == f"đang chờ ở {ten1}"
 
     lam = await _bat_dau(bat, o1)
     k2 = await _sap_den(bat, bat.sa2)
-    assert k2 is not None and k2["dang_o_phong"]["trang_thai"] == "lam"
+    assert k2 is not None and k2["dang_o"] == f"đang làm ở {ten1}"
     await _xong(bat, o1, lam["attempt_id"])
     assert (await _cho(bat, o1))[-1]["status"] == "done"
     k2 = await _sap_den(bat, bat.sa2)
-    assert k2 is not None and k2["dang_o_phong"] is None
+    assert k2 is not None and ten1 not in (k2["dang_o"] or "")
 
     kq2 = await _nhan(bat, bat.sa2, o2)
     assert kq2["da_nhan"] == [o2] and kq2["nhan_cheo"] is False
@@ -541,11 +546,11 @@ async def test_truong_ca_doi_phong_khi_day_bat_chi_ghi_huong_dan(bat: RB) -> Non
     assert kq["huong_dan"] is True and kq["phong_du_kien_id"] == bat.sa2
     assert (kq["routing_status"], kq["room_id"]) == ("ASSIGNED", bat.sa1)
     assert await _sk(bat, o1, "service.room_released") == []
-    # Phòng hai thấy khách (được hướng dẫn tới), chỉ định tick sẵn, "đang ở P1".
+    # Phòng hai thấy khách (được hướng dẫn tới), chỉ định "đang chờ ở P1".
     k2 = await _sap_den(bat, bat.sa2)
     assert k2 is not None and k2["duoc_huong_dan"] is True
     [c] = k2["chi_dinh"]
-    assert (c["trang_thai"], c["tick_san"]) == ("o_phong_khac", True)
+    assert (c["trang_thai"], c["nhan_duoc"]) == ("o_phong_khac", True)
     await _loi(_nhan(bat, bat.sa2), "KHACH_O_PHONG_KHAC")
     assert (await _nhan(bat, bat.sa2, xac_nhan=True))["da_nhan"] == [o1]
     [nha] = await _sk(bat, o1, "service.room_released")
@@ -575,7 +580,8 @@ async def test_quay_bo_dich_vu_da_nhan_thi_roi_hang(bat: RB) -> None:
     assert o["routing_status"] == "UNASSIGNED"
     [nha] = await _sk(bat, o1, "service.room_released")
     assert nha["ly_do"] == "BO_DICH_VU"
-    assert await _sap_den(bat, bat.sa1) is None
+    k = await _sap_den(bat, bat.sa1)
+    assert k is not None and k["chi_dinh"] == [] and k["tinh_so"] is False
 
 
 # ── Khám lần 2 giữ mốc lần 1 ─────────────────────────────────────────────────
@@ -620,8 +626,8 @@ async def test_kham_lai_giu_moc_lan_mot(kb: KichBan) -> None:
 async def test_ba_chi_dinh_hai_phong_nhu_staging(bat: RB) -> None:
     """Lỗi thật trên staging: Soi CTC + Siêu âm quầy hướng dẫn phòng siêu âm
     (sa1), Monitor → phòng thủ thuật (sa2); thủ thuật làm được cả ba. Thủ thuật
-    bấm Nhận (tick sẵn) chỉ lấy Monitor; phòng siêu âm vẫn thấy hai chỉ định
-    kèm "khách đang ở P. thủ thuật"."""
+    bấm Nhận trên DÒNG Monitor chỉ lấy Monitor; phòng siêu âm vẫn thấy hai chỉ
+    định kèm "đang chờ ở P. thủ thuật", rồi "Nhận cả 2"."""
     soi = await _cd_o(bat, bat.sa1, bat.sa2)
     sa = await _cd_o(bat, bat.sa1, bat.sa2)
     mon = await _cd_o(bat, bat.sa2)
@@ -629,68 +635,103 @@ async def test_ba_chi_dinh_hai_phong_nhu_staging(bat: RB) -> None:
         await _huong_dan(bat, oid, p)
 
     k_tt = await _sap_den(bat, bat.sa2)
-    assert k_tt is not None and k_tt["so_chi_dinh"] == 3
-    assert {c["id"]: c["tick_san"] for c in k_tt["chi_dinh"]} == {
-        soi: False,
-        sa: False,
-        mon: True,
-    }
-    kq = await _nhan(bat, bat.sa2)
+    assert k_tt is not None
+    assert (k_tt["so_chi_dinh"], k_tt["so_nhan_duoc"]) == (3, 3)
+    hd = {c["id"]: c["huong_dan_day"] for c in k_tt["chi_dinh"]}
+    assert hd == {soi: False, sa: False, mon: True}
+    kq = await _nhan(bat, bat.sa2, mon)
     assert kq["da_nhan"] == [mon] and kq["nhan_cheo"] is False
     for oid in (soi, sa):
         assert (await _o(bat, oid))["routing_status"] == "UNASSIGNED"
     [e] = await _sk(bat, mon, "service.routed")
     assert e["dung_huong_dan"] is True
 
+    ten_tt = await bat.pool.fetchval(
+        "SELECT name FROM clinic_room WHERE id = $1::uuid", bat.sa2
+    )
     k_sa = await _sap_den(bat, bat.sa1)
-    assert k_sa is not None
-    assert {c["id"]: (c["trang_thai"], c["tick_san"]) for c in k_sa["chi_dinh"]} == {
-        soi: ("sap_den", True),
-        sa: ("sap_den", True),
+    assert k_sa is not None and k_sa["dang_o"] == f"đang chờ ở {ten_tt}"
+    assert {c["id"]: c["trang_thai"] for c in k_sa["chi_dinh"]} == {
+        soi: "sap_den",
+        sa: "sap_den",
     }
-    assert k_sa["dang_o_phong"]["phong_id"] == bat.sa2
     # Ô khách ở phòng thủ thuật: MỘT ô, ba chỉ định với trạng thái riêng.
     o_tt = await _o_khach(bat, bat.sa2)
     assert o_tt[mon]["trang_thai"] == "cho"
     assert o_tt[soi]["trang_thai"] == "sap_den"
     assert o_tt[soi]["huong_dan_id"] == bat.sa1 and o_tt[soi]["huong_dan"]
-    # Đếm theo KHÁCH: thủ thuật 1 đang chờ (không phải 3), không còn "sắp đến".
+    # Đếm theo KHÁCH: thủ thuật 1 đang chờ (không phải 3); khách không lặp ở
+    # Sắp đến của chính phòng đang giữ khách.
     assert await _dem(bat, bat.sa2) == (1, 0)
     assert await _sap_den(bat, bat.sa2) is None
 
-    # Phòng siêu âm nhận hai chỉ định của mình — Monitor ở thủ thuật không bị đụng.
-    kq = await _nhan(bat, bat.sa1)
+    # Phòng siêu âm "Nhận cả 2" — Monitor ở thủ thuật không bị đụng.
+    kq = await _nhan(bat, bat.sa1, soi, sa)
     assert sorted(kq["da_nhan"]) == sorted([soi, sa]) and kq["nhan_cheo"] is False
     assert (await _song(bat, mon))["room_id"] == bat.sa2  # type: ignore[index]
     assert (await _dem(bat, bat.sa1))[0] == 1
 
 
-async def test_tick_san_theo_phong_chuyen_khi_khong_huong_dan(bat: RB) -> None:
+async def test_phong_chuyen_chi_la_nhan_va_thu_tu(bat: RB) -> None:
+    """★ / hướng dẫn không quyết gì khi Nhận — chỉ gắn nhãn và xếp ô lên trước.
+    Nhận trên một dòng = đúng chỉ định ấy; danh sách rỗng bị từ chối."""
     o1 = await _cd_o(bat, bat.sa1, bat.sa2)
-    # Chưa phòng nào ★, không hướng dẫn → không tick sẵn; Nhận phải tick ≥1.
-    k1 = await _sap_den(bat, bat.sa1)
-    assert k1 is not None and k1["chi_dinh"][0]["tick_san"] is False
-    await _loi(_nhan(bat, bat.sa1), "CHUA_CHON_CHI_DINH")
-
+    o2 = await _cd_o(bat, bat.sa1, bat.sa2)
     await _sao(bat, bat.sa1)
     k1 = await _sap_den(bat, bat.sa1)
     k2 = await _sap_den(bat, bat.sa2)
-    assert k1 is not None and k1["chi_dinh"][0]["chuyen"] is True
-    assert k1["chi_dinh"][0]["tick_san"] is True and k1["co_tick_san"] is True
-    # Phòng không chuyên vẫn thấy khách (không ẩn), chỉ không tick sẵn.
-    assert k2 is not None and k2["chi_dinh"][0]["tick_san"] is False
-    assert (await _nhan(bat, bat.sa1))["da_nhan"] == [o1]
+    assert k1 is not None and all(c["chuyen"] for c in k1["chi_dinh"])
+    assert k2 is not None and not any(c["chuyen"] for c in k2["chi_dinh"])
+    # Ô có chỉ định ★ nhận được đứng trước mọi ô khác của phòng.
+    async with bat.pool.acquire() as conn:
+        ds = await ntp.sap_den(conn, CLINIC, bat.sa1)
+    vi_tri = next(i for i, k in enumerate(ds) if k["visit_id"] == bat.visit_id)
+    assert all(
+        any(
+            c["nhan_duoc"] and (c["chuyen"] or c["huong_dan_day"])
+            for c in k["chi_dinh"]
+        )
+        for k in ds[: vi_tri + 1]
+    )
+    await _loi(
+        ntp.NhanTaiPhongService(bat.pool).nhan(
+            visit_id=bat.visit_id,
+            room_id=bat.sa2,
+            identity=bat.truong_ca,
+            chi_dinh_ids=[],
+        ),
+        "CHUA_CHON_CHI_DINH",
+    )
+    # Phòng KHÔNG chuyên vẫn nhận được từng dòng.
+    assert (await _nhan(bat, bat.sa2, o2))["da_nhan"] == [o2]
+    assert (await _o(bat, o1))["routing_status"] == "UNASSIGNED"
 
 
-async def test_huong_dan_thang_phong_chuyen(bat: RB) -> None:
-    """Có hướng dẫn thì tick theo hướng dẫn, ★ chỉ dùng khi chưa hướng dẫn."""
-    o1 = await _cd_o(bat, bat.sa1, bat.sa2)
-    await _sao(bat, bat.sa1)
-    await _huong_dan(bat, o1, bat.sa2)
-    k1 = await _sap_den(bat, bat.sa1)
-    k2 = await _sap_den(bat, bat.sa2)
-    assert k1 is not None and k1["chi_dinh"][0]["tick_san"] is False
-    assert k2 is not None and k2["chi_dinh"][0]["tick_san"] is True
+async def test_sap_den_moi_khach_hom_nay_ke_ca_chua_co_chi_dinh(bat: RB) -> None:
+    """Sắp đến = mọi khách check-in hôm nay chưa check-out, ở mọi phòng — khách
+    chưa có chỉ định ở phòng: ô không có gì để Nhận, nhãn nơi đang ở thật. Khách
+    check-out thì biến mất."""
+    for p in (bat.sa1, bat.sa2):
+        k = await _sap_den(bat, p)
+        assert k is not None
+        assert (k["chi_dinh"], k["so_nhan_duoc"], k["tinh_so"]) == ([], 0, False)
+        # Nhãn nơi khách đang ở thật, hoặc "chưa có chỉ định ở phòng này".
+        assert k["dang_o"]
+    await _loi(_nhan(bat, bat.sa1), "KHONG_CON_GI_DE_NHAN")
+    await bat.pool.execute(
+        "UPDATE visit SET closed_at = now() WHERE visit_id = $1::uuid", bat.visit_id
+    )
+    assert await _sap_den(bat, bat.sa1) is None
+    assert await _sap_den(bat, bat.sa2) is None
+
+
+async def test_cau_dang_o() -> None:
+    assert ntp.cau_dang_o("ROOM", "waiting", "SA1") == "đang chờ ở SA1"
+    assert ntp.cau_dang_o("ROOM", "serving", None) == "đang làm ở phòng khác"
+    assert ntp.cau_dang_o("DOCTOR", "serving", None) == "đang khám ở bàn khám"
+    assert ntp.cau_dang_o("DOCTOR", "waiting", "KB01") == "đang chờ khám"
+    assert ntp.cau_dang_o("TU_VAN", "serving", None) == "đang tư vấn"
+    assert ntp.cau_dang_o(None, None, None) is None
 
 
 async def test_nhan_them_roi_hoan_tac_rieng_chi_dinh(bat: RB) -> None:
@@ -811,16 +852,16 @@ async def test_sap_den_hien_ca_khach_dang_o_phong_khac_khong_dem(bat: RB) -> Non
     await _nhan(bat, bat.sa2, o1)
 
     k1 = await _sap_den(bat, bat.sa1)
-    assert k1 is not None and k1["tinh_so"] is False and k1["nhan_duoc"] is True
+    assert k1 is not None and k1["tinh_so"] is False and k1["so_nhan_duoc"] == 1
     [c] = k1["chi_dinh"]
     assert (c["trang_thai"], c["o_trang_thai"]) == ("o_phong_khac", "cho")
-    assert c["phong"] and c["nhan_duoc"] is True and c["tick_san"] is False
-    assert k1["dang_o_phong"]["phong_id"] == bat.sa2
+    assert c["phong"] and c["nhan_duoc"] is True
+    assert k1["dang_o"] == f"đang chờ ở {c['phong']}"
     assert await so_sap_den(bat.sa1) == truoc - 1
 
     # Đang LÀM ở phòng kia: vẫn hiện, nhãn "đang làm", không nhận chéo được.
     await _bat_dau(bat, o1)
     k1 = await _sap_den(bat, bat.sa1)
-    assert k1 is not None and k1["nhan_duoc"] is False
+    assert k1 is not None and k1["so_nhan_duoc"] == 0
     assert k1["chi_dinh"][0]["o_trang_thai"] == "lam"
     assert await so_sap_den(bat.sa1) == truoc - 1

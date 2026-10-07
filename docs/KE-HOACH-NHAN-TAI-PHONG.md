@@ -15,8 +15,8 @@ migration dải `20261007500000`, cổng API/web 8251/3251.
 3. Khách **chưa chốt ở quầy** vẫn hiện ở Sắp đến và Nhận được; **Bắt đầu làm** vẫn theo
    luật thu trước – làm sau / tick "Làm trước – thu sau". Quầy bỏ dịch vụ → tự rời hàng.
 4. **Không khoá cứng — nhận chéo:** B luôn nhận được, chỉ một nút xác nhận, không bắt
-   chọn lý do. Áp theo CHỈ ĐỊNH ĐƯỢC TICK (07/10).
-   - Chỉ định được tick đang CHỜ ở A → rời hàng A. Chỉ định không tick ở A: không đụng.
+   chọn lý do. Áp theo CHỈ ĐỊNH ĐƯỢC NHẬN (07/10).
+   - Chỉ định được nhận đang CHỜ ở A → rời hàng A. Chỉ định khác ở A: không đụng.
    - Khách đang LÀM ở A (A quên Xong) → đóng hàng chờ A, **lượt làm của A giữ mở**,
      thẻ ở A gắn nhãn đỏ "Khách đã sang phòng B lúc …"; A tự bấm Xong / Gián đoạn.
      Hệ thống không đoán thay A. (Bỏ hành vi cũ ở `service_execution_service.py`
@@ -37,7 +37,8 @@ migration dải `20261007500000`, cổng API/web 8251/3251.
     phòng (`service.room_released`) chỉ khi: `NHAN_CHEO` (phòng khác bấm Nhận) hoặc
     `BO_DICH_VU` (quầy bỏ dịch vụ). Ô "đổi phòng" của trưởng ca khi dây bật = CHỈ ghi
     hướng dẫn; khách sang phòng mới thì phòng ấy nhận chéo. Nhãn đỏ "Khách đã sang
-    phòng B lúc …" trên thẻ đang làm ở A giữ nguyên (không thêm chuông).
+    phòng B lúc …" trên thẻ đang làm ở A giữ nguyên, KÈM CHUÔNG (07/10 tối — mục
+    "Chuông nhận chéo" cuối tệp).
     Thời gian: chờ = Nhận→Bắt đầu; khám = Bắt đầu→Xong; đi lại = Xong/rời→Nhận phòng sau.
 8. **Mọi nút hoàn tác được:** Nhận → về Sắp đến, theo từng chỉ định vừa nhận (không
    đẻ việc trưởng ca như `invalidate`); Bắt đầu → về Đang chờ (có sẵn); Xong (có sẵn).
@@ -112,24 +113,72 @@ vì phòng trống thì `hang_cho.dem` trả None (đã sửa: luôn có ba số
    `clinic_config.room_node_chuyen` trước → sau). Sửa việc của phòng không xoá ★
    (`set_room_nodes` chỉ xoá bước bị bỏ). Cảnh báo nhẹ "chức năng chưa có phòng chuyên"
    (`overview.chua_co_phong_chuyen`), không chặn.
-2. **Sắp đến ở MỌI phòng làm được vẫn hiện tất cả khách** (không ẩn theo ★). Khách có
-   chỉ định tick sẵn lên đầu, nhãn ★ / "hướng dẫn: P. X". Khách đã chờ / làm ở phòng
-   này không ở Sắp đến của phòng (nhận tiếp bằng "Nhận thêm" trên ô khách). Chỉ định
-   đang CHỜ / đang LÀM ở phòng khác VẪN HIỆN ở Sắp đến mọi phòng làm được, nhãn "đang
-   chờ / đang làm ở P. X" (đang chờ thì nhận chéo được), nhưng KHÔNG vào số "sắp đến"
-   (`tinh_so` — đã đếm ở "đang chờ / đang làm" phòng kia).
+2. **Sắp đến = MỌI khách check-in hôm nay chưa check-out, cùng cơ sở, ở MỌI phòng dịch
+   vụ** (Tuyền 07/10 tối — "ngu ngu tí nhưng pick ra dễ"), kể cả khách chưa có chỉ định
+   nào phòng này làm được (ô không có nút Nhận, nhãn nơi đang ở thật: "đang chờ khám",
+   "đang khám ở …", "đang chờ / làm ở P. X", hoặc "chưa có chỉ định ở phòng này"). Khách
+   đang chờ / làm ở CHÍNH phòng này nằm ở nhóm Đang chờ / Đang làm, không lặp. Xếp: có
+   chỉ định nhận được mà ★ / hướng dẫn tới đây → có chỉ định nhận được → còn lại (thứ tự
+   check-in). Số "sắp đến" giữ luật: chỉ khách có chỉ định CHƯA VÀO PHÒNG NÀO mà phòng
+   làm được (`dem_sap_den`) — khách ở phòng khác đã đếm ở đó. Hai câu SQL
+   (`_KHACH_HOM_NAY_SQL` + `_CHI_DINH_SQL`), không theo từng khách.
 3. **Mỗi khách MỘT ô** ở mọi danh sách (sắp đến · đang chờ · đang làm · đã xong): trong
    ô các chỉ định phòng làm được + trạng thái (sắp đến [hướng dẫn: P. X] · chờ ở đây ·
    đang làm · xong · đang ở P. Y) — `hang_cho.chi_dinh_khach`, `sap_den_phong[].chi_dinh`.
-   Mọi con số đếm KHÁCH; mỗi khách đúng một nhóm (đang làm > đang chờ). Bắt đầu / Xong /
-   hoàn tác vẫn theo từng chỉ định.
-4. **Nhận theo từng chỉ định** (`nhan-vao-phong` thân `chi_dinh_ids`): tick sẵn chỉ định
-   hướng dẫn tới phòng; hoặc chưa hướng dẫn mà phòng là phòng chuyên ★. Còn lại để trống,
-   tick được. Phải tick ≥1 (`CHUA_CHON_CHI_DINH`). "Nhận thêm" = cùng lệnh. Hoàn tác
-   Nhận theo đúng chỉ định vừa nhận (`hoan-tac-nhan` thân `chi_dinh_ids`).
+   **Mỗi dòng một nút theo trạng thái**: sắp đến → [Nhận] · chờ ở đây → [Bắt đầu] ·
+   đang làm → [Xong]. Mọi con số đếm KHÁCH; mỗi khách đúng một nhóm (đang làm > đang chờ).
+4. **Nhận theo từng chỉ định — KHÔNG tick sẵn, KHÔNG hộp tick** (bỏ 07/10 tối):
+   [Nhận] trên dòng gửi `chi_dinh_ids=[id]`; nút ô-cấp **"Nhận cả N"** khi ≥2 chỉ định
+   nhận được (không gửi `chi_dinh_ids` = mọi chỉ định nhận được). Danh sách rỗng →
+   `CHUA_CHON_CHI_DINH`. Nhận chéo (chỉ định đang chờ ở phòng khác) hỏi một câu như cũ.
+   Hoàn tác Nhận theo đúng chỉ định vừa nhận (`hoan-tac-nhan` thân `chi_dinh_ids`).
+   **★ / hướng dẫn chỉ là nhãn + thứ tự xếp**, không quyết gì khi Nhận.
 5. Chỉ định không nhận vẫn ở Sắp đến của phòng khác, kèm "khách đang ở P. …".
 6. ~~Xong chỉ định cuối → tự nhả~~ — BỎ (7b): Xong chỉ đổi trạng thái chỉ định ấy.
 7. Quầy thu / bàn khám: ô hướng dẫn gợi ý sẵn phòng chuyên khi đúng MỘT phòng ★
    (`phong_chon_duoc[].goi_y`, `goi-y-phong.goi_y_chuyen`) — gợi ý, không tự lưu. Phiếu
    hướng dẫn chưa chọn phòng: in phòng chuyên (một phòng), không thì "các phòng làm được".
+
+## Chuông nhận chéo, 07/10 tối (Tuyền chốt)
+
+Phòng B nhận khách lúc phòng A còn ĐANG LÀM (A quên Xong) → chuông cho A. Bên nghe MỚI
+`chuong_nhan_cheo` (`events/consumers/chuong_nhan_cheo.py`), không sửa nơi phát:
+
+- Nghe `service.room_released` lý do `NHAN_CHEO` với `trang_thai_truoc = 'lam'` (A chỉ
+  đang CHỜ → không chuông). Lần làm (`attempt_id`) đã đóng trước khi tin tới → thôi.
+- Người nhận (đích danh, không trùng): người bấm Bắt đầu lần làm ấy
+  (`service_execution_attempt.started_by`) + nhân sự có lịch ở phòng A hôm nay
+  (`ca_truc._lich_hom_nay`, cùng nguồn cửa ca trực).
+- Nội dung: "Khách <tên (mã)> đã sang <P. B> lúc HH:MM — bấm Xong hoặc Gián đoạn cho
+  <dịch vụ> ở <P. A>". Bấm mở `/phong/<A>?chi_dinh=<chỉ định>` (màn chọn sẵn chỉ định).
+- `thong_bao.nguon = 'nhan_cheo'`, `nguon_id = 'nhan_cheo:<attempt_id>'` — giao tin lặp
+  không nhân đôi (khoá "một việc đang mở một lần").
+- Tự đóng (đã xử lý, người bấm + ghi chú) khi lần làm ấy `service.completed` /
+  `service.interrupted` / `service.start_cancelled`. Người nhận cũng tự bấm "đã xử lý".
+- Test: `src/tests/services/test_chuong_nhan_cheo_db.py`.
+
+## Bố cục màn phòng (Tuyền chốt 07/10 tối — thay "ô khách liệt kê chỉ định")
+
+- Cột trái (Sắp đến · Đang chờ · Đang làm · Đã xong): MỖI KHÁCH MỘT DÒNG GỌN — số ·
+  tên · mã · "N chỉ định" · nhãn (đang ở đâu / hướng dẫn tới đây / ★ / đã sang P. X).
+  Không liệt kê từng chỉ định trong danh sách. Tiêu đề đếm KHÁCH.
+- Bấm dòng → khung phải (`KhungChiDinhKhach`): chỉ định phòng này làm được, mỗi dòng
+  một nút theo trạng thái máy chủ: [Nhận] · [Bắt đầu] · [Xong] + [Nhận cả N]; ô chọn
+  bác sĩ cạnh nút Nhận (phòng ≥2 BS). Bấm tên chỉ định → phiếu của nó mở ngay dưới
+  (`KhachTrongPhong`); [Bắt đầu] / [Xong] trên dòng chạy đúng lệnh của khung phiếu.
+- Chuông nhận chéo mở `/phong/<A>?chi_dinh=<id>` → chọn sẵn khách + chỉ định; thẻ bị
+  nhận chéo có lối Gián đoạn.
+- Mốc thời gian: chỉ mốc người bấm (Nhận, Bắt đầu, Xong…). Thời gian từ lúc rời phòng
+  tới lúc phòng sau Nhận CHƯA đo được (chưa có thiết bị) — không suy diễn, không là lỗi.
+
+## Hai chỉ định cùng phòng, DV1 đang làm (07/10 tối)
+
+Bắt đầu DV2 khi DV1 CÙNG PHÒNG còn đang làm KHÔNG phải "khách ở phòng khác" (trước
+đây `_giai_phong_khach` trả PATIENT_BUSY "khách đang ở phòng <chính phòng này>", rồi
+đóng hàng DV1 + nhãn đỏ). Nay: 409 `CUNG_PHONG_DANG_LAM` (kèm `dich_vu`, `order_id`
+DV1) → màn hỏi tại chỗ "<DV1> đang làm — Xong <DV1> rồi bắt đầu <DV2>?" với MỘT nút
+[Xong <DV1> & bắt đầu <DV2>] → `bat-dau` thân `xong_truoc: true`: cùng giao dịch Xong
+DV1 (`service.completed`) rồi Bắt đầu DV2 (`service.started`), người bấm, cùng lúc.
+Không bao giờ tự Xong khi chưa bấm nút. Khác phòng giữ luật cũ. Áp cả khi dây tắt.
+Test: `src/tests/services/test_cung_phong_dang_lam_db.py`.
 

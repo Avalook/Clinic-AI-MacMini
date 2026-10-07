@@ -298,6 +298,7 @@ class ServiceExecutionService:
         identity: StaffIdentity,
         idempotency_key: str | None = None,
         giai_phong: bool = False,
+        xong_truoc: bool = False,
     ) -> dict[str, Any]:
         """`StartService` — mở một lần làm mới cho chỉ định này.
 
@@ -306,6 +307,10 @@ class ServiceExecutionService:
         kèm tên phòng; màn hỏi "chuyển sang đây?" rồi gửi lại với
         `giai_phong=True` — CÙNG giao dịch dừng lần làm ở phòng kia rồi mới
         bắt đầu ở đây (`_giai_phong_khach`).
+
+        `xong_truoc` (07/10/2026): dịch vụ đang làm ở CHÍNH phòng này → 409
+        CUNG_PHONG_DANG_LAM; người bấm [Xong <DV1> & bắt đầu <DV2>] gửi lại với
+        cờ này — cùng giao dịch Xong DV1 rồi Bắt đầu DV2 (`_xong_cung_phong`).
         """
         cid = identity.clinic_id
         payload = {
@@ -313,6 +318,7 @@ class ServiceExecutionService:
             "exec_rev": expected_execution_revision,
             "routing_rev": expected_routing_revision,
             "giai_phong": bool(giai_phong),
+            "xong_truoc": bool(xong_truoc),
         }
         async with self._pool.acquire() as conn, conn.transaction():
             await _doi_quyen_lam(conn, identity, QUYEN_BAT_DAU)
@@ -398,7 +404,14 @@ class ServiceExecutionService:
             # Khách đang làm ở phòng khác: hỏi trước, chuyển khi người bấm đồng
             # ý (V4 — bỏ khoá PATIENT_BUSY cứng, 30/09/2026).
             await self._giai_phong_khach(
-                conn, cid, vid, order_id, don, identity, giai_phong=giai_phong
+                conn,
+                cid,
+                vid,
+                order_id,
+                don,
+                identity,
+                giai_phong=giai_phong,
+                xong_truoc=xong_truoc,
             )
             moi = await self._doi_trang_thai(conn, cid, order_id, "IN_PROGRESS")
             # KHÁCH RỜI CHỖ CŨ SANG PHÒNG NÀY. Luồng chuẩn (Tuyền 23/09/2026):
@@ -525,39 +538,7 @@ class ServiceExecutionService:
                     "EXECUTION_STATE_INVALID", "Chỉ định không đang được làm."
                 )
             lan = await self._lan_dang_chay(conn, cid, order_id, attempt_id)
-
-            await conn.execute(
-                "UPDATE service_execution_attempt"
-                "   SET status = 'COMPLETED', completed_by = $3::uuid,"
-                "       completed_at = now(), updated_at = now(),"
-                "       ghi_chu = coalesce($4, ghi_chu)"
-                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
-                cid,
-                lan["id"],
-                identity.staff_id,
-                ghi,
-            )
-            moi = await self._doi_trang_thai(
-                conn, cid, order_id, "COMPLETED", nguoi_lam=identity.staff_id
-            )
-            await self._dong_hang_cho(conn, cid, order_id)
-
-            await emit_event(
-                conn,
-                ten="service.completed",
-                clinic_id=cid,
-                aggregate_id=order_id,
-                so_ke_tiep=True,  # một dãy số cho cả chỉ định (emit.py)
-                payload=DichVuDaXong(
-                    visit_id=vid,
-                    service_order_id=order_id,
-                    attempt_id=lan["id"],
-                    attempt_no=lan["attempt_no"],
-                    execution_revision=moi,
-                ),
-                boi=nguoi(identity),
-                correlation_id=vid,
-            )
+            moi = await self._ghi_xong(conn, cid, vid, order_id, lan, identity, ghi)
             ket_qua = {
                 "ok": True,
                 "order_id": order_id,
@@ -1706,6 +1687,109 @@ class ServiceExecutionService:
             raise ValidationError("Không tìm thấy chỉ định này.")
         return don, vid
 
+    async def _ghi_xong(
+        self,
+        conn: asyncpg.Connection,
+        cid: str,
+        vid: str,
+        order_id: str,
+        lan: asyncpg.Record,
+        identity: StaffIdentity,
+        ghi: str | None,
+    ) -> int:
+        """Lần làm ``lan`` xong: đóng lần làm, chỉ định COMPLETED, đóng chỗ chờ,
+        phát `service.completed`. Người gọi đã khoá + kiểm quyền. Trả revision."""
+        await conn.execute(
+            "UPDATE service_execution_attempt"
+            "   SET status = 'COMPLETED', completed_by = $3::uuid,"
+            "       completed_at = now(), updated_at = now(),"
+            "       ghi_chu = coalesce($4, ghi_chu)"
+            " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+            cid,
+            lan["id"],
+            identity.staff_id,
+            ghi,
+        )
+        moi = await self._doi_trang_thai(
+            conn, cid, order_id, "COMPLETED", nguoi_lam=identity.staff_id
+        )
+        await self._dong_hang_cho(conn, cid, order_id)
+        await emit_event(
+            conn,
+            ten="service.completed",
+            clinic_id=cid,
+            aggregate_id=order_id,
+            so_ke_tiep=True,  # một dãy số cho cả chỉ định (emit.py)
+            payload=DichVuDaXong(
+                visit_id=vid,
+                service_order_id=order_id,
+                attempt_id=lan["id"],
+                attempt_no=lan["attempt_no"],
+                execution_revision=moi,
+            ),
+            boi=nguoi(identity),
+            correlation_id=vid,
+        )
+        return moi
+
+    async def _xong_cung_phong(
+        self,
+        conn: asyncpg.Connection,
+        clinic_id: str,
+        visit_id: str,
+        order_id: str,
+        giu: asyncpg.Record,
+        don: asyncpg.Record,
+        identity: StaffIdentity,
+        *,
+        xong_truoc: bool,
+    ) -> None:
+        """Khách đang làm DV1 ở CHÍNH phòng này lúc bấm Bắt đầu DV2 (07/10/2026).
+
+        Không phải "khách ở phòng khác" — không nhận chéo, không đóng hàng, không
+        nhãn đỏ. Chưa bấm nút → 409 CUNG_PHONG_DANG_LAM kèm tên DV1 để màn hỏi
+        tại chỗ. Bấm [Xong DV1 & bắt đầu DV2] (`xong_truoc`) → cùng giao dịch Xong
+        DV1 (sự kiện `service.completed` thật, người bấm) rồi Bắt đầu DV2. Không
+        bao giờ tự Xong khi người dùng chưa bấm."""
+        dv1 = giu["service_name"] or "Dịch vụ đang làm"
+        oid = giu["order_id"]
+        if not xong_truoc:
+            dv2 = await conn.fetchval(
+                "SELECT service_name FROM service_order"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                clinic_id,
+                order_id,
+            )
+            raise LuotKhamConflictError(
+                "CUNG_PHONG_DANG_LAM",
+                f"{dv1} đang làm — Xong {dv1} rồi bắt đầu {dv2 or 'dịch vụ này'}?",
+                {
+                    "ma": "CUNG_PHONG_DANG_LAM",
+                    "dich_vu": dv1,
+                    "dich_vu_moi": dv2,
+                    "order_id": oid,
+                },
+            )
+        await doi_quyen(conn, identity, QUYEN_XONG, phong_id=don["room_id"])
+        o = await conn.fetchrow(
+            "SELECT execution_status FROM service_order"
+            " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
+            clinic_id,
+            oid,
+        )
+        lan = await conn.fetchrow(
+            "SELECT id::text, attempt_no FROM service_execution_attempt"
+            " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+            "   AND status = 'IN_PROGRESS' FOR UPDATE",
+            clinic_id,
+            oid,
+        )
+        if o is None or o["execution_status"] != "IN_PROGRESS" or lan is None:
+            raise LuotKhamConflictError(
+                "VERSION_CONFLICT", f"{dv1} không còn đang làm — tải lại rồi bấm."
+            )
+        await self._ghi_xong(conn, clinic_id, visit_id, oid, lan, identity, None)
+
     async def _giai_phong_khach(
         self,
         conn: asyncpg.Connection,
@@ -1716,6 +1800,7 @@ class ServiceExecutionService:
         identity: StaffIdentity,
         *,
         giai_phong: bool,
+        xong_truoc: bool = False,
     ) -> None:
         """Khách đang làm dịch vụ KHÁC ở phòng khác lúc bấm Bắt đầu (V4).
 
@@ -1752,6 +1837,18 @@ class ServiceExecutionService:
             order_id,
         )
         if giu is None:
+            return
+        if don["room_id"] is not None and giu["room_id"] == str(don["room_id"]):
+            await self._xong_cung_phong(
+                conn,
+                clinic_id,
+                visit_id,
+                order_id,
+                giu,
+                don,
+                identity,
+                xong_truoc=xong_truoc,
+            )
             return
         ten = giu["ten_phong"] or "khác"
         # Dây Nhận tại phòng BẬT (07/10/2026): phòng kia KHÔNG bị dừng hộ — đóng
