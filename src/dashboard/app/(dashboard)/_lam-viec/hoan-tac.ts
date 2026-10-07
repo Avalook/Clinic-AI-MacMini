@@ -21,7 +21,9 @@ export type LenhHoanTac =
   /** id = CHỈ ĐỊNH: huỷ xếp phòng (chưa bắt đầu) — chỉ định về "chưa xếp phòng". */
   | "huy-xep-phong-v1"
   /** id = CHỈ ĐỊNH: thu hồi kết quả ĐÃ DUYỆT về nháp. */
-  | "thu-hoi-ket-qua";
+  | "thu-hoi-ket-qua"
+  /** id = LƯỢT (+ room_id, chi_dinh_ids): hoàn tác Nhận — các chỉ định vừa nhận về "Sắp đến". */
+  | "hoan-tac-nhan";
 
 export function lenhHoanTac(
   lenh: LenhHoanTac,

@@ -39,6 +39,9 @@ export interface PhongChon {
   vang_nhat?: boolean;
   /** Phòng nhiều bác sĩ (30/09/2026): bác sĩ trực hôm nay — chỉ khi ≥2. */
   bac_si?: LuaChonBacSi[];
+  /** Phòng chuyên ★ (07/10/2026); `goi_y` = phòng chuyên DUY NHẤT — máy chủ gợi ý. */
+  chuyen?: boolean;
+  goi_y?: boolean;
 }
 
 export interface DongQuay {
@@ -63,6 +66,8 @@ export interface DongQuay {
   /** Bác sĩ quầy đã chọn trong phòng nhiều bác sĩ. */
   bac_si_lam_id?: string | null;
   can_xep_phong?: boolean;
+  /** Dây Nhận tại phòng bật (07/10/2026): ô phòng là hướng dẫn, không bắt buộc. */
+  huong_dan?: boolean;
 }
 
 export interface QuayThu {
@@ -402,14 +407,33 @@ function DanhSach({
                   onChange={(e) => void datPhong(d.id, e.target.value)}
                   className="w-full rounded-control border border-line bg-surface px-2 py-1 text-meta text-ink-soft"
                 >
-                  <option value="">{doiTac ? "— Lấy mẫu: vui lòng chọn phòng —" : "— Vui lòng chọn phòng —"}</option>
+                  <option value="">
+                    {d.huong_dan
+                      ? "— Hướng dẫn phòng (không bắt buộc) —"
+                      : doiTac
+                        ? "— Lấy mẫu: vui lòng chọn phòng —"
+                        : "— Vui lòng chọn phòng —"}
+                  </option>
                   {d.phong_chon_duoc.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.ten} · {p.dang_cho} đang chờ
+                      {p.ten}
+                      {p.chuyen ? " ★" : ""} · {p.dang_cho} đang chờ
                     </option>
                   ))}
                 </select>
               ) : null}
+              {/* GỢI Ý phòng chuyên ★ (07/10/2026) — chỉ gợi ý, người bấm mới lưu. */}
+              {(() => {
+                const goiY = d.huong_dan && !d.phong_du_kien_id ? d.phong_chon_duoc?.find((p) => p.goi_y) : undefined;
+                return co && d.can_xep_phong && goiY ? (
+                  <p className="flex w-full flex-wrap items-center gap-2 text-meta text-ink-muted">
+                    Gợi ý: {goiY.ten} ★ (phòng chuyên, chưa lưu)
+                    <Button type="button" size="sm" variant="soft" onClick={() => void datPhong(d.id, goiY.id)}>
+                      Hướng dẫn tới đây
+                    </Button>
+                  </p>
+                ) : null;
+              })()}
               {(() => {
                 const phongId = d.phong_du_kien_id ?? "";
                 const bs = d.phong_chon_duoc?.find((p) => p.id === phongId)?.bac_si;

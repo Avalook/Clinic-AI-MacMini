@@ -101,6 +101,11 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "mo-lai-luot": (id) => `/api/v1/luot-kham/visits/${id}/mo-lai-luot`,
   // id = CHỈ ĐỊNH: thu hồi lần bác sĩ duyệt kết quả (về chờ duyệt).
   "thu-hoi-ket-qua": (id) => `/api/v1/luot-kham/orders/${id}/thu-hoi-duyet`,
+  // NHẬN KHÁCH TẠI PHÒNG (07/10/2026, dây `nhan_tai_phong`) — id là LƯỢT KHÁM,
+  // thân { room_id, chi_dinh_ids?, xac_nhan?, bac_si_lam_id? }. Không có lệnh
+  // Nhả: chỉ ghi sự kiện thật người bấm (Tuyền 07/10).
+  "nhan-vao-phong": (id) => `/api/v1/luot-kham/visits/${id}/nhan-vao-phong`,
+  "hoan-tac-nhan": (id) => `/api/v1/luot-kham/visits/${id}/hoan-tac-nhan`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */
