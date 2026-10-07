@@ -835,10 +835,10 @@ class DaXepPhong(PayloadSuKien):
 
 
 class KhachRoiPhong(PayloadSuKien):
-    """`service.room_released` — mốc NHẢ: khách rời hàng một phòng mà chỉ định
-    chưa làm xong (Tuyền 07/10/2026, mục 7b). `ly_do`: DIEU_PHOI (phòng / trưởng
-    ca bấm Nhả) · NHAN_CHEO (phòng khác nhận khi phòng này quên) · BO_DICH_VU
-    (quầy bỏ dịch vụ). Bấm Xong là tự nhả — mốc ấy là `service.completed`.
+    """`service.room_released` — khách rời hàng một phòng mà chỉ định chưa làm
+    xong, CHỈ do thao tác thật của người bấm (Tuyền 07/10/2026 — không có nút
+    Nhả, không tự nhả). `ly_do`: NHAN_CHEO (phòng khác bấm Nhận) · BO_DICH_VU
+    (quầy bỏ dịch vụ). Bấm Xong đóng đúng chỉ định ấy — mốc là `service.completed`.
     `trang_thai_truoc` = 'cho' / 'lam': khách đang làm thì lần làm GIỮ mở
     (`attempt_id`), phòng tự bấm Xong / Gián đoạn."""
 
@@ -856,17 +856,6 @@ class KhachRoiPhong(PayloadSuKien):
 class NhanVaoPhongDaHoanTac(PayloadSuKien):
     """`service.room_receive_undone` — hoàn tác Nhận: chỉ định về "Sắp đến"
     (không như huỷ xếp phòng — không đẻ việc cho trưởng ca)."""
-
-    visit_id: str
-    service_order_id: str
-    room_id: str
-    hoan_tac_event_id: str | None = None
-    routing_revision: int
-
-
-class RoiPhongDaHoanTac(PayloadSuKien):
-    """`service.room_release_undone` — hoàn tác Nhả: khách về lại hàng chờ
-    phòng ấy, giữ giờ vào hàng cũ."""
 
     visit_id: str
     service_order_id: str
@@ -1458,7 +1447,7 @@ DANH_MUC: dict[str, SuKien] = {
             theo_thu_tu=True,
         ),
         # Nhận khách tại phòng (07/10/2026) — Nhận = `service.routed` nguồn
-        # 'tai_phong'; bốn sự kiện dưới là phần còn lại của vòng Nhận / Nhả.
+        # 'tai_phong'; ba sự kiện dưới là rời phòng, hoàn tác Nhận, hướng dẫn.
         SuKien(
             ten="service.room_released",
             version=1,
@@ -1476,16 +1465,6 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="service_routing",
             payload=NhanVaoPhongDaHoanTac,
             nhan="Hoàn tác nhận khách vào phòng",
-            consumers=[DONG_THOI_GIAN_LUOT],
-            theo_thu_tu=True,
-        ),
-        SuKien(
-            ten="service.room_release_undone",
-            version=1,
-            aggregate_type="service_order",
-            source_module="service_routing",
-            payload=RoiPhongDaHoanTac,
-            nhan="Hoàn tác nhả khách — về lại hàng chờ phòng",
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
@@ -1969,7 +1948,6 @@ __all__ = [
     "KhachRoiPhong",
     "NhanVaoPhongDaHoanTac",
     "PhienKhamTiepTuc",
-    "RoiPhongDaHoanTac",
     "TienDichVuDaThu",
     "TienThuocDaThu",
     "CHUONG",
