@@ -79,6 +79,12 @@ async def _lich_ban_kham(pool: asyncpg.Pool, ca: Ca) -> str:  # noqa: F811
     ma = f"T-BK-{uuid.uuid4().hex[:8]}"
     async with pool.acquire() as conn:
         phong = await _phong(conn, ca.loc, ma[-8:])
+        # Phòng bàn khám KHÔNG nhận dịch vụ siêu âm: bài khác chạy song song
+        # trên cùng DB tự xếp siêu âm vào đây thì "đang ở" mang thêm tên bác sĩ
+        # trực → bài hành trình khách đỏ oan (CI máy 07/10).
+        await conn.execute(
+            "DELETE FROM clinic_room_node WHERE room_id = $1::uuid", phong
+        )
         await conn.execute(
             "INSERT INTO vi_tri_lam_viec (clinic_id, code, ten, nhom_nghe, room_id)"
             " VALUES ($1::uuid, $2, 'Bàn khám test', 'BAC_SI', $3::uuid)",
@@ -433,6 +439,10 @@ async def _lam_o_phong(pool: asyncpg.Pool, ca: Ca, order: str) -> None:  # noqa:
     )
     async with pool.acquire() as conn:
         phong = await _phong(conn, ca.loc, uuid.uuid4().hex[:8])
+        # Chỉ đúng bước của chỉ định — không thành phòng siêu âm thừa cho bài khác.
+        await conn.execute(
+            "DELETE FROM clinic_room_node WHERE room_id = $1::uuid", phong
+        )
         await conn.execute(
             "INSERT INTO clinic_room_node (clinic_id, room_id, node_code)"
             " VALUES ($1::uuid, $2::uuid, $3) ON CONFLICT DO NOTHING",
