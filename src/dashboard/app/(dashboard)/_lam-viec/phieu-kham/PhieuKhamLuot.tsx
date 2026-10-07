@@ -50,6 +50,7 @@ import DatLichTaiKham from "./DatLichTaiKham";
 import { KhungDatLichTaiKham } from "./ONhapPhieu";
 import PhieuKham, { type KetQuaLuu, type ThamChieu } from "./PhieuKham";
 import KetQuaChiDinh from "./KetQuaChiDinh";
+import GhiChuLuot from "./GhiChuLuot";
 import KhoiDichVuHoSo from "./KhoiDichVuHoSo";
 import KhoiDieuTri from "./KhoiDieuTri";
 import LichSuKham from "../LichSuKham";
@@ -498,6 +499,8 @@ export default function PhieuKhamLuot({
     return (
       <div className="space-y-3">
         {khoiDichVu}
+        {/* Lượt "Khác": MỘT ô chữ to tự do (máy chủ quyết có hiện không). */}
+        <GhiChuLuot visitId={visitId} choGhi={choGhi} />
         <KhoiDieuTri visitId={visitId} choGhi={choGhi} />
         {ketQua.length > 0 ? (
           <section className="space-y-2 rounded-card border border-hairline bg-surface p-4">
@@ -581,6 +584,8 @@ export default function PhieuKhamLuot({
             <>
               {khoiDichVu}
               <HanhTrinhLuot visitId={visitId} />
+              {/* Lượt "Khác" đã chọn ghi phiếu đầy đủ: ô ghi chú vẫn ở đây. */}
+              <GhiChuLuot visitId={visitId} choGhi={choGhi} />
             </>
           )
         }

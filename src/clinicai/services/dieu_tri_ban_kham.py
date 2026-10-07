@@ -20,6 +20,7 @@ thu đúng dòng giá, một lần; bỏ chỉ định đã thu → tiền thừ
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import asyncpg
@@ -28,6 +29,7 @@ from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import ValidationError
 from clinicai.permissions.doc_bang import doi_mot_quyen
+from clinicai.phieu_kham.mau_dieu_tri import MAU_PHIEU_DIEU_TRI
 from clinicai.phieu_kham.mau_goi_y import mau_cho_cac_dich_vu
 from clinicai.services.finance_gate import READY_STATES, states_for_orders
 from clinicai.services.lenh_kham_core import ma_uuid
@@ -87,13 +89,62 @@ SELECT o.id::text AS order_id, o.service_code, o.service_name,
  ORDER BY o.created_at, o.id
 """
 
-_PHIEU_SQL = """
-SELECT service_order_id::text AS order_id, id::text AS phieu_id, form_id,
-       trang_thai, revision
-  FROM public.form_instance
- WHERE clinic_id = $1::uuid AND service_order_id = ANY($2::uuid[])
- ORDER BY (trang_thai = 'READY') DESC, hoan_tat_luc DESC NULLS LAST, tao_luc DESC
+#: Phiếu của chỉ định — PHIẾU ĐIỀU TRỊ trước (thẻ vẽ đúng phiếu 2 ô dù chỉ định
+#: từng có phiếu mẫu khác, vd "Kết quả chung" mở trước khi gắn mẫu).
+_PHIEU_SQL = f"""
+SELECT i.service_order_id::text AS order_id, i.id::text AS phieu_id, i.form_id,
+       i.trang_thai, i.revision, i.du_lieu, i.sua_luc, d.khung,
+       s.full_name AS nguoi_sua
+  FROM public.form_instance i
+  JOIN public.form_definition d
+    ON d.clinic_id = i.clinic_id AND d.form_id = i.form_id
+   AND d.version = i.version
+  LEFT JOIN public.staff s ON s.id = i.nhap_boi
+ WHERE i.clinic_id = $1::uuid AND i.service_order_id = ANY($2::uuid[])
+ ORDER BY (i.form_id = 'KQ_{MAU_PHIEU_DIEU_TRI}') DESC,
+          (i.trang_thai = 'READY') DESC, i.hoan_tat_luc DESC NULLS LAST,
+          i.tao_luc DESC
 """
+
+
+def o_phieu(khung: Any, du_lieu: Any) -> list[dict[str, Any]]:
+    """Các ô chữ của phiếu (MỘT nhãn mỗi ô — tên ô, không lặp tên mục) + giá
+    trị đang lưu, để thẻ chỉ đọc / bản in vẽ — hàm thuần, không ném."""
+    k = json.loads(khung) if isinstance(khung, str) else khung
+    d = json.loads(du_lieu) if isinstance(du_lieu, str) else du_lieu
+    if not isinstance(k, list) or not isinstance(d, dict):
+        return []
+    ra: list[dict[str, Any]] = []
+    for muc in k:
+        for o in (muc.get("block") or []) if isinstance(muc, dict) else []:
+            if not isinstance(o, dict) or not o.get("ma"):
+                continue
+            gt = d.get(o["ma"])
+            gia_tri = gt.get("gia_tri") if isinstance(gt, dict) else None
+            ra.append(
+                {
+                    "ma": o["ma"],
+                    "ten": o.get("ten") or o["ma"],
+                    "gia_tri": gia_tri if isinstance(gia_tri, str) else "",
+                }
+            )
+    return ra
+
+
+_LUOT_SQL = """
+SELECT status, closed_at FROM public.visit
+ WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+"""
+
+#: Lượt đã check-out / đã đóng: thẻ chỉ đọc, lệnh bị từ chối (Tuyền 07/10/2026 —
+#: staging: 15:37 vẫn bấm làm tại bàn khám cho khách check-out lúc 15:32).
+CAU_LUOT_DA_DONG = "Lượt đã check-out — muốn làm tiếp thì Mở lại lượt trước."
+
+
+def luot_da_dong(status: str | None, closed_at: Any) -> bool:
+    """Lượt đã check-out (`closed_at`) hoặc không còn sống — hàm thuần."""
+    return closed_at is not None or status not in ("OPEN", "IN_PROGRESS")
+
 
 #: Nhãn trạng thái — máy chủ nói, màn chỉ vẽ.
 NHAN = {
@@ -137,13 +188,10 @@ async def doc_the(
             QUYEN_LAM_TAI_BAN_KHAM,
             cau="Bạn không có quyền xem hồ sơ khám của lượt này.",
         )
-        if not await conn.fetchval(
-            "SELECT EXISTS (SELECT 1 FROM public.visit"
-            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid)",
-            cid,
-            vid,
-        ):
+        luot = await conn.fetchrow(_LUOT_SQL, cid, vid)
+        if luot is None:
             raise NotFoundError("Không tìm thấy lượt khám.")
+        chi_doc = luot_da_dong(luot["status"], luot["closed_at"])
         rows = await conn.fetch(_THE_SQL, cid, vid)
         ids = [r["order_id"] for r in rows]
         tien = await states_for_orders(conn, cid, ids)
@@ -153,7 +201,18 @@ async def doc_the(
         )
         phieu: dict[str, dict[str, Any]] = {}
         for p in await conn.fetch(_PHIEU_SQL, cid, ids):
-            phieu.setdefault(p["order_id"], dict(p))
+            phieu.setdefault(
+                p["order_id"],
+                {
+                    "phieu_id": p["phieu_id"],
+                    "form_id": p["form_id"],
+                    "trang_thai": p["trang_thai"],
+                    "revision": p["revision"],
+                    "sua_luc": _iso(p["sua_luc"]),
+                    "nguoi_sua": p["nguoi_sua"],
+                    "o": o_phieu(p["khung"], p["du_lieu"]),
+                },
+            )
     the = []
     for r in rows:
         oid = r["order_id"]
@@ -185,19 +244,25 @@ async def doc_the(
                 "attempt_id": r["attempt_id"] if dang_ban_kham else None,
                 "execution_revision": int(r["execution_revision"] or 0),
                 "da_thu": bool(t is not None and t.finance_state in READY_STATES),
-                # Nút — máy chủ quyết, màn chỉ vẽ.
-                "lam_duoc": tt == "CHUA_LAM" and lam_duoc,
-                "ly_do_khong_lam": cau if tt == "CHUA_LAM" and not lam_duoc else None,
-                "xong_duoc": dang_ban_kham,
-                "huy_lam_duoc": dang_ban_kham,
-                "hoan_tac_xong_duoc": xong_ban_kham,
+                # Nút — máy chủ quyết, màn chỉ vẽ. Lượt đã check-out: chỉ đọc.
+                "lam_duoc": not chi_doc and tt == "CHUA_LAM" and lam_duoc,
+                "ly_do_khong_lam": (
+                    CAU_LUOT_DA_DONG
+                    if chi_doc and tt in ("CHUA_LAM", "DANG_LAM_BAN_KHAM")
+                    else cau
+                    if tt == "CHUA_LAM" and not lam_duoc
+                    else None
+                ),
+                "xong_duoc": not chi_doc and dang_ban_kham,
+                "huy_lam_duoc": not chi_doc and dang_ban_kham,
+                "hoan_tac_xong_duoc": not chi_doc and xong_ban_kham,
                 "mau": m["mau"],
                 "mau_chon_san": (ph["form_id"].removeprefix("KQ_") if ph else None)
                 or m["chon_san"],
                 "phieu": ph,
             }
         )
-    return {"visit_id": vid, "the": the}
+    return {"visit_id": vid, "chi_doc": chi_doc, "the": the}
 
 
 THAO_TAC = frozenset({"lam", "xong", "huy-lam", "hoan-tac-xong"})
@@ -234,6 +299,9 @@ async def thao_tac(
             oid,
             vid,
         )
+        luot = await conn.fetchrow(_LUOT_SQL, cid, vid)
+    if luot is None or luot_da_dong(luot["status"], luot["closed_at"]):
+        raise ValidationError(CAU_LUOT_DA_DONG)
     if not la_dieu_tri:
         raise ValidationError(
             "Chỉ làm tại bàn khám được chỉ định ĐIỀU TRỊ của lượt này."

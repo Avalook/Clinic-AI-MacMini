@@ -133,6 +133,24 @@ export interface ChiDinhVaKetQua {
   bat_buoc?: boolean;
   /** Làm ở đối tác: trạng thái bàn đối tác. null = làm tại phòng khám. */
   doi_tac?: TrangThaiDoiTac | null;
+  /** Chỉ định ĐIỀU TRỊ (nhóm DIEU_TRI — máy chủ suy theo dữ liệu, 07/10/2026):
+   *  bản in lượt xếp vào mục "Điều trị" (phiếu 2 ô), không vào CLS. */
+  dieu_tri?: boolean;
+}
+
+/** Ô đã ghi của PHIẾU ĐIỀU TRỊ một chỉ định (mỗi ô một nhãn — tên ô, không lặp
+ *  tên mục) — bản in lượt. Phiếu điều trị không có bước Hoàn tất nên máy chủ trả
+ *  nội dung cả khi phiếu còn DRAFT. Rác / thiếu → mảng rỗng, không ném. */
+export function oPhieuDieuTri(c: ChiDinhVaKetQua): { ma: string; ten: string; gia: string }[] {
+  const k = c.ket_qua.find((x) => x.loai === "PHIEU" && x.form_id === "KQ_PHIEU_DIEU_TRI" && x.khung);
+  if (!k || !Array.isArray(k.khung)) return [];
+  const duLieu = (k.du_lieu ?? {}) as Record<string, { gia_tri?: unknown } | undefined>;
+  return (k.khung as { block?: { ma?: string; ten?: string }[] }[])
+    .flatMap((m) => m.block ?? [])
+    .flatMap((o) => {
+      const g = o.ma ? duLieu[o.ma]?.gia_tri : null;
+      return o.ma && typeof g === "string" && g.trim() ? [{ ma: o.ma, ten: o.ten ?? o.ma, gia: g }] : [];
+    });
 }
 
 export type TrangThaiDoiTac = "CHO_LAY_MAU" | "DA_LAY_MAU" | "DA_NHAN_MAU" | "DA_GUI_KET_QUA";

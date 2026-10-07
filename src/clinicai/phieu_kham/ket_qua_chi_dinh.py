@@ -25,6 +25,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.phieu_kham.khung import FORM_IDS
+from clinicai.phieu_kham.mau_dieu_tri import MAU_KHONG_HOAN_TAT
 from clinicai.phieu_kham.mau_goi_y import mau_cho_cac_dich_vu
 from clinicai.services.doi_tac_service import (
     LA_VIEC_DOI_TAC_SQL,
@@ -40,6 +41,9 @@ _PHIEU_KHONG_PHAI_KET_QUA = list(FORM_IDS)
 
 def _tom_tat_phieu(r: asyncpg.Record) -> dict[str, Any]:
     san_sang = r["trang_thai"] == "READY"
+    # Phiếu điều trị không có bước Hoàn tất (07/10/2026): lưu là ghi nhận —
+    # nội dung đọc được (bản in lượt, hồ sơ) dù chưa ai bấm chốt.
+    doc_duoc = san_sang or r["form_id"] in MAU_KHONG_HOAN_TAT
     return {
         "loai": "PHIEU",
         "phieu_id": str(r["id"]),
@@ -53,8 +57,8 @@ def _tom_tat_phieu(r: asyncpg.Record) -> dict[str, Any]:
         # Bản chuyên môn thứ mấy: 1 + số lần sửa đã xác nhận.
         "ban_thu": 1 + int(r["so_lan_sua"]) if san_sang else None,
         "hoan_tat_luc": r["hoan_tat_luc"].isoformat() if r["hoan_tat_luc"] else None,
-        "khung": json.loads(r["khung"]) if san_sang else None,
-        "du_lieu": json.loads(r["du_lieu"]) if san_sang else None,
+        "khung": json.loads(r["khung"]) if doc_duoc else None,
+        "du_lieu": json.loads(r["du_lieu"]) if doc_duoc else None,
     }
 
 
@@ -75,6 +79,10 @@ async def doc_ket_qua_theo_chi_dinh(
     conn: asyncpg.Connection, *, clinic_id: str, visit_id: str
 ) -> list[dict[str, Any]]:
     """Mỗi chỉ định (chưa huỷ) của lượt + kết quả của CHÍNH nó."""
+    # Nhóm ĐIỀU TRỊ theo DỮ LIỆU (dịch vụ mà loại khám nhóm DIEU_TRI trỏ tới) —
+    # bản in lượt tách mục "Điều trị" (07/10/2026). Nhập muộn: tránh vòng import.
+    from clinicai.services.dieu_tri_ban_kham import MA_DIEU_TRI_SQL
+
     # "LẦN chỉ định" (Tuyền 25/09/2026: "chỉ định thêm 2, 3 lượt trong CÙNG một
     # lần khám") = cột `lan_chi_dinh`, trigger gán mỗi lần bấm chốt (26/09 — lát 4).
     # Trước đó lần suy từ vòng khám nên chỉ định thêm trong CÙNG phiên vẫn là
@@ -83,6 +91,9 @@ async def doc_ket_qua_theo_chi_dinh(
         "SELECT o.id, o.service_code, o.service_name, o.exec_status,"
         "       o.execution_status, o.created_at, o.mang_tu_visit_id, o.bat_buoc,"
         "       o.nguon_lam_them,"
+        "       o.service_code IN ("
+        + MA_DIEU_TRI_SQL.replace("$1", "o.clinic_id")
+        + ") AS dieu_tri,"
         "       o.lan_chi_dinh, o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc,"
         # Việc của ĐỐI TÁC: bước làm bên ngoài HOẶC mẫu gửi đối tác (29/09/2026).
         "       " + LA_VIEC_DOI_TAC_SQL + " AS ben_ngoai,"
@@ -206,6 +217,8 @@ async def doc_ket_qua_theo_chi_dinh(
                 "mang_sang": r["mang_tu_visit_id"] is not None,
                 # Làm thêm tại quầy (01/10/2026) — lễ tân / người đo tick.
                 "lam_them": nhan_lam_them(r["nguon_lam_them"]),
+                # Chỉ định ĐIỀU TRỊ (phiếu điều trị 2 ô) — bản in mục riêng.
+                "dieu_tri": bool(r["dieu_tri"]),
                 "bat_buoc": bool(r["bat_buoc"]),
                 "ma_kiotviet": r["ma_kiotviet"],
                 "gia": int(r["unit_price"]) if r["unit_price"] is not None else None,

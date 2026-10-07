@@ -47,6 +47,7 @@ DELETE FROM phieu_kham_luot p USING _v WHERE p.visit_id = _v.visit_id;
 DELETE FROM consultation_note n USING consultation c, _v
  WHERE n.consultation_id = c.id AND c.visit_id = _v.visit_id;
 DELETE FROM consultation c USING _v WHERE c.visit_id = _v.visit_id;
+DELETE FROM luot_ghi_chu g USING _v WHERE g.visit_id = _v.visit_id;
 DELETE FROM clinical_release r USING _v WHERE r.visit_id = _v.visit_id;
 DELETE FROM visit v USING _v WHERE v.visit_id = _v.visit_id;
 DELETE FROM appointment a USING _v WHERE a.id = _v.appointment_id;
