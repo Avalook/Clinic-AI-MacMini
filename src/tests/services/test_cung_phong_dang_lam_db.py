@@ -20,14 +20,13 @@ from clinicai.services.service_execution_service import ServiceExecutionService
 from tests.services.test_nhan_tai_phong_db import (  # noqa: F401
     _bat_dau,
     _cd_o,
-    _loi,
     _nhan,
     _o_khach,
     _sk,
     _song,
     bat,
 )
-from tests.services.test_service_routing_db import RB, rb  # noqa: F401
+from tests.services.test_service_routing_db import RB, _loi, rb  # noqa: F401
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
