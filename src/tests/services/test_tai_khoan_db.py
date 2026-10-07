@@ -85,9 +85,13 @@ async def _nhan_vien(
         loc,
         uid,
     )
+    # Một phòng khám duy nhất trong DB thì trigger `staff_ensure_default_membership`
+    # đã chèn dòng này rồi — có phòng khám thứ hai hay không tuỳ bài nào chạy
+    # trước trên cùng worker, nên chèn KHÔNG được giả định là dòng chưa có.
     await conn.execute(
         "INSERT INTO clinic_membership (clinic_id, staff_id, role, is_active)"
-        " VALUES ($1::uuid, $2::uuid, 'RECEPTION', true)",
+        " VALUES ($1::uuid, $2::uuid, 'RECEPTION', true)"
+        " ON CONFLICT ON CONSTRAINT uq_clinic_membership DO NOTHING",
         clinic,
         sid,
     )
