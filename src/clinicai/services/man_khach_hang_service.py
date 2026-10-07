@@ -68,7 +68,7 @@ class ManKhachHangService:
                        a.created_at, a.cancelled_at, a.ly_do_huy_ma,
                        a.cancellation_reason, a.service_type_id, a.doctor_id,
                        a.bac_si_da_go_id, a.location_id, a.booking_channel,
-                       a.lich_truoc_id,
+                       a.lich_truoc_id, a.notes,
                        st.name AS ten_dich_vu, bs.full_name AS ten_bac_si,
                        -- NHÃN TRẠNG THÁI (30/09/2026): đã về hay chưa là
                        -- chuyện của LƯỢT — `trang_thai_hien_thi`.

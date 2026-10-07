@@ -129,6 +129,21 @@ vấn / đi thẳng phòng · chuông sự kiện báo ai**
 - Test: `T/test_booking_service.py`, `T/services/test_capacity_roster_gate.py`. Luật:
   SO-LUAT 6.5 (sức chứa là ghế của MỘT bác sĩ, kiểm lúc xếp bác sĩ).
 
+**Ô chọn dịch vụ khi đặt / sửa lịch — 4 nhóm Khám · Điều trị · Thuốc (ẩn) · Khác (07/10/2026)**
+- Thêm/bớt/đổi tên một loại hay đổi nhóm = DỮ LIỆU (`service_type.nhom`, `thu_tu`,
+  Điều trị trỏ dòng giá `service_price_id`; migration `20261007600000_nhom_dich_vu_dat_lich.sql`).
+- Code: MỘT component `D/_lam-viec/ChonDichVuDatLich.tsx` (dạng ô chọn + dạng chip
+  `ChonDichVuDatLichChip`, gợi ý ghi chú `GoiYGhiChu`) dùng ở `NewPatientForm.tsx`,
+  `AppointmentBooking.tsx` (sửa/đặt ở Quản lý khách hàng), `BookingHub.tsx`,
+  `ThaoTacLichTaiCho.tsx` (popover Đổi dịch vụ khám) → `/api/catalog/dich-vu-dat-lich` →
+  `R/catalog.py` → `S/dich_vu_dat_lich.py` (`gom_nhom`, `doc`; popover dùng chung qua
+  `S/doi_dich_vu_kham.py` `o_doi_dich_vu`). Ghi chú lịch = `appointment.notes`; đổi lịch
+  sửa ghi chú qua `apply_action(reschedule, ghi_chu=…)`, bản cũ ở `event_log`
+  (`ghi_chu_cu`/`ghi_chu_moi`); lễ tân thấy ở `QueueBoard.tsx` (`S/tiep_don_service.py`)
+  và `WeeklyAppointmentsTable.tsx` (`S/week_appointments_service.py`).
+- Test: `T/services/test_nhom_dich_vu_dat_lich_db.py`, `T/unit/test_dich_vu_dat_lich.py`,
+  FT `nam-dich-vu-kham-boundary.test.mts`.
+
 **Ô tìm khách ở màn Đặt lịch (tìm trên toàn bộ hồ sơ, 06/10/2026)**
 - Màn: `/appointments` → `D/appointments/BookingHub.tsx` (`ketQuaTim`, debounce 300 ms, từ 2
   ký tự) → route `app/api/appointments/tim-khach/route.ts` (chỉ chuyển tiếp).

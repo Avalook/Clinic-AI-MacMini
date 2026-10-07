@@ -47,6 +47,7 @@ import NewPatientForm, {
   type ProvinceOpt,
 } from "../patients/new/NewPatientForm";
 import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
+import ChonDichVuDatLich, { GoiYGhiChu } from "../_lam-viec/ChonDichVuDatLich";
 
 export interface PatientLite {
   clinic_patient_id: string;
@@ -1293,7 +1294,6 @@ export default function BookingHub({
                     role={vai ?? "CSKH"}
                     locations={locations}
                     coSoMacDinhId={coSoMacDinhId}
-                    services={cleanServices}
                     doctors={doctors}
                     provinces={provinces}
                     variant="full"
@@ -1308,18 +1308,12 @@ export default function BookingHub({
                 {/* Service dropdown */}
                 <div className="flex items-center gap-1 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs text-ink font-medium">
                   <span className="text-ink-muted">🩺</span>
-                  <select
+                  {/* Bộ chọn 4 nhóm dùng chung (07/10/2026) — nhóm do máy chủ gom. */}
+                  <ChonDichVuDatLich
                     value={selectedServiceId}
-                    onChange={(e) => setSelectedServiceId(e.target.value)}
+                    onChange={(id) => setSelectedServiceId(id)}
                     className="bg-transparent text-xs font-semibold text-ink outline-none cursor-pointer"
-                  >
-                    <option value="">— Chọn dịch vụ —</option>
-                    {cleanServices.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 {/* HAI Ô ĐÃ BỎ KHỎI HÀNG NÀY (Tuyền 16/09/2026): *"nút tất cả
@@ -1628,6 +1622,7 @@ export default function BookingHub({
                   placeholder="Thêm ghi chú cho phòng khám..."
                   className="w-full rounded-xl border border-line p-2.5 text-xs text-ink outline-none focus:border-brand-500"
                 />
+                <GoiYGhiChu value={selectedServiceId} ghiChu={note} />
               </div>
 
               {/* Khối "Thông tin xác nhận" đã bỏ (Quang chốt 09/08/2026).

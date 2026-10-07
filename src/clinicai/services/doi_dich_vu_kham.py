@@ -24,6 +24,7 @@ import asyncpg
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.bill_service import _DA_PHU
+from clinicai.services.dich_vu_dat_lich import COT_SQL, gom_nhom, ten_sach
 from clinicai.services.lenh_kham_core import ma_uuid
 
 #: Có MỘT trong hai quyền là đổi được (Tuyền chốt 30/09/2026): người quản lý
@@ -195,9 +196,11 @@ async def o_doi_dich_vu(
     luat = BookingService(pool)
     async with pool.acquire() as conn:
         tt = await doc_trang_thai(conn, cid, aid)
+        # Cùng nguồn + cùng nhóm với ô chọn lúc đặt lịch (`dich_vu_dat_lich`).
         dich_vu = await conn.fetch(
-            "SELECT id::text, name FROM public.service_type"
-            " WHERE clinic_id = $1::uuid AND is_active ORDER BY name",
+            f"SELECT {COT_SQL} FROM public.service_type"
+            " WHERE clinic_id = $1::uuid AND is_active AND nhom <> 'THUOC'"
+            " ORDER BY thu_tu, name",
             cid,
         )
         lua_chon: list[dict[str, Any]] = []
@@ -217,10 +220,12 @@ async def o_doi_dich_vu(
             lua_chon.append(
                 {
                     "id": d["id"],
-                    "ten": d["name"],
+                    "ten": ten_sach(d["name"]),
                     "hien_tai": d["id"] == tt.dich_vu_id,
                     "chan": chan,
                     "ghi_chu": ghi_chu,
+                    "nhom": d["nhom"],
+                    "form_code": d["form_code"],
                 }
             )
     ly_do = tt.ly_do_khong_doi()
@@ -235,6 +240,8 @@ async def o_doi_dich_vu(
         "duoc_doi": ly_do is None,
         "ly_do_khong_doi": ly_do,
         "lua_chon": lua_chon,
+        # Cùng danh sách, gom theo nhóm đặt lịch (Khám · Điều trị · Khác).
+        "nhom": gom_nhom(lua_chon),
     }
 
 

@@ -26,6 +26,8 @@ export interface EditableAppt {
   doctor_name: string | null;
   location_id: string | null;
   booking_channel: string | null;
+  /** Ghi chú đã lưu của lịch — điền sẵn ô Ghi chú. */
+  notes?: string | null;
 }
 
 export default function AppointmentEditModal({
@@ -33,7 +35,6 @@ export default function AppointmentEditModal({
   patientName,
   clinicPatientId,
   gioiThieu = "",
-  services,
   doctors,
   locations,
   onClose,
@@ -43,7 +44,6 @@ export default function AppointmentEditModal({
   clinicPatientId: string;
   /** Người giới thiệu đã lưu ở hồ sơ khách — điền sẵn ô kênh Giới thiệu. */
   gioiThieu?: string;
-  services: Option[];
   doctors: Option[];
   locations: Option[];
   onClose: () => void;
@@ -131,6 +131,7 @@ export default function AppointmentEditModal({
     apptTime: origTime,
     channel: appt.booking_channel ?? "",
     gioiThieu,
+    ghiChu: appt.notes ?? "",
   };
   const edit: BookingEdit = {
     appointmentId: appt.id,
@@ -188,7 +189,6 @@ export default function AppointmentEditModal({
 
         <AppointmentBooking
           clinicPatientId={clinicPatientId}
-          services={services}
           doctors={doctors}
           locations={locations}
           onBooked={() => {}}

@@ -47,7 +47,7 @@ import CustomersView, {
 type RecallRaw = MocTaiKham & { clinic_patient_id: string };
 import { listBookableDoctors } from "../../../lib/doctors-server";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { layCoSo, layDichVu } from "../../../lib/danh-muc";
+import { layCoSo } from "../../../lib/danh-muc";
 import type { TrangThaiHienThi } from "../../../lib/trang-thai-lich";
 
 export const dynamic = "force-dynamic";
@@ -157,18 +157,16 @@ export default async function CustomersPage({
     thamSo.set("den", khoang.den);
   }
 
-  const [patRes, locRes, svcRes, docRes] = await Promise.all([
+  const [patRes, locRes, docRes] = await Promise.all([
     fetchFromBackend<{ rows: CustomerRow[]; total: number }>(
       `/api/v1/cskh/danh-sach-khach?${thamSo.toString()}`,
     ),
-    // Cơ sở + dịch vụ qua bộ nhớ tạm có hạn giờ: hai danh mục này đổi vài
-    // tháng một lần nhưng mọi lượt dựng trang đều hỏi lại. Xem `bo-nho-tam.ts`.
+    // Cơ sở qua bộ nhớ tạm có hạn giờ: danh mục này đổi vài tháng một lần
+    // nhưng mọi lượt dựng trang đều hỏi lại. Xem `bo-nho-tam.ts`.
     layCoSo().then((data) => ({ data })),
-    // Nạp dịch vụ + bác sĩ khi vai INTAKE (đặt/đổi/hủy lịch) — cho cả modal đổi
-    // lịch (canManage) lẫn nút "Đặt lịch" (canEdit gồm Lễ tân).
-    canEdit
-      ? layDichVu().then((data) => ({ data }))
-      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    // Bác sĩ khi vai INTAKE (đặt/đổi/hủy lịch) — cho cả modal đổi lịch
+    // (canManage) lẫn nút "Đặt lịch" (canEdit gồm Lễ tân). Danh sách DỊCH VỤ
+    // do ô chọn 4 nhóm tự nạp (`_lam-viec/ChonDichVuDatLich`, 07/10/2026).
     canEdit ? listBookableDoctors() : Promise.resolve([]),
   ]);
 
@@ -186,10 +184,6 @@ export default async function CustomersPage({
     id: r.id as string,
     label: r.name as string,
   }));
-  // Dropdown cho modal ĐỔI lịch — bỏ dịch vụ rác "FREE" (khớp trang đặt lịch).
-  const services: Opt[] = ((svcRes.data ?? []) as { id: string; name: string }[])
-    .filter((r) => (r.name ?? "").trim().toUpperCase() !== "FREE")
-    .map((r) => ({ id: r.id, label: r.name }));
   const doctors: Opt[] = docRes;
 
   const shownIds = rows.map((r) => r.clinic_patient_id);
@@ -355,6 +349,8 @@ type LichHenRaw = {
   bac_si_da_go_id?: string | null;
   location_id?: string | null;
   booking_channel?: string | null;
+  /** Ghi chú CSKH của lịch (`appointment.notes`). */
+  notes?: string | null;
   created_at?: string | null;
   cancelled_at?: string | null;
   ly_do_huy_ma?: string | null;
@@ -490,6 +486,7 @@ type LichHenRaw = {
           doctor_name: pick1(repr.doctor)?.full_name ?? null,
           location_id: repr.location_id ?? null,
           booking_channel: repr.booking_channel ?? null,
+          notes: repr.notes ?? null,
         };
       }
       apptByPatient[pid] = {
@@ -1115,7 +1112,6 @@ type LichHenRaw = {
           canThemKhach={canThemKhach}
           canManage={canManage}
           canOperateCskh={canOperateCskh}
-          services={services}
           doctors={doctors}
         />
       )}

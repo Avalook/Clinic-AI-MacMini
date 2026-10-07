@@ -848,6 +848,8 @@ class BookingService:
         booking_channel: str | None = None,
         booking_channel_provided: bool = False,
         nguoi_gioi_thieu: str | None = None,
+        ghi_chu: str | None = None,
+        ghi_chu_provided: bool = False,
     ) -> dict[str, Any]:
         """Run one lifecycle action. Returns the resulting status.
 
@@ -885,6 +887,8 @@ class BookingService:
                     booking_channel=booking_channel,
                     booking_channel_provided=booking_channel_provided,
                     nguoi_gioi_thieu=nguoi_gioi_thieu,
+                    ghi_chu=ghi_chu,
+                    ghi_chu_provided=ghi_chu_provided,
                 )
         new_status = kq.new_status
         visit_vua_mo = kq.visit_id
@@ -925,6 +929,8 @@ class BookingService:
         booking_channel: str | None = None,
         booking_channel_provided: bool = False,
         nguoi_gioi_thieu: str | None = None,
+        ghi_chu: str | None = None,
+        ghi_chu_provided: bool = False,
         cho_ngoai_ca: bool = False,
         xoa_so_thu_tu: bool = False,
         quyen_da_kiem: bool = False,
@@ -947,7 +953,7 @@ class BookingService:
             SELECT
                 a.id, a.doctor_id, a.status, a.clinic_patient_id,
                 a.slot_start, a.slot_end, a.queue_number,
-                a.booking_channel,
+                a.booking_channel, a.notes,
                 -- Cần cho luật bắt buộc bác sĩ lúc gán người.
                 a.service_type_id,
                 EXISTS (
@@ -1060,6 +1066,14 @@ class BookingService:
                 # Số khám cấp theo NGÀY của slot_start: lịch dời ngày thì số cũ
                 # (nếu còn sót từ một lần hoàn tác check-in) không còn nghĩa.
                 patch["queue_number"] = None
+            ghi_chu_moi = (ghi_chu or "").strip() or None
+            if (
+                action == "reschedule"
+                and ghi_chu_provided
+                and ghi_chu_moi != appt["notes"]
+            ):
+                # Chữ cũ không mất: nhật ký đổi lịch bên dưới mang cả hai bản.
+                patch["notes"] = ghi_chu_moi
             updated = await self._update(
                 conn,
                 appointment_id,
@@ -1098,6 +1112,11 @@ class BookingService:
                 "doctor_id": effective_doctor_id,
                 "clinic_patient_id": str(appt["clinic_patient_id"]),
                 **({"xac_minh_cach": cach_xac_minh} if cach_xac_minh else {}),
+                **(
+                    {"ghi_chu_cu": appt["notes"], "ghi_chu_moi": patch["notes"]}
+                    if "notes" in patch
+                    else {}
+                ),
             },
             identity=identity,
             origin=f"api:appointment-{action}",

@@ -120,6 +120,8 @@ class ActionRequest(BaseModel):
     service_type_id: UUID | None = None
     booking_channel: str | None = Field(default=None, max_length=32)
     nguoi_gioi_thieu: str | None = Field(default=None, max_length=200)
+    #: Ghi chú của lịch (đổi lịch). Vắng mặt = giữ nguyên; chuỗi rỗng = xoá.
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 # ── ĐỌC lịch hẹn cho màn đặt lịch (24/09/2026) ─────────────────────────────
@@ -720,6 +722,8 @@ async def apply_appointment_action(
         booking_channel=body.booking_channel,
         booking_channel_provided="booking_channel" in body.model_fields_set,
         nguoi_gioi_thieu=body.nguoi_gioi_thieu,
+        ghi_chu=body.notes,
+        ghi_chu_provided="notes" in body.model_fields_set,
     )
     return {"ok": True, **result}
 

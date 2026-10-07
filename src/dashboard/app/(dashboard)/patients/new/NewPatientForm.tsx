@@ -47,6 +47,7 @@ import {
 import DateField from "../../DateField";
 import SearchSelect from "../../SearchSelect";
 import { LINH_VUC_OPTIONS } from "../../../../lib/linh-vuc";
+import ChonDichVuDatLich, { GoiYGhiChu } from "../../_lam-viec/ChonDichVuDatLich";
 import {
   INPUT,
   LABEL,
@@ -316,41 +317,11 @@ function ThemSdtChoKhach({
   );
 }
 
-// Ô "Dịch vụ khám" khi đặt lịch = 5 lĩnh vực + hai loại khám ĐI THẲNG PHÒNG
-// (28/09/2026 — Tuyền: "node đặt lịch hẹn chưa có thủ thuật và sàn chậu chuyên
-// sâu"). Hai loại sau KHÔNG có mã lĩnh vực trên hồ sơ (CHECK `patient_linh_vuc`
-// chỉ nhận 5 mã) — chỉ chọn loại khám; `linh_vuc` gửi rỗng.
-const LOAI_KHAM_DAT_LICH: { code: string; label: string }[] = [
-  ...LINH_VUC_OPTIONS,
-  { code: "TT", label: "Thủ thuật" },
-  { code: "SC", label: "Sàn chậu chuyên sâu" },
-];
+// Ô "Dịch vụ khám" = bộ chọn 4 nhóm dùng chung (`ChonDichVuDatLich`, 07/10/2026)
+// — máy chủ trả cả mã lĩnh vực của loại khám (`linh_vuc`), không dò theo TÊN nữa.
+// Thủ thuật / Sàn chậu / Điều trị / Khác KHÔNG có mã lĩnh vực trên hồ sơ (CHECK
+// `patient_linh_vuc` chỉ nhận 5 mã) — `linh_vuc` gửi rỗng.
 const MA_LINH_VUC = new Set(LINH_VUC_OPTIONS.map((o) => o.code));
-
-function findServiceIdByLinhVuc(code: string, services: Option[]): string {
-  if (!code) return "";
-  const nameMap: Record<string, string[]> = {
-    PK: ["Phụ khoa", "PHU_KHOA"],
-    SK: ["Sản 1", "Sản khoa", "Sản", "SAN_1"],
-    NT: ["Nội tiết - Tình dục", "Nội tiết", "NOI_TIET_TINH_DUC"],
-    HMVS: ["Hiếm muộn", "Hiếm muộn - Vô sinh", "HIEM_MUON"],
-    NK: ["Nam khoa", "NAM_KHOA"],
-    TT: ["Thủ thuật", "THU_THUAT"],
-    SC: ["Sàn chậu chuyên sâu", "Sàn chậu", "SAN_CHAU"],
-  };
-  const targets = nameMap[code] ?? [];
-  for (const t of targets) {
-    const found = services.find((s) => s.label.toLowerCase() === t.toLowerCase());
-    if (found) return found.id;
-  }
-  for (const t of targets) {
-    const found = services.find((s) => s.label.toLowerCase().includes(t.toLowerCase()));
-    if (found) return found.id;
-  }
-  // Không đoán loại khám khác (bản trước trả loại khám ĐẦU danh sách — chọn
-  // "Thủ thuật" mà không khớp tên là đặt nhầm thành Phụ khoa).
-  return "";
-}
 
 function SectionHeader({
   icon,
@@ -379,7 +350,6 @@ export default function NewPatientForm({
   coSoMacDinhId = null,
   role,
   locations,
-  services,
   doctors,
   provinces,
   variant = "full",
@@ -396,7 +366,6 @@ export default function NewPatientForm({
   /** Cơ sở của người đang đặt (staff.primary_location_id qua /api/v1/me).
    *  Mặc định ô "Cơ sở đăng ký khám" — KHÔNG phải cơ sở đầu danh sách. */
   coSoMacDinhId?: string | null;
-  services: Option[];
   doctors: Option[];
   provinces: ProvinceOpt[];
   /** "walkin" = điều dưỡng ghi khách vãng lai: bỏ lịch hẹn, gộp dịch vụ/bác sĩ
@@ -468,6 +437,8 @@ export default function NewPatientForm({
   // CSKH khai thác lúc đặt lịch: vấn đề khiến đi khám + lĩnh vực (chuyên khoa).
   const [vanDe, setVanDe] = useState("");
   const [linhVuc, setLinhVuc] = useState("");
+  // Ghi chú của lịch (`appointment.notes`) — nhóm "Khác" được gợi ý ghi, không bắt.
+  const [ghiChu, setGhiChu] = useState("");
   // P4C (25/09/2026): lưu hồ sơ khách, CHƯA đặt lịch. Mặc định KHÔNG tick —
   // luồng đặt lịch như cũ; tick thì bỏ khối lịch và bỏ kiểm dịch vụ/ngày/giờ.
   const [chuaDatLich, setChuaDatLich] = useState(false);
@@ -814,6 +785,7 @@ export default function NewPatientForm({
         queue_number: queueNumber,
         patient_kind: patientKind,
         need_sono: needSono,
+        notes: ghiChu.trim() || undefined,
       }),
     });
     if (!res.ok) {
@@ -1436,23 +1408,25 @@ export default function NewPatientForm({
             <>
               <div>
                 <label className={LABEL}>Dịch vụ khám</label>
-                <select
-                  value={linhVuc}
-                  onChange={(e) => {
-                    const code = e.target.value;
-                    setLinhVuc(code);
-                    const svcId = findServiceIdByLinhVuc(code, services);
-                    setServiceId(svcId);
+                <ChonDichVuDatLich
+                  value={serviceId}
+                  onChange={(id, muc) => {
+                    setServiceId(id);
+                    setLinhVuc(muc?.linh_vuc ?? "");
                   }}
                   className={INPUT}
-                >
-                  <option value="" disabled hidden>— Chọn dịch vụ —</option>
-                  {LOAI_KHAM_DAT_LICH.map((o) => (
-                    <option key={o.code} value={o.code}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  ariaLabel="Dịch vụ khám"
+                />
+              </div>
+              <div>
+                <label className={LABEL}>Ghi chú</label>
+                <input
+                  value={ghiChu}
+                  onChange={(e) => setGhiChu(e.target.value)}
+                  className={INPUT}
+                  placeholder="Khách cần gì, lưu ý cho lễ tân / bác sĩ…"
+                />
+                <GoiYGhiChu value={serviceId} ghiChu={ghiChu} />
               </div>
               <div>
                 <label className={LABEL}>Bác sĩ</label>
@@ -1598,23 +1572,27 @@ export default function NewPatientForm({
             <label className={HANG_LABEL}>
               Dịch vụ khám
             </label>
-            <select
-              value={linhVuc}
-              onChange={(e) => {
-                const code = e.target.value;
-                setLinhVuc(code);
-                const svcId = findServiceIdByLinhVuc(code, services);
-                setServiceId(svcId);
+            <ChonDichVuDatLich
+              value={serviceId}
+              onChange={(id, muc) => {
+                setServiceId(id);
+                setLinhVuc(muc?.linh_vuc ?? "");
               }}
               className={INPUT}
-            >
-              <option value="" disabled hidden>— Chọn dịch vụ —</option>
-              {LOAI_KHAM_DAT_LICH.map((o) => (
-                <option key={o.code} value={o.code}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              ariaLabel="Dịch vụ khám"
+            />
+          </div>
+          <div className={`sm:col-span-2 ${HANG}`}>
+            <label className={HANG_LABEL}>Ghi chú</label>
+            <div className="flex w-full flex-col gap-1">
+              <input
+                value={ghiChu}
+                onChange={(e) => setGhiChu(e.target.value)}
+                className={INPUT}
+                placeholder="Khách cần gì, lưu ý cho lễ tân / bác sĩ…"
+              />
+              <GoiYGhiChu value={serviceId} ghiChu={ghiChu} />
+            </div>
           </div>
           {/* KÊNH ĐẶT ngay dưới Dịch vụ khám (Tuyền 16/09/2026): hai ô này là
               "khám gì" và "khách tới từ đâu" — trả lời một lượt rồi mới tới

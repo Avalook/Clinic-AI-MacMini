@@ -605,7 +605,6 @@ export default function CustomersView({
   canThemKhach = false,
   canManage = false,
   canOperateCskh = false,
-  services = [],
   doctors = [],
 }: {
   rows: CustomerRow[];
@@ -651,7 +650,6 @@ export default function CustomersView({
   canManage?: boolean;
   /** Có quyền ghi nghiệp vụ CSKH; quyền mở danh bạ không tự suy ra quyền này. */
   canOperateCskh?: boolean;
-  services?: Opt[];
   doctors?: Opt[];
 }) {
   const router = useRouter();
@@ -2171,7 +2169,6 @@ export default function CustomersView({
           patientName={selected.full_name}
           clinicPatientId={selected.clinic_patient_id}
           gioiThieu={selected.nguoi_gioi_thieu ?? ""}
-          services={services}
           doctors={doctors}
           locations={locations}
           onClose={() => setEditOpen(false)}
@@ -2198,7 +2195,6 @@ export default function CustomersView({
         <DatLichModal
           tenKhach={selected.full_name}
           clinicPatientId={selected.clinic_patient_id}
-          services={services}
           doctors={doctors}
           locations={locations}
           defaultLocationId={selected.location_id ?? undefined}
