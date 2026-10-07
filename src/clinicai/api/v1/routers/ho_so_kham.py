@@ -10,14 +10,53 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Query
 from pydantic import BaseModel
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
-from clinicai.services import dieu_tri_ban_kham, ghi_chu_luot, ho_so_dich_vu
+from clinicai.permissions.doc_bang import doi_mot_quyen
+from clinicai.permissions.y_khoa import doc_duoc_in_phieu
+from clinicai.services import (
+    dieu_tri_ban_kham,
+    ghi_chu_luot,
+    ho_so_dich_vu,
+    lich_su_luot,
+)
+from clinicai.services.doi_dich_vu_kham import QUYEN_DOI_TRONG_HO_SO
 
 router = APIRouter(tags=["ho-so-kham"])
+
+
+@router.get("/ho-so-kham/lich-su")
+async def lich_su(
+    clinic_patient_id: UUID,
+    tu: str | None = Query(default=None, max_length=32),
+    den: str | None = Query(default=None, max_length=32),
+    dich_vu_id: UUID | None = None,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Popup "Lịch sử khám": MỌI lượt của khách (cả không phiếu, Notion).
+
+    Ngày rác → bỏ lọc ấy (không 500). Đọc: người đọc y khoa / trưởng ca, hoặc
+    khâu quầy / CSKH in phiếu."""
+    async with pool.acquire() as conn:
+        if not await doc_duoc_in_phieu(conn, identity):
+            await doi_mot_quyen(
+                conn,
+                identity,
+                QUYEN_DOI_TRONG_HO_SO,
+                cau="Bạn không có quyền xem lịch sử khám.",
+            )
+        return await lich_su_luot.doc(
+            conn,
+            clinic_id=identity.clinic_id,
+            clinic_patient_id=str(clinic_patient_id),
+            tu=tu,
+            den=den,
+            dich_vu_id=str(dich_vu_id) if dich_vu_id else None,
+        )
 
 
 class DoiDichVuBody(BaseModel):
@@ -40,7 +79,7 @@ async def doc_dich_vu(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Dịch vụ của lượt, đổi được không, lịch sử đổi, phiếu cũ, "Khách đã đặt"."""
+    """Dịch vụ của lượt, đổi được không, lịch sử đổi, phiếu cũ."""
     return await ho_so_dich_vu.doc(pool, identity=identity, visit_id=str(visit_id))
 
 

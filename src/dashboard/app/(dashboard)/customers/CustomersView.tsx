@@ -1718,6 +1718,7 @@ export default function CustomersView({
             })()}
             thanhLuot={
               <ThanhLuotKham
+                clinicPatientId={selected.clinic_patient_id}
                 chuoi={lichSuKhamByPatient[selected.clinic_patient_id] ?? []}
                 luotDangXem={luotDangXem?.id ?? null}
                 luotConViec={
