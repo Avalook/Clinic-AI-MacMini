@@ -151,8 +151,9 @@ SELECT pr.id::text AS room_id, pr.accepting,
     ON hd.id = o.phong_du_kien_id AND hd.clinic_id = o.clinic_id
   LEFT JOIN clinic_room orr ON orr.id = o.room_id AND orr.clinic_id = o.clinic_id
   LEFT JOIN clinic_room qr ON qr.id = o.q_room_id AND qr.clinic_id = o.clinic_id
- WHERE NOT $4::boolean
-    OR o.chua_vao OR o.q_id IS NOT NULL OR o.execution_status = 'IN_PROGRESS'
+ WHERE o.clinic_id = $1::uuid
+   AND (NOT $4::boolean
+        OR o.chua_vao OR o.q_id IS NOT NULL OR o.execution_status = 'IN_PROGRESS')
  ORDER BY o.checked_in_at, o.created_at, o.id
 """
 
