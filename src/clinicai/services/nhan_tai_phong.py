@@ -265,12 +265,23 @@ _KHACH_HOM_NAY_SQL = """
 SELECT v.visit_id::text AS visit_id, p.full_name, p.patient_code,
        a.so_tiep_don, a.so_booking,
        q.lane AS q_lane, q.status AS q_status, q.room_id::text AS q_room_id,
-       qr.name AS q_phong
+       qr.name AS q_phong, st.nhom AS nhom_kham,
+       EXISTS (SELECT 1 FROM consultation c
+                WHERE c.clinic_id = v.clinic_id AND c.visit_id = v.visit_id
+                  AND c.kind = 'PRIMARY' AND c.status <> 'queued') AS da_qua_ban_kham,
+       (SELECT count(*) FROM service_order o
+         WHERE o.clinic_id = v.clinic_id AND o.visit_id = v.visit_id
+           AND o.exec_status NOT IN ('draft', 'cancelled')
+           AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
+           AND coalesce(o.execution_status, 'PENDING')
+               IN ('PENDING', 'IN_PROGRESS', 'INTERRUPTED')) AS con_viec
   FROM clinic_room pr
   JOIN visit v ON v.clinic_id = pr.clinic_id
   JOIN patient p
     ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
   LEFT JOIN appointment a ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+  LEFT JOIN service_type st
+    ON st.id = v.service_type_id AND st.clinic_id = v.clinic_id
   LEFT JOIN LATERAL (
        SELECT q.lane, q.status, q.room_id
          FROM queue_entry q
@@ -296,12 +307,33 @@ SELECT v.visit_id::text AS visit_id, p.full_name, p.patient_code,
 
 #: Nhãn ô Sắp đến khi khách không đứng hàng nào và chưa có chỉ định phòng làm được.
 CAU_CHUA_CO_CHI_DINH = "chưa có chỉ định ở phòng này"
+#: Lượt Điều trị không qua bàn khám, mọi chỉ định đã xong — hàng bác sĩ chỉ là
+#: tuỳ chọn, khách thật ra đang đi thanh toán (Tuyền 07/10: "đang chờ khám" sai).
+CAU_CHO_THANH_TOAN = "chờ thanh toán / check-out"
 
 
-def cau_dang_o(lane: str | None, status: str | None, phong: str | None) -> str | None:
+def cho_thanh_toan(k: Mapping[str, Any]) -> bool:
+    """Lượt nhóm Điều trị chưa từng vào bàn khám và không còn chỉ định chờ làm."""
+    return (
+        k.get("nhom_kham") == "DIEU_TRI"
+        and not k.get("da_qua_ban_kham")
+        and not k.get("con_viec")
+    )
+
+
+def cau_dang_o(
+    lane: str | None,
+    status: str | None,
+    phong: str | None,
+    *,
+    cho_tt: bool = False,
+) -> str | None:
     """Khách đang ở đâu THẬT (chỗ chờ sống cao nhất) — HÀM THUẦN, câu máy chủ
-    viết cho ô Sắp đến. None = không đứng hàng nào (vd chờ đo sinh hiệu)."""
+    viết cho ô Sắp đến. None = không đứng hàng nào (vd chờ đo sinh hiệu).
+    ``cho_tt``: lượt Điều trị xong hết, hàng bác sĩ chỉ là tuỳ chọn."""
     lam = status == "serving"
+    if cho_tt and not lam and lane in (None, "DOCTOR"):
+        return CAU_CHO_THANH_TOAN
     if lane == "ROOM":
         return f"đang {'làm' if lam else 'chờ'} ở {phong or 'phòng khác'}"
     if lane == "DOCTOR":
@@ -340,7 +372,9 @@ def gom_sap_den(
     """Ô SẮP ĐẾN của phòng ``room_id`` — HÀM THUẦN. ``khach`` = khách hôm nay
     (``_KHACH_HOM_NAY_SQL``), ``dong`` = chỉ định phòng làm được.
 
-    MỌI khách trừ khách đang chờ / làm ở chính phòng này. Mỗi ô: các chỉ định
+    MỌI khách trừ khách đang chờ / làm ở chính phòng này, và khách ĐÃ XONG ở
+    phòng này mà không còn gì nhận được ở đây (họ chỉ nằm ở "Đã xong" — mỗi
+    khách đúng một nhóm; hiện hai chỗ thì trông như hai người). Mỗi ô: các chỉ định
     phòng làm được + trạng thái; ``dang_o`` = câu nơi khách đang ở thật (không
     đứng hàng nào mà chưa có chỉ định ở phòng → ``CAU_CHUA_CO_CHI_DINH``).
     ``tinh_so`` = khách vào số "sắp đến" (cùng luật ``dem_sap_den``). Xếp: có
@@ -348,6 +382,11 @@ def gom_sap_den(
     lại; trong nhóm giữ thứ tự check-in."""
     ds = [(r, c) for r, c in dong if r["room_id"] == room_id]
     o_day = o_phong_nay(ds, room_id)
+    xong_day = {
+        r["visit_id"]
+        for r, c in ds
+        if c["trang_thai"] == XONG and r["o_room_id"] == room_id
+    }
     cd: dict[str, list[dict[str, Any]]] = {}
     for r, c in ds:
         cd.setdefault(r["visit_id"], []).append(c)
@@ -358,6 +397,8 @@ def gom_sap_den(
             continue
         cua = cd.get(vid, [])
         nhan = [c for c in cua if c["nhan_duoc"]]
+        if vid in xong_day and not nhan:
+            continue
         out.append(
             {
                 "visit_id": vid,
@@ -371,7 +412,12 @@ def gom_sap_den(
                 "tinh_so": any(c["trang_thai"] == SAP_DEN for c in cua),
                 "duoc_huong_dan": any(c["huong_dan_day"] for c in cua),
                 "dang_o": (
-                    cau_dang_o(k["q_lane"], k["q_status"], k["q_phong"])
+                    cau_dang_o(
+                        k["q_lane"],
+                        k["q_status"],
+                        k["q_phong"],
+                        cho_tt=cho_thanh_toan(k),
+                    )
                     if k["q_room_id"] != room_id
                     else None
                 )
