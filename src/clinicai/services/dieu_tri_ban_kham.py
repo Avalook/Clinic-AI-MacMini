@@ -142,7 +142,10 @@ CAU_LUOT_DA_DONG = "Lượt đã check-out — muốn làm tiếp thì Mở lạ
 
 
 def luot_da_dong(status: str | None, closed_at: Any) -> bool:
-    """Lượt đã check-out (`closed_at`) hoặc không còn sống — hàm thuần."""
+    """Lượt đã check-out (`closed_at`) hoặc không còn sống — hàm thuần.
+
+    INCOMPLETE (khách về giữa chừng), FINALIZED / AMENDED đều là đã đóng: thẻ
+    chỉ đọc; mở lại lượt thì làm tiếp được."""
     return closed_at is not None or status not in ("OPEN", "IN_PROGRESS")
 
 
