@@ -140,6 +140,9 @@ WITH v AS (
       LEFT JOIN public.service_type st
              ON st.id = coalesce(vi.service_type_id, a.service_type_id)
      WHERE vi.clinic_id = $1::uuid
+       -- Lượt hồ sơ cũ (Notion) cố ý không có dòng thu — không lên quầy thu.
+       AND NOT EXISTS (SELECT 1 FROM lich_su_notion.luot_that t
+                        WHERE t.visit_id = vi.visit_id)
        AND ((vi.created_at >= $2 AND vi.created_at < $3)
             -- THU NỢ (01/10/2026): lượt ngày trước đã GHI NỢ, còn chưa thu —
             -- khách quay lại trả ở quầy theo đúng đường thu có sẵn. Chỉ khi

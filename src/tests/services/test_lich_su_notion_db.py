@@ -486,6 +486,26 @@ async def test_chuyen_luot_cu_thanh_luot_that(kb: KichBan, tmp_path: Path) -> No
         "ho_so_cu"
     ]
 
+    # Các màn vận hành theo ngày khác: chọn ngày cũ cũng không thấy lượt cũ.
+    from datetime import date
+
+    from clinicai.services.luot_kham_doc import BangLuotKham
+    from clinicai.services.week_appointments_service import WeekAppointmentsService
+
+    async with kb.pool.acquire() as conn:
+        lich_cu = await conn.fetchval(
+            "SELECT appointment_id::text FROM lich_su_notion.luot_that"
+            " WHERE visit_id = $1::uuid",
+            cu,
+        )
+    assert lich_cu
+    tuan = await WeekAppointmentsService(kb.pool).week(
+        clinic_id=CLINIC, week_start=date(2026, 3, 30)
+    )
+    assert lich_cu not in json.dumps(tuan, default=str)
+    ngay_cu = await BangLuotKham(kb.pool).bang(identity=kb.bac_si, ngay="2026-04-01")
+    assert cu not in json.dumps(ngay_cu, default=str)
+
 
 async def test_bo_sung_noi_dung_va_lien_ket_cho_luot_da_chuyen(
     kb: KichBan, tmp_path: Path

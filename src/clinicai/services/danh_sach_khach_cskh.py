@@ -227,7 +227,9 @@ async def danh_sach_khach(
                   WHERE a.clinic_id = p.clinic_id
                     AND a.clinic_patient_id = p.clinic_patient_id
                     AND a.slot_start >= $2 AND a.slot_start < $3
-                    AND a.status <> ALL($5::text[])))
+                    AND a.status <> ALL($5::text[])
+                    AND NOT EXISTS (SELECT 1 FROM lich_su_notion.luot_that t
+                                        WHERE t.appointment_id = a.id)))
            AND ($6::text IS NULL
                 OR p.full_name ILIKE $6 OR p.patient_code ILIKE $6
                 OR p.sdt_tim_kiem ILIKE $6
