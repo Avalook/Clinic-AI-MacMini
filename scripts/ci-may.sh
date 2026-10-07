@@ -175,8 +175,10 @@ job_database() {
     return 1
   fi
   docker rm -fv ci_may_db >/dev/null 2>&1 || true
+  # Dùng một lần như ci_may_test → bỏ độ bền (lý do + số đo: scripts/tests/dung-db-kiem.sh).
   docker run -d --name ci_may_db -e POSTGRES_PASSWORD="${MK_DB_THU}" -p "127.0.0.1:${CONG_DB}:5432" \
-    postgres:17 >/dev/null
+    --tmpfs /var/lib/postgresql/data \
+    postgres:17 -c fsync=off -c synchronous_commit=off -c full_page_writes=off >/dev/null
   trap 'docker rm -fv ci_may_db >/dev/null 2>&1 || true' EXIT
   for _ in $(seq 1 60); do
     docker exec ci_may_db pg_isready -U postgres >/dev/null 2>&1 && break

@@ -17,8 +17,14 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 if [ -n "${DB_CONTAINER:-}" ]; then
     DB_PORT="${DB_PORT:-55433}"
     docker rm -fv "$DB_CONTAINER" >/dev/null 2>&1 || true
+    # DB dùng một lần → bỏ độ bền: dữ liệu trên RAM (tmpfs), không fsync. Đo 07/10
+    # trên Colima: pgbench 8.2k → 13.6k tps, CREATE DATABASE nhanh ~1,7×. Không đổi
+    # ngữ nghĩa SQL (khoá, ràng buộc, tranh chấp y nguyên) — chỉ mất dữ liệu khi máy
+    # ảo sập, mà container này vốn bị xoá/dựng lại mỗi lượt.
     docker run -d --name "$DB_CONTAINER" -p "127.0.0.1:${DB_PORT}:5432" \
-        -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=postgres postgres:17 >/dev/null
+        --tmpfs /var/lib/postgresql/data \
+        -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=postgres postgres:17 \
+        -c fsync=off -c synchronous_commit=off -c full_page_writes=off >/dev/null
     for _ in $(seq 1 60); do
         docker exec "$DB_CONTAINER" pg_isready -U postgres >/dev/null 2>&1 && break
         sleep 1
