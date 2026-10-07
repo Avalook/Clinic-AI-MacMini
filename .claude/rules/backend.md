@@ -18,9 +18,10 @@ paths:
   không có nghĩa là code chết.
 - Đổi router/service/route → chạy `python3 scripts/ban-do-code.py` rồi commit
   `docs/BAN-DO-CODE.md` (CI `--kiem` đỏ nếu quên).
-- pytest dùng DB chung `chung_test_db`
-  (`postgresql://postgres:postgres@127.0.0.1:55600/postgres`) — không tự dựng
-  container DB, không reset DB chung. Chi tiết: `docs/CHAY-TEST.md`.
+- pytest chạy bằng `scripts/test-nhanh.sh <tệp test…>` (DB tạm từ khuôn sạch trong
+  `chung_test_db`, migration nhánh tự áp vào DB tạm, xong tự xoá) — không trỏ
+  `DATABASE_URL_TEST` thẳng vào DB `postgres` của :55600 (bẩn dần, 06–07/10 phải
+  dựng lại hai lần), không tự dựng container DB. Chi tiết: `docs/CHAY-TEST.md`.
 - Kiểu: CI chạy **mypy strict** (`ignore_missing_imports`). LSP pyright của Claude
   Code dùng `pyrightconfig.json` với `useLibraryCodeForTypes: false` — thư viện không
   công bố kiểu (không `py.typed`, vd asyncpg) coi là Unknown, ĐÚNG như mypy coi là

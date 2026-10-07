@@ -1,7 +1,6 @@
 """CHẶN CHECK-OUT CÒN NỢ + GHI NỢ (Tuyền chốt 01/10/2026).
 
-    DATABASE_URL_TEST=postgresql://postgres:postgres@127.0.0.1:55600/postgres \\
-        .venv/bin/pytest src/tests/services/test_cong_no_check_out_db.py
+    scripts/test-nhanh.sh src/tests/services/test_cong_no_check_out_db.py
 
 Sự cố 30/09: khách về mà dịch vụ đã làm chưa thu, check-out cho qua bằng câu lý
 do tự động. Nay: còn nợ → máy chủ chặn (kể cả "về giữa chừng", kể cả có lý do);
