@@ -28,7 +28,6 @@ export interface KhoaDichVu {
 export default function DatLichModal({
   tenKhach,
   clinicPatientId,
-  services,
   doctors,
   locations,
   defaultLocationId,
@@ -39,7 +38,6 @@ export default function DatLichModal({
 }: {
   tenKhach: string;
   clinicPatientId: string;
-  services: Opt[];
   doctors: Opt[];
   locations: Opt[];
   defaultLocationId?: string;
@@ -109,7 +107,6 @@ export default function DatLichModal({
 
         <AppointmentBooking
           clinicPatientId={clinicPatientId}
-          services={services}
           doctors={doctors}
           locations={locations}
           defaultLocationId={defaultLocationId}

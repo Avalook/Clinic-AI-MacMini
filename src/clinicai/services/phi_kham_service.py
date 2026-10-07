@@ -47,7 +47,7 @@ QUYEN_TICK = (
 )
 
 _LOAI_KHAM_SQL = """
-SELECT st.id::text AS st_id, st.name,
+SELECT st.id::text AS st_id, st.name, st.nhom,
        coalesce(st.di_thang_phong, false) AS di_thang,
        (coalesce(st.di_thang_phong, false)
         AND coalesce(ef.route_decision, 'SERVICES') = 'SERVICES') AS khong_kham
@@ -78,11 +78,49 @@ async def _co_quyen_tick(conn: asyncpg.Connection, identity: StaffIdentity) -> b
     return False
 
 
+#: Loại không có danh sách khám riêng (Điều trị, Khác — 07/10/2026): chọn được
+#: mọi dịch vụ khám của các loại KHÁM — bác sĩ có khám thật thì tick như cũ.
+_LUA_CHON_CHUNG_SQL = """
+SELECT DISTINCT ON (sp.id) sp.id::text AS id, sp.ma_kiotviet, sp.name, sp.unit_price
+  FROM public.loai_kham_phi l
+  JOIN public.service_type st
+    ON st.id = l.service_type_id AND st.clinic_id = l.clinic_id
+   AND st.nhom = 'KHAM' AND st.is_active
+  JOIN public.service_price sp
+    ON sp.id = l.service_price_id AND sp.clinic_id = l.clinic_id AND sp.active
+ WHERE l.clinic_id = $1::uuid
+ ORDER BY sp.id, l.thu_tu
+"""
+
+#: Tick đang còn sống mà không thuộc danh sách của loại hiện tại (đổi dịch vụ
+#: khám trong hồ sơ, T5) — GIỮ NGUYÊN, vẫn hiện để bỏ được.
+_DA_CHON_NGOAI_SQL = """
+SELECT sp.id::text AS id, sp.ma_kiotviet, sp.name, sp.unit_price
+  FROM public.luot_phi_kham l
+  JOIN public.service_price sp
+    ON sp.id = l.service_price_id AND sp.clinic_id = l.clinic_id
+ WHERE l.clinic_id = $1::uuid AND l.visit_id = $2::uuid AND l.bo_luc IS NULL
+   AND NOT (sp.id::text = ANY($3::text[]))
+ ORDER BY l.chon_luc, l.id
+"""
+
+
 async def _doc(
     conn: asyncpg.Connection, clinic_id: str, visit_id: str
 ) -> dict[str, Any]:
     loai = await conn.fetchrow(_LOAI_KHAM_SQL, clinic_id, visit_id)
-    lua_chon = await conn.fetch(_LUA_CHON_SQL, clinic_id, loai["st_id"]) if loai else []
+    lua_chon = (
+        list(await conn.fetch(_LUA_CHON_SQL, clinic_id, loai["st_id"])) if loai else []
+    )
+    if loai and not lua_chon and loai["nhom"] in ("DIEU_TRI", "KHAC"):
+        lua_chon = sorted(
+            await conn.fetch(_LUA_CHON_CHUNG_SQL, clinic_id), key=lambda r: r["name"]
+        )
+    lua_chon += list(
+        await conn.fetch(
+            _DA_CHON_NGOAI_SQL, clinic_id, visit_id, [r["id"] for r in lua_chon]
+        )
+    )
     da_chon = [
         r["id"]
         for r in await conn.fetch(

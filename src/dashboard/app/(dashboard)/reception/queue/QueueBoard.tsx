@@ -119,6 +119,9 @@ function DongKhach({
           ) : null}
         </p>
         {phu ? <p className="mt-0.5 text-meta text-ink-muted">{phu}</p> : null}
+        {d.ghi_chu ? (
+          <p className="mt-0.5 break-words text-meta text-ink-soft">Ghi chú: {d.ghi_chu}</p>
+        ) : null}
       </div>
       {/* Điện thoại (dưới sm): trạng thái + nút xuống dòng dưới tên, Check-in
           kéo rộng hết dòng. */}

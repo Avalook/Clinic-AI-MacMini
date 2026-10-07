@@ -30,6 +30,7 @@ import { LY_DO_HUY, LY_DO_HUY_THU_TU } from "@/lib/ly-do-huy";
 import { dayShort, fmtDayMonth } from "@/lib/roster";
 
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
+import { ChonDichVuDatLichChip, type NhomDichVuDatLich } from "./ChonDichVuDatLich";
 
 /** Những gì dòng lịch đã có sẵn — không gọi máy chủ chỉ để vẽ đầu hộp. */
 export interface LichTaiCho {
@@ -303,6 +304,8 @@ interface GoiDoiDichVu {
   duoc_doi: boolean;
   ly_do_khong_doi: string | null;
   lua_chon: LuaChonDichVu[];
+  /** Cùng danh sách, gom theo nhóm đặt lịch (máy chủ gom). */
+  nhom: NhomDichVuDatLich[];
 }
 
 export function DoiDichVuKhamTaiCho({
@@ -403,30 +406,17 @@ export function DoiDichVuKhamTaiCho({
               Khách đã check-in — đổi xong, khách được xếp lại hàng chờ theo dịch vụ mới.
             </p>
           ) : null}
-          <fieldset className="flex flex-col gap-2" disabled={!data.duoc_doi}>
-            <legend className="mb-2 text-body font-semibold text-ink">Dịch vụ khám</legend>
-            <div className="flex flex-col gap-1.5">
-              {data.lua_chon.map((x) => (
-                <div key={x.id} className="flex flex-col gap-0.5">
-                  <ChipChon
-                    kieu="mot"
-                    ten={`dv-${lich.id}`}
-                    chon={chon === null ? x.hien_tai : chon === x.id}
-                    disabled={!data.duoc_doi || x.chan}
-                    onDoi={() => setChon(x.id)}
-                  >
-                    {x.ten}
-                    {x.hien_tai ? <span className="text-meta text-ink-muted">· đang chọn</span> : null}
-                  </ChipChon>
-                  {x.ghi_chu ? (
-                    <span className={`pl-2 text-label ${x.chan ? "text-danger" : "text-warning"}`}>
-                      {x.ghi_chu}
-                    </span>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </fieldset>
+          <div className="flex flex-col gap-2">
+            <p className="text-body font-semibold text-ink">Dịch vụ khám</p>
+            {/* Cùng nhóm với ô chọn lúc đặt lịch (Khám · Điều trị · Khác). */}
+            <ChonDichVuDatLichChip
+              nhom={data.nhom}
+              ten={`dv-${lich.id}`}
+              chon={chon}
+              onChon={setChon}
+              disabled={!data.duoc_doi}
+            />
+          </div>
         </div>
       ) : null}
     </PopoverNeo>

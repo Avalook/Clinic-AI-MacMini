@@ -18,6 +18,7 @@ import { slotMinuteOptions } from "../../../lib/slot-capacity";
 import { hangCua, khungDay, phutCua } from "../../../lib/suc-chua-luoi";
 import { useBookingPolicy } from "../BookingPolicyContext";
 import { useSucChuaNgay } from "./dung-suc-chua-ngay";
+import ChonDichVuDatLich, { GoiYGhiChu } from "../_lam-viec/ChonDichVuDatLich";
 
 // Capacity Phase 1 — nhãn/lớp token của 6 trạng thái ô khung-giờ
 // (khớp CellState ở lib/capacity.ts).
@@ -55,6 +56,8 @@ export interface BookingInitial {
   channel?: string;
   /** Người giới thiệu đã lưu ở hồ sơ khách (kênh Giới thiệu) — điền sẵn. */
   gioiThieu?: string;
+  /** Ghi chú đã lưu của lịch (`appointment.notes`). */
+  ghiChu?: string;
 }
 
 /** Chế độ SỬA lịch đã có (Thông tin khách hàng → bấm ô "Lịch hẹn sắp tới").
@@ -73,7 +76,6 @@ export interface BookingEdit {
 
 export default function AppointmentBooking({
   clinicPatientId,
-  services,
   doctors,
   locations,
   defaultLocationId,
@@ -86,7 +88,6 @@ export default function AppointmentBooking({
   lichTruocId,
 }: {
   clinicPatientId: string;
-  services: Option[];
   doctors: Option[];
   locations: Option[];
   /** Pre-select a location (e.g. the one chosen at intake). */
@@ -157,6 +158,9 @@ export default function AppointmentBooking({
   const [gioiThieu, setGioiThieu] = useState(initial?.gioiThieu ?? "");
   // Lý do đổi lịch (chế độ SỬA) → `appointment_doi_lich.ly_do`.
   const [lyDoDoi, setLyDoDoi] = useState("");
+  // Ghi chú của lịch (`appointment.notes`) — nhóm "Khác" được gợi ý ghi.
+  const [ghiChu, setGhiChu] = useState(initial?.ghiChu ?? "");
+  const ghiChuDoi = ghiChu.trim() !== (initial?.ghiChu ?? "").trim();
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -232,7 +236,8 @@ export default function AppointmentBooking({
     apptTime !== edit.origTime ||
     serviceId !== (initial?.serviceId ?? "") ||
     channel !== (initial?.channel ?? "") ||
-    gioiThieu.trim() !== (initial?.gioiThieu ?? "").trim();
+    gioiThieu.trim() !== (initial?.gioiThieu ?? "").trim() ||
+    ghiChuDoi;
   const canBook =
     serviceId &&
     locationId &&
@@ -297,6 +302,8 @@ export default function AppointmentBooking({
           booking_channel: channel,
           nguoi_gioi_thieu:
             channel === KENH_GIOI_THIEU ? gioiThieu.trim() || undefined : undefined,
+          // Chỉ gửi khi ĐỔI — bản cũ nằm trong nhật ký đổi lịch ở máy chủ.
+          ...(ghiChuDoi ? { notes: ghiChu.trim() } : {}),
           // Lý do đổi → lịch sử đổi lịch (cùng trường lý do của lệnh).
           cancellation_reason: lyDoDoi.trim() || undefined,
         }),
@@ -328,6 +335,7 @@ export default function AppointmentBooking({
         // Tải/ca — backend tự gợi ý thanh_min/sono_min từ 2 field này (DEC-3).
         patient_kind: patientKind || undefined,
         need_sono: needSono,
+        notes: ghiChu.trim() || undefined,
         // Chuỗi tái khám. Chỉ có giá trị khi form được mở từ nút "Tái khám";
         // backend còn kiểm lại lịch ấy đúng của khách này không.
         lich_truoc_id: lichTruocId ?? undefined,
@@ -361,23 +369,25 @@ export default function AppointmentBooking({
               {khoaDichVu.label || "—"}
             </div>
           ) : (
-            // Chọn THẲNG từ danh mục dịch vụ đang bật (24/09/2026) — trước đây
-            // là 5 "lĩnh vực" viết cứng nên Thủ thuật / Sàn chậu không chọn được.
-            // Đổi lịch cũng chọn lại được (không khoá dịch vụ cũ).
-            <select
+            // Bộ chọn 4 nhóm dùng chung (07/10/2026). Đổi lịch cũng chọn lại
+            // được (không khoá dịch vụ cũ).
+            <ChonDichVuDatLich
               value={serviceId}
-              onChange={(e) => setServiceId(e.target.value)}
+              onChange={(id) => setServiceId(id)}
               className={INPUT}
-              aria-label="Dịch vụ"
-            >
-              <option value="">— Chọn dịch vụ —</option>
-              {services.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label.replace(/^[*#\s]+/, "").trim()}
-                </option>
-              ))}
-            </select>
+            />
           )}
+        </div>
+        <div className="space-y-1 sm:col-span-2">
+          <label className={LABEL}>Ghi chú</label>
+          <input
+            value={ghiChu}
+            onChange={(e) => setGhiChu(e.target.value)}
+            className={INPUT}
+            placeholder="Khách cần gì, lưu ý cho lễ tân / bác sĩ…"
+            aria-label="Ghi chú lịch hẹn"
+          />
+          <GoiYGhiChu value={serviceId} ghiChu={ghiChu} />
         </div>
         <div className="space-y-1">
           <label className={LABEL}>Bác sĩ</label>

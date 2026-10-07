@@ -830,10 +830,14 @@ export function locMauThuoc(ds: readonly MauThuoc[], tu: string): MauThuoc[] {
 /** BA KHỐI của phiếu bác sĩ chính (Tuyền chốt 25/09/2026 — bản giao diện mẫu):
  *  gom các mục SẴN CÓ, không đổi `ma` ô nào — phiếu đã lưu vẫn đọc đúng. Mục
  *  hành chính luôn nằm trên, ngoài các khối. Màn khám và bản in dùng chung. */
-export const KHOI_PHIEU: { so: 1 | 2 | 3; ten: string; muc: string[] }[] = [
+export type SoKhoi = 1 | 2 | 3 | 4;
+/** Khối 4 "Điều trị" (07/10/2026): KHÔNG thuộc mẫu phiếu JSON — hai ô chữ của
+ *  lượt (bảng `luot_dieu_tri_ghi`), shell vẽ qua `oDieuTri`; `muc` rỗng. */
+export const KHOI_PHIEU: { so: SoKhoi; ten: string; muc: string[] }[] = [
   { so: 1, ten: "Thông tin cơ bản", muc: ["A", "B"] },
   { so: 2, ten: "Chỉ định cận lâm sàng", muc: ["C"] },
   { so: 3, ten: "Chỉ định điều trị", muc: ["D", "E", "F", "G"] },
+  { so: 4, ten: "Điều trị", muc: [] },
 ];
 
 /** Ô đã có dữ liệu? (rỗng · mảng rỗng · bảng mọi cột rỗng = chưa) — bản in ẩn ô trống. */

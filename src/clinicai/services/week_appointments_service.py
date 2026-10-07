@@ -61,7 +61,7 @@ WITH tuan AS (
     SELECT a.id, a.slot_start, a.status, a.queue_number, a.doctor_id,
            a.so_booking, a.so_tiep_don,
            a.booking_channel, a.clinic_patient_id, a.service_type_id,
-           a.created_at, a.bac_si_da_go_id
+           a.created_at, a.bac_si_da_go_id, a.notes
       FROM appointment a
      WHERE a.clinic_id  = $1::uuid
        AND a.slot_start >= $2
@@ -104,7 +104,7 @@ som_nhat AS (
 )
 SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        t.so_booking, t.so_tiep_don,
-       t.booking_channel,
+       t.booking_channel, t.notes,
        -- LỊCH NÀY VỪA MẤT BÁC SĨ: có người phụ trách, nhưng người ấy không còn
        -- ca KHÁM vào đúng ngày khám.
        --
@@ -341,6 +341,8 @@ def _row_to_dict(
         "so_tiep_don": r.get("so_tiep_don"),
         "doctor_id": str(r["doctor_id"]) if r["doctor_id"] else None,
         "booking_channel": r["booking_channel"],
+        # Ghi chú CSKH lúc đặt (lịch "Khác" khuyến khích ghi) — lễ tân đọc ở dòng.
+        "notes": r.get("notes"),
         "phan_loai": r["phan_loai"],
         "mat_bac_si": bool(r["mat_bac_si"]),
         "bac_si_da_go": r["bac_si_da_go"],

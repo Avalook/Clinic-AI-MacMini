@@ -240,6 +240,12 @@ class PhieuKhamService:
             )
             if luot is None:
                 raise ValidationError("Không tìm thấy lượt khám.")
+            # PHIẾU THEO DỊCH VỤ HIỆN TẠI (T5, 07/10/2026): đổi dịch vụ khám thì
+            # mở phiếu của dịch vụ mới; phiếu cũ GIỮ NGUYÊN dòng của nó, đổi
+            # ngược về là mở lại đúng phiếu cũ đủ dữ liệu. Dịch vụ không gắn
+            # phiếu (Điều trị, Khác) thì giữ phiếu người dùng đã tự chọn gần nhất.
+            if form_id is None and luot["form_code"] in FORM_IDS:
+                form_id = str(luot["form_code"])
             dong = await conn.fetchrow(
                 "SELECT form_id, version, du_lieu, revision, sua_luc"
                 "  FROM phieu_kham_luot"

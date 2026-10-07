@@ -684,7 +684,7 @@ async def _kham(
 ) -> dict[str, Any] | None:
     kham_row = await conn.fetchrow(
         """
-        SELECT st.id::text AS st_id, st.name,
+        SELECT st.id::text AS st_id, st.name, st.nhom,
                coalesce(st.gia_mac_dinh, 0) AS gia_mac_dinh,
                (vi.appointment_id IS NULL) AS khong_hen,
                -- Tái khám: khách đã có lượt HOÀN TẤT cùng loại khám trước lượt này.
@@ -732,6 +732,10 @@ async def _kham(
         clinic_id,
         visit_id,
     )
+    # Lượt ĐIỀU TRỊ (T2, 07/10/2026): tiền là của chính chỉ định (giá dòng bảng
+    # giá), KHÔNG tự thu phí khám. Bác sĩ có khám thật thì tick dịch vụ khám con.
+    if kham_row is not None and kham_row["nhom"] == "DIEU_TRI" and not chon:
+        return None
     return dong_kham_theo_chon(kham_row, chon)
 
 

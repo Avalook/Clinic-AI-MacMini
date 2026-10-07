@@ -190,8 +190,9 @@ BEGIN
     -- 100 → 102 (01/10/2026, C13): luot_vat_tu + vat_tu_goi_y (20261003000000).
     -- 102 → 103 (06/10/2026, Khối 2): so_sua_chi_dinh (20261006200000).
     -- 103 → 104 (06/10/2026, phần E): tien_thua_giu_lai (20261006200003).
-    IF scoped_count <> 104 THEN
-        RAISE EXCEPTION 'expected 104 tenant-scoped read policies, found %', scoped_count;
+    -- 104 → 105 (07/10/2026): luot_dieu_tri_ghi (20261007610000, khối Điều trị).
+    IF scoped_count <> 105 THEN
+        RAISE EXCEPTION 'expected 105 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

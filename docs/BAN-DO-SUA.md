@@ -129,6 +129,21 @@ vấn / đi thẳng phòng · chuông sự kiện báo ai**
 - Test: `T/test_booking_service.py`, `T/services/test_capacity_roster_gate.py`. Luật:
   SO-LUAT 6.5 (sức chứa là ghế của MỘT bác sĩ, kiểm lúc xếp bác sĩ).
 
+**Ô chọn dịch vụ khi đặt / sửa lịch — 4 nhóm Khám · Điều trị · Thuốc (ẩn) · Khác (07/10/2026)**
+- Thêm/bớt/đổi tên một loại hay đổi nhóm = DỮ LIỆU (`service_type.nhom`, `thu_tu`,
+  Điều trị trỏ dòng giá `service_price_id`; migration `20261007600000_nhom_dich_vu_dat_lich.sql`).
+- Code: MỘT component `D/_lam-viec/ChonDichVuDatLich.tsx` (dạng ô chọn + dạng chip
+  `ChonDichVuDatLichChip`, gợi ý ghi chú `GoiYGhiChu`) dùng ở `NewPatientForm.tsx`,
+  `AppointmentBooking.tsx` (sửa/đặt ở Quản lý khách hàng), `BookingHub.tsx`,
+  `ThaoTacLichTaiCho.tsx` (popover Đổi dịch vụ khám) → `/api/catalog/dich-vu-dat-lich` →
+  `R/catalog.py` → `S/dich_vu_dat_lich.py` (`gom_nhom`, `doc`; popover dùng chung qua
+  `S/doi_dich_vu_kham.py` `o_doi_dich_vu`). Ghi chú lịch = `appointment.notes`; đổi lịch
+  sửa ghi chú qua `apply_action(reschedule, ghi_chu=…)`, bản cũ ở `event_log`
+  (`ghi_chu_cu`/`ghi_chu_moi`); lễ tân thấy ở `QueueBoard.tsx` (`S/tiep_don_service.py`)
+  và `WeeklyAppointmentsTable.tsx` (`S/week_appointments_service.py`).
+- Test: `T/services/test_nhom_dich_vu_dat_lich_db.py`, `T/unit/test_dich_vu_dat_lich.py`,
+  FT `nam-dich-vu-kham-boundary.test.mts`.
+
 **Ô tìm khách ở màn Đặt lịch (tìm trên toàn bộ hồ sơ, 06/10/2026)**
 - Màn: `/appointments` → `D/appointments/BookingHub.tsx` (`ketQuaTim`, debounce 300 ms, từ 2
   ký tự) → route `app/api/appointments/tim-khach/route.ts` (chỉ chuyển tiếp).
@@ -194,6 +209,32 @@ lệnh `bat_dau` + `xong` CÓ SẴN của `S/service_execution_service.py`; lệ
 `src/clinicai/phieu_kham/dinh_nghia/` + `src/clinicai/phieu_kham/khung.py`. Đặc tả:
 `docs/phieu-kham/`. Test: `T/services/test_phieu_kham_db.py`, `T/services/test_phieu_kham_luot_db.py`,
 FT `phieu-kham-boundary.test.mts`, `npm run test:phieu-kham`.
+
+**Dịch vụ của lượt trong hồ sơ khám — đổi dịch vụ, phiếu cũ, lượt Điều trị (07/10/2026)**
+— UI `D/_lam-viec/phieu-kham/KhoiDichVuHoSo.tsx` (đầu phiếu + hồ sơ tối giản ở
+`PhieuKhamLuot.tsx` nhánh `chonDuoc`) → `/api/ho-so-kham` → `R/ho_so_kham.py` →
+`S/ho_so_dich_vu.py` (`doc`, `doi` → `BookingService.doi_dich_vu_kham(trong_ho_so=True)`;
+luật mở khoá `S/doi_dich_vu_kham.py` `ly_do_khong_doi(trong_ho_so=…)`, quyền
+`QUYEN_DOI_TRONG_HO_SO`). Phiếu theo dịch vụ HIỆN TẠI: `S/phieu_kham_service.py` `doc_luot`.
+Lượt Điều trị vào hàng → chỉ định sẵn: consumer `src/clinicai/events/consumers/dieu_tri.py`
+(nghe `visit.routed`) → `sinh_chi_dinh_dieu_tri`; không phí khám `S/bill_service.py` `_kham`;
+không chặn check-out `S/checkout_service.py` (`exam_open`); tick dịch vụ khám cho
+Điều trị / Khác + giữ tick khi đổi `S/phi_kham_service.py` `_doc`. Test:
+`T/services/test_ho_so_kham_db.py`, `T/unit/test_doi_dich_vu_kham.py`, FT `ho-so-dich-vu-boundary.test.mts`.
+
+**Khối 4 "Điều trị" của hồ sơ (Cảm nhận · Vấn đề sau điều trị, 07/10/2026)** — UI
+`D/_lam-viec/phieu-kham/KhoiDieuTri.tsx` (khối 4 của `PhieuKham.tsx` qua `oDieuTri`;
+`KHOI_PHIEU` ở `src/dashboard/lib/phieu-kham.ts`; cả hồ sơ tối giản) → `/api/ho-so-kham`
+(`PUT`, `xem=dieu-tri`) → `R/ho_so_kham.py` → `S/khoi_dieu_tri.py` (`luu` thêm phiên bản,
+`doc`); bảng chỉ thêm `luot_dieu_tri_ghi` (migration `20261007610000_luot_dieu_tri_ghi.sql`).
+In: `app/print/phieu-kham/[visitId]/InPhieuKham.tsx`. Test: `T/services/test_khoi_dieu_tri_db.py`,
+FT `khoi-dieu-tri-boundary.test.mts`.
+
+**Lịch sử khám (popup, mọi lượt) + `/patient-list` mở đúng khung (07/10/2026)** — UI
+`D/_lam-viec/LichSuKham.tsx` (Bàn khám qua `PhieuKhamLuot.tsx`, `D/patient-list/PatientListView.tsx`
+`moLuot`, `D/customers/ThanhLuotKham.tsx`) → `/api/ho-so-kham?xem=lich-su` → `R/ho_so_kham.py`
+`lich_su` → `S/lich_su_luot.py` (`LOAI_DU_LIEU_SQL` dùng chung với `S/danh_sach_benh_nhan_service.py`
+`_LUOT_SQL`). Test: `T/services/test_lich_su_luot_db.py`, FT `lich-su-kham-boundary.test.mts`.
 
 **Thai kỳ** — `D/ban-kham/ThaiKy.tsx` → `S/thai_ky_service.py`.
 

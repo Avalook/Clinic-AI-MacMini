@@ -753,6 +753,16 @@ MODULE: dict[str, Module] = {
             bang=["cong_no"],
             projection=["khach_con_no"],
         ),
+        # Lịch ĐIỀU TRỊ (07/10/2026): khách vào hàng → chỉ định sẵn đúng dịch vụ
+        # đã đặt (một service_order bình thường).
+        Module(
+            ma="dieu_tri",
+            ten="Điều trị theo lịch đặt + đổi dịch vụ trong hồ sơ",
+            lenh=["DoiDichVuTrongHoSo", "LuuKhoiDieuTri"],
+            nghe=["visit.routed"],
+            ben_nhan=["dieu_tri_sinh_chi_dinh"],
+            bang=["luot_dieu_tri_ghi"],
+        ),
         Module(
             ma="van_hanh",
             ten="Vận hành, báo cáo, lịch sử thao tác",
