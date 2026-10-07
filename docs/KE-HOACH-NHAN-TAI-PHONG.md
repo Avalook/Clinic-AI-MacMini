@@ -157,6 +157,20 @@ Phòng B nhận khách lúc phòng A còn ĐANG LÀM (A quên Xong) → chuông 
   `service.interrupted` / `service.start_cancelled`. Người nhận cũng tự bấm "đã xử lý".
 - Test: `src/tests/services/test_chuong_nhan_cheo_db.py`.
 
+## Bố cục màn phòng (Tuyền chốt 07/10 tối — thay "ô khách liệt kê chỉ định")
+
+- Cột trái (Sắp đến · Đang chờ · Đang làm · Đã xong): MỖI KHÁCH MỘT DÒNG GỌN — số ·
+  tên · mã · "N chỉ định" · nhãn (đang ở đâu / hướng dẫn tới đây / ★ / đã sang P. X).
+  Không liệt kê từng chỉ định trong danh sách. Tiêu đề đếm KHÁCH.
+- Bấm dòng → khung phải (`KhungChiDinhKhach`): chỉ định phòng này làm được, mỗi dòng
+  một nút theo trạng thái máy chủ: [Nhận] · [Bắt đầu] · [Xong] + [Nhận cả N]; ô chọn
+  bác sĩ cạnh nút Nhận (phòng ≥2 BS). Bấm tên chỉ định → phiếu của nó mở ngay dưới
+  (`KhachTrongPhong`); [Bắt đầu] / [Xong] trên dòng chạy đúng lệnh của khung phiếu.
+- Chuông nhận chéo mở `/phong/<A>?chi_dinh=<id>` → chọn sẵn khách + chỉ định; thẻ bị
+  nhận chéo có lối Gián đoạn.
+- Mốc thời gian: chỉ mốc người bấm (Nhận, Bắt đầu, Xong…). Thời gian từ lúc rời phòng
+  tới lúc phòng sau Nhận CHƯA đo được (chưa có thiết bị) — không suy diễn, không là lỗi.
+
 ## Hai chỉ định cùng phòng, DV1 đang làm (07/10 tối)
 
 Bắt đầu DV2 khi DV1 CÙNG PHÒNG còn đang làm KHÔNG phải "khách ở phòng khác" (trước

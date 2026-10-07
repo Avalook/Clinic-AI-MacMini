@@ -3,28 +3,20 @@
 // HÀNG CHỜ PHÒNG DỊCH VỤ THEO KHÁCH (Tuyền chốt 07/10/2026 — staging: một khách
 // ba chỉ định hiện ba dòng, tiêu đề "1 đang chờ" mà danh sách "ĐANG CHỜ (3)").
 //
-// MỖI KHÁCH MỘT Ô ở mọi nhóm (đang làm · đang chờ · đang làm việc khác · đã xong).
+// MỖI KHÁCH ĐÚNG MỘT DÒNG GỌN ở mọi nhóm (đang làm · đang chờ · đang làm việc
+// khác · đã xong): số · tên · "N chỉ định" · nhãn. Không liệt kê từng chỉ định ở
+// đây (bố cục Tuyền chốt 07/10 tối) — bấm dòng thì khung bên phải liệt kê chỉ
+// định của khách với nút Nhận / Bắt đầu / Xong và mở phiếu.
+//
 // Khách vào nhóm "cao nhất" của mình: có chỉ định đang làm → Đang làm; không thì
 // có chỉ định chờ → Đang chờ… (chỉ chia nhóm để đọc, thứ tự do MÁY CHỦ xếp — như
-// `HangChoCot`). Trong ô: các chỉ định phòng làm được kèm trạng thái máy chủ trả
-// (`chi_dinh_khach`) — bấm chỉ định có ở phòng để mở nó bên phải (Bắt đầu / Xong
-// / hoàn tác vẫn theo từng chỉ định). "Nhận thêm" cho chỉ định còn lại.
+// `HangChoCot`).
 
 import { Star } from "lucide-react";
-import { useState } from "react";
 
-import Button from "@/components/ui/Button";
 import SoLuot from "@/components/ui/SoLuot";
-import { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
 
-import {
-  cauChiDinhPhong,
-  gioVn,
-  soPhutTu,
-  type ChiDinhPhong,
-  type DongHangCho,
-} from "../../_lam-viec/api";
-import NhanChiDinh from "./NhanChiDinh";
+import { cauDangOPhong, gioVn, soPhutTu, type ChiDinhPhong, type DongHangCho } from "../../_lam-viec/api";
 
 type Nhom = "lam" | "cho" | "khac" | "xong" | "ve";
 
@@ -60,30 +52,31 @@ export function gomTheoKhach(dong: DongHangCho[]): OKhach[] {
   return [...theo.entries()].map(([visitId, ds]) => ({ visitId, dong: ds, nhom: nhomCua(ds) }));
 }
 
+/** Dòng "chính" của khách: đang làm, rồi đang chờ, rồi dòng đầu. */
+export function dongChinh(dong: DongHangCho[]): DongHangCho | null {
+  return (
+    dong.find((d) => d.trang_thai === "serving") ??
+    dong.find((d) => d.trang_thai === "waiting" || d.trang_thai === "called") ??
+    dong[0] ??
+    null
+  );
+}
+
 export default function HangChoKhachPhong({
   dong,
   chiDinhKhach,
   chon,
   onChon,
-  nhanTaiPhong,
-  bacSiLamId,
-  onDaNhan,
-  onBao,
   trong,
 }: {
   dong: DongHangCho[];
   /** visit_id → chỉ định phòng làm được + trạng thái (dây Nhận tại phòng bật). */
   chiDinhKhach: Record<string, ChiDinhPhong[]>;
+  /** visit_id đang mở ở khung phải. */
   chon: string | null;
-  onChon: (id: string) => void;
-  /** Mã phòng khi được "Nhận thêm" (dây bật, hôm nay) — null = không có nút. */
-  nhanTaiPhong: string | null;
-  bacSiLamId?: string;
-  onDaNhan: () => void;
-  onBao: (tb: ThongBao) => void;
+  onChon: (visitId: string) => void;
   trong: string;
 }) {
-  const [moNhan, setMoNhan] = useState<string | null>(null);
   if (dong.length === 0) {
     return <p className="rounded-card border border-line bg-surface p-4 text-sm text-ink-muted">{trong}</p>;
   }
@@ -101,30 +94,19 @@ export default function HangChoKhachPhong({
             <ul className="space-y-1">
               {ds.map((k) => {
                 const dau = k.dong[0];
-                const chinh =
-                  k.dong.find((d) => d.trang_thai === "serving") ??
-                  k.dong.find((d) => d.trang_thai === "waiting" || d.trang_thai === "called") ??
-                  dau;
-                const dangChon = k.dong.some((d) => d.id === chon);
-                const theoRef = new Map(k.dong.map((d) => [d.ref_id, d]));
+                const chinh = dongChinh(k.dong) ?? dau;
+                const dangChon = k.visitId === chon;
                 const cd = chiDinhKhach[k.visitId] ?? [];
-                // Không có danh sách máy chủ (dây tắt / ngày cũ): vẽ theo dòng.
-                const hang: { id: string; ten: string; nhan: string; dong?: DongHangCho; chuyen?: boolean }[] =
-                  cd.length > 0
-                    ? cd.map((c) => ({
-                        id: c.id,
-                        ten: c.ten ?? "—",
-                        nhan: cauChiDinhPhong(c),
-                        dong: theoRef.get(c.id),
-                        chuyen: c.chuyen,
-                      }))
-                    : k.dong.map((d) => ({
-                        id: d.ref_id,
-                        ten: d.viec ?? "—",
-                        nhan: d.trang_thai === "done" ? "xong" : d.trang_thai === "serving" ? "đang làm" : "chờ",
-                        dong: d,
-                      }));
-                const nhanThem = nhanTaiPhong ? cd.filter((c) => c.nhan_duoc) : [];
+                const soChiDinh = cd.length > 0 ? cd.length : new Set(k.dong.map((d) => d.ref_id)).size;
+                const sang = k.dong.find((d) => d.da_sang_phong)?.da_sang_phong ?? null;
+                const oDau = k.dong.find((d) => d.dang_o_phong)?.dang_o_phong ?? null;
+                const nhan = sang
+                  ? `đã sang ${sang.phong ?? "phòng khác"} lúc ${gioVn(sang.luc)}`
+                  : oDau
+                    ? cauDangOPhong(oDau).toLowerCase()
+                    : cd.some((c) => c.nhan_duoc)
+                      ? "còn chỉ định chưa nhận"
+                      : null;
                 const phut =
                   chinh.trang_thai === "serving"
                     ? soPhutTu(chinh.bat_dau_luc)
@@ -132,21 +114,18 @@ export default function HangChoKhachPhong({
                       ? gioVn(chinh.xong_luc)
                       : soPhutTu(chinh.vao_hang_luc);
                 return (
-                  <li
-                    key={k.visitId}
-                    className={`rounded-control border px-2.5 py-2 ${
-                      dangChon ? "border-brand-500 bg-brand-50" : "border-line bg-surface"
-                    } ${k.nhom === "xong" ? "opacity-70" : ""}`}
-                  >
+                  <li key={k.visitId}>
                     <button
                       type="button"
-                      onClick={() => onChon(chinh.id)}
+                      onClick={() => onChon(k.visitId)}
                       aria-pressed={dangChon}
-                      className="flex w-full items-start gap-2 text-left"
+                      className={`flex w-full items-center gap-2 rounded-control border px-2 py-1.5 text-left ${
+                        dangChon ? "border-brand-500 bg-brand-50" : "border-line bg-surface"
+                      } ${k.nhom === "xong" ? "opacity-70" : ""}`}
                     >
                       <span
                         title="Số check-in"
-                        className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-sunken text-sm font-bold text-ink"
+                        className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-sunken text-meta font-bold text-ink"
                       >
                         {dau.so_tiep_don ?? dau.so_thu_tu}
                       </span>
@@ -160,61 +139,12 @@ export default function HangChoKhachPhong({
                           </span>
                           <SoLuot booking={dau.so_booking} className="shrink-0" />
                         </span>
-                        <span className="block text-label text-ink-muted">{hang.length} chỉ định</span>
+                        <span className={`block truncate text-label ${sang ? "text-danger" : "text-ink-muted"}`}>
+                          {[`${soChiDinh} chỉ định`, nhan].filter(Boolean).join(" · ")}
+                        </span>
                       </span>
                       <span className="shrink-0 text-right text-label text-ink-muted">{phut}</span>
                     </button>
-                    <ul className="mt-1 space-y-0.5 pl-10">
-                      {hang.map((h) => (
-                        <li key={h.id}>
-                          {h.dong ? (
-                            <button
-                              type="button"
-                              onClick={() => onChon(h.dong!.id)}
-                              aria-pressed={h.dong.id === chon}
-                              className={`w-full rounded-control px-1 text-left text-label hover:bg-surface-muted ${
-                                h.dong.id === chon ? "font-semibold text-brand-700" : "text-ink"
-                              }`}
-                            >
-                              {h.ten}
-                              {h.chuyen ? " ★" : ""} <span className="text-ink-muted">· {h.nhan}</span>
-                              {h.dong.bac_si_lam ? <span className="text-brand-700"> · {h.dong.bac_si_lam}</span> : null}
-                            </button>
-                          ) : (
-                            <span className="block px-1 text-label text-ink-muted">
-                              {h.ten}
-                              {h.chuyen ? " ★" : ""} · {h.nhan}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                    {nhanThem.length > 0 && nhanTaiPhong ? (
-                      moNhan === k.visitId ? (
-                        <div className="mt-1 pl-10">
-                          <NhanChiDinh
-                            roomId={nhanTaiPhong}
-                            visitId={k.visitId}
-                            khach={dau.ten}
-                            chiDinh={cd}
-                            bacSiLamId={bacSiLamId}
-                            nhanNut="Nhận thêm"
-                            onThoi={() => setMoNhan(null)}
-                            onBao={onBao}
-                            onXong={() => {
-                              setMoNhan(null);
-                              onDaNhan();
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <div className="mt-1 pl-10">
-                          <Button type="button" size="sm" variant="soft" onClick={() => setMoNhan(k.visitId)}>
-                            Nhận thêm ({nhanThem.length})
-                          </Button>
-                        </div>
-                      )
-                    ) : null}
                   </li>
                 );
               })}

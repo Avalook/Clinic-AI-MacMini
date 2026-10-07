@@ -51,7 +51,8 @@
 // người chịu trách nhiệm riêng. Hoàn tất phiếu lúc dịch vụ còn đang làm dở thì
 // máy chủ đóng hộ dịch vụ và NÓI RA là đã đóng hay chưa.
 
-import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   cauDangOPhong,
@@ -73,7 +74,8 @@ import KhungTep from "../../_lam-viec/KhungTep";
 import PhieuKetQua from "../../_lam-viec/PhieuKetQua";
 import XemLuot from "../../_lam-viec/XemLuot";
 import ChuaXepPhong, { type KhachChuaXep } from "./ChuaXepPhong";
-import HangChoKhachPhong, { gomTheoKhach } from "./HangChoKhachPhong";
+import HangChoKhachPhong, { dongChinh, gomTheoKhach } from "./HangChoKhachPhong";
+import KhungChiDinhKhach, { type HanhDong } from "./KhungChiDinhKhach";
 import SapDenPhong, { type KhachSapDen } from "./SapDenPhong";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -134,6 +136,14 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   const [dem, setDem] = useState<DemPhong | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [chonId, setChonId] = useState<string | null>(null);
+  // Dây bật: KHÁCH đang mở ở khung phải (cột trái mỗi khách một dòng) + lệnh
+  // [Bắt đầu] / [Xong] bấm trên dòng chỉ định, nhờ khung phiếu làm.
+  const [chonKhach, setChonKhach] = useState<string | null>(null);
+  const [yeuCau, setYeuCau] = useState<{ id: string; hanh: HanhDong; lan: number } | null>(null);
+  const [chonBs, setChonBs] = useState("");
+  // Chuông nhận chéo mở `/phong/<id>?chi_dinh=<chỉ định>` → chọn sẵn đúng chỉ định.
+  const chiDinhUrl = useSearchParams().get("chi_dinh");
+  const [daMoUrl, setDaMoUrl] = useState(false);
   const [lanNap, setLanNap] = useState(0);
   const { ngay, homNay, chonNgay } = useNgayXem();
   /** Máy chủ nói ngày đang xem có phải hôm nay không (ngày rác → hôm nay). */
@@ -228,20 +238,58 @@ export default function PhongDichVu({ ma }: { ma: string }) {
     ds.find((d) => d.trang_thai === "serving") ??
     ds.find((d) => d.trang_thai === "waiting" || d.trang_thai === "called") ??
     null;
-  const chon = ds.find((d) => d.id === chonId) ?? macDinh;
+  // Chuông nhận chéo mở `?chi_dinh=` → chọn sẵn đúng khách + chỉ định (một lần).
+  if (!daMoUrl && chiDinhUrl && hang !== null) {
+    setDaMoUrl(true);
+    const d = ca.find((x) => x.ref_id === chiDinhUrl);
+    if (d) {
+      setChonKhach(d.visit_id);
+      setChonId(d.id);
+      if (loc && d.lan_toi === false) setCheDoLan("ca_phong");
+    } else {
+      const k = sapDen.find((x) => x.chi_dinh.some((c) => c.id === chiDinhUrl));
+      if (k) setChonKhach(k.visit_id);
+    }
+  }
+  // Dây bật: khung phải theo KHÁCH (cột trái mỗi khách một dòng); phiếu bên
+  // dưới là chỉ định đang chọn của khách ấy.
+  const khachMo = taiPhong ? (chonKhach ?? macDinh?.visit_id ?? null) : null;
+  const dongKhach = khachMo ? ds.filter((d) => d.visit_id === khachMo) : [];
+  const chon = taiPhong
+    ? (dongKhach.find((d) => d.id === chonId) ?? dongChinh(dongKhach))
+    : (ds.find((d) => d.id === chonId) ?? macDinh);
   // GHIM KHÁCH ĐANG HIỆN (Tuyền 02/10/2026): bấm Xong / Hoàn tất phiếu thì khách
   // sang nhóm "Đã xong" ở cột trái nhưng khung phải VẪN là khách ấy — tải nhầm
   // tệp thì sửa ngay, khỏi đi tìm lại. Trước đây khách tự chọn (chưa bấm vào
   // dòng) không được ghim, nên Xong xong khung nhảy sang người chờ kế tiếp.
   // Sang người mới = bấm dòng ở cột trái hoặc nút "Khách kế tiếp".
   if (chon && chon.id !== chonId) setChonId(chon.id);
+  if (khachMo && khachMo !== chonKhach) setChonKhach(khachMo);
+  const sdKhach = khachMo ? (sapDen.find((k) => k.visit_id === khachMo) ?? null) : null;
   // Khách kế tiếp = cùng thứ tự với khách mặc định: đang làm dở trước, rồi đang chờ.
+  const conLai = taiPhong ? ds.filter((d) => d.visit_id !== chon?.visit_id) : ds;
   const keTiep =
     chon?.trang_thai === "done"
-      ? (ds.find((d) => d.trang_thai === "serving") ??
-        ds.find((d) => d.trang_thai === "waiting" || d.trang_thai === "called") ??
+      ? (conLai.find((d) => d.trang_thai === "serving") ??
+        conLai.find((d) => d.trang_thai === "waiting" || d.trang_thai === "called") ??
         null)
       : null;
+  const cuonToiKhung = () => {
+    // Màn hẹp: khung khách nằm DƯỚI danh sách — tự cuộn tới (smoke 18/09, 375).
+    if (window.innerWidth < 1024) {
+      requestAnimationFrame(() =>
+        document
+          .getElementById(taiPhong ? "khung-khach-phong" : "khung-khach-trong-phong")
+          ?.scrollIntoView({ block: "start" }),
+      );
+    }
+  };
+  const chonKhachMoi = (visitId: string) => {
+    setChonKhach(visitId);
+    setChonId(null);
+    setYeuCau(null);
+    cuonToiKhung();
+  };
 
   return (
     <div className="grid gap-4">
@@ -281,6 +329,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
           if (moi === ngay) return;
           setHang(null);
           setChonId(null);
+          setChonKhach(null);
           chonNgay(moi);
         }}
       />
@@ -294,13 +343,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(240px,0.6fr)_minmax(0,1.8fr)]">
         <aside aria-label="Hàng chờ phòng" className="space-y-3">
           {phong && taiPhong ? (
-            <SapDenPhong
-              roomId={phong.id}
-              ds={sapDen}
-              bacSi={bacSiPhong}
-              onDaNhan={napLai}
-              onBao={setThongBao}
-            />
+            <SapDenPhong ds={sapDen} chon={khachMo} onChon={chonKhachMoi} />
           ) : phong ? (
             <ChuaXepPhong roomId={phong.id} ds={chuaXep} onDaNhan={napLai} />
           ) : null}
@@ -328,18 +371,8 @@ export default function PhongDichVu({ ma }: { ma: string }) {
             <HangChoKhachPhong
               dong={ds}
               chiDinhKhach={chiDinhKhach}
-              chon={chon?.id ?? null}
-              onChon={(id) => {
-                setChonId(id);
-                if (window.innerWidth < 1024) {
-                  requestAnimationFrame(() =>
-                    document.getElementById("khung-khach-trong-phong")?.scrollIntoView({ block: "start" }),
-                  );
-                }
-              }}
-              nhanTaiPhong={laHomNay && phong ? phong.id : null}
-              onDaNhan={napLai}
-              onBao={setThongBao}
+              chon={khachMo}
+              onChon={chonKhachMoi}
               trong="Chưa có khách nào được nhận vào phòng này."
             />
           ) : (
@@ -348,21 +381,62 @@ export default function PhongDichVu({ ma }: { ma: string }) {
               chon={chon?.id ?? null}
               onChon={(id) => {
                 setChonId(id);
-                // Màn hẹp: khung khách nằm DƯỚI danh sách — tự cuộn tới (smoke
-                // 18/09, 375).
-                if (window.innerWidth < 1024) {
-                  requestAnimationFrame(() =>
-                    document
-                      .getElementById("khung-khach-trong-phong")
-                      ?.scrollIntoView({ block: "start" }),
-                  );
-                }
+                cuonToiKhung();
               }}
               trong="Chưa có khách nào được chỉ định vào phòng này."
             />
           )}
         </aside>
-        {chon ? (
+        {taiPhong && khachMo && phong ? (
+          <div id="khung-khach-phong" className="min-w-0 space-y-4">
+            <KhungChiDinhKhach
+              key={khachMo}
+              roomId={phong.id}
+              visitId={khachMo}
+              khach={sdKhach?.khach ?? dongKhach[0]?.ten ?? null}
+              maKhach={sdKhach?.ma_khach ?? dongKhach[0]?.ma_bn ?? null}
+              dangO={sdKhach?.dang_o ?? null}
+              chiDinh={sdKhach?.chi_dinh ?? chiDinhKhach[khachMo] ?? []}
+              dong={dongKhach}
+              chon={chon?.id ?? null}
+              choNhan={laHomNay}
+              bacSi={bacSiPhong}
+              bacSiLamId={chonBs}
+              onChonBacSi={setChonBs}
+              onChonDong={(id) => {
+                setChonId(id);
+                setYeuCau(null);
+              }}
+              onHanhDong={(id, hanh) => {
+                setChonId(id);
+                setYeuCau({ id, hanh, lan: Date.now() });
+              }}
+              onDaNhan={napLai}
+              onBao={setThongBao}
+            />
+            {chon ? (
+              <KhachTrongPhong
+                key={chon.id}
+                dong={chon}
+                onDaBam={napLai}
+                onBao={setThongBao}
+                yeuCau={yeuCau?.id === chon.id ? yeuCau : null}
+                onDaLamYeuCau={() => setYeuCau(null)}
+                keTiep={
+                  keTiep
+                    ? {
+                        ten: keTiep.ten,
+                        onChon: () => {
+                          setChonKhach(keTiep.visit_id);
+                          setChonId(keTiep.id);
+                        },
+                      }
+                    : null
+                }
+              />
+            ) : null}
+          </div>
+        ) : chon ? (
           <KhachTrongPhong
             key={chon.id}
             dong={chon}
@@ -385,6 +459,8 @@ function KhachTrongPhong({
   onDaBam,
   onBao,
   keTiep,
+  yeuCau = null,
+  onDaLamYeuCau,
 }: {
   dong: DongHangCho;
   onDaBam: () => void;
@@ -392,6 +468,10 @@ function KhachTrongPhong({
   onBao?: (tb: ThongBao) => void;
   /** Khách đang chờ kế tiếp — chỉ có khi khách này đã xong. */
   keTiep?: { ten: string; onChon: () => void } | null;
+  /** [Bắt đầu] / [Xong] bấm trên dòng chỉ định ở khung chỉ định của khách:
+   *  khung này làm đúng lệnh của nó ngay khi đọc xong trạng thái. */
+  yeuCau?: { hanh: HanhDong; lan: number } | null;
+  onDaLamYeuCau?: () => void;
 }) {
   const loai = loaiCua(dong.node_code);
   const [th, setTh] = useState<ThucHien | null>(null);
@@ -411,7 +491,12 @@ function KhachTrongPhong({
    *  máy chủ trả tên phòng (`chi_tiet` của 409 PATIENT_BUSY) và có cho chuyển
    *  không; màn chỉ hỏi lại tại chỗ, không tự suy luật. */
   const [hoiChuyen, setHoiChuyen] = useState<string | null>(null);
+  /** CÙNG PHÒNG (07/10/2026): dịch vụ khác của khách đang làm ở chính phòng
+   *  này → máy chủ trả 409 CUNG_PHONG_DANG_LAM kèm tên; màn hỏi tại chỗ, một
+   *  nút [Xong DV1 & bắt đầu DV2] (một lệnh, máy chủ làm cả hai). */
+  const [hoiCungPhong, setHoiCungPhong] = useState<{ dv: string; moi: string } | null>(null);
   const [hoiHuy, setHoiHuy] = useState(false);
+  const daLamYeuCau = useRef<number | null>(null);
 
   // Trạng thái thực hiện đọc riêng, không lấy từ hàng chờ: hàng chờ không mang
   // hai số revision, mà thiếu chúng thì mọi lệnh đều phải đoán.
@@ -442,11 +527,20 @@ function KhachTrongPhong({
         setHoiChuyen(typeof ct.phong === "string" ? ct.phong : "khác");
         return;
       }
+      if (ct?.ma === "CUNG_PHONG_DANG_LAM") {
+        setHoiCungPhong({
+          dv: typeof ct.dich_vu === "string" ? ct.dich_vu : "Dịch vụ đang làm",
+          moi: typeof ct.dich_vu_moi === "string" ? ct.dich_vu_moi : (dong.viec ?? "dịch vụ này"),
+        });
+        return;
+      }
       setHoiChuyen(null);
+      setHoiCungPhong(null);
       setLoi(kq.loi);
       return;
     }
     setHoiChuyen(null);
+    setHoiCungPhong(null);
     setHoiHuy(false);
     setMoLyDo(null);
     setLyDo("");
@@ -462,12 +556,13 @@ function KhachTrongPhong({
     onDaBam();
   };
 
-  const batDau = (giaiPhong: boolean) => {
+  const batDau = (giaiPhong: boolean, xongTruoc = false) => {
     if (!th) return;
     void lenh("bat-dau-v1", {
       expected_execution_revision: th.execution_revision,
       expected_routing_revision: th.routing_revision,
       ...(giaiPhong ? { giai_phong: true } : {}),
+      ...(xongTruoc ? { xong_truoc: true } : {}),
     });
   };
 
@@ -490,6 +585,43 @@ function KhachTrongPhong({
     th != null &&
     loai !== "LAY_MAU" &&
     (th.mau_goi_y != null || (th.phieu?.length ?? 0) > 0);
+
+  /** MỘT chỗ gọi lệnh đóng thẳng dịch vụ (dịch vụ không có phiếu chính) — cả
+   *  nút [Xong] ở hàng phụ lẫn [Xong] trên dòng chỉ định đi qua đây. */
+  const xongThang = () => {
+    if (!th?.lan_dang_chay) return;
+    void lenh("xong-v1", {
+      attempt_id: th.lan_dang_chay.id,
+      expected_execution_revision: th.execution_revision,
+      ghi_chu: ghiChuXong.trim() || undefined,
+    });
+  };
+
+  // Nút [Bắt đầu] / [Xong] trên dòng chỉ định (khung chỉ định của khách): làm
+  // đúng lệnh khung này vẫn làm, MỘT lần cho mỗi lần bấm. Dịch vụ có phiếu kết
+  // quả thì "Xong" là [Hoàn tất] trong phiếu — chỉ nhắc, không đóng hộ.
+  useEffect(() => {
+    if (!yeuCau || !th || daLamYeuCau.current === yeuCau.lan) return;
+    daLamYeuCau.current = yeuCau.lan;
+    const hanh = yeuCau.hanh;
+    const lan = th.lan_dang_chay;
+    // Lệnh chạy ngoài thân effect (như trả lời một lần bấm), không đổi state
+    // đồng bộ trong effect.
+    queueMicrotask(() => {
+      onDaLamYeuCau?.();
+      if (hanh === "bat-dau" && chuaLam) {
+        batDau(false);
+      } else if (hanh === "xong" && dangLam && lan) {
+        if (coPhieuChinh) {
+          setBao("Dịch vụ này có phiếu kết quả — bấm Hoàn tất trong phiếu bên dưới là xong.");
+        } else {
+          xongThang();
+        }
+      }
+    });
+    // Chỉ chạy khi có lần bấm mới hoặc trạng thái vừa đọc xong.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yeuCau, th]);
 
   return (
     <section
@@ -611,6 +743,18 @@ function KhachTrongPhong({
           dangGui={dangGui}
           onDongY={() => batDau(true)}
           onThoi={() => setHoiChuyen(null)}
+        />
+      ) : null}
+
+      {hoiCungPhong && chuaLam ? (
+        // Khách vẫn ở phòng này — không nhãn đỏ, không đóng hàng. Không tự Xong:
+        // chỉ khi người bấm nút này.
+        <XacNhanTaiCho
+          cau={`${hoiCungPhong.dv} chưa bấm Xong.`}
+          nhanDongY={`Xong ${hoiCungPhong.dv} & bắt đầu ${hoiCungPhong.moi}`}
+          dangGui={dangGui}
+          onDongY={() => batDau(false, true)}
+          onThoi={() => setHoiCungPhong(null)}
         />
       ) : null}
 
@@ -795,13 +939,7 @@ function KhachTrongPhong({
                 size="lg"
                 variant="primary"
                 disabled={dangGui}
-                onClick={() =>
-                  void lenh("xong-v1", {
-                    attempt_id: th.lan_dang_chay!.id,
-                    expected_execution_revision: th.execution_revision,
-                    ghi_chu: ghiChuXong.trim() || undefined,
-                  })
-                }
+                onClick={xongThang}
               >
                 {dangGui ? "Đang ghi…" : NUT_XONG[loai]}
               </Button>
@@ -810,7 +948,9 @@ function KhachTrongPhong({
 
           {/* "Phải dừng giữa chừng? / Không làm được?" — OFF (Tuyền 24/09/2026:
               "bỏ mấy cái thừa này đi"). Giữ code, bật lại bằng cờ. */}
-          {NUT_NGOAI_LE ? (
+          {/* Khách đã được phòng khác nhận khi lần làm ở đây còn mở: phòng này
+              tự bấm Xong hoặc Gián đoạn (chuông nhắc) — nên luôn có lối Gián đoạn. */}
+          {NUT_NGOAI_LE || (dangLam && dong.da_sang_phong) ? (
             <button
               type="button"
               onClick={() =>

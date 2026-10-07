@@ -95,7 +95,8 @@ export function cauDangOPhong(d: DangOPhong): string {
 }
 
 /** Một chỉ định NHÌN TỪ một phòng (07/10/2026 — mỗi khách một ô, nhận theo
- *  chỉ định). Máy chủ quyết trạng thái, nhận được không, tick sẵn không. */
+ *  chỉ định). Máy chủ quyết trạng thái và nhận được không; ★ / hướng dẫn chỉ
+ *  là nhãn (không quyết gì khi Nhận). */
 export interface ChiDinhPhong {
   id: string;
   ten: string | null;
@@ -111,7 +112,6 @@ export interface ChiDinhPhong {
   chuyen: boolean;
   chua_chot: boolean;
   nhan_duoc: boolean;
-  tick_san: boolean;
 }
 
 /** Nhãn trạng thái của một chỉ định trong ô khách — chỉ ghép chữ từ máy chủ. */
