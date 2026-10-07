@@ -222,6 +222,14 @@ không chặn check-out `S/checkout_service.py` (`exam_open`); tick dịch vụ 
 Điều trị / Khác + giữ tick khi đổi `S/phi_kham_service.py` `_doc`. Test:
 `T/services/test_ho_so_kham_db.py`, `T/unit/test_doi_dich_vu_kham.py`, FT `ho-so-dich-vu-boundary.test.mts`.
 
+**Khối 4 "Điều trị" của hồ sơ (Cảm nhận · Vấn đề sau điều trị, 07/10/2026)** — UI
+`D/_lam-viec/phieu-kham/KhoiDieuTri.tsx` (khối 4 của `PhieuKham.tsx` qua `oDieuTri`;
+`KHOI_PHIEU` ở `src/dashboard/lib/phieu-kham.ts`; cả hồ sơ tối giản) → `/api/ho-so-kham`
+(`PUT`, `xem=dieu-tri`) → `R/ho_so_kham.py` → `S/khoi_dieu_tri.py` (`luu` thêm phiên bản,
+`doc`); bảng chỉ thêm `luot_dieu_tri_ghi` (migration `20261007610000_luot_dieu_tri_ghi.sql`).
+In: `app/print/phieu-kham/[visitId]/InPhieuKham.tsx`. Test: `T/services/test_khoi_dieu_tri_db.py`,
+FT `khoi-dieu-tri-boundary.test.mts`.
+
 **Thai kỳ** — `D/ban-kham/ThaiKy.tsx` → `S/thai_ky_service.py`.
 
 ## 6. Chỉ định & chọn dịch vụ

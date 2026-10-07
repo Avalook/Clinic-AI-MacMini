@@ -42,7 +42,7 @@ test("khối dịch vụ: bộ chọn 4 nhóm dùng chung, không luật vai tro
 });
 
 test("route /api/ho-so-kham chỉ chuyển tiếp", () => {
-  assert.match(ROUTE, /proxyJsonToBackend\("GET", `\/api\/v1\/ho-so-kham\/\$\{vid\}\/dich-vu`/);
+  assert.match(ROUTE, /proxyJsonToBackend\("GET", `\/api\/v1\/ho-so-kham\/\$\{vid\}\/(dich-vu|\$\{xem\})`/);
   assert.match(ROUTE, /proxyJsonToBackend\("POST", `\/api\/v1\/ho-so-kham\/\$\{vid\}\/doi-dich-vu`/);
   assert.doesNotMatch(ROUTE, /\.from\(/, "không đọc thẳng database");
 });

@@ -739,9 +739,10 @@ MODULE: dict[str, Module] = {
         Module(
             ma="dieu_tri",
             ten="Điều trị theo lịch đặt + đổi dịch vụ trong hồ sơ",
-            lenh=["DoiDichVuTrongHoSo"],
+            lenh=["DoiDichVuTrongHoSo", "LuuKhoiDieuTri"],
             nghe=["visit.routed"],
             ben_nhan=["dieu_tri_sinh_chi_dinh"],
+            bang=["luot_dieu_tri_ghi"],
         ),
         Module(
             ma="van_hanh",

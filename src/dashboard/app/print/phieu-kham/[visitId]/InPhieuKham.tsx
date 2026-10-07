@@ -79,6 +79,8 @@ interface DuLieuIn {
   chiDinh: ChiDinhVaKetQua[];
   don: DongDonMayChu[];
   maThuThuat: Set<string>;
+  /** Khối 4 "Điều trị" (07/10/2026) — bản mới nhất; in kèm khi có nội dung. */
+  dieuTri: { cam_nhan: string; van_de_sau: string } | null;
 }
 
 async function doc<T>(url: string): Promise<T | null> {
@@ -330,7 +332,7 @@ export default function InPhieuKham({
   useEffect(() => {
     let huy = false;
     void (async () => {
-      const [phieu, dau, kq, don, tc] = await Promise.all([
+      const [phieu, dau, kq, don, tc, dt] = await Promise.all([
         doc<PhieuLuot & { form_id: string | null }>(
           `/api/phieu-kham?visit_id=${visitId}&xem=phieu`,
         ),
@@ -338,6 +340,7 @@ export default function InPhieuKham({
         doc<{ chi_dinh: ChiDinhVaKetQua[] }>(`/api/phieu-kham?visit_id=${visitId}`),
         doc<{ dong: DongDonMayChu[] }>(`/api/phieu-kham?visit_id=${visitId}&xem=don-thuoc`),
         doc<{ thu_thuat: ThuThuatNguon[] }>("/api/phieu-kham?xem=tham-chieu"),
+        doc<{ dieu_tri: DuLieuIn["dieuTri"] }>(`/api/ho-so-kham?visit_id=${visitId}&xem=dieu-tri`),
       ]);
       if (huy) return;
       if (!phieu) {
@@ -356,6 +359,7 @@ export default function InPhieuKham({
         maThuThuat: new Set(
           (tc?.thu_thuat ?? []).flatMap((t) => (t.service_code ? [t.service_code] : [])),
         ),
+        dieuTri: dt?.dieu_tri ?? null,
       });
     })();
     return () => {
@@ -401,6 +405,18 @@ export default function InPhieuKham({
         </div>,
       ];
     });
+  const dt = dl.dieuTri;
+  if (dt && (dt.cam_nhan.trim() || dt.van_de_sau.trim())) {
+    tomTat.push(
+      <div key="dieu-tri" className="in-giu space-y-1">
+        <h3 className="font-semibold text-ink">Điều trị</h3>
+        {dt.cam_nhan.trim() ? <p className="whitespace-pre-line">Cảm nhận: {dt.cam_nhan}</p> : null}
+        {dt.van_de_sau.trim() ? (
+          <p className="whitespace-pre-line">Vấn đề sau điều trị: {dt.van_de_sau}</p>
+        ) : null}
+      </div>,
+    );
+  }
   // Ô ghi thêm của mục CLS / đơn thuốc (nếu phòng khám thêm ô vào đó) vẫn in.
   const oCua = (loai: string) =>
     phieu.khung
