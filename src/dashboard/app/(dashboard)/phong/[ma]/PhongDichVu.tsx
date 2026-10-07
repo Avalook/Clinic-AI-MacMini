@@ -89,6 +89,8 @@ import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { useNgheBang } from "../../dung-nghe-bang";
 import { tienVn } from "@/lib/phieu-kham";
 import { laMauDieuTri } from "@/lib/phieu-ket-qua";
+import { khopTimKhach } from "@/lib/tim-khach-phong";
+import { Search } from "lucide-react";
 import { ngayNgan } from "@/lib/thanh-ngay";
 import { useNgayXem } from "../../_lam-viec/dung-ngay-xem";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
@@ -140,6 +142,9 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   // Dây bật: KHÁCH đang mở ở khung phải (cột trái mỗi khách một dòng) + lệnh
   // [Bắt đầu] / [Xong] bấm trên dòng chỉ định, nhờ khung phiếu làm.
   const [chonKhach, setChonKhach] = useState<string | null>(null);
+  // Ô tìm khách (Tuyền 07/10/2026): chỉ lọc HIỂN THỊ cột trái — khách đang mở ở
+  // khung phải và các con số đầu màn không đổi theo ô tìm.
+  const [tim, setTim] = useState("");
   const [yeuCau, setYeuCau] = useState<{ id: string; hanh: HanhDong; lan: number } | null>(null);
   const [chonBs, setChonBs] = useState("");
   // Chuông nhận chéo mở `/phong/<id>?chi_dinh=<chỉ định>` → chọn sẵn đúng chỉ định.
@@ -285,6 +290,26 @@ export default function PhongDichVu({ ma }: { ma: string }) {
       );
     }
   };
+  const dsHien = tim
+    ? ds.filter((d) =>
+        khopTimKhach(tim, {
+          ten: d.ten,
+          ma: d.ma_bn,
+          so: [d.so_tiep_don, d.so_booking, d.so_thu_tu],
+        }),
+      )
+    : ds;
+  const sapDenHien = tim
+    ? sapDen.filter((k) =>
+        khopTimKhach(tim, {
+          ten: k.khach,
+          ma: k.ma_khach,
+          so: [k.so_tiep_don, k.so_booking],
+        }),
+      )
+    : sapDen;
+  const khongKhop =
+    tim !== "" && hang !== null && dsHien.length === 0 && (!taiPhong || sapDenHien.length === 0);
   const chonKhachMoi = (visitId: string) => {
     setChonKhach(visitId);
     setChonId(null);
@@ -343,8 +368,22 @@ export default function PhongDichVu({ ma }: { ma: string }) {
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(240px,0.6fr)_minmax(0,1.8fr)]">
         <aside aria-label="Hàng chờ phòng" className="space-y-3">
+          <label className="flex h-10 w-full items-center gap-2 rounded-control border border-line bg-surface px-3 focus-within:border-brand-500">
+            <Search aria-hidden className="size-4 shrink-0 text-ink-muted" />
+            <span className="sr-only">Tìm khách trong phòng</span>
+            <input
+              type="search"
+              value={tim}
+              onChange={(e) => setTim(e.target.value)}
+              placeholder="Tìm tên, mã khách hoặc số"
+              className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-faint"
+            />
+          </label>
+          {khongKhop ? (
+            <p className="text-body text-ink-muted">Không có khách nào khớp “{tim}”.</p>
+          ) : null}
           {phong && taiPhong ? (
-            <SapDenPhong ds={sapDen} chon={khachMo} onChon={chonKhachMoi} />
+            <SapDenPhong ds={sapDenHien} chon={khachMo} onChon={chonKhachMoi} />
           ) : phong ? (
             <ChuaXepPhong roomId={phong.id} ds={chuaXep} onDaNhan={napLai} />
           ) : null}
@@ -370,7 +409,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
             <p className="text-body text-ink-muted">Đang tải hàng chờ…</p>
           ) : taiPhong ? (
             <HangChoKhachPhong
-              dong={ds}
+              dong={dsHien}
               chiDinhKhach={chiDinhKhach}
               chon={khachMo}
               onChon={chonKhachMoi}
@@ -378,7 +417,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
             />
           ) : (
             <HangChoCot
-              dong={ds}
+              dong={dsHien}
               chon={chon?.id ?? null}
               onChon={(id) => {
                 setChonId(id);
