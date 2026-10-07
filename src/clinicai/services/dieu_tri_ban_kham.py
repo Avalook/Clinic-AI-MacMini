@@ -95,6 +95,21 @@ SELECT service_order_id::text AS order_id, id::text AS phieu_id, form_id,
  ORDER BY (trang_thai = 'READY') DESC, hoan_tat_luc DESC NULLS LAST, tao_luc DESC
 """
 
+_LUOT_SQL = """
+SELECT status, closed_at FROM public.visit
+ WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+"""
+
+#: Lượt đã check-out / đã đóng: thẻ chỉ đọc, lệnh bị từ chối (Tuyền 07/10/2026 —
+#: staging: 15:37 vẫn bấm làm tại bàn khám cho khách check-out lúc 15:32).
+CAU_LUOT_DA_DONG = "Lượt đã check-out — muốn làm tiếp thì Mở lại lượt trước."
+
+
+def luot_da_dong(status: str | None, closed_at: Any) -> bool:
+    """Lượt đã check-out (`closed_at`) hoặc không còn sống — hàm thuần."""
+    return closed_at is not None or status not in ("OPEN", "IN_PROGRESS")
+
+
 #: Nhãn trạng thái — máy chủ nói, màn chỉ vẽ.
 NHAN = {
     "CHUA_LAM": "Chưa làm",
@@ -137,13 +152,10 @@ async def doc_the(
             QUYEN_LAM_TAI_BAN_KHAM,
             cau="Bạn không có quyền xem hồ sơ khám của lượt này.",
         )
-        if not await conn.fetchval(
-            "SELECT EXISTS (SELECT 1 FROM public.visit"
-            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid)",
-            cid,
-            vid,
-        ):
+        luot = await conn.fetchrow(_LUOT_SQL, cid, vid)
+        if luot is None:
             raise NotFoundError("Không tìm thấy lượt khám.")
+        chi_doc = luot_da_dong(luot["status"], luot["closed_at"])
         rows = await conn.fetch(_THE_SQL, cid, vid)
         ids = [r["order_id"] for r in rows]
         tien = await states_for_orders(conn, cid, ids)
@@ -185,19 +197,25 @@ async def doc_the(
                 "attempt_id": r["attempt_id"] if dang_ban_kham else None,
                 "execution_revision": int(r["execution_revision"] or 0),
                 "da_thu": bool(t is not None and t.finance_state in READY_STATES),
-                # Nút — máy chủ quyết, màn chỉ vẽ.
-                "lam_duoc": tt == "CHUA_LAM" and lam_duoc,
-                "ly_do_khong_lam": cau if tt == "CHUA_LAM" and not lam_duoc else None,
-                "xong_duoc": dang_ban_kham,
-                "huy_lam_duoc": dang_ban_kham,
-                "hoan_tac_xong_duoc": xong_ban_kham,
+                # Nút — máy chủ quyết, màn chỉ vẽ. Lượt đã check-out: chỉ đọc.
+                "lam_duoc": not chi_doc and tt == "CHUA_LAM" and lam_duoc,
+                "ly_do_khong_lam": (
+                    CAU_LUOT_DA_DONG
+                    if chi_doc and tt in ("CHUA_LAM", "DANG_LAM_BAN_KHAM")
+                    else cau
+                    if tt == "CHUA_LAM" and not lam_duoc
+                    else None
+                ),
+                "xong_duoc": not chi_doc and dang_ban_kham,
+                "huy_lam_duoc": not chi_doc and dang_ban_kham,
+                "hoan_tac_xong_duoc": not chi_doc and xong_ban_kham,
                 "mau": m["mau"],
                 "mau_chon_san": (ph["form_id"].removeprefix("KQ_") if ph else None)
                 or m["chon_san"],
                 "phieu": ph,
             }
         )
-    return {"visit_id": vid, "the": the}
+    return {"visit_id": vid, "chi_doc": chi_doc, "the": the}
 
 
 THAO_TAC = frozenset({"lam", "xong", "huy-lam", "hoan-tac-xong"})
@@ -234,6 +252,9 @@ async def thao_tac(
             oid,
             vid,
         )
+        luot = await conn.fetchrow(_LUOT_SQL, cid, vid)
+    if luot is None or luot_da_dong(luot["status"], luot["closed_at"]):
+        raise ValidationError(CAU_LUOT_DA_DONG)
     if not la_dieu_tri:
         raise ValidationError(
             "Chỉ làm tại bàn khám được chỉ định ĐIỀU TRỊ của lượt này."

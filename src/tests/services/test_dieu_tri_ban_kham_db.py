@@ -402,3 +402,239 @@ async def test_chi_lam_tai_ban_kham_chi_dinh_dieu_tri(
             lenh="lam",
             expected_execution_revision=0,
         )
+
+
+# ── Luồng lượt Điều trị (phản hồi bấm thử staging 07/10/2026) ────────────────
+
+
+async def _don_dat_san(pool: asyncpg.Pool, visit: str) -> str:  # noqa: F811
+    await chay_het(pool, DIEU_TRI_SINH_CHI_DINH)
+    [order] = [
+        r["id"]
+        for r in await pool.fetch(
+            "SELECT id::text FROM service_order WHERE visit_id = $1::uuid"
+            " AND exec_status <> 'cancelled'",
+            visit,
+        )
+    ]
+    return str(order)
+
+
+async def _lam_o_phong(pool: asyncpg.Pool, ca: Ca, order: str) -> None:  # noqa: F811
+    """Quầy xếp phòng tay → phòng Bắt đầu → Xong (đường phòng sẵn có). Phòng
+    thử làm được bước của chỉ định (Laser = thủ thuật, siêu âm = siêu âm)."""
+    from clinicai.services.service_execution_service import ServiceExecutionService
+    from clinicai.services.service_routing_service import ServiceRoutingService
+
+    d = await pool.fetchrow(
+        "SELECT routing_revision, execution_revision, node_code FROM service_order"
+        " WHERE id = $1::uuid",
+        order,
+    )
+    async with pool.acquire() as conn:
+        phong = await _phong(conn, ca.loc, uuid.uuid4().hex[:8])
+        await conn.execute(
+            "INSERT INTO clinic_room_node (clinic_id, room_id, node_code)"
+            " VALUES ($1::uuid, $2::uuid, $3) ON CONFLICT DO NOTHING",
+            CLINIC,
+            phong,
+            d["node_code"],
+        )
+    await ServiceRoutingService(pool).assign(
+        order_id=order,
+        room_id=phong,
+        expected_routing_revision=int(d["routing_revision"]),
+        reason_code="MANUAL_CORRECTION",
+        identity=ca.thu_ngan,
+        idempotency_key=_khoa(),
+    )
+    d = await pool.fetchrow(
+        "SELECT routing_revision, execution_revision FROM service_order"
+        " WHERE id = $1::uuid",
+        order,
+    )
+    mo = await ServiceExecutionService(pool).bat_dau(
+        order_id=order,
+        expected_execution_revision=int(d["execution_revision"]),
+        expected_routing_revision=int(d["routing_revision"]),
+        identity=ca.dd,
+        idempotency_key=_khoa(),
+    )
+    await ServiceExecutionService(pool).xong(
+        order_id=order,
+        attempt_id=mo["attempt_id"],
+        expected_execution_revision=mo["execution_revision"],
+        identity=ca.dd,
+        idempotency_key=_khoa(),
+    )
+
+
+async def _vong(pool: asyncpg.Pool, visit: str) -> list[str]:  # noqa: F811
+    return [
+        str(r["status"])
+        for r in await pool.fetch(
+            "SELECT status FROM review_round WHERE visit_id = $1::uuid"
+            " ORDER BY round_no",
+            visit,
+        )
+    ]
+
+
+async def _cho_doc_kq(pool: asyncpg.Pool, visit: str) -> int:  # noqa: F811
+    """Chỗ chờ "đọc kết quả" (REVIEW) còn sống ở hàng bác sĩ."""
+    return int(
+        await pool.fetchval(
+            "SELECT count(*) FROM queue_entry WHERE visit_id = $1::uuid"
+            " AND reason = 'REVIEW'"
+            " AND status IN ('blocked', 'waiting', 'called', 'serving')",
+            visit,
+        )
+    )
+
+
+async def _con_trong_hang_bac_si(pool: asyncpg.Pool, visit: str) -> int:  # noqa: F811
+    return int(
+        await pool.fetchval(
+            "SELECT count(*) FROM queue_entry WHERE visit_id = $1::uuid"
+            " AND lane = 'DOCTOR'"
+            " AND status IN ('blocked', 'waiting', 'called', 'serving')",
+            visit,
+        )
+    )
+
+
+async def test_luot_dieu_tri_lam_o_phong_check_out_khong_qua_bac_si(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Happy path A: khách đặt Laser lên thẳng phòng — phòng làm, quầy thu,
+    check-out. Hàng bác sĩ là tuỳ chọn: không vướng "bác sĩ chưa khám", không
+    vòng đọc kết quả; check-out xong khách rời hàng bác sĩ."""
+    from tests.chay_nguoi_dua_tin import chay_ben_nhan
+
+    ca = await _dung(pool)
+    laser = await _laser(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), laser["loai"])
+    order = await _don_dat_san(pool, visit)
+    # Khách vẫn hiện ở hàng bác sĩ (tuỳ chọn) trước khi ai nhận.
+    assert await _con_trong_hang_bac_si(pool, visit) == 1
+    await _chon(pool, ca, visit, [order])
+    await _thu(pool, visit, ca.thu_ngan)
+    await _lam_o_phong(pool, ca, order)
+    await chay_ben_nhan(pool, "vong_doc_luot_kham")
+
+    assert await _vong(pool, visit) == []
+    assert await _cho_doc_kq(pool, visit) == 0
+    ss = await CheckoutService(pool).readiness(identity=ca.le_tan, visit_id=visit)
+    assert ss["blockers"] == [] and ss["can_close"] is True
+    await CheckoutService(pool).close(identity=ca.le_tan, visit_id=visit)
+    assert await _con_trong_hang_bac_si(pool, visit) == 0
+
+
+async def test_luot_dieu_tri_bac_si_kham_roi_lam_tai_ban_kham_khong_vong_doc(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Happy path B: bác sĩ đã Bắt đầu khám (theo luật bàn khám), Khám xong khi
+    Laser chưa làm → vòng đọc chờ; bác sĩ LÀM NGAY TẠI BÀN KHÁM → vòng đóng
+    không cần đọc (review.skipped, lý do lam_tai_ban_kham), không chỗ chờ "Kết
+    quả cần đọc", lượt khép; thu tiền → check-out không vướng; sau check-out
+    không còn trong hàng bác sĩ và thẻ chỉ đọc."""
+    from tests.chay_nguoi_dua_tin import chay_ben_nhan
+
+    ca = await _dung(pool)
+    laser = await _laser(pool)
+    await _lich_ban_kham(pool, ca)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), laser["loai"])
+    await _don_dat_san(pool, visit)
+    con = await _vao_kham(pool, ca, visit)
+    await LuotKhamService(pool).kham_xong(
+        consultation_id=con, identity=ca.bac_si, idempotency_key=_khoa()
+    )
+    assert await _vong(pool, visit) == ["collecting"]
+
+    await LamTruocThuSauService(pool).dat(visit_id=visit, bat=True, identity=ca.bac_si)
+    t = await _the(pool, ca, visit)
+    await _bam(pool, ca, visit, t, "lam")
+    await _bam(pool, ca, visit, await _the(pool, ca, visit), "xong")
+    await chay_ben_nhan(pool, "vong_doc_luot_kham")
+
+    assert await _vong(pool, visit) == ["closed"]
+    assert await _cho_doc_kq(pool, visit) == 0
+    bo_qua = await pool.fetchval(
+        "SELECT payload FROM event_log WHERE aggregate_id = $1::uuid"
+        " AND event_type = 'review.skipped'",
+        visit,
+    )
+    assert json.loads(bo_qua)["ly_do"] == "lam_tai_ban_kham"
+    assert await pool.fetchval(
+        "SELECT exam_completed_at IS NOT NULL FROM visit WHERE visit_id = $1::uuid",
+        visit,
+    )
+
+    # Tick "Làm trước – thu sau" đã chốt chỉ định khách chọn → quầy thu thẳng.
+    await _thu(pool, visit, ca.thu_ngan)
+    ss = await CheckoutService(pool).readiness(identity=ca.le_tan, visit_id=visit)
+    assert ss["blockers"] == [] and ss["can_close"] is True
+    await CheckoutService(pool).close(identity=ca.le_tan, visit_id=visit)
+    assert await _con_trong_hang_bac_si(pool, visit) == 0
+
+    # Lượt đã check-out: thẻ chỉ đọc, lệnh bị từ chối (muốn làm tiếp → mở lại).
+    from clinicai.core.exceptions import ValidationError
+
+    goi = await dieu_tri_ban_kham.doc_the(pool, identity=ca.bac_si, visit_id=visit)
+    [t] = goi["the"]
+    assert goi["chi_doc"] is True
+    assert not (t["lam_duoc"] or t["xong_duoc"] or t["hoan_tac_xong_duoc"])
+    with pytest.raises(ValidationError) as e:
+        await _bam(pool, ca, visit, t, "hoan-tac-xong")
+    assert str(e.value) == dieu_tri_ban_kham.CAU_LUOT_DA_DONG
+
+
+async def test_luot_dieu_tri_qua_ban_kham_phong_lam_van_theo_luat_ban_kham(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Đã qua bàn khám mà dịch vụ làm ở PHÒNG khác: đúng luật lượt khám thường
+    — vòng đọc kết quả mở, check-out vướng "bác sĩ chưa đọc" (không nới)."""
+    from tests.chay_nguoi_dua_tin import chay_ben_nhan
+
+    ca = await _dung(pool)
+    laser = await _laser(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), laser["loai"])
+    order = await _don_dat_san(pool, visit)
+    con = await _vao_kham(pool, ca, visit)
+    await LuotKhamService(pool).kham_xong(
+        consultation_id=con, identity=ca.bac_si, idempotency_key=_khoa()
+    )
+    await _chon(pool, ca, visit, [order])
+    await _thu(pool, visit, ca.thu_ngan)
+    await _lam_o_phong(pool, ca, order)
+    await chay_ben_nhan(pool, "vong_doc_luot_kham")
+    assert await _vong(pool, visit) == ["ready"]
+    assert await _cho_doc_kq(pool, visit) == 1
+    ss = await CheckoutService(pool).readiness(identity=ca.le_tan, visit_id=visit)
+    assert "exam_open" in [b["type"] for b in ss["blockers"]]
+
+
+async def test_dich_vu_xong_sau_check_out_khong_mo_lai_ket_qua_can_doc(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """GỐC lỗi staging 07/10 (lượt 016a401c): check-out 15:32 (vượt bằng lý do),
+    dịch vụ xong 15:37 → khối vòng đọc mở chỗ chờ REVIEW cho khách đã về. Nay
+    lượt đã check-out thì kết quả muộn không đưa khách lại hàng bác sĩ."""
+    from tests.chay_nguoi_dua_tin import chay_ben_nhan
+
+    ca = await _dung(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    con = await _vao_kham(pool, ca, visit)
+    order = (await _ke(pool, ca, con, ca.ma_dv))["order_ids"][0]
+    await LuotKhamService(pool).kham_xong(
+        consultation_id=con, identity=ca.bac_si, idempotency_key=_khoa()
+    )
+    await _chon(pool, ca, visit, [order])
+    await _thu(pool, visit, ca.thu_ngan)
+    await CheckoutService(pool).close(
+        identity=ca.le_tan, visit_id=visit, override_reason="Khách cần về gấp"
+    )
+    await _lam_o_phong(pool, ca, order)
+    await chay_ben_nhan(pool, "vong_doc_luot_kham")
+    assert await _cho_doc_kq(pool, visit) == 0
+    assert await _con_trong_hang_bac_si(pool, visit) == 0
