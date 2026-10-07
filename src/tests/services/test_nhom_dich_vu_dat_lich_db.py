@@ -72,9 +72,9 @@ async def test_sau_loai_dieu_tri_tro_dung_dong_gia(pool: asyncpg.Pool) -> None: 
         r = theo_ma[ma]
         assert int(r["unit_price"]) == gia, ma
         assert r["cung_pk"]
-        # Điều trị: không phiếu khám riêng, vào hàng bác sĩ chính như thường.
+        # Điều trị: không phiếu khám riêng. (qua_tu_van / di_thang_phong là dây
+        # quản lý chỉnh trên màn — test khác cùng DB bật/tắt, không khẳng định.)
         assert r["form_code"] is None
-        assert not r["qua_tu_van"] and not r["di_thang_phong"]
 
 
 async def test_dieu_tri_bat_buoc_co_dong_gia(pool: asyncpg.Pool) -> None:  # noqa: F811
