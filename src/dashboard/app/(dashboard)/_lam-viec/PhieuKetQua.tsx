@@ -44,7 +44,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { nhanLoi } from "@/lib/loi-api";
-import { gopGiaTri, KHOA_BANG, tachGiaTri } from "@/lib/phieu-ket-qua";
+import {
+  ghepConTrong,
+  gopGiaTri,
+  KHOA_BANG,
+  MAU_PHIEU_DIEU_TRI,
+  tachGiaTri,
+} from "@/lib/phieu-ket-qua";
 import { LOI_MAT_KET_NOI, nenThuLai } from "@/lib/tu-luu";
 import { useTuLuu } from "@/lib/use-tu-luu";
 import BaoLoiCanhNut from "@/components/ui/BaoLoiCanhNut";
@@ -53,6 +59,7 @@ import Button, { buttonClass } from "@/components/ui/Button";
 import ChipChon from "@/components/ui/ChipChon";
 import OSo from "@/components/ui/OSo";
 import TrangThaiLuu from "@/components/ui/TrangThaiLuu";
+import PhieuDieuTri from "./PhieuDieuTri";
 
 export interface MauKetQua {
   ma: string;
@@ -239,7 +246,8 @@ export default function PhieuKetQua({
   }, [phieu, onCacBen]);
 
   useEffect(() => {
-    if (!chonMau) return;
+    // Phiếu điều trị do `PhieuDieuTri` tự mở (cùng phiếu, cùng engine).
+    if (!chonMau || chonMau === MAU_PHIEU_DIEU_TRI) return;
     let huy = false;
     void goi<Phieu>({
       thao_tac: "mo",
@@ -378,6 +386,13 @@ export default function PhieuKetQua({
     );
   }
 
+  // PHIẾU ĐIỀU TRỊ (07/10/2026): MỘT component chung với khối 4 Bàn khám — ô
+  // chữ gọn, không "Hoàn tất". Chỉ một mẫu thì không vẽ dòng tiêu đề / chọn mẫu.
+  const laPhieuDieuTri = chonMau === MAU_PHIEU_DIEU_TRI;
+  if (laPhieuDieuTri && mau.length === 1) {
+    return <PhieuDieuTri serviceOrderId={serviceOrderId} choGhi onXong={onHoanTat} />;
+  }
+
   const daChot = phieu?.trang_thai === "READY" && !phieu.dang_sua;
   const dangSuaLai = phieu?.trang_thai === "READY" && phieu.dang_sua;
 
@@ -426,7 +441,7 @@ export default function PhieuKetQua({
             Đang sửa lại — bản cũ vẫn là kết quả chính thức
           </span>
         ) : null}
-        {phieu && !daChot ? (
+        {phieu && !daChot && !laPhieuDieuTri ? (
           <TrangThaiLuu
             tt={tuLuu.trangThai}
             onLuuNgay={() => void tuLuu.luuNgay()}
@@ -454,6 +469,8 @@ export default function PhieuKetQua({
 
       {!chonMau ? (
         <p className="text-body text-ink-muted">Chọn mẫu để bắt đầu điền.</p>
+      ) : laPhieuDieuTri ? (
+        <PhieuDieuTri serviceOrderId={serviceOrderId} choGhi onXong={onHoanTat} />
       ) : phieu === null ? (
         <p className="text-body text-ink-muted">Đang mở phiếu…</p>
       ) : daChot ? (

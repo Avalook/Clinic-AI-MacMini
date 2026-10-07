@@ -871,7 +871,13 @@ class LuotKhamService:
                        q.need, q.status, o.exec_status, o.selection_status,
                        """
                 + CO_KET_QUA_VONG_SQL
-                + """ AS co_ket_qua
+                + """ AS co_ket_qua,
+                       coalesce((SELECT x.noi_lam = 'BAN_KHAM'
+                                   FROM service_execution_attempt x
+                                  WHERE x.clinic_id = o.clinic_id
+                                    AND x.service_order_id = o.id
+                                  ORDER BY x.attempt_no DESC LIMIT 1), false)
+                         AS lam_tai_ban_kham
                   FROM round_requirement q
                   JOIN service_order o
                     ON o.id = q.service_order_id AND o.clinic_id = q.clinic_id
@@ -896,6 +902,7 @@ class LuotKhamService:
             # Không phải câu đọc nào cũng mang cột này (vd /cho-quyet) — thiếu
             # thì coi như chưa biết, không làm sập cả màn.
             q.get("selection_status"),
+            bool(q.get("lam_tai_ban_kham") or False),
         )
 
     async def _evaluate_rounds(
@@ -988,6 +995,12 @@ class LuotKhamService:
                         "visit_id": visit_id,
                         "round_no": rd["round_no"],
                         **({"ly_do": "vong_rong"} if vong_rong else {}),
+                        # Bác sĩ tự làm tại bàn khám — không có gì để đọc lại.
+                        **(
+                            {"ly_do": "lam_tai_ban_kham"}
+                            if any(v.lam_tai_ban_kham for v in views)
+                            else {}
+                        ),
                     },
                 )
                 continue

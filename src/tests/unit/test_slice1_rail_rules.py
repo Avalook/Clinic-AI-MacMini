@@ -92,6 +92,21 @@ def test_mien_hoac_theo_doi_het_thi_khong_goi_khach_ve_doc() -> None:
     assert rules.vong_khong_can_doc([*views, _req("PERFORMED")]) is False
 
 
+def test_lam_tai_ban_kham_xong_thi_khong_can_doc() -> None:
+    """Bác sĩ tự làm NGAY TẠI BÀN KHÁM (07/10/2026): xong là không có gì để
+    đọc; chưa xong thì vòng vẫn chờ; dịch vụ làm ở phòng vẫn giữ vòng."""
+    tai_bk = rules.RequirementView(
+        "o2", "PERFORMED", "open", "performed", False, None, True
+    )
+    chua_xong = rules.RequirementView(
+        "o3", "PERFORMED", "open", "in_progress", False, None, True
+    )
+    assert rules.vong_khong_can_doc([tai_bk]) is True
+    assert rules.vong_khong_can_doc([tai_bk, _req(status="waived")]) is True
+    assert rules.vong_khong_can_doc([chua_xong]) is False
+    assert rules.vong_khong_can_doc([tai_bk, _req("PERFORMED")]) is False
+
+
 # ── mức cần mặc định theo loại dịch vụ ─────────────────────────────────────
 
 

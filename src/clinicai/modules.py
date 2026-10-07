@@ -763,6 +763,8 @@ MODULE: dict[str, Module] = {
             lenh=["DoiDichVuTrongHoSo"],
             nghe=["visit.routed"],
             ben_nhan=["dieu_tri_sinh_chi_dinh"],
+            # Ô chữ tự do của hồ sơ lượt "Khác" (mỗi lần lưu một phiên bản).
+            bang=["luot_ghi_chu"],
             # Thẻ chỉ định điều trị ở hồ sơ khám: [Làm tại bàn khám] → [Xong].
             goi_dong_bo=[
                 "execution.StartServiceAtDesk",

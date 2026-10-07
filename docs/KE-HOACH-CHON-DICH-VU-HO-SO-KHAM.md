@@ -122,6 +122,38 @@ v5 → hồ sơ mới; phiếu đời cũ / lượt Notion → khung đọc cũ 
 `ClinicalRecordForm` — BanKham còn dùng). Test đủ 4 loại lượt (v5, cũ, Notion, không
 phiếu) hiện đủ ô như khung cũ.
 
+## Sửa sau bấm thử staging (Tuyền 07/10 tối — lượt 016a401c, Ghế điện từ trường)
+
+**Gốc lỗi "đã check-out vẫn ở Kết quả cần đọc"** (đọc DB staging): BS Khám xong 14:09
+khi Ghế chưa làm → vòng đọc 2 chờ Ghế; lễ tân check-out 15:32 (vượt bằng lý do);
+15:37 Ghế được làm tại bàn khám → `vong_doc_luot_kham` chỉ chặn theo `visit.status`
+(check-out giữ IN_PROGRESS) nên mở vòng → chỗ chờ REVIEW mới → "Kết quả cần đọc".
+
+**Luật luồng (chốt lại):**
+- Lượt Điều trị KHÔNG qua bàn khám (phiên BS chưa bắt đầu): mở hoàn toàn — phòng làm →
+  thu → check-out, không vướng, không vòng đọc; vẫn hiện ở hàng bàn khám (tuỳ chọn).
+- ĐÃ qua bàn khám: đúng luật bàn khám như lượt khám thường (không nới check-out). Ngoại
+  lệ duy nhất: dịch vụ làm NGAY TẠI BÀN KHÁM (`noi_lam = BAN_KHAM`) đã xong thì không
+  cần đọc kết quả của chính nó (`luot_kham_rules.vong_khong_can_doc` → `review.skipped`
+  lý do `lam_tai_ban_kham`); dịch vụ làm ở phòng vẫn giữ vòng.
+- Check-out xong: `vong_doc` không chạy lại vòng đọc (`visit.closed_at`); thẻ điều trị
+  chỉ đọc + lệnh làm tại bàn khám bị từ chối ("Mở lại lượt" để làm tiếp).
+
+**Phiếu điều trị (C):** MỘT component `_lam-viec/PhieuDieuTri.tsx` ở khối 4 Bàn khám và
+khung kết quả phòng dịch vụ (`PhieuKetQua` chuyển sang khi mẫu PHIEU_DIEU_TRI; không sửa
+`phong/**`). Mỗi ô một nhãn, "Tự lưu khi gõ", chân "Bản n · người sửa · giờ", In phiếu;
+không "Hoàn tất phiếu". Ở phòng có [Xong] (đóng dịch vụ bằng lệnh hoàn tất của engine).
+Engine: mẫu không có bước Hoàn tất (`phieu_kham/mau_dieu_tri.py`) lưu được cả khi đã
+chốt, in không ghi BẢN NHÁP, khối kết quả trả nội dung khi còn nháp.
+
+**Lượt "Khác" (D):** ô chữ to tự do, bảng chỉ-thêm `luot_ghi_chu` (migration
+`20261007640000`, mỗi lần lưu một phiên bản, 409 khi màn cầm bản cũ; RLS 103 → 104).
+Không tái dùng `consultation_note` (phiên PRIMARY bị liệt kê hết mọi bản ở mục A).
+
+**In gộp một lượt (E):** `/print/phieu-kham/{visit}` — Khám · Đơn thuốc · Dịch vụ/CLS ·
+Điều trị (tên + ô đã ghi của phiếu điều trị) · Ghi chú; mục trống ẩn; nhóm theo dữ
+liệu (`dieu_tri` từ máy chủ); chữ ký bác sĩ cuối cùng.
+
 ## Tách PR (mỗi PR ≲400 dòng không tính test/migration/tệp sinh)
 
 | PR | Nội dung |

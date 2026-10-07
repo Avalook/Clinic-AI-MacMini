@@ -192,8 +192,10 @@ BEGIN
     -- 103 → 104 (06/10/2026, phần E): tien_thua_giu_lai (20261006200003).
     -- 104 → 105 (07/10/2026): form_instance_lich_su (20261007630000, lịch sử sửa
     -- mọi phiếu kết quả — chỉ thêm, trigger ghi).
-    IF scoped_count <> 105 THEN
-        RAISE EXCEPTION 'expected 105 tenant-scoped read policies, found %', scoped_count;
+    -- 105 → 106 (07/10/2026): luot_ghi_chu (20261007640000, ô chữ tự do lượt
+    -- "Khác" — chỉ thêm phiên bản).
+    IF scoped_count <> 106 THEN
+        RAISE EXCEPTION 'expected 106 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

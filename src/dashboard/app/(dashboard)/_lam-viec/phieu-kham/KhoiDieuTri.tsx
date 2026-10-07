@@ -3,15 +3,17 @@
 // KHỐI 4 "ĐIỀU TRỊ" của hồ sơ khám (Tuyền chốt 07/10/2026 chiều): danh sách CHỈ
 // ĐỊNH ĐIỀU TRỊ của lượt — mỗi chỉ định một thẻ:
 //   · PHIẾU ĐIỀU TRỊ = phiếu KẾT QUẢ của chính chỉ định ấy (mẫu PHIEU_DIEU_TRI:
-//     "Cảm nhận", "Vấn đề sau điều trị") — CÙNG `PhieuKetQua` / `form_instance` mà
-//     phòng dịch vụ mở: bàn khám ghi dở thì phòng ghi tiếp, không điền lại. Tự lưu
-//     + revision chống ghi đè do engine phiếu kết quả lo.
+//     "Cảm nhận", "Vấn đề sau điều trị") — CÙNG component `PhieuDieuTri` và CÙNG
+//     `form_instance` mà phòng dịch vụ mở: bàn khám ghi dở thì phòng ghi tiếp,
+//     không điền lại. Gọn (sau bấm thử staging 07/10): không tiêu đề "Phiếu kết
+//     quả · …", mỗi ô một nhãn, không "Hoàn tất phiếu", không gập/mở.
 //   · trạng thái (chưa làm / đang làm ở P. X / đang làm tại bàn khám / xong) +
 //     nhãn "Khách đã đặt" (lượt đặt lịch Điều trị);
 //   · [Làm tại bàn khám] → [Xong] (giờ thật), hoàn tác từng bước. Điền phiếu KHÔNG
 //     tính là đã làm.
 // MÁY CHỦ quyết nút nào hiện, vì sao không làm được (cửa tiền — `lam_duoc`,
-// `ly_do_khong_lam`); màn chỉ vẽ và gửi lệnh (`/api/ho-so-kham`).
+// `ly_do_khong_lam`), lượt đã check-out thì chỉ đọc (`chi_doc`); màn chỉ vẽ và
+// gửi lệnh (`/api/ho-so-kham`).
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -19,7 +21,9 @@ import Button from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import { fmtTime } from "@/lib/datetime";
 import { nhanLoi, type ThanLoi } from "@/lib/loi-api";
+import { MAU_PHIEU_DIEU_TRI } from "@/lib/phieu-ket-qua";
 import { useNgheBang } from "../../dung-nghe-bang";
+import PhieuDieuTri, { type BanDieuTri } from "../PhieuDieuTri";
 import PhieuKetQua, { type MauKetQua } from "../PhieuKetQua";
 
 export interface TheDieuTri {
@@ -42,6 +46,7 @@ export interface TheDieuTri {
   hoan_tac_xong_duoc: boolean;
   mau: MauKetQua[];
   mau_chon_san: string | null;
+  phieu: (BanDieuTri & { phieu_id: string; form_id: string }) | null;
 }
 
 const TONE: Record<TheDieuTri["trang_thai"], ChipTone> = {
@@ -61,35 +66,39 @@ function khoaGui(): string {
 
 export default function KhoiDieuTri({ visitId, choGhi }: { visitId: string; choGhi: boolean }) {
   const [the, setThe] = useState<TheDieuTri[] | null>(null);
+  const [chiDoc, setChiDoc] = useState(false);
   const [dang, setDang] = useState<string | null>(null);
   const [loi, setLoi] = useState<Record<string, string>>({});
-  // Phiếu điều trị MỞ sẵn trong thẻ (gập được) — nó là nửa của thẻ.
-  const [anPhieu, setAnPhieu] = useState<Record<string, boolean>>({});
 
-  const doc = useCallback(async (): Promise<TheDieuTri[] | null> => {
+  const doc = useCallback(async (): Promise<{ the: TheDieuTri[]; chi_doc?: boolean } | null> => {
     const r = await fetch(`/api/ho-so-kham?visit_id=${visitId}&xem=dieu-tri`, { cache: "no-store" }).catch(
       () => null,
     );
-    const d = r && r.ok ? ((await r.json().catch(() => null)) as { the: TheDieuTri[] } | null) : null;
-    return d?.the ?? null;
+    return r && r.ok
+      ? ((await r.json().catch(() => null)) as { the: TheDieuTri[]; chi_doc?: boolean } | null)
+      : null;
   }, [visitId]);
   const nap = useCallback(() => {
-    void doc().then((t) => {
-      if (t) setThe(t);
+    void doc().then((d) => {
+      if (!d) return;
+      setThe(d.the);
+      setChiDoc(Boolean(d.chi_doc));
     });
   }, [doc]);
 
   useEffect(() => {
     let huy = false;
-    void doc().then((t) => {
-      if (!huy) setThe(t ?? []);
+    void doc().then((d) => {
+      if (huy) return;
+      setThe(d?.the ?? []);
+      setChiDoc(Boolean(d?.chi_doc));
     });
     return () => {
       huy = true;
     };
   }, [doc]);
-  // Phòng bấm Bắt đầu / Xong, quầy thu tiền → thẻ tự đổi.
-  useNgheBang(["service_order", "form_instance"], nap);
+  // Phòng bấm Bắt đầu / Xong, quầy thu tiền, lễ tân check-out → thẻ tự đổi.
+  useNgheBang(["service_order", "form_instance", "visit"], nap);
 
   async function bam(t: TheDieuTri, lenh: Lenh) {
     if (dang) return;
@@ -128,14 +137,16 @@ export default function KhoiDieuTri({ visitId, choGhi }: { visitId: string; choG
     );
   }
 
+  // Ghi được phiếu: người có quyền ghi hồ sơ, lượt chưa check-out (máy chủ nói).
+  const ghiPhieu = choGhi && !chiDoc;
   return (
     <section aria-label="Điều trị" className="space-y-3">
       {the.map((t) => {
         const ban = dang === t.order_id;
         const moi = loi[t.order_id];
-        const mo = !anPhieu[t.order_id];
+        const coNut = t.lam_duoc || t.xong_duoc || t.huy_lam_duoc || t.hoan_tac_xong_duoc;
         return (
-          <article key={t.order_id} className="space-y-2 rounded-card border border-hairline bg-surface p-4">
+          <article key={t.order_id} className="space-y-3 rounded-card border border-hairline bg-surface p-4">
             <div className="flex flex-wrap items-center gap-2">
               <b className="min-w-0 text-emph text-ink">{t.ten}</b>
               {t.da_dat ? <Chip tone="brand">Khách đã đặt</Chip> : null}
@@ -151,7 +162,7 @@ export default function KhoiDieuTri({ visitId, choGhi }: { visitId: string; choG
                 {t.xong_luc ? ` · xong ${fmtTime(t.xong_luc)}` : ""}
               </p>
             ) : null}
-            {choGhi ? (
+            {choGhi && coNut ? (
               <div className="flex flex-wrap items-center gap-2">
                 {t.lam_duoc ? (
                   <Button size="sm" variant="primary" disabled={ban} onClick={() => void bam(t, "lam")}>
@@ -173,14 +184,6 @@ export default function KhoiDieuTri({ visitId, choGhi }: { visitId: string; choG
                     Hoàn tác Xong
                   </Button>
                 ) : null}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  aria-expanded={mo}
-                  onClick={() => setAnPhieu((x) => ({ ...x, [t.order_id]: mo }))}
-                >
-                  {mo ? "Gập phiếu điều trị" : "Mở phiếu điều trị"}
-                </Button>
               </div>
             ) : null}
             {choGhi && t.ly_do_khong_lam ? <p className="text-meta text-ink-muted">{t.ly_do_khong_lam}</p> : null}
@@ -189,11 +192,14 @@ export default function KhoiDieuTri({ visitId, choGhi }: { visitId: string; choG
                 {moi}
               </p>
             ) : null}
-            {choGhi && mo ? (
-              <div className="border-t border-hairline pt-3">
+            <div className="border-t border-hairline pt-3">
+              {t.mau_chon_san === MAU_PHIEU_DIEU_TRI || !ghiPhieu ? (
+                <PhieuDieuTri serviceOrderId={t.order_id} choGhi={ghiPhieu} banDoc={t.phieu} />
+              ) : (
+                // Dịch vụ điều trị mà quản lý gắn mẫu khác: phiếu kết quả chung.
                 <PhieuKetQua serviceOrderId={t.order_id} mau={t.mau} mauMacDinh={t.mau_chon_san} onHoanTat={nap} />
-              </div>
-            ) : null}
+              )}
+            </div>
           </article>
         );
       })}

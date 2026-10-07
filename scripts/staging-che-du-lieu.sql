@@ -120,6 +120,7 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('encounter_flow', 'route_reason', 'chu'),
     ('queue_entry', 'reason', 'chu'),
     ('consultation_note', 'body', 'chu'),
+    ('luot_ghi_chu', 'noi_dung', 'chu'),
     ('clinical_record', 'soap_subjective', 'json'),
     ('clinical_record', 'soap_objective', 'json'),
     ('clinical_record', 'soap_assessment', 'json'),
