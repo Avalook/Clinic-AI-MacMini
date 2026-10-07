@@ -115,7 +115,9 @@ vì phòng trống thì `hang_cho.dem` trả None (đã sửa: luôn có ba số
 2. **Sắp đến ở MỌI phòng làm được vẫn hiện tất cả khách** (không ẩn theo ★). Khách có
    chỉ định tick sẵn lên đầu, nhãn ★ / "hướng dẫn: P. X". Khách đã chờ / làm ở phòng
    này không ở Sắp đến của phòng (nhận tiếp bằng "Nhận thêm" trên ô khách). Chỉ định
-   đang chờ ở phòng khác mà hướng dẫn tới đây cũng hiện (trưởng ca đổi phòng).
+   đang CHỜ / đang LÀM ở phòng khác VẪN HIỆN ở Sắp đến mọi phòng làm được, nhãn "đang
+   chờ / đang làm ở P. X" (đang chờ thì nhận chéo được), nhưng KHÔNG vào số "sắp đến"
+   (`tinh_so` — đã đếm ở "đang chờ / đang làm" phòng kia).
 3. **Mỗi khách MỘT ô** ở mọi danh sách (sắp đến · đang chờ · đang làm · đã xong): trong
    ô các chỉ định phòng làm được + trạng thái (sắp đến [hướng dẫn: P. X] · chờ ở đây ·
    đang làm · xong · đang ở P. Y) — `hang_cho.chi_dinh_khach`, `sap_den_phong[].chi_dinh`.

@@ -260,10 +260,15 @@ async def _chi_dinh(
 def gom_sap_den(
     dong: Iterable[tuple[Any, dict[str, Any]]], room_id: str
 ) -> list[dict[str, Any]]:
-    """Khách SẮP ĐẾN phòng ``room_id`` — HÀM THUẦN. Khách có chỉ định chưa vào
-    phòng nào mà phòng làm được (hoặc đang chờ phòng khác nhưng hướng dẫn tới
-    đây), và CHƯA có chỉ định nào chờ / làm ở chính phòng này (khách ấy nằm ở
-    "Đang chờ" của phòng, nhận tiếp bằng "Nhận thêm"). Khách có chỉ định tick
+    """Khách SẮP ĐẾN phòng ``room_id`` — HÀM THUẦN. MỌI khách có chỉ định phòng
+    làm được chưa xong: chưa vào phòng nào, HOẶC đang chờ / đang làm ở phòng
+    khác (Tuyền 07/10: list đủ hết, "ngu ngu tí nhưng pick ra dễ" — nhãn nói
+    đang ở đâu, nhận chéo theo luật). Trừ khách đã có chỉ định chờ / làm ở
+    chính phòng này (nằm ở "Đang chờ", nhận tiếp bằng "Nhận thêm").
+
+    ``tinh_so``: khách có ít nhất một chỉ định CHƯA VÀO PHÒNG NÀO — chỉ những
+    khách này vào số "sắp đến" (khách đang ở phòng khác đã được đếm ở "đang
+    chờ / đang làm" của phòng ấy, không đếm hai lần). Khách có chỉ định tick
     sẵn (hướng dẫn tới / phòng chuyên) lên đầu, giữ thứ tự check-in."""
     khach: dict[str, dict[str, Any]] = {}
     o_day: set[str] = set()
@@ -287,14 +292,11 @@ def gom_sap_den(
         k["chi_dinh"].append(c)
     out = []
     for vid, k in khach.items():
-        sap = [
-            c
-            for c in k["chi_dinh"]
-            if c["trang_thai"] == SAP_DEN
-            or (c["trang_thai"] == PHONG_KHAC and c["nhan_duoc"] and c["huong_dan_day"])
-        ]
+        sap = [c for c in k["chi_dinh"] if c["trang_thai"] in (SAP_DEN, PHONG_KHAC)]
         if vid in o_day or not sap or not k.pop("accepting"):
             continue
+        k["tinh_so"] = any(c["trang_thai"] == SAP_DEN for c in sap)
+        k["nhan_duoc"] = any(c["nhan_duoc"] for c in sap)
         k["duoc_huong_dan"] = any(c["huong_dan_day"] for c in sap)
         k["co_tick_san"] = any(c["tick_san"] for c in k["chi_dinh"])
         k["so_chi_dinh"] = len(k["chi_dinh"])
@@ -371,7 +373,7 @@ async def dem_theo_phong(
         for r, c in await _chi_dinh(conn, cid, chi_sap_den=True):
             theo_phong.setdefault(r["room_id"], []).append((r, c))
         for rid, dong in theo_phong.items():
-            o(rid)["sap_den"] = len(gom_sap_den(dong, rid))
+            o(rid)["sap_den"] = sum(1 for k in gom_sap_den(dong, rid) if k["tinh_so"])
     hom_nay = (
         "(v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"
         " = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"

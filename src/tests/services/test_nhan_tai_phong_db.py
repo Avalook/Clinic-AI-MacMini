@@ -794,3 +794,33 @@ async def test_goi_y_va_phieu_huong_dan_mot_phong_chuyen() -> None:
         "phong_chuyen": None,
         "phong_lam_duoc": ["SA", "TT"],
     }
+
+
+async def test_sap_den_hien_ca_khach_dang_o_phong_khac_khong_dem(bat: RB) -> None:
+    """Tuyền 07/10: Sắp đến ở MỌI phòng làm được hiện đủ khách — kể cả khách đã
+    được phòng khác nhận hết — kèm nhãn nơi ấy, nhưng KHÔNG vào số "sắp đến"
+    (đã đếm ở "đang chờ / đang làm" của phòng kia)."""
+
+    async def so_sap_den(room: str) -> int:
+        async with bat.pool.acquire() as conn:
+            d = (await ntp.dem_theo_phong(conn, CLINIC, bat=True)).get(room, {})
+        return int(d.get("sap_den") or 0)
+
+    o1 = await _cd_o(bat, bat.sa1, bat.sa2)
+    truoc = await so_sap_den(bat.sa1)
+    await _nhan(bat, bat.sa2, o1)
+
+    k1 = await _sap_den(bat, bat.sa1)
+    assert k1 is not None and k1["tinh_so"] is False and k1["nhan_duoc"] is True
+    [c] = k1["chi_dinh"]
+    assert (c["trang_thai"], c["o_trang_thai"]) == ("o_phong_khac", "cho")
+    assert c["phong"] and c["nhan_duoc"] is True and c["tick_san"] is False
+    assert k1["dang_o_phong"]["phong_id"] == bat.sa2
+    assert await so_sap_den(bat.sa1) == truoc - 1
+
+    # Đang LÀM ở phòng kia: vẫn hiện, nhãn "đang làm", không nhận chéo được.
+    await _bat_dau(bat, o1)
+    k1 = await _sap_den(bat, bat.sa1)
+    assert k1 is not None and k1["nhan_duoc"] is False
+    assert k1["chi_dinh"][0]["o_trang_thai"] == "lam"
+    assert await so_sap_den(bat.sa1) == truoc - 1
