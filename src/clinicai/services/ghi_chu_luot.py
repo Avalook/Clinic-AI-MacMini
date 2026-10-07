@@ -6,6 +6,8 @@ sửa / xoá dòng cũ — màn và bản in đọc phiên bản mới nhất; l
 
 * Hiện ô khi lượt thuộc nhóm KHAC, hoặc lượt đã có ghi chú (đổi dịch vụ sang
   loại khám thật thì chữ cũ vẫn hiện — làm mới không mất cũ). MÁY CHỦ quyết.
+* Ghi được khi lượt còn sống (OPEN / IN_PROGRESS — check-out không khoá hồ sơ);
+  INCOMPLETE (về giữa chừng), FINALIZED / AMENDED chỉ đọc, như ô tư vấn.
 * Chống đè: màn gửi `phien_ban` nó đang cầm; người khác vừa lưu → 409, màn nạp
   bản mới. Gửi lại y hệt bản mới nhất → không đẻ phiên bản.
 """
