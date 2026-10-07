@@ -140,7 +140,7 @@ export default function PhieuKham({
   /** Ô tick DỊCH VỤ KHÁM theo mã KiotViet (28/09/2026) — vẽ ngay dưới mục
    *  đầu của khối 1 ("Bác sĩ tư vấn ghi"); shell truyền vào. */
   oDichVuKham?: ReactNode;
-  /** Khối 4 "Điều trị" (07/10/2026) — hai ô chữ của lượt, shell vẽ (không
+  /** Khối 4 "Điều trị" (07/10/2026) — thẻ chỉ định điều trị, shell vẽ (không
    *  thuộc mẫu phiếu JSON). Không truyền = không có khối 4. */
   oDieuTri?: ReactNode;
   /** Chữ tóm tắt trên nút khối 4. */
@@ -324,7 +324,7 @@ export default function PhieuKham({
       [soThuoc ? `${soThuoc} thuốc` : "", ketQuaTT.length ? `${ketQuaTT.length} dịch vụ` : "", coHen ? "có hẹn" : ""]
         .filter(Boolean)
         .join(" · ") || "chưa có gì",
-    4: tomTatDieuTri ?? "cảm nhận · vấn đề sau điều trị",
+    4: tomTatDieuTri ?? "phiếu điều trị · làm tại bàn khám",
   };
   const cacKhoi = oDieuTri ? KHOI : KHOI.filter((k) => k.so !== 4);
   const khoiCuoi = cacKhoi[cacKhoi.length - 1]?.so ?? 3;
@@ -371,7 +371,7 @@ export default function PhieuKham({
     1: null,
     2: "tick là thêm · kết quả về tự hiện bên dưới",
     3: null,
-    4: "tự lưu · mỗi lần lưu giữ một bản, hiện bản mới nhất",
+    4: "mỗi chỉ định điều trị một thẻ · phiếu cùng phòng dịch vụ",
   };
 
   // B4 (đợt 3, 27/09/2026 — góp ý bác sĩ + thư ký y khoa): mỗi thẻ mục GẬP/MỞ

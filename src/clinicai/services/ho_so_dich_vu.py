@@ -3,7 +3,8 @@ docs/KE-HOACH-CHON-DICH-VU-HO-SO-KHAM.md).
 
 * **Đọc** (`doc`): dịch vụ hiện tại + đổi được không, lịch sử đổi (ai, lúc, từ →
   sang — từ `appointment.service_switched`), phiếu CŨ của lượt (mẫu khác dịch vụ
-  hiện tại, "đã nhập N ô"), ô "Khách đã đặt" của lượt Điều trị, ghi chú lúc đặt.
+  hiện tại, "đã nhập N ô"), ghi chú lúc đặt. Chỉ định "Khách đã đặt" của lượt
+  Điều trị hiện ở khối 4 (`dieu_tri_ban_kham.doc_the`, cờ `da_dat`).
 * **Đổi dịch vụ** (`doi`): đi đúng đường `BookingService.doi_dich_vu_kham` với
   ``trong_ho_so=True`` — không đường ghi thứ hai.
 * **Lượt Điều trị vào hàng** (`sinh_chi_dinh_dieu_tri`, consumer
@@ -34,15 +35,12 @@ logger = structlog.get_logger()
 
 _LUOT_SQL = """
 SELECT v.visit_id::text, v.status, v.appointment_id::text, a.notes,
-       st.id::text AS dv_id, st.name AS dv_ten, st.nhom, st.form_code,
-       sp.service_code AS dt_ma, sp.name AS dt_ten
+       st.id::text AS dv_id, st.name AS dv_ten, st.nhom, st.form_code
   FROM public.visit v
   LEFT JOIN public.appointment a
     ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
   LEFT JOIN public.service_type st
     ON st.id = coalesce(v.service_type_id, a.service_type_id)
-  LEFT JOIN public.service_price sp
-    ON sp.id = st.service_price_id AND sp.clinic_id = v.clinic_id
  WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
 """
 
@@ -130,22 +128,6 @@ async def doc(
         if phieu_hien is None and phieu:
             # Dịch vụ không gắn phiếu: phiếu đang mở là phiếu sửa gần nhất.
             phieu_hien = phieu[0]["form_id"]
-        khach_da_dat = None
-        if luot["nhom"] == "DIEU_TRI" and luot["dt_ma"]:
-            o = await conn.fetchrow(
-                "SELECT id::text, exec_status FROM public.service_order"
-                " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
-                " AND service_code = $3 AND exec_status <> 'cancelled'"
-                " ORDER BY created_at DESC LIMIT 1",
-                cid,
-                vid,
-                luot["dt_ma"],
-            )
-            khach_da_dat = {
-                "ten": luot["dt_ten"],
-                "order_id": o["id"] if o else None,
-                "trang_thai": o["exec_status"] if o else None,
-            }
     return {
         "visit_id": vid,
         "dich_vu": {
@@ -167,7 +149,6 @@ async def doc(
             for p in phieu
             if p["form_id"] != phieu_hien
         ],
-        "khach_da_dat": khach_da_dat,
         "ghi_chu_dat": luot["notes"],
     }
 

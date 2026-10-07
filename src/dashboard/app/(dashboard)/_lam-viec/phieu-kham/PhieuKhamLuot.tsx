@@ -469,7 +469,6 @@ export default function PhieuKhamLuot({
           void napKetQua();
           onDaDat();
         }}
-        veKetQua={(id) => choKetQua(ketQua.filter((k) => k.service_order_id === id))}
         vePhieuCu={(f) => (
           <PhieuKhamLuot
             key={`cu-${f}`}
