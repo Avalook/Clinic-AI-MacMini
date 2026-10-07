@@ -1277,7 +1277,7 @@ DANH_MUC: dict[str, SuKien] = {
         ),
         SuKien(
             ten="service.started",
-            version=2,
+            version=1,
             aggregate_type="service_order",
             source_module="execution",
             payload=DichVuDaBatDau,
@@ -1412,7 +1412,7 @@ DANH_MUC: dict[str, SuKien] = {
         ),
         SuKien(
             ten="service.start_cancelled",
-            version=2,
+            version=1,
             aggregate_type="service_order",
             source_module="execution",
             payload=DichVuDaHuyBatDau,
@@ -1498,7 +1498,7 @@ DANH_MUC: dict[str, SuKien] = {
         ),
         SuKien(
             ten="service.routed",
-            version=2,
+            version=1,
             aggregate_type="service_order",
             source_module="service_routing",
             payload=DaXepPhong,
@@ -1531,7 +1531,7 @@ DANH_MUC: dict[str, SuKien] = {
         # 'tai_phong'; ba sự kiện dưới là rời phòng, hoàn tác Nhận, hướng dẫn.
         SuKien(
             ten="service.room_released",
-            version=2,
+            version=1,
             aggregate_type="service_order",
             source_module="service_routing",
             payload=KhachRoiPhong,
@@ -1541,7 +1541,7 @@ DANH_MUC: dict[str, SuKien] = {
         ),
         SuKien(
             ten="service.room_receive_undone",
-            version=2,
+            version=1,
             aggregate_type="service_order",
             source_module="service_routing",
             payload=NhanVaoPhongDaHoanTac,
