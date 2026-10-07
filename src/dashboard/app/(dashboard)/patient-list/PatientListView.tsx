@@ -24,6 +24,8 @@ import ClinicalRecordForm from "../tasks/ClinicalRecordForm";
 import type { DoctorApptRow } from "../tasks/DoctorApptRow";
 import KenhDoiHuy, { type CoKenhDoiHuy } from "../customers/KenhDoiHuy";
 import SplitPane from "../SplitPane";
+import LichSuKham from "../_lam-viec/LichSuKham";
+import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
 import LichSuNotion from "./LichSuNotion";
 import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 import { khoangDong } from "../../../lib/so-trang";
@@ -42,6 +44,10 @@ export interface VisitSummary {
   status: string;
   service_name: string | null;
   doctor_name?: string | null;
+  /** Lượt khám thật của lịch (07/10/2026) — null = chưa check-in. */
+  visit_id?: string | null;
+  /** v5 | notion | cu | trong — máy chủ quyết khung đọc. */
+  loai_du_lieu?: string | null;
 }
 
 export interface ExaminedRow {
@@ -292,6 +298,8 @@ export default function PatientListView({
   const [selectedId, setSelectedId] = useState<string | null>(chonSan);
   const [openAppt, setOpenAppt] = useState<DoctorApptRow | null>(null);
   const [moDanhSachLuot, setMoDanhSachLuot] = useState(false);
+  /** Lượt có phiếu v5 đang mở ở vùng phải (hồ sơ kiểu Bàn khám, chỉ xem). */
+  const [openV5, setOpenV5] = useState<VisitSummary | null>(null);
 
   /** Chọn / bỏ chọn một khách. Ghi `?chon=` lên URL KHÔNG dựng lại trang
    *  (`history.replaceState` — Next đồng bộ nó với router): F5 vẫn mở đúng
@@ -323,6 +331,26 @@ export default function PatientListView({
   function datLichLai(appt: DoctorApptRow) {
     const ma = appt.patient?.patient_code ?? "";
     router.push(`/appointments${ma ? `?bn=${encodeURIComponent(ma)}` : ""}`);
+  }
+
+  // MỞ MỘT LƯỢT (07/10/2026, T8): máy chủ nói lượt có loại dữ liệu gì — phiếu
+  // v5 → hồ sơ kiểu Bàn khám (chỉ xem); đời cũ / Notion / chưa phiếu → khung
+  // đọc cũ (`ClinicalRecordForm`, giữ nguyên). Chỉ đổi hiển thị, không ghi gì.
+  function moLuot(v: VisitSummary) {
+    if (v.loai_du_lieu === "v5" && v.visit_id) {
+      setOpenAppt(null);
+      setOpenV5(v);
+      return;
+    }
+    if (!selected?.appt) return;
+    setOpenV5(null);
+    setOpenAppt({
+      ...selected.appt,
+      id: v.id,
+      slot_start: v.slot_start,
+      status: v.status,
+      service: v.service_name ? { name: v.service_name } : null,
+    } as DoctorApptRow);
   }
 
   // Danh sách = đúng trang máy chủ trả (đã tìm, lọc, xếp). Khách đang chọn
@@ -673,11 +701,24 @@ export default function PatientListView({
             <div className="border-t border-line px-5 py-4">
               <button
                 type="button"
-                onClick={() => setOpenAppt(selected.appt)}
+                onClick={() =>
+                  selected.visits[0] ? moLuot(selected.visits[0]) : setOpenAppt(selected.appt)
+                }
                 className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-control border border-brand-600 bg-white px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 sm:w-auto"
               >
                 <FileText size={16} /> Mở phiếu khám
               </button>
+              <div className="mt-2">
+                <LichSuKham
+                  clinicPatientId={selected.clinic_patient_id}
+                  onChonLuot={(l) => {
+                    const v = selected.visits.find((x) => x.visit_id === l.visit_id);
+                    if (!v) return false;
+                    moLuot(v);
+                    return true;
+                  }}
+                />
+              </div>
             </div>
           ) : null}
         </>
@@ -740,10 +781,13 @@ export default function PatientListView({
           {moDanhSachLuot ? (
             <ul className="space-y-1.5 py-3">
               {selected.visits.map((v, i) => (
-                <li
-                  key={v.id}
-                  className="rounded-control border border-line px-3 py-2 text-xs"
-                >
+                <li key={v.id}>
+                  <button
+                    type="button"
+                    disabled={!enablePopup}
+                    onClick={() => moLuot(v)}
+                    className="block w-full rounded-control border border-line px-3 py-2 text-left text-xs hover:bg-surface-muted disabled:cursor-default disabled:hover:bg-transparent"
+                  >
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-medium text-ink">
                       Lần {selected.visits.length - i}
@@ -754,6 +798,7 @@ export default function PatientListView({
                     {fmtDateTimeOrDate(v.slot_start)}
                     {v.service_name ? ` · ${v.service_name}` : ""}
                   </span>
+                  </button>
                 </li>
               ))}
             </ul>
@@ -764,6 +809,48 @@ export default function PatientListView({
       )}
     </aside>
   );
+
+  if (openV5?.visit_id && selected) {
+    return (
+      <>
+        <p className="mb-2 text-xs text-ink-muted">Kéo thanh phân cách để đổi độ rộng hai vùng làm việc.</p>
+        <SplitPane
+          className="md:h-[78vh]"
+          initialLeftPct={42}
+          left={directory}
+          right={
+            <section
+              aria-label="Hồ sơ khám lượt"
+              className="min-w-0 space-y-3 overflow-y-auto rounded-card border border-line bg-surface p-3 md:h-full"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-ink">
+                  Hồ sơ khám · {fmtDateTimeOrDate(openV5.slot_start)}
+                  {openV5.service_name ? ` · ${openV5.service_name}` : ""} — chỉ xem
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setOpenV5(null)}
+                  className="rounded-control border border-line px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-surface-sunken"
+                >
+                  Đóng
+                </button>
+              </div>
+              <PhieuKhamLuot
+                key={openV5.visit_id}
+                visitId={openV5.visit_id}
+                clinicPatientId={selected.clinic_patient_id}
+                choGhi={false}
+                xemLai
+                datChiDinh={async () => ({ ok: false, loi: "Chỉ xem." })}
+                onDaDat={() => undefined}
+              />
+            </section>
+          }
+        />
+      </>
+    );
+  }
 
   if (openAppt) {
     return (

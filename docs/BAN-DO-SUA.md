@@ -230,6 +230,12 @@ không chặn check-out `S/checkout_service.py` (`exam_open`); tick dịch vụ 
 In: `app/print/phieu-kham/[visitId]/InPhieuKham.tsx`. Test: `T/services/test_khoi_dieu_tri_db.py`,
 FT `khoi-dieu-tri-boundary.test.mts`.
 
+**Lịch sử khám (popup, mọi lượt) + `/patient-list` mở đúng khung (07/10/2026)** — UI
+`D/_lam-viec/LichSuKham.tsx` (Bàn khám qua `PhieuKhamLuot.tsx`, `D/patient-list/PatientListView.tsx`
+`moLuot`, `D/customers/ThanhLuotKham.tsx`) → `/api/ho-so-kham?xem=lich-su` → `R/ho_so_kham.py`
+`lich_su` → `S/lich_su_luot.py` (`LOAI_DU_LIEU_SQL` dùng chung với `S/danh_sach_benh_nhan_service.py`
+`_LUOT_SQL`). Test: `T/services/test_lich_su_luot_db.py`, FT `lich-su-kham-boundary.test.mts`.
+
 **Thai kỳ** — `D/ban-kham/ThaiKy.tsx` → `S/thai_ky_service.py`.
 
 ## 6. Chỉ định & chọn dịch vụ

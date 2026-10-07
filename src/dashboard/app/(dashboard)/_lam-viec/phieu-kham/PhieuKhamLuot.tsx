@@ -52,6 +52,7 @@ import PhieuKham, { type KetQuaLuu, type ThamChieu } from "./PhieuKham";
 import KetQuaChiDinh from "./KetQuaChiDinh";
 import KhoiDichVuHoSo from "./KhoiDichVuHoSo";
 import KhoiDieuTri from "./KhoiDieuTri";
+import LichSuKham from "../LichSuKham";
 
 interface PhieuLuot extends DinhNghiaPhieu {
   du_lieu: Record<string, ONhap>;
@@ -461,6 +462,11 @@ export default function PhieuKhamLuot({
   );
   const khoiDichVu =
     xemLai || chiMuc ? null : (
+      <div className="space-y-2">
+      {/* LỊCH SỬ KHÁM (T7): mọi lượt của khách, cả lượt không phiếu / Notion. */}
+      <div className="flex justify-end">
+        <LichSuKham clinicPatientId={clinicPatientId} visitIdHienTai={visitId} />
+      </div>
       <KhoiDichVuHoSo
         visitId={visitId}
         choGhi={choGhi}
@@ -483,6 +489,7 @@ export default function PhieuKhamLuot({
           />
         )}
       />
+      </div>
     );
 
   if (chonDuoc) {

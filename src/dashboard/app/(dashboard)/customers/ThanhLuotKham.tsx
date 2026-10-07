@@ -13,6 +13,7 @@
 import { useState } from "react";
 import { FileText } from "lucide-react";
 import HoSoKhamModal from "../_lam-viec/HoSoKham";
+import LichSuKham from "../_lam-viec/LichSuKham";
 import type { ChuoiKham, LuotKham } from "./CustomersView";
 
 const NHAN_TRANG_THAI: Record<string, string> = {
@@ -45,14 +46,19 @@ export default function ThanhLuotKham({
   luotDangXem,
   luotConViec,
   onChonLuot,
+  clinicPatientId,
 }: {
   chuoi: ChuoiKham[];
   luotDangXem: string | null;
   /** id các lượt còn việc CSKH đang mở. */
   luotConViec: ReadonlySet<string>;
   onChonLuot: (id: string) => void;
+  /** Có thì hiện nút "Lịch sử khám" (mọi lượt, cả không phiếu / Notion). */
+  clinicPatientId?: string;
 }) {
   const [xemHoSo, setXemHoSo] = useState(false);
+  /** Lịch hẹn của lượt bấm trong popup Lịch sử khám → mở hồ sơ CSKH. */
+  const [hoSoId, setHoSoId] = useState<string | null>(null);
   const [loiIn, setLoiIn] = useState<string | null>(null);
   const luotChon = chuoi
     .flatMap((c) => c.luot)
@@ -188,6 +194,19 @@ export default function ThanhLuotKham({
           {loiIn ? <span className="text-label text-danger">{loiIn}</span> : null}
         </div>
       )}
+      {clinicPatientId ? (
+        <div className="mt-2">
+          <LichSuKham
+            clinicPatientId={clinicPatientId}
+            onChonLuot={(l) => {
+              if (!l.appointment_id) return false;
+              setHoSoId(l.appointment_id);
+              return true;
+            }}
+          />
+        </div>
+      ) : null}
+      {hoSoId ? <HoSoKhamModal appointmentId={hoSoId} onDong={() => setHoSoId(null)} /> : null}
       {xemHoSo && luotChon && (
         <HoSoKhamModal
           appointmentId={luotChon.id}
