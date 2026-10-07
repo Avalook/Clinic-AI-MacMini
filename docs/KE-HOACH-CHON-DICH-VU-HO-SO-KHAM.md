@@ -34,9 +34,12 @@ phòng làm được (nhánh nhận-tại-phòng lo) và hàng chờ bác sĩ ch
 thẳng phòng được"). Bên nào nhận trước thì khách ở đó. Hàng bác sĩ của lượt Điều trị là
 **tuỳ chọn** — không ai nhận cũng không chặn check-out. Không tự thu phí khám (bác sĩ có
 khám thật thì tick dịch vụ khám con như cũ).
-Trong hồ sơ khám: **một ô "Khách đã đặt: <dịch vụ>"** — chỉ định đã sinh sẵn (không phải
-kê lại), bấm mở phiếu thực hiện / kết quả của dịch vụ đó **nếu muốn** (tuỳ chọn, không
-bắt buộc, không gắn vào mẫu phiếu khám chung). Bác sĩ làm luôn tại bàn khám được.
+Trong hồ sơ khám: chỉ định đã sinh sẵn (không phải kê lại) hiện ở **khối 4 "Điều trị"**
+với nhãn "Khách đã đặt" (Tuyền 07/10 chiều: gộp ô "Khách đã đặt" vào khối 4 — xem T6).
+Bác sĩ kê lại đúng dịch vụ ấy → **không đẻ chỉ định thứ hai** (`chi_dinh_service`
+trả chỉ định đang có, `da_co_san`) — quầy thu một dòng. Đường kiểm trùng cũ
+`/visits/[id]/service-orders/duplicates` đã TẮT (410) từ 24/09 nên chặn ở máy chủ, chỉ
+cho dịch vụ nhóm Điều trị (CLS / thủ thuật vẫn kê lần 2 được như cũ).
 
 **T2 — Giá** Điều trị = đúng dòng bảng giá của dịch vụ, không giá riêng ở loại khám, không
 thu hai lần.
@@ -62,11 +65,46 @@ phiếu cũ đủ dữ liệu. `phieu_kham_service.doc_luot` (:226) phải chọ
 HIỆN TẠI (hiện chọn dòng sửa gần nhất). Lịch sử đổi: tái dùng
 `appointment.service_switched` (ai, lúc, từ → sang) và **hiện ngay trên hồ sơ**.
 
-**T6 — Khối 4 "Điều trị"** (dưới khối "Chỉ định điều trị"; `lib/phieu-kham.ts:807`
-`KHOI_PHIEU` + kiểu `1|2|3` rải ở `PhieuKham.tsx` :184 :312 :359 :526-544): 2 ô chữ tự
-do "Cảm nhận", "Vấn đề sau điều trị". **Bảng riêng theo lượt**, không nhét vào 7 mẫu
-JSON; tự lưu (mẫu `OTuVanTuLuu.tsx`); mỗi lần lưu thêm một phiên bản (không đè), hiện bản
-mới nhất. Dùng được cả lượt không có phiếu (Điều trị, Khác). In kèm phiếu khi có nội dung.
+**T6 — Khối 4 "Điều trị" (Tuyền đổi 07/10 chiều — thay bản "bảng riêng theo lượt")**
+(dưới khối "Chỉ định điều trị"; `lib/phieu-kham.ts` `KHOI_PHIEU`):
+- **Phiếu điều trị = phiếu KẾT QUẢ theo CHỈ ĐỊNH**, dùng bộ mẫu KQ có sẵn: mẫu
+  `PHIEU_DIEU_TRI` (2 ô chữ tự do "Cảm nhận", "Vấn đề sau điều trị") gắn ở
+  `dich_vu_mau_ket_qua` cho dịch vụ của 6 loại nhóm DIEU_TRI (khớp qua
+  `service_type.service_price_id`, migration `20261007620000`); một `form_instance`
+  mỗi chỉ định. Hiệu lực MỌI LÚC chỉ định ấy tồn tại (bác sĩ kê ở khối 3 hay lượt đặt lịch
+  Điều trị tự sinh) — không phụ thuộc loại khám của lượt.
+- Khối 4 = danh sách chỉ định điều trị của lượt, mỗi chỉ định một thẻ: phiếu 2 ô (CHÍNH
+  form_instance đó — tự lưu, revision chống ghi đè như phiếu KQ) + trạng thái (chưa làm /
+  đang làm ở P. X / đang làm tại bàn khám / xong). Phòng dịch vụ mở CÙNG phiếu (khung kết
+  quả hiện có) — bàn khám ghi dở thì phòng ghi tiếp, không điền lại. Lượt không có chỉ
+  định điều trị: "Chưa có chỉ định điều trị — kê ở khối Chỉ định điều trị".
+- **Bỏ** bảng ghi chung theo lượt `luot_dieu_tri_ghi` (migration `20261007610000` gỡ khỏi
+  nhánh — chưa lên prod).
+- **Làm tại bàn khám:** [Làm tại bàn khám] → [Xong] (2 cú, giờ thật), hoàn tác từng bước.
+  Lệnh riêng của module Thực hiện (`*_tai_ban_kham`, không đổi đường phòng / quầy): không
+  đụng chỗ 'serving' của phiên bác sĩ (`uq_queue_entry_one_serving`); lần làm ghi
+  `noi_lam = BAN_KHAM` + phòng bác sĩ (sự kiện `service.*` mang `noi_lam`) để màn phòng
+  đọc. Chỉ định CHƯA có phòng → xếp vào phòng bàn khám (cột cũ `exec_status`
+  in_progress/performed bắt buộc có phòng, công nợ check-out còn đọc cột cũ); hoàn tác
+  Bắt đầu gỡ đúng phòng ấy. Quyền = khối y khoa + trưởng ca (như đổi dịch vụ trong hồ sơ).
+  Điền phiếu KHÔNG tự tính là đã làm.
+- **Lịch sử sửa mọi phiếu kết quả** (không đè): bảng chỉ-thêm `form_instance_lich_su` +
+  trigger BEFORE UPDATE ghi bản cũ khi `du_lieu` / `trang_thai` đổi.
+
+**T9 — Thanh toán dịch vụ điều trị (Tuyền dặn 07/10)** — mọi điểm có test DB
+(`test_dieu_tri_ban_kham_db.py`):
+- [Làm tại bàn khám] qua ĐÚNG cổng tiền của phòng (`finance_gate.can_start` / `cua_lam`,
+  dây `thu_truoc_khi_lam`): chưa thu + chưa tick → chặn "Chưa thu tiền — thu trước hoặc
+  tick Làm trước – thu sau."; đã thu hoặc đã tick → làm được (chỉ định khách chưa chốt
+  thì chốt như lúc tick).
+- Chỉ định điều trị (tự sinh / bác sĩ kê) hiện ở quầy đúng giá dòng `service_price`, thu
+  đúng một lần; lượt Điều trị không phí khám; kê lại không thành hai dòng.
+- Làm tại bàn khám chưa thu → check-out chặn nợ y như dịch vụ làm ở phòng.
+- Hoàn tác Bắt đầu / Xong không đụng tiền. Bỏ chỉ định đã thu → tiền thừa. Hoàn tác bỏ
+  sau khi đã hoàn tiền → nợ mới: luật E5 của Khối 2 (#342/#343, `test_tien_thua_phan_e_db`)
+  — chỉ định điều trị là `service_order` thường nên đi đúng luật ấy khi đợt Khối 2 merge.
+- Báo cáo cuối ngày / doanh thu theo dịch vụ đọc `payment_bill_line` — dòng của dịch vụ
+  điều trị làm tại bàn khám mang đúng tên + tiền như làm ở phòng.
 
 **T7 — "Lịch sử khám":** nút phía trên bộ 4 khối → popup: tìm theo ngày / loại dịch vụ, nút
 lịch cạnh ô tìm chấm xanh những ngày khách có khám; bấm một lượt mở hồ sơ lượt đó chỉ
@@ -84,13 +122,45 @@ v5 → hồ sơ mới; phiếu đời cũ / lượt Notion → khung đọc cũ 
 `ClinicalRecordForm` — BanKham còn dùng). Test đủ 4 loại lượt (v5, cũ, Notion, không
 phiếu) hiện đủ ô như khung cũ.
 
+## Sửa sau bấm thử staging (Tuyền 07/10 tối — lượt 016a401c, Ghế điện từ trường)
+
+**Gốc lỗi "đã check-out vẫn ở Kết quả cần đọc"** (đọc DB staging): BS Khám xong 14:09
+khi Ghế chưa làm → vòng đọc 2 chờ Ghế; lễ tân check-out 15:32 (vượt bằng lý do);
+15:37 Ghế được làm tại bàn khám → `vong_doc_luot_kham` chỉ chặn theo `visit.status`
+(check-out giữ IN_PROGRESS) nên mở vòng → chỗ chờ REVIEW mới → "Kết quả cần đọc".
+
+**Luật luồng (chốt lại):**
+- Lượt Điều trị KHÔNG qua bàn khám (phiên BS chưa bắt đầu): mở hoàn toàn — phòng làm →
+  thu → check-out, không vướng, không vòng đọc; vẫn hiện ở hàng bàn khám (tuỳ chọn).
+- ĐÃ qua bàn khám: đúng luật bàn khám như lượt khám thường (không nới check-out). Ngoại
+  lệ duy nhất: dịch vụ làm NGAY TẠI BÀN KHÁM (`noi_lam = BAN_KHAM`) đã xong thì không
+  cần đọc kết quả của chính nó (`luot_kham_rules.vong_khong_can_doc` → `review.skipped`
+  lý do `lam_tai_ban_kham`); dịch vụ làm ở phòng vẫn giữ vòng.
+- Check-out xong: `vong_doc` không chạy lại vòng đọc (`visit.closed_at`); thẻ điều trị
+  chỉ đọc + lệnh làm tại bàn khám bị từ chối ("Mở lại lượt" để làm tiếp).
+
+**Phiếu điều trị (C):** MỘT component `_lam-viec/PhieuDieuTri.tsx` ở khối 4 Bàn khám và
+khung kết quả phòng dịch vụ (`PhieuKetQua` chuyển sang khi mẫu PHIEU_DIEU_TRI; không sửa
+`phong/**`). Mỗi ô một nhãn, "Tự lưu khi gõ", chân "Bản n · người sửa · giờ", In phiếu;
+không "Hoàn tất phiếu". Ở phòng có [Xong] (đóng dịch vụ bằng lệnh hoàn tất của engine).
+Engine: mẫu không có bước Hoàn tất (`phieu_kham/mau_dieu_tri.py`) lưu được cả khi đã
+chốt, in không ghi BẢN NHÁP, khối kết quả trả nội dung khi còn nháp.
+
+**Lượt "Khác" (D):** ô chữ to tự do, bảng chỉ-thêm `luot_ghi_chu` (migration
+`20261007640000`, mỗi lần lưu một phiên bản, 409 khi màn cầm bản cũ; RLS 103 → 104).
+Không tái dùng `consultation_note` (phiên PRIMARY bị liệt kê hết mọi bản ở mục A).
+
+**In gộp một lượt (E):** `/print/phieu-kham/{visit}` — Khám · Đơn thuốc · Dịch vụ/CLS ·
+Điều trị (tên + ô đã ghi của phiếu điều trị) · Ghi chú; mục trống ẩn; nhóm theo dữ
+liệu (`dieu_tri` từ máy chủ); chữ ký bác sĩ cuối cùng.
+
 ## Tách PR (mỗi PR ≲400 dòng không tính test/migration/tệp sinh)
 
 | PR | Nội dung |
 |---|---|
 | 2a | Nhóm + 6 loại Điều trị + "Khác" (migration) · component chọn 4 nhóm thay 4 chỗ · notes gửi đủ + lễ tân thấy |
-| 2b | Đổi dịch vụ trong hồ sơ (quyền, mở khoá, giữ phiếu cũ, lịch sử) · lượt Điều trị: consumer sinh chỉ định, hàng BS tuỳ chọn, ô "Khách đã đặt" |
-| 2c | Khối 4 "Điều trị" (migration bảng mới) |
+| 2b | Đổi dịch vụ trong hồ sơ (quyền, mở khoá, giữ phiếu cũ, lịch sử) · lượt Điều trị: consumer sinh chỉ định, hàng BS tuỳ chọn · mẫu PHIEU_DIEU_TRI + làm tại bàn khám (backend) + thanh toán T9 |
+| 2c | Khối 4 "Điều trị" = thẻ chỉ định điều trị (gộp "Khách đã đặt") · gỡ `luot_dieu_tri_ghi` · lịch sử sửa phiếu kết quả `form_instance_lich_su` |
 | 2d | Popup Lịch sử khám + `/patient-list` + `/customers` |
 
 ## Ranh giới với nhánh nhận-tại-phòng

@@ -49,6 +49,8 @@ import LichSuSuaPhieu from "./LichSuSuaPhieu";
 import DatLichTaiKham from "./DatLichTaiKham";
 import { KhungDatLichTaiKham } from "./ONhapPhieu";
 import PhieuKham, { type KetQuaLuu, type ThamChieu } from "./PhieuKham";
+import KetQuaChiDinh from "./KetQuaChiDinh";
+import KhoiDichVuHoSo from "./KhoiDichVuHoSo";
 
 interface PhieuLuot extends DinhNghiaPhieu {
   du_lieu: Record<string, ONhap>;
@@ -104,6 +106,7 @@ export default function PhieuKhamLuot({
   chanRay,
   onTomTat,
   xemLai = false,
+  formIdDau,
 }: {
   visitId: string;
   clinicPatientId: string;
@@ -126,6 +129,8 @@ export default function PhieuKhamLuot({
   /** XEM LẠI một lượt CŨ (29/09/2026 — "Lượt khám trước" / bệnh án chỉ xem):
    *  khoá mọi ô, không tick dịch vụ khám, không tự lưu. */
   xemLai?: boolean;
+  /** Mở đúng phiếu này thay vì phiếu theo dịch vụ hiện tại (xem "Phiếu cũ"). */
+  formIdDau?: string;
 }) {
   const choGhi = choGhiVao && !xemLai;
   const [chonPhieu, setChonPhieu] = useState<string | null>(null);
@@ -204,7 +209,7 @@ export default function PhieuKhamLuot({
         doc<DauPhieu>(`/api/phieu-kham?visit_id=${visitId}&xem=dau-phieu`),
         doc<ThamChieuDu>("/api/phieu-kham?xem=tham-chieu"),
         napDon(),
-        napPhieu(null),
+        napPhieu(formIdDau ?? null),
         napKetQua(),
       ]);
       if (huy) return;
@@ -215,7 +220,7 @@ export default function PhieuKhamLuot({
     return () => {
       huy = true;
     };
-  }, [visitId, napPhieu, napKetQua, napDon, datDon]);
+  }, [visitId, formIdDau, napPhieu, napKetQua, napDon, datDon]);
 
   // SỐ LƯỢNG DO QUẦY THU THUỐC ĐIỀN (C14, 01/10/2026): bác sĩ vội để trống, quầy
   // điền lúc thu — màn kê đơn đang mở tự hiện số ấy + nhãn "SL do thu ngân điền".
@@ -437,12 +442,78 @@ export default function PhieuKhamLuot({
     return kq.ok ? ({ ok: true } as const) : ({ ok: false, loi: kq.loi } as const);
   };
 
+  // DỊCH VỤ CỦA LƯỢT (07/10/2026, T1/T5) — đầu hồ sơ; xem lại lượt cũ thì không.
+  const dsCls = (tc?.chi_dinh_cls ?? []) as NhomCls[];
+  const choKetQua = (ds: ChiDinhVaKetQua[]) => (
+    <KetQuaChiDinh
+      ds={ds}
+      mauDuPhong={mauDuPhong}
+      goiYMau={goiYMau}
+      nhanGiay={nhanGiay}
+      choDien={choGhi}
+      clinicPatientId={clinicPatientId}
+      onDoi={() => {
+        void napKetQua();
+        onDaDat();
+      }}
+    />
+  );
+  const khoiDichVu =
+    xemLai || chiMuc ? null : (
+      <KhoiDichVuHoSo
+        visitId={visitId}
+        choGhi={choGhi}
+        onDaDoi={() => {
+          void napPhieu(null);
+          void napKetQua();
+          onDaDat();
+        }}
+        veKetQua={(id) => choKetQua(ketQua.filter((k) => k.service_order_id === id))}
+        vePhieuCu={(f) => (
+          <PhieuKhamLuot
+            key={`cu-${f}`}
+            visitId={visitId}
+            clinicPatientId={clinicPatientId}
+            choGhi={false}
+            xemLai
+            formIdDau={f}
+            datChiDinh={async () => ({ ok: false, loi: "Phiếu cũ chỉ xem." })}
+            onDaDat={() => undefined}
+          />
+        )}
+      />
+    );
+
   if (chonDuoc) {
+    // HỒ SƠ TỐI GIẢN (07/10/2026, T3): loại khám không gắn phiếu (Điều trị,
+    // Khác) — dịch vụ của lượt, kê chỉ định CLS / thủ thuật; phiếu
+    // khám đầy đủ là TUỲ CHỌN.
     return (
+      <div className="space-y-3">
+        {khoiDichVu}
+        {ketQua.length > 0 ? (
+          <section className="space-y-2 rounded-card border border-hairline bg-surface p-4">
+            <h2 className="text-title text-ink">Đã chỉ định &amp; kết quả</h2>
+            {choKetQua(ketQua)}
+          </section>
+        ) : null}
+        {choGhi ? (
+          <section className="space-y-2 rounded-card border border-hairline bg-surface p-4">
+            <h2 className="text-title text-ink">Kê chỉ định</h2>
+            <DanhMucChiDinh nhom={dsCls} daDat={daDat} daChiDinh={ketQua} onDat={dat} chiDoc={!choGhi} />
+            <DanhMucChiDinh
+              nhom={nhomThuThuat(tc?.thu_thuat)}
+              daDat={daDat}
+              daChiDinh={ketQua}
+              onDat={dat}
+              chiDoc={!choGhi}
+            />
+          </section>
+        ) : null}
       <section className="space-y-3 rounded-card border border-hairline bg-surface p-4">
-        <h2 className="text-title text-ink">Chọn phiếu khám cho lượt này</h2>
+        <h2 className="text-title text-ink">Ghi phiếu khám đầy đủ (tuỳ chọn)</h2>
         <p className="text-body text-ink-muted">
-          Loại khám của lượt chưa gắn phiếu nào. Chọn một phiếu để bắt đầu ghi.
+          Loại dịch vụ của lượt không gắn phiếu khám. Cần ghi khám đầy đủ thì chọn một phiếu.
         </p>
         <div className="flex flex-wrap gap-2">
           {chonDuoc.map((p) => (
@@ -461,6 +532,7 @@ export default function PhieuKhamLuot({
           ))}
         </div>
       </section>
+      </div>
     );
   }
 
@@ -496,7 +568,14 @@ export default function PhieuKhamLuot({
         chiMuc={chiMuc}
         dauPhieu={dau}
         // Bàn tư vấn chỉ vẽ mục B — dải hành trình là của phiếu bác sĩ chính.
-        dauTrang={chiMuc ? undefined : <HanhTrinhLuot visitId={visitId} />}
+        dauTrang={
+          chiMuc ? undefined : (
+            <>
+              {khoiDichVu}
+              <HanhTrinhLuot visitId={visitId} />
+            </>
+          )
+        }
         // Tick dịch vụ khám (mã KiotViet) → tiền khám tính theo đó (28/09/2026).
         oDichVuKham={chiMuc || xemLai ? undefined : <ChonDichVuKham visitId={visitId} />}
         chanRay={chanRay}
