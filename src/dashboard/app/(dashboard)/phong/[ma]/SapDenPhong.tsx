@@ -16,9 +16,14 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
 
-import { cauChiDinhPhong, cauDangOPhong, type ChiDinhPhong, type DangOPhong } from "../../_lam-viec/api";
+import { cauChiDinhPhong, type ChiDinhPhong, type DangOPhong } from "../../_lam-viec/api";
 import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "../../_lam-viec/ChonBacSiLam";
 import NhanChiDinh from "./NhanChiDinh";
+
+/** "đang chờ / đang làm ở <phòng>" — giữ nguyên chữ hoa của tên phòng. */
+function cauKhachDangO(d: DangOPhong): string {
+  return `đang ${d.trang_thai === "lam" ? "làm" : "chờ"} ở ${d.phong ?? "phòng khác"}`;
+}
 
 export interface KhachSapDen {
   visit_id: string;
@@ -90,7 +95,7 @@ export default function SapDenPhong({
             {k.duoc_huong_dan || k.dang_o_phong ? (
               <div className="flex flex-wrap gap-1">
                 {k.duoc_huong_dan ? <Chip tone="info">Được hướng dẫn đến đây</Chip> : null}
-                {k.dang_o_phong ? <Chip tone="warning">Khách {cauDangOPhong(k.dang_o_phong).toLowerCase()}</Chip> : null}
+                {k.dang_o_phong ? <Chip tone="warning">Khách {cauKhachDangO(k.dang_o_phong)}</Chip> : null}
               </div>
             ) : null}
             {mo === k.visit_id ? (
