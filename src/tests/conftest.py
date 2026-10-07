@@ -49,12 +49,17 @@ for source, test_file in _RETIRED_TOOL_TESTS.items():
 load_dotenv()
 
 _TEST_DB_URL = os.environ.get("DATABASE_URL_TEST")
-# CHẠY SONG SONG (pytest-xdist, 28/09/2026): mỗi worker (gw0, gw1…) một database
-# riêng `ci_gwN` — `scripts/ci-may.sh` nhân bản từ DB thử đã áp migration. Chỉ
-# khi ci-may bật cờ, để chạy tay `pytest -n` không vô tình trỏ vào DB chưa có.
+# CHẠY SONG SONG (pytest-xdist): mỗi worker (gw0, gw1…) một database riêng
+# `<tiền tố>gwN`, nhân bản sẵn từ DB đã áp migration — `ci-may.sh` dùng `ci_`,
+# `scripts/test-nhanh.sh` dùng tiền tố theo phiên (`tam_<pid>_<cây>_`) để nhiều
+# phiên cùng container không giẫm nhau. Chỉ khi script bật, để chạy tay
+# `pytest -n` không vô tình trỏ vào DB chưa có.
 _WORKER = os.environ.get("PYTEST_XDIST_WORKER")
-if _TEST_DB_URL and _WORKER and os.environ.get("CI_MAY_DB_THEO_WORKER") == "1":
-    _TEST_DB_URL = f"{_TEST_DB_URL.rsplit('/', 1)[0]}/ci_{_WORKER}"
+_TIEN_TO_WORKER = os.environ.get("TEST_DB_TIEN_TO_WORKER") or (
+    "ci_" if os.environ.get("CI_MAY_DB_THEO_WORKER") == "1" else ""
+)
+if _TEST_DB_URL and _WORKER and _TIEN_TO_WORKER:
+    _TEST_DB_URL = f"{_TEST_DB_URL.rsplit('/', 1)[0]}/{_TIEN_TO_WORKER}{_WORKER}"
     os.environ["DATABASE_URL_TEST"] = _TEST_DB_URL
 if _TEST_DB_URL:
     # Opt-in: point every DB fixture at the disposable test database.

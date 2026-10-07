@@ -23,9 +23,10 @@ Giao việc cho AI khác theo `docs/MAU-GIAO-VIEC.md`.
    một PR. Mỗi việc một dải giờ migration riêng và cổng web/API riêng (32xx/82xx)
    để không đè nhau. Giữ phạm vi; đụng chung file thì sửa tối thiểu.
 3. **CODE TRƯỚC, TEST SAU — dùng chung, không dựng riêng:**
-   - pytest: DB chung `chung_test_db` (`postgresql://postgres:postgres@127.0.0.1:55600/postgres`),
-     áp migration của nhánh bằng `CLINIC_DB_CONTAINER=chung_test_db ./scripts/apply-pending-migrations.sh --apply`.
-     Không tự dựng container DB, không reset DB chung.
+   - pytest: `scripts/test-nhanh.sh <tệp test…>` — DB tạm nhân bản từ khuôn sạch
+     `khuon` trong container chung `chung_test_db` (:55600), tự áp migration của
+     nhánh vào DB tạm, xong tự xoá (`docs/CHAY-TEST.md`). Không chạy thẳng vào DB
+     `postgres` của container (bẩn dần), không tự dựng container DB, không reset DB chung.
    - bấm thật: stack local chung (`clinicai_thu_db`, khách `DEMO-*`, tài khoản
      `@dr4women.local`), API/web CỦA NHÁNH chạy ở cổng riêng trỏ vào đó.
    - CI cuối: `./scripts/ci-may.sh --bao-github` (có khoá xếp hàng — chạy lần lượt).

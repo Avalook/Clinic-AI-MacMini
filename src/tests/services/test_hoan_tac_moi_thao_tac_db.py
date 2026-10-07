@@ -1,7 +1,6 @@
 """HOÀN TÁC ở mọi thao tác (Tuyền 01/10/2026 — sau buổi thực nghiệm thật 30/09).
 
-    DATABASE_URL_TEST=postgresql://postgres:postgres@127.0.0.1:55600/postgres \\
-        .venv/bin/pytest src/tests/services/test_hoan_tac_moi_thao_tac_db.py
+    scripts/test-nhanh.sh src/tests/services/test_hoan_tac_moi_thao_tac_db.py
 
 "Người dùng thao tác rối và hay làm sai, sai rồi thì không ấn lại được → cần nút
 HOÀN TÁC ở tất cả các việc … Không được để bất kể cái gì khoá hẳn."
