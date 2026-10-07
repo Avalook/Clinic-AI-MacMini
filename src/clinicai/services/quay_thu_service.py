@@ -39,6 +39,7 @@ from clinicai.services.cashier_board_service import (
     hoan_tac_cua,
     quyen_thu_theo_loai,
 )
+from clinicai.services.day_noi import doc_day
 from clinicai.services.doi_hinh_thuc_service import gan_vao_lich_su, trang_thai_doi
 from clinicai.services.lan_bac_si import ten_bac_si
 from clinicai.services.phan_thu import (
@@ -281,6 +282,8 @@ def dung_hoa_don_quay(
             "phong_du_kien_id": c.get("phong_du_kien_id"),
             "bac_si_lam_id": c.get("bac_si_lam_id"),
             "can_xep_phong": bool(c.get("phong_chon_duoc")),
+            # Dây Nhận tại phòng BẬT: ô phòng là hướng dẫn (không bắt buộc).
+            "huong_dan": bool(c.get("huong_dan")),
         }
         if la_doi_tac:
             muc["doi_tac_da_thu"] = (dong or {}).get("doi_tac_da_thu")
@@ -879,6 +882,35 @@ SELECT o.id::text AS source_id, 'service_order' AS source_type,
 """
 
 
+async def _phong_lam_duoc_cua_luot(
+    conn: asyncpg.Connection, cid: str, visit_id: str
+) -> dict[str, list[str]]:
+    """Chỉ định → tên các phòng đang nhận khách làm được nó, cùng cơ sở."""
+    out: dict[str, list[str]] = {}
+    for r in await conn.fetch(
+        """
+        SELECT o.id::text AS id, r.name AS ten
+          FROM service_order o
+          JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+          LEFT JOIN appointment a
+            ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+          JOIN clinic_room r
+            ON r.clinic_id = o.clinic_id AND r.is_active AND r.accepting
+           AND NOT r.la_doi_tac
+           AND phong_lam_duoc(r.clinic_id, r.id, o.node_code, o.service_code)
+           AND (r.location_id IS NULL
+                OR coalesce(v.location_id, a.location_id) IS NULL
+                OR r.location_id = coalesce(v.location_id, a.location_id))
+         WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+         ORDER BY r.sort, r.code
+        """,
+        cid,
+        visit_id,
+    ):
+        out.setdefault(r["id"], []).append(r["ten"])
+    return out
+
+
 def dong_huong_dan(
     dong: Iterable[Mapping[str, Any]], phong: Mapping[str, Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
@@ -1163,9 +1195,19 @@ class QuayThuService:
             dong = dong_huong_dan(
                 await conn.fetch(_HUONG_DAN_SQL, cid, visit_id), phong
             )
+            # Dây Nhận tại phòng BẬT (07/10/2026): chưa hướng dẫn phòng thì in
+            # "các phòng làm được" — khách đến phòng nào, phòng ấy nhận.
+            huong_dan = bool(await doc_day(conn, cid, "nhan_tai_phong"))
+            if huong_dan:
+                lam_duoc = await _phong_lam_duoc_cua_luot(conn, cid, visit_id)
+                for d in dong:
+                    if d.get("phong") is None and d.get("order_id"):
+                        d["phong_lam_duoc"] = lam_duoc.get(str(d["order_id"]), [])
         return {
             "id": visit_id,
             "loai": "huong_dan",
+            # Dây Nhận tại phòng bật: phòng in ra là HƯỚNG DẪN (không bắt buộc).
+            "huong_dan_phong": huong_dan,
             "ma": "",
             "ma_phieu_goc": None,
             "kind": "dich_vu",

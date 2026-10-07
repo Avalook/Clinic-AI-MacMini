@@ -23,7 +23,11 @@ export type LenhHoanTac =
   /** id = CHỈ ĐỊNH: thu hồi kết quả ĐÃ DUYỆT về nháp. */
   | "thu-hoi-ket-qua"
   /** id = DÒNG SỔ sửa chỉ định: đặt lại chỉ định / dịch vụ khám vừa bị bỏ. */
-  | "hoan-tac-bo-chi-dinh";
+  | "hoan-tac-bo-chi-dinh"
+  /** id = LƯỢT (+ room_id): hoàn tác Nhận — khách về "Sắp đến". */
+  | "hoan-tac-nhan"
+  /** id = LƯỢT (+ room_id): hoàn tác Nhả — khách về lại hàng chờ phòng. */
+  | "hoan-tac-nha";
 
 export function lenhHoanTac(
   lenh: LenhHoanTac,

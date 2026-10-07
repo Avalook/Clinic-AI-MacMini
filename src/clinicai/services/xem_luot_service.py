@@ -231,7 +231,9 @@ class XemLuotService:
                        d.full_name AS bac_si,
                        n.name AS dang_o_buoc, r.name AS dang_o_phong,
                        a.slot_start, a.status AS lich_status,
-                       a.so_booking, a.so_tiep_don
+                       a.so_booking, a.so_tiep_don,
+                       EXISTS (SELECT 1 FROM lich_su_notion.luot_that t
+                                WHERE t.visit_id = v.visit_id) AS ho_so_cu
                   FROM visit v
                   JOIN patient p
                     ON p.clinic_patient_id = v.clinic_patient_id
@@ -328,6 +330,9 @@ class XemLuotService:
             co_so_do_luot_nay=bool(do["co_so_do_luot_nay"]),
         )
         return {
+            # Lượt chuyển từ Notion: chỉ có NGÀY (giờ 00:00 giả), cố ý không có
+            # dòng thu — giao diện không in giờ, không in "Chưa thu".
+            "ho_so_cu": bool(v["ho_so_cu"]),
             "check_in_luc": _iso(v["checked_in_at"]),
             "trang_thai_luot": v["status"],
             # INCOMPLETE = khách về giữa chừng (checkout_service.close) — lễ tân

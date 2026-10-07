@@ -24,6 +24,8 @@ export interface DangO {
   noi: string;
   tu_luc: string | null;
   stt: number | null;
+  /** Lượt hồ sơ cũ chuyển từ Notion: chỉ có ngày — máy chủ đã bỏ mọi giờ. */
+  ho_so_cu?: boolean;
 }
 
 export interface HanhTrinhGon extends DangO {
@@ -193,8 +195,9 @@ export function chipGon(
   }
 }
 
-/** Tên chỗ ở dòng gọn — đã về thì "Check-out 11:20". */
+/** Tên chỗ ở dòng gọn — đã về thì "Check-out 11:20"; hồ sơ cũ không có giờ. */
 export function noiGon(g: DangO): string {
+  if (g.ho_so_cu) return "Hồ sơ cũ · không rõ giờ";
   if (g.trang_thai === "DA_VE") return g.tu_luc ? `Check-out ${gio(g.tu_luc)}` : "Check-out";
   return g.noi;
 }

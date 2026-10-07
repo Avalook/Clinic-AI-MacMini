@@ -65,6 +65,8 @@ export interface DongQuay {
   /** Bác sĩ quầy đã chọn trong phòng nhiều bác sĩ. */
   bac_si_lam_id?: string | null;
   can_xep_phong?: boolean;
+  /** Dây Nhận tại phòng bật (07/10/2026): ô phòng là hướng dẫn, không bắt buộc. */
+  huong_dan?: boolean;
 }
 
 export interface QuayThu {
@@ -405,7 +407,13 @@ function DanhSach({
                   onChange={(e) => void datPhong(d.id, e.target.value)}
                   className="w-full rounded-control border border-line bg-surface px-2 py-1 text-meta text-ink-soft"
                 >
-                  <option value="">{doiTac ? "— Lấy mẫu: vui lòng chọn phòng —" : "— Vui lòng chọn phòng —"}</option>
+                  <option value="">
+                    {d.huong_dan
+                      ? "— Hướng dẫn phòng (không bắt buộc) —"
+                      : doiTac
+                        ? "— Lấy mẫu: vui lòng chọn phòng —"
+                        : "— Vui lòng chọn phòng —"}
+                  </option>
                   {d.phong_chon_duoc.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.ten} · {p.dang_cho} đang chờ

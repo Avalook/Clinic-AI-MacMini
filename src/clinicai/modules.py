@@ -153,6 +153,11 @@ MODULE: dict[str, Module] = {
                 "PlanServiceRoom",
                 # Trưởng ca chuyển phòng khi dịch vụ đang làm (29/09/2026).
                 "TransferInProgressService",
+                # Nhận khách tại phòng (07/10/2026): Nhận / Nhả + hai hoàn tác.
+                "ReceiveAtRoom",
+                "UndoReceiveAtRoom",
+                "ReleaseFromRoom",
+                "UndoReleaseFromRoom",
             ],
             # Huỷ xếp phòng là sự thật nghiệp vụ, không chỉ là dòng nhật ký:
             # phòng mất thì phải có người xếp lại, và người ấy nhận việc qua
@@ -162,6 +167,10 @@ MODULE: dict[str, Module] = {
                 "service.routing_invalidated",
                 "service.room_transferred",
                 "service.doctor_chosen",
+                "service.room_released",
+                "service.room_receive_undone",
+                "service.room_release_undone",
+                "service.room_guided",
             ],
             bang=["queue_entry"],
             quyen=[
@@ -336,6 +345,11 @@ MODULE: dict[str, Module] = {
                 "service.routed",
                 "service.room_transferred",
                 "service.doctor_chosen",
+                "service.room_released",
+                "service.room_receive_undone",
+                "service.room_release_undone",
+                "service.room_guided",
+                "consultation.resumed",
                 "service_order.carried_over",
                 "service_order.required_changed",
                 "payment.service_collected",
@@ -486,6 +500,7 @@ MODULE: dict[str, Module] = {
             ],
             phat=[
                 "consultation.started",
+                "consultation.resumed",
                 "consultation.handed_over",
                 "consultation.completed",
                 "consultation.reopened",

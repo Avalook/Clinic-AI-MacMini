@@ -53,6 +53,8 @@ export interface Phieu {
     } | null;
     /** Vừa thu, máy chủ chưa xếp xong phòng (chạy nền) — bản in hỏi lại sau giây lát. */
     cho_xep?: boolean;
+    /** Dây Nhận tại phòng bật, chưa hướng dẫn phòng: các phòng làm được (07/10/2026). */
+    phong_lam_duoc?: string[];
     /** Xếp / đổi phòng ngay trên trang phiếu (quên chọn phòng lúc thu). */
     order_id?: string;
     room_id?: string | null;
@@ -60,6 +62,8 @@ export interface Phieu {
     doi_phong_duoc?: boolean;
   }[];
   tong: number;
+  /** Phiếu hướng dẫn khi dây Nhận tại phòng bật: phòng in ra chỉ là hướng dẫn. */
+  huong_dan_phong?: boolean;
   hinh_thuc: string | null;
   /** Từng phần theo hình thức (01/10/2026: một lần thu = Tiền mặt + Chuyển khoản).
    *  Phiếu in mỗi phần một dòng. Máy chủ cũ không gửi → rơi về `hinh_thuc`. */
@@ -345,8 +349,10 @@ function PhieuHuongDanGiay({ p }: { p: Phieu }) {
                 <span className="block font-semibold">
                   → {d.phong.ten}
                   {d.phong.bac_si ? ` · ${d.phong.bac_si}` : ""}
-                  {d.phong.du_kien ? " (dự kiến)" : ""}
+                  {d.phong.du_kien ? (p.huong_dan_phong ? " (hướng dẫn)" : " (dự kiến)") : ""}
                 </span>
+              ) : d.phong_lam_duoc?.length ? (
+                <span className="block text-ink-muted">→ Các phòng làm được: {d.phong_lam_duoc.join(", ")}</span>
               ) : (
                 <span className="block text-ink-muted">→ Chờ xếp phòng — xem màn hình gọi số</span>
               )}

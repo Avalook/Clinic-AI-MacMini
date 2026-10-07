@@ -627,6 +627,20 @@ class PhienKhamBatDau(PayloadSuKien):
     loai: str
 
 
+class PhienKhamTiepTuc(PayloadSuKien):
+    """`consultation.resumed` — khách quay lại, bác sĩ bấm "Bắt đầu khám" lần
+    nữa (07/10/2026). Cột `serving_at` của chỗ chờ là giá trị HIỆN TẠI; mốc lần
+    trước nằm ở đây để không mất. `lan` = lần bắt đầu thứ mấy (lần đầu là
+    `consultation.started`)."""
+
+    visit_id: str
+    consultation_id: str
+    loai: str
+    lan: int
+    quay_ve_hang_luc: str | None = None
+    bat_dau_lan_truoc_luc: str | None = None
+
+
 class TuVanXong(PayloadSuKien):
     """`consultation.handed_over` — bác sĩ tư vấn xong, chuyển bác sĩ chính."""
 
@@ -810,6 +824,67 @@ class DaXepPhong(PayloadSuKien):
     #: Dây H4 xếp đúng PHÒNG DỰ KIẾN ai đặt trước (quay_thu · truong_ca) — lịch
     #: sử nói "tự động theo phòng trưởng ca chọn trước" (29/09/2026).
     du_kien_nguon: str | None = None
+    #: NHẬN TẠI PHÒNG (nguon='tai_phong', 07/10/2026) — đối chiếu hướng dẫn ↔
+    #: thực tế: phòng quầy hướng dẫn, có đúng không, thứ tự trên phiếu hướng dẫn
+    #: và thứ tự phòng khách thật sự đi; phòng khách vừa rời nếu là nhận chéo.
+    huong_dan_room_id: str | None = None
+    dung_huong_dan: bool | None = None
+    thu_tu_huong_dan: int | None = None
+    thu_tu_thuc_te: int | None = None
+    nhan_cheo_tu_room_id: str | None = None
+
+
+class KhachRoiPhong(PayloadSuKien):
+    """`service.room_released` — mốc NHẢ: khách rời hàng một phòng mà chỉ định
+    chưa làm xong (Tuyền 07/10/2026, mục 7b). `ly_do`: DIEU_PHOI (phòng / trưởng
+    ca bấm Nhả) · NHAN_CHEO (phòng khác nhận khi phòng này quên) · BO_DICH_VU
+    (quầy bỏ dịch vụ). Bấm Xong là tự nhả — mốc ấy là `service.completed`.
+    `trang_thai_truoc` = 'cho' / 'lam': khách đang làm thì lần làm GIỮ mở
+    (`attempt_id`), phòng tự bấm Xong / Gián đoạn."""
+
+    visit_id: str
+    service_order_id: str
+    room_id: str
+    ly_do: str
+    trang_thai_truoc: str
+    sang_room_id: str | None = None
+    attempt_id: str | None = None
+    routing_revision: int | None = None
+    huong_dan_room_id: str | None = None
+
+
+class NhanVaoPhongDaHoanTac(PayloadSuKien):
+    """`service.room_receive_undone` — hoàn tác Nhận: chỉ định về "Sắp đến"
+    (không như huỷ xếp phòng — không đẻ việc cho trưởng ca)."""
+
+    visit_id: str
+    service_order_id: str
+    room_id: str
+    hoan_tac_event_id: str | None = None
+    routing_revision: int
+
+
+class RoiPhongDaHoanTac(PayloadSuKien):
+    """`service.room_release_undone` — hoàn tác Nhả: khách về lại hàng chờ
+    phòng ấy, giữ giờ vào hàng cũ."""
+
+    visit_id: str
+    service_order_id: str
+    room_id: str
+    hoan_tac_event_id: str | None = None
+    routing_revision: int
+
+
+class HuongDanPhong(PayloadSuKien):
+    """`service.room_guided` — đặt / đổi / bỏ PHÒNG HƯỚNG DẪN của chỉ định
+    (`phong_du_kien_id`). Mỗi lần đổi một sự kiện — người đặt sau không xoá dấu
+    người đặt trước. `room_id` None = bỏ chọn."""
+
+    visit_id: str
+    service_order_id: str
+    room_id: str | None = None
+    tu_room_id: str | None = None
+    nguon: str | None = None
 
 
 class DichVuDaChuyenPhong(PayloadSuKien):
@@ -1114,6 +1189,15 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(
+            ten="consultation.resumed",
+            version=1,
+            aggregate_type="consultation",
+            source_module="consultation",
+            payload=PhienKhamTiepTuc,
+            nhan="Khách quay lại — tiếp tục khám",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
             ten="consultation.handed_over",
             version=1,
             aggregate_type="consultation",
@@ -1394,6 +1478,48 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="service_routing",
             payload=DaChonBacSiLam,
             nhan="Chọn bác sĩ làm trong phòng",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        # Nhận khách tại phòng (07/10/2026) — Nhận = `service.routed` nguồn
+        # 'tai_phong'; bốn sự kiện dưới là phần còn lại của vòng Nhận / Nhả.
+        SuKien(
+            ten="service.room_released",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_routing",
+            payload=KhachRoiPhong,
+            nhan="Khách rời phòng (nhả)",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service.room_receive_undone",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_routing",
+            payload=NhanVaoPhongDaHoanTac,
+            nhan="Hoàn tác nhận khách vào phòng",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service.room_release_undone",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_routing",
+            payload=RoiPhongDaHoanTac,
+            nhan="Hoàn tác nhả khách — về lại hàng chờ phòng",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service.room_guided",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_routing",
+            payload=HuongDanPhong,
+            nhan="Hướng dẫn phòng làm dịch vụ",
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
@@ -1864,6 +1990,11 @@ __all__ = [
     "DaChonBacSiLam",
     "DaXepPhong",
     "DichVuDaChuyenPhong",
+    "HuongDanPhong",
+    "KhachRoiPhong",
+    "NhanVaoPhongDaHoanTac",
+    "PhienKhamTiepTuc",
+    "RoiPhongDaHoanTac",
     "TienDichVuDaThu",
     "TienThuocDaThu",
     "CHUONG",

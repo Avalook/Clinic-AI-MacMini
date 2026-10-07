@@ -52,6 +52,8 @@ interface GoiY {
   bac_si_lam?: string | null;
   phong_hien_tai?: string | null;
   dang_lam_tu?: string | null;
+  /** Dây "Nhận khách tại phòng" bật (07/10/2026): chọn phòng = hướng dẫn. */
+  huong_dan?: boolean;
 }
 
 function gioPhut(iso: string | null | undefined): string {
@@ -198,6 +200,31 @@ export default function DoiPhong({
     onDaDoi?.();
   }
 
+  // HƯỚNG DẪN PHÒNG (dây Nhận tại phòng bật): quầy / trưởng ca ghi phòng hướng
+  // dẫn; màn khác (Bàn khám, Xem lượt) đi lệnh xếp phòng — máy chủ cũng chỉ ghi
+  // hướng dẫn. Trưởng ca đổi phòng khách đang chờ = máy chủ nhả + hướng dẫn.
+  async function huongDan(roomId: string) {
+    if (nguon === "khac" && (!roomId || routingRevision == null)) return;
+    setDangGui(true);
+    setLoi(null);
+    const kq =
+      nguon === "khac"
+        ? await guiThaoTac("xep-phong-v1", orderId, {
+            room_id: roomId,
+            expected_routing_revision: routingRevision,
+            reason_code: "INITIAL_ASSIGNMENT",
+            nguon,
+          })
+        : await guiThaoTac("phong-du-kien", orderId, { room_id: roomId || null, nguon });
+    setDangGui(false);
+    if (!kq.ok) {
+      setLoi(kq.loi);
+      return;
+    }
+    setLan((n) => n + 1);
+    onDaDoi?.();
+  }
+
   // Dịch vụ ĐANG LÀM: một lệnh máy chủ dừng lần làm + chuyển phòng + chuyển hàng.
   async function chuyenDangLam() {
     if (!chon || routingRevision == null) return;
@@ -237,6 +264,36 @@ export default function DoiPhong({
       ))}
     </p>
   );
+
+  if (goiY.huong_dan && (cheDo === "XEP" || cheDo === "DU_KIEN")) {
+    return (
+      <div className="mt-1 grid gap-1">
+        {danhSach}
+        <label className="flex flex-wrap items-center gap-2">
+          <span className="text-label font-semibold text-ink">Hướng dẫn phòng (không bắt buộc)</span>
+          <select
+            aria-label="Hướng dẫn phòng"
+            value={goiY.phong_du_kien_id ?? ""}
+            disabled={dangGui}
+            onChange={(e) => void huongDan(e.target.value)}
+            className="min-h-8 rounded-control border border-line bg-surface px-2 text-xs text-ink"
+          >
+            <option value="">— Chưa hướng dẫn —</option>
+            {goiY.candidates.map((u) => (
+              <option key={u.room_id} value={u.room_id}>
+                {nhan(u)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {goiY.phong_hien_tai ? (
+          <p className="text-label text-ink-muted">Đã vào: {goiY.phong_hien_tai}</p>
+        ) : null}
+        {goiY.cau_che_do ? <p className="text-label text-ink-muted">{goiY.cau_che_do}</p> : null}
+        {loi ? <p className="text-label text-danger">{loi}</p> : null}
+      </div>
+    );
+  }
 
   if (cheDo === "DU_KIEN") {
     return (

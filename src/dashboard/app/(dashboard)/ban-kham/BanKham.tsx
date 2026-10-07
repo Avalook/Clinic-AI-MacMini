@@ -49,6 +49,7 @@ import {
   type ClinicalCompletionMode,
 } from "@/lib/clinical-completion";
 import {
+  cauDangOPhong,
   docBang,
   guiThaoTac,
   soPhutTu,
@@ -173,7 +174,8 @@ function tone(d: DongHangCho): { tone: StatusTone; nhan: string } {
     case "waiting":
       return { tone: "ready", nhan: "Chờ khám" };
     case "blocked":
-      return { tone: "blocked", nhan: "Đang ở bước khác" };
+      // Máy chủ nói khách đang chờ / làm ở phòng dịch vụ nào (07/10/2026).
+      return { tone: "blocked", nhan: d.dang_o_phong ? cauDangOPhong(d.dang_o_phong) : "Đang ở bước khác" };
     case "left":
       return { tone: "blocked", nhan: "Khách đã về (chưa xong)" };
     default:
@@ -748,6 +750,9 @@ function Nhom({
                     ) : (
                       <span>chờ {soPhutTu(d.vao_hang_luc)}</span>
                     )}
+                    {d.dang_o_phong && d.trang_thai !== "done" ? (
+                      <span className="text-warning">{cauDangOPhong(d.dang_o_phong)}</span>
+                    ) : null}
                     {d.vong === "REVIEW" ? (
                       <span className="text-warning">
                         {d.trang_thai === "done"
@@ -1058,7 +1063,9 @@ function HoSo({
             ) : null}
             {!tuVan && dong.trang_thai === "blocked" ? (
               <p className="text-xs text-warning">
-                Khách đang ở một bước khác (đang làm dịch vụ) — chưa gọi vào được.
+                {dong.dang_o_phong
+                  ? `${cauDangOPhong(dong.dang_o_phong)} — chưa gọi vào được.`
+                  : "Khách đang ở một bước khác (đang làm dịch vụ) — chưa gọi vào được."}
               </p>
             ) : null}
             {loiHienTai && dong.trang_thai !== "serving" ? (

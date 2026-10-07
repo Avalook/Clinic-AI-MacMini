@@ -75,6 +75,31 @@ export interface DongHangCho {
   /** Nội dung kết quả đã ghi — chỉ vai đọc lâm sàng nhận được. */
   ket_qua_ghi?: string | null;
   ly_do_khong_lam?: string | null;
+  /** Khách đang chờ / làm ở phòng dịch vụ KHÁC (máy chủ tính, 07/10/2026). */
+  dang_o_phong?: DangOPhong | null;
+  /** Nhận chéo: khách đã sang phòng khác khi lần làm ở đây còn mở. */
+  da_sang_phong?: { phong: string | null; luc: string } | null;
+}
+
+/** Nơi khách đang ở (phòng dịch vụ): 'cho' = đã nhận, đang chờ · 'lam' = đang làm. */
+export interface DangOPhong {
+  phong_id: string;
+  phong: string | null;
+  trang_thai: "cho" | "lam";
+  luc: string | null;
+}
+
+/** Câu "đang chờ / đang làm ở phòng X" — chỉ ghép chữ từ dữ liệu máy chủ. */
+export function cauDangOPhong(d: DangOPhong): string {
+  return `Đang ${d.trang_thai === "lam" ? "làm" : "chờ"} ở ${d.phong ?? "phòng khác"}`;
+}
+
+/** Ba số của một phòng (07/10/2026): sắp đến (dây Nhận tại phòng bật) · đang
+ *  chờ · đang làm — số khách hôm nay, máy chủ đếm. */
+export interface DemPhong {
+  sap_den: number | null;
+  dang_cho: number;
+  dang_lam: number;
 }
 
 export interface Phong {
@@ -86,9 +111,12 @@ export interface Phong {
   vi_tri?: string[];
   /** Máy chủ quyết: phòng có làm dịch vụ (hiện ở danh sách Phòng dịch vụ). */
   la_phong_dich_vu?: boolean;
+  dem?: DemPhong;
 }
 
 export interface PhongHomNay {
+  /** Dây "Nhận khách tại phòng" đang bật. */
+  nhan_tai_phong?: boolean;
   phong_cua_toi: Phong[];
   tat_ca_phong: Phong[];
 }

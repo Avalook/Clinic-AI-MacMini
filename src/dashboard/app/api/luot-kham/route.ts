@@ -104,6 +104,12 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   // Khối 2 (06/10/2026): id = DÒNG SỔ sửa chỉ định — hoàn tác một lần BỎ chỉ
   // định (nút duy nhất của thông báo bác sĩ chính + Lịch sử sửa).
   "hoan-tac-bo-chi-dinh": (id) => `/api/v1/luot-kham/so-sua-chi-dinh/${id}/hoan-tac`,
+  // NHẬN KHÁCH TẠI PHÒNG (07/10/2026, dây `nhan_tai_phong`) — id là LƯỢT KHÁM,
+  // thân { room_id, xac_nhan?, bac_si_lam_id?, huong_dan_room_id? }.
+  "nhan-vao-phong": (id) => `/api/v1/luot-kham/visits/${id}/nhan-vao-phong`,
+  "hoan-tac-nhan": (id) => `/api/v1/luot-kham/visits/${id}/hoan-tac-nhan`,
+  "nha-khoi-phong": (id) => `/api/v1/luot-kham/visits/${id}/nha-khoi-phong`,
+  "hoan-tac-nha": (id) => `/api/v1/luot-kham/visits/${id}/hoan-tac-nha`,
 };
 
 /** Các bảng đọc — `?xem=` → đường backend. Không có `xem` = bảng lượt khám. */

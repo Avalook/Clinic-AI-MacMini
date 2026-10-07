@@ -33,7 +33,11 @@ test("ô chọn phòng chưa chọn ghi 'Vui lòng chọn phòng', vẫn gửi g
   assert.match(chonDv, /<option value="">— Vui lòng chọn phòng —<\/option>/);
 
   const hoaDon = read("../app/(dashboard)/thu-ngan/HoaDonMot.tsx");
-  assert.match(hoaDon, /<option value="">\{doiTac \? "— Lấy mẫu: vui lòng chọn phòng —" : "— Vui lòng chọn phòng —"\}<\/option>/);
+  // Dây Nhận tại phòng bật (07/10/2026): ô là HƯỚNG DẪN, không bắt buộc.
+  assert.match(
+    hoaDon,
+    /d\.huong_dan\s*\?\s*"— Hướng dẫn phòng \(không bắt buộc\) —"\s*:\s*doiTac\s*\?\s*"— Lấy mẫu: vui lòng chọn phòng —"\s*:\s*"— Vui lòng chọn phòng —"/,
+  );
   // Số người chờ từng phòng vẫn hiện — chỉ bỏ nhãn "vắng nhất".
   assert.match(hoaDon, /\{p\.ten\} · \{p\.dang_cho\} đang chờ/);
   assert.match(hoaDon, /datPhong\(d\.id, e\.target\.value\)/);
@@ -46,6 +50,9 @@ test("ô chọn phòng chưa chọn ghi 'Vui lòng chọn phòng', vẫn gửi g
 });
 
 test("dòng chưa có phòng ở màn nhân viên ghi 'vui lòng chọn phòng'", () => {
-  assert.match(read("../app/(dashboard)/thu-ngan/XepPhongDaThu.tsx"), /c\.phong \?\? "vui lòng chọn phòng"/);
+  assert.match(
+    read("../app/(dashboard)/thu-ngan/XepPhongDaThu.tsx"),
+    /c\.phong \?\? \(c\.huong_dan \? "chưa vào phòng nào" : "vui lòng chọn phòng"\)/,
+  );
   assert.match(read("../app/print/phieu-thu/[id]/InPhieuThu.tsx"), /: "vui lòng chọn phòng"\}/);
 });

@@ -54,21 +54,25 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
+  cauDangOPhong,
   docBang,
   guiThaoTac,
   gioVn,
   soPhutTu,
   LY_DO_TIENG_VIET,
+  type DemPhong,
   type DongHangCho,
   type Phong,
   type PhongHomNay,
   type ThucHien,
 } from "../../_lam-viec/api";
+import { type LuaChonBacSi } from "../../_lam-viec/ChonBacSiLam";
 import HangChoCot from "../../_lam-viec/HangChoCot";
 import KhungTep from "../../_lam-viec/KhungTep";
 import PhieuKetQua from "../../_lam-viec/PhieuKetQua";
 import XemLuot from "../../_lam-viec/XemLuot";
 import ChuaXepPhong, { type KhachChuaXep } from "./ChuaXepPhong";
+import SapDenPhong, { type KhachSapDen } from "./SapDenPhong";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import ChipLoc from "@/components/ui/ChipLoc";
@@ -118,6 +122,12 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   const [khongCo, setKhongCo] = useState(false);
   const [hang, setHang] = useState<DongHangCho[] | null>(null);
   const [chuaXep, setChuaXep] = useState<KhachChuaXep[]>([]);
+  // NHẬN KHÁCH TẠI PHÒNG (dây `nhan_tai_phong`, 07/10/2026): khối Sắp đến theo
+  // khách + ba số của phòng — máy chủ trả, màn chỉ vẽ.
+  const [taiPhong, setTaiPhong] = useState(false);
+  const [sapDen, setSapDen] = useState<KhachSapDen[]>([]);
+  const [bacSiPhong, setBacSiPhong] = useState<LuaChonBacSi[]>([]);
+  const [dem, setDem] = useState<DemPhong | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [chonId, setChonId] = useState<string | null>(null);
   const [lanNap, setLanNap] = useState(0);
@@ -161,6 +171,10 @@ export default function PhongDichVu({ ma }: { ma: string }) {
       const kq = await docBang<{
         hang_cho: DongHangCho[];
         chua_xep_phong?: KhachChuaXep[];
+        nhan_tai_phong?: boolean;
+        sap_den_phong?: KhachSapDen[];
+        bac_si_phong?: LuaChonBacSi[];
+        dem?: DemPhong | null;
         hom_nay?: boolean;
         lan_cua_toi?: LanCuaToi;
       }>("hang-cho", {
@@ -172,6 +186,10 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         setLoi(null);
         setHang(kq.data.hang_cho.filter((d) => d.loai === "DICH_VU"));
         setChuaXep(kq.data.chua_xep_phong ?? []);
+        setTaiPhong(kq.data.nhan_tai_phong ?? false);
+        setSapDen(kq.data.sap_den_phong ?? []);
+        setBacSiPhong(kq.data.bac_si_phong ?? []);
+        setDem(kq.data.dem ?? null);
         setLaHomNay(kq.data.hom_nay ?? true);
         setLanToi(kq.data.lan_cua_toi?.co ? kq.data.lan_cua_toi : null);
       } else setLoi(kq.loi);
@@ -224,7 +242,13 @@ export default function PhongDichVu({ ma }: { ma: string }) {
       <ThongBaoHoanTac thongBao={thongBao} onDong={dongThongBao} onHoanTacXong={napLai} />
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h1 className="text-title font-semibold text-ink">{phong?.ten ?? "Đang tải…"}</h1>
-        {hang ? (
+        {hang && taiPhong && dem ? (
+          // Cùng ba số với ô phòng ở /phong (máy chủ đếm theo khách).
+          <p className="text-body tabular-nums text-ink-muted">
+            {dem.sap_den ?? 0} sắp đến · {dem.dang_cho} đang chờ · {dem.dang_lam} đang làm ·{" "}
+            {ds.filter((d) => d.trang_thai === "done").length} đã xong
+          </p>
+        ) : hang ? (
           <p className="text-body text-ink-muted">
             {ds.filter((d) => d.trang_thai === "waiting" || d.trang_thai === "called").length}{" "}
             đang chờ · {ds.filter((d) => d.trang_thai === "serving").length} đang làm ·{" "}
@@ -262,7 +286,17 @@ export default function PhongDichVu({ ma }: { ma: string }) {
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(240px,0.6fr)_minmax(0,1.8fr)]">
         <aside aria-label="Hàng chờ phòng" className="space-y-3">
-          {phong ? <ChuaXepPhong roomId={phong.id} ds={chuaXep} onDaNhan={napLai} /> : null}
+          {phong && taiPhong ? (
+            <SapDenPhong
+              roomId={phong.id}
+              ds={sapDen}
+              bacSi={bacSiPhong}
+              onDaNhan={napLai}
+              onBao={setThongBao}
+            />
+          ) : phong ? (
+            <ChuaXepPhong roomId={phong.id} ds={chuaXep} onDaNhan={napLai} />
+          ) : null}
           {lanToi ? (
             <ChipLoc
               nhan="Lọc khách theo làn"
@@ -307,6 +341,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
           <KhachTrongPhong
             key={chon.id}
             dong={chon}
+            nhaTaiPhong={taiPhong && laHomNay && phong ? phong.id : null}
             onDaBam={napLai}
             onBao={setThongBao}
             keTiep={keTiep ? { ten: keTiep.ten, onChon: () => setChonId(keTiep.id) } : null}
@@ -323,11 +358,14 @@ export default function PhongDichVu({ ma }: { ma: string }) {
 
 function KhachTrongPhong({
   dong,
+  nhaTaiPhong,
   onDaBam,
   onBao,
   keTiep,
 }: {
   dong: DongHangCho;
+  /** Dây Nhận tại phòng bật: mã phòng để nút Nhả gửi lệnh (null = không có nút). */
+  nhaTaiPhong?: string | null;
   onDaBam: () => void;
   /** Báo thông báo kèm Hoàn tác sau thao tác (đặt ở cấp màn). */
   onBao?: (tb: ThongBao) => void;
@@ -403,6 +441,22 @@ function KhachTrongPhong({
     onDaBam();
   };
 
+  const nha = async (roomId: string) => {
+    setDangGui(true);
+    setLoi(null);
+    const kq = await guiThaoTac("nha-khoi-phong", dong.visit_id, { room_id: roomId });
+    setDangGui(false);
+    if (!kq.ok) {
+      setLoi(kq.loi);
+      return;
+    }
+    onBao?.({
+      cau: `Đã nhả ${dong.ten} — khách về Sắp đến`,
+      goi: lenhHoanTac("hoan-tac-nha", dong.visit_id, { room_id: roomId }),
+    });
+    onDaBam();
+  };
+
   const batDau = (giaiPhong: boolean) => {
     if (!th) return;
     void lenh("bat-dau-v1", {
@@ -466,7 +520,9 @@ function KhachTrongPhong({
                           : ""
                       }`
                     : dong.trang_thai === "blocked"
-                      ? "Khách đang ở một bước khác — chưa làm bước này được."
+                      ? dong.dang_o_phong
+                        ? `${cauDangOPhong(dong.dang_o_phong)} — chưa làm bước này được.`
+                        : "Khách đang ở một bước khác — chưa làm bước này được."
                       : `Vào hàng ${gioVn(dong.vao_hang_luc)} · chờ ${soPhutTu(dong.vao_hang_luc)}`,
             ]
               .filter(Boolean)
@@ -480,6 +536,13 @@ function KhachTrongPhong({
               {dong.bac_si ? ` · BS chỉ định: ${dong.bac_si}` : ""}
             </span>
           </p>
+          {/* Nhận chéo: phòng khác đã nhận khách khi lần làm ở đây còn mở —
+              phòng này tự bấm Xong / Gián đoạn (hệ thống không đoán thay). */}
+          {dong.da_sang_phong ? (
+            <Chip tone="danger" className="mt-1">
+              Khách đã sang {dong.da_sang_phong.phong ?? "phòng khác"} lúc {gioVn(dong.da_sang_phong.luc)}
+            </Chip>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* IN PHIẾU LUÔN Ở ĐÂY (Tuyền 02/10/2026): mọi trạng thái, mọi loại
@@ -509,6 +572,13 @@ function KhachTrongPhong({
               }
             >
               {dangGui ? "Đang ghi…" : "Làm lại"}
+            </Button>
+          ) : null}
+          {/* NHẢ (07/10/2026, mục 7b): khách đang chờ ở phòng này về "Sắp đến"
+              của mọi phòng — hoàn tác được vài giây sau. */}
+          {nhaTaiPhong && chuaLam && ["waiting", "called", "blocked"].includes(dong.trang_thai) ? (
+            <Button size="sm" variant="ghost" disabled={dangGui} onClick={() => void nha(nhaTaiPhong)}>
+              Nhả khách
             </Button>
           ) : null}
           {/* HUỶ BẮT ĐẦU NHẦM (V4, 30/09/2026): ngay cạnh chỗ vừa bấm Bắt đầu,
