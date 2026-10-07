@@ -131,10 +131,9 @@ async def _ke(pool: asyncpg.Pool, ca: Ca, con: str, ma: str) -> dict[str, Any]: 
 
 
 async def _the(pool: asyncpg.Pool, ca: Ca, visit: str) -> dict[str, Any]:  # noqa: F811
-    [t] = (await dieu_tri_ban_kham.doc_the(pool, identity=ca.bac_si, visit_id=visit))[
-        "the"
-    ]
-    return t
+    goi = await dieu_tri_ban_kham.doc_the(pool, identity=ca.bac_si, visit_id=visit)
+    [t] = goi["the"]
+    return dict(t)
 
 
 async def _bam(
