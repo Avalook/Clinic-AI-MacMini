@@ -31,6 +31,11 @@ export interface KhachSapDen {
   ma_khach: string | null;
   duoc_huong_dan: boolean;
   co_tick_san: boolean;
+  /** Khách vào số "sắp đến" (có chỉ định chưa vào phòng nào). False = đang
+   *  chờ / làm ở phòng khác — vẫn hiện để pick ra dễ, số đã đếm ở phòng kia. */
+  tinh_so?: boolean;
+  /** Còn chỉ định nhận được (chưa vào phòng / đang CHỜ ở phòng khác). */
+  nhan_duoc?: boolean;
   so_chi_dinh: number;
   dang_o_phong: DangOPhong | null;
   chi_dinh: ChiDinhPhong[];
@@ -58,7 +63,15 @@ export default function SapDenPhong({
   return (
     <section aria-label="Khách sắp đến phòng" className="space-y-2 rounded-card border border-info bg-info-bg p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-meta font-semibold uppercase tracking-wide text-info">Sắp đến ({ds.length})</p>
+        <p className="text-meta font-semibold uppercase tracking-wide text-info">
+          Sắp đến ({ds.filter((k) => k.tinh_so !== false).length})
+          {ds.some((k) => k.tinh_so === false) ? (
+            <span className="font-normal normal-case">
+              {" "}
+              · +{ds.filter((k) => k.tinh_so === false).length} đang ở phòng khác
+            </span>
+          ) : null}
+        </p>
         {coChonBacSi(bacSi) ? (
           <ChonBacSiLam co="nho" ds={bacSi} value={chonBs} disabled={mo !== null} onChon={setChonBs} />
         ) : null}
@@ -72,7 +85,7 @@ export default function SapDenPhong({
                 {k.ma_khach ? <span className="text-ink-muted"> · {k.ma_khach}</span> : null}
                 <span className="text-meta text-ink-muted"> · {k.so_chi_dinh} chỉ định</span>
               </span>
-              {mo !== k.visit_id ? (
+              {mo !== k.visit_id && k.nhan_duoc !== false ? (
                 <Button type="button" size="sm" variant="primary" onClick={() => setMo(k.visit_id)}>
                   Nhận…
                 </Button>
