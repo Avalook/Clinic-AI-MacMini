@@ -686,7 +686,7 @@ class DispatchService:
                 "at": r["created_at"].isoformat(),
                 "event_type": r["event_type"],
                 # Nhãn tiếng Việt + tên bước do máy chủ quyết — màn không in mã thô.
-                "event_label": action_label_theo_nguon(r["event_type"], r["nguon"]),
+                "event_label": action_label_theo_nguon(r["event_type"], r.get("nguon")),
                 "visit_id": r["visit_id"],
                 "from_node": r["from_node"],
                 "to_node": r["to_node"],
