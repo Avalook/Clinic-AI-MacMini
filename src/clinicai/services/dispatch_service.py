@@ -25,7 +25,7 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services import finance_gate
-from clinicai.services.audit_labels import action_label
+from clinicai.services.audit_labels import action_label_theo_nguon
 from clinicai.services.gate_rule_service import enforce as gate_enforce
 from clinicai.services.luot_kham_rules import doi_phong_duoc
 from clinicai.services.nhan_trang_thai_dieu_phoi import (
@@ -686,7 +686,7 @@ class DispatchService:
                 "at": r["created_at"].isoformat(),
                 "event_type": r["event_type"],
                 # Nhãn tiếng Việt + tên bước do máy chủ quyết — màn không in mã thô.
-                "event_label": action_label(r["event_type"]),
+                "event_label": action_label_theo_nguon(r["event_type"], r["nguon"]),
                 "visit_id": r["visit_id"],
                 "from_node": r["from_node"],
                 "to_node": r["to_node"],
