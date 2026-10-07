@@ -133,6 +133,24 @@ export interface ChiDinhVaKetQua {
   bat_buoc?: boolean;
   /** Làm ở đối tác: trạng thái bàn đối tác. null = làm tại phòng khám. */
   doi_tac?: TrangThaiDoiTac | null;
+  /** Chỉ định ĐIỀU TRỊ (nhóm DIEU_TRI — máy chủ suy theo dữ liệu, 07/10/2026):
+   *  bản in lượt xếp vào mục "Điều trị" (phiếu 2 ô), không vào CLS. */
+  dieu_tri?: boolean;
+}
+
+/** Ô đã ghi của PHIẾU ĐIỀU TRỊ một chỉ định (mỗi ô một nhãn — tên ô, không lặp
+ *  tên mục) — bản in lượt. Phiếu điều trị không có bước Hoàn tất nên máy chủ trả
+ *  nội dung cả khi phiếu còn DRAFT. Rác / thiếu → mảng rỗng, không ném. */
+export function oPhieuDieuTri(c: ChiDinhVaKetQua): { ma: string; ten: string; gia: string }[] {
+  const k = c.ket_qua.find((x) => x.loai === "PHIEU" && x.form_id === "KQ_PHIEU_DIEU_TRI" && x.khung);
+  if (!k || !Array.isArray(k.khung)) return [];
+  const duLieu = (k.du_lieu ?? {}) as Record<string, { gia_tri?: unknown } | undefined>;
+  return (k.khung as { block?: { ma?: string; ten?: string }[] }[])
+    .flatMap((m) => m.block ?? [])
+    .flatMap((o) => {
+      const g = o.ma ? duLieu[o.ma]?.gia_tri : null;
+      return o.ma && typeof g === "string" && g.trim() ? [{ ma: o.ma, ten: o.ten ?? o.ma, gia: g }] : [];
+    });
 }
 
 export type TrangThaiDoiTac = "CHO_LAY_MAU" | "DA_LAY_MAU" | "DA_NHAN_MAU" | "DA_GUI_KET_QUA";
@@ -804,10 +822,15 @@ export function locMauThuoc(ds: readonly MauThuoc[], tu: string): MauThuoc[] {
 /** BA KHỐI của phiếu bác sĩ chính (Tuyền chốt 25/09/2026 — bản giao diện mẫu):
  *  gom các mục SẴN CÓ, không đổi `ma` ô nào — phiếu đã lưu vẫn đọc đúng. Mục
  *  hành chính luôn nằm trên, ngoài các khối. Màn khám và bản in dùng chung. */
-export const KHOI_PHIEU: { so: 1 | 2 | 3; ten: string; muc: string[] }[] = [
+export type SoKhoi = 1 | 2 | 3 | 4;
+/** Khối 4 "Điều trị" (07/10/2026): KHÔNG thuộc mẫu phiếu JSON — thẻ các chỉ định
+ *  điều trị của lượt (phiếu kết quả PHIEU_DIEU_TRI + làm tại bàn khám), shell vẽ
+ *  qua `oDieuTri`; `muc` rỗng. */
+export const KHOI_PHIEU: { so: SoKhoi; ten: string; muc: string[] }[] = [
   { so: 1, ten: "Thông tin cơ bản", muc: ["A", "B"] },
   { so: 2, ten: "Chỉ định cận lâm sàng", muc: ["C"] },
   { so: 3, ten: "Chỉ định điều trị", muc: ["D", "E", "F", "G"] },
+  { so: 4, ten: "Điều trị", muc: [] },
 ];
 
 /** Ô đã có dữ liệu? (rỗng · mảng rỗng · bảng mọi cột rỗng = chưa) — bản in ẩn ô trống. */

@@ -225,14 +225,18 @@ không chặn check-out `S/checkout_service.py` (`exam_open`); tick dịch vụ 
 **Chỉ định điều trị trong hồ sơ — phiếu điều trị + làm tại bàn khám (07/10/2026)**
 — Phiếu điều trị = phiếu KẾT QUẢ mẫu `PHIEU_DIEU_TRI` (2 ô) gắn cho dịch vụ của loại
 khám nhóm DIEU_TRI (migration `20261007620000_phieu_dieu_tri_ban_kham.sql`; sửa ô = sửa
-mẫu ở màn mẫu kết quả, là DỮ LIỆU). Thẻ + nút (khối 4 "Điều trị" của hồ sơ) →
-`R/ho_so_kham.py` (`/ho-so-kham/{visit}/dieu-tri…`) → `S/dieu_tri_ban_kham.py`
+mẫu ở màn mẫu kết quả, là DỮ LIỆU). Thẻ + nút: UI khối 4 "Điều trị"
+`D/_lam-viec/phieu-kham/KhoiDieuTri.tsx` (phiếu = `PhieuKetQua` của chỉ định) →
+`/api/ho-so-kham` (`xem=dieu-tri`, `thao_tac=ban-kham`) → `R/ho_so_kham.py` (`/ho-so-kham/{visit}/dieu-tri…`) → `S/dieu_tri_ban_kham.py`
 (`doc_the`, `thao_tac`) → lệnh `S/service_execution_service.py` `bat_dau_tai_ban_kham` /
 `xong_tai_ban_kham` / `huy_bat_dau_tai_ban_kham` / `hoan_tac_xong_tai_ban_kham` (lần làm
 `noi_lam = BAN_KHAM`; chỉ định chưa có phòng thì xếp vào phòng bàn khám; cửa tiền
 `cua_tien_ban_kham` = FinanceGate của phòng). Kê lại dịch vụ điều trị đã có trong lượt
 không đẻ dòng thứ hai: `S/chi_dinh_service.py` (`chi_dinh_dieu_tri_dang_co`). Test:
-`T/services/test_dieu_tri_ban_kham_db.py`, `T/unit/test_dieu_tri_ban_kham.py`.
+`T/services/test_dieu_tri_ban_kham_db.py`, `T/unit/test_dieu_tri_ban_kham.py`, FT
+`khoi-dieu-tri-boundary.test.mts`. Lịch sử sửa MỌI phiếu kết quả: trigger
+`trg_form_instance_lich_su` → bảng chỉ thêm `form_instance_lich_su` (migration
+`20261007630000`; test `T/services/test_form_instance_lich_su_db.py`).
 
 **Thai kỳ** — `D/ban-kham/ThaiKy.tsx` → `S/thai_ky_service.py`.
 

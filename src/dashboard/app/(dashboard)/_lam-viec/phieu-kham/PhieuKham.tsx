@@ -42,6 +42,7 @@ import {
   giaTriBanDau,
   gomNhom,
   KHOI_PHIEU,
+  type SoKhoi,
   soODaDien,
   type CheDoPhieu,
   type ChiDinhVaKetQua,
@@ -114,6 +115,8 @@ export default function PhieuKham({
   onTrangThaiLuu,
   baoLoiDon,
   oDichVuKham,
+  oDieuTri,
+  tomTatDieuTri,
 }: {
   /** Khung của ĐÚNG phiên bản phiếu đang ghim. */
   dinhNghia: DinhNghiaPhieu;
@@ -137,6 +140,11 @@ export default function PhieuKham({
   /** Ô tick DỊCH VỤ KHÁM theo mã KiotViet (28/09/2026) — vẽ ngay dưới mục
    *  đầu của khối 1 ("Bác sĩ tư vấn ghi"); shell truyền vào. */
   oDichVuKham?: ReactNode;
+  /** Khối 4 "Điều trị" (07/10/2026) — thẻ chỉ định điều trị, shell vẽ (không
+   *  thuộc mẫu phiếu JSON). Không truyền = không có khối 4. */
+  oDieuTri?: ReactNode;
+  /** Chữ tóm tắt trên nút khối 4. */
+  tomTatDieuTri?: string;
   /** Lỗi lưu đơn thuốc (kèm ô lý do) — vẽ NGAY trong mục E (góp ý B8). */
   baoLoiDon?: ReactNode;
   /** Mục E: đơn thuốc thật của lượt. */
@@ -181,7 +189,7 @@ export default function PhieuKham({
   onTomTat?: (soDien: number, tenPhieu: string) => void;
 }) {
   const [gia, setGia] = useState<Record<string, GiaTriO>>(() => giaTriBanDau(duLieu));
-  const [khoi, setKhoi] = useState<1 | 2 | 3>(1);
+  const [khoi, setKhoi] = useState<SoKhoi>(1);
   const [thamChieu, setThamChieu] = useState<ThamChieu | null>(null);
   const [canhBao, setCanhBao] = useState<CanhBaoO[]>([]);
 
@@ -309,14 +317,17 @@ export default function PhieuKham({
   ).length;
   const soThuoc = (donThuoc?.dong ?? []).filter((d) => d.ten_thuoc.trim()).length;
   const coHen = oTheoMuc(["G"]).some((ma) => /follow_date|ngay/.test(ma) && coGiaTriO(gia[ma]));
-  const tomTat: Record<1 | 2 | 3, string> = {
+  const tomTat: Record<SoKhoi, string> = {
     1: `${soDien} ô đã điền`,
     2: ketQuaCls.length ? `${ketQuaCls.length} chỉ định · ${coKq} có KQ` : "chưa chỉ định",
     3:
       [soThuoc ? `${soThuoc} thuốc` : "", ketQuaTT.length ? `${ketQuaTT.length} dịch vụ` : "", coHen ? "có hẹn" : ""]
         .filter(Boolean)
         .join(" · ") || "chưa có gì",
+    4: tomTatDieuTri ?? "phiếu điều trị · làm tại bàn khám",
   };
+  const cacKhoi = oDieuTri ? KHOI : KHOI.filter((k) => k.so !== 4);
+  const khoiCuoi = cacKhoi[cacKhoi.length - 1]?.so ?? 3;
 
   const dongTrangThai = (
     <TrangThaiLuu
@@ -356,10 +367,11 @@ export default function PhieuKham({
     F: { ten: "Dịch vụ khác (thủ thuật · điều trị)" },
     G: { ten: "Hẹn khám" },
   };
-  const GOI_Y_KHOI: Record<1 | 2 | 3, string | null> = {
+  const GOI_Y_KHOI: Record<SoKhoi, string | null> = {
     1: null,
     2: "tick là thêm · kết quả về tự hiện bên dưới",
     3: null,
+    4: "mỗi chỉ định điều trị một thẻ · phiếu cùng phòng dịch vụ",
   };
 
   // B4 (đợt 3, 27/09/2026 — góp ý bác sĩ + thư ký y khoa): mỗi thẻ mục GẬP/MỞ
@@ -458,7 +470,7 @@ export default function PhieuKham({
       <aside className="sticky top-16 z-10 min-w-0 lg:order-last lg:top-20">
         <div className="rounded-card border border-hairline bg-surface">
           <div className="flex gap-2 overflow-x-auto p-2 lg:flex-col lg:overflow-visible lg:p-3">
-            {KHOI.map((k) => {
+            {cacKhoi.map((k) => {
               const dang = khoi === k.so;
               const moi = k.so === 2 ? coKqMoi : 0;
               return (
@@ -522,24 +534,25 @@ export default function PhieuKham({
             {khoi === 1 && i === 0 ? oDichVuKham : null}
           </Fragment>
         ))}
+        {khoi === 4 ? oDieuTri : null}
 
         <div className="flex justify-between gap-2 pb-8">
           {khoi > 1 ? (
             <button
               type="button"
               className={buttonClass("ghost", "md")}
-              onClick={() => setKhoi((khoi - 1) as 1 | 2)}
+              onClick={() => setKhoi((khoi - 1) as SoKhoi)}
             >
               ← {KHOI[khoi - 2]?.ten}
             </button>
           ) : (
             <span />
           )}
-          {khoi < 3 ? (
+          {khoi < khoiCuoi ? (
             <button
               type="button"
               className={buttonClass("secondary", "md")}
-              onClick={() => setKhoi((khoi + 1) as 2 | 3)}
+              onClick={() => setKhoi((khoi + 1) as SoKhoi)}
             >
               Sang: {KHOI[khoi]?.ten} →
             </button>

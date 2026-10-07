@@ -648,3 +648,86 @@ async def test_dich_vu_xong_sau_check_out_khong_mo_lai_ket_qua_can_doc(
     await chay_ben_nhan(pool, "vong_doc_luot_kham")
     assert await _cho_doc_kq(pool, visit) == 0
     assert await _con_trong_hang_bac_si(pool, visit) == 0
+
+
+# ── Phiếu điều trị dùng chung bàn khám ↔ phòng + bản in (07/10/2026 tối) ──────
+
+
+async def test_phieu_dieu_tri_ban_kham_ghi_phong_doc_luu_sau_xong_in_khong_nhap(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Bàn khám ghi phiếu điều trị → phòng mở CÙNG phiếu thấy chữ; thẻ chỉ đọc
+    trả mỗi ô MỘT nhãn ("Cảm nhận", "Vấn đề sau điều trị") + người sửa. Phòng
+    [Xong] (lệnh hoàn tất của engine) rồi vẫn lưu tiếp được — mẫu không có bước
+    Hoàn tất; bản in không ghi BẢN NHÁP; khối kết quả của lượt trả nội dung kể cả
+    khi phiếu còn nháp, đánh dấu chỉ định là ĐIỀU TRỊ (bản in mục riêng)."""
+    from clinicai.phieu_kham.ket_qua_chi_dinh import doc_ket_qua_theo_chi_dinh
+
+    ca = await _dung(pool)
+    laser = await _laser(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), laser["loai"])
+    order = await _don_dat_san(pool, visit)
+    fe = FormEngineService(pool)
+
+    # Bàn khám (bác sĩ) mở + ghi.
+    bk = await fe.mo_phieu(
+        service_order_id=order, form_id="KQ_PHIEU_DIEU_TRI", identity=ca.bac_si
+    )
+    assert bk["khong_hoan_tat"] is True
+    luu = await fe.luu_nhap(
+        phieu_id=bk["id"],
+        du_lieu={
+            "cam_nhan": {"gia_tri": "Ấm, dễ chịu", "nguon": "USER"},
+            "van_de_sau": {"gia_tri": "Không", "nguon": "USER"},
+        },
+        expected_revision=int(bk["revision"]),
+        identity=ca.bac_si,
+    )
+    assert luu["nguoi_sua"]
+
+    # Phòng (điều dưỡng) mở → CÙNG phiếu, đúng chữ bàn khám vừa ghi.
+    ph = await fe.mo_phieu(
+        service_order_id=order, form_id="KQ_PHIEU_DIEU_TRI", identity=ca.dd
+    )
+    assert ph["id"] == bk["id"] and ph["revision"] == luu["revision"]
+    assert ph["du_lieu"]["cam_nhan"]["gia_tri"] == "Ấm, dễ chịu"
+    assert ph["nguoi_sua"] == luu["nguoi_sua"]
+
+    # Thẻ chỉ đọc: mỗi ô một nhãn, đúng nguyên văn.
+    t = await _the(pool, ca, visit)
+    assert [(o["ten"], o["gia_tri"]) for o in t["phieu"]["o"]] == [
+        ("Cảm nhận", "Ấm, dễ chịu"),
+        ("Vấn đề sau điều trị", "Không"),
+    ]
+
+    # Khối kết quả của lượt (nguồn bản in gộp): nội dung có dù phiếu còn nháp.
+    async with pool.acquire() as conn:
+        ds = await doc_ket_qua_theo_chi_dinh(conn, clinic_id=CLINIC, visit_id=visit)
+    [c] = [x for x in ds if x["service_order_id"] == order]
+    assert c["dieu_tri"] is True
+    [k] = [x for x in c["ket_qua"] if x["form_id"] == "KQ_PHIEU_DIEU_TRI"]
+    assert (
+        k["trang_thai"] == "DRAFT" and k["du_lieu"]["van_de_sau"]["gia_tri"] == "Không"
+    )
+
+    # Phòng bấm [Xong] (engine hoàn tất) → vẫn lưu tiếp được, không cần [Sửa lại].
+    ht = await fe.hoan_tat(
+        phieu_id=ph["id"], expected_revision=int(luu["revision"]), identity=ca.dd
+    )
+    lai = await fe.luu_nhap(
+        phieu_id=ph["id"],
+        du_lieu={"cam_nhan": {"gia_tri": "Ấm, dễ chịu — lần 2", "nguon": "USER"}},
+        expected_revision=int(ht["revision"]),
+        identity=ca.bac_si,
+    )
+    assert lai["revision"] == int(ht["revision"]) + 1
+    # Xong lần nữa (đã chốt) vẫn trả kết quả, không ném.
+    assert (
+        await fe.hoan_tat(
+            phieu_id=ph["id"], expected_revision=int(lai["revision"]), identity=ca.dd
+        )
+    )["da_hoan_tat"]
+    ban_in = await fe.in_ket_qua(service_order_id=order, identity=ca.bac_si)
+    [p] = ban_in["phieu"]
+    assert p["ban_nhap"] is False
+    assert p["du_lieu"]["cam_nhan"]["gia_tri"] == "Ấm, dễ chịu — lần 2"

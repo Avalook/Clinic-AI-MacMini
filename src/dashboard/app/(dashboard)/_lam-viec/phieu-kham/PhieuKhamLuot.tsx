@@ -50,7 +50,9 @@ import DatLichTaiKham from "./DatLichTaiKham";
 import { KhungDatLichTaiKham } from "./ONhapPhieu";
 import PhieuKham, { type KetQuaLuu, type ThamChieu } from "./PhieuKham";
 import KetQuaChiDinh from "./KetQuaChiDinh";
+import GhiChuLuot from "./GhiChuLuot";
 import KhoiDichVuHoSo from "./KhoiDichVuHoSo";
+import KhoiDieuTri from "./KhoiDieuTri";
 
 interface PhieuLuot extends DinhNghiaPhieu {
   du_lieu: Record<string, ONhap>;
@@ -468,7 +470,6 @@ export default function PhieuKhamLuot({
           void napKetQua();
           onDaDat();
         }}
-        veKetQua={(id) => choKetQua(ketQua.filter((k) => k.service_order_id === id))}
         vePhieuCu={(f) => (
           <PhieuKhamLuot
             key={`cu-${f}`}
@@ -486,11 +487,14 @@ export default function PhieuKhamLuot({
 
   if (chonDuoc) {
     // HỒ SƠ TỐI GIẢN (07/10/2026, T3): loại khám không gắn phiếu (Điều trị,
-    // Khác) — dịch vụ của lượt, kê chỉ định CLS / thủ thuật; phiếu
+    // Khác) — dịch vụ của lượt, khối Điều trị, kê chỉ định CLS / thủ thuật; phiếu
     // khám đầy đủ là TUỲ CHỌN.
     return (
       <div className="space-y-3">
         {khoiDichVu}
+        {/* Lượt "Khác": MỘT ô chữ to tự do (máy chủ quyết có hiện không). */}
+        <GhiChuLuot visitId={visitId} choGhi={choGhi} />
+        <KhoiDieuTri visitId={visitId} choGhi={choGhi} />
         {ketQua.length > 0 ? (
           <section className="space-y-2 rounded-card border border-hairline bg-surface p-4">
             <h2 className="text-title text-ink">Đã chỉ định &amp; kết quả</h2>
@@ -573,9 +577,12 @@ export default function PhieuKhamLuot({
             <>
               {khoiDichVu}
               <HanhTrinhLuot visitId={visitId} />
+              {/* Lượt "Khác" đã chọn ghi phiếu đầy đủ: ô ghi chú vẫn ở đây. */}
+              <GhiChuLuot visitId={visitId} choGhi={choGhi} />
             </>
           )
         }
+        oDieuTri={chiMuc ? undefined : <KhoiDieuTri visitId={visitId} choGhi={choGhi} />}
         // Tick dịch vụ khám (mã KiotViet) → tiền khám tính theo đó (28/09/2026).
         oDichVuKham={chiMuc || xemLai ? undefined : <ChonDichVuKham visitId={visitId} />}
         chanRay={chanRay}

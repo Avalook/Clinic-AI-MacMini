@@ -53,6 +53,7 @@ from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.y_khoa import doc_duoc_in_phieu
 from clinicai.phieu_kham.kiem_khung_mau import kiem_khung_mau
 from clinicai.phieu_kham.mang_sang import dia_chi_benh_nhan, doc_chan_doan
+from clinicai.phieu_kham.mau_dieu_tri import MAU_KHONG_HOAN_TAT
 from clinicai.services.bac_si_ky import bac_si_chi_dinh_hien_thi, bac_si_ky_in
 from clinicai.services.bac_si_phu_trach import bac_si_thuc_hien_mac_dinh
 
@@ -158,7 +159,10 @@ class FormEngineService:
                 khung = await self._khung(
                     conn, identity.clinic_id, form_id, co["version"]
                 )
-                return self._tra_phieu(co, khung)
+                return {
+                    **self._tra_phieu(co, khung),
+                    "nguoi_sua": await _ten_nguoi_sua(conn, co),
+                }
 
             ban = await conn.fetchrow(
                 "SELECT version, khung FROM form_definition"
@@ -205,7 +209,8 @@ class FormEngineService:
                 khung = await self._khung(
                     conn, identity.clinic_id, form_id, moi["version"]
                 )
-        return self._tra_phieu(moi, khung)
+            nguoi_sua = await _ten_nguoi_sua(conn, moi)
+        return {**self._tra_phieu(moi, khung), "nguoi_sua": nguoi_sua}
 
     # ------------------------------------------------------------------
     # Xem kết quả (chỉ đọc) — bác sĩ chính / thư ký ở Bàn khám
@@ -395,7 +400,10 @@ class FormEngineService:
                         "ten": r["ten_mau"],
                         "khung": khung,
                         "du_lieu": json.loads(r["du_lieu"]),
-                        "ban_nhap": r["trang_thai"] != "READY",
+                        # Phiếu điều trị không có bước Hoàn tất — lưu là ghi
+                        # nhận, không in "BẢN NHÁP".
+                        "ban_nhap": r["trang_thai"] != "READY"
+                        and r["form_id"] not in MAU_KHONG_HOAN_TAT,
                         "thuc_hien": ten_ky,
                         "hoan_tat_boi": r["hoan_tat_ten"],
                         "hoan_tat_luc": (
@@ -513,7 +521,7 @@ class FormEngineService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_DIEN)
             dong = await conn.fetchrow(
-                "SELECT i.trang_thai, i.dang_sua, i.revision,"
+                "SELECT i.trang_thai, i.dang_sua, i.revision, i.form_id,"
                 " i.service_order_id::text, o.visit_id::text AS visit_id"
                 " FROM form_instance i JOIN service_order o"
                 " ON o.clinic_id=i.clinic_id AND o.id=i.service_order_id"
@@ -530,7 +538,14 @@ class FormEngineService:
                 nguoi_bam=identity.staff_id,
             )
             await kiem_dung_ca(conn, identity, bac_si_id, visit_id=dong["visit_id"])
-            if dong["trang_thai"] == "READY" and not dong["dang_sua"]:
+            # Mẫu không có bước Hoàn tất (phiếu điều trị): phiếu lỡ được chốt
+            # theo cách cũ vẫn lưu thẳng — lịch sử từng bản do trigger
+            # `form_instance_lich_su` giữ, không ghi đè mất dấu.
+            if (
+                dong["trang_thai"] == "READY"
+                and not dong["dang_sua"]
+                and dong["form_id"] not in MAU_KHONG_HOAN_TAT
+            ):
                 # Không chặn vĩnh viễn — chặn tới khi người dùng nói rõ "tôi
                 # muốn sửa" bằng lệnh `mo_sua`. Sửa được là quyền của họ; cái
                 # phải giữ là DẤU VẾT của lần sửa ấy.
@@ -594,11 +609,15 @@ class FormEngineService:
                     identity.staff_id,
                     thuc_hien_boi,
                 )
+            nguoi_sua = await conn.fetchval(
+                "SELECT full_name FROM staff WHERE id = $1::uuid", identity.staff_id
+            )
         return {
             "ok": True,
             "id": moi["id"],
             "revision": moi["revision"],
             "luu_luc": moi["sua_luc"].isoformat(),
+            "nguoi_sua": nguoi_sua,
         }
 
     # ------------------------------------------------------------------
@@ -624,7 +643,40 @@ class FormEngineService:
         được. `ly_do_sua` bắt buộc khi đang sửa lại, và nó đi vào
         `visit_amendment.reason` — nơi duy nhất giữ lý do, không chép sang chỗ
         thứ hai.
+
+        PHIẾU ĐIỀU TRỊ (mẫu không có bước Hoàn tất, 07/10/2026): ở phòng, nút
+        [Xong] của phiếu đi lệnh này để ĐÓNG DỊCH VỤ. Phiếu đã chốt từ trước
+        (Xong → hoàn tác Xong → Xong lại) thì không chốt lần hai nhưng vẫn đóng
+        dịch vụ đang làm dở.
         """
+        async with self._pool.acquire() as conn:
+            truoc = await conn.fetchrow(
+                "SELECT trang_thai, dang_sua, form_id, revision,"
+                "       service_order_id::text AS service_order_id"
+                "  FROM form_instance WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                identity.clinic_id,
+                phieu_id,
+            )
+            if (
+                truoc is not None
+                and truoc["form_id"] in MAU_KHONG_HOAN_TAT
+                and truoc["trang_thai"] == "READY"
+                and not truoc["dang_sua"]
+            ):
+                await doi_quyen(conn, identity, QUYEN_DIEN)
+            else:
+                truoc = None
+        if truoc is not None:
+            return {
+                "ok": True,
+                "da_hoan_tat": True,
+                "la_lan_sua": False,
+                "revision": truoc["revision"],
+                "con_trong": [],
+                "dich_vu": await self._dong_dich_vu_neu_dang_lam(
+                    service_order_id=truoc["service_order_id"], identity=identity
+                ),
+            }
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN_DIEN)
             dong = await conn.fetchrow(
@@ -1324,6 +1376,10 @@ class FormEngineService:
             # người khác tưởng đây là bản cuối.
             "dang_sua": bool(dong["dang_sua"]),
             "revision": dong["revision"],
+            # Lần lưu gần nhất — chân "Bản n · người sửa · giờ" (phiếu điều trị).
+            "sua_luc": _gio_iso(dong["sua_luc"]),
+            # Mẫu không có bước Hoàn tất (lưu là ghi nhận) — màn không vẽ nút.
+            "khong_hoan_tat": dong["form_id"] in MAU_KHONG_HOAN_TAT,
             "khung": khung,
             "du_lieu": du_lieu,
             "con_trong": _con_trong(khung, du_lieu),
@@ -1337,6 +1393,15 @@ class FormEngineService:
             )
             or None,
         }
+
+
+async def _ten_nguoi_sua(conn: asyncpg.Connection, dong: asyncpg.Record) -> str | None:
+    """Tên người GÕ lần lưu gần nhất (bản nháp sửa nếu đang sửa)."""
+    ai = (dong["nhap_boi_dang_sua"] if dong["dang_sua"] else None) or dong["nhap_boi"]
+    if ai is None:
+        return None
+    ten = await conn.fetchval("SELECT full_name FROM staff WHERE id = $1::uuid", ai)
+    return str(ten) if ten else None
 
 
 def _mac_dinh_tu_khung(khung: list[dict[str, Any]]) -> dict[str, Any]:
