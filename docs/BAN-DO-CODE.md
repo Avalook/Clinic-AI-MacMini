@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-07 14:25. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-07 14:30. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -278,7 +278,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/phong/[ma]`
 - page: `src/dashboard/app/(dashboard)/phong/[ma]/page.tsx` · quyền: lego `phong` (Phòng dịch vụ · mặc định: BS siêu âm / thủ thuật + Điều dưỡng)
-- thành phần: app/(dashboard)/LiveBoardSync.tsx, PhongDichVu.tsx, app/(dashboard)/_lam-viec/ChonBacSiLam.tsx, app/(dashboard)/_lam-viec/HangChoCot.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/PhieuKetQua.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/api.ts (+5)
+- thành phần: app/(dashboard)/LiveBoardSync.tsx, PhongDichVu.tsx, app/(dashboard)/_lam-viec/ChonBacSiLam.tsx, app/(dashboard)/_lam-viec/HangChoCot.tsx, app/(dashboard)/_lam-viec/KhungTep.tsx, app/(dashboard)/_lam-viec/PhieuKetQua.tsx, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/_lam-viec/api.ts (+6)
 - gọi API Next: `/api/phieu`, `/api/nhac-viec`, `/api/cskh/ket-qua/[tepId]/khoi-phuc`, `/api/cskh/ket-qua/[tepId]/xoa`, `/api/cskh/ket-qua/[tepId]/noi-dung`, `/api/cskh/ket-qua`, `/api/luot-kham`
 - service: FormEngineService.{luu_nhap, hoan_tat, mo_sua, huy_sua, +3} · NhacViecService.{cua_toi, tao, xong} · TepKetQuaService.{khoi_phuc_tep, xoa_tep, mo_de_doc, danh_sach, +3} · media_service · tep_ket_qua_service · nhan_tep_luong (+12 service)
 - test: test_hoan_tac_moi_thao_tac_db.py, test_nhan_tai_phong_db.py, test_tep_ket_qua.py, test_service_execution_db.py, test_sua_ket_qua_db.py (+31)
@@ -404,7 +404,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: ClinicConfigBoard.tsx, types.ts, CoSoPhong.tsx
 - gọi API Next: `/api/clinic-config`, `/api/day-noi`, `/api/roster`
 - gọi thẳng backend (server): `/api/v1/clinic-config/overview`, `/api/v1/clinic-config/staff`, `/api/v1/clinic-config/services`
-- service: ClinicConfigService.{staff, services, overview, set_room_floor, +10} · LichPhongService.tuan · thu_ky_bac_si · DayNoiService.{doc, tao_vi_tri} · RosterService.{applied_weeks, tram_cho_nhan_vien, bac_si_trong_ngay, apply_week, +3}
+- service: ClinicConfigService.{staff, services, overview, set_room_floor, +11} · LichPhongService.tuan · thu_ky_bac_si · DayNoiService.{doc, tao_vi_tri} · RosterService.{applied_weeks, tram_cho_nhan_vien, bac_si_trong_ngay, apply_week, +3}
 - test: test_phong_la_tai_nguyen_db.py, test_clinic_config.py, test_clinical_cluster.py, test_pham_vi_vi_tri_lich_truc.py, test_phong_lam_theo_dich_vu_db.py (+9)
 
 ### `/settings/day-noi` — Dây nối nghiệp vụ
@@ -648,6 +648,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [room-name] PUT `/api/v1/clinic-config/room-name` → `src/clinicai/api/v1/routers/clinic_config.py:rename_room` → ClinicConfigService.rename_room
 - [room-active] PUT `/api/v1/clinic-config/room-active` → `src/clinicai/api/v1/routers/clinic_config.py:set_room_active` → ClinicConfigService.set_room_active
 - [room-nodes] PUT `/api/v1/clinic-config/room-nodes` → `src/clinicai/api/v1/routers/clinic_config.py:set_room_nodes` → ClinicConfigService.set_room_nodes
+- [room-node-chuyen] PUT `/api/v1/clinic-config/room-node-chuyen` → `src/clinicai/api/v1/routers/clinic_config.py:set_room_node_chuyen` → ClinicConfigService.set_room_node_chuyen
 - [room-services] PUT `/api/v1/clinic-config/room-services` → `src/clinicai/api/v1/routers/clinic_config.py:set_room_services` → ClinicConfigService.set_room_services
 - [service-rooms] PUT `/api/v1/clinic-config/service-rooms` → `src/clinicai/api/v1/routers/clinic_config.py:set_service_rooms` → ClinicConfigService.set_service_rooms
 - [staff-nodes] PUT `/api/v1/clinic-config/staff-nodes` → `src/clinicai/api/v1/routers/clinic_config.py:set_staff_nodes` → ClinicConfigService.set_staff_nodes
@@ -954,8 +955,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [thu-hoi-ket-qua] POST `/api/v1/luot-kham/orders/{order_id}/thu-hoi-duyet` → `src/clinicai/api/v1/routers/hoan_tac.py:thu_hoi_duyet` → HoanTacService.thu_hoi_duyet_ket_qua
 - [nhan-vao-phong] POST `/api/v1/luot-kham/visits/{visit_id}/nhan-vao-phong` → `src/clinicai/api/v1/routers/luot_kham.py:receive_at_room` → NhanTaiPhongService.nhan
 - [hoan-tac-nhan] POST `/api/v1/luot-kham/visits/{visit_id}/hoan-tac-nhan` → `src/clinicai/api/v1/routers/luot_kham.py:undo_receive_at_room` → NhanTaiPhongService.hoan_tac_nhan
-- [nha-khoi-phong] `/api/v1/luot-kham/visits/${id}/nha-khoi-phong` → ?
-- [hoan-tac-nha] `/api/v1/luot-kham/visits/${id}/hoan-tac-nha` → ?
 - GET `/api/v1/luot-kham/bang` → `src/clinicai/api/v1/routers/luot_kham.py:bang` → BangLuotKham.bang
 - GET `/api/v1/luot-kham/phong-hom-nay` → `src/clinicai/api/v1/routers/luot_kham.py:phong_hom_nay` → BangLuotKham.phong_hom_nay
 - GET `/api/v1/luot-kham/ket-qua-cho-duyet` → `src/clinicai/api/v1/routers/luot_kham.py:ket_qua_cho_duyet` → BangLuotKham.ket_qua_cho_duyet

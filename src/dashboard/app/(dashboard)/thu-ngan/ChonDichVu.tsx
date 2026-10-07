@@ -36,6 +36,9 @@ export interface PhongChonDuoc {
   dang_cho: number;
   /** Phòng nhiều bác sĩ (30/09/2026): bác sĩ trực hôm nay — chỉ khi ≥2. */
   bac_si?: LuaChonBacSi[];
+  /** Phòng chuyên ★ (07/10/2026); `goi_y` = phòng chuyên DUY NHẤT — máy chủ gợi ý. */
+  chuyen?: boolean;
+  goi_y?: boolean;
 }
 
 export interface ChiDinhChoQuyet {
@@ -288,10 +291,35 @@ export default function ChonDichVu({
                   <option value="">— Vui lòng chọn phòng —</option>
                   {(c.phong_chon_duoc ?? []).map((ph) => (
                     <option key={ph.id} value={ph.id}>
-                      {ph.ten} · {ph.dang_cho} người chờ
+                      {ph.ten}
+                      {ph.chuyen ? " ★" : ""} · {ph.dang_cho} người chờ
                     </option>
                   ))}
                 </select>
+                {(() => {
+                  // GỢI Ý phòng chuyên ★ (07/10/2026) — chỉ gợi ý, bấm mới lưu.
+                  const goiY = c.huong_dan && !phong[c.id] ? (c.phong_chon_duoc ?? []).find((ph) => ph.goi_y) : undefined;
+                  return goiY ? (
+                    <span className="flex flex-wrap items-center gap-2 text-meta text-ink-muted">
+                      Gợi ý: {goiY.ten} ★ (chưa lưu)
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="soft"
+                        disabled={dang}
+                        onClick={() => {
+                          const moi = { ...phong, [c.id]: goiY.id };
+                          const bsMoi = { ...bacSi, [c.id]: "" };
+                          setPhong(moi);
+                          setBacSi(bsMoi);
+                          void chot(chon, moi, bsMoi);
+                        }}
+                      >
+                        Hướng dẫn tới đây
+                      </Button>
+                    </span>
+                  ) : null;
+                })()}
                 {(() => {
                   const ds = bsCuaPhong(c, phong[c.id] ?? "");
                   return coChonBacSi(ds) ? (

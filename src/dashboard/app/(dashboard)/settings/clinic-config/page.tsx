@@ -8,6 +8,7 @@ import { requireNavAccess } from "../../../../lib/clinic-session";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import ClinicConfigBoard from "./ClinicConfigBoard";
 import type {
+  ChuaPhongChuyen,
   ConfigLocation,
   ConfigMissing,
   ConfigService,
@@ -28,6 +29,7 @@ export default async function ClinicConfigPage() {
       nodes: NodeDef[];
       viec_chon_duoc?: ViecChonDuoc[];
       config_missing?: ConfigMissing[];
+      chua_co_phong_chuyen?: ChuaPhongChuyen[];
     }>(
       "/api/v1/clinic-config/overview",
     ),
@@ -56,6 +58,7 @@ export default async function ClinicConfigPage() {
         nodes={overview?.nodes ?? []}
         viecChonDuoc={overview?.viec_chon_duoc ?? []}
         configMissing={overview?.config_missing ?? []}
+        chuaChuyen={overview?.chua_co_phong_chuyen ?? []}
         initialServices={services?.items ?? []}
         forms={services?.forms ?? []}
         // `null` = backend không trả lời. Nói ra, thay vì hiện một sơ đồ trống

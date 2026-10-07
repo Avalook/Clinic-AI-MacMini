@@ -51,6 +51,8 @@ export interface Phieu {
     cho_xep?: boolean;
     /** Dây Nhận tại phòng bật, chưa hướng dẫn phòng: các phòng làm được (07/10/2026). */
     phong_lam_duoc?: string[];
+    /** …hoặc phòng chuyên ★ khi chỉ đúng MỘT phòng chuyên (máy chủ chọn). */
+    phong_chuyen?: string | null;
     /** Xếp / đổi phòng ngay trên trang phiếu (quên chọn phòng lúc thu). */
     order_id?: string;
     room_id?: string | null;
@@ -345,6 +347,8 @@ function PhieuHuongDanGiay({ p }: { p: Phieu }) {
                   {d.phong.bac_si ? ` · ${d.phong.bac_si}` : ""}
                   {d.phong.du_kien ? (p.huong_dan_phong ? " (hướng dẫn)" : " (dự kiến)") : ""}
                 </span>
+              ) : d.phong_chuyen ? (
+                <span className="block text-ink-muted">→ {d.phong_chuyen} (hướng dẫn)</span>
               ) : d.phong_lam_duoc?.length ? (
                 <span className="block text-ink-muted">→ Các phòng làm được: {d.phong_lam_duoc.join(", ")}</span>
               ) : (
