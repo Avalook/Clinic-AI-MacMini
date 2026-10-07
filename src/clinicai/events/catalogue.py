@@ -58,6 +58,10 @@ HANH_TRINH = "hanh_trinh_luot_kham"
 #: Khối CHUÔNG: sự kiện nào báo cho ai — người nhận là DỮ LIỆU
 #: (`day_nhan_thong_bao`), quản lý chỉnh trên màn.
 CHUONG = "chuong_thong_bao"
+#: Chuông NHẬN CHÉO (07/10/2026): phòng khác nhận khách lúc phòng A còn ĐANG
+#: LÀM (quên Xong) → réo A; lần làm ấy Xong / Gián đoạn / huỷ Bắt đầu → tự đóng
+#: (`events/consumers/chuong_nhan_cheo.py`).
+CHUONG_NHAN_CHEO = "chuong_nhan_cheo"
 #: Khối VÒNG ĐỌC: kết quả/dịch vụ vừa xong → mở vòng đọc cho bác sĩ chính và
 #: khép lượt khi không còn gì phải chờ (phát `visit.exam_completed`).
 VONG_DOC = "vong_doc_luot_kham"
@@ -1293,7 +1297,13 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuDaXong,
             nhan="Đã làm xong dịch vụ",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, VONG_DOC, DOI_TAC_NHAN_VIEC],
+            consumers=[
+                DONG_THOI_GIAN_LUOT,
+                HANH_TRINH,
+                VONG_DOC,
+                DOI_TAC_NHAN_VIEC,
+                CHUONG_NHAN_CHEO,
+            ],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -1315,7 +1325,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuGianDoan,
             nhan="Dừng giữa chừng",
-            consumers=[DONG_THOI_GIAN_LUOT, TRACH_NHIEM_DICH_VU],
+            consumers=[DONG_THOI_GIAN_LUOT, TRACH_NHIEM_DICH_VU, CHUONG_NHAN_CHEO],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -1347,7 +1357,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuDaHuyBatDau,
             nhan="Huỷ bắt đầu nhầm",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG_NHAN_CHEO],
             theo_thu_tu=True,
         ),
         # ── Hoàn tác (01/10/2026) — chỉ lên dòng thời gian: mỗi lệnh hoàn tác
@@ -1455,7 +1465,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="service_routing",
             payload=KhachRoiPhong,
             nhan="Khách rời phòng (nhả)",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG_NHAN_CHEO],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -1951,6 +1961,7 @@ __all__ = [
     "TienDichVuDaThu",
     "TienThuocDaThu",
     "CHUONG",
+    "CHUONG_NHAN_CHEO",
     "TepKetQuaDaVe",
     "TepKetQuaDaXacNhan",
     "TepKetQuaDaXem",

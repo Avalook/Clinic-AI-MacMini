@@ -1005,6 +1005,9 @@ class BatDauBody(BaseModel):
     #: V4 (30/09/2026): khách đang làm ở phòng khác → người bấm đã đồng ý
     #: "chuyển sang đây" (dừng lần làm ở phòng kia trong cùng giao dịch).
     giai_phong: bool = False
+    #: 07/10/2026: dịch vụ khác đang làm ở CHÍNH phòng này → người bấm đã đồng ý
+    #: "Xong <DV1> & bắt đầu <DV2>" (một lệnh, cùng giao dịch).
+    xong_truoc: bool = False
 
 
 class HuyBatDauBody(BaseModel):
@@ -1065,6 +1068,7 @@ async def execution_bat_dau(
         identity=identity,
         idempotency_key=idempotency_key,
         giai_phong=body.giai_phong,
+        xong_truoc=body.xong_truoc,
     )
 
 

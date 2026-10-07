@@ -3,16 +3,18 @@
 Kế hoạch: ``docs/KE-HOACH-NHAN-TAI-PHONG.md``. Dây TẮT = y như cũ (dây H4 tự xếp
 phòng). Dây BẬT:
 
-    Sắp đến → [Nhận ☑ chỉ định] → Đang chờ → [Bắt đầu] → Đang làm → [Xong]
+    Sắp đến → [Nhận] (từng chỉ định) → Đang chờ → [Bắt đầu] → Đang làm → [Xong]
 
-  * "Sắp đến" của một phòng = MỌI chỉ định chưa vào phòng nào mà phòng ấy làm
-    được — bác sĩ chỉ định, làm thêm tại quầy, mang sang khi check-in, kể cả
-    khách chưa chốt ở quầy — gom theo KHÁCH, không ẩn theo phòng chuyên.
+  * "Sắp đến" của một phòng = MỌI khách check-in hôm nay chưa check-out, cùng
+    cơ sở (Tuyền 07/10 tối) — mỗi khách một ô, trong ô các chỉ định phòng làm
+    được (kể cả khách chưa chốt ở quầy) với nút theo dòng; khách chưa có chỉ
+    định ở phòng mang nhãn nơi đang ở thật. Khách đang chờ / làm ở chính phòng
+    này nằm ở "Đang chờ / Đang làm", không lặp ở đây.
   * Nhận THEO TỪNG CHỈ ĐỊNH (sửa lỗi staging 07/10: phòng thủ thuật làm được cả
     ba node nên "nhận theo khách" gom luôn hai chỉ định quầy hướng dẫn sang
-    phòng siêu âm). Tick sẵn: chỉ định hướng dẫn tới phòng này, hoặc chưa hướng
-    dẫn mà phòng này là PHÒNG CHUYÊN ★ (`phong_chuyen`). Còn lại tick được.
-  * Không khoá cứng — NHẬN CHÉO theo chỉ định được tick: chỉ định đang chờ ở
+    phòng siêu âm): mỗi dòng một nút Nhận, thêm "Nhận cả N". PHÒNG CHUYÊN ★
+    (`phong_chuyen`) và hướng dẫn chỉ là nhãn + thứ tự xếp, không quyết gì.
+  * Không khoá cứng — NHẬN CHÉO theo chỉ định được nhận: chỉ định đang chờ ở
     phòng A thì rời hàng A; khách đang LÀM ở A (A quên Xong) thì đóng hàng A
     nhưng lần làm của A GIỮ mở — A tự bấm Xong / Gián đoạn.
   * CHỈ GHI SỰ KIỆN THẬT người bấm (07/10): không có nút Nhả, Xong không tự
@@ -25,7 +27,7 @@ chỉ định đã ở phòng kia và nhận câu hỏi nhận chéo, không có
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 import asyncpg
@@ -182,8 +184,8 @@ def trang_thai_chi_dinh(
     (đang giữ chờ đọc kết quả, tiền đang hoàn, lượt đã đóng…).
 
     ``nhan_duoc``: phòng bấm Nhận được chỉ định này — chưa vào phòng nào, hoặc
-    đang CHỜ ở phòng khác (nhận chéo). ``tick_san``: hướng dẫn tới đây, hoặc
-    chưa hướng dẫn mà đây là phòng chuyên ★."""
+    đang CHỜ ở phòng khác (nhận chéo). ``chuyen`` (★) / ``huong_dan_day``:
+    chỉ để gắn nhãn và xếp trước."""
     ex = r["execution_status"]
     o_dau: str | None = None
     o_trang: str | None = None
@@ -219,7 +221,6 @@ def trang_thai_chi_dinh(
         "chuyen": bool(r["chuyen"]),
         "chua_chot": r["selection_status"] != "SELECTED",
         "nhan_duoc": nhan_duoc,
-        "tick_san": nhan_duoc and (hd == room_id or (hd is None and bool(r["chuyen"]))),
     }
 
 
@@ -257,51 +258,135 @@ async def _chi_dinh(
     return out
 
 
-def gom_sap_den(
-    dong: Iterable[tuple[Any, dict[str, Any]]], room_id: str
-) -> list[dict[str, Any]]:
-    """Khách SẮP ĐẾN phòng ``room_id`` — HÀM THUẦN. MỌI khách có chỉ định phòng
-    làm được chưa xong: chưa vào phòng nào, HOẶC đang chờ / đang làm ở phòng
-    khác (Tuyền 07/10: list đủ hết, "ngu ngu tí nhưng pick ra dễ" — nhãn nói
-    đang ở đâu, nhận chéo theo luật). Trừ khách đã có chỉ định chờ / làm ở
-    chính phòng này (nằm ở "Đang chờ", nhận tiếp bằng "Nhận thêm").
+#: Khách check-in HÔM NAY chưa check-out, cùng cơ sở với phòng, kèm chỗ chờ
+#: sống "cao nhất" của khách (đang làm trước, phòng dịch vụ trước) — một câu
+#: cho cả danh sách Sắp đến (không N+1).
+_KHACH_HOM_NAY_SQL = """
+SELECT v.visit_id::text AS visit_id, p.full_name, p.patient_code,
+       a.so_tiep_don, a.so_booking,
+       q.lane AS q_lane, q.status AS q_status, q.room_id::text AS q_room_id,
+       qr.name AS q_phong
+  FROM clinic_room pr
+  JOIN visit v ON v.clinic_id = pr.clinic_id
+  JOIN patient p
+    ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
+  LEFT JOIN appointment a ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+  LEFT JOIN LATERAL (
+       SELECT q.lane, q.status, q.room_id
+         FROM queue_entry q
+        WHERE q.clinic_id = v.clinic_id AND q.visit_id = v.visit_id
+          AND q.status IN ('waiting', 'called', 'serving')
+        ORDER BY (q.status = 'serving') DESC, (q.lane = 'ROOM') DESC,
+                 q.updated_at DESC
+        LIMIT 1) q ON true
+  LEFT JOIN clinic_room qr ON qr.id = q.room_id AND qr.clinic_id = v.clinic_id
+ WHERE pr.clinic_id = $1::uuid AND pr.id = $2::uuid
+   AND pr.is_active AND NOT pr.la_doi_tac
+   AND v.clinic_id = $1::uuid
+   AND v.closed_at IS NULL AND v.status <> 'INCOMPLETE'
+   AND v.checked_in_at IS NOT NULL
+   AND (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+       = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+   AND (pr.location_id IS NULL
+        OR coalesce(v.location_id, a.location_id) IS NULL
+        OR pr.location_id = coalesce(v.location_id, a.location_id))
+ ORDER BY v.checked_in_at, v.visit_id
+"""
 
-    ``tinh_so``: khách có ít nhất một chỉ định CHƯA VÀO PHÒNG NÀO — chỉ những
-    khách này vào số "sắp đến" (khách đang ở phòng khác đã được đếm ở "đang
-    chờ / đang làm" của phòng ấy, không đếm hai lần). Khách có chỉ định tick
-    sẵn (hướng dẫn tới / phòng chuyên) lên đầu, giữ thứ tự check-in."""
-    khach: dict[str, dict[str, Any]] = {}
-    o_day: set[str] = set()
-    for r, c in dong:
-        if r["room_id"] != room_id:
-            continue
-        if c["trang_thai"] in (CHO, LAM):
-            o_day.add(r["visit_id"])
-        k = khach.setdefault(
-            r["visit_id"],
-            {
-                "visit_id": r["visit_id"],
-                "khach": r["full_name"],
-                "ma_khach": r["patient_code"],
-                "so_tiep_don": r["so_tiep_don"],
-                "so_booking": r["so_booking"],
-                "accepting": r["accepting"],
-                "chi_dinh": [],
-            },
-        )
-        k["chi_dinh"].append(c)
+
+#: Nhãn ô Sắp đến khi khách không đứng hàng nào và chưa có chỉ định phòng làm được.
+CAU_CHUA_CO_CHI_DINH = "chưa có chỉ định ở phòng này"
+
+
+def cau_dang_o(lane: str | None, status: str | None, phong: str | None) -> str | None:
+    """Khách đang ở đâu THẬT (chỗ chờ sống cao nhất) — HÀM THUẦN, câu máy chủ
+    viết cho ô Sắp đến. None = không đứng hàng nào (vd chờ đo sinh hiệu)."""
+    lam = status == "serving"
+    if lane == "ROOM":
+        return f"đang {'làm' if lam else 'chờ'} ở {phong or 'phòng khác'}"
+    if lane == "DOCTOR":
+        return f"đang khám ở {phong or 'bàn khám'}" if lam else "đang chờ khám"
+    if lane == "TU_VAN":
+        return "đang tư vấn" if lam else "đang chờ tư vấn"
+    return None
+
+
+def o_phong_nay(dong: Iterable[tuple[Any, dict[str, Any]]], room_id: str) -> set[str]:
+    """Khách đã có chỉ định chờ / làm ở CHÍNH phòng này (nằm ở hàng chờ phòng)."""
+    return {
+        r["visit_id"]
+        for r, c in dong
+        if r["room_id"] == room_id and c["trang_thai"] in (CHO, LAM)
+    }
+
+
+def dem_sap_den(dong: Iterable[tuple[Any, dict[str, Any]]], room_id: str) -> int:
+    """Số "sắp đến" của phòng — HÀM THUẦN: khách có chỉ định CHƯA VÀO PHÒNG NÀO
+    mà phòng làm được, chưa chờ / làm ở phòng này, phòng đang nhận khách. Khách
+    đang ở phòng khác đã được đếm ở "đang chờ / đang làm" phòng ấy."""
+    ds = [(r, c) for r, c in dong if r["room_id"] == room_id]
+    o_day = o_phong_nay(ds, room_id)
+    return len(
+        {r["visit_id"] for r, c in ds if c["trang_thai"] == SAP_DEN and r["accepting"]}
+        - o_day
+    )
+
+
+def gom_sap_den(
+    khach: Iterable[Mapping[str, Any]],
+    dong: Iterable[tuple[Any, dict[str, Any]]],
+    room_id: str,
+) -> list[dict[str, Any]]:
+    """Ô SẮP ĐẾN của phòng ``room_id`` — HÀM THUẦN. ``khach`` = khách hôm nay
+    (``_KHACH_HOM_NAY_SQL``), ``dong`` = chỉ định phòng làm được.
+
+    MỌI khách trừ khách đang chờ / làm ở chính phòng này. Mỗi ô: các chỉ định
+    phòng làm được + trạng thái; ``dang_o`` = câu nơi khách đang ở thật (không
+    đứng hàng nào mà chưa có chỉ định ở phòng → ``CAU_CHUA_CO_CHI_DINH``).
+    ``tinh_so`` = khách vào số "sắp đến" (cùng luật ``dem_sap_den``). Xếp: có
+    chỉ định nhận được mà ★ / hướng dẫn tới đây → có chỉ định nhận được → còn
+    lại; trong nhóm giữ thứ tự check-in."""
+    ds = [(r, c) for r, c in dong if r["room_id"] == room_id]
+    o_day = o_phong_nay(ds, room_id)
+    cd: dict[str, list[dict[str, Any]]] = {}
+    for r, c in ds:
+        cd.setdefault(r["visit_id"], []).append(c)
     out = []
-    for vid, k in khach.items():
-        sap = [c for c in k["chi_dinh"] if c["trang_thai"] in (SAP_DEN, PHONG_KHAC)]
-        if vid in o_day or not sap or not k.pop("accepting"):
+    for k in khach:
+        vid = k["visit_id"]
+        if vid in o_day:
             continue
-        k["tinh_so"] = any(c["trang_thai"] == SAP_DEN for c in sap)
-        k["nhan_duoc"] = any(c["nhan_duoc"] for c in sap)
-        k["duoc_huong_dan"] = any(c["huong_dan_day"] for c in sap)
-        k["co_tick_san"] = any(c["tick_san"] for c in k["chi_dinh"])
-        k["so_chi_dinh"] = len(k["chi_dinh"])
-        out.append(k)
-    return sorted(out, key=lambda k: not k["co_tick_san"])
+        cua = cd.get(vid, [])
+        nhan = [c for c in cua if c["nhan_duoc"]]
+        out.append(
+            {
+                "visit_id": vid,
+                "khach": k["full_name"],
+                "ma_khach": k["patient_code"],
+                "so_tiep_don": k["so_tiep_don"],
+                "so_booking": k["so_booking"],
+                "chi_dinh": cua,
+                "so_chi_dinh": len(cua),
+                "so_nhan_duoc": len(nhan),
+                "tinh_so": any(c["trang_thai"] == SAP_DEN for c in cua),
+                "duoc_huong_dan": any(c["huong_dan_day"] for c in cua),
+                "dang_o": (
+                    cau_dang_o(k["q_lane"], k["q_status"], k["q_phong"])
+                    if k["q_room_id"] != room_id
+                    else None
+                )
+                or (None if cua else CAU_CHUA_CO_CHI_DINH),
+                "_hang": 0
+                if any(c["chuyen"] or c["huong_dan_day"] for c in nhan)
+                else 1
+                if nhan
+                else 2,
+            }
+        )
+    out.sort(key=lambda k: k["_hang"])
+    for k in out:
+        del k["_hang"]
+    return out
 
 
 async def dang_o_phong(
@@ -329,23 +414,20 @@ async def dang_o_phong(
 async def sap_den(
     conn: asyncpg.Connection, cid: str, room_id: str
 ) -> list[dict[str, Any]]:
-    """Danh sách SẮP ĐẾN của một phòng, theo KHÁCH (mỗi khách một ô, trong ô
-    các chỉ định phòng làm được kèm trạng thái + tick sẵn). Khách đang chờ /
-    làm ở phòng khác mang nhãn nơi ấy."""
-    khach = gom_sap_den(await _chi_dinh(conn, cid, room_id), room_id)
-    o_dau = await dang_o_phong(conn, cid, [k["visit_id"] for k in khach], ca_cho=True)
-    for k in khach:
-        noi = o_dau.get(k["visit_id"])
-        k["dang_o_phong"] = noi if noi and noi["phong_id"] != room_id else None
-    return khach
+    """Danh sách SẮP ĐẾN của một phòng — mọi khách hôm nay chưa check-out, mỗi
+    khách một ô (``gom_sap_den``). Hai câu SQL, không theo từng khách."""
+    khach = await conn.fetch(_KHACH_HOM_NAY_SQL, cid, room_id)
+    if not khach:
+        return []
+    dong = await _chi_dinh(conn, cid, room_id, [k["visit_id"] for k in khach])
+    return gom_sap_den(khach, dong, room_id)
 
 
 async def chi_dinh_cua_khach(
     conn: asyncpg.Connection, cid: str, room_id: str, visit_ids: Sequence[str]
 ) -> dict[str, list[dict[str, Any]]]:
     """Ô KHÁCH ở hàng chờ phòng (đang chờ · đang làm · đã xong): mỗi khách các
-    chỉ định phòng làm được kèm trạng thái — "Nhận thêm" nhận những cái
-    ``nhan_duoc``."""
+    chỉ định phòng làm được kèm trạng thái — dòng ``nhan_duoc`` có nút Nhận."""
     out: dict[str, list[dict[str, Any]]] = {}
     if not visit_ids:
         return out
@@ -373,7 +455,7 @@ async def dem_theo_phong(
         for r, c in await _chi_dinh(conn, cid, chi_sap_den=True):
             theo_phong.setdefault(r["room_id"], []).append((r, c))
         for rid, dong in theo_phong.items():
-            o(rid)["sap_den"] = sum(1 for k in gom_sap_den(dong, rid) if k["tinh_so"])
+            o(rid)["sap_den"] = dem_sap_den(dong, rid)
     hom_nay = (
         "(v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"
         " = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"
@@ -609,14 +691,14 @@ class NhanTaiPhongService:
         bac_si_lam_id: Any = KHONG_DOI,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        """ReceiveAtRoom — phòng nhận CÁC CHỈ ĐỊNH ĐƯỢC TICK (``chi_dinh_ids``;
-        không gửi = những cái máy chủ tick sẵn). Cũng là "Nhận thêm" khi khách
-        đã chờ ở phòng. Phải có ≥1 chỉ định.
+        """ReceiveAtRoom — phòng nhận ĐÚNG các chỉ định ``chi_dinh_ids`` (nút
+        Nhận trên từng dòng = một id; "Nhận cả N" = các id ấy; không gửi = mọi
+        chỉ định nhận được). Cũng dùng khi khách đã chờ ở phòng.
 
         Nhận chéo — 409 ``KHACH_O_PHONG_KHAC`` (kèm tên phòng), gửi lại
-        ``xac_nhan`` (một nút, không lý do) khi: chỉ định được tick đang CHỜ ở
+        ``xac_nhan`` (một nút, không lý do) khi: chỉ định được nhận đang CHỜ ở
         phòng khác (rời hàng ấy), hoặc khách đang LÀM ở phòng khác (đóng hàng
-        ấy, lần làm giữ mở). Chỉ định KHÔNG tick ở phòng khác không bị đụng.
+        ấy, lần làm giữ mở). Chỉ định khác ở phòng khác không bị đụng.
         Chỉ định không nhận được (tiền đang hoàn…) bỏ qua, trả câu lý do;
         không nhận được cái nào thì báo lỗi của cái đầu tiên."""
         vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
@@ -649,7 +731,7 @@ class NhanTaiPhongService:
                 return cached
             ds = {c["id"]: c for _, c in await _chi_dinh(conn, cid, rid, [vid])}
             if ids is None:
-                chon = [c for c in ds.values() if c["tick_san"]]
+                chon = [c for c in ds.values() if c["nhan_duoc"]]
             else:
                 chon = [ds[i] for i in ids if i in ds and ds[i]["nhan_duoc"]]
                 da_o_day = [
@@ -658,16 +740,18 @@ class NhanTaiPhongService:
                 if not chon and da_o_day and len(da_o_day) == len(ids):
                     return {"ok": True, "already": True, "visit_id": vid}
             if not chon:
-                if not any(c["nhan_duoc"] for c in ds.values()):
-                    if any(c["trang_thai"] in (CHO, LAM) for c in ds.values()):
-                        return {"ok": True, "already": True, "visit_id": vid}
+                if ids == []:
                     raise LuotKhamConflictError(
-                        "KHONG_CON_GI_DE_NHAN",
-                        "Khách không còn dịch vụ nào chờ vào phòng này — tải lại.",
+                        "CHUA_CHON_CHI_DINH",
+                        "Chọn ít nhất một chỉ định để nhận vào phòng này.",
                     )
+                if ids is None and any(
+                    c["trang_thai"] in (CHO, LAM) for c in ds.values()
+                ):
+                    return {"ok": True, "already": True, "visit_id": vid}
                 raise LuotKhamConflictError(
-                    "CHUA_CHON_CHI_DINH",
-                    "Tick ít nhất một chỉ định để nhận vào phòng này.",
+                    "KHONG_CON_GI_DE_NHAN",
+                    "Chỉ định không còn chờ vào phòng này — tải lại.",
                 )
             cho = await _cho_cua(conn, cid, vid)
             chon_ids = {c["id"] for c in chon}
@@ -845,14 +929,17 @@ async def _su_kien_cuoi(
 
 
 __all__ = [
+    "CAU_CHUA_CO_CHI_DINH",
     "CHUA_VAO_PHONG_SQL",
     "NHA_BO_DICH_VU",
     "NHA_NHAN_CHEO",
     "NhanTaiPhongService",
+    "cau_dang_o",
     "chi_dinh_cua_khach",
     "da_sang_phong",
     "dang_bat",
     "dang_o_phong",
+    "dem_sap_den",
     "dem_theo_phong",
     "gom_sap_den",
     "nha_khi_bo_chon",
