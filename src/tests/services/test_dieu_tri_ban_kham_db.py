@@ -276,6 +276,8 @@ async def test_da_thu_thi_lam_tai_ban_kham_duoc_khong_can_tick(
 ) -> None:
     ca = await _dung(pool)
     laser = await _laser(pool)
+    # Không phụ thuộc DB có phòng thủ thuật để tự xếp: bàn khám có phòng.
+    await _lich_ban_kham(pool, ca)
     visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
     con = await _vao_kham(pool, ca, visit)
     order = (await _ke(pool, ca, con, laser["ma"]))["order_ids"][0]

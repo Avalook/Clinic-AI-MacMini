@@ -72,10 +72,16 @@ async def _nguoi(conn: asyncpg.Connection, role: str) -> StaffIdentity:
 async def test_co_du_18_mau_cua_phong_kham(pool: asyncpg.Pool) -> None:
     so = await pool.fetchval(
         "SELECT count(*) FROM ket_qua_mau WHERE clinic_id = $1::uuid AND active"
-        " AND ma NOT IN ('CHUNG', 'DO_MAT_DO_XUONG')",
+        " AND ma NOT IN ('CHUNG', 'DO_MAT_DO_XUONG', 'PHIEU_DIEU_TRI')",
         CLINIC,
     )
     assert so == 18
+    # + Phiếu điều trị (07/10/2026) — phiếu kết quả của chỉ định Điều trị.
+    assert await pool.fetchval(
+        "SELECT active FROM ket_qua_mau WHERE clinic_id = $1::uuid"
+        " AND ma = 'PHIEU_DIEU_TRI'",
+        CLINIC,
+    )
     # + mẫu Đo mật độ xương (29/09/2026, "Kết luận nhanh") — không có PDF gốc.
     assert await pool.fetchval(
         "SELECT active FROM ket_qua_mau WHERE clinic_id = $1::uuid"
@@ -111,10 +117,22 @@ async def test_migration_chi_gan_theo_ma_phong_kham_cua_pdf(
         "SELECT g.mau, p.ma_kiotviet FROM dich_vu_mau_ket_qua g"
         " JOIN service_price p ON p.clinic_id = g.clinic_id"
         "  AND p.service_code = g.service_code AND p.\"group\" = 'dich_vu'"
-        " WHERE g.clinic_id = $1::uuid AND g.gan_boi IS NULL",
+        " WHERE g.clinic_id = $1::uuid AND g.gan_boi IS NULL"
+        "   AND g.mau <> 'PHIEU_DIEU_TRI'",
         CLINIC,
     )
     assert all((r["mau"], r["ma_kiotviet"]) in hop_le for r in dong)
+    # Phiếu điều trị (migration 20261007620000) gắn theo MÃ dịch vụ mà loại khám
+    # nhóm Điều trị trỏ tới — không cặp nào ngoài nhóm ấy.
+    assert not await pool.fetchval(
+        "SELECT count(*) FROM dich_vu_mau_ket_qua g"
+        " WHERE g.clinic_id = $1::uuid AND g.mau = 'PHIEU_DIEU_TRI'"
+        "   AND g.service_code NOT IN ("
+        "       SELECT sp.service_code FROM service_type st"
+        "         JOIN service_price sp ON sp.id = st.service_price_id"
+        "        WHERE st.clinic_id = $1::uuid AND st.nhom = 'DIEU_TRI')",
+        CLINIC,
+    )
 
 
 async def test_quan_ly_gan_duoc_va_bac_si_doc_duoc(pool: asyncpg.Pool) -> None:
