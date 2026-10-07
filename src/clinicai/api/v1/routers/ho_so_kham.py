@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
-from clinicai.services import dieu_tri_ban_kham, ho_so_dich_vu
+from clinicai.services import dieu_tri_ban_kham, ghi_chu_luot, ho_so_dich_vu
 
 router = APIRouter(tags=["ho-so-kham"])
 
@@ -27,6 +27,11 @@ class DoiDichVuBody(BaseModel):
 class LamTaiBanKhamBody(BaseModel):
     expected_execution_revision: int
     attempt_id: UUID | None = None
+
+
+class GhiChuBody(BaseModel):
+    noi_dung: str = ""
+    phien_ban: int = 0
 
 
 @router.get("/ho-so-kham/{visit_id}/dich-vu")
@@ -88,4 +93,31 @@ async def lam_tai_ban_kham(
         expected_execution_revision=body.expected_execution_revision,
         attempt_id=str(body.attempt_id) if body.attempt_id else None,
         idempotency_key=idempotency_key,
+    )
+
+
+@router.get("/ho-so-kham/{visit_id}/ghi-chu")
+async def doc_ghi_chu(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ô chữ tự do của lượt "Khác": bản mới nhất, có hiện / ghi được không."""
+    return await ghi_chu_luot.doc(pool, identity=identity, visit_id=str(visit_id))
+
+
+@router.put("/ho-so-kham/{visit_id}/ghi-chu")
+async def luu_ghi_chu(
+    visit_id: UUID,
+    body: GhiChuBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lưu thêm một phiên bản (409 khi màn cầm bản cũ)."""
+    return await ghi_chu_luot.luu(
+        pool,
+        identity=identity,
+        visit_id=str(visit_id),
+        noi_dung=body.noi_dung,
+        phien_ban=body.phien_ban,
     )

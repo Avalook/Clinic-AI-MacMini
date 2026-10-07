@@ -20,6 +20,7 @@ thu đúng dòng giá, một lần; bỏ chỉ định đã thu → tiền thừ
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import asyncpg
@@ -28,6 +29,7 @@ from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import ValidationError
 from clinicai.permissions.doc_bang import doi_mot_quyen
+from clinicai.phieu_kham.mau_dieu_tri import MAU_PHIEU_DIEU_TRI
 from clinicai.phieu_kham.mau_goi_y import mau_cho_cac_dich_vu
 from clinicai.services.finance_gate import READY_STATES, states_for_orders
 from clinicai.services.lenh_kham_core import ma_uuid
@@ -87,13 +89,47 @@ SELECT o.id::text AS order_id, o.service_code, o.service_name,
  ORDER BY o.created_at, o.id
 """
 
-_PHIEU_SQL = """
-SELECT service_order_id::text AS order_id, id::text AS phieu_id, form_id,
-       trang_thai, revision
-  FROM public.form_instance
- WHERE clinic_id = $1::uuid AND service_order_id = ANY($2::uuid[])
- ORDER BY (trang_thai = 'READY') DESC, hoan_tat_luc DESC NULLS LAST, tao_luc DESC
+#: Phiếu của chỉ định — PHIẾU ĐIỀU TRỊ trước (thẻ vẽ đúng phiếu 2 ô dù chỉ định
+#: từng có phiếu mẫu khác, vd "Kết quả chung" mở trước khi gắn mẫu).
+_PHIEU_SQL = f"""
+SELECT i.service_order_id::text AS order_id, i.id::text AS phieu_id, i.form_id,
+       i.trang_thai, i.revision, i.du_lieu, i.sua_luc, d.khung,
+       s.full_name AS nguoi_sua
+  FROM public.form_instance i
+  JOIN public.form_definition d
+    ON d.clinic_id = i.clinic_id AND d.form_id = i.form_id
+   AND d.version = i.version
+  LEFT JOIN public.staff s ON s.id = i.nhap_boi
+ WHERE i.clinic_id = $1::uuid AND i.service_order_id = ANY($2::uuid[])
+ ORDER BY (i.form_id = 'KQ_{MAU_PHIEU_DIEU_TRI}') DESC,
+          (i.trang_thai = 'READY') DESC, i.hoan_tat_luc DESC NULLS LAST,
+          i.tao_luc DESC
 """
+
+
+def o_phieu(khung: Any, du_lieu: Any) -> list[dict[str, Any]]:
+    """Các ô chữ của phiếu (MỘT nhãn mỗi ô — tên ô, không lặp tên mục) + giá
+    trị đang lưu, để thẻ chỉ đọc / bản in vẽ — hàm thuần, không ném."""
+    k = json.loads(khung) if isinstance(khung, str) else khung
+    d = json.loads(du_lieu) if isinstance(du_lieu, str) else du_lieu
+    if not isinstance(k, list) or not isinstance(d, dict):
+        return []
+    ra: list[dict[str, Any]] = []
+    for muc in k:
+        for o in (muc.get("block") or []) if isinstance(muc, dict) else []:
+            if not isinstance(o, dict) or not o.get("ma"):
+                continue
+            gt = d.get(o["ma"])
+            gia_tri = gt.get("gia_tri") if isinstance(gt, dict) else None
+            ra.append(
+                {
+                    "ma": o["ma"],
+                    "ten": o.get("ten") or o["ma"],
+                    "gia_tri": gia_tri if isinstance(gia_tri, str) else "",
+                }
+            )
+    return ra
+
 
 _LUOT_SQL = """
 SELECT status, closed_at FROM public.visit
@@ -165,7 +201,18 @@ async def doc_the(
         )
         phieu: dict[str, dict[str, Any]] = {}
         for p in await conn.fetch(_PHIEU_SQL, cid, ids):
-            phieu.setdefault(p["order_id"], dict(p))
+            phieu.setdefault(
+                p["order_id"],
+                {
+                    "phieu_id": p["phieu_id"],
+                    "form_id": p["form_id"],
+                    "trang_thai": p["trang_thai"],
+                    "revision": p["revision"],
+                    "sua_luc": _iso(p["sua_luc"]),
+                    "nguoi_sua": p["nguoi_sua"],
+                    "o": o_phieu(p["khung"], p["du_lieu"]),
+                },
+            )
     the = []
     for r in rows:
         oid = r["order_id"]

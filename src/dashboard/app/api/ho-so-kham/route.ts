@@ -2,7 +2,9 @@
 // sơ, 07/10/2026). Chỉ chuyển tiếp; quyền + luật ở backend
 // (`services/ho_so_dich_vu.py`, SO-LUAT Phần 3).
 //
-//   GET  ?visit_id=…&xem=dich-vu | dieu-tri   (dieu-tri = thẻ chỉ định điều trị)
+//   GET  ?visit_id=…&xem=dich-vu | dieu-tri | ghi-chu   (dieu-tri = thẻ chỉ định
+//        điều trị; ghi-chu = ô chữ tự do lượt "Khác")
+//   PUT  { visit_id, noi_dung, phien_ban }   (ô chữ tự do — thêm một phiên bản)
 //   POST { thao_tac: "doi-dich-vu", visit_id, service_type_id }
 //   POST { thao_tac: "ban-kham", visit_id, order_id, lenh, expected_execution_revision,
 //          attempt_id }   (Làm tại bàn khám / Xong / hoàn tác — khối 4 Điều trị)
@@ -25,9 +27,25 @@ export async function GET(request: Request) {
   if (!(await daDangNhap())) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const sp = new URL(request.url).searchParams;
   const vid = sp.get("visit_id") ?? "";
-  const xem = sp.get("xem") === "dieu-tri" ? "dieu-tri" : "dich-vu";
+  const xemHoi = sp.get("xem");
+  const xem = xemHoi === "dieu-tri" || xemHoi === "ghi-chu" ? xemHoi : "dich-vu";
   if (!UUID.test(vid)) return NextResponse.json({ error: "Thiếu mã lượt khám." }, { status: 400 });
   return proxyJsonToBackend("GET", `/api/v1/ho-so-kham/${vid}/${xem}`, undefined);
+}
+
+export async function PUT(request: Request) {
+  if (!(await daDangNhap())) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  const body = (await request.json().catch(() => null)) as {
+    visit_id?: string;
+    noi_dung?: unknown;
+    phien_ban?: unknown;
+  } | null;
+  const vid = body?.visit_id ?? "";
+  if (!UUID.test(vid)) return NextResponse.json({ error: "Yêu cầu không hợp lệ." }, { status: 400 });
+  return proxyJsonToBackend("PUT", `/api/v1/ho-so-kham/${vid}/ghi-chu`, {
+    noi_dung: typeof body?.noi_dung === "string" ? body.noi_dung : "",
+    phien_ban: typeof body?.phien_ban === "number" ? body.phien_ban : 0,
+  });
 }
 
 export async function POST(request: Request) {

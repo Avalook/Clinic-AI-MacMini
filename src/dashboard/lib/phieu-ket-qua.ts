@@ -4,6 +4,10 @@
 /** Khoá phẳng của một ô bảng trong trạng thái màn hình: `ma::cột`. */
 export const KHOA_BANG = "::";
 
+/** Mã mẫu PHIẾU ĐIỀU TRỊ (máy chủ: `phieu_kham/mau_dieu_tri.py`) — mẫu này vẽ
+ *  bằng `PhieuDieuTri` (ô chữ gọn, không Hoàn tất), ở bàn khám lẫn phòng. */
+export const MAU_PHIEU_DIEU_TRI = "PHIEU_DIEU_TRI";
+
 /** Máy chủ → màn: ô bảng {cột: giá trị} tách thành các khoá `ma::cột`. */
 export function tachGiaTri(
   duLieu: Record<string, { gia_tri: unknown; nguon: string }>,
