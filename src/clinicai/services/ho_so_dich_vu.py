@@ -232,6 +232,7 @@ async def sinh_chi_dinh_dieu_tri(
         clinic_id,
         visit_id,
     )
+    # Khách đã về (FINALIZED / AMENDED) hay về giữa chừng (INCOMPLETE): không sinh.
     if r is None or r["status"] not in ("OPEN", "IN_PROGRESS"):
         return None
     if await conn.fetchval(
