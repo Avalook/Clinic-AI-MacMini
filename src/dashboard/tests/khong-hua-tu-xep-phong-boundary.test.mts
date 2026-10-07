@@ -39,7 +39,7 @@ test("ô chọn phòng chưa chọn ghi 'Vui lòng chọn phòng', vẫn gửi g
     /d\.huong_dan\s*\?\s*"— Hướng dẫn phòng \(không bắt buộc\) —"\s*:\s*doiTac\s*\?\s*"— Lấy mẫu: vui lòng chọn phòng —"\s*:\s*"— Vui lòng chọn phòng —"/,
   );
   // Số người chờ từng phòng vẫn hiện — chỉ bỏ nhãn "vắng nhất".
-  assert.match(hoaDon, /\{p\.ten\} · \{p\.dang_cho\} đang chờ/);
+  assert.match(hoaDon, /\{p\.ten\}\s*\{p\.chuyen \? " ★" : ""\} · \{p\.dang_cho\} đang chờ/);
   assert.match(hoaDon, /datPhong\(d\.id, e\.target\.value\)/);
 
   const doiPhong = read("../app/(dashboard)/_lam-viec/DoiPhong.tsx");

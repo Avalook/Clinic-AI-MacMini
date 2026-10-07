@@ -875,8 +875,10 @@ class NhanTaiPhongBody(BaseModel):
     xac_nhan: bool = False
     #: Phòng nhiều bác sĩ: như lệnh xếp phòng (không gửi = giữ / tự gán).
     bac_si_lam_id: Any = None
-    #: Nút Nhả: phòng hướng dẫn mới (tuỳ chọn).
-    huong_dan_room_id: Any = None
+    #: Các chỉ định được tick (07/10/2026 — nhận theo từng chỉ định). Không
+    #: gửi = các chỉ định máy chủ tick sẵn (Nhận) / mọi chỉ định đang chờ ở
+    #: phòng (hoàn tác Nhận).
+    chi_dinh_ids: list[Any] | None = None
 
 
 # Nhận khách tại phòng (dây `nhan_tai_phong`, 07/10/2026) — id là LƯỢT KHÁM.
@@ -895,6 +897,7 @@ async def receive_at_room(
         identity=identity,
         xac_nhan=body.xac_nhan,
         bac_si_lam_id=_bac_si_gui(body),
+        chi_dinh_ids=body.chi_dinh_ids,
         idempotency_key=idempotency_key,
     )
 
@@ -907,34 +910,10 @@ async def undo_receive_at_room(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     return await NhanTaiPhongService(pool).hoan_tac_nhan(
-        visit_id=str(visit_id), room_id=body.room_id, identity=identity
-    )
-
-
-@router.post("/luot-kham/visits/{visit_id}/nha-khoi-phong")
-async def release_from_room(
-    visit_id: UUID,
-    body: NhanTaiPhongBody,
-    identity: StaffIdentity = Depends(get_current_identity),
-    pool: asyncpg.Pool = Depends(get_db_pool),
-) -> dict[str, Any]:
-    return await NhanTaiPhongService(pool).nha(
         visit_id=str(visit_id),
         room_id=body.room_id,
         identity=identity,
-        huong_dan_room_id=body.huong_dan_room_id,
-    )
-
-
-@router.post("/luot-kham/visits/{visit_id}/hoan-tac-nha")
-async def undo_release_from_room(
-    visit_id: UUID,
-    body: NhanTaiPhongBody,
-    identity: StaffIdentity = Depends(get_current_identity),
-    pool: asyncpg.Pool = Depends(get_db_pool),
-) -> dict[str, Any]:
-    return await NhanTaiPhongService(pool).hoan_tac_nha(
-        visit_id=str(visit_id), room_id=body.room_id, identity=identity
+        chi_dinh_ids=body.chi_dinh_ids,
     )
 
 

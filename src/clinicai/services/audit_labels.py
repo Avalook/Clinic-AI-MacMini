@@ -142,6 +142,7 @@ EVENT_LABELS: dict[str, str] = {
     "clinic_config.service_type_created": "Quản lý thêm loại khám",
     "clinic_config.service_type_updated": "Quản lý sửa loại khám",
     "clinic_config.room_nodes": "Quản lý đổi bước phòng phục vụ",
+    "clinic_config.room_node_chuyen": "Quản lý đánh / bỏ phòng chuyên ★",
     "clinic_config.staff_nodes": "Quản lý đổi bước nhân sự làm được",
     "clinic_config.thu_ky_bac_si": "Quản lý phân thư ký theo bác sĩ",
     "config.desk_service_saved": "Lưu dịch vụ làm thêm tại quầy",

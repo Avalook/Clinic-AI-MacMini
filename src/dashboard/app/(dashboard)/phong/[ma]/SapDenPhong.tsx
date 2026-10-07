@@ -2,33 +2,43 @@
 
 // KHỐI "SẮP ĐẾN" — dây Nhận khách tại phòng (Tuyền chốt 07/10/2026,
 // docs/KE-HOACH-NHAN-TAI-PHONG.md). Danh sách THEO KHÁCH do máy chủ trả
-// (`sap_den_phong` của hàng chờ phòng): mọi chỉ định chưa vào phòng nào mà phòng
-// này làm được — kể cả khách chưa chốt ở quầy. Khách được hướng dẫn đến đây
-// đứng đầu (máy chủ xếp).
+// (`sap_den_phong` của hàng chờ phòng): MỌI khách có chỉ định chưa vào phòng
+// nào mà phòng này làm được — kể cả khách chưa chốt ở quầy, KHÔNG ẩn theo phòng
+// chuyên ("ngu ngu tí nhưng pick ra dễ"). Khách có chỉ định tick sẵn (hướng
+// dẫn tới đây / phòng chuyên ★) đứng đầu (máy chủ xếp).
 //
-// [Nhận vào phòng này] = lệnh `nhan-vao-phong` (máy chủ hỏi quyền, khoá lượt).
-// Khách đang ở phòng khác → máy chủ trả 409 KHACH_O_PHONG_KHAC kèm tên phòng;
-// màn hỏi MỘT câu xác nhận (không bắt lý do) rồi gửi lại `xac_nhan`. Nhận xong
-// mời Hoàn tác vài giây (khách về Sắp đến).
+// MỖI KHÁCH MỘT Ô: trong ô các chỉ định phòng làm được + trạng thái. Bấm
+// [Nhận…] mở danh sách tick (`NhanChiDinh`) — nhận theo TỪNG CHỈ ĐỊNH.
 
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
-import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 
-import { cauDangOPhong, guiThaoTac, type DangOPhong } from "../../_lam-viec/api";
+import { cauChiDinhPhong, type ChiDinhPhong, type DangOPhong } from "../../_lam-viec/api";
 import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "../../_lam-viec/ChonBacSiLam";
-import { lenhHoanTac } from "../../_lam-viec/hoan-tac";
+import NhanChiDinh from "./NhanChiDinh";
+
+/** "đang chờ / đang làm ở <phòng>" — giữ nguyên chữ hoa của tên phòng. */
+function cauKhachDangO(d: DangOPhong): string {
+  return `đang ${d.trang_thai === "lam" ? "làm" : "chờ"} ở ${d.phong ?? "phòng khác"}`;
+}
 
 export interface KhachSapDen {
   visit_id: string;
   khach: string | null;
   ma_khach: string | null;
   duoc_huong_dan: boolean;
+  co_tick_san: boolean;
+  /** Khách vào số "sắp đến" (có chỉ định chưa vào phòng nào). False = đang
+   *  chờ / làm ở phòng khác — vẫn hiện để pick ra dễ, số đã đếm ở phòng kia. */
+  tinh_so?: boolean;
+  /** Còn chỉ định nhận được (chưa vào phòng / đang CHỜ ở phòng khác). */
+  nhan_duoc?: boolean;
+  so_chi_dinh: number;
   dang_o_phong: DangOPhong | null;
-  chi_dinh: { id: string; ten: string; chua_chot: boolean }[];
+  chi_dinh: ChiDinhPhong[];
 }
 
 export default function SapDenPhong({
@@ -45,94 +55,80 @@ export default function SapDenPhong({
   onDaNhan: () => void;
   onBao: (tb: ThongBao) => void;
 }) {
-  const [dang, setDang] = useState<string | null>(null);
-  const [loi, setLoi] = useState<string | null>(null);
-  const [hoi, setHoi] = useState<{ visitId: string; cau: string } | null>(null);
+  const [mo, setMo] = useState<string | null>(null);
   const [chonBs, setChonBs] = useState("");
 
   if (ds.length === 0) return null;
 
-  const nhan = async (k: KhachSapDen, xacNhan: boolean) => {
-    setDang(k.visit_id);
-    setLoi(null);
-    const kq = await guiThaoTac("nhan-vao-phong", k.visit_id, {
-      room_id: roomId,
-      ...(xacNhan ? { xac_nhan: true } : {}),
-      ...(chonBs ? { bac_si_lam_id: chonBs } : {}),
-    });
-    setDang(null);
-    if (!kq.ok) {
-      if (kq.chiTiet?.ma === "KHACH_O_PHONG_KHAC") {
-        setHoi({ visitId: k.visit_id, cau: kq.loi });
-        return;
-      }
-      setHoi(null);
-      setLoi(`${k.khach ?? "Khách"}: ${kq.loi}`);
-      onDaNhan();
-      return;
-    }
-    setHoi(null);
-    const boQua = Array.isArray(kq.data.bo_qua) ? (kq.data.bo_qua as { ten: string; cau: string }[]) : [];
-    if (boQua.length) setLoi(boQua.map((b) => `${b.ten}: ${b.cau}`).join(" · "));
-    onBao({
-      cau: `Đã nhận ${k.khach ?? "khách"} vào phòng`,
-      goi: lenhHoanTac("hoan-tac-nhan", k.visit_id, { room_id: roomId }),
-    });
-    onDaNhan();
-  };
-
   return (
     <section aria-label="Khách sắp đến phòng" className="space-y-2 rounded-card border border-info bg-info-bg p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-meta font-semibold uppercase tracking-wide text-info">Sắp đến ({ds.length})</p>
+        <p className="text-meta font-semibold uppercase tracking-wide text-info">
+          Sắp đến ({ds.filter((k) => k.tinh_so !== false).length})
+          {ds.some((k) => k.tinh_so === false) ? (
+            <span className="font-normal normal-case">
+              {" "}
+              · +{ds.filter((k) => k.tinh_so === false).length} đang ở phòng khác
+            </span>
+          ) : null}
+        </p>
         {coChonBacSi(bacSi) ? (
-          <ChonBacSiLam co="nho" ds={bacSi} value={chonBs} disabled={dang !== null} onChon={setChonBs} />
+          <ChonBacSiLam co="nho" ds={bacSi} value={chonBs} disabled={mo !== null} onChon={setChonBs} />
         ) : null}
       </div>
       <ul className="space-y-2">
         {ds.map((k) => (
-          <li key={k.visit_id} className="space-y-1">
+          <li key={k.visit_id} className="space-y-1 rounded-control bg-surface p-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="min-w-0 flex-1 text-body text-ink">
                 <span className="font-semibold">{k.khach ?? "—"}</span>
                 {k.ma_khach ? <span className="text-ink-muted"> · {k.ma_khach}</span> : null}
-                <span className="block text-meta text-ink-muted">
-                  {k.chi_dinh.map((c) => c.ten + (c.chua_chot ? " (chưa chốt)" : "")).join(" · ")}
-                </span>
+                <span className="text-meta text-ink-muted"> · {k.so_chi_dinh} chỉ định</span>
               </span>
-              <Button
-                type="button"
-                size="sm"
-                variant="primary"
-                disabled={dang !== null}
-                onClick={() => void nhan(k, false)}
-              >
-                {dang === k.visit_id ? "Đang nhận…" : "Nhận vào phòng này"}
-              </Button>
+              {mo !== k.visit_id && k.nhan_duoc !== false ? (
+                <Button type="button" size="sm" variant="primary" onClick={() => setMo(k.visit_id)}>
+                  Nhận…
+                </Button>
+              ) : null}
             </div>
+            <ul className="space-y-0.5 text-meta">
+              {k.chi_dinh.map((c) => (
+                <li key={c.id} className="flex flex-wrap items-baseline gap-x-1.5">
+                  <span className="text-ink">
+                    {c.ten ?? "—"}
+                    {c.chuyen ? " ★" : ""}
+                  </span>
+                  <span className={c.trang_thai === "sap_den" ? "text-ink-muted" : "text-warning"}>
+                    {cauChiDinhPhong(c)}
+                    {c.chua_chot ? " · chưa chốt" : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
             {k.duoc_huong_dan || k.dang_o_phong ? (
               <div className="flex flex-wrap gap-1">
                 {k.duoc_huong_dan ? <Chip tone="info">Được hướng dẫn đến đây</Chip> : null}
-                {k.dang_o_phong ? <Chip tone="warning">{cauDangOPhong(k.dang_o_phong)}</Chip> : null}
+                {k.dang_o_phong ? <Chip tone="warning">Khách {cauKhachDangO(k.dang_o_phong)}</Chip> : null}
               </div>
             ) : null}
-            {hoi?.visitId === k.visit_id ? (
-              <XacNhanTaiCho
-                cau={hoi.cau}
-                nhanDongY="Nhận sang phòng này"
-                dangGui={dang !== null}
-                onDongY={() => void nhan(k, true)}
-                onThoi={() => setHoi(null)}
+            {mo === k.visit_id ? (
+              <NhanChiDinh
+                roomId={roomId}
+                visitId={k.visit_id}
+                khach={k.khach}
+                chiDinh={k.chi_dinh}
+                bacSiLamId={chonBs}
+                onThoi={() => setMo(null)}
+                onBao={onBao}
+                onXong={() => {
+                  setMo(null);
+                  onDaNhan();
+                }}
               />
             ) : null}
           </li>
         ))}
       </ul>
-      {loi ? (
-        <p role="alert" className="text-meta text-danger">
-          {loi}
-        </p>
-      ) : null}
     </section>
   );
 }

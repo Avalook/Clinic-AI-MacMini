@@ -299,6 +299,27 @@ async def set_room_nodes(
     )
 
 
+class RoomNodeChuyenRequest(BaseModel):
+    room_id: UUID
+    node_code: str = Field(min_length=1, max_length=64)
+    chuyen: bool
+
+
+@router.put("/clinic-config/room-node-chuyen")
+async def set_room_node_chuyen(
+    body: RoomNodeChuyenRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đánh / bỏ phòng chuyên ★ cho một chức năng của phòng (07/10/2026)."""
+    return await ClinicConfigService(pool).set_room_node_chuyen(
+        identity=identity,
+        room_id=str(body.room_id),
+        node_code=body.node_code,
+        chuyen=body.chuyen,
+    )
+
+
 class RoomServicesRequest(BaseModel):
     room_id: UUID
     #: Danh sách ĐẦY ĐỦ dịch vụ gắn riêng cho phòng (mã service_price). Rỗng =

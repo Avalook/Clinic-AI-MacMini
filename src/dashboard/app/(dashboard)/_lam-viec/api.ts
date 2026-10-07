@@ -94,6 +94,42 @@ export function cauDangOPhong(d: DangOPhong): string {
   return `Đang ${d.trang_thai === "lam" ? "làm" : "chờ"} ở ${d.phong ?? "phòng khác"}`;
 }
 
+/** Một chỉ định NHÌN TỪ một phòng (07/10/2026 — mỗi khách một ô, nhận theo
+ *  chỉ định). Máy chủ quyết trạng thái, nhận được không, tick sẵn không. */
+export interface ChiDinhPhong {
+  id: string;
+  ten: string | null;
+  trang_thai: "sap_den" | "cho" | "lam" | "xong" | "o_phong_khac";
+  /** Phòng khác đang giữ / đã làm chỉ định này. */
+  phong: string | null;
+  o_trang_thai: "cho" | "lam" | null;
+  huong_dan_id: string | null;
+  /** Tên phòng quầy / bác sĩ hướng dẫn. */
+  huong_dan: string | null;
+  huong_dan_day: boolean;
+  /** Phòng này là phòng chuyên ★ của chỉ định. */
+  chuyen: boolean;
+  chua_chot: boolean;
+  nhan_duoc: boolean;
+  tick_san: boolean;
+}
+
+/** Nhãn trạng thái của một chỉ định trong ô khách — chỉ ghép chữ từ máy chủ. */
+export function cauChiDinhPhong(c: ChiDinhPhong): string {
+  switch (c.trang_thai) {
+    case "sap_den":
+      return c.huong_dan && !c.huong_dan_day ? `sắp đến · hướng dẫn: ${c.huong_dan}` : "sắp đến";
+    case "cho":
+      return "chờ ở đây";
+    case "lam":
+      return "đang làm";
+    case "xong":
+      return c.phong ? `xong ở ${c.phong}` : "xong";
+    default:
+      return `đang ${c.o_trang_thai === "lam" ? "làm" : "chờ"} ở ${c.phong ?? "phòng khác"}`;
+  }
+}
+
 /** Ba số của một phòng (07/10/2026): sắp đến (dây Nhận tại phòng bật) · đang
  *  chờ · đang làm — số khách hôm nay, máy chủ đếm. */
 export interface DemPhong {

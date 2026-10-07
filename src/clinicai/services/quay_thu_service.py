@@ -105,6 +105,7 @@ class PhongQuay:
         from clinicai.services.service_routing_service import (
             co_so_cua_luot,
             eligible_rooms,
+            phong_chuyen_duy_nhat,
             rank_rooms,
         )
 
@@ -138,6 +139,7 @@ class PhongQuay:
                 [u["room_id"] for u in ung_vien],
                 tru_luot=visit_id,
             )
+            goi_y = phong_chuyen_duy_nhat(ung_vien)
             self._nho[khoa] = xep_vang_nhat(
                 [
                     {
@@ -145,6 +147,10 @@ class PhongQuay:
                         "ten": self._ten.get(u["room_id"], "Phòng"),
                         "dang_cho": u["queue_load"],
                         "bac_si": ds if can_chon_bac_si(ds) else [],
+                        # Phòng chuyên ★ (07/10/2026); ``goi_y`` = phòng chuyên
+                        # DUY NHẤT — ô hướng dẫn gợi ý, không tự lưu.
+                        "chuyen": bool(u.get("chuyen")),
+                        "goi_y": u["room_id"] == goi_y,
                     }
                     for u in ung_vien
                     for ds in [bac_si.get(u["room_id"], [])]
@@ -884,12 +890,14 @@ SELECT o.id::text AS source_id, 'service_order' AS source_type,
 
 async def _phong_lam_duoc_cua_luot(
     conn: asyncpg.Connection, cid: str, visit_id: str
-) -> dict[str, list[str]]:
-    """Chỉ định → tên các phòng đang nhận khách làm được nó, cùng cơ sở."""
-    out: dict[str, list[str]] = {}
+) -> dict[str, list[dict[str, Any]]]:
+    """Chỉ định → các phòng đang nhận khách làm được nó, cùng cơ sở (tên + ★)."""
+    out: dict[str, list[dict[str, Any]]] = {}
     for r in await conn.fetch(
         """
-        SELECT o.id::text AS id, r.name AS ten
+        SELECT o.id::text AS id, r.name AS ten,
+               phong_chuyen(r.clinic_id, r.id, o.node_code, o.service_code)
+                   AS chuyen
           FROM service_order o
           JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
           LEFT JOIN appointment a
@@ -907,8 +915,20 @@ async def _phong_lam_duoc_cua_luot(
         cid,
         visit_id,
     ):
-        out.setdefault(r["id"], []).append(r["ten"])
+        out.setdefault(r["id"], []).append(
+            {"id": r["id"], "ten": r["ten"], "chuyen": bool(r["chuyen"])}
+        )
     return out
+
+
+def phong_in_huong_dan(phong: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Phiếu hướng dẫn, chỉ định CHƯA chọn hướng dẫn (dây Nhận tại phòng bật)
+    — HÀM THUẦN: đúng MỘT phòng chuyên ★ thì in tên phòng ấy (07/10/2026);
+    không thì in "các phòng làm được" như trước."""
+    chuyen = [str(p["ten"]) for p in phong if p.get("chuyen")]
+    if len(chuyen) == 1:
+        return {"phong_chuyen": chuyen[0], "phong_lam_duoc": []}
+    return {"phong_chuyen": None, "phong_lam_duoc": [str(p["ten"]) for p in phong]}
 
 
 def dong_huong_dan(
@@ -1202,7 +1222,9 @@ class QuayThuService:
                 lam_duoc = await _phong_lam_duoc_cua_luot(conn, cid, visit_id)
                 for d in dong:
                     if d.get("phong") is None and d.get("order_id"):
-                        d["phong_lam_duoc"] = lam_duoc.get(str(d["order_id"]), [])
+                        d.update(
+                            phong_in_huong_dan(lam_duoc.get(str(d["order_id"]), []))
+                        )
         return {
             "id": visit_id,
             "loai": "huong_dan",

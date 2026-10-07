@@ -60,6 +60,7 @@ import {
   gioVn,
   soPhutTu,
   LY_DO_TIENG_VIET,
+  type ChiDinhPhong,
   type DemPhong,
   type DongHangCho,
   type Phong,
@@ -72,6 +73,7 @@ import KhungTep from "../../_lam-viec/KhungTep";
 import PhieuKetQua from "../../_lam-viec/PhieuKetQua";
 import XemLuot from "../../_lam-viec/XemLuot";
 import ChuaXepPhong, { type KhachChuaXep } from "./ChuaXepPhong";
+import HangChoKhachPhong, { gomTheoKhach } from "./HangChoKhachPhong";
 import SapDenPhong, { type KhachSapDen } from "./SapDenPhong";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -126,6 +128,8 @@ export default function PhongDichVu({ ma }: { ma: string }) {
   // khách + ba số của phòng — máy chủ trả, màn chỉ vẽ.
   const [taiPhong, setTaiPhong] = useState(false);
   const [sapDen, setSapDen] = useState<KhachSapDen[]>([]);
+  // Mỗi khách một ô (07/10/2026): chỉ định phòng làm được + trạng thái.
+  const [chiDinhKhach, setChiDinhKhach] = useState<Record<string, ChiDinhPhong[]>>({});
   const [bacSiPhong, setBacSiPhong] = useState<LuaChonBacSi[]>([]);
   const [dem, setDem] = useState<DemPhong | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
@@ -173,6 +177,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         chua_xep_phong?: KhachChuaXep[];
         nhan_tai_phong?: boolean;
         sap_den_phong?: KhachSapDen[];
+        chi_dinh_khach?: Record<string, ChiDinhPhong[]>;
         bac_si_phong?: LuaChonBacSi[];
         dem?: DemPhong | null;
         hom_nay?: boolean;
@@ -188,6 +193,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
         setChuaXep(kq.data.chua_xep_phong ?? []);
         setTaiPhong(kq.data.nhan_tai_phong ?? false);
         setSapDen(kq.data.sap_den_phong ?? []);
+        setChiDinhKhach(kq.data.chi_dinh_khach ?? {});
         setBacSiPhong(kq.data.bac_si_phong ?? []);
         setDem(kq.data.dem ?? null);
         setLaHomNay(kq.data.hom_nay ?? true);
@@ -243,10 +249,11 @@ export default function PhongDichVu({ ma }: { ma: string }) {
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h1 className="text-title font-semibold text-ink">{phong?.ten ?? "Đang tải…"}</h1>
         {hang && taiPhong && dem ? (
-          // Cùng ba số với ô phòng ở /phong (máy chủ đếm theo khách).
+          // Cùng ba số với ô phòng ở /phong (máy chủ đếm theo KHÁCH); "đã xong"
+          // = số ô khách ở nhóm Đã xong.
           <p className="text-body tabular-nums text-ink-muted">
             {dem.sap_den ?? 0} sắp đến · {dem.dang_cho} đang chờ · {dem.dang_lam} đang làm ·{" "}
-            {ds.filter((d) => d.trang_thai === "done").length} đã xong
+            {gomTheoKhach(ds).filter((k) => k.nhom === "xong").length} đã xong
           </p>
         ) : hang ? (
           <p className="text-body text-ink-muted">
@@ -311,12 +318,30 @@ export default function PhongDichVu({ ma }: { ma: string }) {
                   nhan: `Khách của làn tôi · ${lanToi.nhan ?? "làn của tôi"}`,
                   title: "Khách quầy chọn bác sĩ làn của bạn + khách chưa chọn bác sĩ",
                 },
-                { ma: "ca_phong", nhan: `Cả phòng (${ca.length})` },
+                { ma: "ca_phong", nhan: `Cả phòng (${taiPhong ? gomTheoKhach(ca).length : ca.length})` },
               ]}
             />
           ) : null}
           {hang === null ? (
             <p className="text-body text-ink-muted">Đang tải hàng chờ…</p>
+          ) : taiPhong ? (
+            <HangChoKhachPhong
+              dong={ds}
+              chiDinhKhach={chiDinhKhach}
+              chon={chon?.id ?? null}
+              onChon={(id) => {
+                setChonId(id);
+                if (window.innerWidth < 1024) {
+                  requestAnimationFrame(() =>
+                    document.getElementById("khung-khach-trong-phong")?.scrollIntoView({ block: "start" }),
+                  );
+                }
+              }}
+              nhanTaiPhong={laHomNay && phong ? phong.id : null}
+              onDaNhan={napLai}
+              onBao={setThongBao}
+              trong="Chưa có khách nào được nhận vào phòng này."
+            />
           ) : (
             <HangChoCot
               dong={ds}
@@ -341,7 +366,6 @@ export default function PhongDichVu({ ma }: { ma: string }) {
           <KhachTrongPhong
             key={chon.id}
             dong={chon}
-            nhaTaiPhong={taiPhong && laHomNay && phong ? phong.id : null}
             onDaBam={napLai}
             onBao={setThongBao}
             keTiep={keTiep ? { ten: keTiep.ten, onChon: () => setChonId(keTiep.id) } : null}
@@ -358,14 +382,11 @@ export default function PhongDichVu({ ma }: { ma: string }) {
 
 function KhachTrongPhong({
   dong,
-  nhaTaiPhong,
   onDaBam,
   onBao,
   keTiep,
 }: {
   dong: DongHangCho;
-  /** Dây Nhận tại phòng bật: mã phòng để nút Nhả gửi lệnh (null = không có nút). */
-  nhaTaiPhong?: string | null;
   onDaBam: () => void;
   /** Báo thông báo kèm Hoàn tác sau thao tác (đặt ở cấp màn). */
   onBao?: (tb: ThongBao) => void;
@@ -438,22 +459,6 @@ function KhachTrongPhong({
       });
     }
     docLai();
-    onDaBam();
-  };
-
-  const nha = async (roomId: string) => {
-    setDangGui(true);
-    setLoi(null);
-    const kq = await guiThaoTac("nha-khoi-phong", dong.visit_id, { room_id: roomId });
-    setDangGui(false);
-    if (!kq.ok) {
-      setLoi(kq.loi);
-      return;
-    }
-    onBao?.({
-      cau: `Đã nhả ${dong.ten} — khách về Sắp đến`,
-      goi: lenhHoanTac("hoan-tac-nha", dong.visit_id, { room_id: roomId }),
-    });
     onDaBam();
   };
 
@@ -572,13 +577,6 @@ function KhachTrongPhong({
               }
             >
               {dangGui ? "Đang ghi…" : "Làm lại"}
-            </Button>
-          ) : null}
-          {/* NHẢ (07/10/2026, mục 7b): khách đang chờ ở phòng này về "Sắp đến"
-              của mọi phòng — hoàn tác được vài giây sau. */}
-          {nhaTaiPhong && chuaLam && ["waiting", "called", "blocked"].includes(dong.trang_thai) ? (
-            <Button size="sm" variant="ghost" disabled={dangGui} onClick={() => void nha(nhaTaiPhong)}>
-              Nhả khách
             </Button>
           ) : null}
           {/* HUỶ BẮT ĐẦU NHẦM (V4, 30/09/2026): ngay cạnh chỗ vừa bấm Bắt đầu,

@@ -28,6 +28,8 @@ interface UngVien {
   room_id: string;
   rank: number;
   queue_load: number;
+  /** Phòng chuyên ★ của chỉ định (07/10/2026) — chỉ để gợi ý. */
+  chuyen?: boolean;
   /** Phòng nhiều bác sĩ (30/09/2026): bác sĩ trực hôm nay — chỉ có phần tử khi
    *  ≥2 bác sĩ (một bác sĩ thì máy chủ tự gán). */
   bac_si?: LuaChonBacSi[];
@@ -54,6 +56,8 @@ interface GoiY {
   dang_lam_tu?: string | null;
   /** Dây "Nhận khách tại phòng" bật (07/10/2026): chọn phòng = hướng dẫn. */
   huong_dan?: boolean;
+  /** Đúng MỘT phòng chuyên ★ → máy chủ gợi ý phòng này (chưa lưu). */
+  goi_y_chuyen?: string | null;
 }
 
 function gioPhut(iso: string | null | undefined): string {
@@ -130,7 +134,7 @@ export default function DoiPhong({
   }
 
   const nhan = (u: UngVien) =>
-    `${ten[u.room_id] ?? "Phòng"} · ${u.queue_load} đang chờ`;
+    `${ten[u.room_id] ?? "Phòng"}${u.chuyen ? " ★" : ""} · ${u.queue_load} đang chờ`;
 
   async function doi() {
     if (!chon || routingRevision == null) return;
@@ -202,7 +206,8 @@ export default function DoiPhong({
 
   // HƯỚNG DẪN PHÒNG (dây Nhận tại phòng bật): quầy / trưởng ca ghi phòng hướng
   // dẫn; màn khác (Bàn khám, Xem lượt) đi lệnh xếp phòng — máy chủ cũng chỉ ghi
-  // hướng dẫn. Trưởng ca đổi phòng khách đang chờ = máy chủ nhả + hướng dẫn.
+  // hướng dẫn. Trưởng ca đổi phòng khách đang chờ = CHỈ ghi hướng dẫn (07/10:
+  // khách sang phòng mới thì phòng ấy nhận chéo).
   async function huongDan(roomId: string) {
     if (nguon === "khac" && (!roomId || routingRevision == null)) return;
     setDangGui(true);
@@ -286,6 +291,22 @@ export default function DoiPhong({
             ))}
           </select>
         </label>
+        {/* GỢI Ý phòng chuyên ★ (07/10/2026): máy chủ chỉ gợi ý khi đúng một
+            phòng chuyên; KHÔNG tự lưu — người bấm mới ghi hướng dẫn. */}
+        {!goiY.phong_du_kien_id && goiY.goi_y_chuyen && ten[goiY.goi_y_chuyen] ? (
+          <p className="flex flex-wrap items-center gap-2 text-label text-ink-muted">
+            Gợi ý: {ten[goiY.goi_y_chuyen]} ★ (phòng chuyên, chưa lưu)
+            <Button
+              type="button"
+              size="sm"
+              variant="soft"
+              disabled={dangGui}
+              onClick={() => void huongDan(goiY.goi_y_chuyen as string)}
+            >
+              Hướng dẫn tới đây
+            </Button>
+          </p>
+        ) : null}
         {goiY.phong_hien_tai ? (
           <p className="text-label text-ink-muted">Đã vào: {goiY.phong_hien_tai}</p>
         ) : null}

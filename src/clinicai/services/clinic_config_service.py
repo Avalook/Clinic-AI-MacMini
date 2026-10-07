@@ -162,6 +162,10 @@ SELECT l.id                AS location_id,
        r.sort,
        (SELECT coalesce(array_agg(rn.node_code ORDER BY rn.node_code), '{}')
           FROM public.clinic_room_node rn WHERE rn.room_id = r.id) AS serves,
+       -- Chức năng phòng này là PHÒNG CHUYÊN ★ (07/10/2026).
+       (SELECT coalesce(array_agg(rn.node_code ORDER BY rn.node_code), '{}')
+          FROM public.clinic_room_node rn
+         WHERE rn.room_id = r.id AND rn.chuyen) AS chuyen,
        -- Dịch vụ gắn RIÊNG cho phòng (clinic_room_service, 30/09/2026).
        (SELECT coalesce(json_agg(json_build_object(
                    'ma', s.service_code, 'ten', sp.name, 'node', sp.node_code)
@@ -284,9 +288,33 @@ class ClinicConfigService:
             """,
             identity.clinic_id,
         )
+        # CHƯA CÓ PHÒNG CHUYÊN ★ (07/10/2026) — chỉ cảnh báo nhẹ, không chặn:
+        # nhóm dịch vụ có phòng nội bộ đang bật làm được mà chưa phòng nào ★.
+        chua_chuyen = await self._pool.fetch(
+            """
+            SELECT n.code, n.name FROM public.node_definition n
+             WHERE n.clinic_id = $1::uuid AND n.code LIKE 'DICHVU-%'
+               AND n.is_active
+               AND EXISTS (
+                     SELECT 1 FROM public.clinic_room_node rn
+                       JOIN public.clinic_room r ON r.id = rn.room_id
+                      WHERE rn.clinic_id = n.clinic_id AND rn.node_code = n.code
+                        AND r.is_active AND NOT r.la_doi_tac)
+               AND NOT EXISTS (
+                     SELECT 1 FROM public.clinic_room_node rn
+                       JOIN public.clinic_room r ON r.id = rn.room_id
+                      WHERE rn.clinic_id = n.clinic_id AND rn.node_code = n.code
+                        AND rn.chuyen AND r.is_active AND NOT r.la_doi_tac)
+             ORDER BY n.code
+            """,
+            identity.clinic_id,
+        )
         return {
             "locations": _group_locations(rows),
             "nodes": [{"code": n["code"], "name": n["name"]} for n in nodes],
+            "chua_co_phong_chuyen": [
+                {"code": n["code"], "name": n["name"]} for n in chua_chuyen
+            ],
             # Ô thêm việc của phòng — máy chủ quyết cái gì chọn được.
             "viec_chon_duoc": gom_viec_chon_duoc(
                 [dict(n) for n in nodes], [dict(d) for d in dich_vu]
@@ -860,14 +888,19 @@ class ClinicConfigService:
                     "chính — bỏ bước đó thì phải đổi bước chính trước."
                 )
 
+            # Chỉ xoá bước bị bỏ, chỉ thêm bước mới — dòng giữ nguyên giữ dấu
+            # phòng chuyên ★ (07/10/2026; xoá-hết-rồi-chèn sẽ lặng lẽ mất ★).
             await conn.execute(
-                "DELETE FROM public.clinic_room_node WHERE room_id = $1::uuid",
+                "DELETE FROM public.clinic_room_node WHERE room_id = $1::uuid"
+                " AND NOT (node_code = ANY($2::text[]))",
                 room_id,
+                list(node_codes),
             )
             if node_codes:
                 await conn.executemany(
                     "INSERT INTO public.clinic_room_node"
-                    " (clinic_id, room_id, node_code) VALUES ($1::uuid, $2::uuid, $3)",
+                    " (clinic_id, room_id, node_code) VALUES ($1::uuid, $2::uuid, $3)"
+                    " ON CONFLICT DO NOTHING",
                     [(identity.clinic_id, room_id, c) for c in node_codes],
                 )
         logger.info("room_nodes_set", room=room["code"], n=len(node_codes))
@@ -880,6 +913,70 @@ class ClinicConfigService:
         # Quyền theo lịch đọc phòng/node/vị trí — đổi thì quên quyền đang nhớ.
         cache.quen(identity.clinic_id)
         return {"ok": True, "room_code": room["code"], "nodes": node_codes}
+
+    async def set_room_node_chuyen(
+        self, *, identity: StaffIdentity, room_id: str, node_code: str, chuyen: bool
+    ) -> dict[str, Any]:
+        """Đánh / bỏ PHÒNG CHUYÊN ★ cho một chức năng của phòng (07/10/2026).
+
+        ★ chỉ dùng để tick sẵn khi phòng Nhận chỉ định chưa có hướng dẫn và gợi
+        ý hướng dẫn ở quầy / phiếu — không thu hẹp phòng làm được (luật
+        `phong_chuyen`). Nhiều phòng cùng ★ một chức năng được (khi đó quầy
+        không gợi ý phòng nào). Mỗi lần đổi thật một dòng nhật ký (trước → sau)
+        — người đánh sau không xoá dấu người đánh trước."""
+        await self._duoc_cau_hinh(identity)
+        async with self._pool.acquire() as conn, conn.transaction():
+            cu = await conn.fetchrow(
+                "SELECT rn.chuyen, r.code FROM public.clinic_room_node rn"
+                " JOIN public.clinic_room r ON r.id = rn.room_id"
+                " WHERE rn.clinic_id = $1::uuid AND rn.room_id = $2::uuid"
+                "   AND rn.node_code = $3 FOR UPDATE OF rn",
+                identity.clinic_id,
+                room_id,
+                node_code,
+            )
+            if cu is None:
+                raise ValidationError(
+                    "Phòng này chưa làm chức năng ấy — thêm việc cho phòng trước"
+                    " rồi mới đánh phòng chuyên."
+                )
+            if bool(cu["chuyen"]) == bool(chuyen):
+                return {
+                    "ok": True,
+                    "already": True,
+                    "room_id": room_id,
+                    "node_code": node_code,
+                    "chuyen": bool(chuyen),
+                }
+            await conn.execute(
+                "UPDATE public.clinic_room_node SET chuyen = $4"
+                " WHERE clinic_id = $1::uuid AND room_id = $2::uuid AND node_code = $3",
+                identity.clinic_id,
+                room_id,
+                node_code,
+                bool(chuyen),
+            )
+            await record_event(
+                conn,
+                event_type="clinic_config.room_node_chuyen",
+                aggregate_type="clinic",
+                aggregate_id=identity.clinic_id,
+                identity=identity,
+                origin="api:clinic-config",
+                payload={
+                    "doi_tuong_id": room_id,
+                    "node_code": node_code,
+                    "chuyen": bool(chuyen),
+                    "truoc": bool(cu["chuyen"]),
+                },
+            )
+        logger.info("room_node_chuyen", room=cu["code"], node=node_code, on=chuyen)
+        return {
+            "ok": True,
+            "room_id": room_id,
+            "node_code": node_code,
+            "chuyen": bool(chuyen),
+        }
 
     async def set_room_services(
         self, *, identity: StaffIdentity, room_id: str, service_codes: list[str]
@@ -1140,6 +1237,7 @@ def _group_locations(rows: list[asyncpg.Record]) -> list[dict[str, Any]]:
                 "is_active": r["room_active"],
                 "primary_node": r["primary_node"],
                 "serves": list(r["serves"] or []),
+                "chuyen": list(dict(r).get("chuyen") or []),
                 "dich_vu": _json_list(dict(r).get("dich_vu")),
             }
         )
