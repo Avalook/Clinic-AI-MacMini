@@ -22,7 +22,7 @@ OPEN, không tự chốt ở đây:
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -193,6 +193,8 @@ async def can_route_invalidate(
 #: cũ. Mọi chỗ tính "phòng làm được chỉ định này" gọi đúng hàm ấy.
 _ELIGIBLE_SQL = """
 SELECT r.id::text AS room_id, r.code, r.sort,
+       -- Phòng chuyên ★ (07/10/2026): chỉ để GỢI Ý hướng dẫn, không xếp hạng.
+       phong_chuyen(r.clinic_id, r.id, $2, $5) AS chuyen,
        EXISTS (
            SELECT 1 FROM work_roster w
              JOIN vi_tri_lam_viec v
@@ -316,6 +318,7 @@ class RoomCandidate:
     sort: int
     co_nguoi_truc: bool
     tai: int
+    chuyen: bool = False
 
 
 async def eligible_rooms(
@@ -346,6 +349,7 @@ async def eligible_rooms(
             sort=int(r["sort"]),
             co_nguoi_truc=bool(r["co_nguoi_truc"]),
             tai=int(r["tai"]),
+            chuyen=bool(r["chuyen"]),
         )
         for r in await conn.fetch(
             _ELIGIBLE_SQL,
@@ -380,9 +384,18 @@ def rank_rooms(rooms: Sequence[RoomCandidate]) -> list[dict[str, Any]]:
                 "reason_codes": ly_do,
                 "queue_load": r.tai,
                 "confidence": None,
+                "chuyen": r.chuyen,
             }
         )
     return out
+
+
+def phong_chuyen_duy_nhat(ung_vien: Sequence[Mapping[str, Any]]) -> str | None:
+    """Gợi ý hướng dẫn (07/10/2026) — HÀM THUẦN: đúng MỘT phòng chuyên ★ trong
+    tập phòng làm được thì gợi ý phòng ấy; không có hoặc nhiều hơn một thì
+    không gợi ý. Chỉ là gợi ý — không tự lưu."""
+    ids = [str(u.get("room_id") or u.get("id")) for u in ung_vien if u.get("chuyen")]
+    return ids[0] if len(ids) == 1 else None
 
 
 def gan_bac_si_vao_ung_vien(
@@ -981,7 +994,6 @@ async def _vao_hang_tai_phong(
     oid: str,
     rid: str,
     q: asyncpg.Record | None,
-    vao_hang_luc: Any,
 ) -> str:
     """Nhận tại phòng: khách ĐANG CHỜ ở phòng này từ lúc nhận (hàng phòng mới,
     tính giờ mới — không mang tuổi chờ của phòng khác). Khách đang được làm
@@ -1003,13 +1015,12 @@ async def _vao_hang_tai_phong(
     await conn.execute(
         "INSERT INTO queue_entry (clinic_id, visit_id, lane, room_id, reason,"
         " ref_id, status, eligible_at) VALUES ($1::uuid, $2::uuid, 'ROOM',"
-        " $3::uuid, 'SERVICE', $4::uuid, $5, coalesce($6::timestamptz, now()))",
+        " $3::uuid, 'SERVICE', $4::uuid, $5, now())",
         cid,
         vid,
         rid,
         oid,
         status,
-        vao_hang_luc,
     )
     return status
 
@@ -1126,6 +1137,8 @@ class ServiceRoutingService:
             else None,
             # Dây Nhận tại phòng BẬT: chọn phòng = hướng dẫn (07/10/2026).
             "huong_dan": huong_dan,
+            # Đúng một phòng chuyên ★ → màn chọn sẵn trong ô (chưa lưu).
+            "goi_y_chuyen": phong_chuyen_duy_nhat(ung_vien) if huong_dan else None,
             "phong_du_kien_id": o["phong_du_kien_id"],
             "bac_si_lam_id": o["bac_si_lam_id"],
             "bac_si_lam": ten_bac_si(o["bac_si_lam"]) if o["bac_si_lam"] else None,
@@ -1245,8 +1258,6 @@ class ServiceRoutingService:
         du_kien_nguon: str | None = None,
         bac_si: Any = KHONG_DOI,
         doi_chieu: dict[str, Any] | None = None,
-        phat_su_kien: bool = True,
-        vao_hang_luc: Any = None,
     ) -> dict[str, Any]:
         """Lõi AssignServiceRoom — người gọi đã kiểm quyền và khoá lượt.
 
@@ -1258,8 +1269,7 @@ class ServiceRoutingService:
         vẫn nhận được, tiền chỉ chặn khoản đang hoàn / đã hoàn / sổ lệch (Bắt đầu
         làm vẫn theo luật thu trước); khách vào hàng "đang chờ" từ lúc nhận.
         ``doi_chieu`` = các trường đối chiếu hướng dẫn ↔ thực tế ghi kèm sự
-        kiện; ``phat_su_kien=False`` + ``vao_hang_luc`` cho hoàn tác Nhả (sự
-        kiện riêng, giữ giờ vào hàng cũ).
+        kiện.
         """
         cid = identity.clinic_id
         o = await conn.fetchrow(_ORDER_SQL, cid, oid)
@@ -1368,7 +1378,7 @@ class ServiceRoutingService:
                 **_co_bac_si(doi_bs["bac_si_lam_id"]),
             }
         queue_status = (
-            await _vao_hang_tai_phong(conn, cid, vid, oid, rid, q, vao_hang_luc)
+            await _vao_hang_tai_phong(conn, cid, vid, oid, rid, q)
             if tai_phong
             else await self._xep_hang(conn, cid, vid, oid, rid, q)
         )
@@ -1397,28 +1407,27 @@ class ServiceRoutingService:
         # Sổ sự kiện nghiệp vụ (dòng thời gian, bảng hành trình) — cùng giao
         # dịch với việc xếp. Người gây ra là người bấm, hoặc người vừa thu tiền
         # khi khối Hành trình xếp thay (tu_dong).
-        if phat_su_kien:
-            await emit_event(
-                conn,
-                ten="service.routed",
-                clinic_id=cid,
-                aggregate_id=oid,
-                so_ke_tiep=True,
-                payload=DaXepPhong(
-                    visit_id=vid,
-                    service_order_id=oid,
-                    room_id=rid,
-                    from_room_id=str(tu_phong) if tu_phong else None,
-                    routing_revision=int(moi),
-                    ly_do=ly_do,
-                    tu_dong=tu_dong,
-                    nguon=nguon,
-                    du_kien_nguon=du_kien_nguon,
-                    **(doi_chieu or {}),
-                ),
-                boi=nguoi(identity),
-                correlation_id=vid,
-            )
+        await emit_event(
+            conn,
+            ten="service.routed",
+            clinic_id=cid,
+            aggregate_id=oid,
+            so_ke_tiep=True,
+            payload=DaXepPhong(
+                visit_id=vid,
+                service_order_id=oid,
+                room_id=rid,
+                from_room_id=str(tu_phong) if tu_phong else None,
+                routing_revision=int(moi),
+                ly_do=ly_do,
+                tu_dong=tu_dong,
+                nguon=nguon,
+                du_kien_nguon=du_kien_nguon,
+                **(doi_chieu or {}),
+            ),
+            boi=nguoi(identity),
+            correlation_id=vid,
+        )
         await record_event(
             conn,
             event_type=EVENT_ROUTED,
@@ -1893,11 +1902,10 @@ class ServiceRoutingService:
         bac_si: Any,
     ) -> dict[str, Any]:
         """Dây ``nhan_tai_phong`` BẬT: chọn phòng ở quầy / bàn khám / trưởng ca
-        chỉ là HƯỚNG DẪN — không bao giờ xếp thật; phòng tự bấm Nhận. Trưởng ca
-        đổi phòng của khách đang CHỜ ở một phòng = nhả khách (DIEU_PHOI) về Sắp
-        đến + hướng dẫn phòng mới. Người gọi đã kiểm quyền + khoá lượt."""
-        from clinicai.services.nhan_tai_phong import nha_chi_dinh
-
+        chỉ là HƯỚNG DẪN — không bao giờ xếp thật; phòng tự bấm Nhận. Khách
+        đang chờ ở một phòng mà trưởng ca "đổi phòng" = CHỈ ghi hướng dẫn (07/10:
+        chỉ ghi sự kiện thật — khách sang phòng mới thì phòng ấy nhận chéo).
+        Người gọi đã kiểm quyền + khoá lượt."""
         cid = identity.clinic_id
         oid = str(o["id"])
         if o["exec_status"] in ("draft", "cancelled"):
@@ -1908,12 +1916,11 @@ class ServiceRoutingService:
                 conn, cid, rid, o, await co_so_cua_luot(conn, cid, visit_id=vid)
             )
         da_xep = _routing_hieu_luc(o) == ASSIGNED
-        da_nha = False
-        if nguon == NGUON_TRUONG_CA and da_xep and o["room_id"] != rid:
-            da_nha = await nha_chi_dinh(conn, identity, vid=vid, oid=oid)
-        await ghi_huong_dan(conn, identity, vid=vid, oid=oid, rid=rid, nguon=nguon)
+        doi = await ghi_huong_dan(
+            conn, identity, vid=vid, oid=oid, rid=rid, nguon=nguon
+        )
         bs_moi = o["bac_si_lam_id"]
-        if rid is not None and (da_nha or not da_xep):
+        if rid is not None and not da_xep:
             bs_moi = (
                 await self._ghi_bac_si(
                     conn,
@@ -1938,7 +1945,7 @@ class ServiceRoutingService:
         return {
             "ok": True,
             "order_id": oid,
-            "changed": da_nha,
+            "changed": doi,
             "huong_dan": True,
             "phong_du_kien_id": rid,
             "bac_si_lam_id": bs_moi,

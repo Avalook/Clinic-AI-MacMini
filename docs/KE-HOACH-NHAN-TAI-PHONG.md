@@ -10,13 +10,13 @@ migration dải `20261007500000`, cổng API/web 8251/3251.
    như cũ). BẬT: worker không tự xếp phòng; quầy thu/bàn khám chọn phòng chỉ là
    **hướng dẫn**; danh sách "Sắp đến" hiện khách ngay sau khi BS chỉ định.
 2. **Sắp đến → [Nhận vào phòng này] → Đang chờ → [Bắt đầu làm] → Đang làm → [Xong]**,
-   lặp qua từng phòng, về BS chính bấm "Bắt đầu khám" lần 2. Nhận theo KHÁCH (mọi chỉ
-   định của khách phòng đó làm được). Phòng nhiều BS: ô chọn BS cạnh nút Nhận.
+   lặp qua từng phòng, về BS chính bấm "Bắt đầu khám" lần 2. ~~Nhận theo KHÁCH~~ →
+   **Nhận theo từng CHỈ ĐỊNH** (sửa 07/10, mục cuối). Phòng nhiều BS: ô chọn BS cạnh nút Nhận.
 3. Khách **chưa chốt ở quầy** vẫn hiện ở Sắp đến và Nhận được; **Bắt đầu làm** vẫn theo
    luật thu trước – làm sau / tick "Làm trước – thu sau". Quầy bỏ dịch vụ → tự rời hàng.
 4. **Không khoá cứng — nhận chéo:** B luôn nhận được, chỉ một nút xác nhận, không bắt
-   chọn lý do.
-   - Khách đang CHỜ ở A → rời hàng A, chỉ định của A về "Sắp đến".
+   chọn lý do. Áp theo CHỈ ĐỊNH ĐƯỢC TICK (07/10).
+   - Chỉ định được tick đang CHỜ ở A → rời hàng A. Chỉ định không tick ở A: không đụng.
    - Khách đang LÀM ở A (A quên Xong) → đóng hàng chờ A, **lượt làm của A giữ mở**,
      thẻ ở A gắn nhãn đỏ "Khách đã sang phòng B lúc …"; A tự bấm Xong / Gián đoạn.
      Hệ thống không đoán thay A. (Bỏ hành vi cũ ở `service_execution_service.py`
@@ -31,14 +31,16 @@ migration dải `20261007500000`, cổng API/web 8251/3251.
 6. Khách đang ở phòng A: list Sắp đến các phòng khác + list BS chính ở bàn khám hiện
    "đang chờ / đang làm ở phòng A".
 7. Ô mỗi phòng ở `/phong`: **sắp đến · đang chờ · đang làm**, tự cập nhật.
-7b. **Nhả khách khỏi phòng** (phòng khám gửi bảng 3 bước Nhận · Bắt đầu · Nhả, 07/10):
-    mốc NHẢ có lý do — `XONG` (bấm Xong là tự nhả, không thêm cú bấm), `DIEU_PHOI`
-    (nút "Nhả" trên dòng đang chờ, cho phòng và trưởng ca; khách về Sắp đến, hướng dẫn
-    phòng mới tuỳ chọn; ô "đổi phòng" của trưởng ca khi dây bật = nhả + hướng dẫn),
-    `NHAN_CHEO` (phòng sau nhận khi phòng trước quên). Hoàn tác được.
-    Thời gian: chờ = Nhận→Bắt đầu; khám = Bắt đầu→Xong; đi lại = Nhả→Nhận phòng sau.
-8. **Mọi nút hoàn tác được:** Nhận → về Sắp đến (không đẻ việc trưởng ca như
-   `invalidate`); Bắt đầu → về Đang chờ (có sẵn); Xong (có sẵn).
+7b. **Bỏ nút Nhả (Tuyền chốt với quản lý 07/10) — chỉ ghi sự kiện THẬT người bấm.**
+    Nhân viên quên thì kệ, hệ thống không suy diễn / tự "đưa sẵn giải pháp". Không có
+    nút Nhả, không hoàn tác Nhả, Xong KHÔNG tự nhả chỉ định khác. Khách rời hàng một
+    phòng (`service.room_released`) chỉ khi: `NHAN_CHEO` (phòng khác bấm Nhận) hoặc
+    `BO_DICH_VU` (quầy bỏ dịch vụ). Ô "đổi phòng" của trưởng ca khi dây bật = CHỈ ghi
+    hướng dẫn; khách sang phòng mới thì phòng ấy nhận chéo. Nhãn đỏ "Khách đã sang
+    phòng B lúc …" trên thẻ đang làm ở A giữ nguyên (không thêm chuông).
+    Thời gian: chờ = Nhận→Bắt đầu; khám = Bắt đầu→Xong; đi lại = Xong/rời→Nhận phòng sau.
+8. **Mọi nút hoàn tác được:** Nhận → về Sắp đến, theo từng chỉ định vừa nhận (không
+   đẻ việc trưởng ca như `invalidate`); Bắt đầu → về Đang chờ (có sẵn); Xong (có sẵn).
 9. **Không cái gì sau đè cái trước:** cột giờ trên bảng = giá trị hiện tại; lịch sử đủ ở
    `domain_event` (chỉ thêm). Mọi lệnh đổi cột giờ trong phạm vi này phải phát sự kiện.
    Vá: `serving_at` khi khám lần 2 (`luot_kham_service.py` nhánh quay lại →
@@ -92,3 +94,40 @@ migration dải `20261007500000`, cổng API/web 8251/3251.
 6. Bấm thật: Tuyền trên staging (memory 06/10 tiết kiệm token).
 
 Ước: ~3,5–4h AI, ~7–9M token (phần lớn đọc lại cache).
+
+## Phòng chuyên + nhận theo chỉ định, 07/10 (sau bấm thử staging)
+
+**Lỗi thật:** khách 3 chỉ định — Soi cổ tử cung + Siêu âm 2D (quầy hướng dẫn Phòng siêu
+âm 2 máy), Monitor sản khoa (→ Phòng thủ thuật). Phòng thủ thuật làm được cả ba node,
+bấm Nhận (theo khách) gom cả ba; phòng siêu âm mất khách; thủ thuật hiện 3 dòng cho 1
+khách ("1 đang chờ" mà "ĐANG CHỜ (3)"). Ô siêu âm hiện tiêu đề kiểu cũ thiếu "sắp đến"
+vì phòng trống thì `hang_cho.dem` trả None (đã sửa: luôn có ba số).
+
+**Tuyền chốt:**
+1. **Phòng chuyên ★** = cột `clinic_room_node.chuyen` (migration
+   `20261007510000_phong_chuyen.sql`, không seed). Hàm Postgres `phong_chuyen(...)` =
+   `phong_lam_duoc` VÀ phòng ★ node ấy. Chỉ ở mức node — ngoại lệ dịch vụ đã có
+   `clinic_room_service` thu hẹp phòng làm được, giao với ★ là đủ. Quản lý đánh ★ ở
+   `/settings/clinic-config` (lệnh `PUT /clinic-config/room-node-chuyen`, nhật ký
+   `clinic_config.room_node_chuyen` trước → sau). Sửa việc của phòng không xoá ★
+   (`set_room_nodes` chỉ xoá bước bị bỏ). Cảnh báo nhẹ "chức năng chưa có phòng chuyên"
+   (`overview.chua_co_phong_chuyen`), không chặn.
+2. **Sắp đến ở MỌI phòng làm được vẫn hiện tất cả khách** (không ẩn theo ★). Khách có
+   chỉ định tick sẵn lên đầu, nhãn ★ / "hướng dẫn: P. X". Khách đã chờ / làm ở phòng
+   này không ở Sắp đến của phòng (nhận tiếp bằng "Nhận thêm" trên ô khách). Chỉ định
+   đang chờ ở phòng khác mà hướng dẫn tới đây cũng hiện (trưởng ca đổi phòng).
+3. **Mỗi khách MỘT ô** ở mọi danh sách (sắp đến · đang chờ · đang làm · đã xong): trong
+   ô các chỉ định phòng làm được + trạng thái (sắp đến [hướng dẫn: P. X] · chờ ở đây ·
+   đang làm · xong · đang ở P. Y) — `hang_cho.chi_dinh_khach`, `sap_den_phong[].chi_dinh`.
+   Mọi con số đếm KHÁCH; mỗi khách đúng một nhóm (đang làm > đang chờ). Bắt đầu / Xong /
+   hoàn tác vẫn theo từng chỉ định.
+4. **Nhận theo từng chỉ định** (`nhan-vao-phong` thân `chi_dinh_ids`): tick sẵn chỉ định
+   hướng dẫn tới phòng; hoặc chưa hướng dẫn mà phòng là phòng chuyên ★. Còn lại để trống,
+   tick được. Phải tick ≥1 (`CHUA_CHON_CHI_DINH`). "Nhận thêm" = cùng lệnh. Hoàn tác
+   Nhận theo đúng chỉ định vừa nhận (`hoan-tac-nhan` thân `chi_dinh_ids`).
+5. Chỉ định không nhận vẫn ở Sắp đến của phòng khác, kèm "khách đang ở P. …".
+6. ~~Xong chỉ định cuối → tự nhả~~ — BỎ (7b): Xong chỉ đổi trạng thái chỉ định ấy.
+7. Quầy thu / bàn khám: ô hướng dẫn gợi ý sẵn phòng chuyên khi đúng MỘT phòng ★
+   (`phong_chon_duoc[].goi_y`, `goi-y-phong.goi_y_chuyen`) — gợi ý, không tự lưu. Phiếu
+   hướng dẫn chưa chọn phòng: in phòng chuyên (một phòng), không thì "các phòng làm được".
+

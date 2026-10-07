@@ -1016,10 +1016,27 @@ class BangLuotKham:
             sang = await ntp.da_sang_phong(
                 conn, cid, [r["ref_id"] for r in rows if r["status"] == "cancelled"]
             )
+            # Phòng trống cũng có ba số 0 (bản trước trả None → màn rơi về
+            # tiêu đề kiểu cũ thiếu "sắp đến", bấm thử staging 07/10).
             dem_phong = (
-                (await ntp.dem_theo_phong(conn, cid, bat=tai_phong)).get(str(rid))
+                (await ntp.dem_theo_phong(conn, cid, bat=tai_phong)).get(
+                    str(rid),
+                    {"sap_den": 0 if tai_phong else None, "dang_cho": 0, "dang_lam": 0},
+                )
                 if rid and la_hom_nay
                 else None
+            )
+            # MỖI KHÁCH MỘT Ô (07/10/2026): các chỉ định phòng làm được của khách
+            # trong hàng chờ phòng, kèm trạng thái — "Nhận thêm" ở ô khách.
+            chi_dinh_khach = (
+                await ntp.chi_dinh_cua_khach(
+                    conn,
+                    cid,
+                    str(rid),
+                    [r["visit_id"] for r in rows if r["reason"] == "SERVICE"],
+                )
+                if rid and la_hom_nay and tai_phong
+                else {}
             )
         now_rows = [
             {
@@ -1127,6 +1144,7 @@ class BangLuotKham:
             "sap_den_phong": sap_den,
             "bac_si_phong": bac_si_phong if can_chon_bac_si(bac_si_phong) else [],
             "dem": dem_phong,
+            "chi_dinh_khach": chi_dinh_khach,
             "sap_toi": [
                 {
                     "visit_id": r["visit_id"],
