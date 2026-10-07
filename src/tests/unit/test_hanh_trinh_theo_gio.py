@@ -116,7 +116,7 @@ def test_luot_laser_lam_dich_vu_truoc_kham_bac_si_theo_gio() -> None:
 
 def test_buoi_thuong_van_dung_thu_tu_khuon() -> None:
     """Lượt khám thường (khám trước, làm dịch vụ sau) — thứ tự không đổi."""
-    buoc = [
+    buoc: list[dict[str, Any]] = [
         {"ma": "CHECK_IN", "bat_dau": g(9, 0), "xong": g(9, 0)},
         {"ma": "SINH_HIEU", "bat_dau": g(9, 5), "xong": g(9, 8)},
         {"ma": "KHAM", "bat_dau": g(9, 10), "xong": g(9, 20)},
@@ -129,7 +129,7 @@ def test_buoi_thuong_van_dung_thu_tu_khuon() -> None:
 
 
 def test_xep_theo_gio_trung_gio_giu_khuon_va_gio_rac_khong_nem() -> None:
-    buoc = [
+    buoc: list[dict[str, Any]] = [
         {"ma": "CHECK_IN", "bat_dau": g(9, 0)},
         {"ma": "SINH_HIEU", "bat_dau": "rác", "xong": g(9, 30)},
         {"ma": "KHAM", "bat_dau": g(9, 10)},
