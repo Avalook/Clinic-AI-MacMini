@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 
 from clinicai.services import finance_gate as fg
-from clinicai.services.dieu_tri_ban_kham import trang_thai_the
+from clinicai.services.dieu_tri_ban_kham import luot_da_dong, trang_thai_the
 from clinicai.services.service_execution_service import (
     CAU_KHACH_KHONG_CHON,
     cua_tien_ban_kham,
@@ -84,3 +84,12 @@ def test_cua_tien_dang_hoan_chan() -> None:
         _q(fg.REFUNDED, duoc_lam=False), selection_status="SELECTED", duoc_chua_thu=True
     )
     assert (duoc, chot) == (False, False) and cau and "hoàn" in cau
+
+
+def test_luot_da_check_out_la_chi_doc() -> None:
+    # Check-out giữ trạng thái IN_PROGRESS (không khoá bệnh án) — mốc là closed_at.
+    assert luot_da_dong("IN_PROGRESS", "2026-10-07T15:32:00+07:00") is True
+    assert luot_da_dong("IN_PROGRESS", None) is False
+    assert luot_da_dong("OPEN", None) is False
+    assert luot_da_dong("INCOMPLETE", None) is True
+    assert luot_da_dong("FINALIZED", None) is True

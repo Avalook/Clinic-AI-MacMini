@@ -61,15 +61,21 @@ async def xu_ly_vong_doc(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> Non
     visit_id = await _luot_cua(conn, su_kien)
     if not visit_id:
         return
-    trang_thai = await conn.fetchval(
-        "SELECT status FROM visit WHERE clinic_id = $1::uuid"
+    luot = await conn.fetchrow(
+        "SELECT status, closed_at FROM visit WHERE clinic_id = $1::uuid"
         " AND visit_id = $2::uuid FOR UPDATE",
         su_kien.clinic_id,
         visit_id,
     )
     # Lượt đã đóng (FINALIZED / AMENDED) hay khách bỏ về giữa chừng
     # (INCOMPLETE): kết quả muộn thuộc việc theo dõi, không mở lại hàng chờ.
-    if trang_thai not in ("OPEN", "IN_PROGRESS"):
+    # ĐÃ CHECK-OUT (`closed_at`, trạng thái vẫn IN_PROGRESS — check-out không
+    # khoá bệnh án) cũng vậy: staging 07/10/2026, dịch vụ xong 5 phút SAU
+    # check-out mở vòng đọc → khách đã về lại nằm "Kết quả cần đọc" ở bàn khám.
+    # Mở lại lượt (`mo_lai_luot`) thì sự kiện kế tiếp chạy vòng đọc như thường.
+    if luot is None or luot["status"] not in ("OPEN", "IN_PROGRESS"):
+        return
+    if luot["closed_at"] is not None:
         return
     # Nhật ký (event_log) ghi tên người gây ra sự kiện; không có người (hệ
     # thống) thì ghi dưới tên bác sĩ chính của lượt.
