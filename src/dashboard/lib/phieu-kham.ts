@@ -805,8 +805,9 @@ export function locMauThuoc(ds: readonly MauThuoc[], tu: string): MauThuoc[] {
  *  gom các mục SẴN CÓ, không đổi `ma` ô nào — phiếu đã lưu vẫn đọc đúng. Mục
  *  hành chính luôn nằm trên, ngoài các khối. Màn khám và bản in dùng chung. */
 export type SoKhoi = 1 | 2 | 3 | 4;
-/** Khối 4 "Điều trị" (07/10/2026): KHÔNG thuộc mẫu phiếu JSON — hai ô chữ của
- *  lượt (bảng `luot_dieu_tri_ghi`), shell vẽ qua `oDieuTri`; `muc` rỗng. */
+/** Khối 4 "Điều trị" (07/10/2026): KHÔNG thuộc mẫu phiếu JSON — thẻ các chỉ định
+ *  điều trị của lượt (phiếu kết quả PHIEU_DIEU_TRI + làm tại bàn khám), shell vẽ
+ *  qua `oDieuTri`; `muc` rỗng. */
 export const KHOI_PHIEU: { so: SoKhoi; ten: string; muc: string[] }[] = [
   { so: 1, ten: "Thông tin cơ bản", muc: ["A", "B"] },
   { so: 2, ten: "Chỉ định cận lâm sàng", muc: ["C"] },

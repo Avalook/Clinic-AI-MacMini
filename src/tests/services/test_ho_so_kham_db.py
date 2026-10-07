@@ -11,7 +11,7 @@ import asyncpg
 import pytest
 
 from clinicai.events.catalogue import DIEU_TRI_SINH_CHI_DINH
-from clinicai.services import ho_so_dich_vu
+from clinicai.services import dieu_tri_ban_kham, ho_so_dich_vu
 from clinicai.services.bill_service import hoa_don_con_no
 from clinicai.services.checkout_service import CheckoutService
 from clinicai.services.phieu_kham_service import PhieuKhamService
@@ -185,8 +185,11 @@ async def test_luot_dieu_tri_sinh_mot_chi_dinh_khong_phi_kham_khong_chan_ve(
     # Không tự thu phí khám.
     assert not [d for d in hd.dong if d.source_type == "exam"]
 
-    hs = await ho_so_dich_vu.doc(pool, identity=ca["bs"], visit_id=visit)
-    assert hs["khach_da_dat"]["order_id"] == don[0]["id"]
+    # "Khách đã đặt" = thẻ chỉ định điều trị ở khối 4 (07/10 chiều).
+    [the] = (await dieu_tri_ban_kham.doc_the(pool, identity=ca["bs"], visit_id=visit))[
+        "the"
+    ]
+    assert the["order_id"] == don[0]["id"] and the["da_dat"] is True
 
     # Không ai nhận ở hàng bác sĩ → không có vướng "bác sĩ chưa khám".
     kq = await CheckoutService(pool).readiness(identity=ca["le_tan"], visit_id=visit)
