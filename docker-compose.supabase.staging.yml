@@ -31,6 +31,12 @@ services:
       - shared_buffers=64MB
       - -c
       - max_connections=60
+      # Nạp lại đêm (staging-nap-ban-sao.sh) DROP + tạo lại ~300 bảng kèm chỉ
+      # mục trong MỘT giao dịch — giữ khoá trên từng đối tượng tới COMMIT. Mặc
+      # định 64 × 60 kết nối = 3.840 khoá → 08/10/2026 hỏng "out of shared
+      # memory". 256 tốn thêm vài MB bộ nhớ chung, vẫn dư trong mem_limit.
+      - -c
+      - max_locks_per_transaction=256
 
   auth:
     <<: *staging-bao-ve

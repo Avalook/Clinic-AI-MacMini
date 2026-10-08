@@ -74,6 +74,25 @@ Caddy — không database, không api nào của hai bên.
   builder + 768MB chừa cho prod, thiếu thì bật lại bản cũ và dừng.
 - Từ chối dựng/deploy khi: RAM khả dụng < 2,5G · đĩa trống < 8G · prod đang
   deploy. Sau mỗi deploy dọn ảnh staging treo + bộ nhớ tạm builder staging.
+- Postgres staging nhỏ (`shared_buffers=64MB`, `max_connections=60`) nhưng
+  `max_locks_per_transaction=256` — xem sự cố 08/10 dưới đây. Mọi tham số nằm
+  ở `command:` của `db` trong `docker-compose.supabase.staging.yml`, **không**
+  `ALTER SYSTEM` (nằm trong volume, dựng lại là mất; tham số dòng lệnh cũng
+  thắng `postgresql.auto.conf`).
+
+### Sự cố 08/10/2026 — nạp lại hỏng "out of shared memory"
+
+`staging-nap-ban-sao.sh` bước 4 nạp + che trong MỘT giao dịch: DROP schema
+public (khoá mọi bảng/chỉ mục/toast CŨ) rồi tạo lại ~300 bảng (khoá mọi đối
+tượng MỚI), giữ hết tới COMMIT. Đếm 08/10 trên khuôn test 150 bảng: ~840 quan
+hệ (533 chỉ mục, 140 toast) → lược đồ prod ~300 bảng cỡ 2.000–2.500 quan hệ,
+cũ + mới ≈ 5.000 khoá. Bảng khoá chung chỉ có `max_locks_per_transaction ×
+max_connections` = 64 × 60 = 3.840 chỗ → hỏng "out of shared memory … increase
+max_locks_per_transaction" (giao dịch rollback, staging giữ dữ liệu đêm trước).
+Vá tạm bằng `ALTER SYSTEM` + restart, rồi đưa vào compose: 256 → 15.360 chỗ
+(dư ~3 lần, tốn thêm vài MB). Lỗi quay lại thì tăng tiếp ở compose, đừng tách
+giao dịch (tách là mất "che xong mới commit"). CI không cần: job database và
+`test-nhanh.sh` áp migration từng tệp, mỗi tệp một giao dịch nhỏ.
 
 ## Lệnh (gõ từ Mac)
 

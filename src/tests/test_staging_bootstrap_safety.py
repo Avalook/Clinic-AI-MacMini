@@ -290,6 +290,12 @@ class TestCaddy:
         assert "clinicai-staging-cong" in stg
         assert "oom_score_adj" in stg and "cpu_shares" in stg
 
+    def test_db_staging_du_khoa_cho_nap_mot_giao_dich(self) -> None:
+        # Nạp lại đêm giữ khoá cả lược đồ cũ + mới trong MỘT giao dịch; mặc
+        # định 64 hỏng "out of shared memory" (08/10/2026, docs/STAGING.md).
+        sb = (REPO / "docker-compose.supabase.staging.yml").read_text(encoding="utf-8")
+        assert "- max_locks_per_transaction=256" in sb
+
 
 class TestStagingEnvExample:
     def test_example_co_ten_rieng_cua_staging(self) -> None:
