@@ -35,3 +35,29 @@ def test_ca_kham_bac_si_hao_nam() -> None:
     assert la_ca_kham_bac_si("HN__T1_SA_BS")
     assert la_ca_kham_bac_si("T4_SAN_BS")
     assert not la_ca_kham_bac_si("HN__T1_LETAN")
+
+
+# ── Công tắc chọn cơ sở (08/10/2026) — đầu vào rác trả giá trị an toàn ──────
+@pytest.mark.parametrize(
+    ("settings", "ket_qua"),
+    [
+        (None, (True, None)),
+        ({}, (True, None)),
+        ({"hoi_chon_co_so": False}, (False, None)),
+        (
+            {
+                "hoi_chon_co_so": False,
+                "co_so_mac_dinh": "b0000000-0000-4000-8000-0000000000aa",
+            },
+            (False, "b0000000-0000-4000-8000-0000000000aa"),
+        ),
+        ({"co_so_mac_dinh": "rac"}, (True, None)),
+        ('{"hoi_chon_co_so": false}', (False, None)),
+        ("{hỏng", (True, None)),
+        ([1, 2], (True, None)),
+    ],
+)
+def test_doc_chon_co_so(settings: object, ket_qua: tuple[bool, str | None]) -> None:
+    from clinicai.core.chon_co_so import doc_chon_co_so
+
+    assert doc_chon_co_so(settings) == ket_qua

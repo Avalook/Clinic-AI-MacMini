@@ -464,3 +464,35 @@ def test_khong_header_dung_co_so_mac_dinh(monkeypatch: pytest.MonkeyPatch) -> No
     ident = asyncio.run(_resolve_identity(_req("Bearer abc"), pool))
     assert ident.location_id == _KN
     assert ident.location_name == "Kim Ngưu"
+
+
+def test_khong_header_dung_co_so_mac_dinh_cua_phong_kham(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Công tắc "hỏi chọn cơ sở" tắt, mặc định Hào Nam (Tuyền 08/10/2026)."""
+    monkeypatch.setattr(
+        ident_mod, "verify_supabase_jwt", lambda _t: {"sub": "u-co-so-3"}
+    )
+    dong = _dong_co_so(None, None)
+    dong.update(default_location_id=_HN, default_location_name="Hào Nam")
+    ident = asyncio.run(_resolve_identity(_req("Bearer abc"), _FakePool(dong)))
+    assert ident.location_id == _HN
+    assert ident.location_name == "Hào Nam"
+
+
+def test_tv_giu_co_so_cua_tai_khoan_du_co_mac_dinh(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Mỗi TV gắn một cơ sở — cơ sở mặc định của phòng khám không kéo TV đi."""
+    monkeypatch.setattr(
+        ident_mod, "verify_supabase_jwt", lambda _t: {"sub": "u-co-so-4"}
+    )
+    dong = _dong_co_so(None, None)
+    dong.update(
+        membership_role="DISPLAY",
+        primary_department="DISPLAY",
+        default_location_id=_HN,
+        default_location_name="Hào Nam",
+    )
+    ident = asyncio.run(_resolve_identity(_req("Bearer abc"), _FakePool(dong)))
+    assert ident.location_id == _KN
