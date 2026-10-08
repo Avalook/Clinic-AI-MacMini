@@ -195,8 +195,7 @@ class DisplayBoardService:
             # Tên phòng khám và hai dòng chân trang là CẤU HÌNH, không viết cứng
             # trong TSX: đổi lời chào cho khách không phải là việc phải dựng lại
             # ứng dụng.
-            "clinic_name": ten_co_so
-            or (zone_row["clinic_name"] if zone_row else None),
+            "clinic_name": ten_co_so or (zone_row["clinic_name"] if zone_row else None),
             "footer_text": zone_row["footer_text"] if zone_row else None,
             "footer_info": zone_row["footer_info"] if zone_row else None,
         }
