@@ -118,6 +118,10 @@ BANG = (
     "capability_grant",
     "drug_batch",
     "inventory_txn",
+    # Việc "chuyển từ hôm nay" (08/10/2026): lịch đã đặt trước khi có Hào Nam.
+    "appointment",
+    "work_roster",
+    "vi_tri_dong_ca",
 )
 
 
@@ -933,6 +937,115 @@ async def _go(conn: asyncpg.Connection, ctx: NguCanh, bc: BaoCao) -> None:
 
 
 # ----------------------------------------------------------------------------
+# Chuyển lịch từ hôm nay sang Hào Nam (Tuyền 08/10/2026: Kim Ngưu tạm đóng —
+# lịch hẹn + ca trực đã đặt trước khi có Hào Nam đều là việc của Hào Nam).
+# ----------------------------------------------------------------------------
+#: Mốc "từ hôm nay" theo giờ Việt Nam (đầu ngày).
+_HOM_NAY = "(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"
+_DAU_NGAY = f"({_HOM_NAY}::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')"
+
+
+async def _chuyen(conn: asyncpg.Connection, ctx: NguCanh, bc: BaoCao) -> None:
+    """Lịch hẹn từ hôm nay KN → HN (trừ lịch đã check-in: lượt đã ở phòng KN);
+    ca trực + ô đóng ca từ hôm nay → vị trí `HN__<mã>` tương ứng (vị trí không
+    có bản Hào Nam — Trưởng ca DIEU_PHOI dùng chung — giữ nguyên)."""
+    if ctx.hn is None:
+        raise SystemExit("✗ Chưa có cơ sở Hào Nam — chạy nhân bản trước.")
+    bc.bo = "-"
+    n = _so(
+        await conn.execute(
+            "UPDATE appointment a SET location_id = $3::uuid"
+            " WHERE a.clinic_id = $1::uuid AND a.location_id = $2::uuid"
+            f"   AND a.slot_start >= {_DAU_NGAY}"
+            "   AND NOT EXISTS (SELECT 1 FROM visit v WHERE v.appointment_id = a.id)",
+            ctx.cid,
+            ctx.kn,
+            ctx.hn,
+        )
+    )
+    da_check_in = await conn.fetchval(
+        "SELECT count(*) FROM appointment a WHERE a.clinic_id = $1::uuid"
+        f" AND a.location_id = $2::uuid AND a.slot_start >= {_DAU_NGAY}"
+        " AND EXISTS (SELECT 1 FROM visit v WHERE v.appointment_id = a.id)",
+        ctx.cid,
+        ctx.kn,
+    )
+    bc.them("appointment", doi=n, bo_qua=int(da_check_in or 0))
+    n = _so(
+        await conn.execute(
+            "UPDATE work_roster w SET station = 'HN__' || w.station"
+            f" WHERE w.clinic_id = $1::uuid AND w.work_date >= {_HOM_NAY}"
+            "   AND EXISTS (SELECT 1 FROM vi_tri_lam_viec v"
+            "                WHERE v.clinic_id = w.clinic_id AND v.is_active"
+            "                  AND v.code = 'HN__' || w.station)",
+            ctx.cid,
+        )
+    )
+    giu = await conn.fetchval(
+        f"SELECT count(*) FROM work_roster w WHERE w.clinic_id = $1::uuid"
+        f" AND w.work_date >= {_HOM_NAY} AND w.station NOT {LA_VI_TRI_HN}",
+        ctx.cid,
+    )
+    bc.them("work_roster", doi=n, bo_qua=int(giu or 0))
+    n = _so(
+        await conn.execute(
+            "UPDATE vi_tri_dong_ca d SET station = 'HN__' || d.station"
+            f" WHERE d.clinic_id = $1::uuid AND d.work_date >= {_HOM_NAY}"
+            "   AND EXISTS (SELECT 1 FROM vi_tri_lam_viec v"
+            "                WHERE v.clinic_id = d.clinic_id AND v.is_active"
+            "                  AND v.code = 'HN__' || d.station)"
+            "   AND NOT EXISTS (SELECT 1 FROM vi_tri_dong_ca x"
+            "                    WHERE x.clinic_id = d.clinic_id"
+            "                      AND x.work_date = d.work_date"
+            "                      AND x.shift = d.shift"
+            "                      AND x.station = 'HN__' || d.station)",
+            ctx.cid,
+        )
+    )
+    bc.them("vi_tri_dong_ca", doi=n)
+    bc.ghi_chu.append(
+        "Bỏ qua ở appointment = lịch hôm nay ĐÃ check-in (lượt đang ở phòng KN);"
+        " bỏ qua ở work_roster = ca ở vị trí dùng chung (Trưởng ca) — giữ nguyên."
+    )
+
+
+async def _tra_lai(conn: asyncpg.Connection, ctx: NguCanh, bc: BaoCao) -> None:
+    """Ngược `_chuyen`: chỉ những dòng TẠO TRƯỚC khi có cơ sở Hào Nam (tức là
+    dòng vốn của Kim Ngưu) — lịch/ca đặt mới ở Hào Nam sau đó giữ nguyên."""
+    if ctx.hn is None:
+        raise SystemExit("✗ Không có cơ sở Hào Nam.")
+    bc.bo = "-"
+    moc = await conn.fetchval(
+        "SELECT created_at FROM clinic_location WHERE id = $1::uuid", ctx.hn
+    )
+    n = _so(
+        await conn.execute(
+            "UPDATE appointment a SET location_id = $2::uuid"
+            " WHERE a.clinic_id = $1::uuid AND a.location_id = $3::uuid"
+            f"   AND a.slot_start >= {_DAU_NGAY} AND a.created_at < $4"
+            "   AND NOT EXISTS (SELECT 1 FROM visit v WHERE v.appointment_id = a.id)",
+            ctx.cid,
+            ctx.kn,
+            ctx.hn,
+            moc,
+        )
+    )
+    bc.them("appointment", doi=n)
+    for bang in ("work_roster", "vi_tri_dong_ca"):
+        n = _so(
+            await conn.execute(
+                f"UPDATE {bang} SET station = substr(station, 5)"
+                f" WHERE clinic_id = $1::uuid AND work_date >= {_HOM_NAY}"
+                f"   AND station {LA_VI_TRI_HN} AND station !~ '__[0-9]+$'"
+                "   AND created_at < $2",
+                ctx.cid,
+                moc,
+            )
+        )
+        bc.them(bang, doi=n)
+
+
+# ----------------------------------------------------------------------------
 # Lõi: MỘT giao dịch
 # ----------------------------------------------------------------------------
 async def chay(
@@ -944,7 +1057,8 @@ async def chay(
     chep_kho: bool = False,
     clinic_id: str | None = None,
 ) -> BaoCao:
-    """`viec`: "dung" | "doi-bo" | "go". `that=False` → ROLLBACK cuối."""
+    """`viec`: "dung" | "doi-bo" | "go" | "chuyen" | "tra-lai".
+    `that=False` → ROLLBACK cuối."""
     bc = BaoCao(viec=viec, that=that)
     tx = conn.transaction()
     await tx.start()
@@ -957,6 +1071,10 @@ async def chay(
             await ap_bo(conn, ctx, bc, bo or "")
         elif viec == "go":
             await _go(conn, ctx, bc)
+        elif viec == "chuyen":
+            await _chuyen(conn, ctx, bc)
+        elif viec == "tra-lai":
+            await _tra_lai(conn, ctx, bc)
         else:
             raise SystemExit(f"✗ Việc lạ: {viec}")
         sau = await dau_van_kn(conn, ctx)
@@ -981,12 +1099,32 @@ async def main() -> int:
     nhom = ap.add_mutually_exclusive_group()
     nhom.add_argument("--doi-bo", choices=("A", "B"))
     nhom.add_argument("--go", action="store_true")
+    nhom.add_argument(
+        "--chuyen-tu-hom-nay",
+        action="store_true",
+        help="lịch hẹn + ca trực từ hôm nay: Kim Ngưu → Hào Nam",
+    )
+    nhom.add_argument(
+        "--tra-lai-chuyen",
+        action="store_true",
+        help="trả lại Kim Ngưu những dòng --chuyen-tu-hom-nay đã chuyển",
+    )
     ap.add_argument("--chep-kho", action="store_true")
     ap.add_argument("--clinic", help="clinic_id khi có nhiều phòng khám")
     a = ap.parse_args()
     if a.that and a.chay_thu:
         raise SystemExit("✗ --that và --chay-thu không đi cùng nhau.")
-    viec = "doi-bo" if a.doi_bo else "go" if a.go else "dung"
+    viec = (
+        "doi-bo"
+        if a.doi_bo
+        else "go"
+        if a.go
+        else "chuyen"
+        if a.chuyen_tu_hom_nay
+        else "tra-lai"
+        if a.tra_lai_chuyen
+        else "dung"
+    )
     dsn = os.environ["DATABASE_URL"].replace("postgresql+asyncpg://", "postgresql://")
     conn = await asyncpg.connect(dsn)
     try:

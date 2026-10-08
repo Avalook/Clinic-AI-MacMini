@@ -125,7 +125,14 @@ async def _don(conn: asyncpg.Connection, cid: str) -> None:
     async with conn.transaction():
         await conn.execute("SET LOCAL session_replication_role = replica")
         await conn.execute("DELETE FROM inventory_txn WHERE clinic_id = $1::uuid", cid)
+    async with conn.transaction():
+        # Lịch hẹn / khách là bảng chỉ thêm (trigger chặn DELETE) — như sổ kho.
+        await conn.execute("SET LOCAL session_replication_role = replica")
+        for bang in ("appointment", "patient", "service_type"):
+            await conn.execute(f"DELETE FROM {bang} WHERE clinic_id = $1::uuid", cid)
     for bang in (
+        "work_roster",
+        "vi_tri_dong_ca",
         "drug_batch",
         "drug_catalog",
         "capability_grant",
@@ -629,3 +636,126 @@ async def test_chep_kho_theo_trang_thai_migration(pool: asyncpg.Pool, pk: PK) ->
     bc = await _chay(pool, pk, that=True, chep_kho=True)
     assert (bc.dem["drug_batch"].moi, bc.dem["drug_batch"].co) == (0, 2)
     assert bc.dem["inventory_txn"].moi == 0
+
+
+async def _lich(conn: asyncpg.Connection, pk: PK, loc: str, ngay_lech: int) -> str:
+    """Một lịch hẹn lúc 18:00 (giờ VN) của ngày hôm nay + `ngay_lech`."""
+    pid = await conn.fetchval(
+        "INSERT INTO patient (clinic_id, patient_code, full_name, location_id)"
+        " VALUES ($1::uuid, $2, 'Khách chuyển', $3::uuid)"
+        " RETURNING clinic_patient_id::text",
+        pk.cid,
+        f"NB-{uuid.uuid4().hex[:8]}",
+        loc,
+    )
+    loai = await conn.fetchval(
+        "INSERT INTO service_type (clinic_id, code, name, is_active)"
+        " VALUES ($1::uuid, $2, 'Khám chuyển', true) RETURNING id::text",
+        pk.cid,
+        f"NBK-{uuid.uuid4().hex[:8]}",
+    )
+    return str(
+        await conn.fetchval(
+            "INSERT INTO appointment (clinic_id, clinic_patient_id, location_id,"
+            " slot_start, slot_end, status, service_type_id)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid,"
+            "  ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + $4::int"
+            "   + time '18:00') AT TIME ZONE 'Asia/Ho_Chi_Minh',"
+            "  ((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + $4::int"
+            "   + time '18:15') AT TIME ZONE 'Asia/Ho_Chi_Minh',"
+            "  'CONFIRMED', $5::uuid) RETURNING id::text",
+            pk.cid,
+            pid,
+            loc,
+            ngay_lech,
+            loai,
+        )
+    )
+
+
+async def _ca(conn: asyncpg.Connection, pk: PK, tram: str, ngay_lech: int) -> str:
+    return str(
+        await conn.fetchval(
+            "INSERT INTO work_roster (clinic_id, week_start, work_date, shift,"
+            " station, staff_id, staff_name, status)"
+            " SELECT $1::uuid, d - (extract(isodow FROM d)::int - 1), d, 'TOI', $2,"
+            "        $3::uuid, 'NB', 'APPROVED'"
+            "   FROM (SELECT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"
+            "                + $4::int AS d) x RETURNING id::text",
+            pk.cid,
+            tram,
+            pk.nguoi[0],
+            ngay_lech,
+        )
+    )
+
+
+async def test_chuyen_tu_hom_nay_roi_tra_lai(pool: asyncpg.Pool, pk: PK) -> None:
+    """Tuyền 08/10: Kim Ngưu tạm đóng — lịch hẹn + ca trực từ hôm nay sang Hào
+    Nam; lịch đã qua giữ Kim Ngưu; Trưởng ca dùng chung; trả lại được."""
+    async with pool.acquire() as conn:
+        hen_qua = await _lich(conn, pk, pk.kn, -1)
+        hen_mai = await _lich(conn, pk, pk.kn, 1)
+        ca_qua = await _ca(conn, pk, "T1_LETAN", -1)
+        ca_mai = await _ca(conn, pk, "T1_LETAN", 1)
+        ca_dp = await _ca(conn, pk, "DIEU_PHOI", 1)
+        await conn.execute(
+            "INSERT INTO vi_tri_dong_ca (clinic_id, work_date, shift, station)"
+            " VALUES ($1::uuid, (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date + 1,"
+            " 'SANG', 'T1_LETAN')",
+            pk.cid,
+        )
+    await _chay(pool, pk, that=True)
+    hn = await _hn(pool, pk)
+    assert hn
+
+    async def co_so(hen: str) -> str:
+        return str(
+            await pool.fetchval(
+                "SELECT location_id::text FROM appointment WHERE id = $1::uuid", hen
+            )
+        )
+
+    async def tram(ca: str) -> str:
+        return str(
+            await pool.fetchval(
+                "SELECT station FROM work_roster WHERE id = $1::uuid", ca
+            )
+        )
+
+    thu = await _chay(pool, pk, viec="chuyen")  # chạy thử: không đổi gì
+    assert thu.dem["appointment"].doi == 1
+    assert await co_so(hen_mai) == pk.kn
+
+    bc = await _chay(pool, pk, viec="chuyen", that=True)
+    assert bc.dem["appointment"].doi == 1
+    assert bc.dem["work_roster"].doi == 1 and bc.dem["vi_tri_dong_ca"].doi == 1
+    assert await co_so(hen_mai) == hn
+    assert await co_so(hen_qua) == pk.kn
+    assert await tram(ca_mai) == "HN__T1_LETAN"
+    assert await tram(ca_qua) == "T1_LETAN"
+    assert await tram(ca_dp) == "DIEU_PHOI"
+    assert (
+        await pool.fetchval(
+            "SELECT station FROM vi_tri_dong_ca WHERE clinic_id = $1::uuid", pk.cid
+        )
+        == "HN__T1_LETAN"
+    )
+
+    # Chạy lại không chuyển thêm gì.
+    lai = await _chay(pool, pk, viec="chuyen", that=True)
+    assert lai.dem["appointment"].doi == 0 and lai.dem["work_roster"].doi == 0
+
+    # Lịch đặt MỚI ở Hào Nam sau khi chuyển: trả lại không được kéo nó về KN.
+    async with pool.acquire() as conn:
+        hen_moi = await _lich(conn, pk, hn, 2)
+    await _chay(pool, pk, viec="tra-lai", that=True)
+    assert await co_so(hen_mai) == pk.kn
+    assert await co_so(hen_moi) == hn
+    assert await tram(ca_mai) == "T1_LETAN"
+    assert (
+        await pool.fetchval(
+            "SELECT station FROM vi_tri_dong_ca WHERE clinic_id = $1::uuid", pk.cid
+        )
+        == "T1_LETAN"
+    )
