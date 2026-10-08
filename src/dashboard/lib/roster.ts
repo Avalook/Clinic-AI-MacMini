@@ -166,7 +166,11 @@ export const MAU_PHONG: Record<string, string> = {
 
 /** Nền ô theo mã phòng; phòng không có màu riêng → nền thẻ. */
 export function mauPhong(maPhong: string | null | undefined): string {
-  return maPhong && Object.hasOwn(MAU_PHONG, maPhong) ? MAU_PHONG[maPhong] : "bg-surface";
+  if (!maPhong) return "bg-surface";
+  if (Object.hasOwn(MAU_PHONG, maPhong)) return MAU_PHONG[maPhong];
+  // Phòng cơ sở khác (`HN-SA1`, bản sơ đồ `HN-SA1-B`) tô như phòng mẫu Kim Ngưu.
+  const mau = `KN-${maPhong.replace(/^[A-Z0-9]+-/, "").replace(/-B$/, "")}`;
+  return Object.hasOwn(MAU_PHONG, mau) ? MAU_PHONG[mau] : "bg-surface";
 }
 
 /** Tên vị trí ĐỦ NGHĨA khi đứng một mình (ngoài lưới lịch): "Phòng · Vị trí".

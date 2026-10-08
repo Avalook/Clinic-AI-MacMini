@@ -123,6 +123,9 @@ SELECT a.id,
  WHERE a.clinic_id = $1::uuid
    AND a.slot_start >= $2
    AND a.slot_start <  $3
+   -- TV của MỘT cơ sở chỉ gọi khách cơ sở ấy (08/10/2026, Tuyền: "TV Hào Nam
+   -- chỉ có số của Hào Nam"). NULL = mọi cơ sở (danh tính dựng tay).
+   AND ($4::uuid IS NULL OR a.location_id = $4::uuid)
    AND a.status <> ALL (ARRAY['CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED'])
  ORDER BY a.slot_start, a.id
  LIMIT %d
@@ -148,10 +151,29 @@ class DisplayBoardService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def board(self, *, clinic_id: str, start: Any, end: Any) -> dict[str, Any]:
+    async def board(
+        self,
+        *,
+        clinic_id: str,
+        start: Any,
+        end: Any,
+        location_id: str | None = None,
+    ) -> dict[str, Any]:
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(_SQL, clinic_id, start, end)
+            rows = await conn.fetch(_SQL, clinic_id, start, end, location_id or None)
             zone_row = await conn.fetchrow(_ZONE_SQL, clinic_id)
+            # Cơ sở có tên in riêng (Hào Nam treo biển "4WOMEN") thì TV cũng
+            # chào bằng tên ấy.
+            ten_co_so = (
+                await conn.fetchval(
+                    "SELECT nullif(btrim(ten_in), '') FROM clinic_location"
+                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                    location_id,
+                    clinic_id,
+                )
+                if location_id
+                else None
+            )
 
         quyet_dinh = thu_tu_goi_theo_ngay(rows)
         zones = _doc_zones(zone_row)
@@ -173,7 +195,7 @@ class DisplayBoardService:
             # Tên phòng khám và hai dòng chân trang là CẤU HÌNH, không viết cứng
             # trong TSX: đổi lời chào cho khách không phải là việc phải dựng lại
             # ứng dụng.
-            "clinic_name": zone_row["clinic_name"] if zone_row else None,
+            "clinic_name": ten_co_so or (zone_row["clinic_name"] if zone_row else None),
             "footer_text": zone_row["footer_text"] if zone_row else None,
             "footer_info": zone_row["footer_info"] if zone_row else None,
         }

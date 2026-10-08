@@ -39,6 +39,7 @@ from jwt import PyJWKClient
 
 from clinicai.core.clock import now_vn
 from clinicai.core.database import get_db_pool
+from clinicai.core.ma_vi_tri import ma_mau
 from clinicai.core.shifts import ca_tu_settings, covers, shift_windows
 
 logger = structlog.get_logger()
@@ -328,6 +329,26 @@ def _requested_clinic_id(request: Request) -> str | None:
         ) from None
 
 
+def _requested_location_id(request: Request) -> str | None:
+    """Cơ sở người dùng CHỌN lúc đăng nhập (cookie → proxy → `X-Location-ID`).
+
+    Cùng khuôn với `_requested_clinic_id`: header là BỘ CHỌN, không phải thẩm
+    quyền — truy vấn bên dưới chỉ nhận cơ sở đang bật của chính phòng khám đó.
+    Không có header thì rơi về `staff.primary_location_id` (cơ sở mặc định), nên
+    tài khoản TV, worker và mọi client cũ chạy y như trước.
+    """
+    raw = request.headers.get("X-Location-ID")
+    if raw is None or not raw.strip():
+        return None
+    try:
+        return str(UUID(raw.strip()))
+    except (AttributeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="X-Location-ID must be a valid UUID",
+        ) from None
+
+
 # --------------------------------------------------------------------------- #
 # Membership lookup cache
 # --------------------------------------------------------------------------- #
@@ -352,7 +373,10 @@ def _requested_clinic_id(request: Request) -> str | None:
 # their membership should not have to wait out a TTL to get in.
 _IDENTITY_TTL_SECONDS = 30.0
 _IDENTITY_CACHE_MAX = 512
-_identity_cache: dict[tuple[str, str | None], tuple[float, StaffIdentity]] = {}
+#: Khoá = (login, phòng khám chọn, cơ sở chọn). Thiếu cơ sở trong khoá thì đổi cơ
+#: sở xong vẫn nhận danh tính cơ sở cũ tới 30 giây — đúng kiểu "cơ sở lạc" 24/09.
+_CacheKey = tuple[str, str | None, str | None]
+_identity_cache: dict[_CacheKey, tuple[float, StaffIdentity]] = {}
 
 
 def invalidate_identity_cache(auth_user_id: str | None = None) -> None:
@@ -369,7 +393,7 @@ def invalidate_identity_cache(auth_user_id: str | None = None) -> None:
         _identity_cache.pop(key, None)
 
 
-def _cache_get(key: tuple[str, str | None], now: float) -> StaffIdentity | None:
+def _cache_get(key: _CacheKey, now: float) -> StaffIdentity | None:
     hit = _identity_cache.get(key)
     if hit is None:
         return None
@@ -380,9 +404,7 @@ def _cache_get(key: tuple[str, str | None], now: float) -> StaffIdentity | None:
     return identity
 
 
-def _cache_put(
-    key: tuple[str, str | None], identity: StaffIdentity, now: float
-) -> None:
+def _cache_put(key: _CacheKey, identity: StaffIdentity, now: float) -> None:
     if len(_identity_cache) >= _IDENTITY_CACHE_MAX:
         # A clinic has tens of staff, not hundreds; hitting this bound means
         # something is wrong (token churn, a load test), and the safe response
@@ -407,20 +429,27 @@ async def _resolve_identity(
         raise HTTPException(status_code=401, detail="Token missing subject")
 
     requested_clinic_id = _requested_clinic_id(request)
+    requested_location_id = _requested_location_id(request)
 
-    cache_key = (str(sub), requested_clinic_id)
+    cache_key = (str(sub), requested_clinic_id, requested_location_id)
     now = monotonic()
     cached = _cache_get(cache_key, now)
     if cached is not None:
         return cached
 
+    # Cơ sở của request = cơ sở CHỌN (header) nếu có, không thì cơ sở mặc định.
+    # Cơ sở chọn chỉ được nhận khi thuộc ĐÚNG phòng khám của membership và đang
+    # bật — mọi nhân viên được vào mọi cơ sở của phòng khám mình (Tuyền 08/10),
+    # nên không cần bảng ai-được-cơ-sở-nào.
     rows = await pool.fetch(
         """
         SELECT s.id, s.auth_user_id, s.full_name, s.short_name,
                s.primary_department,
                m.clinic_id, m.role AS membership_role,
                s.primary_location_id, l.name AS location_name,
-               c.name AS clinic_name
+               c.name AS clinic_name,
+               cl.id AS chosen_location_id, cl.name AS chosen_location_name,
+               dl.id AS default_location_id, dl.name AS default_location_name
         FROM staff s
         LEFT JOIN clinic_membership m
                ON m.staff_id = s.id AND m.is_active
@@ -428,6 +457,14 @@ async def _resolve_identity(
                ON l.id = s.primary_location_id
         LEFT JOIN clinic c
                ON c.id = m.clinic_id
+        LEFT JOIN clinic_location cl
+               ON cl.id = $3::uuid AND cl.clinic_id = m.clinic_id
+              AND cl.is_active IS NOT FALSE
+        -- Cơ sở MẶC ĐỊNH của phòng khám (công tắc ở Cấu trúc phòng khám). So
+        -- dạng chữ để giá trị rác trong settings không làm hỏng truy vấn.
+        LEFT JOIN clinic_location dl
+               ON dl.clinic_id = m.clinic_id AND dl.is_active IS NOT FALSE
+              AND dl.id::text = c.settings ->> 'co_so_mac_dinh'
         WHERE s.auth_user_id = $1::uuid AND s.is_active IS NOT FALSE
           AND ($2::uuid IS NULL OR m.clinic_id = $2::uuid)
         ORDER BY m.created_at, m.id
@@ -435,6 +472,7 @@ async def _resolve_identity(
         """,
         sub,
         requested_clinic_id,
+        requested_location_id,
     )
     if not rows:
         raise HTTPException(
@@ -477,6 +515,25 @@ async def _resolve_identity(
     # global primary_department describes the person, but only the membership
     # selected alongside clinic_id is authorized to describe this request.
     location_id = row["primary_location_id"]
+    location_name = row["location_name"]
+    if requested_location_id is not None:
+        if row.get("chosen_location_id") is None:
+            # Cơ sở lạ / của phòng khám khác / đã tắt: không đoán, không rơi về
+            # cơ sở mặc định — làm vậy là lặng lẽ ghi việc vào sai cơ sở.
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cơ sở đã chọn không thuộc phòng khám này hoặc đã tắt",
+            )
+        location_id = row["chosen_location_id"]
+        location_name = row["chosen_location_name"]
+    elif row.get("default_location_id") is not None and role_from_department(
+        row["membership_role"]
+    ) not in (ClinicRole.DISPLAY, ClinicRole.PARTNER):
+        # Không chọn cơ sở → cơ sở mặc định của phòng khám (Tuyền 08/10/2026:
+        # Kim Ngưu tạm đóng, mọi người vào thẳng Hào Nam). TV / đối tác giữ cơ
+        # sở của chính tài khoản — mỗi TV gắn đúng một cơ sở.
+        location_id = row["default_location_id"]
+        location_name = row["default_location_name"]
     if location_id is None:
         # 20260803000007 made this NOT NULL, so reaching here means the row
         # predates it or the column was cleared by a direct write. Fail closed:
@@ -505,7 +562,7 @@ async def _resolve_identity(
         role=vai_tai_khoan,
         clinic_id=str(clinic_id),
         location_id=str(location_id),
-        location_name=row["location_name"] or "",
+        location_name=location_name or "",
         short_name=row["short_name"] or "",
         clinic_name=row["clinic_name"] or "",
         vai_theo_vi_tri=vai_tu_vi_tri(
@@ -839,7 +896,7 @@ def vai_tu_vi_tri(
         return frozenset()
     return frozenset(
         VAI_THEO_VI_TRI[v]
-        for v in vi_tri
+        for v in map(ma_mau, vi_tri)
         if v in VAI_THEO_VI_TRI
         and VAI_THEO_VI_TRI[v] not in VAI_KHONG_CAP_QUA_LICH
         and VAI_THEO_VI_TRI[v] != vai_tai_khoan
@@ -971,7 +1028,7 @@ def vai_theo_thu_tu(vi_tri: list[str], vai_tai_khoan: ClinicRole) -> list[str]:
         return []
     co = {
         VAI_THEO_VI_TRI[v]
-        for v in vi_tri
+        for v in map(ma_mau, vi_tri)
         if v in VAI_THEO_VI_TRI and VAI_THEO_VI_TRI[v] not in VAI_KHONG_CAP_QUA_LICH
     }
     return [v.value for v in THU_TU_VAI_VAN_HANH if v in co]

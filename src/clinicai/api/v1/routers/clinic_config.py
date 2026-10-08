@@ -234,6 +234,25 @@ async def update_location(
     )
 
 
+class ChonCoSoRequest(BaseModel):
+    hoi_chon: bool
+    mac_dinh: UUID | None = None
+
+
+@router.put("/clinic-config/chon-co-so")
+async def set_chon_co_so(
+    body: ChonCoSoRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bật/tắt màn chọn cơ sở khi đăng nhập + cơ sở mặc định."""
+    return await ClinicConfigService(pool).set_chon_co_so(
+        identity=identity,
+        hoi_chon=body.hoi_chon,
+        mac_dinh=str(body.mac_dinh) if body.mac_dinh else None,
+    )
+
+
 class ServiceTypeCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     default_duration_minutes: int | None = Field(default=None, ge=5, le=480)

@@ -36,7 +36,12 @@ import asyncpg
 import structlog
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    invalidate_identity_cache,
+)
+from clinicai.core.chon_co_so import doc_chon_co_so
 from clinicai.permissions import cache
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
@@ -309,8 +314,15 @@ class ClinicConfigService:
             """,
             identity.clinic_id,
         )
+        cai_dat = await self._pool.fetchval(
+            "SELECT settings FROM public.clinic WHERE id = $1::uuid",
+            identity.clinic_id,
+        )
+        hoi_chon, mac_dinh = doc_chon_co_so(cai_dat)
         return {
             "locations": _group_locations(rows),
+            # Công tắc màn chọn cơ sở khi đăng nhập + cơ sở mặc định (08/10/2026).
+            "chon_co_so": {"hoi_chon": hoi_chon, "mac_dinh": mac_dinh},
             "nodes": [{"code": n["code"], "name": n["name"]} for n in nodes],
             "chua_co_phong_chuyen": [
                 {"code": n["code"], "name": n["name"]} for n in chua_chuyen
@@ -648,6 +660,40 @@ class ClinicConfigService:
         return {"ok": True, "room_id": room_id, **moi}
 
     # ── Cơ sở ─────────────────────────────────────────────────────────────
+    async def set_chon_co_so(
+        self, *, identity: StaffIdentity, hoi_chon: bool, mac_dinh: str | None
+    ) -> dict[str, Any]:
+        """Công tắc "Hỏi chọn cơ sở khi đăng nhập" + cơ sở mặc định.
+
+        Tuyền 08/10/2026: Kim Ngưu tạm đóng → tắt hỏi, mặc định Hào Nam để nhân
+        viên vào thẳng; Kim Ngưu mở lại thì bật. Cơ sở mặc định dùng cho MỌI
+        request không mang cơ sở chọn (identity.py) — kể cả khi đang hỏi.
+        """
+        await self._duoc_cau_hinh(identity)
+        if mac_dinh is not None:
+            hop_le = await self._pool.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM public.clinic_location"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid"
+                " AND is_active IS NOT FALSE)",
+                mac_dinh,
+                identity.clinic_id,
+            )
+            if not hop_le:
+                raise ValidationError("Cơ sở mặc định phải là cơ sở đang bật.")
+        moi = {"hoi_chon_co_so": hoi_chon, "co_so_mac_dinh": mac_dinh}
+        await self._pool.execute(
+            "UPDATE public.clinic SET settings = coalesce(settings, '{}'::jsonb)"
+            " || $2::jsonb, updated_at = now() WHERE id = $1::uuid",
+            identity.clinic_id,
+            json.dumps(moi),
+        )
+        await self._ghi_nhat_ky(
+            identity, loai="chon_co_so", doi_tuong_id=identity.clinic_id, payload=moi
+        )
+        # Cơ sở mặc định nằm trong danh tính đã nhớ 30 giây — quên ngay.
+        invalidate_identity_cache()
+        return {"ok": True, "hoi_chon": hoi_chon, "mac_dinh": mac_dinh}
+
     async def create_location(
         self, *, identity: StaffIdentity, name: str, address: str | None = None
     ) -> dict[str, Any]:

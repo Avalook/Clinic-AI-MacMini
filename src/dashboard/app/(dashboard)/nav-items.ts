@@ -38,6 +38,7 @@ import {
   quyenMoDuocMan,
   type ClinicRole,
 } from "../../lib/roles";
+import { maMau } from "../../lib/ma-vi-tri";
 
 export interface NavItem {
   href: string;
@@ -494,7 +495,9 @@ const THU_TU_NHOM: readonly NhomVai[] = [
   "TRUONG_CA",
 ];
 
-function nhomCua(viTri: string, role: ClinicRole | null): NhomVai | null {
+function nhomCua(viTriGoc: string, role: ClinicRole | null): NhomVai | null {
+  // Vị trí cơ sở khác (`HN__T1_LETAN`) dùng nhóm của mã mẫu Kim Ngưu.
+  const viTri = maMau(viTriGoc);
   if (viTri === "T1_HOIBENH" && role === "DOCTOR") return "BAC_SI";
   return NHOM_THEO_VI_TRI[viTri] ?? null;
 }

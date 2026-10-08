@@ -33,7 +33,8 @@ async def conn() -> Any:
           CREATE TEMP TABLE appointment (
             id uuid, clinic_id uuid, clinic_patient_id uuid,
             service_type_id uuid, doctor_id uuid, slot_start timestamptz,
-            status text, queue_number text, booking_channel text);
+            status text, queue_number text, booking_channel text,
+            location_id uuid);
           CREATE TEMP TABLE patient (
             clinic_patient_id uuid, clinic_id uuid, full_name text);
           CREATE TEMP TABLE service_type (id uuid, name text);
@@ -94,7 +95,7 @@ async def test_tv_uses_return_eligibility_and_excludes_foreign_labs(conn: Any) -
         a,
         str(uuid.uuid4()),
     )
-    rows = await conn.fetch(_SQL, CLINIC, START, START + timedelta(days=1))
+    rows = await conn.fetch(_SQL, CLINIC, START, START + timedelta(days=1), None)
     decisions = thu_tu_goi_theo_ngay(rows)
     assert decisions[b].call_order < decisions[a].call_order
     assert decisions[a].entry.b3_ready is True
@@ -110,7 +111,7 @@ async def test_tv_uses_return_eligibility_and_excludes_foreign_labs(conn: Any) -
         a,
         CLINIC,
     )
-    rows = await conn.fetch(_SQL, CLINIC, START, START + timedelta(days=1))
+    rows = await conn.fetch(_SQL, CLINIC, START, START + timedelta(days=1), None)
     assert thu_tu_goi_theo_ngay(rows)[a].entry.b3_ready is False
 
 

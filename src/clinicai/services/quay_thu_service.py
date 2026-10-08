@@ -879,11 +879,15 @@ def _phong_cua_dong(
 
 
 #: Đầu phiếu: tên phòng khám + cơ sở + địa chỉ (cơ sở của lượt, thiếu địa chỉ
-#: thì rơi về địa chỉ phòng khám) — như đầu phiếu khám.
+#: thì rơi về địa chỉ phòng khám) — như đầu phiếu khám. Cơ sở có `ten_in` (biển
+#: pháp nhân riêng, vd Hào Nam "4WOMEN") thì in tên ấy; SĐT cơ sở nối sau.
 _DAU_PHIEU_SQL = """
-SELECT ck.name AS phong_kham, lv.name AS co_so,
-       coalesce(nullif(btrim(lv.address), ''),
-                nullif(btrim(la.address), ''), ck.address) AS dia_chi
+SELECT coalesce(nullif(btrim(lv.ten_in), ''), ck.name) AS phong_kham,
+       lv.name AS co_so,
+       concat_ws(' · ',
+                 coalesce(nullif(btrim(lv.address), ''),
+                          nullif(btrim(la.address), ''), ck.address),
+                 nullif(btrim(lv.phone), '')) AS dia_chi
   FROM visit v
   JOIN clinic ck ON ck.id = v.clinic_id
   LEFT JOIN appointment a

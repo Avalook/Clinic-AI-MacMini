@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   AlertCircle,
   LogOut,
+  MapPin,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import NutHoanTac from "@/components/ui/NutHoanTac";
@@ -31,6 +32,8 @@ interface GlobalHeaderProps {
   featureMode?: string;
   /** Server action thoát — cùng action với nút Thoát ở chân thanh bên. */
   leaveAction: () => void | Promise<void>;
+  /** Tên cơ sở đang đứng (máy chủ trả theo cơ sở đã chọn). */
+  coSo?: string;
 }
 
 export default function GlobalHeader({
@@ -40,6 +43,7 @@ export default function GlobalHeader({
   quyen = null,
   featureMode = "FULL_CLINIC",
   leaveAction,
+  coSo,
 }: GlobalHeaderProps) {
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement>(null);
@@ -558,6 +562,20 @@ export default function GlobalHeader({
             </div>
           )}
         </div>
+
+        {/* CƠ SỞ ĐANG ĐỨNG (08/10/2026 — hai cơ sở). Luôn hiện để không ai làm
+            nhầm cơ sở mà không biết; bấm để đổi. Phòng khám một cơ sở thì
+            /chon-co-so tự quay lại ngay. */}
+        {coSo ? (
+          <Link
+            href={`/chon-co-so?doi=1&next=${encodeURIComponent(pathname || "/home")}`}
+            title="Đổi cơ sở"
+            className="flex min-h-8 max-w-40 items-center gap-1 rounded-full border border-line px-2.5 text-meta font-medium text-ink-soft transition-colors hover:border-brand-600 hover:text-brand-700"
+          >
+            <MapPin size={14} className="shrink-0 text-brand-600" aria-hidden />
+            <span className="truncate">{coSo}</span>
+          </Link>
+        ) : null}
 
         {/* THẺ TÊN — BẤM ĐƯỢC, MỞ Ô CÓ NÚT THOÁT (27/09/2026, đợt 3).
             Góp ý phòng khám: "log out 'chữ Thoát' cho lên trên bên phải". Trước

@@ -19,6 +19,10 @@ export async function GET(request: Request) {
   // Xem riêng tiền dịch vụ / tiền thuốc (01/10/2026); rác thì bỏ → cả hai.
   const loai = url.searchParams.get("loai");
   if (loai === "dich_vu" || loai === "thuoc") q.set("loai", loai);
+  // Một cơ sở (08/10/2026); rỗng = tất cả. Chuyển nguyên — máy chủ tự xử mã rác
+  // (ra số 0), không để lớp này lặng lẽ biến một cơ sở thành "tất cả".
+  const coSo = url.searchParams.get("co_so") ?? "";
+  if (coSo) q.set("co_so", coSo.slice(0, 64));
   if (url.searchParams.get("xuat") !== "csv") {
     return proxyJsonToBackend("GET", `/api/v1/reports/cuoi-ngay?${q.toString()}`, undefined);
   }

@@ -319,22 +319,43 @@ async def no_khi_ve(
     return no
 
 
+#: Lọc khoản nợ theo cơ sở của lượt ($2 rỗng = mọi cơ sở). Hằng cố định, không
+#: ghép đầu vào người dùng vào chuỗi SQL.
+_NO_CO_SO_JOIN = """
+          LEFT JOIN public.visit nv
+            ON nv.visit_id = n.visit_id AND nv.clinic_id = n.clinic_id
+          LEFT JOIN public.appointment na
+            ON na.id = nv.appointment_id AND na.clinic_id = nv.clinic_id"""
+_NO_CO_SO_LOC = (
+    "($2::uuid IS NULL OR coalesce(nv.location_id, na.location_id) = $2::uuid)"
+)
+
+
 async def doc_khach_con_no(
-    conn: asyncpg.Connection, clinic_id: str, *, kem_ds: bool = True
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    *,
+    kem_ds: bool = True,
+    location_id: str | None = None,
 ) -> dict[str, Any]:
     """ "Khách còn nợ: n — x đ" — mọi khoản đã ghi nợ còn CHƯA THU.
 
     Tổng đếm bằng SQL (không bị trần danh sách cắt); ``kem_ds`` thêm danh sách
     truy thu (mới nhất trước, tối đa ``_TRAN_DS`` dòng, ``bi_cat`` nói ra).
+    ``location_id`` (08/10/2026): chỉ khoản nợ của lượt thuộc cơ sở ấy (cơ sở
+    của lượt = ``coalesce(visit.location_id, appointment.location_id)``).
     """
     tong = await conn.fetchrow(
-        """
-        SELECT count(DISTINCT clinic_patient_id) AS so_khach,
-               count(*) AS so_luot, coalesce(sum(so_tien), 0) AS so_tien
-          FROM public.cong_no
-         WHERE clinic_id = $1::uuid AND trang_thai = 'CHUA_THU'
+        f"""
+        SELECT count(DISTINCT n.clinic_patient_id) AS so_khach,
+               count(*) AS so_luot, coalesce(sum(n.so_tien), 0) AS so_tien
+          FROM public.cong_no n
+          {_NO_CO_SO_JOIN}
+         WHERE n.clinic_id = $1::uuid AND n.trang_thai = 'CHUA_THU'
+           AND {_NO_CO_SO_LOC}
         """,
         clinic_id,
+        location_id,
     )
     out: dict[str, Any] = {
         "so_khach": int(tong["so_khach"] or 0) if tong else 0,
@@ -344,7 +365,7 @@ async def doc_khach_con_no(
     if not kem_ds:
         return out
     rows = await conn.fetch(
-        """
+        f"""
         SELECT n.id::text AS id, n.visit_id::text AS visit_id,
                n.so_tien, n.ly_do, n.ghi_luc,
                p.full_name AS khach, p.patient_code AS ma_bn,
@@ -352,11 +373,14 @@ async def doc_khach_con_no(
           FROM public.cong_no n
           LEFT JOIN public.patient p ON p.clinic_patient_id = n.clinic_patient_id
           LEFT JOIN public.staff s ON s.id = n.ghi_boi
+          {_NO_CO_SO_JOIN}
          WHERE n.clinic_id = $1::uuid AND n.trang_thai = 'CHUA_THU'
+           AND {_NO_CO_SO_LOC}
          ORDER BY n.ghi_luc DESC
-         LIMIT $2
+         LIMIT $3
         """,
         clinic_id,
+        location_id,
         _TRAN_DS,
     )
     out["bi_cat"] = canh_bao_neu_day("cong_no.khach_con_no", len(rows), _TRAN_DS)

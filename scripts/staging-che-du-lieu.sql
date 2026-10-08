@@ -198,6 +198,7 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('app_credential', 'email', 'giu'),
     ('clinic', 'address', 'giu'),
     ('clinic_location', 'address', 'giu'),
+    ('clinic_location', 'phone', 'giu'),       -- SĐT cơ sở (biển hiệu), không phải của khách
     ('province', 'full_name', 'giu'),           -- danh mục hành chính
     ('ward', 'full_name', 'giu'),
     ('work_roster', 'staff_name', 'giu'),
@@ -232,7 +233,11 @@ DECLARE thieu text;
 BEGIN
     SELECT string_agg(c.bang || '.' || c.cot, ', ') INTO thieu
     FROM _che_cot c
-    WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns i
+    -- Dòng 'giu' chỉ để xếp loại (test CI), không che gì: cột do migration của
+    -- NHÁNH ĐANG THỬ thêm thì chưa có lúc che (che chạy trên lược đồ prod, trước
+    -- bước 5 áp migration nhánh) — thiếu là vô hại (08/10/2026, clinic_location.phone).
+    WHERE c.cach <> 'giu'
+      AND NOT EXISTS (SELECT 1 FROM information_schema.columns i
                       WHERE i.table_schema = 'public' AND i.table_name = c.bang
                         AND i.column_name = c.cot);
     IF thieu IS NOT NULL THEN
@@ -299,23 +304,34 @@ WHERE that IS NULL OR length(that) < 5 OR position(' ' IN that) = 0
    OR lower(replace(replace(public.f_unaccent(that), 'đ', 'd'), 'Đ', 'D'))
       ~ '^((khach|nguoi nha khach|nguoi gioi thieu) [0-9]+|\(da che\)|khach da xoa)$';
 
--- Một biểu thức chính quy gộp mọi tên — lọc nhanh "chuỗi này có tên nào không"
--- trước khi thay từng tên (Postgres giữ sẵn bản biên dịch của biểu thức).
-SELECT set_config('clinicai.che_re',
-    coalesce((SELECT string_agg(regexp_replace(that, '([.^$*+?()\[\]{}|\\])', '\\\1', 'g'), '|'
-                                ORDER BY length(that) DESC) FROM _che_ten), ''),
-    true);
+-- LỌC NHANH THEO CẶP HAI CHỮ ĐẦU CỦA TÊN (08/10/2026). Bản cũ ghép MỌI tên
+-- thành một biểu thức chính quy; từ khi nhập hồ sơ cũ Notion (05/10) số khách
+-- tăng vọt và Postgres báo "regular expression is too complex" → nạp staging
+-- hỏng mỗi đêm từ 07/10. Nay: mỗi tên mang `cap` = hai chữ đầu (đánh index); một
+-- chuỗi chỉ được thử thay những tên có `cap` trùng một cặp chữ liền nhau trong
+-- chuỗi. Không giới hạn theo số khách, kết quả che y như cũ.
+ALTER TABLE _che_ten ADD COLUMN cap text;
+UPDATE _che_ten SET cap = (
+    SELECT w[1] || ' ' || w[2]
+      FROM (SELECT array_remove(regexp_split_to_array(that, '[[:space:][:punct:]]+'), '') AS w) x);
+CREATE INDEX ON _che_ten (cap);
+ANALYZE _che_ten;
 
 CREATE FUNCTION pg_temp.che_chu(s text) RETURNS text LANGUAGE plpgsql AS $f$
 DECLARE
     r record;
-    re text := current_setting('clinicai.che_re', true);
+    w text[];
+    caps text[];
 BEGIN
     IF s IS NULL OR s = '' THEN
         RETURN s;
     END IF;
-    IF re <> '' AND s ~ re THEN
-        FOR r IN SELECT that, gia FROM _che_ten ORDER BY length(that) DESC LOOP
+    w := array_remove(regexp_split_to_array(s, '[[:space:][:punct:]]+'), '');
+    IF coalesce(array_length(w, 1), 0) >= 2 THEN
+        caps := ARRAY(SELECT DISTINCT w[i] || ' ' || w[i + 1]
+                        FROM generate_series(1, array_length(w, 1) - 1) i);
+        FOR r IN SELECT that, gia FROM _che_ten WHERE cap = ANY (caps)
+                  ORDER BY length(that) DESC LOOP
             IF position(r.that IN s) > 0 THEN
                 s := replace(s, r.that, r.gia);
             END IF;
@@ -420,11 +436,16 @@ UPDATE public.patient p SET
                               ELSE '0' || lpad(c.n::text, 11, '0') END,
     -- Lệch ỔN ĐỊNH −14…+14 ngày theo mã khách: tuổi vẫn đúng tới vài ngày
     -- (màn khám, sản khoa cần tuổi), ngày sinh thật không còn tra được.
+    -- Kẹp ≥ 1900-01-01: hồ sơ cũ Notion có ngày sinh giả đầu năm 1900, lệch lùi
+    -- thành 1899 là vỡ CHECK birth_year >= 1900 → cả lần nạp huỷ (08/10/2026).
     date_of_birth = CASE WHEN p.date_of_birth IS NULL THEN NULL
-        ELSE least(p.date_of_birth + ((abs(hashtext(p.clinic_patient_id::text)) % 29) - 14), current_date) END,
+        ELSE greatest(least(p.date_of_birth
+             + ((abs(hashtext(p.clinic_patient_id::text)) % 29) - 14), current_date),
+             DATE '1900-01-01') END,
     birth_year = CASE WHEN p.date_of_birth IS NULL THEN p.birth_year
-        ELSE extract(year FROM least(p.date_of_birth
-             + ((abs(hashtext(p.clinic_patient_id::text)) % 29) - 14), current_date))::smallint END,
+        ELSE extract(year FROM greatest(least(p.date_of_birth
+             + ((abs(hashtext(p.clinic_patient_id::text)) % 29) - 14), current_date),
+             DATE '1900-01-01'))::smallint END,
     address = CASE WHEN nullif(btrim(p.address), '') IS NULL THEN p.address
         ELSE 'Số ' || c.n || ' đường Thử' || coalesce(', ' || p.ward_name, '')
              || coalesce(', ' || p.province_name, '') END,

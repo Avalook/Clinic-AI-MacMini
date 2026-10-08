@@ -305,13 +305,16 @@ class FormEngineService:
                 raise SafetyGateError("Bạn không có quyền in phiếu kết quả.")
             dau = await conn.fetchrow(
                 "SELECT o.service_name, o.service_code, o.visit_id::text AS visit_id,"
-                "       c.name AS phong_kham, c.address AS dia_chi_pk,"
+                "       coalesce(nullif(btrim(lv.ten_in), ''), c.name) AS phong_kham,"
+                "       c.address AS dia_chi_pk,"
                 "       p.full_name, p.patient_code, p.birth_year, p.date_of_birth,"
                 "       p.gender, p.phone_primary, p.address,"
                 "       p.address_detail, p.ward_name, p.province_name,"
                 # Đầu trang HAI BÊN (27/09/2026 — bản mẫu): cơ sở của LƯỢT +
                 # địa chỉ; mã dịch vụ (mã phòng khám), số booking / check-in.
-                "       lv.name AS co_so, lv.address AS dia_chi_co_so,"
+                "       lv.name AS co_so,"
+                "       concat_ws(' · ', nullif(btrim(lv.address), ''),"
+                "                 nullif(btrim(lv.phone), '')) AS dia_chi_co_so,"
                 "       v.checked_in_at, a.so_booking, a.so_tiep_don,"
                 "       sp.ma_kiotviet"
                 "  FROM service_order o"
@@ -320,10 +323,11 @@ class FormEngineService:
                 "  JOIN patient p ON p.clinic_patient_id = v.clinic_patient_id"
                 "   AND p.clinic_id = v.clinic_id"
                 "  JOIN clinic c ON c.id = o.clinic_id"
-                "  LEFT JOIN clinic_location lv"
-                "    ON lv.id = v.location_id AND lv.clinic_id = v.clinic_id"
                 "  LEFT JOIN appointment a"
                 "    ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id"
+                "  LEFT JOIN clinic_location lv"
+                "    ON lv.id = coalesce(v.location_id, a.location_id)"
+                "   AND lv.clinic_id = v.clinic_id"
                 "  LEFT JOIN LATERAL ("
                 "       SELECT s.ma_kiotviet FROM service_price s"
                 "        WHERE s.clinic_id = o.clinic_id"

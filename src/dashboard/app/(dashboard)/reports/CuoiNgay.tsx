@@ -6,10 +6,14 @@
 // `bao_cao_cuoi_ngay_service`), cùng sổ và cùng luật cộng trừ với tab Lịch sử
 // của quầy thu. Màn chỉ VẼ: chọn khoảng ngày, In (window.print), Xuất Excel
 // (CSV UTF-8 BOM do máy chủ dựng).
+//
+// Theo cơ sở (08/10/2026 — mở Hào Nam): ô chọn "Tất cả cơ sở / từng cơ sở".
+// Tất cả → thêm bảng từng cơ sở + dòng Tổng; mọi số (kể cả Tổng) do máy chủ trả.
 
 import { useCallback, useEffect, useState } from "react";
 
 import Button, { buttonClass } from "@/components/ui/Button";
+import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import ThanhNgay from "@/components/ui/ThanhNgay";
 import { fmtDayTime } from "@/lib/datetime";
@@ -112,6 +116,16 @@ interface BaoCao {
     }[];
   };
   theo_ngay: (OTien & { ngay: string; so_phieu: number })[];
+  /** Cơ sở đang xem (08/10/2026) — null = tất cả. */
+  co_so?: string | null;
+  ten_co_so?: string | null;
+  /** Chỉ có khi xem tất cả: từng cơ sở, tiền cộng lại = `tong`. */
+  theo_co_so?: {
+    location_id: string | null;
+    ten: string;
+    tong: OTien & { so_phieu_thu: number };
+    khach: { so_luot_kham: number };
+  }[];
 }
 
 const TEN_PT: Record<string, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", QR: "Chuyển khoản" };
@@ -199,7 +213,52 @@ function Khoi({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-export default function CuoiNgay() {
+function BangCoSo({ bc }: { bc: BaoCao }) {
+  const t = bc.tong;
+  return (
+    <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-card">
+      <table className="w-full border-collapse text-body">
+        <thead>
+          <tr className="border-b border-line bg-surface-muted text-left text-meta text-ink-muted">
+            <th className={TH}>Cơ sở</th>
+            <th className={`${TH} text-right`}>Lượt khám</th>
+            <th className={`${TH} text-right`}>Phiếu thu</th>
+            <th className={`${TH} text-right`}>Thu gốc</th>
+            <th className={`${TH} text-right`}>Huỷ phiếu</th>
+            <th className={`${TH} text-right`}>Hoàn</th>
+            <th className={`${TH} text-right`}>Thực thu</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(bc.theo_co_so ?? []).map((o) => (
+            <tr key={o.location_id ?? "chua-ro"} className="border-b border-surface-sunken">
+              <td className={`${TD} whitespace-nowrap`}>{o.ten}</td>
+              <td className={SO}>{o.khach.so_luot_kham}</td>
+              <td className={SO}>{o.tong.so_phieu_thu}</td>
+              <td className={SO}>{tien(o.tong.thu)}</td>
+              <td className={SO}>{am(o.tong.huy)}</td>
+              <td className={SO}>{am(o.tong.hoan)}</td>
+              <td className={`${SO} font-semibold`}>{tien(o.tong.thuc_thu)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-line bg-surface-muted font-semibold">
+            <td className={TD}>Tổng</td>
+            <td className={SO}>{bc.khach.so_luot_kham}</td>
+            <td className={SO}>{t.so_phieu_thu}</td>
+            <td className={SO}>{tien(t.thu)}</td>
+            <td className={SO}>{am(t.huy)}</td>
+            <td className={SO}>{am(t.hoan)}</td>
+            <td className={SO}>{tien(t.thuc_thu)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
   const [homNay] = useState(todayVn);
   const [khoang, setKhoang] = useState<Khoang>({ tu: homNay, den: homNay });
   const [bc, setBc] = useState<BaoCao | null>(null);
@@ -208,8 +267,15 @@ export default function CuoiNgay() {
   // Thuốc và dịch vụ thu RIÊNG HẲN (Tuyền 01/10/2026): mỗi quầy một ngăn kéo —
   // chọn "Dịch vụ" / "Thuốc" để mọi bảng chỉ cộng đúng loại tiền ấy.
   const [loai, setLoai] = useState<"" | "dich_vu" | "thuoc">("");
+  // "" = Tất cả cơ sở (mặc định).
+  const [coSoChon, setCoSoChon] = useState("");
 
-  const chuoi = new URLSearchParams({ tu: khoang.tu, den: khoang.den, ...(loai ? { loai } : {}) }).toString();
+  const chuoi = new URLSearchParams({
+    tu: khoang.tu,
+    den: khoang.den,
+    ...(loai ? { loai } : {}),
+    ...(coSoChon ? { co_so: coSoChon } : {}),
+  }).toString();
 
   const tai = useCallback(async () => {
     setDangTai(true);
@@ -265,6 +331,7 @@ export default function CuoiNgay() {
             </button>
           ))}
         </div>
+        <ChonCoSoO coSo={coSo} dangChon={coSoChon} onChon={setCoSoChon} />
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={() => window.print()} disabled={!bc}>
             In
@@ -276,8 +343,8 @@ export default function CuoiNgay() {
       </div>
 
       <p className="text-meta text-ink-muted">
-        Báo cáo cuối ngày · {bc ? nhanKhoang({ tu: bc.tu, den: bc.den }) : nhanKhoang(khoang)} · giờ
-        Việt Nam · chỉ đọc
+        Báo cáo cuối ngày · {bc?.co_so ? `${bc.ten_co_so ?? "Không có cơ sở này"} · ` : ""}
+        {bc ? nhanKhoang({ tu: bc.tu, den: bc.den }) : nhanKhoang(khoang)} · giờ Việt Nam · chỉ đọc
       </p>
 
       {loi ? (
@@ -341,6 +408,12 @@ export default function CuoiNgay() {
             <p className="text-meta text-ink-muted">
               Hoàn còn chờ chuyển: {tien(t.hoan_cho)} — chưa trừ vào thực thu.
             </p>
+          ) : null}
+
+          {(bc.theo_co_so ?? []).length > 1 ? (
+            <Khoi title="Theo cơ sở">
+              <BangCoSo bc={bc} />
+            </Khoi>
           ) : null}
 
           <div className="grid gap-4 lg:grid-cols-2">

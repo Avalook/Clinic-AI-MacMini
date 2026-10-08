@@ -281,10 +281,16 @@ async def cap_nhat_vi_tri(conn: asyncpg.Connection, cid: str, vid: str) -> None:
         if con_mo:
             return
         node = "LUOTKHAM-15"
+        # Quầy của ĐÚNG cơ sở lượt (08/10/2026, hai cơ sở): không lọc thì khách
+        # Hào Nam về quầy Kim Ngưu (quầy sort nhỏ nhất của cả phòng khám).
         room_id = await conn.fetchval(
             "SELECT id FROM clinic_room WHERE clinic_id = $1::uuid"
-            " AND node_code = 'LUOTKHAM-01' AND is_active ORDER BY sort LIMIT 1",
+            " AND node_code = 'LUOTKHAM-01' AND is_active"
+            " AND (public.co_so_cua_luot($2::uuid) IS NULL"
+            "      OR location_id = public.co_so_cua_luot($2::uuid))"
+            " ORDER BY sort LIMIT 1",
             cid,
+            vid,
         )
     # Chỉ lượt còn mở: INCOMPLETE (khách bỏ về) / FINALIZED / AMENDED giữ
     # nguyên con trỏ cuối — không dời một người đã rời khỏi phòng khám.

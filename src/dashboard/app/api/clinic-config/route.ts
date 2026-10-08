@@ -63,6 +63,8 @@ const WRITE_PATHS: Record<string, string> = {
   "thu-ky-bac-si": "/api/v1/clinic-config/thu-ky-bac-si",
   // Cơ sở (27/09/2026, màn Cấu trúc phòng khám làm lại).
   location: "/api/v1/clinic-config/location",
+  // Hỏi chọn cơ sở khi đăng nhập + cơ sở mặc định (08/10/2026).
+  "chon-co-so": "/api/v1/clinic-config/chon-co-so",
 };
 
 export async function PUT(request: Request) {
