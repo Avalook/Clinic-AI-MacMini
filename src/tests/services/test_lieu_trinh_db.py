@@ -313,7 +313,6 @@ def test_staging_che_cot_chu_cua_lieu_trinh() -> None:
 # ── DB ──────────────────────────────────────────────────────────────────────
 
 
-
 @pytest.mark.db
 @pytest.mark.asyncio
 async def test_1_de_xuat_tu_chi_dinh_hom_nay_la_buoi_1(pool: asyncpg.Pool) -> None:
