@@ -210,7 +210,15 @@ SELECT lt.id::text AS id, lt.clinic_patient_id::text AS khach_id,
        public.lieu_trinh_so_buoi_da_tra(lt.clinic_id, lt.id) AS da_tra,
        coalesce(b.so_gan, 0) AS so_gan, coalesce(b.da_lam, 0) AS da_lam,
        coalesce(b.dung_tra_truoc, 0) AS dung_tra_truoc,
-       coalesce(b.tra_le, 0) AS tra_le, b.lan_cuoi, b.dang_cho
+       coalesce(b.tra_le, 0) AS tra_le, b.lan_cuoi, b.dang_cho,
+       -- Loại khám nhóm Điều trị của đúng dịch vụ: CSKH [Đặt lịch buổi kế] mở bộ
+       -- đặt lịch sẵn có khoá vào loại khám này (rỗng = chưa có, nút tắt).
+       (SELECT st.id::text FROM public.service_type st
+          JOIN public.service_price sp
+            ON sp.id = st.service_price_id AND sp.clinic_id = st.clinic_id
+         WHERE st.clinic_id = lt.clinic_id AND st.nhom = 'DIEU_TRI'
+           AND st.is_active AND sp.service_code = lt.service_code
+         ORDER BY st.created_at, st.id LIMIT 1) AS service_type_id
   FROM public.lieu_trinh lt
   JOIN public.patient p ON p.clinic_patient_id = lt.clinic_patient_id
   LEFT JOIN public.staff sd ON sd.id = lt.de_xuat_boi
@@ -387,7 +395,10 @@ class LieuTrinhService:
             ds = await self.doc_nhieu(
                 conn, identity.clinic_id, "lt.clinic_patient_id = $2::uuid", pid
             )
-        return {"clinic_patient_id": pid, "lieu_trinh": ds}
+            # Màn (khung khách) hiện nút Đăng ký / Dừng / Mở lại / Hoàn tác theo
+            # cờ này — chính lệnh vẫn tự gác quyền.
+            quyen_cskh = await self._co_mot(conn, identity, QUYEN_DANG_KY)
+        return {"clinic_patient_id": pid, "lieu_trinh": ds, "quyen_cskh": quyen_cskh}
 
     async def theo_luot(
         self, *, identity: StaffIdentity, visit_id: Any
@@ -523,6 +534,8 @@ class LieuTrinhService:
         return {
             "chi_dinh": {
                 r["order_id"]: {
+                    # Màn theo lượt (bàn khám, tiếp đón) gom chip theo lượt.
+                    "visit_id": r["visit_id"],
                     "lieu_trinh_id": r["lieu_trinh_id"],
                     "buoi_so": int(r["buoi_so"]),
                     "so_buoi": int(r["so_buoi"]),

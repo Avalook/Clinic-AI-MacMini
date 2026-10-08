@@ -16,6 +16,7 @@
 // Việc đặt lịch tái khám xảy ra NGAY SAU khi vừa khám xong, trong cùng một câu
 // chuyện với khách đang đứng đó.
 
+import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import AppointmentBooking from "../patients/AppointmentBooking";
 import type { Opt } from "./CustomersView";
@@ -33,6 +34,8 @@ export default function DatLichModal({
   defaultLocationId,
   khoaDichVu,
   lichTruocId,
+  tieuDe,
+  moTa,
   onDong,
   onXong,
 }: {
@@ -45,6 +48,10 @@ export default function DatLichModal({
   khoaDichVu?: KhoaDichVu;
   /** Có = lịch mới nối vào chuỗi tái khám (`appointment.lich_truoc_id`). */
   lichTruocId?: string;
+  /** Tiêu đề + câu mô tả riêng (vd "Đặt lịch buổi kế — liệu trình …", 08/10/2026)
+   *  thay cặp tái khám / khám mới. Form đặt lịch bên dưới giữ nguyên. */
+  tieuDe?: string;
+  moTa?: ReactNode;
   onDong: () => void;
   /** Nhận id lịch VỪA TẠO, để màn chuyển hẳn sang lượt mới. */
   onXong: (appointmentId: string) => void;
@@ -56,12 +63,13 @@ export default function DatLichModal({
   // và câu dưới nói "KHÔNG nối vào chuỗi tái khám" — trong khi `lichTruocId`
   // vẫn được gửi và nó nối thật. Màn hình nói ngược với việc nó đang làm.
   const laTaiKham = Boolean(lichTruocId);
+  const ten = tieuDe ?? (laTaiKham ? "Đặt lịch tái khám" : "Đặt lịch khám mới");
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={laTaiKham ? "Đặt lịch tái khám" : "Đặt lịch khám mới"}
+      aria-label={ten}
       className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/40 p-4"
       onClick={onDong}
     >
@@ -72,10 +80,12 @@ export default function DatLichModal({
         <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
           <div>
             <h2 className="text-sm font-semibold text-ink">
-              {laTaiKham ? "Đặt lịch tái khám" : "Đặt lịch khám mới"} — {tenKhach}
+              {ten} — {tenKhach}
             </h2>
             <p className="mt-0.5 text-label leading-snug text-ink-muted">
-              {laTaiKham ? (
+              {moTa !== undefined ? (
+                moTa
+              ) : laTaiKham ? (
                 <>
                   {khoaDichVu ? (
                     <>

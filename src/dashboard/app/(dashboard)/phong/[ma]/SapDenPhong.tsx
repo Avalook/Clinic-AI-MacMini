@@ -14,6 +14,7 @@
 
 import Chip from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
+import { nhanBuoiCuaLuot, type ChipLieuTrinh } from "@/lib/lieu-trinh";
 
 import { type ChiDinhPhong } from "../../_lam-viec/api";
 
@@ -37,11 +38,14 @@ export default function SapDenPhong({
   ds,
   chon,
   onChon,
+  lieuTrinh = null,
 }: {
   ds: KhachSapDen[];
   /** visit_id đang mở ở khung phải. */
   chon: string | null;
   onChon: (visitId: string) => void;
+  /** Chip liệu trình của cả lô (08/10/2026) — chỉ thêm chữ vào dòng phụ. */
+  lieuTrinh?: ChipLieuTrinh | null;
 }) {
   if (ds.length === 0) return null;
   const soDem = ds.filter((k) => k.tinh_so).length;
@@ -84,7 +88,12 @@ export default function SapDenPhong({
                     <SoLuot booking={k.so_booking} className="shrink-0" />
                   </span>
                   <span className="block truncate text-label text-ink-muted">
-                    {[k.ma_khach, k.so_chi_dinh > 0 ? `${k.so_chi_dinh} chỉ định` : null, k.dang_o]
+                    {[
+                      k.ma_khach,
+                      k.so_chi_dinh > 0 ? `${k.so_chi_dinh} chỉ định` : null,
+                      nhanBuoiCuaLuot(lieuTrinh, k.visit_id, k.chi_dinh),
+                      k.dang_o,
+                    ]
                       .filter(Boolean)
                       .join(" · ")}
                   </span>

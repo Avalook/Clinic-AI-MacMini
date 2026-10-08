@@ -48,6 +48,9 @@ import {
   type TabTiepDon,
 } from "@/lib/tiep-don";
 
+import { nhanLieuTrinhLuot } from "@/lib/lieu-trinh";
+
+import { useChipLieuTrinh } from "../../_lam-viec/dung-chip-lieu-trinh";
 import { NutLamThem, useLamThem, type GoiLamThem } from "../../_lam-viec/LamThemTaiQuay";
 import NutCheckOut from "../../_lam-viec/NutCheckOut";
 import { lenhHoanTac } from "../../_lam-viec/hoan-tac";
@@ -61,7 +64,10 @@ function DongKhach({
   d,
   lamThem,
   napLamThem,
+  lieuTrinh = null,
 }: {
+  /** "Liệu trình Ghế điện: còn 3 buổi đã trả" (08/10/2026) — máy chủ đếm. */
+  lieuTrinh?: string | null;
   d: DongTiepDon;
   /** Nút "+ dịch vụ" (làm thêm tại quầy, 01/10/2026) — một lần đọc cho cả bảng. */
   lamThem: GoiLamThem | null;
@@ -119,6 +125,9 @@ function DongKhach({
           ) : null}
         </p>
         {phu ? <p className="mt-0.5 text-meta text-ink-muted">{phu}</p> : null}
+        {lieuTrinh ? (
+          <p className="mt-0.5 break-words text-meta font-medium text-brand-700">{lieuTrinh}</p>
+        ) : null}
         {d.ghi_chu ? (
           <p className="mt-0.5 break-words text-meta text-ink-soft">Ghi chú: {d.ghi_chu}</p>
         ) : null}
@@ -221,6 +230,8 @@ export default function QueueBoard({
     [goi.buoi],
   );
   const { goi: lamThem, napLai: napLamThem } = useLamThem("tiep_don", cacLuot);
+  // Chip liệu trình — một lần đọc cho cả bảng (không gọi từng dòng).
+  const chipLt = useChipLieuTrinh(cacLuot);
 
   return (
     <section aria-label="Danh sách tiếp đón" className="flex min-w-0 flex-col gap-3">
@@ -296,6 +307,7 @@ export default function QueueBoard({
                     d={d}
                     lamThem={lamThem}
                     napLamThem={napLamThem}
+                    lieuTrinh={nhanLieuTrinhLuot(chipLt, d.visit_id ?? null)}
                   />
                 ))}
               </ul>
