@@ -180,6 +180,7 @@ async def man_nha_thuoc(
 ) -> dict[str, Any]:
     hom_nay = now_vn().date()
     dau_ngay = datetime.combine(hom_nay, time.min, tzinfo=CLINIC_TZ)
+    co_so = identity.location_id or None
     async with pool.acquire() as conn:
         # Nút ghi hiện theo QUYỀN "Nhà thuốc" (24/09), cùng câu hỏi với router.
         co_quyen_ghi = await can(conn, identity, "pharmacy.dispense")
@@ -240,11 +241,16 @@ async def man_nha_thuoc(
                                     AND a.prescription_id = r.id
                                     AND a.released_at IS NULL
                                     AND c.status = 'PENDING_VERIFICATION'))))
+               -- Chỉ đơn của cơ sở đang đứng ($3 NULL = không lọc).
+               AND coalesce(v.location_id, ap.location_id, $3::uuid)
+                   IS NOT DISTINCT FROM
+                   coalesce($3::uuid, v.location_id, ap.location_id)
              ORDER BY r.created_at DESC, r.id
              LIMIT 300
             """,
             identity.clinic_id,
             dau_ngay,
+            co_so,
         )
         # Trần 300 đơn/ngày. Chạm trần là quầy thuốc đang nhìn một bảng THIẾU
         # đơn — phải nói ra, không để im.
@@ -387,11 +393,15 @@ async def man_nha_thuoc(
                AND p.clinic_id = v.clinic_id
              WHERE v.clinic_id = $1::uuid AND v.ban_le
                AND (v.created_at >= $2 OR v.updated_at >= $2)
+               AND coalesce(public.co_so_cua_luot(v.clinic_id, v.visit_id), $3::uuid)
+                   IS NOT DISTINCT FROM
+                   coalesce($3::uuid, public.co_so_cua_luot(v.clinic_id, v.visit_id))
              ORDER BY v.created_at DESC
              LIMIT 100
             """,
             identity.clinic_id,
             dau_ngay,
+            co_so,
         )
         duoc_mo_ban_le = await co_quyen_mo(conn, identity)
         duoc_thu_thuoc = await can(conn, identity, QUYEN_THU_THUOC)

@@ -933,6 +933,7 @@ class QuayThuService:
         tim_s = doc_tim(tim)
         ht = doc_hinh_thuc(hinh_thuc)
         cid = identity.clinic_id
+        co_so = identity.location_id or None
         async with self._pool.acquire() as conn:
             lan_thu = await conn.fetch(
                 """
@@ -951,10 +952,18 @@ class QuayThuService:
                   LEFT JOIN staff cb ON cb.id = pc.created_by
                   LEFT JOIN staff xn ON xn.id = pc.confirmed_by
                   LEFT JOIN staff dg ON dg.id = pc.closed_by
+                  LEFT JOIN visit v
+                    ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id
+                  LEFT JOIN appointment ah
+                    ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
                  WHERE pc.clinic_id = $1::uuid AND pc.kind = $4
                    AND pc.paid_at IS NOT NULL
                    AND (pc.paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                        BETWEEN $2 AND $3
+                   -- Chỉ sổ của cơ sở đang đứng ($5 NULL = không lọc).
+                   AND coalesce(v.location_id, ah.location_id, $5::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($5::uuid, v.location_id, ah.location_id)
                  ORDER BY pc.paid_at
                  LIMIT 3000
                 """,
@@ -962,6 +971,7 @@ class QuayThuService:
                 a,
                 b,
                 loai,
+                co_so,
             )
             hoan = await conn.fetch(
                 """
@@ -977,10 +987,17 @@ class QuayThuService:
                     ON rl.refund_id = r.refund_id AND rl.clinic_id = r.clinic_id
                   LEFT JOIN payment_bill_line bl
                     ON bl.id = rl.payment_bill_line_id AND bl.clinic_id = rl.clinic_id
+                  LEFT JOIN visit v
+                    ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
+                  LEFT JOIN appointment ah
+                    ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
                  WHERE r.clinic_id = $1::uuid AND r.kind = $4
                    AND r.status IN ('PENDING', 'COMPLETED')
                    AND (r.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                        BETWEEN $2 AND $3
+                   AND coalesce(v.location_id, ah.location_id, $5::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($5::uuid, v.location_id, ah.location_id)
                  GROUP BY r.refund_id, xn.full_name, tao.full_name
                  ORDER BY r.created_at
                  LIMIT 3000
@@ -989,6 +1006,7 @@ class QuayThuService:
                 a,
                 b,
                 loai,
+                co_so,
             )
             canh_bao_neu_day(
                 "quay_thu.lich_su.lan_thu", len(lan_thu), 3000, tu=a, den=b
