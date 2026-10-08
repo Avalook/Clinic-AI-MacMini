@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-// Khối 4 "Điều trị" của hồ sơ khám (Tuyền chốt 07/10/2026 chiều + phản hồi bấm
+// Thẻ chỉ định điều trị của hồ sơ khám (Tuyền chốt 07/10/2026 chiều + phản hồi bấm
 // thử staging tối 07/10): danh sách CHỈ ĐỊNH ĐIỀU TRỊ — mỗi thẻ là phiếu điều trị
 // của chính chỉ định, vẽ bằng MỘT component `PhieuDieuTri` dùng chung với khung
 // kết quả của phòng dịch vụ (`PhieuKetQua` chuyển sang khi mẫu PHIEU_DIEU_TRI).
@@ -17,21 +17,76 @@ const LUOT = doc("../app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx");
 const KHOI = doc("../app/(dashboard)/_lam-viec/phieu-kham/KhoiDieuTri.tsx");
 const DT = doc("../app/(dashboard)/_lam-viec/PhieuDieuTri.tsx");
 const KQ = doc("../app/(dashboard)/_lam-viec/PhieuKetQua.tsx");
+const KQC = doc("../app/(dashboard)/_lam-viec/phieu-kham/KetQuaChiDinh.tsx");
 const GHI = doc("../app/(dashboard)/_lam-viec/phieu-kham/GhiChuLuot.tsx");
 const DV = doc("../app/(dashboard)/_lam-viec/phieu-kham/KhoiDichVuHoSo.tsx");
 const ROUTE = doc("../app/api/ho-so-kham/route.ts");
 const IN = doc("../app/print/phieu-kham/[visitId]/InPhieuKham.tsx");
 
-test("bốn khối, khối 4 không có mục của mẫu phiếu", () => {
-  assert.match(LIB, /\{ so: 4, ten: "Điều trị", muc: \[\] \}/);
+// Sắp lại khối 3/4 (Tuyền chốt 08/10 — docs/KE-HOACH-LIEU-TRINH.md Phần A): thẻ
+// điều trị DỜI vào đầu khối 3 "Chỉ định điều trị", khối 4 là "Đơn thuốc" (mục E),
+// ô "Chẩn đoán và xử lý" (mục D) bỏ — lượt cũ có dữ liệu hiện chỉ đọc.
+test("bốn khối: 3 = Chỉ định điều trị (D chỉ đọc cũ · F · G), 4 = Đơn thuốc (E)", () => {
   assert.match(LIB, /\{ so: 1, ten: "Thông tin cơ bản", muc: \["A", "B"\] \}/);
-  assert.match(LIB, /\{ so: 3, ten: "Chỉ định điều trị", muc: \["D", "E", "F", "G"\] \}/);
+  assert.match(LIB, /\{ so: 3, ten: "Chỉ định điều trị", muc: \["D", "F", "G"\] \}/);
+  assert.match(LIB, /\{ so: 4, ten: "Đơn thuốc", muc: \["E"\] \}/);
+  assert.doesNotMatch(LIB, /ten: "Điều trị", muc/);
+  assert.match(LIB, /export const MUC_DA_BO: readonly string\[\] = \["D"\]/);
+  // Khối 4 luôn có (không ẩn khi không có điều trị).
+  assert.doesNotMatch(PHIEU, /cacKhoi|tomTatDieuTri/);
+  assert.match(PHIEU, /\{KHOI\.map\(\(k\) =>/);
+  // Tóm tắt thanh bước bên phải.
+  assert.match(PHIEU, /`\$\{ketQuaDT\.length\} điều trị`/);
+  assert.match(PHIEU, /`\$\{ketQuaTT\.length\} thủ thuật`/);
+  assert.match(PHIEU, /4: soThuoc \? `\$\{soThuoc\} thuốc`/);
 });
 
-test("phiếu vẽ khối 4 qua shell, cả hồ sơ tối giản", () => {
-  assert.match(PHIEU, /\{khoi === 4 \? oDieuTri : null\}/);
-  assert.match(LUOT, /oDieuTri=\{chiMuc \? undefined : <KhoiDieuTri/);
-  assert.match(LUOT.slice(LUOT.indexOf("if (chonDuoc) {")), /<KhoiDieuTri/);
+test("mục D đã bỏ: trống thì không hiện, có dữ liệu cũ thì chỉ đọc", () => {
+  assert.match(PHIEU, /!MUC_DA_BO\.includes\(m\.ma\) \|\| soODaDien\(m\.block, gia\) > 0/);
+  assert.match(PHIEU, /chiDoc=\{!ghi \|\| MUC_DA_BO\.includes\(m\.ma\)\}/);
+  assert.match(PHIEU, /Chẩn đoán và xử lý \(đã ghi trước đây\)/);
+});
+
+test("khối 3 xếp: thẻ điều trị → (D cũ) → thủ thuật đã chỉ định → lưới Dịch vụ khác → Hẹn khám", () => {
+  assert.match(PHIEU, /\{khoi === 3 \? oDieuTri : null\}\s*\{mucKhoi\.map/);
+  assert.doesNotMatch(PHIEU, /khoi === 4 \? oDieuTri/);
+  // Thẻ thủ thuật ở thẻ con RIÊNG đứng trước thẻ con của mục F (lưới chọn).
+  const tt = PHIEU.indexOf('ten="Thủ thuật đã chỉ định"');
+  const theMucF = PHIEU.indexOf("ten={td.ten}", tt);
+  assert.ok(tt > 0 && theMucF > tt, "thẻ thủ thuật phải đứng trên lưới");
+  const noiDung = PHIEU.slice(PHIEU.indexOf("const noiDung = ("), PHIEU.indexOf("return (", PHIEU.indexOf("const noiDung = (")));
+  assert.doesNotMatch(noiDung, /<KetQuaChiDinh/, "không còn thẻ nằm dưới lưới");
+});
+
+test("MỘT định nghĩa điều trị: cờ dieu_tri máy chủ, không dò maThuThuat", () => {
+  assert.match(LIB, /if \(c\.dieu_tri\) ra\.dieuTri\.push\(c\);\s*else if \(maThuThuat\?\.has/);
+  assert.match(PHIEU, /phanChiDinh\(ketQuaChiDinh, maThuThuat\)/);
+  assert.doesNotMatch(PHIEU, /laTT/);
+  assert.match(LUOT, /phanChiDinh\(ketQua, maThuThuat\)\.dieuTri/);
+});
+
+test("thẻ điều trị = khung thẻ chỉ định + phần điều trị (một thẻ mỗi chỉ định)", () => {
+  assert.match(KHOI, /<KetQuaChiDinh ds=\{chiDinh\} \{\.\.\.ketQua\} dieuTri=\{\{ chip, than \}\} \/>/);
+  // Khung thẻ: Hoàn tác chỉ định, Ảnh · tệp, tiền giữ nguyên; không [Mở phiếu kết
+  // quả] và không tóm tắt (phiếu 2 ô đã nằm trong thẻ); mọi lần hiện cùng nhau.
+  assert.match(KQC, /choSua && !dieuTri \?/);
+  assert.match(KQC, /coKq && !dieuTri \?/);
+  assert.match(KQC, /const nhieuLan = !dieuTri && cacLan\.length > 1/);
+  assert.match(KQC, /chipDieuTri \?\? <Chip tone=\{tt\.tone\}>/);
+  assert.match(KQC, /nhan="Hoàn tác chỉ định"/);
+  // Shell dựng MỘT bộ thuộc tính thẻ cho cả phiếu đầy đủ lẫn hồ sơ tối giản.
+  assert.match(LUOT, /oDieuTri=\{chiMuc \? undefined : theDieuTri\}/);
+  assert.match(LUOT, /<KhoiDieuTri visitId=\{visitId\} choGhi=\{choGhi\} chiDinh=\{dsDieuTri\} ketQua=\{propsKetQua\} \/>/);
+  assert.match(LUOT, /ketQua=\{propsKetQua\}/);
+});
+
+test("hồ sơ tối giản: thẻ điều trị → đã chỉ định (không lặp điều trị) → kê chỉ định", () => {
+  const tg = LUOT.slice(LUOT.indexOf("if (chonDuoc) {"), LUOT.indexOf("if (!phieu) {"));
+  const a = tg.indexOf("{theDieuTri}");
+  const b = tg.indexOf("Đã chỉ định &amp; kết quả");
+  const c = tg.indexOf("Kê chỉ định");
+  assert.ok(a > 0 && a < b && b < c, "thứ tự thẻ điều trị → đã chỉ định → kê chỉ định");
+  assert.match(tg, /ketQua\.filter\(\(c\) => !dsDieuTri\.includes\(c\)\)/);
 });
 
 test("MỘT component phiếu điều trị cho bàn khám và phòng dịch vụ", () => {
@@ -44,7 +99,8 @@ test("MỘT component phiếu điều trị cho bàn khám và phòng dịch v�
   // Cùng dữ liệu: phiếu kết quả của chỉ định qua engine phiếu (`/api/phieu`).
   assert.match(DT, /fetch\("\/api\/phieu"/);
   assert.match(DT, /form_id: `KQ_\$\{MAU_PHIEU_DIEU_TRI\}`/);
-  assert.match(KHOI, /Chưa có chỉ định điều trị — kê ở khối Chỉ định điều trị/);
+  assert.match(KHOI, /Chưa có chỉ định điều trị — chọn dịch vụ điều trị ở danh mục bên dưới/);
+  assert.match(KHOI, /if \(chiDinh\.length === 0\) \{\s*return choGhi \?/);
 });
 
 test("phiếu điều trị GỌN: mỗi ô một nhãn, tự lưu, chân Bản n · người · giờ, không Hoàn tất", () => {
@@ -71,7 +127,7 @@ test("nút do máy chủ quyết; lệnh đi qua route chuyển tiếp; chỉ đ
   assert.doesNotMatch(ROUTE, /\.from\(/, "không đọc thẳng database");
 });
 
-test('"Khách đã đặt" gộp vào khối 4', () => {
+test('"Khách đã đặt" nằm ở thẻ điều trị', () => {
   assert.match(KHOI, /t\.da_dat/);
   assert.doesNotMatch(DV, /khach_da_dat/);
 });

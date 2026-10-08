@@ -209,6 +209,13 @@ lệnh `bat_dau` + `xong` CÓ SẴN của `S/service_execution_service.py`; lệ
 `src/clinicai/phieu_kham/dinh_nghia/` + `src/clinicai/phieu_kham/khung.py`. Đặc tả:
 `docs/phieu-kham/`. Test: `T/services/test_phieu_kham_db.py`, `T/services/test_phieu_kham_luot_db.py`,
 FT `phieu-kham-boundary.test.mts`, `npm run test:phieu-kham`.
+Bốn khối (thứ tự mục, tên khối) = `KHOI_PHIEU` ở `D/lib/phieu-kham.ts`: 1 Thông tin cơ bản
+(A+B) · 2 Chỉ định cận lâm sàng (C) · 3 Chỉ định điều trị (thẻ điều trị → [D cũ chỉ đọc] →
+thẻ thủ thuật đã chỉ định → lưới "Dịch vụ khác" F → Hẹn khám G) · 4 Đơn thuốc (E). Mục đã
+bỏ khỏi phiếu mới ("Chẩn đoán và xử lý" = D; lượt cũ có dữ liệu hiện chỉ đọc) =
+`MUC_DA_BO` — mở lại là bỏ mã khỏi danh sách. Thẻ nào vào khối nào = `phanChiDinh`
+(cờ `dieu_tri` máy chủ trước, rồi danh mục thủ thuật, còn lại CLS) — FT
+`khoi-dieu-tri-boundary.test.mts`, `lib/phieu-kham.test.mts`.
 
 **Dịch vụ của lượt trong hồ sơ khám — đổi dịch vụ, phiếu cũ, lượt Điều trị (07/10/2026)**
 — UI `D/_lam-viec/phieu-kham/KhoiDichVuHoSo.tsx` (đầu phiếu + hồ sơ tối giản ở
@@ -225,8 +232,10 @@ không chặn check-out `S/checkout_service.py` (`exam_open`); tick dịch vụ 
 **Chỉ định điều trị trong hồ sơ — phiếu điều trị + làm tại bàn khám (07/10/2026)**
 — Phiếu điều trị = phiếu KẾT QUẢ mẫu `PHIEU_DIEU_TRI` (2 ô) gắn cho dịch vụ của loại
 khám nhóm DIEU_TRI (migration `20261007620000_phieu_dieu_tri_ban_kham.sql`; sửa ô = sửa
-mẫu ở màn mẫu kết quả, là DỮ LIỆU). Thẻ + nút: UI khối 4 "Điều trị"
-`D/_lam-viec/phieu-kham/KhoiDieuTri.tsx` (phiếu = `PhieuKetQua` của chỉ định) →
+mẫu ở màn mẫu kết quả, là DỮ LIỆU). Thẻ + nút: đầu khối 3 "Chỉ định điều trị" (và hồ sơ
+tối giản) `D/_lam-viec/phieu-kham/KhoiDieuTri.tsx` — khung thẻ là `KetQuaChiDinh.tsx`
+(prop `dieuTri`: tiền, bắt buộc, Hoàn tác chỉ định, Ảnh · tệp), phần điều trị (chip
+trạng thái, nút làm, phiếu `PhieuDieuTri` / `PhieuKetQua` của chỉ định) ở `KhoiDieuTri` →
 `/api/ho-so-kham` (`xem=dieu-tri`, `thao_tac=ban-kham`) → `R/ho_so_kham.py` (`/ho-so-kham/{visit}/dieu-tri…`) → `S/dieu_tri_ban_kham.py`
 (`doc_the`, `thao_tac`) → lệnh `S/service_execution_service.py` `bat_dau_tai_ban_kham` /
 `xong_tai_ban_kham` / `huy_bat_dau_tai_ban_kham` / `hoan_tac_xong_tai_ban_kham` (lần làm

@@ -7,6 +7,8 @@ import { vnYmd } from "./datetime.ts";
 import { docNhoGap, ghiNhoGap, moBanDau, type KhoNho } from "./ngan-gap.ts";
 import {
   anhInDuoc,
+  phanChiDinh,
+  type ChiDinhVaKetQua,
   chipMauDanhMuc,
   coGiaTriO,
   gomNhom,
@@ -467,4 +469,25 @@ test("tongPhongKham bỏ mục đối tác tự thu và mục chưa có giá", (
   assert.equal(tongPhongKham(["HPV"], muc), 0);
   assert.equal(tongPhongKham(["X", "KHONG_CO"], muc), 0);
   assert.equal(tongPhongKham([], muc), 0);
+});
+
+// Sắp lại khối 3/4 (08/10): một chỉ định không bao giờ ra hai thẻ. Điều trị theo
+// cờ máy chủ `dieu_tri`, xét TRƯỚC danh mục thủ thuật.
+test("phanChiDinh: điều trị theo cờ máy chủ, một chỉ định một chỗ", () => {
+  const cd = (service_code: string, dieu_tri?: boolean) =>
+    ({ service_order_id: service_code, service_code, dieu_tri }) as unknown as ChiDinhVaKetQua;
+  const gheDien = cd("CLS_GHE_DTT", true); // vừa ở danh mục thủ thuật vừa là điều trị
+  const laser = cd("LASER_TIEN_DINH", true); // điều trị, KHÔNG ở danh mục thủ thuật
+  const datVong = cd("TT_DAT_VONG");
+  const sieuAm = cd("SA_2D");
+  const maTT = new Set(["CLS_GHE_DTT", "TT_DAT_VONG"]);
+  const ra = phanChiDinh([sieuAm, gheDien, datVong, laser], maTT);
+  assert.deepEqual(ra.dieuTri, [gheDien, laser]);
+  assert.deepEqual(ra.thuThuat, [datVong]);
+  assert.deepEqual(ra.cls, [sieuAm]);
+  // Chưa nạp danh mục thủ thuật: điều trị vẫn đúng chỗ, phần còn lại về CLS.
+  const chuaNap = phanChiDinh([gheDien, datVong]);
+  assert.deepEqual(chuaNap.dieuTri, [gheDien]);
+  assert.deepEqual(chuaNap.cls, [datVong]);
+  assert.deepEqual(phanChiDinh([], maTT), { dieuTri: [], thuThuat: [], cls: [] });
 });
