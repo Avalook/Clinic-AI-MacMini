@@ -48,6 +48,8 @@ import { todayVn } from "@/lib/roster";
 import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
 import { khoangTuKy, type Khoang } from "@/lib/thanh-ngay";
 import KhungKhach from "../_lam-viec/KhungKhach";
+import DatLichBuoiKe from "../_lam-viec/DatLichBuoiKe";
+import type { LieuTrinh } from "@/lib/lieu-trinh-cskh";
 import LichSuNotion from "../patient-list/LichSuNotion";
 import LichTrungCuaKhach from "./LichTrungCuaKhach";
 import DatLichModal from "./DatLichModal";
@@ -690,6 +692,8 @@ export default function CustomersView({
   const [ghiChuChung, setGhiChuChung] = useState("");
   /** Form đặt lịch đang mở kiểu nào; null = đóng. */
   const [datLich, setDatLich] = useState<"tai-kham" | "kham-moi" | null>(null);
+  /** [Đặt lịch buổi kế] từ khối Liệu trình của khung khách (08/10/2026). */
+  const [datLichLt, setDatLichLt] = useState<LieuTrinh | null>(null);
   // LƯỢT KHÁM ĐANG XEM — cặp (khách, lượt), không phải mỗi id lượt.
   //
   // Đổi khách mà chỉ giữ id lượt thì lượt của người trước dính sang người sau.
@@ -2035,6 +2039,7 @@ export default function CustomersView({
                   <KhungKhach
                     key={selected.clinic_patient_id}
                     clinicPatientId={selected.clinic_patient_id}
+                    onDatLichLieuTrinh={canEdit ? setDatLichLt : undefined}
                   />
                 )}
 
@@ -2229,6 +2234,28 @@ export default function CustomersView({
           // lượt nào. Mọi luật suy diễn khác rồi cũng sai ở một ca nào đó.
           onXong={(appointmentId) => {
             setDatLich(null);
+            if (appointmentId && selected) {
+              setLuotChon({ pid: selected.clinic_patient_id, id: appointmentId });
+              setViecDangGhi(null);
+              setGhiChuChung("");
+              setEditOpen(false);
+            }
+            router.refresh();
+          }}
+        />
+      ) : null}
+
+      {/* Đặt lịch buổi kế của một liệu trình — cùng bộ đặt lịch, khoá loại khám
+          Điều trị của dịch vụ (08/10/2026). Đặt xong chuyển sang lượt mới như trên. */}
+      {canEdit && datLichLt && selected?.clinic_patient_id === datLichLt.khach_id ? (
+        <DatLichBuoiKe
+          lt={datLichLt}
+          doctors={doctors}
+          locations={locations}
+          defaultLocationId={selected.location_id ?? undefined}
+          onDong={() => setDatLichLt(null)}
+          onXong={(appointmentId) => {
+            setDatLichLt(null);
             if (appointmentId && selected) {
               setLuotChon({ pid: selected.clinic_patient_id, id: appointmentId });
               setViecDangGhi(null);

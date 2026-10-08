@@ -15,6 +15,7 @@
 import { Star } from "lucide-react";
 
 import SoLuot from "@/components/ui/SoLuot";
+import { nhanBuoiCuaLuot, type ChipLieuTrinh } from "@/lib/lieu-trinh-cskh";
 
 import { cauDangOPhong, gioVn, soPhutTu, type ChiDinhPhong, type DongHangCho } from "../../_lam-viec/api";
 
@@ -68,6 +69,7 @@ export default function HangChoKhachPhong({
   chon,
   onChon,
   trong,
+  lieuTrinh = null,
 }: {
   dong: DongHangCho[];
   /** visit_id → chỉ định phòng làm được + trạng thái (dây Nhận tại phòng bật). */
@@ -76,6 +78,8 @@ export default function HangChoKhachPhong({
   chon: string | null;
   onChon: (visitId: string) => void;
   trong: string;
+  /** Chip liệu trình của cả lô (08/10/2026) — chỉ thêm chữ vào dòng phụ. */
+  lieuTrinh?: ChipLieuTrinh | null;
 }) {
   if (dong.length === 0) {
     return <p className="rounded-card border border-line bg-surface p-4 text-sm text-ink-muted">{trong}</p>;
@@ -140,7 +144,9 @@ export default function HangChoKhachPhong({
                           <SoLuot booking={dau.so_booking} className="shrink-0" />
                         </span>
                         <span className={`block truncate text-label ${sang ? "text-danger" : "text-ink-muted"}`}>
-                          {[`${soChiDinh} chỉ định`, nhan].filter(Boolean).join(" · ")}
+                          {[`${soChiDinh} chỉ định`, nhanBuoiCuaLuot(lieuTrinh, k.visitId, k.dong), nhan]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </span>
                       </span>
                       <span className="shrink-0 text-right text-label text-ink-muted">{phut}</span>

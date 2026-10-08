@@ -12,12 +12,21 @@
 
 import { requireNavAccess } from "../../../lib/clinic-session";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
+import { layCoSo } from "../../../lib/danh-muc";
+import { listBookableDoctors } from "../../../lib/doctors-server";
+import LieuTrinhCskh from "./LieuTrinhCskh";
+import TabNhacTaiKham from "./TabNhacTaiKham";
 import ViecGoiNhac, { type DuLieu } from "./ViecGoiNhac";
 
 export const dynamic = "force-dynamic";
 
-export default async function NhacTaiKhamPage() {
+export default async function NhacTaiKhamPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   await requireNavAccess("/nhac-tai-kham");
+  const { tab } = await searchParams;
 
   // null = backend không trả lời (chưa cấu hình CLINIC_API_URL, hết phiên, 403).
   // Phải phân biệt với danh sách rỗng — "không đọc được" và "hôm nay không ai
@@ -26,7 +35,14 @@ export default async function NhacTaiKhamPage() {
   // Endpoint này SINH VIỆC của hôm nay trước khi trả về. Dự án chưa có bộ hẹn
   // giờ nào, nên mở màn hình là đường chắc chắn nhất; hàm sinh idempotent nên
   // tải lại trang mười lần vẫn ra đúng chừng ấy việc.
-  const duLieu = await fetchFromBackend<DuLieu>("/api/v1/cskh/recall-jobs");
+  //
+  // Bác sĩ + cơ sở: cho [Đặt lịch buổi kế] của tab Liệu trình — mở đúng bộ đặt
+  // lịch sẵn có (`DatLichModal`), như màn Quản lý khách hàng.
+  const [duLieu, coSo, bacSi] = await Promise.all([
+    fetchFromBackend<DuLieu>("/api/v1/cskh/recall-jobs"),
+    layCoSo(),
+    listBookableDoctors(),
+  ]);
 
   return (
     <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
@@ -34,7 +50,16 @@ export default async function NhacTaiKhamPage() {
           chỗ với mọi trang khác. Để cả hai nơi thì tiêu đề hiện hai lần và phần
           việc thật bị đẩy xuống gần nửa màn hình. */}
 
-      <ViecGoiNhac duLieu={duLieu} khongDocDuoc={duLieu === null} />
+      <TabNhacTaiKham
+        tabDau={tab === "lieu-trinh" ? "lieu-trinh" : "nhac"}
+        nhac={<ViecGoiNhac duLieu={duLieu} khongDocDuoc={duLieu === null} />}
+        lieuTrinh={
+          <LieuTrinhCskh
+            doctors={bacSi}
+            locations={coSo.map((c) => ({ id: c.id, label: c.name }))}
+          />
+        }
+      />
     </main>
   );
 }

@@ -17,6 +17,7 @@
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
+import { nhanBuoi, type ChipLieuTrinh } from "@/lib/lieu-trinh-cskh";
 
 import { cauChiDinhPhong, type ChiDinhPhong, type DongHangCho } from "../../_lam-viec/api";
 import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "../../_lam-viec/ChonBacSiLam";
@@ -53,7 +54,11 @@ export default function KhungChiDinhKhach({
   onHanhDong,
   onDaNhan,
   onBao,
+  lieuTrinh = null,
 }: {
+  /** Chip liệu trình của cả lô (08/10/2026): "Buổi k/N · đã trả trước" trên dòng
+   *  chỉ định thuộc liệu trình — chỉ thêm chip, không đổi nút / thứ tự. */
+  lieuTrinh?: ChipLieuTrinh | null;
   roomId: string;
   visitId: string;
   khach: string | null;
@@ -136,6 +141,7 @@ export default function KhungChiDinhKhach({
         <ul className="divide-y divide-line">
           {hang.map((h) => {
             const dangChon = h.dong !== null && h.dong.id === chon;
+            const buoi = lieuTrinh?.chi_dinh[h.id] ?? null;
             return (
               <li key={h.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5">
                 {h.dong ? (
@@ -158,6 +164,11 @@ export default function KhungChiDinhKhach({
                     {h.chuaChot ? <span className="text-meta text-ink-muted"> · chưa chốt</span> : null}
                   </span>
                 )}
+                {buoi ? (
+                  <Chip tone="brand" className="shrink-0">
+                    {nhanBuoi(buoi)}
+                  </Chip>
+                ) : null}
                 {choNhan && h.nhanDuoc ? (
                   <NhanChiDinh
                     roomId={roomId}

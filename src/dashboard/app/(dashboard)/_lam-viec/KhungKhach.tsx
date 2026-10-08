@@ -5,7 +5,7 @@
 // và tự nhắc lịch cho chính mình cho bệnh nhân này … Lễ tân cũng nên có … cần có
 // chỗ xem hết mọi thứ của khách đó ở màn của người đó, không miss gì."
 //
-// Ba khối, một component:
+// Các khối, một component (khối "Liệu trình" nằm giữa 2 và 3 — `LieuTrinhKhach`):
 //   1. Ghi chú về khách — sổ chung (ai ghi, lúc nào); người ghi gỡ được dòng
 //      của mình → /api/cskh/khach/[id] → `ghi_chu_khach_service.py`.
 //   2. Tự nhắc tôi — `TuNhac` sẵn có (→ /api/nhac-viec), cùng khối ở Xem lượt.
@@ -20,6 +20,9 @@ import Chip, { type ChipTone } from "@/components/ui/Chip";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { fmtDate, fmtDayTime } from "@/lib/datetime";
 
+import type { LieuTrinh } from "@/lib/lieu-trinh-cskh";
+
+import { LieuTrinhCuaKhach } from "./LieuTrinhKhach";
 import NutXemLuot from "./NutXemLuot";
 import TuNhac from "./TuNhac";
 import ViecTaiKham, { type ChiTietHen } from "./ViecTaiKham";
@@ -127,7 +130,14 @@ function Trong({ children }: { children: ReactNode }) {
   return <p className="text-meta text-ink-faint">{children}</p>;
 }
 
-export default function KhungKhach({ clinicPatientId }: { clinicPatientId: string }) {
+export default function KhungKhach({
+  clinicPatientId,
+  onDatLichLieuTrinh,
+}: {
+  clinicPatientId: string;
+  /** [Đặt lịch buổi kế] của khối Liệu trình — màn cha mở bộ đặt lịch sẵn có. */
+  onDatLichLieuTrinh?: (lt: LieuTrinh) => void;
+}) {
   const [ghiChu, setGhiChu] = useState<GhiChu[] | null>(null);
   const [tomTat, setTomTat] = useState<TomTat | null>(null);
   const [loiDoc, setLoiDoc] = useState<string | null>(null);
@@ -292,6 +302,12 @@ export default function KhungKhach({ clinicPatientId }: { clinicPatientId: strin
 
       <Khoi tieuDe="Tự nhắc tôi về khách này">
         <TuNhac clinicPatientId={clinicPatientId} />
+      </Khoi>
+
+      {/* LIỆU TRÌNH (08/10/2026): mọi liệu trình của khách — trạng thái, buổi đã
+          làm / đã trả / còn lại, tiền còn lại, lộ trình, lịch sử sửa + nút CSKH. */}
+      <Khoi tieuDe="Liệu trình">
+        <LieuTrinhCuaKhach clinicPatientId={clinicPatientId} onDatLich={onDatLichLieuTrinh} />
       </Khoi>
 
       <Khoi tieuDe="Mọi thứ của khách">

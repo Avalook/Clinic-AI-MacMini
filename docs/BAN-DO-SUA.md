@@ -434,6 +434,27 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `D/_lam-viec/ViecTaiKham.tsx` → `S/hen_tai_kham_service.py`, `S/recall_service.py`;
   chuông tới hạn = consumer `src/clinicai/events/consumers/nhac_tai_kham.py`. Test:
   `T/services/test_hen_tai_kham_db.py`, `T/unit/test_recall_service.py`.
+- **Liệu trình — CSKH + khung khách (C2, 08/10):** tab "Liệu trình" của `/nhac-tai-kham`
+  (`D/nhac-tai-kham/TabNhacTaiKham.tsx`, `LieuTrinhCskh.tsx`: "Đề xuất chưa đăng ký" /
+  "Đang dở, quá X ngày"); khối "Liệu trình" của khung khách `D/_lam-viec/KhungKhach.tsx`;
+  dòng + nút dùng chung `D/_lam-viec/LieuTrinhKhach.tsx` (Đăng ký 1/N/số khác · Dừng ·
+  Mở lại · Hoàn tác · Lịch sử sửa) → `/api/cskh/lieu-trinh` (`?loai=` / `?khach=`),
+  `/api/cskh/lieu-trinh/[id]` → `S/lieu_trinh_service.py` (`cskh`, `theo_khach`,
+  `dang_ky`, `dung`, `mo_lai`, `hoan_tac`, `lich_su`). [Đặt lịch buổi kế] = bộ đặt lịch
+  sẵn có `D/_lam-viec/DatLichBuoiKe.tsx` → `D/customers/DatLichModal.tsx` (khoá
+  `service_type_id` máy chủ trả). Chữ: `lib/lieu-trinh.ts`. Test:
+  `T/services/test_lieu_trinh_db.py`, `T/services/test_lieu_trinh_c2_db.py`, FT
+  `lieu-trinh-c2-boundary.test.mts`.
+- **Chip liệu trình (phòng · tiếp đón · bàn khám):** hook `D/_lam-viec/dung-chip-lieu-trinh.ts`
+  (MỘT lần gọi `/api/lieu-trinh/chip?luot=` mỗi màn) → `S/lieu_trinh_service.py` `chip`;
+  vẽ ở `D/phong/[ma]/KhungChiDinhKhach.tsx` · `SapDenPhong.tsx` · `HangChoKhachPhong.tsx`,
+  `D/reception/queue/QueueBoard.tsx`, `D/ban-kham/BanKham.tsx` (`Nhom`). Chỉ thêm chữ —
+  không đổi lọc / đếm / sắp xếp. Bản in "Liệu trình: buổi k/N":
+  `src/clinicai/phieu_kham/ket_qua_chi_dinh.py` (`lieu_trinh`) →
+  `src/dashboard/app/print/phieu-kham/[visitId]/InPhieuKham.tsx` `DieuTriIn`.
+- **Dọn khách thử có liệu trình:** `don_khach_thu` bản mới nhất ở mig
+  `20261008200000_don_khach_thu_lieu_trinh.sql` (danh sách bảng khách + cột nối
+  `lieu_trinh_id`) — bảng có dữ liệu khách mới thì CHÉP bản này, thêm tên bảng.
 - **Bác sĩ đặt LỊCH HẸN THẬT ngay ở ô Ngày tái khám (02/10):** khung
   `D/_lam-viec/phieu-kham/DatLichTaiKham.tsx` (bảng `D/appointments/BangBacSiTuan.tsx`
   chế độ `chiNgay`) → `/api/phieu-kham` (`dat-lich-tai-kham` / `huy-lich-tai-kham`)
