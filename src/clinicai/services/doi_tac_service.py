@@ -575,6 +575,10 @@ class DoiTacService:
                            SELECT r.id FROM clinic_room r
                             WHERE r.clinic_id = $1::uuid AND r.la_doi_tac
                               AND r.is_active
+                              -- Phòng đối tác của đúng cơ sở lượt (2 cơ sở).
+                              AND (co_so_cua_luot(service_order.visit_id) IS NULL
+                                   OR r.location_id
+                                      = co_so_cua_luot(service_order.visit_id))
                               AND phong_lam_duoc(r.clinic_id, r.id,
                                                  service_order.node_code,
                                                  service_order.service_code)

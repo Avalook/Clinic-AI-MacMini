@@ -618,13 +618,17 @@ class ClinicalRecordService:
             """
             INSERT INTO visit (
                 clinic_id, clinic_patient_id, appointment_id,
-                attending_doctor_id, status, checked_in_at, service_type_id
+                attending_doctor_id, status, checked_in_at, service_type_id,
+                location_id
             )
-            -- Loại khám lấy từ lịch hẹn (C18, 02/10/2026): lượt mở từ ghi bệnh
-            -- án không được mất loại khám trên bảng Hành trình.
+            -- Loại khám + cơ sở lấy từ lịch hẹn (C18, 02/10/2026; cơ sở 08/10):
+            -- lượt mở từ ghi bệnh án không được mất loại khám trên bảng Hành
+            -- trình, và phải mang cơ sở để báo cáo/xếp phòng đúng nơi.
             VALUES ($4::uuid, $1::uuid, $2::uuid, $3::uuid,
                     'IN_PROGRESS', now(),
                     (SELECT a.service_type_id FROM appointment a
+                      WHERE a.id = $2::uuid AND a.clinic_id = $4::uuid),
+                    (SELECT a.location_id FROM appointment a
                       WHERE a.id = $2::uuid AND a.clinic_id = $4::uuid))
             ON CONFLICT (appointment_id) WHERE appointment_id IS NOT NULL
             DO NOTHING

@@ -40,6 +40,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.ma_vi_tri import ma_mau
 from clinicai.core.shifts import (
     CAC_CA,
     ca_tu_settings,
@@ -70,6 +71,11 @@ MA_CA_KHAM_BAC_SI: frozenset[str] = frozenset(
         "T4_SAN_BS",
     }
 )
+
+
+def la_ca_kham_bac_si(station: str) -> bool:
+    """Vị trí là ca khám bác sĩ — kể cả vị trí cơ sở khác (`HN__T1_SA_BS`)."""
+    return ma_mau(station) in MA_CA_KHAM_BAC_SI
 
 
 ROSTER_ADMIN_ROLES: frozenset[ClinicRole] = frozenset({ClinicRole.MANAGEMENT})
@@ -230,7 +236,7 @@ class RosterService:
             # tự tươi qua realtime, nhưng màn chỉ nói với người ĐANG NHÌN —
             # tin Telegram mới gọi được người đang làm việc khác quay lại xếp.
             # Chỉ ca ĐÃ DUYỆT: đăng ký PENDING chưa phải ca trực.
-            if station in MA_CA_KHAM_BAC_SI and is_admin:
+            if la_ca_kham_bac_si(station) and is_admin:
                 await self._bao_lich_cho_xep(
                     conn,
                     roster_id=str(row_id),
@@ -622,7 +628,7 @@ class RosterService:
                 if not dry_run:
                     # Người bị gỡ mất quyền theo lịch ngay (xem `thay_nguoi`).
                     cache.quen(identity.clinic_id)
-                if row["station"] not in MA_CA_KHAM_BAC_SI or row["staff_id"] is None:
+                if not la_ca_kham_bac_si(row["station"]) or row["staff_id"] is None:
                     return {"so_lich_cho_xep": 0, "gio": []}
 
                 return await self._go_lich_ngoai_ca(
@@ -958,7 +964,7 @@ class RosterService:
                         }
                     ),
                 )
-                if row["station"] in MA_CA_KHAM_BAC_SI:
+                if la_ca_kham_bac_si(row["station"]):
                     if row["staff_id"] is not None:
                         lich = await self._go_lich_ngoai_ca(
                             conn,
@@ -971,7 +977,7 @@ class RosterService:
                         )
             # Tin "ca bác sĩ mới có → lịch chờ xếp" là việc phụ, tự nuốt lỗi —
             # chạy SAU khi giao dịch đã chốt để lỗi của nó không làm hỏng cú đổi.
-            if row["station"] in MA_CA_KHAM_BAC_SI:
+            if la_ca_kham_bac_si(row["station"]):
                 await self._bao_lich_cho_xep(
                     conn,
                     roster_id=roster_id,
@@ -1471,17 +1477,27 @@ class RosterService:
             )
             rows = await conn.fetch(
                 """
-                SELECT DISTINCT ON (staff_id) staff_id::text AS id,
-                       coalesce(staff_name, '') AS name
-                  FROM work_roster
-                 WHERE clinic_id = $1::uuid AND work_date = $2
-                   AND station = ANY($3::text[]) AND status = 'APPROVED'
-                   AND staff_id IS NOT NULL
-                 ORDER BY staff_id, created_at
+                SELECT DISTINCT ON (w.staff_id) w.staff_id::text AS id,
+                       coalesce(w.staff_name, '') AS name
+                  FROM work_roster w
+                  LEFT JOIN vi_tri_lam_viec v
+                    ON v.clinic_id = w.clinic_id AND v.code = w.station
+                  LEFT JOIN clinic_room r ON r.id = v.room_id
+                 WHERE w.clinic_id = $1::uuid AND w.work_date = $2
+                   -- Mã mẫu: vị trí cơ sở khác (HN__T1_SA_BS) cũng là ca khám.
+                   AND regexp_replace(regexp_replace(w.station, '^[A-Z0-9]+__', ''),
+                                      '__[0-9]+$', '') = ANY($3::text[])
+                   AND w.status = 'APPROVED'
+                   AND w.staff_id IS NOT NULL
+                   -- Chỉ bác sĩ trực ở cơ sở đang đứng; vị trí không gắn phòng
+                   -- (mẫu cũ LICH_KHAM) thì thuộc mọi cơ sở.
+                   AND (r.location_id IS NULL OR r.location_id = $4::uuid)
+                 ORDER BY w.staff_id, w.created_at
                 """,
                 identity.clinic_id,
                 ngay,
                 sorted(MA_CA_KHAM_BAC_SI),
+                identity.location_id,
             )
         return {"doctors": [dict(r) for r in rows], "du_kien": not da_ap_dung}
 
