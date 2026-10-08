@@ -109,8 +109,11 @@ async def _chay(pool: asyncpg.Pool) -> None:
     app.dependency_overrides[_resolve_identity] = lambda: HIEN_TAI["ai"]
     async with pool.acquire() as conn:
         loc = await conn.fetchval(
-            "SELECT id::text FROM clinic_location WHERE clinic_id = $1::uuid"
-            " AND is_active ORDER BY created_at, id LIMIT 1",
+            # Cơ sở CÓ PHÒNG — phòng điều phối phải cùng cơ sở lượt (08/10/2026).
+            "SELECT l.id::text FROM clinic_location l"
+            " WHERE l.clinic_id = $1::uuid AND l.is_active"
+            " ORDER BY (SELECT count(*) FROM clinic_room r WHERE r.location_id = l.id"
+            " AND r.is_active) DESC, l.created_at, l.id LIMIT 1",
             CLINIC,
         )
         le_tan = await nguoi(conn, loc, "RECEPTION")

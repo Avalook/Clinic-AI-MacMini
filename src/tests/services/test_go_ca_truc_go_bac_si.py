@@ -37,7 +37,8 @@ def test_go_trong_cung_giao_dich_voi_viec_xoa_ca() -> None:
 def test_chi_ca_kham_moi_dung_toi_lich_hen() -> None:
     """Gỡ ca thủ thuật ngoài giờ KHÔNG đụng lịch hẹn khám — hai việc khác nhau."""
     src = _nguon()
-    assert 'row["station"] not in MA_CA_KHAM_BAC_SI' in src
+    # 08/10/2026: tra qua mã mẫu (`HN__T1_SA_BS` cũng là ca khám bác sĩ).
+    assert 'not la_ca_kham_bac_si(row["station"])' in src
 
 
 def test_huy_theo_khung_phu_con_lai_khong_theo_ngay() -> None:

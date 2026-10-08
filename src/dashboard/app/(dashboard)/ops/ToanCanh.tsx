@@ -57,8 +57,10 @@ export default async function ToanCanh({ coSo: coSoChon }: { coSo?: string }) {
   // "" / thiếu = tất cả cơ sở. Mã lạ chuyển nguyên — máy chủ trả số 0.
   const chon = coSoChon ? coSoChon.slice(0, 64) : null;
   const [d, coSo] = await Promise.all([
+    // Chuỗi đường dẫn tách khỏi phần ?co_so= — máy soát đường dẫn
+    // (test_dashboard_backend_paths) đọc chuỗi ký tự, không đọc template lồng.
     fetchFromBackend<ToanCanhData>(
-      `/api/v1/reports/toan-canh${chon ? `?co_so=${encodeURIComponent(chon)}` : ""}`,
+      "/api/v1/reports/toan-canh" + (chon ? `?co_so=${encodeURIComponent(chon)}` : ""),
     ),
     layCoSo(),
   ]);

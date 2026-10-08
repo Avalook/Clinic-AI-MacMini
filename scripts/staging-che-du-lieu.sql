@@ -190,6 +190,7 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('app_credential', 'email', 'giu'),
     ('clinic', 'address', 'giu'),
     ('clinic_location', 'address', 'giu'),
+    ('clinic_location', 'phone', 'giu'),       -- SĐT cơ sở (biển hiệu), không phải của khách
     ('province', 'full_name', 'giu'),           -- danh mục hành chính
     ('ward', 'full_name', 'giu'),
     ('work_roster', 'staff_name', 'giu'),
