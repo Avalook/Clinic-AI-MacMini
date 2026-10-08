@@ -27,7 +27,7 @@
 // dải "Đang xem lần k — [Về lần n (đang mở)]". Lần cũ có kết quả chưa xem thì chip
 // có chấm nhắc. "Đã xem" chỉ ghi cho chỉ định đang HIỆN.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 
 import KhungTep from "../KhungTep";
 import AnhKetQua, { tepXem } from "../AnhKetQua";
@@ -201,8 +201,18 @@ export default function KetQuaChiDinh({
   nhanGiay = {},
   onDoiBatBuoc,
   onBoChiDinh,
+  dieuTri,
 }: {
   ds: ChiDinhVaKetQua[];
+  /** Thẻ CHỈ ĐỊNH ĐIỀU TRỊ (khối 3): một thẻ mỗi chỉ định, phần điều trị do
+   *  `KhoiDieuTri` vẽ — `chip` thay chip trạng thái một trục (null = giữ chip
+   *  này), `than` = làm tại bàn khám + phiếu 2 ô. Phiếu nằm sẵn trong thẻ nên
+   *  không có [Mở phiếu kết quả] và không tóm tắt kết quả (trùng phiếu); mọi lần
+   *  chỉ định hiện cùng nhau (thẻ còn nút làm, không để lần cũ thành chỉ xem). */
+  dieuTri?: {
+    chip: (d: ChiDinhVaKetQua) => ReactNode | null;
+    than: (d: ChiDinhVaKetQua) => ReactNode | null;
+  };
   /** Hoàn tác chỉ định (01/10/2026): bỏ chỉ định sai chỗ. Máy chủ quyết được
    *  không (đang làm / đã xong → hoàn tác ở phòng trước) và hỏi xác nhận khi
    *  đã thu tiền (khoản ấy thành tiền thừa ở quầy). */
@@ -247,7 +257,7 @@ export default function KetQuaChiDinh({
     (a, b) => (b || -1) - (a || -1),
   );
   const cacLan = cacLanBs.length > 0 ? cacLanBs : [0];
-  const nhieuLan = cacLan.length > 1;
+  const nhieuLan = !dieuTri && cacLan.length > 1;
   const lanHienTai = cacLan.find((l) => l > 0) ?? cacLan[0] ?? 0;
   const lanCua = (d: ChiDinhVaKetQua) => (d.lam_them ? lanHienTai : (d.lan ?? 0));
   const lanXem = xemLan !== null && cacLan.includes(xemLan) ? xemLan : lanHienTai;
@@ -288,7 +298,12 @@ export default function KetQuaChiDinh({
     const giay = nhanGiay[d.service_code];
     const cacTep = tepCua(d);
     const coKq = d.ket_qua_trang_thai === "CO_KET_QUA";
-    const coPhieu = d.ket_qua.some((k) => k.loai === "PHIEU");
+    // Phiếu 2 ô trong thẻ điều trị tự có [In phiếu] — không vẽ nút In thứ hai.
+    const coPhieu = d.ket_qua.some(
+      (k) => k.loai === "PHIEU" && !(dieuTri && k.form_id === "KQ_PHIEU_DIEU_TRI"),
+    );
+    const chipDieuTri = dieuTri?.chip(d) ?? null;
+    const thanDieuTri = dieuTri?.than(d) ?? null;
     return (
       <li key={d.service_order_id} className="rounded-card border border-hairline bg-surface">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5">
@@ -299,7 +314,7 @@ export default function KetQuaChiDinh({
               <div className="text-meta text-ink-muted">Trên phiếu giấy: {giay}</div>
             ) : null}
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <Chip tone={tt.tone}>{tt.nhan}</Chip>
+              {chipDieuTri ?? <Chip tone={tt.tone}>{tt.nhan}</Chip>}
               {d.lam_them ? <Chip tone="info">{d.lam_them}</Chip> : null}
               {mau ? <Chip tone={mau.tone}>{mau.nhan}</Chip> : null}
               {d.ket_qua.some((k) => k.dang_sua) ? (
@@ -339,7 +354,7 @@ export default function KetQuaChiDinh({
                 onXong={onDoi}
               />
             ) : null}
-            {choSua ? (
+            {choSua && !dieuTri ? (
               <Button
                 type="button"
                 size="sm"
@@ -374,7 +389,17 @@ export default function KetQuaChiDinh({
           </div>
         </div>
 
-        {coKq ? (
+        {thanDieuTri ? <div className="border-t border-hairline p-3">{thanDieuTri}</div> : null}
+        {dieuTri && cacTep.length > 0 && tep !== d.service_order_id ? (
+          <div className="border-t border-hairline p-3">
+            <AnhKetQua
+              dau
+              tep={cacTep}
+              onMo={(i, luoi) => setHop({ id: d.service_order_id, i, luoi: Boolean(luoi) })}
+            />
+          </div>
+        ) : null}
+        {coKq && !dieuTri ? (
           <div className="relative rounded-b-card border-t border-hairline bg-surface-muted/50 p-3">
             <button
               type="button"
@@ -484,3 +509,7 @@ export default function KetQuaChiDinh({
     </>
   );
 }
+
+/** Thuộc tính dùng chung của thẻ chỉ định (trừ danh sách) — shell dựng một lần,
+ *  truyền cho cả thẻ CLS / thủ thuật lẫn thẻ điều trị. */
+export type PhanKetQua = Omit<ComponentProps<typeof KetQuaChiDinh>, "ds" | "dieuTri">;

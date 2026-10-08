@@ -1,7 +1,6 @@
 """KẾT QUẢ CHUNG cho dịch vụ chưa có mẫu — nhập ngay tại quầy (Tuyền 01/10/2026).
 
-    DATABASE_URL_TEST=postgresql://postgres:postgres@127.0.0.1:55600/postgres \\
-        .venv/bin/pytest src/tests/services/test_ket_qua_chung_lam_them_db.py
+    scripts/test-nhanh.sh src/tests/services/test_ket_qua_chung_lam_them_db.py
 
 "Nước tiểu" tick ở bàn sinh hiệu không có mẫu kết quả nào → trước đây không có chỗ
 nhập. Nay MÁY CHỦ chọn mẫu CHUNG (nhập tự do) khi chưa gắn mẫu; mẫu đã gắn thì

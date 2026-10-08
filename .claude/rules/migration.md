@@ -11,7 +11,8 @@ paths:
 - Mỗi việc chạy song song dùng **một dải giờ migration riêng** để tên tệp không đè nhau.
 - Áp bằng **`scripts/apply-pending-migrations.sh`** — nó so thư mục với sổ ghi và
   áp mỗi migration cùng dòng ghi sổ trong một giao dịch. **Không dùng `supabase db push`.**
-  Test: `CLINIC_DB_CONTAINER=chung_test_db ./scripts/apply-pending-migrations.sh --apply`.
+  Test: `scripts/test-nhanh.sh` tự áp migration của nhánh vào DB tạm mỗi lượt (bản
+  trên đĩa — sửa là thấy ngay); không áp migration nhánh vào DB chung.
 - Áp xong: `NOTIFY pgrst, 'reload schema'` để PostgREST thấy cột/bảng mới.
 - **Không chạy migration trong lúc deploy** — đó là một bước riêng, có người xem
   (diễn tập trên bản sao trước: skill `len-prod`).

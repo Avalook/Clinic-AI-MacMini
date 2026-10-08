@@ -1,7 +1,6 @@
 """LÀM THÊM TẠI QUẦY — nút "+ Nước tiểu"… ở Tiếp đón / Đo sinh hiệu (Tuyền 01/10/2026).
 
-    DATABASE_URL_TEST=postgresql://postgres:postgres@127.0.0.1:55600/postgres \\
-        .venv/bin/pytest src/tests/services/test_lam_them_tai_quay_db.py
+    scripts/test-nhanh.sh src/tests/services/test_lam_them_tai_quay_db.py
 
 Lễ tân check-in chị Lan, chị muốn làm nước tiểu luôn: lễ tân tick "+ Nước tiểu"
 → có chỉ định ngay (không qua bác sĩ), quầy thu thấy dòng, thu xong phòng làm

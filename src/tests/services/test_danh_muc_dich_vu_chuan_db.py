@@ -13,8 +13,7 @@ hiện". Kiểm:
 * Bảng giá dịch vụ & phòng: dịch vụ không phòng hiện "chưa có phòng", gán phòng
   tại chỗ là hết, bỏ gán là về theo nhóm việc; trang chủ đếm cùng luật.
 
-    DATABASE_URL_TEST=postgresql://postgres:postgres@127.0.0.1:55600/postgres \\
-        .venv/bin/pytest -m db src/tests/services/test_danh_muc_dich_vu_chuan_db.py
+    scripts/test-nhanh.sh -m db src/tests/services/test_danh_muc_dich_vu_chuan_db.py
 """
 
 from __future__ import annotations
