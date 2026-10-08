@@ -41,6 +41,7 @@ from clinicai.core.shifts import (
     merge_windows,
     shift_windows,
 )
+from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 
 logger = structlog.get_logger()
 
@@ -87,7 +88,7 @@ class CapacityService:
         self._pool = pool
 
     async def boi_canh_tuan(
-        self, *, clinic_id: str, ngay: list[str]
+        self, *, clinic_id: str, ngay: list[str], location_id: str | None = None
     ) -> dict[str, dict[str, Any]]:
         """Phần KHÔNG phụ thuộc bác sĩ của truy vấn lịch trực, lấy MỘT lần/ngày.
 
@@ -104,6 +105,11 @@ class CapacityService:
         Hàm này hỏi một lần cho cả tuần: năm giá trị chung theo ngày, cộng bảng
         tra `(ngày, bác sĩ) → ca trực`. KHÔNG đổi luật nào — cùng các câu con,
         cùng điều kiện; chỉ đổi số lần hỏi.
+
+        ``location_id``: ca trực của bác sĩ chỉ tính ca ở cơ sở đó (xem
+        `lich_truc_co_so`). `roster_known` vẫn tính cả phòng khám: tuần đã áp
+        dụng mà cơ sở này chưa xếp ai thì bác sĩ là NGHỈ ở đây, không phải
+        "chưa biết" rồi mở cho đặt mọi bác sĩ.
         """
         if not ngay:
             return {}
@@ -148,10 +154,14 @@ class CapacityService:
                       WHERE rw.clinic_id = work_roster.clinic_id
                         AND rw.week_start = work_roster.week_start
                    )
+                   AND """
+                + ca_thuoc_co_so("work_roster", "$3")
+                + """
                  GROUP BY work_date, staff_id
                 """,
                 clinic_id,
                 ds,
+                location_id,
             )
         theo_ngay: dict[str, dict[str, Any]] = {
             r["work_date"].isoformat(): {
@@ -268,6 +278,10 @@ class CapacityService:
                       WHERE rw.clinic_id = work_roster.clinic_id
                         AND rw.week_start = work_roster.week_start
                    )
+                   -- Ca ở cơ sở khác không phải ca ở đây (Hào Nam 08/10).
+                   AND """
+                    + ca_thuoc_co_so("work_roster", "$4")
+                    + """
                   ), ARRAY[]::text[]) AS shifts,
                   (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
                     AS open_minute,
@@ -291,6 +305,7 @@ class CapacityService:
                     clinic_id,
                     day,
                     doctor_id,
+                    location_id,
                 )
             nguong = nguong_it_cho(duty["settings"] if duty else None)
             roster_known = bool(duty and duty["roster_known"])
@@ -616,7 +631,9 @@ async def bang_tuan(
     # Đo trên máy chủ thật 16/09/2026 trước khi có dòng này: 17 bác sĩ + hàng
     # "chưa phân" = 18 hàng × 7 ngày = 126 lời gọi `quote()`, mỗi lời gọi hỏi
     # lại cùng năm giá trị của ngày ấy. Màn Đặt lịch mất 660ms.
-    boi_canh = await svc.boi_canh_tuan(clinic_id=clinic_id, ngay=ngay)
+    boi_canh = await svc.boi_canh_tuan(
+        clinic_id=clinic_id, ngay=ngay, location_id=location_id
+    )
 
     # Giới hạn song song để không chiếm hết pool của cả API.
     chan = asyncio.Semaphore(6)
@@ -666,6 +683,7 @@ async def luoi_ngay(
     date: str,
     doctor_ids: list[str],
     bo_qua_lich_id: str | None = None,
+    location_id: str | None = None,
 ) -> dict[str, Any]:
     """Sức chứa của MỘT ngày cho cả lưới đặt chỗ — mỗi bác sĩ một hàng, một lượt.
 
@@ -683,6 +701,9 @@ async def luoi_ngay(
     (``doctor_id`` None) ở cuối. Đếm ghế ở MỌI cơ sở như trigger. Bối cảnh lịch
     trực của ngày hỏi MỘT lần rồi chia cho mọi hàng.
 
+    ``location_id`` chỉ lọc CA TRỰC (bác sĩ trực ở cơ sở nào); ghế vẫn đếm mọi
+    cơ sở như trigger.
+
     Ngày hỏng → lưới rỗng (không ném: ngày là dữ liệu người dùng gõ). UUID hỏng
     trong ``doctor_ids`` bị bỏ qua.
     """
@@ -699,7 +720,11 @@ async def luoi_ngay(
     ids = ids[:LUOI_NGAY_TOI_DA_BAC_SI]
     bo_qua = _uuid_hop_le(bo_qua_lich_id)
 
-    boi_canh = (await svc.boi_canh_tuan(clinic_id=clinic_id, ngay=[ngay])).get(ngay)
+    boi_canh = (
+        await svc.boi_canh_tuan(
+            clinic_id=clinic_id, ngay=[ngay], location_id=_uuid_hop_le(location_id)
+        )
+    ).get(ngay)
     chan = asyncio.Semaphore(6)
 
     async def mot_hang(bs: str | None) -> dict[str, Any]:

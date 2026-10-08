@@ -105,7 +105,7 @@ class _SvcGia:
         self.lan_hoi_boi_canh = 0
 
     async def boi_canh_tuan(
-        self, *, clinic_id: str, ngay: list[str]
+        self, *, clinic_id: str, ngay: list[str], location_id: str | None = None
     ) -> dict[str, dict[str, Any]]:
         self.lan_hoi_boi_canh += 1
         return {d: {"ca_theo_bac_si": {}} for d in ngay}

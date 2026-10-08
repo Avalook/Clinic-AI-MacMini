@@ -337,6 +337,8 @@ function ngayVn(iso: string): string {
 type CaTrucRaw = {
   staff_id: string | null;
   work_date: string | null;
+  /** Cơ sở của ca (máy chủ suy từ vị trí → phòng); null = mọi cơ sở. */
+  location_id?: string | null;
 };
 
 type LichHenRaw = {
@@ -379,6 +381,20 @@ type LichHenRaw = {
   // dưới) và của TỪNG LƯỢT trong lịch sử khám (cuối tệp). Khai ở ngoài khối để
   // không phải hỏi database lần thứ hai cho cùng một câu hỏi.
   const coCaTruc = new Set<string>();
+  // Cùng tập, khoá kèm cơ sở của ca ("*" = mọi cơ sở): ca ở Kim Ngưu không giữ
+  // được lịch ở Hào Nam (08/10/2026).
+  const coCaTaiCoSo = new Set<string>();
+  /** Bác sĩ có ca ngày của `iso` ở cơ sở `loc` (lịch chưa có cơ sở = bất kỳ). */
+  const coCa = (
+    bs: string | null | undefined,
+    iso: string | null | undefined,
+    loc: string | null | undefined,
+  ) => {
+    const k = `${bs}|${ngayVN(iso)}`;
+    return loc
+      ? coCaTaiCoSo.has(`${k}|${loc}`) || coCaTaiCoSo.has(`${k}|*`)
+      : coCaTruc.has(k);
+  };
   let doCaTruc = false;
   // Tuần ĐÃ CÔNG BỐ lịch trực — chưa công bố thì không có "mất bác sĩ".
   const tuanCongBo = new Set<string>();
@@ -408,7 +424,10 @@ type LichHenRaw = {
       console.error("customers: không nạp được ca trực", caTrucErr);
     }
     for (const r of (caTruc as unknown as CaTrucRaw[] | null) ?? []) {
-      if (r.staff_id && r.work_date) coCaTruc.add(`${r.staff_id}|${r.work_date}`);
+      if (r.staff_id && r.work_date) {
+        coCaTruc.add(`${r.staff_id}|${r.work_date}`);
+        coCaTaiCoSo.add(`${r.staff_id}|${r.work_date}|${r.location_id ?? "*"}`);
+      }
     }
     doCaTruc = coCaTruc.size > 0;
     for (const w of (await goiPromise)?.tuan_cong_bo ?? []) tuanCongBo.add(w);
@@ -540,7 +559,7 @@ type LichHenRaw = {
           !!repr.doctor_id &&
           !daQua(repr.slot_start, bayGio) &&
           ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(repr.status) &&
-          !coCaTruc.has(`${repr.doctor_id}|${ngayVN(repr.slot_start)}`),
+          !coCa(repr.doctor_id, repr.slot_start, repr.location_id),
         count: live.length,
         // LƯỢT KHÁM GẦN NHẤT ĐÃ XONG — nguồn cho nút "Tái khám".
         //
@@ -986,7 +1005,7 @@ type LichHenRaw = {
               !!a.doctor_id &&
               !daQua(a.slot_start, nowMs()) &&
               ["SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED"].includes(a.status) &&
-              !coCaTruc.has(`${a.doctor_id}|${ngayVN(a.slot_start)}`)),
+              !coCa(a.doctor_id, a.slot_start, a.location_id)),
             // Bác sĩ bị gỡ đã có ca KHÁM trở lại hôm đó → câu cảnh báo đổi
             // từ "gọi khách đổi lịch" sang "gán lại bác sĩ" (việc nội bộ).
             // `doCaTruc` vẫn là chốt an toàn: tập ca rỗng không được đọc
@@ -995,7 +1014,7 @@ type LichHenRaw = {
             bs_go_co_ca_lai:
               doCaTruc &&
               !!a.bac_si_da_go_id &&
-              coCaTruc.has(`${a.bac_si_da_go_id}|${ngayVN(a.slot_start)}`),
+              coCa(a.bac_si_da_go_id, a.slot_start, a.location_id),
             // Lý do huỷ đi theo TỪNG LƯỢT, không theo khách: một đợt có thể có
             // ba lượt mà chỉ một lượt bị huỷ. Đặt ở cấp đợt là gán sai lượt.
             ly_do_huy_ma: a.ly_do_huy_ma ?? null,

@@ -95,9 +95,16 @@ class ManKhachHangService:
             # kết nối). "Mất bác sĩ" chỉ có nghĩa khi tuần đã công bố lịch trực:
             # chưa công bố là đặt tự do (luật 15/09), và bảng nháp thiếu ca KHÔNG
             # phải bác sĩ nghỉ (16/09/2026). Dòng tuần có staff_id NULL.
+            # Kèm CƠ SỞ của ca (vị trí → phòng → cơ sở; NULL = mọi cơ sở): ca ở
+            # Kim Ngưu không giữ được lịch ở Hào Nam (08/10/2026).
             ca_truc_va_tuan = await conn.fetch(
                 """
-                SELECT staff_id, work_date, NULL::date AS tuan_cong_bo
+                SELECT staff_id, work_date, NULL::date AS tuan_cong_bo,
+                       (SELECT r.location_id
+                          FROM vi_tri_lam_viec v
+                          JOIN clinic_room r ON r.id = v.room_id
+                         WHERE v.clinic_id = work_roster.clinic_id
+                           AND v.code = work_roster.station) AS location_id
                   FROM work_roster
                  WHERE clinic_id = $1::uuid
                    AND public.la_ca_kham_bac_si(clinic_id, station)
@@ -105,7 +112,7 @@ class ManKhachHangService:
                    AND work_date >=
                        (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 1
                 UNION ALL
-                SELECT NULL::uuid, NULL::date, rw.week_start
+                SELECT NULL::uuid, NULL::date, rw.week_start, NULL::uuid
                   FROM roster_week rw
                  WHERE rw.clinic_id = $1::uuid
                    AND rw.week_start >=

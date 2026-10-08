@@ -33,7 +33,9 @@ class _Svc:
         self.boi_canh_hoi: list[list[str]] = []
         self.quote_goi: list[dict[str, Any]] = []
 
-    async def boi_canh_tuan(self, *, clinic_id: str, ngay: list[str]) -> dict[str, Any]:
+    async def boi_canh_tuan(
+        self, *, clinic_id: str, ngay: list[str], location_id: str | None = None
+    ) -> dict[str, Any]:
         self.boi_canh_hoi.append(ngay)
         return {ngay[0]: {"tuan_da_cong_bo": True}}
 

@@ -28,6 +28,7 @@ from clinicai.services.capacity_service import (
     CapacityService,
     luoi_ngay,
 )
+from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 
 #: Lý do đổi lịch cho ô chọn (Tuyền chốt 29/09/2026). Mục đầu là mặc định.
 LY_DO_DOI_LICH: tuple[str, ...] = (
@@ -159,6 +160,7 @@ async def o_doi_lich(
             """
             SELECT a.id::text AS id, a.status, a.slot_start, a.slot_end,
                    a.doctor_id::text AS doctor_id, a.booking_channel,
+                   a.location_id::text AS location_id,
                    a.clinic_patient_id::text AS clinic_patient_id,
                    p.full_name AS ten_khach,
                    d.full_name AS ten_bac_si,
@@ -177,8 +179,10 @@ async def o_doi_lich(
         if lich is None:
             raise NotFoundError("Không tìm thấy lịch hẹn")
         co_quyen_check_in = await can(conn, identity, "reception.checkin.perform")
-        # Bác sĩ CÓ CA ngày ấy (lịch trực đã duyệt). Chưa ai → mọi bác sĩ đang
-        # làm (tuần chưa xếp ca vẫn đặt được — cùng luật `quote`).
+        # Bác sĩ CÓ CA ngày ấy (lịch trực đã duyệt) Ở CƠ SỞ CỦA LỊCH. Cả phòng
+        # khám chưa ai → mọi bác sĩ đang làm (tuần chưa xếp ca vẫn đặt được —
+        # cùng luật `quote`, kể cả "ngày có lịch trực" tính cả phòng khám).
+        co_so = lich["location_id"] or identity.location_id or None
         bac_si = await conn.fetch(
             """
             WITH bs AS (
@@ -189,20 +193,25 @@ async def o_doi_lich(
                    AND m.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR')
                  GROUP BY s.id, s.full_name
             ),
-            co_ca AS (
-                SELECT DISTINCT wr.staff_id::text AS id
+            ca_ngay AS (
+                SELECT wr.staff_id::text AS id,
+                       """
+            + ca_thuoc_co_so("wr", "$3")
+            + """ AS o_day
                   FROM work_roster wr
                  WHERE wr.clinic_id = $1::uuid AND wr.work_date = $2
                    AND wr.status = 'APPROVED'
             )
             SELECT bs.id, bs.full_name,
-                   EXISTS (SELECT 1 FROM co_ca WHERE co_ca.id = bs.id) AS co_ca,
-                   EXISTS (SELECT 1 FROM co_ca) AS ngay_co_lich_truc
+                   EXISTS (SELECT 1 FROM ca_ngay
+                            WHERE ca_ngay.id = bs.id AND ca_ngay.o_day) AS co_ca,
+                   EXISTS (SELECT 1 FROM ca_ngay) AS ngay_co_lich_truc
               FROM bs
              ORDER BY bs.full_name
             """,
             identity.clinic_id,
             chon,
+            co_so,
         )
 
     bs_cu = lich["doctor_id"]
@@ -224,6 +233,7 @@ async def o_doi_lich(
             date=chon.isoformat(),
             doctor_ids=[r["id"] for r in chon_bs],
             bo_qua_lich_id=appointment_id,
+            location_id=co_so,
         )
         theo_bs = {h.get("doctor_id"): h for h in luoi.get("hang", [])}
         for r in chon_bs:
