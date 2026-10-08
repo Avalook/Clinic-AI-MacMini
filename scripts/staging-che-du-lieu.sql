@@ -208,7 +208,11 @@ DECLARE thieu text;
 BEGIN
     SELECT string_agg(c.bang || '.' || c.cot, ', ') INTO thieu
     FROM _che_cot c
-    WHERE NOT EXISTS (SELECT 1 FROM information_schema.columns i
+    -- Dòng 'giu' chỉ để xếp loại (test CI), không che gì: cột do migration của
+    -- NHÁNH ĐANG THỬ thêm thì chưa có lúc che (che chạy trên lược đồ prod, trước
+    -- bước 5 áp migration nhánh) — thiếu là vô hại (08/10/2026, clinic_location.phone).
+    WHERE c.cach <> 'giu'
+      AND NOT EXISTS (SELECT 1 FROM information_schema.columns i
                       WHERE i.table_schema = 'public' AND i.table_name = c.bang
                         AND i.column_name = c.cot);
     IF thieu IS NOT NULL THEN
