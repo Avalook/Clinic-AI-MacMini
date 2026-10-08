@@ -20,6 +20,7 @@ import structlog
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.services.co_so_bao_cao import doc_co_so
 
 logger = structlog.get_logger()
 
@@ -29,7 +30,7 @@ class ReportsService:
         self._pool = pool
 
     async def kpi_dat_lich_theo_nhan_vien(
-        self, *, identity: StaffIdentity
+        self, *, identity: StaffIdentity, location_id: str | None = None
     ) -> dict[str, Any]:
         """Mỗi người đặt được bao nhiêu lịch — hôm nay, tuần này, tháng này.
 
@@ -78,6 +79,7 @@ class ReportsService:
                  WHERE e.clinic_id = $1::uuid
                    AND e.event_type = 'appointment.created'
                    AND e.occurred_at >= $2
+                   AND ($5::uuid IS NULL OR a.location_id = $5::uuid)
             )
             SELECT COALESCE(s.full_name, '(không rõ người đặt)') AS ten,
                    s.primary_department                          AS bo_phan,
@@ -104,6 +106,7 @@ class ReportsService:
             dau_thang,
             dau_tuan,
             dau_ngay,
+            doc_co_so(location_id),
         )
 
         return {
@@ -140,7 +143,11 @@ class ReportsService:
         }
 
     async def booking_channels(
-        self, *, identity: StaffIdentity, days: int = 30
+        self,
+        *,
+        identity: StaffIdentity,
+        days: int = 30,
+        location_id: str | None = None,
     ) -> dict[str, Any]:
         """Lịch hẹn theo nguồn đặt, trong `days` ngày gần nhất.
 
@@ -152,6 +159,7 @@ class ReportsService:
             hour=23, minute=59, second=59, microsecond=999999
         )
         start = end - timedelta(days=days)
+        cs = doc_co_so(location_id)
 
         rows = await self._pool.fetch(
             """
@@ -163,12 +171,14 @@ class ReportsService:
                      ON a.booking_channel = c.code
                     AND a.clinic_id = $1::uuid
                     AND a.slot_start >= $2 AND a.slot_start < $3
+                    AND ($4::uuid IS NULL OR a.location_id = $4::uuid)
              GROUP BY c.code, c.name
              ORDER BY n DESC, c.name
             """,
             identity.clinic_id,
             start,
             end,
+            cs,
         )
 
         # Hai nhóm KHÔNG nằm trong danh mục, và chúng khác nhau:
@@ -186,10 +196,12 @@ class ReportsService:
               FROM public.appointment a
              WHERE a.clinic_id = $1::uuid
                AND a.slot_start >= $2 AND a.slot_start < $3
+               AND ($4::uuid IS NULL OR a.location_id = $4::uuid)
             """,
             identity.clinic_id,
             start,
             end,
+            cs,
         )
 
         return {
@@ -205,11 +217,17 @@ class ReportsService:
 _DA_XAC_NHAN = ("CSKH_CONFIRMED", "CONFIRMED", "CHECKED_IN", "COMPLETED")
 
 
-async def tong_quan(pool: asyncpg.Pool, *, identity: StaffIdentity) -> dict[str, Any]:
+async def tong_quan(
+    pool: asyncpg.Pool, *, identity: StaffIdentity, location_id: str | None = None
+) -> dict[str, Any]:
     """Số liệu các ô của trang /reports (24/09/2026) — trang từng bắn 12 truy
     vấn Supabase rời. Ở đây MỘT lượt đếm có lọc (FILTER) nên các ô cùng một thời
-    điểm, tổng các phần luôn khớp tổng. Mốc ngày theo giờ Việt Nam."""
+    điểm, tổng các phần luôn khớp tổng. Mốc ngày theo giờ Việt Nam.
+
+    ``location_id`` (08/10/2026): lịch hẹn theo cơ sở của lịch; khách mới theo
+    cơ sở đăng ký của hồ sơ (``patient.location_id``). Rỗng = mọi cơ sở."""
     cid = identity.clinic_id
+    cs = doc_co_so(location_id)
     dau_ngay = datetime.now(CLINIC_TZ).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
@@ -240,6 +258,7 @@ async def tong_quan(pool: asyncpg.Pool, *, identity: StaffIdentity) -> dict[str,
                                  AND status = 'NO_SHOW') AS khong_den_30
               FROM appointment
              WHERE clinic_id = $1::uuid AND slot_start >= $5 AND slot_start < $4
+               AND ($7::uuid IS NULL OR location_id = $7::uuid)
             """,
             cid,
             dau_ngay,
@@ -247,12 +266,15 @@ async def tong_quan(pool: asyncpg.Pool, *, identity: StaffIdentity) -> dict[str,
             cuoi_mai,
             dau_30,
             list(_DA_XAC_NHAN),
+            cs,
         )
         khach_moi = await conn.fetchval(
             "SELECT count(*) FROM patient WHERE clinic_id = $1::uuid"
-            " AND created_at >= $2",
+            " AND created_at >= $2"
+            " AND ($3::uuid IS NULL OR location_id = $3::uuid)",
             cid,
             dau_30,
+            cs,
         )
         theo_bs = await conn.fetch(
             """
@@ -264,19 +286,22 @@ async def tong_quan(pool: asyncpg.Pool, *, identity: StaffIdentity) -> dict[str,
               FROM appointment a
               LEFT JOIN staff s ON s.id = a.doctor_id
              WHERE a.clinic_id = $1::uuid AND a.slot_start >= $2 AND a.slot_start < $3
+               AND ($4::uuid IS NULL OR a.location_id = $4::uuid)
              GROUP BY a.doctor_id, s.full_name
              ORDER BY total DESC
             """,
             cid,
             dau_ngay,
             cuoi_ngay,
+            cs,
         )
         theo_ngay = await conn.fetch(
             """
             SELECT d AS moc,
                    (SELECT count(*) FROM appointment a
                      WHERE a.clinic_id = $1::uuid
-                       AND a.slot_start >= d AND a.slot_start < d + interval '1 day')
+                       AND a.slot_start >= d AND a.slot_start < d + interval '1 day'
+                       AND ($4::uuid IS NULL OR a.location_id = $4::uuid))
                      AS count
               FROM generate_series($2::timestamptz, $3::timestamptz - interval '1 day',
                                    interval '1 day') AS d
@@ -285,6 +310,7 @@ async def tong_quan(pool: asyncpg.Pool, *, identity: StaffIdentity) -> dict[str,
             cid,
             dau_7,
             cuoi_ngay,
+            cs,
         )
     so = dict(o) if o else {}
     return {
@@ -314,11 +340,18 @@ async def tong_quan(pool: asyncpg.Pool, *, identity: StaffIdentity) -> dict[str,
 _SO_SU_KIEN_GAN = 10
 
 
-async def toan_canh(pool: asyncpg.Pool, *, identity: StaffIdentity) -> dict[str, Any]:
+async def toan_canh(
+    pool: asyncpg.Pool, *, identity: StaffIdentity, location_id: str | None = None
+) -> dict[str, Any]:
     """Tab "Toàn cảnh" của /ops (24/09/2026): danh sách nhân sự, bốn con số
     hôm nay, 10 sự kiện mới nhất. Tab từng đọc thẳng 6 bảng bằng Supabase — và
-    tính "hôm nay" theo nửa đêm UTC (lệch 7 giờ). Ở đây theo giờ Việt Nam."""
+    tính "hôm nay" theo nửa đêm UTC (lệch 7 giờ). Ở đây theo giờ Việt Nam.
+
+    ``location_id`` (08/10/2026) chỉ lọc BỐN CON SỐ (lịch theo cơ sở của lịch,
+    khách mới theo cơ sở đăng ký, lượt / việc đang chờ theo cơ sở của lượt).
+    Nhân sự và sổ sự kiện là của cả phòng khám — không lọc."""
     cid = identity.clinic_id
+    cs = doc_co_so(location_id)
     dau_ngay = datetime.now(CLINIC_TZ).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
@@ -339,18 +372,37 @@ async def toan_canh(pool: asyncpg.Pool, *, identity: StaffIdentity) -> dict[str,
             """
             SELECT
               (SELECT count(*) FROM appointment WHERE clinic_id = $1::uuid
-                  AND slot_start >= $2 AND slot_start < $3) AS appointments_today,
+                  AND slot_start >= $2 AND slot_start < $3
+                  AND ($4::uuid IS NULL OR location_id = $4::uuid))
+                AS appointments_today,
               (SELECT count(*) FROM patient WHERE clinic_id = $1::uuid
-                  AND created_at >= $2 AND created_at < $3) AS patients_today,
-              (SELECT count(*) FROM visit WHERE clinic_id = $1::uuid
-                  AND NOT ban_le  -- V8: lượt bán lẻ không phải lượt khám
-                  AND created_at >= $2 AND created_at < $3) AS visits_today,
-              (SELECT count(*) FROM work_item WHERE clinic_id = $1::uuid
-                  AND status IN ('PENDING', 'IN_PROGRESS')) AS pending_tasks
+                  AND created_at >= $2 AND created_at < $3
+                  AND ($4::uuid IS NULL OR location_id = $4::uuid))
+                AS patients_today,
+              (SELECT count(*) FROM visit v
+                 LEFT JOIN appointment a
+                   ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+                WHERE v.clinic_id = $1::uuid
+                  AND NOT v.ban_le  -- V8: lượt bán lẻ không phải lượt khám
+                  AND v.created_at >= $2 AND v.created_at < $3
+                  AND ($4::uuid IS NULL
+                       OR coalesce(v.location_id, a.location_id) = $4::uuid))
+                AS visits_today,
+              (SELECT count(*) FROM work_item w
+                 LEFT JOIN visit v
+                   ON v.visit_id = w.visit_id AND v.clinic_id = w.clinic_id
+                 LEFT JOIN appointment a
+                   ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+                WHERE w.clinic_id = $1::uuid
+                  AND w.status IN ('PENDING', 'IN_PROGRESS')
+                  AND ($4::uuid IS NULL
+                       OR coalesce(v.location_id, a.location_id) = $4::uuid))
+                AS pending_tasks
             """,
             cid,
             dau_ngay,
             cuoi_ngay,
+            cs,
         )
         su_kien = await conn.fetch(
             """
