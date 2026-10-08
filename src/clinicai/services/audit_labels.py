@@ -400,6 +400,7 @@ AGGREGATE_LABELS: dict[str, str] = {
     "patient_link": "Liên kết hồ sơ",
     "slot_hold": "Giữ chỗ khung giờ",
     "visit": "Lượt khám",
+    "lieu_trinh": "Liệu trình điều trị",
     "consultation": "Phiên khám",
     # Lifecycle v1 (Slice 4): sự kiện điều phối gắn vào chính chỉ định.
     "service_order": "Chỉ định dịch vụ",

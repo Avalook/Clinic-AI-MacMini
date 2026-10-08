@@ -254,7 +254,7 @@ class GanBody(BaseModel):
     idempotency_key: str = _KHOA
 
 
-@router.post("/lieu-trinh/buoi/gan")
+@router.post("/lieu-trinh-buoi/gan")
 async def gan(
     body: GanBody,
     identity: StaffIdentity = Depends(get_current_identity),
@@ -276,7 +276,7 @@ class GoBody(BaseModel):
     idempotency_key: str = _KHOA
 
 
-@router.post("/lieu-trinh/buoi/go")
+@router.post("/lieu-trinh-buoi/go")
 async def go(
     body: GoBody,
     identity: StaffIdentity = Depends(get_current_identity),

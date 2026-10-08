@@ -37,7 +37,9 @@ from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 
-GIA = 400_000
+#: Giá nhỏ: tiền của bài liệu trình không đẩy dòng của bài báo cáo cuối ngày
+#: (cùng DB, cùng ngày) ra khỏi top 10.
+GIA = 1_000
 
 
 async def _nguoi_khong_quyen(conn: asyncpg.Connection, loc: str) -> StaffIdentity:
