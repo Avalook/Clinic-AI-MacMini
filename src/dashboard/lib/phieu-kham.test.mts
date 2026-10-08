@@ -8,7 +8,6 @@ import { docNhoGap, ghiNhoGap, moBanDau, type KhoNho } from "./ngan-gap.ts";
 import {
   anhInDuoc,
   phanChiDinh,
-  type ChiDinhVaKetQua,
   chipMauDanhMuc,
   coGiaTriO,
   gomNhom,
