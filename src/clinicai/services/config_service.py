@@ -1132,7 +1132,7 @@ class RosterService:
                             (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                         -- Ca ở cơ sở khác không giữ lịch ở cơ sở này.
                         AND """
-            + ca_thuoc_co_so("w", "a.location_id")
+            + ca_thuoc_co_so("w", "(a.location_id)")
             + """)
              ORDER BY a.slot_start
             """,

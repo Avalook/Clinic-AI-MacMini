@@ -140,7 +140,7 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
                   (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
               -- Ca ở cơ sở khác không giữ được lịch ở cơ sở này.
               AND """
-    + ca_thuoc_co_so("w", "t.location_id")
+    + ca_thuoc_co_so("w", "(t.location_id)")
     + """
          )
        ) AS mat_bac_si,
@@ -167,7 +167,7 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
               AND wg.work_date =
                   (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
               AND """
-    + ca_thuoc_co_so("wg", "t.location_id")
+    + ca_thuoc_co_so("wg", "(t.location_id)")
     + """
          )
        ) AS bs_go_co_ca_lai,

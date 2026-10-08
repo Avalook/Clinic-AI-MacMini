@@ -319,7 +319,7 @@ async def cho_xep_bac_si(
                                 ::date
                             -- …và CƠ SỞ: ca ở cơ sở khác không giữ lịch ở đây.
                             AND """
-            + ca_thuoc_co_so("w", "a.location_id")
+            + ca_thuoc_co_so("w", "(a.location_id)")
             + """
                        )
                      )

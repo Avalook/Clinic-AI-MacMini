@@ -15,7 +15,10 @@ from __future__ import annotations
 
 def ca_thuoc_co_so(bang: str, tham_so: str) -> str:
     """Điều kiện SQL: dòng `bang` (bí danh/tên bảng `work_roster`) thuộc cơ sở
-    ``tham_so`` (vd ``"$4"``). Tham số NULL ⇒ không lọc (mọi cơ sở).
+    ``tham_so`` (vd ``"$4"``, hay cột ``"(a.location_id)"``). NULL ⇒ không lọc.
+
+    Cột viết TRONG NGOẶC: chuỗi trơn ``"a.location_id"`` bị máy kiểm nhãn sự
+    kiện (`test_audit_labels_drift`) đọc nhầm thành mã sự kiện.
 
     Viết bằng NOT EXISTS chứ không JOIN để gắn được vào câu đang GROUP BY /
     array_agg mà không đổi số dòng. ``<> NULL`` là NULL nên tham số NULL tự

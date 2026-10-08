@@ -218,7 +218,7 @@ def test_lich_mat_bac_si_duoc_danh_dau_trong_bang_check_dat_lich() -> None:
         "thiếu clinic_id thì một bác sĩ trực ở cơ sở KHÁC vẫn được đọc là "
         "'có đi làm' — đúng thứ cờ này sinh ra để phát hiện"
     )
-    assert "r_cs.location_id <> t.location_id" in khoi, (
+    assert "r_cs.location_id <> (t.location_id)" in khoi, (
         "ca ở cơ sở khác (Kim Ngưu) không giữ được lịch ở Hào Nam (08/10/2026)"
     )
 
