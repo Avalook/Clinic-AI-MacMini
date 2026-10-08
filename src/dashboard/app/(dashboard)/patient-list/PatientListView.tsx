@@ -27,6 +27,7 @@ import SplitPane from "../SplitPane";
 import LichSuKham from "../_lam-viec/LichSuKham";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
 import LichSuNotion from "./LichSuNotion";
+import { chuNhanLuot, type NhanLuot } from "../../../lib/nhan-luot";
 import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 import { khoangDong } from "../../../lib/so-trang";
 import ThanhSoTrang from "../../../components/ui/ThanhSoTrang";
@@ -48,6 +49,8 @@ export interface VisitSummary {
   visit_id?: string | null;
   /** v5 | notion | cu | trong — máy chủ quyết khung đọc. */
   loai_du_lieu?: string | null;
+  /** Nhãn đếm lượt máy chủ tính ("Lượt khám n" / "Buổi k/N"), 08/10/2026. */
+  nhan_luot?: NhanLuot | null;
 }
 
 export interface ExaminedRow {
@@ -780,7 +783,7 @@ export default function PatientListView({
               đọc xong. */}
           {moDanhSachLuot ? (
             <ul className="space-y-1.5 py-3">
-              {selected.visits.map((v, i) => (
+              {selected.visits.map((v) => (
                 <li key={v.id}>
                   <button
                     type="button"
@@ -790,7 +793,7 @@ export default function PatientListView({
                   >
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-medium text-ink">
-                      Lần {selected.visits.length - i}
+                      {chuNhanLuot(v.nhan_luot)}
                     </span>
                     <AppointmentStatus status={v.status} />
                   </span>

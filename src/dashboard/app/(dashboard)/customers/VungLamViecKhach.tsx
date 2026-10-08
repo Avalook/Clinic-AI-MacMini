@@ -44,6 +44,7 @@ import type { DongLichSu } from "./so-tuong-tac";
 import type { HenGoiLai, ViecDoiTac } from "./CustomersView";
 import type { MocTaiKham } from "./NhacTaiKham";
 import type { MaXacMinh } from "@/lib/xac-minh";
+import type { NhanLuot } from "@/lib/nhan-luot";
 import { coTheGui, type TepKetQuaRow } from "./TepKetQua";
 
 /** MỘT Ô TRÊN DÒNG TRẠNG THÁI KHÁCH (Tuyền chốt 16/09/2026).
@@ -433,6 +434,12 @@ export interface MocLich {
   theo_doi_sau_ngay?: number | null;
   /** Việc gửi đối tác + trạng thái đối tác bấm — chỉ đọc (17/09/2026). */
   doi_tac?: ViecDoiTac[];
+  /** Nhãn đếm lượt máy chủ tính (08/10/2026). */
+  nhan_luot?: NhanLuot | null;
+  /** Giờ THẬT của lượt: check-in, khám xong, về (đóng lượt). */
+  bat_dau?: string | null;
+  kham_xong_luc?: string | null;
+  ket_thuc?: string | null;
 }
 
 /** Câu CSKH đọc cho từng trạng thái đối tác. */

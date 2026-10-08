@@ -36,6 +36,7 @@ import asyncpg
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.danh_sach_khach_cskh import COT_KENH_DOI_HUY
 from clinicai.services.lich_su_luot import LOAI_DU_LIEU_SQL
+from clinicai.services.nhan_luot import doc_nhan_luot, tra_nhan
 from clinicai.services.thu_ky_bac_si import khach_duoc_xem
 
 #: Số hồ sơ một trang — cùng cỡ với Quản lý khách hàng (KHACH_MOT_TRANG).
@@ -351,11 +352,17 @@ class DanhSachBenhNhanService:
                 if can_luot
                 else []
             )
+            # "Lượt khám n" / "Buổi k/N" (08/10/2026) — đếm trên MỌI lượt của
+            # khách theo thời gian, không theo chỉ số mảng ở màn.
+            nhan = await doc_nhan_luot(conn, identity.clinic_id, can_luot)
         cac_luot = [
             {
                 **dict(r),
                 "slot_start": r["slot_start"].isoformat(),
                 "closed_at": r["closed_at"].isoformat() if r["closed_at"] else None,
+                "nhan_luot": tra_nhan(
+                    nhan, visit_id=r.get("visit_id"), appointment_id=r.get("id")
+                ),
             }
             for r in luot
         ]
