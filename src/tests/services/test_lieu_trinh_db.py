@@ -527,7 +527,7 @@ async def test_luot_dieu_tri_mot_buoi_quay_ra_hoa_don_dung_gia(
             identity=ca.thu_ngan, modes=["dich_vu"]
         )
         (i,) = [i for i in b["items"] if i["visit_id"] == v]
-        return i
+        return dict(i)
 
     await dat_trang_thai(ca, o, selection_status="NOT_SELECTED")
     i = await mot()
