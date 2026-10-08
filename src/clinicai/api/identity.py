@@ -448,7 +448,8 @@ async def _resolve_identity(
                m.clinic_id, m.role AS membership_role,
                s.primary_location_id, l.name AS location_name,
                c.name AS clinic_name,
-               cl.id AS chosen_location_id, cl.name AS chosen_location_name
+               cl.id AS chosen_location_id, cl.name AS chosen_location_name,
+               dl.id AS default_location_id, dl.name AS default_location_name
         FROM staff s
         LEFT JOIN clinic_membership m
                ON m.staff_id = s.id AND m.is_active
@@ -459,6 +460,11 @@ async def _resolve_identity(
         LEFT JOIN clinic_location cl
                ON cl.id = $3::uuid AND cl.clinic_id = m.clinic_id
               AND cl.is_active IS NOT FALSE
+        -- Cơ sở MẶC ĐỊNH của phòng khám (công tắc ở Cấu trúc phòng khám). So
+        -- dạng chữ để giá trị rác trong settings không làm hỏng truy vấn.
+        LEFT JOIN clinic_location dl
+               ON dl.clinic_id = m.clinic_id AND dl.is_active IS NOT FALSE
+              AND dl.id::text = c.settings ->> 'co_so_mac_dinh'
         WHERE s.auth_user_id = $1::uuid AND s.is_active IS NOT FALSE
           AND ($2::uuid IS NULL OR m.clinic_id = $2::uuid)
         ORDER BY m.created_at, m.id
@@ -520,6 +526,14 @@ async def _resolve_identity(
             )
         location_id = row["chosen_location_id"]
         location_name = row["chosen_location_name"]
+    elif row.get("default_location_id") is not None and role_from_department(
+        row["membership_role"]
+    ) not in (ClinicRole.DISPLAY, ClinicRole.PARTNER):
+        # Không chọn cơ sở → cơ sở mặc định của phòng khám (Tuyền 08/10/2026:
+        # Kim Ngưu tạm đóng, mọi người vào thẳng Hào Nam). TV / đối tác giữ cơ
+        # sở của chính tài khoản — mỗi TV gắn đúng một cơ sở.
+        location_id = row["default_location_id"]
+        location_name = row["default_location_name"]
     if location_id is None:
         # 20260803000007 made this NOT NULL, so reaching here means the row
         # predates it or the column was cleared by a direct write. Fail closed:

@@ -554,7 +554,7 @@ export default function GlobalHeader({
             /chon-co-so tự quay lại ngay. */}
         {coSo ? (
           <Link
-            href={`/chon-co-so?next=${encodeURIComponent(pathname || "/home")}`}
+            href={`/chon-co-so?doi=1&next=${encodeURIComponent(pathname || "/home")}`}
             title="Đổi cơ sở"
             className="flex min-h-8 max-w-40 items-center gap-1 rounded-full border border-line px-2.5 text-meta font-medium text-ink-soft transition-colors hover:border-brand-600 hover:text-brand-700"
           >

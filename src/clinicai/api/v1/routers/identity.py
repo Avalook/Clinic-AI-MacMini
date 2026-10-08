@@ -28,6 +28,7 @@ from clinicai.api.identity import (
     get_display_identity,
     vai_theo_thu_tu,
 )
+from clinicai.core.chon_co_so import doc_chon_co_so
 from clinicai.core.clock import now_vn
 from clinicai.core.database import get_db_pool
 
@@ -109,13 +110,22 @@ async def co_so_cua_toi(
         "SELECT primary_location_id::text FROM public.staff WHERE id = $1::uuid",
         identity.staff_id,
     )
+    hoi_chon, mac_dinh_pk = doc_chon_co_so(
+        await pool.fetchval(
+            "SELECT settings FROM public.clinic WHERE id = $1::uuid",
+            identity.clinic_id,
+        )
+    )
     hop_le = {r["id"] for r in co_so}
-    goi_y = next((c for c in (theo_lich, mac_dinh) if c in hop_le), None)
+    goi_y = next((c for c in (theo_lich, mac_dinh_pk, mac_dinh) if c in hop_le), None)
     return {
         "co_so": [dict(r) for r in co_so],
         "goi_y": goi_y,
         "theo_lich": theo_lich in hop_le and theo_lich == goi_y,
         "dang_chon": identity.location_id,
+        # Tắt (công tắc ở Cấu trúc phòng khám) → đăng nhập vào thẳng cơ sở
+        # mặc định; chip trên thanh trên vẫn mở được màn chọn.
+        "hoi_chon": hoi_chon,
     }
 
 

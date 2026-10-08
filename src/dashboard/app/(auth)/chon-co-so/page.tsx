@@ -14,18 +14,24 @@ type DanhSach = {
   goi_y: string | null;
   theo_lich: boolean;
   dang_chon: string;
+  /** Công tắc ở Cấu trúc phòng khám — tắt thì đăng nhập vào thẳng cơ sở mặc định. */
+  hoi_chon?: boolean;
 };
 
 export default async function ChonCoSoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; doi?: string }>;
 }) {
-  const next = duongVeAnToan((await searchParams).next);
+  const sp = await searchParams;
+  const next = duongVeAnToan(sp.next);
   const ds = await fetchFromBackend<DanhSach>("/api/v1/me/co-so");
   // Một cơ sở (hay tài khoản TV/đối tác — máy chủ không trả danh sách): không
-  // có gì để chọn, đi thẳng như trước khi có hai cơ sở.
+  // có gì để chọn, đi thẳng như trước khi có hai cơ sở. Công tắc "hỏi chọn cơ
+  // sở" tắt → sau đăng nhập đi thẳng (máy chủ dùng cơ sở mặc định); bấm chip
+  // 📍 (`doi=1`) thì vẫn mở để đổi.
   if (!ds || ds.co_so.length <= 1) redirect(next);
+  if (ds.hoi_chon === false && sp.doi !== "1") redirect(next);
 
   const macDinh = ds.goi_y ?? ds.dang_chon;
   return (

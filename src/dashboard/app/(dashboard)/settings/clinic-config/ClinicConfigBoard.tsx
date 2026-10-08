@@ -13,6 +13,7 @@
 
 import { useState, useTransition } from "react";
 
+import ChonCoSoDangNhap from "./ChonCoSoDangNhap";
 import CoSoPhong from "./CoSoPhong";
 import { Users, Check, AlertTriangle, ClipboardList } from "lucide-react";
 import type {
@@ -231,6 +232,9 @@ export default function ClinicConfigBoard({
           </span>
         </div>
       )}
+
+      {/* ── Hỏi chọn cơ sở khi đăng nhập + cơ sở mặc định (08/10/2026). */}
+      <ChonCoSoDangNhap locations={locations} onLoi={setErr} />
 
       {/* ── Cơ sở → phòng: gọn, bấm mới mở (27/09/2026) — xem CoSoPhong.tsx. */}
       <CoSoPhong

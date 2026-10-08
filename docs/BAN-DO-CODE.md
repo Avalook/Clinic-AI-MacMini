@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-08 10:40. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-08 10:49. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -208,7 +208,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - page: `src/dashboard/app/(dashboard)/ops/page.tsx` · quyền: lego `van_hanh` (Vận hành hệ thống · mặc định: Quản lý)
 - thành phần: LoiCanhBao.tsx, LuuLuongOps.tsx, NhatKyVanHanh.tsx, OpsCenter.tsx, SucKhoeApi.tsx, ToanCanh.tsx, PortalBoard.tsx
 - gọi API Next: `/api/ops/theo-doi`, `/api/ops/summary`, `/api/ops/traffic`
-- gọi thẳng backend (server): `/api/v1/reports/toan-canh${chon`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`, `/api/v1/ops/telemetry`
+- gọi thẳng backend (server): `/api/v1/reports/toan-canh`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`, `/api/v1/ops/telemetry`
 - service: day_tep.so_lieu · canh_gac.danh_sach · nhat_ky_van_hanh.doc_nhat_ky · kho_loi.doi_trang_thai · can · OpsStatusService.collect (+2 service)
 - test: test_theo_doi_pha_1_db.py, test_traffic_service.py, test_day_tep_db.py, test_bao_cao_theo_co_so_db.py, test_bao_cao_va_danh_sach_khach_db.py (+4)
 
@@ -407,10 +407,10 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/settings/clinic-config` — Cấu trúc phòng khám
 - page: `src/dashboard/app/(dashboard)/settings/clinic-config/page.tsx` · quyền: lego `cai_dat` (Cài đặt phòng khám · mặc định: Quản lý)
-- thành phần: ClinicConfigBoard.tsx, types.ts, CoSoPhong.tsx
+- thành phần: ClinicConfigBoard.tsx, types.ts, ChonCoSoDangNhap.tsx, CoSoPhong.tsx
 - gọi API Next: `/api/clinic-config`, `/api/day-noi`, `/api/roster`
 - gọi thẳng backend (server): `/api/v1/clinic-config/overview`, `/api/v1/clinic-config/staff`, `/api/v1/clinic-config/services`
-- service: ClinicConfigService.{staff, services, overview, set_room_floor, +10} · LichPhongService.tuan · thu_ky_bac_si · DayNoiService.{doc, tao_vi_tri} · RosterService.{applied_weeks, tram_cho_nhan_vien, bac_si_trong_ngay, apply_week, +3}
+- service: ClinicConfigService.{staff, services, overview, set_room_floor, +11} · LichPhongService.tuan · thu_ky_bac_si · DayNoiService.{doc, tao_vi_tri} · RosterService.{applied_weeks, tram_cho_nhan_vien, bac_si_trong_ngay, apply_week, +3}
 - test: test_phong_la_tai_nguyen_db.py, test_clinic_config.py, test_clinical_cluster.py, test_pham_vi_vi_tri_lich_truc.py, test_phong_lam_theo_dich_vu_db.py (+9)
 
 ### `/settings/day-noi` — Dây nối nghiệp vụ
@@ -661,6 +661,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [service-type] PUT `/api/v1/clinic-config/service-type` → `src/clinicai/api/v1/routers/clinic_config.py:update_service_type` → ClinicConfigService.update_service_type
 - [thu-ky-bac-si] PUT `/api/v1/clinic-config/thu-ky-bac-si` → `src/clinicai/api/v1/routers/clinic_config.py:set_thu_ky_bac_si` → dat_bac_si_cho_thu_ky
 - [location] PUT `/api/v1/clinic-config/location` → `src/clinicai/api/v1/routers/clinic_config.py:update_location` → ClinicConfigService.update_location
+- [chon-co-so] PUT `/api/v1/clinic-config/chon-co-so` → `src/clinicai/api/v1/routers/clinic_config.py:set_chon_co_so` → ClinicConfigService.set_chon_co_so
 - POST `/api/v1/clinic-config/locations` → `src/clinicai/api/v1/routers/clinic_config.py:create_location` → ClinicConfigService.create_location
 - POST `/api/v1/clinic-config/rooms` → `src/clinicai/api/v1/routers/clinic_config.py:create_room` → ClinicConfigService.create_room
 - test: src/tests/services/test_phong_la_tai_nguyen_db.py, src/tests/services/test_clinic_config.py, src/tests/services/test_phong_lam_theo_dich_vu_db.py (+5)
