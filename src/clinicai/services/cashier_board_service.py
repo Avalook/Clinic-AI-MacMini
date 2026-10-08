@@ -150,6 +150,10 @@ WITH v AS (
                 SELECT 1 FROM public.cong_no n
                  WHERE n.clinic_id = vi.clinic_id AND n.visit_id = vi.visit_id
                    AND n.trang_thai = 'CHUA_THU')))
+       -- CƠ SỞ ĐANG ĐỨNG ($5, 08/10/2026): chỉ khách của cơ sở ấy. Lượt chưa
+       -- biết cơ sở vẫn hiện; $5 NULL (danh tính không mang cơ sở) = không lọc.
+       AND coalesce(vi.location_id, a.location_id, $5::uuid)
+           IS NOT DISTINCT FROM coalesce($5::uuid, vi.location_id, a.location_id)
        -- Luật 1: đã khám xong (ô thuốc + dịch vụ), HOẶC đã có chỉ định chính
        -- thức (ô dịch vụ — trả tiền trong lúc phiên bác sĩ còn mở).
        AND ("""
@@ -323,6 +327,8 @@ class CashierBoardService:
               FROM payment_cycle pc
               JOIN visit vi
                 ON vi.visit_id = pc.visit_id AND vi.clinic_id = pc.clinic_id
+              LEFT JOIN appointment ap
+                ON ap.id = vi.appointment_id AND ap.clinic_id = vi.clinic_id
               LEFT JOIN patient p
                 ON p.clinic_patient_id = vi.clinic_patient_id
                AND p.clinic_id = vi.clinic_id
@@ -332,6 +338,10 @@ class CashierBoardService:
              WHERE pc.clinic_id = $1::uuid AND pc.kind = ANY($4::text[])
                AND (coalesce(pc.paid_at, pc.created_at) AT TIME ZONE
                     'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+               -- Chỉ giao dịch của cơ sở đang đứng ($5 NULL = không lọc).
+               AND coalesce(vi.location_id, ap.location_id, $5::uuid)
+                   IS NOT DISTINCT FROM
+                   coalesce($5::uuid, vi.location_id, ap.location_id)
              ORDER BY coalesce(pc.paid_at, pc.created_at) DESC
              LIMIT 1000
             """,
@@ -339,6 +349,7 @@ class CashierBoardService:
             a,
             b,
             loai,
+            identity.location_id or None,
         )
         # CP5: khoản hoàn của từng lần thu đã từng thu (kể cả đã huỷ phiếu) +
         # dòng còn hoàn được. Nút hoàn chỉ cho vai hoàn tiền TẠM THỜI (HOLD J4).
@@ -410,7 +421,12 @@ class CashierBoardService:
         la_hom_nay = ngay_xem == hom_nay_vn()
 
         row = await self._pool.fetchval(
-            _SQL, identity.clinic_id, start, end, la_hom_nay
+            _SQL,
+            identity.clinic_id,
+            start,
+            end,
+            la_hom_nay,
+            identity.location_id or None,
         )
         raw = json.loads(row) if isinstance(row, str) else row
 
@@ -568,7 +584,10 @@ class CashierBoardService:
             out["dem"] = {
                 "cho_thu": len(out["ds_cho_thu"]),
                 "da_thu_hom_nay": await _dem_da_thu_hom_nay(
-                    self._pool, identity.clinic_id, ngay_xem
+                    self._pool,
+                    identity.clinic_id,
+                    ngay_xem,
+                    identity.location_id or None,
                 ),
             }
         if want_svc:
@@ -726,13 +745,16 @@ def _doc_luc(v: Any) -> datetime | None:
         return None
 
 
-async def _dem_da_thu_hom_nay(pool: asyncpg.Pool, clinic_id: str, ngay: date) -> int:
+async def _dem_da_thu_hom_nay(
+    pool: asyncpg.Pool, clinic_id: str, ngay: date, location_id: str | None
+) -> int:
     """Số khách ở tab "Đã thu ngày …" — cùng tập với sổ gom theo khách
-    (``QuayThuService.lich_su`` đúng ngày ấy): lần thu đã thu hoặc khoản hoàn."""
+    (``QuayThuService.lich_su`` đúng ngày ấy, cùng cơ sở): lần thu đã thu hoặc
+    khoản hoàn. ``location_id`` None = không lọc cơ sở."""
     return int(
         await pool.fetchval(
             """
-            SELECT count(DISTINCT visit_id) FROM (
+            SELECT count(DISTINCT x.visit_id) FROM (
                 SELECT visit_id FROM payment_cycle
                  WHERE clinic_id = $1::uuid AND kind = 'dich_vu'
                    AND paid_at IS NOT NULL
@@ -743,9 +765,13 @@ async def _dem_da_thu_hom_nay(pool: asyncpg.Pool, clinic_id: str, ngay: date) ->
                    AND status IN ('PENDING', 'COMPLETED')
                    AND (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                        = $2::date) x
+             WHERE coalesce(public.co_so_cua_luot($1::uuid, x.visit_id), $3::uuid)
+                   IS NOT DISTINCT FROM
+                   coalesce($3::uuid, public.co_so_cua_luot($1::uuid, x.visit_id))
             """,
             clinic_id,
             ngay,
+            location_id,
         )
         or 0
     )

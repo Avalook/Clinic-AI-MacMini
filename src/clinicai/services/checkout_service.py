@@ -62,6 +62,14 @@ logger = structlog.get_logger()
 # Bước "Đóng lượt khám" trong node_definition.
 CLOSE_NODE = "LUOTKHAM-15"
 
+# Lượt thuộc cơ sở đang đứng (tham số ``$n``) — lượt chưa biết cơ sở vẫn hiện;
+# tham số NULL (danh tính không mang cơ sở) = không lọc. Không dùng OR.
+_DK_CO_SO = (
+    "coalesce(public.co_so_cua_luot(v.clinic_id, v.visit_id), ${n}::uuid)"
+    " IS NOT DISTINCT FROM"
+    " coalesce(${n}::uuid, public.co_so_cua_luot(v.clinic_id, v.visit_id))"
+)
+
 _READINESS_SQL = (
     """
 SELECT
@@ -407,12 +415,15 @@ class CheckoutService:
                     # check-out ở quầy.
                     "   AND NOT v.ban_le"
                     "   AND coalesce(v.checked_in_at, v.created_at) >= $3"
+                    # Chỉ lượt của cơ sở đang đứng ($4 NULL = không lọc).
+                    f"   AND {_DK_CO_SO.format(n=4)}"
                     " ORDER BY coalesce(v.checked_in_at, v.created_at) DESC"
                     " LIMIT 300",
                 ),
                 identity.clinic_id,
                 CLOSE_NODE,
                 _vn_day_start(),
+                identity.location_id or None,
             )
             rows = await _gan_doi_tac_tu_thu(conn, identity.clinic_id, rows)
 
@@ -682,11 +693,15 @@ class CheckoutService:
                     "WHERE v.clinic_id = $1::uuid AND v.visit_id = $3::uuid",
                     "WHERE v.clinic_id = $1::uuid"
                     f"   AND {dieu_kien_luot_treo('v')}"
+                    # Cơ sở lọc Ở ĐÂY, không trong dieu_kien_luot_treo — bộ
+                    # canh gác LUOT_TREO dùng chung câu ấy cho cả phòng khám.
+                    f"   AND {_DK_CO_SO.format(n=3)}"
                     " ORDER BY v.checked_in_at DESC"
                     " LIMIT 300",
                 ),
                 identity.clinic_id,
                 CLOSE_NODE,
+                identity.location_id or None,
             )
             rows = await _gan_doi_tac_tu_thu(conn, identity.clinic_id, rows)
 

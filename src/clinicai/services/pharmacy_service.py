@@ -140,10 +140,17 @@ class PharmacyService:
                  WHERE r.clinic_id = $1::uuid
                    AND r.closed_at IS NULL
                    AND r.removed_at IS NULL
+                   -- Chỉ đơn của cơ sở đang đứng ($2 NULL = không lọc).
+                   AND coalesce(public.co_so_cua_luot(r.clinic_id, r.visit_id),
+                                $2::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($2::uuid,
+                                public.co_so_cua_luot(r.clinic_id, r.visit_id))
                  ORDER BY r.created_at DESC
                  LIMIT 300
                 """,
                 identity.clinic_id,
+                identity.location_id or None,
             )
         # Hàng đợi cấp thuốc mà cắt im lặng là có người đứng đợi mà không ai
         # thấy tên. Trần giữ nguyên; điều đổi là nó kêu lên khi chạm.
@@ -171,12 +178,18 @@ class PharmacyService:
                     ON p.clinic_patient_id = r.clinic_patient_id
                    AND p.clinic_id = r.clinic_id
                  WHERE r.clinic_id = $1::uuid AND r.dispensed_qty > 0
+                   AND coalesce(public.co_so_cua_luot(r.clinic_id, r.visit_id),
+                                $2::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($2::uuid,
+                                public.co_so_cua_luot(r.clinic_id, r.visit_id))
                  -- rx:gom-ca-lich-su: thuốc ĐÃ GIAO tay khách là sự thật, kể cả
                  -- dòng bác sĩ đính chính sau khi giao — lịch sử phải còn nó.
                  ORDER BY r.dispensed_at DESC NULLS LAST
                  LIMIT 200
                 """,
                 identity.clinic_id,
+                identity.location_id or None,
             )
         canh_bao_neu_day(
             "nha_thuoc.lich_su", len(rows), 200, clinic_id=identity.clinic_id
@@ -198,10 +211,16 @@ class PharmacyService:
                    AND p.clinic_id = r.clinic_id
                  WHERE r.clinic_id = $1::uuid
                    AND r.closed_at IS NULL AND r.removed_at IS NULL
+                   AND coalesce(public.co_so_cua_luot(r.clinic_id, r.visit_id),
+                                $2::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($2::uuid,
+                                public.co_so_cua_luot(r.clinic_id, r.visit_id))
                  ORDER BY r.created_at DESC
                  LIMIT 100
                 """,
                 identity.clinic_id,
+                identity.location_id or None,
             )
         canh_bao_neu_day(
             "nha_thuoc.cho_tu_van", len(rows), 100, clinic_id=identity.clinic_id
@@ -855,9 +874,16 @@ class PharmacyService:
                     ON pt.clinic_patient_id = v.clinic_patient_id
                    AND pt.clinic_id = v.clinic_id
                  WHERE g.clinic_id = $1::uuid AND g.drug_batch_id IS NULL
+                   -- Chỉ dòng của cơ sở đang đứng ($2 NULL = không lọc).
+                   AND coalesce(public.co_so_cua_luot(g.clinic_id, p.visit_id),
+                                $2::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($2::uuid,
+                                public.co_so_cua_luot(g.clinic_id, p.visit_id))
                  ORDER BY g.giao_luc
                 """,
                 identity.clinic_id,
+                identity.location_id or None,
             )
             thuoc = sorted({r["drug_catalog_id"] for r in dong if r["drug_catalog_id"]})
             lo = await conn.fetch(
