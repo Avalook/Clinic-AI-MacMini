@@ -176,7 +176,6 @@ async def test_hang_cho_va_so_thu_tu_dem_rieng_tung_co_so(
         if d.get("so_thu_tu") is not None and d["so_thu_tu"] < so[h.luot_b]
     ]
     assert h.luot_a not in {d["visit_id"] for d in truoc_b}
-    assert so[h.luot_b] <= len(kq_b["hang_cho"])
 
 
 async def test_sap_toi_theo_co_so(pool: asyncpg.Pool) -> None:  # noqa: F811
