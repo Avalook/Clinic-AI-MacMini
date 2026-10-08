@@ -22,6 +22,8 @@ export async function GET(request: Request) {
   // Cuối ca (08/10/2026): SANG | CHIEU | TOI; khác thì bỏ → cả ngày.
   const ca = url.searchParams.get("ca");
   if (ca === "SANG" || ca === "CHIEU" || ca === "TOI") q.set("ca", ca);
+  // Khuôn KiotViet "Báo cáo cuối ngày về hàng hóa" (08/10/2026) — chỉ cho tệp CSV.
+  if (url.searchParams.get("mau") === "hang_hoa") q.set("mau", "hang_hoa");
   // Một cơ sở (08/10/2026); rỗng = tất cả. Chuyển nguyên — máy chủ tự xử mã rác
   // (ra số 0), không để lớp này lặng lẽ biến một cơ sở thành "tất cả".
   const coSo = url.searchParams.get("co_so") ?? "";

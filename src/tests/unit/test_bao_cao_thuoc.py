@@ -155,3 +155,75 @@ def test_khung_ca_rac_tra_none_khong_nem() -> None:
     assert tu == datetime(2026, 10, 8, 14, 0, tzinfo=CLINIC_TZ)
     assert den == datetime(2026, 10, 8, 17, 30, tzinfo=CLINIC_TZ)
     assert nhan == {"ma": "CHIEU", "ten": "Chiều", "tu": "14:00", "den": "17:30"}
+
+
+def _hh(kind: str, khoa: str, so: int, tien: int, **kw: object) -> dict[str, object]:
+    return {
+        "kind": kind,
+        "hh_khoa": khoa,
+        "hh_ma": kw.get("ma"),
+        "hh_ten": kw.get("ten", khoa),
+        "hh_don_vi": kw.get("don_vi"),
+        "so_luong": Decimal(so),
+        "thanh_tien": Decimal(tien),
+    }
+
+
+def test_hang_hoa_khuon_kiotviet() -> None:
+    from clinicai.services.bao_cao_cuoi_ngay_service import (
+        csv_hang_hoa,
+        gom_hang_hoa,
+    )
+
+    kq = gom_hang_hoa(
+        [
+            _hh(
+                "thuoc",
+                "d1",
+                30,
+                990000,
+                ma="SP000118",
+                ten="Indurat 5mg",
+                don_vi="viên",
+            ),
+            _hh("thuoc", "d2", 2, 480000, ma="SP000009", ten="Duphaston", don_vi="hộp"),
+            _hh(
+                "thuoc",
+                "d1",
+                10,
+                330000,
+                ma="SP000118",
+                ten="Indurat 5mg",
+                don_vi="viên",
+            ),
+            _hh("dich_vu", "Khám quản lý thai", 1, 200000),
+            _hh("la", "x", 1, 1),  # loại lạ → bỏ
+        ],
+        [_hh("thuoc", "d2", 1, 240000, ma="SP000009", ten="Duphaston")],
+    )
+    th = kq["thuoc"]
+    assert [m["ma"] for m in th["dong"]] == ["SP000118", "SP000009"]  # DT giảm dần
+    assert th["dong"][0] | {} == {
+        "ma": "SP000118",
+        "ten": "Indurat 5mg",
+        "don_vi": "viên",
+        "sl_ban": 40.0,
+        "doanh_thu": 1320000,
+        "sl_tra": 0.0,
+        "gia_tri_tra": 0,
+        "doanh_thu_thuan": 1320000,
+    }
+    assert th["tong"] == {
+        "so_mat_hang": 2,
+        "sl_ban": 42.0,
+        "doanh_thu": 1800000,
+        "sl_tra": 1.0,
+        "gia_tri_tra": 240000,
+        "doanh_thu_thuan": 1560000,
+    }
+    assert kq["dich_vu"]["tong"]["so_mat_hang"] == 1
+    bc = {"tu": "2026-10-08", "den": "2026-10-08", "hang_hoa": kq, "ca": None}
+    noi = csv_hang_hoa(bc, "rác")  # rác → thuốc
+    assert "Báo cáo cuối ngày về hàng hóa" in noi and "Ngày bán: 08/10/2026" in noi
+    assert "SL mặt hàng: 2" in noi and "Indurat 5mg (viên)" in noi
+    assert "Khám quản lý thai" not in noi

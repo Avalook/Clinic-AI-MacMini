@@ -20,6 +20,7 @@ from clinicai.core.shifts import CAC_CA, ca_tu_settings, khung_chot_ca
 from clinicai.services.bao_cao_cuoi_ngay_service import (
     BaoCaoCuoiNgayService,
     csv_bao_cao,
+    csv_hang_hoa,
 )
 from tests.services.test_doi_tac_tu_thu_db import _nguoi_vai
 from tests.services.test_tien_thuoc_cp1_db import tao_quay
@@ -67,6 +68,13 @@ async def test_thuoc_theo_khach_va_loc_ca(
     assert q.thu_ngan.full_name in k["nguoi_thu"]
     assert any(t["ten"] == ten_kho for t in bc["thuoc_theo_khach"]["tieu_hao"])
     assert ten_kho in csv_bao_cao(bc)
+    # Hàng hoá khuôn KiotViet: thuốc kho, SL bán 10, doanh thu = tiền dòng.
+    hh = {m["ten"]: m for m in bc["hang_hoa"]["thuoc"]["dong"]}
+    assert (hh[ten_kho]["sl_ban"], hh[ten_kho]["doanh_thu_thuan"]) == (
+        10,
+        d["thanh_tien"],
+    )
+    assert "SL mặt hàng" in csv_hang_hoa(bc, "thuoc")
     # Báo cáo dịch vụ không có khối thuốc.
     assert (await svc.bao_cao(identity=ql, loai="dich_vu"))["thuoc_theo_khach"] is None
 

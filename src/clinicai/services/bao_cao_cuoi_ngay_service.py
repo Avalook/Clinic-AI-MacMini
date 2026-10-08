@@ -359,6 +359,67 @@ def gom_bao_cao(
     }
 
 
+def _so_luong(v: Any) -> float:
+    try:
+        return float(Decimal(str(v))) if v is not None else 0.0
+    except Exception:  # noqa: BLE001 — số rác từ DB không làm sập báo cáo
+        return 0.0
+
+
+def gom_hang_hoa(
+    ban: Iterable[Mapping[str, Any]], tra: Iterable[Mapping[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    """ "Báo cáo cuối ngày về hàng hoá" (khuôn KiotViet), tách Thuốc / Dịch vụ.
+
+    ``ban``: dòng hoá đơn của lần thu PAID trong khoảng. ``tra``: dòng hoàn ĐÃ
+    XONG của khoản hoàn trong khoảng. Một mặt hàng = một ``hh_khoa``; doanh thu
+    thuần = doanh thu − giá trị trả; xếp doanh thu giảm dần như KiotViet. Thuần.
+    """
+    ra: dict[str, dict[str, dict[str, Any]]] = {k: {} for k in TEN_LOAI}
+
+    def o(r: Mapping[str, Any]) -> dict[str, Any] | None:
+        loai = r.get("kind")
+        if loai not in ra:
+            return None
+        khoa = str(r.get("hh_khoa") or r.get("hh_ten") or "?")
+        return ra[loai].setdefault(
+            khoa,
+            {"ma": r.get("hh_ma"), "ten": r.get("hh_ten") or "Không tên"}
+            | {"don_vi": r.get("hh_don_vi"), "sl_ban": 0.0, "doanh_thu": 0}
+            | {"sl_tra": 0.0, "gia_tri_tra": 0},
+        )
+
+    for r in ban:
+        if (m := o(r)) is not None:
+            m["sl_ban"] += _so_luong(r.get("so_luong"))
+            m["doanh_thu"] += _tien(r.get("thanh_tien"))
+    for r in tra:
+        if (m := o(r)) is not None:
+            m["sl_tra"] += _so_luong(r.get("so_luong"))
+            m["gia_tri_tra"] += _tien(r.get("thanh_tien"))
+    kq: dict[str, dict[str, Any]] = {}
+    for loai, mat_hang in ra.items():
+        dong = sorted(
+            (
+                {**m, "doanh_thu_thuan": m["doanh_thu"] - m["gia_tri_tra"]}
+                for m in mat_hang.values()
+            ),
+            key=lambda m: (-m["doanh_thu"], m["ten"]),
+        )
+        kq[loai] = {
+            "tong": {
+                "so_mat_hang": len(dong),
+                "sl_ban": sum(m["sl_ban"] for m in dong),
+                "doanh_thu": sum(m["doanh_thu"] for m in dong),
+                "sl_tra": sum(m["sl_tra"] for m in dong),
+                "gia_tri_tra": sum(m["gia_tri_tra"] for m in dong),
+                "doanh_thu_thuan": sum(m["doanh_thu_thuan"] for m in dong),
+            },
+            "dong": dong,
+        }
+    return kq
+
+
 def tach_theo_co_so(
     *,
     tu: date,
@@ -563,6 +624,53 @@ def csv_bao_cao(bc: Mapping[str, Any]) -> str:
     return "﻿" + buf.getvalue()
 
 
+def csv_hang_hoa(bc: Mapping[str, Any], loai: Any) -> str:
+    """Khuôn "Báo cáo cuối ngày về hàng hóa" của KiotViet (tệp quầy thuốc gửi
+    08/10/2026) — để nhân viên quen tay. ``loai`` rác → thuốc. Tồn đầu / tồn
+    cuối CHƯA có: nhà thuốc bán chưa trừ kho nên số tồn máy chưa đúng."""
+    loai_ = loai if loai in TEN_LOAI else "thuoc"
+    hh = (bc.get("hang_hoa") or {}).get(loai_) or {"tong": {}, "dong": []}
+    t = hh["tong"]
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\r\n")
+    w.writerow(["Báo cáo cuối ngày về hàng hóa", TEN_LOAI[loai_]])
+    w.writerow(["Ngày lập: " + datetime.now(CLINIC_TZ).strftime("%d/%m/%Y %H:%M")])
+    ngay = (
+        _ngay_vn_chu(bc["tu"])
+        if bc["tu"] == bc["den"]
+        else f"{_ngay_vn_chu(bc['tu'])} - {_ngay_vn_chu(bc['den'])}"
+    )
+    ca = bc.get("ca")
+    w.writerow(
+        ["Ngày bán: " + ngay + (f" · {ca['ten']} {ca['tu']}–{ca['den']}" if ca else "")]
+    )
+    w.writerow(["Chi nhánh: " + _o(bc.get("ten_co_so") or "Tất cả cơ sở")])
+    w.writerow([])
+    w.writerow(
+        ["Mã hàng", "Tên hàng", "SL bán", "Doanh thu", "SL trả", "Giá trị trả"]
+        + ["Doanh thu thuần"]
+    )
+    w.writerow(
+        ["", f"SL mặt hàng: {t.get('so_mat_hang', 0)}", _sl(t.get("sl_ban"))]
+        + [t.get("doanh_thu", 0), _sl(t.get("sl_tra")), t.get("gia_tri_tra", 0)]
+        + [t.get("doanh_thu_thuan", 0)]
+    )
+    for m in hh["dong"]:
+        ten = m["ten"] + (f" ({m['don_vi']})" if m.get("don_vi") else "")
+        w.writerow(
+            [_o(m.get("ma")), _o(ten), _sl(m["sl_ban"]), m["doanh_thu"]]
+            + [_sl(m["sl_tra"]), m["gia_tri_tra"], m["doanh_thu_thuan"]]
+        )
+    return "\ufeff" + buf.getvalue()
+
+
+def _ngay_vn_chu(iso: str) -> str:
+    try:
+        return date.fromisoformat(iso).strftime("%d/%m/%Y")
+    except ValueError:
+        return iso
+
+
 TEN_TRANG_THAI_THUOC = {
     "da_ban": "Đã bán",
     "khong_lay": "Khách không lấy",
@@ -669,13 +777,55 @@ SELECT r.refund_id::text AS refund_id, r.visit_id::text AS visit_id, r.kind,
  LIMIT 5000
 """
 
-_DONG_SQL = """
-SELECT bl.payment_cycle_id::text AS cycle_id, bl.source_type,
-       bl.name_snapshot AS ten, bl.quantity AS so_luong, bl.line_total AS thanh_tien
+#: Cột ``hh_*`` cho "Báo cáo cuối ngày về hàng hoá" (khuôn KiotViet): thuốc theo
+#: thuốc KHO (mã hàng = mã KiotViet), dịch vụ theo mã chỉ định nếu có.
+_HANG_HOA_COT = """
+       CASE WHEN bl.source_type = 'prescription' THEN c.ma_hang
+            WHEN bl.source_type = 'service_order' THEN so.service_code END AS hh_ma,
+       coalesce(c.name_raw, bl.name_snapshot) AS hh_ten,
+       coalesce(c.don_vi_ban, bl.unit) AS hh_don_vi,
+       coalesce(bl.drug_catalog_id::text, so.service_code, bl.name_snapshot) AS hh_khoa
+"""
+_HANG_HOA_JOIN = """
+  LEFT JOIN drug_catalog c ON c.id = bl.drug_catalog_id AND c.clinic_id = bl.clinic_id
+  LEFT JOIN service_order so
+    ON bl.source_type = 'service_order' AND so.id::text = bl.source_id
+   AND so.clinic_id = bl.clinic_id
+"""
+
+_DONG_SQL = (
+    """
+SELECT bl.payment_cycle_id::text AS cycle_id, bl.source_type, bl.kind,
+       bl.name_snapshot AS ten, bl.quantity AS so_luong, bl.line_total AS thanh_tien,
+"""
+    + _HANG_HOA_COT
+    + """
   FROM payment_bill_line bl
+"""
+    + _HANG_HOA_JOIN
+    + """
  WHERE bl.clinic_id = $1::uuid AND bl.payment_cycle_id = ANY($2::uuid[])
    AND bl.billing_owner = 'CLINIC'
 """
+)
+
+#: Dòng TRẢ (hoàn đã xong) của các khoản hoàn trong khoảng — cùng khoá hàng hoá.
+_TRA_HANG_SQL = (
+    """
+SELECT rl.refund_id::text AS refund_id, bl.kind, rl.quantity AS so_luong,
+       rl.amount AS thanh_tien,
+"""
+    + _HANG_HOA_COT
+    + """
+  FROM payment_refund_line rl
+  JOIN payment_bill_line bl
+    ON bl.id = rl.payment_bill_line_id AND bl.clinic_id = rl.clinic_id
+"""
+    + _HANG_HOA_JOIN
+    + """
+ WHERE rl.clinic_id = $1::uuid AND rl.refund_id = ANY($2::uuid[])
+"""
+)
 
 _DOI_TAC_SQL = """
 SELECT t.id::text AS id, t.so_tien, t.hinh_thuc, t.ghi_luc, o.service_name AS ten,
@@ -824,6 +974,11 @@ class BaoCaoCuoiNgayService:
                 _DONG_SQL, cid, [r["id"] for r in lan_thu if r["status"] == "PAID"]
             )
             doi_tac = await conn.fetch(_DOI_TAC_SQL, cid, a, b, cs, k5, k6)
+            tra_hang = await conn.fetch(
+                _TRA_HANG_SQL,
+                cid,
+                [r["refund_id"] for r in hoan if r["status"] == "COMPLETED"],
+            )
             luot = {
                 r["co_so"]: int(r["n"])
                 for r in await conn.fetch(_LUOT_SQL, cid, a, b, cs, k5, k6)
@@ -892,6 +1047,14 @@ class BaoCaoCuoiNgayService:
         bc["loai"] = loai_loc
         bc["ca"] = khung[2] if khung else None
         bc["thuoc_theo_khach"] = thuoc
+        # Hàng hoá chỉ của lần thu / khoản hoàn ĐÃ lọc loại (dong lấy theo mọi
+        # lần thu PAID, trước khi lọc loại).
+        da_thu = {r["id"] for r in lan_thu_ds if r.get("status") == "PAID"}
+        da_hoan = {r["refund_id"] for r in hoan_ds}
+        bc["hang_hoa"] = gom_hang_hoa(
+            (r for r in dong_ds if r.get("cycle_id") in da_thu),
+            (dict(r) for r in tra_hang if r["refund_id"] in da_hoan),
+        )
         bc["co_so"] = cs
         bc["ten_co_so"] = next((c["ten"] for c in ds_co_so if c["id"] == cs), None)
         bc["theo_co_so"] = []
