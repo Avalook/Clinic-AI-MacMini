@@ -411,11 +411,16 @@ UPDATE public.patient p SET
                               ELSE '0' || lpad(c.n::text, 11, '0') END,
     -- Lệch ỔN ĐỊNH −14…+14 ngày theo mã khách: tuổi vẫn đúng tới vài ngày
     -- (màn khám, sản khoa cần tuổi), ngày sinh thật không còn tra được.
+    -- Kẹp ≥ 1900-01-01: hồ sơ cũ Notion có ngày sinh giả đầu năm 1900, lệch lùi
+    -- thành 1899 là vỡ CHECK birth_year >= 1900 → cả lần nạp huỷ (08/10/2026).
     date_of_birth = CASE WHEN p.date_of_birth IS NULL THEN NULL
-        ELSE least(p.date_of_birth + ((abs(hashtext(p.clinic_patient_id::text)) % 29) - 14), current_date) END,
+        ELSE greatest(least(p.date_of_birth
+             + ((abs(hashtext(p.clinic_patient_id::text)) % 29) - 14), current_date),
+             DATE '1900-01-01') END,
     birth_year = CASE WHEN p.date_of_birth IS NULL THEN p.birth_year
-        ELSE extract(year FROM least(p.date_of_birth
-             + ((abs(hashtext(p.clinic_patient_id::text)) % 29) - 14), current_date))::smallint END,
+        ELSE extract(year FROM greatest(least(p.date_of_birth
+             + ((abs(hashtext(p.clinic_patient_id::text)) % 29) - 14), current_date),
+             DATE '1900-01-01'))::smallint END,
     address = CASE WHEN nullif(btrim(p.address), '') IS NULL THEN p.address
         ELSE 'Số ' || c.n || ' đường Thử' || coalesce(', ' || p.ward_name, '')
              || coalesce(', ' || p.province_name, '') END,

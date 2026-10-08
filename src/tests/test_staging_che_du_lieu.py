@@ -399,3 +399,33 @@ async def test_nhieu_khach_van_che_duoc(conn: asyncpg.Connection) -> None:
         "SELECT count(*) FROM patient WHERE full_name LIKE 'Trần Thị Nhiều Khách %'"
     )
     assert con == 0
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_ngay_sinh_dau_nam_1900_khong_lui_qua_1900(
+    conn: asyncpg.Connection,
+) -> None:
+    """Hồ sơ cũ Notion có ngày sinh giả 01/01/1900: lệch lùi thành 1899 thì vỡ
+    CHECK birth_year >= 1900 và cả lần nạp staging huỷ (08/10/2026)."""
+    ids = await _gieo(conn)
+    clinic, loc = await conn.fetchrow(
+        "SELECT clinic_id::text, location_id::text FROM patient"
+        " WHERE clinic_patient_id = $1::uuid",
+        ids["bn"],
+    )
+    await conn.execute(
+        """INSERT INTO patient (patient_code, full_name, location_id, clinic_id,
+               date_of_birth, birth_year)
+           SELECT 'NS1900-' || g || '-' || $3, 'Lê Văn Sinh Sớm ' || g,
+                  $1::uuid, $2::uuid, DATE '1900-01-01', 1900
+             FROM generate_series(1, 60) g""",
+        loc,
+        clinic,
+        uuid.uuid4().hex[:6],
+    )
+    await _che(conn)
+    nho_nhat = await conn.fetchval(
+        "SELECT min(date_of_birth) FROM patient WHERE patient_code LIKE 'NS1900-%'"
+    )
+    assert nho_nhat is not None and nho_nhat.year >= 1900
