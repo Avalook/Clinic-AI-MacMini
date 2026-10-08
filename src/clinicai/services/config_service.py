@@ -50,6 +50,7 @@ from clinicai.core.shifts import (
 )
 from clinicai.permissions import cache
 from clinicai.permissions.can import can
+from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 from clinicai.services.lich_truc_phien_ban_service import (
     dat_nguoi_bam,
     giao_dich_lich_truc,
@@ -1128,7 +1129,11 @@ class RosterService:
                       WHERE w.clinic_id = a.clinic_id
                         AND w.staff_id = a.doctor_id
                         AND w.work_date =
-                            (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
+                            (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                        -- Ca ở cơ sở khác không giữ lịch ở cơ sở này.
+                        AND """
+            + ca_thuoc_co_so("w", "(a.location_id)")
+            + """)
              ORDER BY a.slot_start
             """,
             identity.clinic_id,

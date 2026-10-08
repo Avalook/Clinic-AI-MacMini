@@ -38,7 +38,9 @@ test("ngayVN trả ngày theo giờ Việt Nam, không theo giờ quốc tế", 
 
 test("cảnh báo mất bác sĩ dùng ngày giờ VN, không dùng toISOString", () => {
   const ma = page.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
-  const dong = ma.split("\n").find((d) => d.includes("coCaTruc.has("));
+  // Mọi lần tra ca trực đi qua `coCa(...)` (08/10/2026: khoá kèm cơ sở); khoá
+  // ngày dựng ở dòng `const k = …` trong đó.
+  const dong = ma.split("\n").find((d) => /const k = `\$\{bs\}\|/.test(d));
   assert.ok(dong, "không còn chỗ nào tra ca trực?");
   assert.match(dong!, /ngayVN\(/, "phải tra bằng ngày giờ Việt Nam");
   assert.doesNotMatch(
@@ -89,7 +91,7 @@ test("cờ mất bác sĩ tính THEO TỪNG LƯỢT, không chỉ cho lịch đ�
   // mất. Người trực chỉ thấy một ô giờ hẹn bình thường.
   //
   // Nay cờ đi theo chính lượt, nên không còn phép so giữa hai nguồn nào cả.
-  const khoiLuot = /mat_bac_si:[\s\S]{0,600}?ngayVN\(a\.slot_start\)/.exec(page);
+  const khoiLuot = /mat_bac_si:[\s\S]{0,600}?coCa\(a\.doctor_id, a\.slot_start/.exec(page);
   assert.ok(khoiLuot, "phải tính cờ cho từng lượt trong lịch sử khám");
   assert.match(khoiLuot![0], /doCaTruc/, "vẫn phải có chốt an toàn tập ca trực");
   assert.match(
