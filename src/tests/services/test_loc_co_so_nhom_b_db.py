@@ -149,9 +149,8 @@ async def test_quay_thu_chi_thay_cua_co_so_minh(pool: asyncpg.Pool) -> None:
                 # Số trên tab "Đã thu" khớp đúng danh sách của cơ sở ấy.
                 assert bang["dem"]["da_thu_hom_nay"] == len(so["khach"])
 
-    # Cơ sở HN mới dựng: đúng một khách đã thu.
-    bang_hn = await svc.board(identity=hn.quay.thu_ngan, modes=["dich_vu"])
-    assert bang_hn["dem"]["da_thu_hom_nay"] == 1
+    # Không so TỔNG số: CI chạy song song trên một DB, lượt "chưa rõ cơ sở" của
+    # bài khác (cố ý hiện ở mọi cơ sở) làm tổng lệch. Đã so đúng khách mình ở trên.
 
 
 async def test_check_out_chi_thay_luot_cua_co_so_minh(pool: asyncpg.Pool) -> None:

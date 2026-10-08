@@ -118,10 +118,8 @@ BANG = (
     "capability_grant",
     "drug_batch",
     "inventory_txn",
-    # Việc "chuyển từ hôm nay" (08/10/2026): lịch đã đặt trước khi có Hào Nam.
+    # Việc "chuyển từ hôm nay" (08/10/2026): lịch hẹn đặt trước khi có Hào Nam.
     "appointment",
-    "work_roster",
-    "vi_tri_dong_ca",
 )
 
 
@@ -946,9 +944,9 @@ _DAU_NGAY = f"({_HOM_NAY}::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')"
 
 
 async def _chuyen(conn: asyncpg.Connection, ctx: NguCanh, bc: BaoCao) -> None:
-    """Lịch hẹn từ hôm nay KN → HN (trừ lịch đã check-in: lượt đã ở phòng KN);
-    ca trực + ô đóng ca từ hôm nay → vị trí `HN__<mã>` tương ứng (vị trí không
-    có bản Hào Nam — Trưởng ca DIEU_PHOI dùng chung — giữ nguyên)."""
+    """Lịch hẹn của khách từ hôm nay KN → HN (trừ lịch đã check-in: lượt đã ở
+    phòng KN). Lịch làm việc (ca trực) KHÔNG chuyển — Tuyền 08/10: để trống,
+    nhập tay ở Hào Nam."""
     if ctx.hn is None:
         raise SystemExit("✗ Chưa có cơ sở Hào Nam — chạy nhân bản trước.")
     bc.bo = "-"
@@ -971,47 +969,15 @@ async def _chuyen(conn: asyncpg.Connection, ctx: NguCanh, bc: BaoCao) -> None:
         ctx.kn,
     )
     bc.them("appointment", doi=n, bo_qua=int(da_check_in or 0))
-    n = _so(
-        await conn.execute(
-            "UPDATE work_roster w SET station = 'HN__' || w.station"
-            f" WHERE w.clinic_id = $1::uuid AND w.work_date >= {_HOM_NAY}"
-            "   AND EXISTS (SELECT 1 FROM vi_tri_lam_viec v"
-            "                WHERE v.clinic_id = w.clinic_id AND v.is_active"
-            "                  AND v.code = 'HN__' || w.station)",
-            ctx.cid,
-        )
-    )
-    giu = await conn.fetchval(
-        f"SELECT count(*) FROM work_roster w WHERE w.clinic_id = $1::uuid"
-        f" AND w.work_date >= {_HOM_NAY} AND w.station NOT {LA_VI_TRI_HN}",
-        ctx.cid,
-    )
-    bc.them("work_roster", doi=n, bo_qua=int(giu or 0))
-    n = _so(
-        await conn.execute(
-            "UPDATE vi_tri_dong_ca d SET station = 'HN__' || d.station"
-            f" WHERE d.clinic_id = $1::uuid AND d.work_date >= {_HOM_NAY}"
-            "   AND EXISTS (SELECT 1 FROM vi_tri_lam_viec v"
-            "                WHERE v.clinic_id = d.clinic_id AND v.is_active"
-            "                  AND v.code = 'HN__' || d.station)"
-            "   AND NOT EXISTS (SELECT 1 FROM vi_tri_dong_ca x"
-            "                    WHERE x.clinic_id = d.clinic_id"
-            "                      AND x.work_date = d.work_date"
-            "                      AND x.shift = d.shift"
-            "                      AND x.station = 'HN__' || d.station)",
-            ctx.cid,
-        )
-    )
-    bc.them("vi_tri_dong_ca", doi=n)
     bc.ghi_chu.append(
-        "Bỏ qua ở appointment = lịch hôm nay ĐÃ check-in (lượt đang ở phòng KN);"
-        " bỏ qua ở work_roster = ca ở vị trí dùng chung (Trưởng ca) — giữ nguyên."
+        "Bỏ qua ở appointment = lịch hôm nay ĐÃ check-in (lượt đang ở phòng KN)."
+        " Lịch làm việc không chuyển — nhập tay ở Hào Nam."
     )
 
 
 async def _tra_lai(conn: asyncpg.Connection, ctx: NguCanh, bc: BaoCao) -> None:
-    """Ngược `_chuyen`: chỉ những dòng TẠO TRƯỚC khi có cơ sở Hào Nam (tức là
-    dòng vốn của Kim Ngưu) — lịch/ca đặt mới ở Hào Nam sau đó giữ nguyên."""
+    """Ngược `_chuyen`: chỉ lịch hẹn TẠO TRƯỚC khi có cơ sở Hào Nam (tức là lịch
+    vốn của Kim Ngưu) — lịch đặt mới ở Hào Nam sau đó giữ nguyên."""
     if ctx.hn is None:
         raise SystemExit("✗ Không có cơ sở Hào Nam.")
     bc.bo = "-"
@@ -1031,18 +997,6 @@ async def _tra_lai(conn: asyncpg.Connection, ctx: NguCanh, bc: BaoCao) -> None:
         )
     )
     bc.them("appointment", doi=n)
-    for bang in ("work_roster", "vi_tri_dong_ca"):
-        n = _so(
-            await conn.execute(
-                f"UPDATE {bang} SET station = substr(station, 5)"
-                f" WHERE clinic_id = $1::uuid AND work_date >= {_HOM_NAY}"
-                f"   AND station {LA_VI_TRI_HN} AND station !~ '__[0-9]+$'"
-                "   AND created_at < $2",
-                ctx.cid,
-                moc,
-            )
-        )
-        bc.them(bang, doi=n)
 
 
 # ----------------------------------------------------------------------------
@@ -1102,7 +1056,7 @@ async def main() -> int:
     nhom.add_argument(
         "--chuyen-tu-hom-nay",
         action="store_true",
-        help="lịch hẹn + ca trực từ hôm nay: Kim Ngưu → Hào Nam",
+        help="lịch hẹn của khách từ hôm nay: Kim Ngưu → Hào Nam (ca trực KHÔNG)",
     )
     nhom.add_argument(
         "--tra-lai-chuyen",

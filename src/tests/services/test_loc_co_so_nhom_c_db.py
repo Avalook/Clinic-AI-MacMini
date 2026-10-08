@@ -167,9 +167,16 @@ async def test_hang_cho_va_so_thu_tu_dem_rieng_tung_co_so(
         so[cua_minh] = next(
             d["so_thu_tu"] for d in kq["hang_cho"] if d["visit_id"] == cua_minh
         )
-    # Cơ sở B mới dựng, lượt B là khách đầu tiên của B hôm nay — dù lượt A
-    # check-in trước (không đếm riêng thì số ≥ 2).
-    assert so[h.luot_b] == 1
+    # Số thứ tự ở B không đếm lượt A (A check-in trước). Không so bằng 1: CI
+    # chạy song song, lượt "chưa rõ cơ sở" của bài khác hiện ở mọi cơ sở.
+    kq_b = await BangLuotKham(pool).hang_cho(identity=h.b.bac_si, room_id=None)
+    truoc_b = [
+        d
+        for d in kq_b["hang_cho"]
+        if d.get("so_thu_tu") is not None and d["so_thu_tu"] < so[h.luot_b]
+    ]
+    assert h.luot_a not in {d["visit_id"] for d in truoc_b}
+    assert so[h.luot_b] <= len(kq_b["hang_cho"])
 
 
 async def test_sap_toi_theo_co_so(pool: asyncpg.Pool) -> None:  # noqa: F811
@@ -212,9 +219,6 @@ async def test_chi_dinh_hom_nay_va_tong_theo_co_so(
         assert cua_minh in don and cua_nguoi not in don
         # Câu đếm cùng điều kiện với danh sách — lệch là báo nhầm "bị cắt".
         assert kq["tong"] == len(kq["chi_dinh"]) and kq["bi_cat"] is False
-    # Cơ sở B chỉ có đúng chỉ định của lượt B.
-    kq_b = await BangLuotKham(pool).chi_dinh_hom_nay(identity=h.b.bac_si)
-    assert kq_b["tong"] == 1
 
 
 async def test_ket_qua_cho_duyet_theo_co_so(pool: asyncpg.Pool) -> None:  # noqa: F811

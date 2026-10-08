@@ -691,8 +691,9 @@ async def _ca(conn: asyncpg.Connection, pk: PK, tram: str, ngay_lech: int) -> st
 
 
 async def test_chuyen_tu_hom_nay_roi_tra_lai(pool: asyncpg.Pool, pk: PK) -> None:
-    """Tuyền 08/10: Kim Ngưu tạm đóng — lịch hẹn + ca trực từ hôm nay sang Hào
-    Nam; lịch đã qua giữ Kim Ngưu; Trưởng ca dùng chung; trả lại được."""
+    """Tuyền 08/10: Kim Ngưu tạm đóng — lịch hẹn từ hôm nay sang Hào Nam; lịch
+    đã qua giữ Kim Ngưu; LỊCH LÀM VIỆC KHÔNG ĐỤNG (để trống, nhập tay); trả
+    lại được."""
     async with pool.acquire() as conn:
         hen_qua = await _lich(conn, pk, pk.kn, -1)
         hen_mai = await _lich(conn, pk, pk.kn, 1)
@@ -729,22 +730,21 @@ async def test_chuyen_tu_hom_nay_roi_tra_lai(pool: asyncpg.Pool, pk: PK) -> None
 
     bc = await _chay(pool, pk, viec="chuyen", that=True)
     assert bc.dem["appointment"].doi == 1
-    assert bc.dem["work_roster"].doi == 1 and bc.dem["vi_tri_dong_ca"].doi == 1
     assert await co_so(hen_mai) == hn
     assert await co_so(hen_qua) == pk.kn
-    assert await tram(ca_mai) == "HN__T1_LETAN"
+    assert await tram(ca_mai) == "T1_LETAN"  # lịch làm việc không chuyển
     assert await tram(ca_qua) == "T1_LETAN"
     assert await tram(ca_dp) == "DIEU_PHOI"
     assert (
         await pool.fetchval(
             "SELECT station FROM vi_tri_dong_ca WHERE clinic_id = $1::uuid", pk.cid
         )
-        == "HN__T1_LETAN"
+        == "T1_LETAN"
     )
 
     # Chạy lại không chuyển thêm gì.
     lai = await _chay(pool, pk, viec="chuyen", that=True)
-    assert lai.dem["appointment"].doi == 0 and lai.dem["work_roster"].doi == 0
+    assert lai.dem["appointment"].doi == 0
 
     # Lịch đặt MỚI ở Hào Nam sau khi chuyển: trả lại không được kéo nó về KN.
     async with pool.acquire() as conn:

@@ -369,9 +369,12 @@ async def test_7_reception_doc_bang_thu_va_thu_tien_thuoc(q: Quay) -> None:
         appt_id = await _get_appointment_id(conn, q.visit_id)
         pat_id = await _get_patient_id(conn, q.visit_id)
 
+        # Lễ tân đứng ĐÚNG cơ sở của lượt — bảng thu lọc theo cơ sở (08/10/2026).
         loc = await conn.fetchval(
-            "SELECT id::text FROM clinic_location WHERE clinic_id = $1::uuid LIMIT 1",
+            "SELECT coalesce(public.co_so_cua_luot($2::uuid), (SELECT id FROM"
+            " clinic_location WHERE clinic_id = $1::uuid LIMIT 1))::text",
             CLINIC,
+            q.visit_id,
         )
         le_tan = await _nguoi(conn, loc, "RECEPTION")
 
