@@ -194,3 +194,32 @@ async def test_luot_dieu_tri_sinh_mot_chi_dinh_khong_phi_kham_khong_chan_ve(
     # Không ai nhận ở hàng bác sĩ → không có vướng "bác sĩ chưa khám".
     kq = await CheckoutService(pool).readiness(identity=ca["le_tan"], visit_id=visit)
     assert "exam_open" not in {b["type"] for b in kq["blockers"]}
+
+
+async def test_luot_dieu_tri_co_nguoi_bam_ghi_su_kien_human(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Check-in do lễ tân bấm → consumer truyền người bấm; sự kiện phải là HUMAN
+    (ràng buộc domain_event_actor_type), không thì chỉ định không sinh ra."""
+    ca = await _dung(pool)
+    gia = await pool.fetchrow(
+        "SELECT sp.id::text FROM service_type st"
+        " JOIN service_price sp ON sp.id = st.service_price_id"
+        " WHERE st.clinic_id = $1::uuid AND st.code = 'DT_BIO'",
+        CLINIC,
+    )
+    dt = await _loai(pool, "Bio thử người bấm", nhom="DIEU_TRI", gia_id=gia["id"])
+    await _doi_lich(pool, ca, dt)
+    visit = await _check_in(pool, ca)
+    nguoi = ca["le_tan"].staff_id
+    async with pool.acquire() as conn:
+        oid = await ho_so_dich_vu.sinh_chi_dinh_dieu_tri(
+            conn, clinic_id=CLINIC, visit_id=visit, nguoi_bam=nguoi
+        )
+    assert oid is not None
+    ev = await pool.fetchrow(
+        "SELECT actor_type, actor_staff_id::text FROM domain_event"
+        " WHERE event_type = 'service_order.placed' AND aggregate_id = $1::uuid",
+        oid,
+    )
+    assert ev["actor_type"] == "HUMAN" and ev["actor_staff_id"] == nguoi

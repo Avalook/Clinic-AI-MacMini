@@ -281,7 +281,9 @@ async def sinh_chi_dinh_dieu_tri(
             selection_status="PENDING",
             billing_status="UNPAID",
         ),
-        boi=NguoiGayRa(actor_type="STAFF", staff_id=nguoi_bam)
+        # domain_event_actor_type chỉ nhận HUMAN/SYSTEM/AGENT — "STAFF" làm
+        # INSERT sự kiện vỡ, chỉ định lượt Điều trị không sinh ra.
+        boi=NguoiGayRa(actor_type="HUMAN", staff_id=nguoi_bam)
         if nguoi_bam
         else HE_THONG,
         correlation_id=visit_id,
