@@ -1384,6 +1384,9 @@ class QuayThuService:
                         "thanh_tien": _so(r["thanh_tien"]),
                         "lan": r["lan"],
                         "da_bo": bool(r["da_bo"]),
+                        # Dòng "‹dịch vụ› — trả trước k buổi" in kèm "(liệu
+                        # trình)"; số buổi đã nằm trong tên.
+                        "lieu_trinh": r["source_type"] == "lieu_trinh",
                         **({} if r["da_bo"] else _phong_cua_dong(r, phong)),
                     }
                     for r in await conn.fetch(_DONG_SQL, cid, [id_])

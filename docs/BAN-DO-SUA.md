@@ -247,6 +247,19 @@ không đẻ dòng thứ hai: `S/chi_dinh_service.py` (`chi_dinh_dieu_tri_dang_c
 `trg_form_instance_lich_su` → bảng chỉ thêm `form_instance_lich_su` (migration
 `20261007630000`; test `T/services/test_form_instance_lich_su_db.py`).
 
+**Liệu trình điều trị nhiều buổi — dải trong thẻ điều trị (08/10/2026, C1)** — đặc tả
+`docs/KE-HOACH-LIEU-TRINH.md`. Dải "Buổi k/N · đã làm · đã trả · còn nợ", [Tạo liệu trình]
+(ô "Lộ trình N buổi"), [Điều chỉnh] · [Dừng]/[Mở lại] · [Lịch sử sửa] · [Hoàn tác] · [Gỡ khỏi
+liệu trình] · [Lập liệu trình mới] · chọn liệu trình (`can_chon`) · các buổi (ngày, nơi làm,
+phiếu điều trị mở chỉ đọc) + lối "Chỉ đề xuất liệu trình (không làm hôm nay)":
+`D/_lam-viec/phieu-kham/LieuTrinhThe.tsx` (vẽ trong `KhoiDieuTri.tsx`, nghe `lieu_trinh*`) →
+`D/lib/lieu-trinh.ts` → `/api/lieu-trinh` (`xem=theo-luot|lich-su`, `thao_tac=tao|dieu-chinh|dung|
+mo-lai|hoan-tac|gan|go`) → `R/lieu_trinh.py` → `S/lieu_trinh_service.py` (`theo_luot` trả số + nút
+`nut`/`hoan_tac`/`dich_vu_de_xuat`; hàm thuần `nut_lieu_trinh`, `nut_chi_dinh`). Gắn / gỡ buổi tự
+động, trạng thái, bất biến: Postgres (migration `20261008100000`). Test:
+`T/services/test_lieu_trinh_db.py`, `T/services/test_lieu_trinh_giao_dien_db.py`, FT
+`lieu-trinh-boundary.test.mts`.
+
 **Lịch sử khám (popup, mọi lượt) + `/patient-list` mở đúng khung (07/10/2026)** — UI
 `D/_lam-viec/LichSuKham.tsx` (Bàn khám qua `PhieuKhamLuot.tsx`, `D/patient-list/PatientListView.tsx`
 `moLuot`, `D/customers/ThanhLuotKham.tsx`) → `/api/ho-so-kham?xem=lich-su` → `R/ho_so_kham.py`
@@ -286,6 +299,16 @@ gợi ý dịch vụ→vật tư `vat_tu_goi_y` (mig 20261003000000; nạp lại
 **Sửa giá / tắt bán / thêm hàng = việc DỮ LIỆU: quản lý làm trên `/cashier/dich-vu` (ngăn "Vật tư bán thêm
 ở quầy thu", `D/cashier/VatTuBangGia.tsx`)** — không code. Hàng cần QL duyệt = cột `can_ql_duyet` (Mirena).
 Test: `T/services/test_vat_tu_ban_them_db.py`, FT `quay-thu-vat-tu-boundary.test.mts`.
+
+**Liệu trình ở quầy thu dịch vụ — trả trước k buổi (08/10/2026, C1)** — khối "Liệu trình" của
+khách đang thu `D/thu-ngan/LieuTrinhQuay.tsx` ([Trả trước … buổi] / [Trả hết]) → `/api/lieu-trinh`
+(`xem=quay`, `thao_tac=tra-truoc`) → `S/lieu_trinh_tien.py` (`quay`, `dat_tra_truoc`); [Bỏ] dòng trả
+trước + chip "Buổi k/N · đã trả trước" trên chỉ định ở `D/thu-ngan/HoaDonMot.tsx`
+(`thao_tac=bo-tra-truoc`). Dòng hoá đơn `source_type='lieu_trinh'`: `S/bill_service.py`; lượt CHỈ có
+dòng trả trước vẫn lên bảng quầy: `S/cashier_board_service.py` `_SQL`; phiếu thu in "(liệu trình)":
+`S/quay_thu_service.py` `phieu` + `D/print/phieu-thu/[id]/InPhieuThu.tsx`. Huỷ / hoàn tác lần thu trả
+trước khi buổi đã làm bằng tiền ấy: CHẶN (#16) với câu `CAU_HUY_TRA_TRUOC_DA_DUNG`. Test:
+`T/services/test_lieu_trinh_tien_db.py`, `T/services/test_lieu_trinh_giao_dien_db.py`.
 
 **Màn thu, cái gì hiện ở quầy nào, "Đã nhận đủ"** — `/thu-ngan/dich-vu`,
 `/thu-ngan/thuoc` (cùng `D/thu-ngan/QuayThuNgan.tsx`, prop `quay`). Bảng quầy:
