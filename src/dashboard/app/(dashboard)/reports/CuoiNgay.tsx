@@ -9,6 +9,9 @@
 //
 // Theo cơ sở (08/10/2026 — mở Hào Nam): ô chọn "Tất cả cơ sở / từng cơ sở".
 // Tất cả → thêm bảng từng cơ sở + dòng Tổng; mọi số (kể cả Tổng) do máy chủ trả.
+//
+// Cuối ca (08/10/2026): xem MỘT ngày thì chọn được ca Sáng / Chiều / Tối — máy
+// chủ cắt mọi số theo khung giờ ca. Khối "Thuốc theo khách": kê vs thực bán.
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -19,6 +22,8 @@ import ThanhNgay from "@/components/ui/ThanhNgay";
 import { fmtDayTime } from "@/lib/datetime";
 import { todayVn } from "@/lib/roster";
 import { congNgay, nhanKhoang, type Khoang } from "@/lib/thanh-ngay";
+
+import ThuocTheoKhach, { type ThuocTheoKhachData } from "./ThuocTheoKhach";
 
 interface OTien {
   thu: number;
@@ -116,6 +121,10 @@ interface BaoCao {
     }[];
   };
   theo_ngay: (OTien & { ngay: string; so_phieu: number })[];
+  /** Ca đang xem (08/10/2026) — null = cả ngày. Khung giờ do máy chủ tính. */
+  ca?: { ma: string; ten: string; tu: string; den: string } | null;
+  /** Thuốc kê vs thực bán theo khách — báo cáo dịch vụ: null. */
+  thuoc_theo_khach?: ThuocTheoKhachData | null;
   /** Cơ sở đang xem (08/10/2026) — null = tất cả. */
   co_so?: string | null;
   ten_co_so?: string | null;
@@ -269,12 +278,16 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
   const [loai, setLoai] = useState<"" | "dich_vu" | "thuoc">("");
   // "" = Tất cả cơ sở (mặc định).
   const [coSoChon, setCoSoChon] = useState("");
+  // "" = cả ngày. Chỉ gửi khi xem một ngày (máy chủ cũng bỏ ca nếu nhiều ngày).
+  const [ca, setCa] = useState<"" | "SANG" | "CHIEU" | "TOI">("");
+  const motNgay = khoang.tu === khoang.den;
 
   const chuoi = new URLSearchParams({
     tu: khoang.tu,
     den: khoang.den,
     ...(loai ? { loai } : {}),
     ...(coSoChon ? { co_so: coSoChon } : {}),
+    ...(ca && motNgay ? { ca } : {}),
   }).toString();
 
   const tai = useCallback(async () => {
@@ -323,7 +336,7 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
               role="tab"
               aria-selected={loai === ma}
               onClick={() => setLoai(ma)}
-              className={`min-h-10 rounded-control px-3 text-sm font-medium ${
+              className={`min-h-10 whitespace-nowrap rounded-control px-3 text-sm font-medium ${
                 loai === ma ? "bg-brand-600 text-white" : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
               }`}
             >
@@ -331,20 +344,47 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
             </button>
           ))}
         </div>
+        {motNgay ? (
+          <div role="tablist" aria-label="Ca" className="flex gap-1">
+            {(
+              [
+                ["", "Cả ngày"],
+                ["SANG", "Ca sáng"],
+                ["CHIEU", "Ca chiều"],
+                ["TOI", "Ca tối"],
+              ] as const
+            ).map(([ma, nhan]) => (
+              <button
+                key={ma}
+                type="button"
+                role="tab"
+                aria-selected={ca === ma}
+                onClick={() => setCa(ma)}
+                className={`min-h-10 whitespace-nowrap rounded-control px-3 text-sm font-medium ${
+                  ca === ma ? "bg-brand-600 text-white" : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
+                }`}
+              >
+                {nhan}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <ChonCoSoO coSo={coSo} dangChon={coSoChon} onChon={setCoSoChon} />
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={() => window.print()} disabled={!bc}>
             In
           </Button>
           <a href={`/api/reports/cuoi-ngay?xuat=csv&${chuoi}`} className={buttonClass("secondary", "sm")}>
-            Xuất Excel
+            Xuất Excel (tổng hợp)
           </a>
         </div>
       </div>
 
       <p className="text-meta text-ink-muted">
         Báo cáo cuối ngày · {bc?.co_so ? `${bc.ten_co_so ?? "Không có cơ sở này"} · ` : ""}
-        {bc ? nhanKhoang({ tu: bc.tu, den: bc.den }) : nhanKhoang(khoang)} · giờ Việt Nam · chỉ đọc
+        {bc ? nhanKhoang({ tu: bc.tu, den: bc.den }) : nhanKhoang(khoang)}
+        {bc?.ca ? ` · ${bc.ca.ten} ${bc.ca.tu}–${bc.ca.den}` : ""} · giờ Việt Nam · chỉ đọc
+        {bc?.ca ? " · tiền thừa và khách còn nợ vẫn tính cả ngày" : ""}
       </p>
 
       {loi ? (
@@ -435,6 +475,20 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
                 tieuDe="Ngày"
                 dong={bc.theo_ngay.map((o) => ({ ...o, ten: o.ngay }))}
               />
+            </Khoi>
+          ) : null}
+
+          <p className="text-meta text-ink-muted print:hidden">
+            Bảng mặt hàng đã bán theo mẫu KiotViet:{" "}
+            <a href="/reports?tab=hang-hoa" className="font-medium text-brand-700 underline">
+              tab Hàng hoá
+            </a>
+            .
+          </p>
+
+          {bc.thuoc_theo_khach ? (
+            <Khoi title="Thuốc theo khách — bác sĩ kê vs thực bán">
+              <ThuocTheoKhach data={bc.thuoc_theo_khach} />
             </Khoi>
           ) : null}
 

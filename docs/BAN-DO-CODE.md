@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-08 17:06. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-08 17:41. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -362,11 +362,11 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/reports` — Báo cáo
 - page: `src/dashboard/app/(dashboard)/reports/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
-- thành phần: app/(dashboard)/StatCard.tsx, CuoiNgay.tsx, PrintReportButton.tsx
+- thành phần: app/(dashboard)/StatCard.tsx, BaoCaoHangHoa.tsx, CuoiNgay.tsx, PrintReportButton.tsx, BangHangHoa.tsx, ThuocTheoKhach.tsx
 - gọi API Next: `/api/reports/cuoi-ngay`
 - gọi thẳng backend (server): `/api/v1/reports/tong-quan${locCoSo`, `/api/v1/reports/booking-channels`, `/api/v1/reports/kpi-dat-lich${locCoSo`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
 - service: BaoCaoCuoiNgayService.bao_cao · bao_cao_cuoi_ngay_service · reports_service · ReportsService.{booking_channels, kpi_dat_lich_theo_nhan_vien}
-- test: test_bao_cao_theo_co_so_db.py, test_doi_hinh_thuc.py, test_bao_cao_va_danh_sach_khach_db.py, test_tach_thu_thuoc_dich_vu_db.py
+- test: test_bao_cao_theo_co_so_db.py, test_bao_cao_cuoi_ca_db.py, test_bao_cao_thuoc.py, test_bao_cao_va_danh_sach_khach_db.py, test_doi_hinh_thuc.py (+1)
 
 ### `/reset-password`
 - page: `src/dashboard/app/(auth)/reset-password/page.tsx` · quyền: ?
@@ -1236,8 +1236,8 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 
 #### `/api/reports/cuoi-ngay` · `src/dashboard/app/api/reports/cuoi-ngay/route.ts`
 - GET `/api/v1/reports/cuoi-ngay` → `src/clinicai/api/v1/routers/reports.py:bao_cao_cuoi_ngay` → BaoCaoCuoiNgayService.bao_cao
-- GET `/api/v1/reports/cuoi-ngay.csv` → `src/clinicai/api/v1/routers/reports.py:bao_cao_cuoi_ngay_csv` → BaoCaoCuoiNgayService.bao_cao, csv_bao_cao.encode, csv_bao_cao
-- test: src/tests/services/test_bao_cao_theo_co_so_db.py, src/tests/services/test_tach_thu_thuoc_dich_vu_db.py, src/tests/unit/test_doi_hinh_thuc.py
+- GET `/api/v1/reports/cuoi-ngay.csv` → `src/clinicai/api/v1/routers/reports.py:bao_cao_cuoi_ngay_csv` → BaoCaoCuoiNgayService.bao_cao, csv_hang_hoa, csv_bao_cao
+- test: src/tests/services/test_bao_cao_cuoi_ca_db.py, src/tests/services/test_tach_thu_thuoc_dich_vu_db.py, src/tests/services/test_bao_cao_theo_co_so_db.py (+2)
 - màn dùng: /reports
 
 #### `/api/roster` · `src/dashboard/app/api/roster/route.ts`

@@ -22,6 +22,7 @@ from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.bao_cao_cuoi_ngay_service import (
     BaoCaoCuoiNgayService,
     csv_bao_cao,
+    csv_hang_hoa,
 )
 from clinicai.services.reports_service import (
     ReportsService,
@@ -114,14 +115,20 @@ async def bao_cao_cuoi_ngay(
         description="dich_vu | thuoc — xem riêng một loại tiền; rỗng/rác = cả hai",
     ),
     co_so: str | None = _CO_SO,
+    ca: str | None = Query(
+        None,
+        max_length=10,
+        description="SANG | CHIEU | TOI — cuối ca (một ngày); rác = cả ngày",
+    ),
     identity: StaffIdentity = Depends(_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Thu gốc · huỷ · hoàn · thực thu; theo hình thức / loại / người thu / ngày.
+    """Thu gốc · huỷ · hoàn · thực thu; theo hình thức / loại / người thu / ngày;
+    thuốc kê vs thực bán theo khách. ``ca`` → chỉ khung giờ một ca (cuối ca).
 
     Không chọn cơ sở → thêm ``theo_co_so`` (từng cơ sở, tiền cộng lại = tổng)."""
     return await BaoCaoCuoiNgayService(pool).bao_cao(
-        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so
+        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so, ca=ca
     )
 
 
@@ -131,16 +138,27 @@ async def bao_cao_cuoi_ngay_csv(
     den: str | None = Query(None, max_length=40),
     loai: str | None = Query(None, max_length=20),
     co_so: str | None = _CO_SO,
+    ca: str | None = Query(None, max_length=10),
+    mau: str | None = Query(
+        None, max_length=20, description="hang_hoa = khuôn KiotViet hàng hoá"
+    ),
     identity: StaffIdentity = Depends(_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
-    """[Xuất Excel]: CSV UTF-8 có BOM."""
+    """[Xuất Excel]: CSV UTF-8 có BOM. ``mau=hang_hoa`` → "Báo cáo cuối ngày về
+    hàng hóa" (khuôn KiotViet) của loại đang xem (rỗng = thuốc)."""
     bc = await BaoCaoCuoiNgayService(pool).bao_cao(
-        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so
+        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so, ca=ca
     )
-    ten = f"bao-cao-cuoi-ngay-{bc['tu']}_{bc['den']}.csv"
+    hang_hoa = mau == "hang_hoa"
+    ten = (
+        f"bao-cao-hang-hoa-{bc['tu']}_{bc['den']}.csv"
+        if hang_hoa
+        else f"bao-cao-cuoi-ngay-{bc['tu']}_{bc['den']}.csv"
+    )
+    noi_dung = csv_hang_hoa(bc, loai) if hang_hoa else csv_bao_cao(bc)
     return Response(
-        content=csv_bao_cao(bc).encode("utf-8"),
+        content=noi_dung.encode("utf-8"),
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": f'attachment; filename="{ten}"',

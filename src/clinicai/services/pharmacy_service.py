@@ -169,6 +169,7 @@ class PharmacyService:
             rows = await conn.fetch(
                 """
                 SELECT r.id::text, r.source_ref, r.drug_name_raw,
+                       c.name_raw AS ten_thuoc_kho,
                        r.dosage_instructions, r.quantity, r.quantity_note,
                        r.quantity_num, r.purchased_qty, r.dispensed_qty, r.unit,
                        r.dispense_status, r.dispensed_at, r.created_at,
@@ -177,6 +178,10 @@ class PharmacyService:
                   LEFT JOIN public.patient p
                     ON p.clinic_patient_id = r.clinic_patient_id
                    AND p.clinic_id = r.clinic_id
+                  -- Thuốc THẬT đã giao = thuốc kho quầy chọn; drug_name_raw là
+                  -- chữ bác sĩ gõ (khách báo 08/10/2026: lịch sử hiện thuốc kê).
+                  LEFT JOIN public.drug_catalog c
+                    ON c.id = r.drug_catalog_id AND c.clinic_id = r.clinic_id
                  WHERE r.clinic_id = $1::uuid AND r.dispensed_qty > 0
                    AND coalesce(public.co_so_cua_luot(r.clinic_id, r.visit_id),
                                 $2::uuid)
