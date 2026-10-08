@@ -157,6 +157,9 @@ liệu trình); hoàn tác bỏ → gắn lại. Không sửa 6 đường tạo,
   MỚI không hiện ô; lượt CŨ có dữ liệu `pk_dx`/`pk_treatment` hiện CHỈ ĐỌC (làm mới không mất
   cũ), bản in vẫn in nếu có. Rủi ro ghi lại: phiếu khám không còn ô chẩn đoán riêng — nếu bác
   sĩ cần thì mở lại là một dòng `KHOI_PHIEU`.
+  **ĐỔI (Tuyền, 08/10 sau PR #360):** KHÔNG bỏ — mục D DỜI xuống CUỐI khối 2 "Chỉ định cận lâm
+  sàng", sửa được, cả bảy phiếu (HMVS 16 ô / NT 9 ô không được mất; luồng CLS → kết quả →
+  chẩn đoán → điều trị). `KHOI_PHIEU`: 2 = C · D, 3 = F · G (+ thẻ điều trị), 4 = E.
 - **Q2 — Giá = đơn giá × số buổi, chốt lúc tạo.** Giá gói ưu đãi: làm sau nếu cần.
 - **Q3 — Tiền luôn thu ở quầy khi khách có mặt.** CSKH chỉ ghi đăng ký + đặt lịch.
 - **Q5 — Dừng giữa chừng: hoàn tiền buổi dư theo luồng tiền thừa/hoàn hiện có, không hạn dùng,

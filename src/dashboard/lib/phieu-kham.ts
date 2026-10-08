@@ -846,21 +846,17 @@ export function locMauThuoc(ds: readonly MauThuoc[], tu: string): MauThuoc[] {
 // ---------------------------------------------------------------------------
 /** BỐN KHỐI của phiếu bác sĩ chính: gom các mục SẴN CÓ của mẫu JSON, không đổi
  *  `ma` ô nào — phiếu đã lưu vẫn đọc đúng. Mục hành chính luôn nằm trên, ngoài
- *  các khối. Khối 3 còn có thẻ CHỈ ĐỊNH ĐIỀU TRỊ (không thuộc mẫu JSON — shell vẽ
- *  qua `oDieuTri`, đứng đầu khối, đúng chỗ ô "Chẩn đoán và xử lý" cũ). */
+ *  các khối. Thứ tự theo luồng lâm sàng: CLS → kết quả → CHẨN ĐOÁN (mục D, cuối
+ *  khối 2 — mọi phiếu, HMVS/NT có tới 16/9 ô nên không bỏ được) → điều trị. Khối
+ *  3 còn có thẻ CHỈ ĐỊNH ĐIỀU TRỊ (không thuộc mẫu JSON — shell vẽ qua `oDieuTri`,
+ *  đứng đầu khối). */
 export type SoKhoi = 1 | 2 | 3 | 4;
 export const KHOI_PHIEU: { so: SoKhoi; ten: string; muc: string[] }[] = [
   { so: 1, ten: "Thông tin cơ bản", muc: ["A", "B"] },
-  { so: 2, ten: "Chỉ định cận lâm sàng", muc: ["C"] },
-  { so: 3, ten: "Chỉ định điều trị", muc: ["D", "F", "G"] },
+  { so: 2, ten: "Chỉ định cận lâm sàng", muc: ["C", "D"] },
+  { so: 3, ten: "Chỉ định điều trị", muc: ["F", "G"] },
   { so: 4, ten: "Đơn thuốc", muc: ["E"] },
 ];
-
-/** Mục đã BỎ khỏi phiếu mới (Tuyền chốt Q1 08/10: "Chẩn đoán và xử lý" — phiếu
- *  2 ô của thẻ điều trị thay chỗ). Không xoá khỏi mẫu JSON (phiếu cũ vẫn đọc,
- *  bản in vẫn in): lượt có dữ liệu thì hiện CHỈ ĐỌC, lượt trống thì không hiện.
- *  Mở lại = bỏ mã khỏi danh sách này. */
-export const MUC_DA_BO: readonly string[] = ["D"];
 
 /** Chia chỉ định của lượt theo chỗ hiện trên hồ sơ khám. ĐIỀU TRỊ theo MỘT định
  *  nghĩa — cờ `dieu_tri` máy chủ trả (dịch vụ mà loại khám nhóm DIEU_TRI trỏ tới)

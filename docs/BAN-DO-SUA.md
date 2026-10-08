@@ -210,12 +210,12 @@ lệnh `bat_dau` + `xong` CÓ SẴN của `S/service_execution_service.py`; lệ
 `docs/phieu-kham/`. Test: `T/services/test_phieu_kham_db.py`, `T/services/test_phieu_kham_luot_db.py`,
 FT `phieu-kham-boundary.test.mts`, `npm run test:phieu-kham`.
 Bốn khối (thứ tự mục, tên khối) = `KHOI_PHIEU` ở `D/lib/phieu-kham.ts`: 1 Thông tin cơ bản
-(A+B) · 2 Chỉ định cận lâm sàng (C) · 3 Chỉ định điều trị (thẻ điều trị → [D cũ chỉ đọc] →
-thẻ thủ thuật đã chỉ định → lưới "Dịch vụ khác" F → Hẹn khám G) · 4 Đơn thuốc (E). Mục đã
-bỏ khỏi phiếu mới ("Chẩn đoán và xử lý" = D; lượt cũ có dữ liệu hiện chỉ đọc) =
-`MUC_DA_BO` — mở lại là bỏ mã khỏi danh sách. Thẻ nào vào khối nào = `phanChiDinh`
+(A+B) · 2 Chỉ định cận lâm sàng (đã chỉ định & kết quả → danh mục C → "Chẩn đoán và xử lý"
+D, sửa được, mọi phiếu) · 3 Chỉ định điều trị (thẻ điều trị → thẻ thủ thuật đã chỉ định →
+lưới "Dịch vụ khác" F → Hẹn khám G) · 4 Đơn thuốc (E). Thẻ nào vào khối nào = `phanChiDinh`
 (cờ `dieu_tri` máy chủ trước, rồi danh mục thủ thuật, còn lại CLS) — FT
-`khoi-dieu-tri-boundary.test.mts`, `lib/phieu-kham.test.mts`.
+`khoi-dieu-tri-boundary.test.mts`, `phieu-kham-boundary.test.mts` (mỗi mục A–G của bảy
+phiếu ở đúng một khối), `lib/phieu-kham.test.mts`.
 
 **Dịch vụ của lượt trong hồ sơ khám — đổi dịch vụ, phiếu cũ, lượt Điều trị (07/10/2026)**
 — UI `D/_lam-viec/phieu-kham/KhoiDichVuHoSo.tsx` (đầu phiếu + hồ sơ tối giản ở

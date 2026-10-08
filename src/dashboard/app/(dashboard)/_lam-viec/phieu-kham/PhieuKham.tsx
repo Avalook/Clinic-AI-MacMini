@@ -42,7 +42,6 @@ import {
   giaTriBanDau,
   gomNhom,
   KHOI_PHIEU,
-  MUC_DA_BO,
   phanChiDinh,
   type SoKhoi,
   soODaDien,
@@ -284,17 +283,9 @@ export default function PhieuKham({
     [dinhNghia.khung],
   );
 
-  // Mục đã bỏ (`MUC_DA_BO`) luôn chỉ đọc — chỉ còn để lượt cũ không mất chữ.
   const veO = (m: MucPhieu) =>
     (nhomTheoMuc[m.ma] ?? []).map((n, i) => (
-      <NhomOPhieu
-        key={`${m.ma}-${i}`}
-        nhom={n}
-        gia={gia}
-        onDoi={doi}
-        chiDoc={!ghi || MUC_DA_BO.includes(m.ma)}
-        loiO={loiO}
-      />
+      <NhomOPhieu key={`${m.ma}-${i}`} nhom={n} gia={gia} onDoi={doi} chiDoc={!ghi} loiO={loiO} />
     ));
 
   // `editable` CỐ Ý không có nhãn (null) — `??` sẽ coi null là "thiếu" và vẽ
@@ -326,10 +317,13 @@ export default function PhieuKham({
     (c) => c.ket_qua_trang_thai === "CO_KET_QUA" && !c.da_xem_luc,
   ).length;
   const soThuoc = (donThuoc?.dong ?? []).filter((d) => d.ten_thuoc.trim()).length;
+  const coChanDoan = oTheoMuc(["D"]).some((ma) => coGiaTriO(gia[ma]));
   const coHen = oTheoMuc(["G"]).some((ma) => /follow_date|ngay/.test(ma) && coGiaTriO(gia[ma]));
   const tomTat: Record<SoKhoi, string> = {
     1: `${soDien} ô đã điền`,
-    2: ketQuaCls.length ? `${ketQuaCls.length} chỉ định · ${coKq} có KQ` : "chưa chỉ định",
+    2:
+      (ketQuaCls.length ? `${ketQuaCls.length} chỉ định · ${coKq} có KQ` : "chưa chỉ định") +
+      (coChanDoan ? " · có chẩn đoán" : ""),
     3:
       [
         ketQuaDT.length ? `${ketQuaDT.length} điều trị` : "",
@@ -375,7 +369,7 @@ export default function PhieuKham({
     },
     B: { ten: `Khai thác & khám — ${dinhNghia.ten.replace(/^Phiếu\s+/i, "")}`, phu: "theo phiếu khám của phòng khám" },
     C: { ten: "Danh mục chỉ định", phu: "xếp như phiếu chỉ định giấy · giá KiotViet" },
-    D: { ten: "Chẩn đoán và xử lý (đã ghi trước đây)", phu: "chỉ đọc · phiếu mới không còn ô này" },
+    D: { ten: "Chẩn đoán và xử lý", phu: "sau khi xem kết quả cận lâm sàng" },
     E: { ten: "Đơn thuốc", phu: "xếp như phiếu giấy · giá KiotViet" },
     F: { ten: "Dịch vụ khác (thủ thuật · điều trị)" },
     G: { ten: "Hẹn khám" },
@@ -476,12 +470,9 @@ export default function PhieuKham({
   }
 
   const hanhChinh = dinhNghia.khung.find((m) => m.ma === "HANH_CHINH");
-  // Mục đã bỏ chỉ hiện khi lượt CŨ có dữ liệu (làm mới không mất cũ).
-  const mucKhoi = dinhNghia.khung.filter(
-    (m) =>
-      (KHOI[khoi - 1]?.muc ?? []).includes(m.ma) &&
-      (!MUC_DA_BO.includes(m.ma) || soODaDien(m.block, gia) > 0),
-  );
+  const mucKhoi = dinhNghia.khung.filter((m) => (KHOI[khoi - 1]?.muc ?? []).includes(m.ma));
+  // Mục GÕ đầu của khối cũng mở sẵn: khối 2 mở sẵn ô Chẩn đoán dưới danh mục CLS.
+  const mucGoDau = mucKhoi.find((m) => m.lien_ket?.loai !== "mang_sang" && m.block.length > 0)?.ma;
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12.5rem] xl:grid-cols-[minmax(0,1fr)_15rem]">
@@ -552,7 +543,7 @@ export default function PhieuKham({
         {khoi === 3 ? oDieuTri : null}
         {mucKhoi.map((m, i) => (
           <Fragment key={`muc-${m.ma}`}>
-            {theMuc(m, m.ma === mucDau(mucKhoi))}
+            {theMuc(m, m.ma === mucDau(mucKhoi) || m.ma === mucGoDau)}
             {/* Dưới dòng "Bác sĩ tư vấn ghi" (Tuyền 28/09/2026). */}
             {khoi === 1 && i === 0 ? oDichVuKham : null}
           </Fragment>

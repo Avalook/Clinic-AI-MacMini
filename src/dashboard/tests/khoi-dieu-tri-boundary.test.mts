@@ -23,15 +23,16 @@ const DV = doc("../app/(dashboard)/_lam-viec/phieu-kham/KhoiDichVuHoSo.tsx");
 const ROUTE = doc("../app/api/ho-so-kham/route.ts");
 const IN = doc("../app/print/phieu-kham/[visitId]/InPhieuKham.tsx");
 
-// Sắp lại khối 3/4 (Tuyền chốt 08/10 — docs/KE-HOACH-LIEU-TRINH.md Phần A): thẻ
-// điều trị DỜI vào đầu khối 3 "Chỉ định điều trị", khối 4 là "Đơn thuốc" (mục E),
-// ô "Chẩn đoán và xử lý" (mục D) bỏ — lượt cũ có dữ liệu hiện chỉ đọc.
-test("bốn khối: 3 = Chỉ định điều trị (D chỉ đọc cũ · F · G), 4 = Đơn thuốc (E)", () => {
+// Sắp lại khối (Tuyền chốt 08/10 — docs/KE-HOACH-LIEU-TRINH.md Phần A): thẻ điều
+// trị DỜI vào đầu khối 3 "Chỉ định điều trị", khối 4 là "Đơn thuốc" (mục E), mục D
+// "Chẩn đoán và xử lý" DỜI xuống cuối khối 2 (CLS → kết quả → chẩn đoán → điều
+// trị), SỬA ĐƯỢC, mọi phiếu — HMVS 16 ô / NT 9 ô không được mất.
+test("bốn khối: 2 = CLS + Chẩn đoán (C · D), 3 = Chỉ định điều trị (F · G), 4 = Đơn thuốc (E)", () => {
   assert.match(LIB, /\{ so: 1, ten: "Thông tin cơ bản", muc: \["A", "B"\] \}/);
-  assert.match(LIB, /\{ so: 3, ten: "Chỉ định điều trị", muc: \["D", "F", "G"\] \}/);
+  assert.match(LIB, /\{ so: 2, ten: "Chỉ định cận lâm sàng", muc: \["C", "D"\] \}/);
+  assert.match(LIB, /\{ so: 3, ten: "Chỉ định điều trị", muc: \["F", "G"\] \}/);
   assert.match(LIB, /\{ so: 4, ten: "Đơn thuốc", muc: \["E"\] \}/);
   assert.doesNotMatch(LIB, /ten: "Điều trị", muc/);
-  assert.match(LIB, /export const MUC_DA_BO: readonly string\[\] = \["D"\]/);
   // Khối 4 luôn có (không ẩn khi không có điều trị).
   assert.doesNotMatch(PHIEU, /cacKhoi|tomTatDieuTri/);
   assert.match(PHIEU, /\{KHOI\.map\(\(k\) =>/);
@@ -41,10 +42,15 @@ test("bốn khối: 3 = Chỉ định điều trị (D chỉ đọc cũ · F · 
   assert.match(PHIEU, /4: soThuoc \? `\$\{soThuoc\} thuốc`/);
 });
 
-test("mục D đã bỏ: trống thì không hiện, có dữ liệu cũ thì chỉ đọc", () => {
-  assert.match(PHIEU, /!MUC_DA_BO\.includes\(m\.ma\) \|\| soODaDien\(m\.block, gia\) > 0/);
-  assert.match(PHIEU, /chiDoc=\{!ghi \|\| MUC_DA_BO\.includes\(m\.ma\)\}/);
-  assert.match(PHIEU, /Chẩn đoán và xử lý \(đã ghi trước đây\)/);
+test("mục D cuối khối 2: sửa được như mọi mục, mở sẵn, tóm tắt 'có chẩn đoán'", () => {
+  // Không còn đường "bỏ mục" / chỉ đọc riêng cho D.
+  assert.doesNotMatch(LIB + PHIEU, /MUC_DA_BO|đã ghi trước đây/);
+  assert.match(PHIEU, /<NhomOPhieu key=\{`\$\{m\.ma\}-\$\{i\}`\} nhom=\{n\} gia=\{gia\} onDoi=\{doi\} chiDoc=\{!ghi\}/);
+  assert.match(PHIEU, /D: \{ ten: "Chẩn đoán và xử lý"/);
+  // Mục gõ đầu của khối mở sẵn (khối 2: danh mục C không có ô → D mở).
+  assert.match(PHIEU, /m\.lien_ket\?\.loai !== "mang_sang" && m\.block\.length > 0/);
+  assert.match(PHIEU, /m\.ma === mucDau\(mucKhoi\) \|\| m\.ma === mucGoDau/);
+  assert.match(PHIEU, /coChanDoan \? " · có chẩn đoán" : ""/);
 });
 
 test("khối 3 xếp: thẻ điều trị → (D cũ) → thủ thuật đã chỉ định → lưới Dịch vụ khác → Hẹn khám", () => {
