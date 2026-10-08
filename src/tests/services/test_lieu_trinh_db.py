@@ -515,6 +515,81 @@ async def test_luot_dieu_tri_mot_buoi_quay_ra_hoa_don_dung_gia(
         (o, 1_234, True, True)
     ]
     assert qt["tong"] == 1_234 and qt["thu_duoc"] is True
+    assert item["cho_thu"] is True and item["tick_lai"] is False
+    # Chỉ định còn chờ chọn (không phí khám) KHÔNG được coi là đã thu — trước
+    # đây màn ghi "Đã thu · Không còn khoản nào phải thu" (staging 08/10).
+    assert (v, "dich_vu") not in {(p["visit_id"], p["kind"]) for p in b["paid"]}
+
+    # Bỏ tick dịch vụ duy nhất → hoá đơn rỗng, rời "chờ thu" — nhưng khối
+    # "Khách đã bỏ dịch vụ" còn tick lại được (thao tác hoàn tác được).
+    async def mot() -> dict[str, Any]:
+        b = await CashierBoardService(pool).board(
+            identity=ca.thu_ngan, modes=["dich_vu"]
+        )
+        (i,) = [i for i in b["items"] if i["visit_id"] == v]
+        return i
+
+    await dat_trang_thai(ca, o, selection_status="NOT_SELECTED")
+    i = await mot()
+    assert (i["cho_thu"], i["tick_lai"]) == (False, True)
+    await dat_trang_thai(ca, o, selection_status="SELECTED")
+    i = await mot()
+    assert (i["cho_thu"], i["tick_lai"]) == (True, False)
+    # Khách đã về: không còn gì để tick lại ở quầy.
+    await dat_trang_thai(ca, o, selection_status="NOT_SELECTED")
+    await pool.execute(
+        "UPDATE visit SET closed_at = now() WHERE visit_id = $1::uuid", v
+    )
+    i = await mot()
+    assert (i["cho_thu"], i["tick_lai"]) == (False, False)
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_luot_dieu_tri_thu_mot_hoa_don_o_quay(pool: asyncpg.Pool) -> None:
+    """Quầy một hoá đơn: lượt Điều trị chỉ có chỉ định chờ chọn → [Đã nhận đủ]
+    chốt lựa chọn + thu đúng giá trong một lệnh → lượt hết nợ, rời chờ thu."""
+    from clinicai.services.cashier_board_service import CashierBoardService
+    from clinicai.services.payment_service import PaymentService
+
+    ca = await dung_ca(pool, gia=2_345)
+    v = await luot(ca, dieu_tri=True)
+    async with pool.acquire() as conn, conn.transaction():
+        o = await sinh_chi_dinh_dieu_tri(
+            conn, clinic_id=CLINIC, visit_id=v, nguoi_bam=None
+        )
+    assert o is not None
+    bang = CashierBoardService(pool)
+    b = await bang.board(identity=ca.thu_ngan, modes=["dich_vu"])
+    (item,) = [i for i in b["items"] if i["visit_id"] == v]
+    qt = item["quay_thu"]
+    await PaymentService(pool).record_payment(
+        visit_id=v,
+        kind="dich_vu",
+        amount=qt["tong"],
+        clinic_patient_id=None,
+        identity=ca.thu_ngan,
+        bill_revision=qt["revision"],
+        method="CASH",
+        idempotency_key=_khoa(),
+        chon={
+            "order_ids_seen": qt["lua_chon"]["order_ids_seen"],
+            "selected_order_ids": [o],
+            "expected_selection_revision": qt["lua_chon"]["revision"],
+        },
+        quay="dich_vu",
+    )
+    assert (
+        await pool.fetchval(
+            "SELECT sum(line_total) FROM payment_bill_line WHERE visit_id = $1::uuid",
+            v,
+        )
+        == 2_345
+    )
+    b = await bang.board(identity=ca.thu_ngan, modes=["dich_vu"])
+    (item,) = [i for i in b["items"] if i["visit_id"] == v]
+    assert item["cho_thu"] is False
+    assert (v, "dich_vu") in {(p["visit_id"], p["kind"]) for p in b["paid"]}
 
 
 @pytest.mark.db
