@@ -75,6 +75,10 @@ async def test_thuoc_theo_khach_va_loc_ca(
         d["thanh_tien"],
     )
     assert "SL mặt hàng" in csv_hang_hoa(bc, "thuoc")
+    # Đầu / chân tờ hàng hoá: tên in + địa chỉ của (các) cơ sở.
+    assert bc["chi_nhanh"] and all(
+        "ten" in c and "dia_chi" in c for c in bc["chi_nhanh"]
+    )
     # Báo cáo dịch vụ không có khối thuốc.
     assert (await svc.bao_cao(identity=ql, loai="dich_vu"))["thuoc_theo_khach"] is None
 

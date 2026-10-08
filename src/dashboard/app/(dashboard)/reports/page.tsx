@@ -12,6 +12,7 @@ import { requireNavAccess } from "../../../lib/clinic-session";
 import { layCoSo } from "../../../lib/danh-muc";
 import { fmtDate, VN_TZ } from "../../../lib/datetime";
 import PrintReportButton from "./PrintReportButton";
+import BaoCaoHangHoa from "./BaoCaoHangHoa";
 import CuoiNgay from "./CuoiNgay";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +24,11 @@ function pct(n: number, total: number): string {
 
 // Hai tab (29/09/2026): Vận hành (các ô đếm cũ) · Cuối ngày (tài chính kiểu
 // KiotViet — `CuoiNgay.tsx` → `/api/reports/cuoi-ngay`). Cùng cửa `report.view`.
+// 08/10/2026: tab Hàng hoá — tờ "Báo cáo cuối ngày về hàng hóa" y mẫu KiotViet.
 const TAB = [
   { ma: "van-hanh", ten: "Vận hành" },
   { ma: "cuoi-ngay", ten: "Cuối ngày" },
+  { ma: "hang-hoa", ten: "Hàng hoá" },
 ] as const;
 type MaTab = (typeof TAB)[number]["ma"];
 
@@ -76,6 +79,15 @@ export default async function ReportsPage({
         <ThanhTabBaoCao dangMo={dangMo} />
         <h1 className="text-xl font-semibold text-ink lg:text-2xl">Báo cáo cuối ngày</h1>
         <CuoiNgay coSo={coSo} />
+      </main>
+    );
+  }
+  if (dangMo === "hang-hoa") {
+    return (
+      <main className="page-in min-w-0 space-y-4 p-4 lg:p-5">
+        <style>{IN_CSS}</style>
+        <ThanhTabBaoCao dangMo={dangMo} />
+        <BaoCaoHangHoa coSo={coSo} />
       </main>
     );
   }

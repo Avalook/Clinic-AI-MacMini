@@ -23,7 +23,6 @@ import { fmtDayTime } from "@/lib/datetime";
 import { todayVn } from "@/lib/roster";
 import { congNgay, nhanKhoang, type Khoang } from "@/lib/thanh-ngay";
 
-import BangHangHoa, { type HangHoa } from "./BangHangHoa";
 import ThuocTheoKhach, { type ThuocTheoKhachData } from "./ThuocTheoKhach";
 
 interface OTien {
@@ -126,8 +125,6 @@ interface BaoCao {
   ca?: { ma: string; ten: string; tu: string; den: string } | null;
   /** Thuốc kê vs thực bán theo khách — báo cáo dịch vụ: null. */
   thuoc_theo_khach?: ThuocTheoKhachData | null;
-  /** "Báo cáo cuối ngày về hàng hóa" khuôn KiotViet, tách thuốc / dịch vụ. */
-  hang_hoa?: Record<"thuoc" | "dich_vu", HangHoa>;
   /** Cơ sở đang xem (08/10/2026) — null = tất cả. */
   co_so?: string | null;
   ten_co_so?: string | null;
@@ -378,7 +375,7 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
             In
           </Button>
           <a href={`/api/reports/cuoi-ngay?xuat=csv&${chuoi}`} className={buttonClass("secondary", "sm")}>
-            Xuất Excel
+            Xuất Excel (tổng hợp)
           </a>
         </div>
       </div>
@@ -481,21 +478,13 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
             </Khoi>
           ) : null}
 
-          {(["thuoc", "dich_vu"] as const)
-            .filter((m) => bc.hang_hoa?.[m] && (!bc.loai || bc.loai === m))
-            .map((m) => (
-              <Khoi key={m} title={`Báo cáo cuối ngày về hàng hóa — ${TEN_LOAI[m]}`}>
-                <BangHangHoa
-                  hh={bc.hang_hoa![m]}
-                  xuat={`/api/reports/cuoi-ngay?${new URLSearchParams({
-                    ...Object.fromEntries(new URLSearchParams(chuoi)),
-                    loai: m,
-                    xuat: "csv",
-                    mau: "hang_hoa",
-                  }).toString()}`}
-                />
-              </Khoi>
-            ))}
+          <p className="text-meta text-ink-muted print:hidden">
+            Bảng mặt hàng đã bán theo mẫu KiotViet:{" "}
+            <a href="/reports?tab=hang-hoa" className="font-medium text-brand-700 underline">
+              tab Hàng hoá
+            </a>
+            .
+          </p>
 
           {bc.thuoc_theo_khach ? (
             <Khoi title="Thuốc theo khách — bác sĩ kê vs thực bán">

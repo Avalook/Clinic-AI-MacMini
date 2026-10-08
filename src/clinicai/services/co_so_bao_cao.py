@@ -41,10 +41,22 @@ def doc_co_so(v: Any) -> str | None:
 async def doc_ds_co_so(
     conn: asyncpg.Connection | asyncpg.Pool, clinic_id: str
 ) -> list[dict[str, str]]:
-    """Cơ sở của phòng khám, theo tên — cùng thứ tự với ``/catalog/locations``."""
+    """Cơ sở của phòng khám, theo tên — cùng thứ tự với ``/catalog/locations``.
+
+    ``ten_in`` / ``dia_chi``: tên và địa chỉ in trên đầu / chân báo cáo (như
+    "Chi nhánh: Phòng khám Kim Ngưu" của KiotViet); thiếu ``ten_in`` thì dùng tên."""
     rows = await conn.fetch(
-        "SELECT id::text AS id, name FROM clinic_location"
+        "SELECT id::text AS id, name, coalesce(nullif(btrim(ten_in), ''), name)"
+        " AS ten_in, address FROM clinic_location"
         " WHERE clinic_id = $1::uuid ORDER BY name",
         clinic_id,
     )
-    return [{"id": r["id"], "ten": r["name"]} for r in rows]
+    return [
+        {
+            "id": r["id"],
+            "ten": r["name"],
+            "ten_in": r["ten_in"],
+            "dia_chi": r["address"],
+        }
+        for r in rows
+    ]

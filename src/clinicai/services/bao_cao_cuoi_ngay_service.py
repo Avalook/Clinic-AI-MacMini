@@ -1057,6 +1057,12 @@ class BaoCaoCuoiNgayService:
         )
         bc["co_so"] = cs
         bc["ten_co_so"] = next((c["ten"] for c in ds_co_so if c["id"] == cs), None)
+        # Đầu / chân báo cáo kiểu KiotViet: "Chi nhánh: …" + địa chỉ từng cơ sở.
+        bc["chi_nhanh"] = [
+            {"ten": c["ten_in"], "dia_chi": c["dia_chi"]}
+            for c in ds_co_so
+            if cs is None or c["id"] == cs
+        ]
         bc["theo_co_so"] = []
         if cs is None:
             bc["theo_co_so"] = tach_theo_co_so(
