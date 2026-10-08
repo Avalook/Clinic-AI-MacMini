@@ -575,14 +575,15 @@ class DoiTacService:
                            SELECT r.id FROM clinic_room r
                             WHERE r.clinic_id = $1::uuid AND r.la_doi_tac
                               AND r.is_active
-                              -- Phòng đối tác của đúng cơ sở lượt (2 cơ sở).
-                              AND (co_so_cua_luot(service_order.visit_id) IS NULL
-                                   OR r.location_id
-                                      = co_so_cua_luot(service_order.visit_id))
                               AND phong_lam_duoc(r.clinic_id, r.id,
                                                  service_order.node_code,
                                                  service_order.service_code)
-                            ORDER BY r.sort LIMIT 1)),
+                            -- Phòng đối tác (ảo) của ĐÚNG cơ sở lượt trước (hai
+                            -- cơ sở, 08/10/2026); cơ sở chưa có thì dùng chung.
+                            ORDER BY (r.location_id IS NOT DISTINCT FROM
+                                      co_so_cua_luot(service_order.visit_id)) DESC,
+                                     r.sort
+                            LIMIT 1)),
                        assigned_by = coalesce(assigned_by, $3::uuid),
                        assigned_at = coalesce(assigned_at, now()),
                        started_at = coalesce(started_at, now()), finished_at = now(),

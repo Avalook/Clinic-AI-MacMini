@@ -1491,13 +1491,14 @@ class RosterService:
                    AND w.staff_id IS NOT NULL
                    -- Chỉ bác sĩ trực ở cơ sở đang đứng; vị trí không gắn phòng
                    -- (mẫu cũ LICH_KHAM) thì thuộc mọi cơ sở.
-                   AND (r.location_id IS NULL OR r.location_id = $4::uuid)
+                   AND (r.location_id IS NULL OR $4::uuid IS NULL
+                        OR r.location_id = $4::uuid)
                  ORDER BY w.staff_id, w.created_at
                 """,
                 identity.clinic_id,
                 ngay,
                 sorted(MA_CA_KHAM_BAC_SI),
-                identity.location_id,
+                identity.location_id or None,
             )
         return {"doctors": [dict(r) for r in rows], "du_kien": not da_ap_dung}
 

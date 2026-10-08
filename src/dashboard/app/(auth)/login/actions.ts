@@ -7,6 +7,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ROLE_COOKIE, STAFF_COOKIE } from "../../../lib/clinic-session";
+import { LOCATION_COOKIE } from "../../../lib/co-so";
 import {
   resolveLinkedStaffAuthority,
   resolveSingleActiveMembership,
@@ -78,8 +79,12 @@ export async function loginStaff(
   const c = await cookies();
   c.set(ROLE_COOKIE, role, opts);
   c.set(STAFF_COOKIE, identity.id, opts);
+  // Mỗi lần đăng nhập chọn lại cơ sở (08/10/2026, hai cơ sở): cơ sở của người
+  // trước trên cùng máy không được đi theo người sau. `/chon-co-so` tự đi thẳng
+  // khi phòng khám chỉ có một cơ sở.
+  c.delete(LOCATION_COOKIE);
 
-  redirect(roleLanding(role));
+  redirect(`/chon-co-so?next=${encodeURIComponent(roleLanding(role))}`);
 }
 
 // Đăng xuất. Trước đây nằm ở `enter/actions.ts` cùng cổng phòng khám dùng
@@ -92,5 +97,6 @@ export async function logout(): Promise<void> {
   const c = await cookies();
   c.delete(ROLE_COOKIE);
   c.delete(STAFF_COOKIE);
+  c.delete(LOCATION_COOKIE);
   redirect("/login");
 }

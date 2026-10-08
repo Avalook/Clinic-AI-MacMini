@@ -178,11 +178,12 @@ async def vi_tri_hom_nay(
            -- CHỈ vị trí của cơ sở đang đứng (08/10/2026, mở Hào Nam): không lọc
            -- thì bảng lịch hiện gấp đôi hàng (Kim Ngưu + Hào Nam). Vị trí không
            -- gắn phòng (Trưởng ca DIEU_PHOI) dùng chung mọi cơ sở.
-           AND (v.room_id IS NULL OR rr.location_id = $2::uuid)
+           AND (v.room_id IS NULL OR $2::uuid IS NULL
+                OR rr.location_id = $2::uuid)
          ORDER BY v.sort, v.code
         """,
         identity.clinic_id,
-        identity.location_id,
+        identity.location_id or None,
     )
     phong = {
         r["code"]: {"room_id": r["room_id"], "ten": r["ten_phong"]}
