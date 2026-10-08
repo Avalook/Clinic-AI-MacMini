@@ -211,8 +211,9 @@ SELECT lt.id::text AS id, lt.clinic_patient_id::text AS khach_id,
   LEFT JOIN LATERAL (
       SELECT count(*) AS so_gan,
              count(*) FILTER (
-                 WHERE coalesce(o.execution_status, '') = 'COMPLETED'
-                    OR (o.execution_status IS NULL AND o.exec_status = 'performed'))
+                 WHERE (coalesce(o.execution_status, '') = 'COMPLETED'
+                        OR (o.execution_status IS NULL
+                            AND o.exec_status = 'performed')))
                  AS da_lam,
              count(*) FILTER (WHERE b.tra_truoc) AS dung_tra_truoc,
              count(*) FILTER (
