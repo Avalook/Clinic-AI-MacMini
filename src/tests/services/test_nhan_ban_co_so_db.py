@@ -11,6 +11,7 @@ cơ sở KN ở phòng khám mặc định — nên gọi không kèm `clinic_id
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import sys
 import uuid
@@ -119,7 +120,14 @@ async def pool() -> AsyncIterator[asyncpg.Pool]:
 
 
 async def _don(conn: asyncpg.Connection, cid: str) -> None:
+    # Sổ kho CHỈ THÊM (trigger chặn DELETE) — dọn phòng khám thử thì tắt trigger
+    # trong đúng giao dịch này (replica: bỏ qua trigger người dùng).
+    async with conn.transaction():
+        await conn.execute("SET LOCAL session_replication_role = replica")
+        await conn.execute("DELETE FROM inventory_txn WHERE clinic_id = $1::uuid", cid)
     for bang in (
+        "drug_batch",
+        "drug_catalog",
         "capability_grant",
         "staff_vi_tri",
         "vai_duoc_vao_tram",
@@ -373,6 +381,40 @@ async def _van_kn(pool: asyncpg.Pool, pk: PK) -> dict[str, tuple[int, str]]:
         return van
 
 
+DIA_CHI_HN = (
+    "Tầng 1, 2, 3 Nhà số 24 Ngõ 168 Phố Hào Nam, Phường Ô Chợ Dừa, Thành phố Hà Nội"
+)
+
+
+async def _kiem_thong_tin_hn(pool: asyncpg.Pool, hn: str) -> None:
+    """Tên / địa chỉ / SĐT / tên in của HN (SĐT, tên in: chỉ khi có cột)."""
+    dong = json.loads(
+        await pool.fetchval(
+            "SELECT to_jsonb(l) FROM clinic_location l WHERE id = $1::uuid", hn
+        )
+    )
+    assert dong["name"] == "Hào Nam" and dong["is_active"] is True
+    assert dong["address"] == DIA_CHI_HN
+    if "phone" in dong:
+        assert dong["phone"] == "0966 558 833"
+    if "ten_in" in dong:
+        assert dong["ten_in"] == "Phòng khám chuyên khoa - Phụ sản 4WOMEN"
+
+
+async def test_chay_lai_dua_thong_tin_hn_ve_dung(pool: asyncpg.Pool, pk: PK) -> None:
+    await _chay(pool, pk, that=True)
+    hn = await _hn(pool, pk)
+    assert hn is not None
+    van_kn = await _van_kn(pool, pk)
+    await pool.execute(
+        "UPDATE clinic_location SET address = 'địa chỉ cũ' WHERE id = $1::uuid", hn
+    )
+    bc = await _chay(pool, pk, that=True)
+    assert bc.dem["clinic_location"].doi == 1
+    await _kiem_thong_tin_hn(pool, hn)
+    assert await _van_kn(pool, pk) == van_kn
+
+
 def test_ma_mau() -> None:
     assert NB.ma_mau("HN__T1_THUNGAN__2") == "T1_THUNGAN"
     assert NB.ma_mau("HN__T4_SA_BS1") == "T4_SA_BS1"
@@ -411,11 +453,7 @@ async def test_that_tao_dung_so_va_kim_nguu_khong_doi(
 
     hn = await _hn(pool, pk)
     assert hn is not None
-    co_so = await pool.fetchrow(
-        "SELECT name, address, is_active FROM clinic_location WHERE id = $1::uuid", hn
-    )
-    assert co_so["name"] == "Hào Nam" and co_so["is_active"] is True
-    assert "Ngõ 168 Phố Hào Nam" in co_so["address"]
+    await _kiem_thong_tin_hn(pool, hn)
 
     tt = await _trang_thai(pool, pk)
     bat = {c for c, a in tt["phong"] if a}
@@ -538,11 +576,56 @@ async def test_tu_choi_khi_khong_ro_kim_nguu(pool: asyncpg.Pool, pk: PK) -> None
     assert await _hn(pool, pk) is None
 
 
-async def test_chep_kho_chua_co_migration_thi_bo_qua(
-    pool: asyncpg.Pool, pk: PK
-) -> None:
-    bc = await _chay(pool, pk, chep_kho=True)
-    if bc.dem["drug_batch"].moi == 0 and not any(
-        "chưa có migration kho" in g for g in bc.ghi_chu
-    ):
-        pytest.fail(f"--chep-kho không báo gì: {bc.ghi_chu}")
+async def test_chep_kho_theo_trang_thai_migration(pool: asyncpg.Pool, pk: PK) -> None:
+    """Chưa có cột `drug_batch.location_id` → bỏ qua, báo rõ. Có cột (migration
+    kho 20261008200000) → lô KN sang HN cùng số lô, tồn ghi qua sổ RECEIVE."""
+    co_cot = await pool.fetchval(
+        "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public'"
+        " AND table_name = 'drug_batch' AND column_name = 'location_id'"
+    )
+    if not co_cot:
+        bc = await _chay(pool, pk, that=True, chep_kho=True)
+        assert any("chưa có migration kho" in g for g in bc.ghi_chu), bc.ghi_chu
+        assert bc.dem["drug_batch"].moi == 0
+        return
+
+    thuoc = await pool.fetchval(
+        "INSERT INTO drug_catalog (clinic_id, name_base, name_raw, unit_price)"
+        " VALUES ($1::uuid, 'Thuốc NB', 'Thuốc NB', 5000) RETURNING id::text",
+        pk.cid,
+    )
+    ton = {"LO-NB-A": 30, "LO-NB-B": 0}
+    for ma, so in ton.items():
+        await pool.execute(
+            "INSERT INTO drug_batch (clinic_id, location_id, drug_catalog_id,"
+            " batch_code, expiry_date, quantity_on_hand, unit)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid, $4, '2099-12-31', $5, 'viên')",
+            pk.cid,
+            pk.kn,
+            thuoc,
+            ma,
+            so,
+        )
+    van_kn = await _van_kn(pool, pk)
+
+    bc = await _chay(pool, pk, that=True, chep_kho=True)
+    assert bc.dem["drug_batch"].moi == 2
+    assert bc.dem["inventory_txn"].moi == 1  # lô tồn 0 không cần dòng sổ
+    hn = await _hn(pool, pk)
+    lo_hn = {
+        r["batch_code"]: (int(r["quantity_on_hand"]), int(r["so"]))
+        for r in await pool.fetch(
+            "SELECT b.batch_code, b.quantity_on_hand,"
+            " coalesce((SELECT sum(t.quantity) FROM inventory_txn t"
+            "   WHERE t.drug_batch_id = b.id), 0) AS so"
+            " FROM drug_batch b WHERE b.location_id = $1::uuid",
+            hn,
+        )
+    }
+    # Tồn = tổng sổ kho (thẻ kho khớp tồn).
+    assert lo_hn == {ma: (so, so) for ma, so in ton.items()}
+    assert await _van_kn(pool, pk) == van_kn
+
+    bc = await _chay(pool, pk, that=True, chep_kho=True)
+    assert (bc.dem["drug_batch"].moi, bc.dem["drug_batch"].co) == (0, 2)
+    assert bc.dem["inventory_txn"].moi == 0
