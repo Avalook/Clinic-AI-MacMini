@@ -10,6 +10,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import asyncpg
 import pytest
 
@@ -57,19 +59,31 @@ def test_nut_lieu_trinh_theo_trang_thai() -> None:
 
 
 def test_nut_chi_dinh() -> None:
-    chua = {"song": True, "lieu_trinh_id": None, "ung_vien": []}
+    chua: dict[str, Any] = {"song": True, "lieu_trinh_id": None, "ung_vien": []}
     assert nut_chi_dinh(chua) == {
         "tao": True,
         "go": False,
         "tach": False,
         "chon": False,
     }
-    gan = {"song": True, "lieu_trinh_id": "a", "ung_vien": [{"id": "a"}]}
+    gan: dict[str, Any] = {
+        "song": True,
+        "lieu_trinh_id": "a",
+        "ung_vien": [{"id": "a"}],
+    }
     assert nut_chi_dinh(gan) == {"tao": False, "go": True, "tach": True, "chon": False}
-    hai = {"song": True, "lieu_trinh_id": "a", "ung_vien": [{"id": "a"}, {"id": "b"}]}
+    hai: dict[str, Any] = {
+        "song": True,
+        "lieu_trinh_id": "a",
+        "ung_vien": [{"id": "a"}, {"id": "b"}],
+    }
     assert nut_chi_dinh(hai)["chon"] is True
     # Chỉ định đã bỏ / không làm: không nút nào.
-    bo = {"song": False, "lieu_trinh_id": None, "ung_vien": [{"id": "b"}]}
+    bo: dict[str, Any] = {
+        "song": False,
+        "lieu_trinh_id": None,
+        "ung_vien": [{"id": "b"}],
+    }
     assert not any(nut_chi_dinh(bo).values())
     assert not any(nut_chi_dinh({}).values())
 
@@ -77,7 +91,7 @@ def test_nut_chi_dinh() -> None:
 # ── DB ──────────────────────────────────────────────────────────────────────
 
 
-async def _the(ca: LT, visit: str) -> dict:  # type: ignore[type-arg]
+async def _the(ca: LT, visit: str) -> dict[str, Any]:
     return await ca.svc.theo_luot(identity=ca.bac_si, visit_id=visit)
 
 
