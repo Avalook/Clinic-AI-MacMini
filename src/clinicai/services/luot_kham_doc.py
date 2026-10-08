@@ -292,10 +292,13 @@ class BangLuotKham:
                   JOIN clinic_room_node rn
                     ON rn.room_id = r.id AND rn.clinic_id = r.clinic_id
                  WHERE r.clinic_id = $1::uuid AND r.is_active AND r.accepting
+                   -- Chỉ phòng của cơ sở đang đứng (hai cơ sở, 08/10/2026).
+                   AND ($2::uuid IS NULL OR r.location_id = $2::uuid)
                  GROUP BY r.id, r.code, r.name, r.sort
                  ORDER BY r.sort, r.code
                 """,
                 cid,
+                identity.location_id or None,
             )
             # Ô "Chỉ định thêm" của Bàn khám: MỌI dịch vụ đang bán, KỂ CẢ phí
             # khám (01/10/2026 — trước chỉ nhóm DICHVU-*; 02/10 C21 — phí khám
@@ -614,10 +617,12 @@ class BangLuotKham:
                   JOIN clinic_room_node rn
                     ON rn.room_id = r.id AND rn.clinic_id = r.clinic_id
                  WHERE r.clinic_id = $1::uuid AND r.is_active
+                   AND ($2::uuid IS NULL OR r.location_id = $2::uuid)
                  GROUP BY r.id, r.code, r.name, r.floor, r.sort
                  ORDER BY r.sort, r.code
                 """,
                 identity.clinic_id,
+                identity.location_id or None,
             )
         return {
             "phong_cua_toi": [

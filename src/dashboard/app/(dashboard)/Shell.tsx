@@ -313,6 +313,7 @@ export default function Shell({
           quyen={quyen}
           featureMode={featureMode}
           leaveAction={leaveAction}
+          coSo={coSo}
         />
         <main className="min-w-0 flex-1 p-4 pb-24 md:px-6 md:pb-8 md:pt-4">
           {/* key={pathname} PHẢI Ở ĐÂY. Bỏ nó đi thì React coi cây con của hai

@@ -389,3 +389,78 @@ def test_require_role_allows_and_blocks(monkeypatch: pytest.MonkeyPatch) -> None
     with pytest.raises(HTTPException) as e:
         asyncio.run(dep_block(ident))
     assert e.value.status_code == 403
+
+
+# ── Cơ sở đang đứng: header X-Location-ID (08/10/2026, mở Hào Nam) ──────────
+_KN = "fe45d9f6-0d67-428d-9d16-5ba5c36befff"
+_HN = "b0000000-0000-4000-8000-0000000000aa"
+
+
+def _req_co_so(location_id: str) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "headers": [
+                (b"authorization", b"Bearer abc"),
+                (b"x-location-id", location_id.encode()),
+            ],
+        }
+    )
+
+
+def _dong_co_so(chon: str | None, ten_chon: str | None) -> dict[str, object]:
+    return {
+        "id": "staff-co-so",
+        "auth_user_id": "u-co-so",
+        "full_name": "Lễ tân Hai Cơ Sở",
+        "primary_department": "RECEPTION",
+        "membership_role": "RECEPTION",
+        "clinic_id": "a0000000-0000-4000-8000-000000000001",
+        "primary_location_id": _KN,
+        "location_name": "Kim Ngưu",
+        "short_name": "",
+        "clinic_name": "Phòng khám Dr4Women",
+        # LEFT JOIN cơ sở chọn: SQL chỉ khớp khi cùng phòng khám + đang bật.
+        "chosen_location_id": chon,
+        "chosen_location_name": ten_chon,
+    }
+
+
+def test_header_co_so_hop_le_thay_co_so_mac_dinh(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ident_mod, "verify_supabase_jwt", lambda _t: {"sub": "u-co-so"})
+    pool = _FakePool(_dong_co_so(_HN, "Hào Nam"))
+    ident = asyncio.run(_resolve_identity(_req_co_so(_HN), pool))
+    assert ident.location_id == _HN
+    assert ident.location_name == "Hào Nam"
+    # Cơ sở chọn đi vào truy vấn (tham số thứ ba), không tự tin header.
+    assert pool.args[2] == _HN
+
+
+def test_header_co_so_la_hay_da_tat_bi_403(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Không rơi về cơ sở mặc định — làm vậy là lặng lẽ ghi việc vào sai nơi."""
+    monkeypatch.setattr(ident_mod, "verify_supabase_jwt", lambda _t: {"sub": "u-co-so"})
+    pool = _FakePool(_dong_co_so(None, None))
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(_resolve_identity(_req_co_so(_HN), pool))
+    assert exc.value.status_code == 403
+
+
+def test_header_co_so_rac_bi_400(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ident_mod, "verify_supabase_jwt", lambda _t: {"sub": "u-co-so"})
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(_resolve_identity(_req_co_so("khong-phai-uuid"), _FakePool(None)))
+    assert exc.value.status_code == 400
+
+
+def test_khong_header_dung_co_so_mac_dinh(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        ident_mod, "verify_supabase_jwt", lambda _t: {"sub": "u-co-so-2"}
+    )
+    pool = _FakePool(_dong_co_so(None, None))
+    ident = asyncio.run(_resolve_identity(_req("Bearer abc"), pool))
+    assert ident.location_id == _KN
+    assert ident.location_name == "Kim Ngưu"

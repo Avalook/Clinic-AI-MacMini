@@ -13,6 +13,7 @@
 
 import { cache } from "react";
 import { NextResponse } from "next/server";
+import { ganCoSo } from "./co-so";
 import { getSupabaseServer } from "./supabase-server";
 
 const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
@@ -119,6 +120,8 @@ export async function proxyJsonToBackend(
   if (apiKey) headers["X-API-Key"] = apiKey;
   // Backend chỉ đọc header này khi nó CÓ; thiếu thì request chạy như cũ.
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+  // Cơ sở đang đứng (cookie → X-Location-ID) — xem lib/co-so.ts.
+  await ganCoSo(headers);
   // Mã yêu cầu do PHÍA NÀY đặt (27/09/2026): API dùng lại nó cho mọi dòng log
   // của lượt gọi, nên lỗi ở hai tầng tra chung một mã. Không có nó thì lúc API
   // không trả lời (502 dưới đây) người dùng không có gì để báo lại.
@@ -218,6 +221,7 @@ export async function getCallerAuthHeaders(): Promise<Record<
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
   const apiKey = process.env.BACKEND_API_KEY;
   if (apiKey) headers["X-API-Key"] = apiKey;
+  await ganCoSo(headers);
   return headers;
 }
 
@@ -247,6 +251,7 @@ export async function fetchFromBackend<T>(path: string): Promise<T | null> {
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
   const apiKey = process.env.BACKEND_API_KEY;
   if (apiKey) headers["X-API-Key"] = apiKey;
+  await ganCoSo(headers);
 
   try {
     const res = await fetch(`${API_BASE}${path}`, { headers, cache: "no-store" });

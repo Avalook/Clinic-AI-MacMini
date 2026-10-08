@@ -4,6 +4,7 @@
 // Frontend chỉ chuyển tiếp request + token, KHÔNG chứa logic nghiệp vụ.
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { ganCoSo } from "../../../../lib/co-so";
 
 const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
 
@@ -46,6 +47,7 @@ export async function GET(request: Request) {
   };
   const apiKey = process.env.BACKEND_API_KEY;
   if (apiKey) headers["X-API-Key"] = apiKey;
+  await ganCoSo(headers); // cơ sở đang đứng — lib/co-so.ts
 
   // Build query string for backend
   const params = new URLSearchParams({ date });

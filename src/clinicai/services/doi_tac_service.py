@@ -578,7 +578,12 @@ class DoiTacService:
                               AND phong_lam_duoc(r.clinic_id, r.id,
                                                  service_order.node_code,
                                                  service_order.service_code)
-                            ORDER BY r.sort LIMIT 1)),
+                            -- Phòng đối tác (ảo) của ĐÚNG cơ sở lượt trước (hai
+                            -- cơ sở, 08/10/2026); cơ sở chưa có thì dùng chung.
+                            ORDER BY (r.location_id IS NOT DISTINCT FROM
+                                      co_so_cua_luot(service_order.visit_id)) DESC,
+                                     r.sort
+                            LIMIT 1)),
                        assigned_by = coalesce(assigned_by, $3::uuid),
                        assigned_at = coalesce(assigned_at, now()),
                        started_at = coalesce(started_at, now()), finished_at = now(),

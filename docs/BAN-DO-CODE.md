@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-08 10:23. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-08 10:28. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -8,11 +8,11 @@ Tra theo việc trước ở `docs/BAN-DO-SUA.md`; tệp này là chuỗi file c
 Tìm nhanh: tìm chuỗi route (vd `/thu-ngan/dich-vu`), tên route.ts hay tên
 service. **`?`** = phân tích tĩnh không suy được — mở file mà xem, đừng tin là
 không có. Thành phần đi tối đa 3 tầng import (liệt kê 2 tầng); bỏ `components/ui` và
-tệp mà hơn 25% số màn cùng import (dùng chung): `lib/backend-proxy.ts`, `lib/booking-policy.ts`, `lib/clinic-session.ts`, `lib/current-staff.ts`, `lib/datetime.ts`, `lib/kiem-phien-tai-cho.ts`, `lib/quyen-cua-toi.ts`, `lib/roles.ts`, `lib/roster.ts`, `lib/supabase-cookie.ts`, `lib/supabase-server.ts`.
+tệp mà hơn 25% số màn cùng import (dùng chung): `lib/backend-proxy.ts`, `lib/booking-policy.ts`, `lib/clinic-session.ts`, `lib/co-so.ts`, `lib/current-staff.ts`, `lib/datetime.ts`, `lib/kiem-phien-tai-cho.ts`, `lib/quyen-cua-toi.ts`, `lib/roles.ts`, `lib/roster.ts`, `lib/supabase-cookie.ts`, `lib/supabase-server.ts`.
 
 Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. Sự kiện (consumer) · 5. Bảng → migration
 
-## 1. Màn (81)
+## 1. Màn (82)
 ### `/`
 - page: `src/dashboard/app/page.tsx` · quyền: ?
 - gọi API: (không thấy — màn tĩnh, hoặc gọi qua lối không suy được ?)
@@ -76,6 +76,11 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi thẳng backend (server): `/api/v1/service-prices`
 - service: DanhMucDichVuService.doc · PriceListService.{phong_lam, add, update, remove, +1}
 - test: test_danh_muc_dich_vu_chuan_db.py, test_gia_thuoc_hai_nguon_khop_db.py, test_lay_mau_doi_tac_db.py, test_doi_tac_tu_thu_db.py, test_mau_gui_doi_tac_db.py
+
+### `/chon-co-so`
+- page: `src/dashboard/app/(auth)/chon-co-so/page.tsx` · quyền: ?
+- thành phần: actions.ts, duong-ve.ts
+- gọi thẳng backend (server): `/api/v1/me/co-so`
 
 ### `/console` — Bảng điều khiển
 - page: `src/dashboard/app/console/page.tsx` · quyền: ?
@@ -1525,7 +1530,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `capability_grant` | `20260923000003_capability.sql` | 2 |
 | `care_episode` | `20260714000001_baseline_schema.sql` | 0 |
 | `clinic` | `20260730000003_multi_tenant_foundation.sql` | 2 |
-| `clinic_location` | `20260714000001_baseline_schema.sql` | 2 |
+| `clinic_location` | `20260714000001_baseline_schema.sql` | 3 |
 | `clinic_membership` | `20260730000003_multi_tenant_foundation.sql` | 3 |
 | `clinic_room` | `20260804000001_dispatch_rooms.sql` | 4 |
 | `clinic_room_node` | `20260804000013_room_serves_many_nodes.sql` | 0 |
