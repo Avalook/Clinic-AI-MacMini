@@ -115,6 +115,29 @@ MODULE: dict[str, Module] = {
             bang=["luot_vat_tu", "vat_tu_goi_y"],
         ),
         Module(
+            ma="lieu_trinh",
+            ten="Liệu trình điều trị nhiều buổi",
+            # 08/10/2026: kế hoạch số buổi + đơn giá chốt; mỗi buổi vẫn là một
+            # chỉ định thường — gắn / gỡ buổi bằng trigger Postgres trên
+            # service_order (một chỗ cho mọi đường tạo chỉ định).
+            lenh=[
+                "ProposeTreatmentPlan",
+                "AdjustTreatmentPlan",
+                "RegisterTreatmentPlan",
+                "StopTreatmentPlan",
+                "ReopenTreatmentPlan",
+                "UndoTreatmentPlanChange",
+                "LinkPlanSession",
+                "UnlinkPlanSession",
+            ],
+            phat=[
+                "lieu_trinh.created",
+                "lieu_trinh.revised",
+                "lieu_trinh.session_relinked",
+            ],
+            bang=["lieu_trinh", "lieu_trinh_lich_su", "lieu_trinh_buoi"],
+        ),
+        Module(
             ma="phi_kham",
             ten="Dịch vụ khám (tiền khám)",
             # Tick dịch vụ khám con theo mã KiotViet (28/09/2026); từ C18
