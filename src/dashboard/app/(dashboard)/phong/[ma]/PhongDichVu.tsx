@@ -93,6 +93,7 @@ import { khopTimKhach } from "@/lib/tim-khach-phong";
 import { Search } from "lucide-react";
 import { ngayNgan } from "@/lib/thanh-ngay";
 import { useNgayXem } from "../../_lam-viec/dung-ngay-xem";
+import { useChipLieuTrinh } from "../../_lam-viec/dung-chip-lieu-trinh";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 /** Người đang xem đứng làn nào của phòng nhiều bác sĩ (máy chủ trả). */
@@ -228,6 +229,9 @@ export default function PhongDichVu({ ma }: { ma: string }) {
 
   const napLai = useCallback(() => setLanNap((n) => n + 1), []);
   useNgheBang(["queue_entry", "service_order", "visit", "form_instance", "tep_ket_qua"], napLai);
+  // Chip liệu trình (08/10/2026): MỘT lần gọi cho mọi lượt đang hiện — chỉ thêm
+  // chữ "Buổi k/N · đã trả trước", không đổi lọc / đếm / sắp xếp của phòng.
+  const chipLt = useChipLieuTrinh([...sapDen.map((k) => k.visit_id), ...(hang ?? []).map((d) => d.visit_id)]);
 
   if (khongCo) {
     return (
@@ -383,7 +387,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
             <p className="text-body text-ink-muted">Không có khách nào khớp “{tim}”.</p>
           ) : null}
           {phong && taiPhong ? (
-            <SapDenPhong ds={sapDenHien} chon={khachMo} onChon={chonKhachMoi} />
+            <SapDenPhong ds={sapDenHien} chon={khachMo} onChon={chonKhachMoi} lieuTrinh={chipLt} />
           ) : phong ? (
             <ChuaXepPhong roomId={phong.id} ds={chuaXep} onDaNhan={napLai} />
           ) : null}
@@ -413,6 +417,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
               chiDinhKhach={chiDinhKhach}
               chon={khachMo}
               onChon={chonKhachMoi}
+              lieuTrinh={chipLt}
               trong="Chưa có khách nào được nhận vào phòng này."
             />
           ) : (
@@ -439,6 +444,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
               chiDinh={sdKhach?.chi_dinh ?? chiDinhKhach[khachMo] ?? []}
               dong={dongKhach}
               chon={chon?.id ?? null}
+              lieuTrinh={chipLt}
               choNhan={laHomNay}
               bacSi={bacSiPhong}
               bacSiLamId={chonBs}

@@ -113,8 +113,18 @@ async def doc_ket_qua_theo_chi_dinh(
         "       EXISTS (SELECT 1 FROM doi_tac_thanh_toan tt"
         "                WHERE tt.clinic_id = o.clinic_id"
         "                  AND tt.service_order_id = o.id AND tt.huy_luc IS NULL)"
-        "         AS doi_tac_da_thu"
+        "         AS doi_tac_da_thu,"
+        # Buổi của liệu trình (08/10/2026) — bản in "Liệu trình: buổi k/N".
+        "       ltb.buoi_so AS lt_buoi_so, ltb.so_buoi AS lt_so_buoi,"
+        "       ltb.tra_truoc AS lt_tra_truoc"
         "  FROM service_order o"
+        "  LEFT JOIN LATERAL ("
+        "       SELECT b.buoi_so, b.tra_truoc, l.so_buoi"
+        "         FROM lieu_trinh_buoi b"
+        "         JOIN lieu_trinh l"
+        "           ON l.clinic_id = b.clinic_id AND l.id = b.lieu_trinh_id"
+        "        WHERE b.clinic_id = o.clinic_id AND b.service_order_id = o.id"
+        "          AND b.go_luc IS NULL) ltb ON true"
         "  LEFT JOIN node_definition n"
         "    ON n.clinic_id = o.clinic_id AND n.code = o.node_code"
         "  LEFT JOIN LATERAL ("
@@ -219,6 +229,16 @@ async def doc_ket_qua_theo_chi_dinh(
                 "lam_them": nhan_lam_them(r["nguon_lam_them"]),
                 # Chỉ định ĐIỀU TRỊ (phiếu điều trị 2 ô) — bản in mục riêng.
                 "dieu_tri": bool(r["dieu_tri"]),
+                # Buổi k/N của liệu trình đang gắn; None = buổi lẻ.
+                "lieu_trinh": (
+                    {
+                        "buoi_so": int(r["lt_buoi_so"]),
+                        "so_buoi": int(r["lt_so_buoi"]),
+                        "tra_truoc": bool(r["lt_tra_truoc"]),
+                    }
+                    if r["lt_buoi_so"] is not None
+                    else None
+                ),
                 "bat_buoc": bool(r["bat_buoc"]),
                 "ma_kiotviet": r["ma_kiotviet"],
                 "gia": int(r["unit_price"]) if r["unit_price"] is not None else None,

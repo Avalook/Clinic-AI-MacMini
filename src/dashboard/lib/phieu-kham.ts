@@ -162,6 +162,9 @@ export interface ChiDinhVaKetQua {
   /** Chỉ định ĐIỀU TRỊ (nhóm DIEU_TRI — máy chủ suy theo dữ liệu, 07/10/2026):
    *  bản in lượt xếp vào mục "Điều trị" (phiếu 2 ô), không vào CLS. */
   dieu_tri?: boolean;
+  /** Buổi của liệu trình đang gắn (08/10/2026) — bản in "Liệu trình: buổi k/N".
+   *  null / thiếu = buổi lẻ. */
+  lieu_trinh?: { buoi_so: number; so_buoi: number; tra_truoc: boolean } | null;
 }
 
 /** Ô đã ghi của PHIẾU ĐIỀU TRỊ một chỉ định (mỗi ô một nhãn — tên ô, không lặp
