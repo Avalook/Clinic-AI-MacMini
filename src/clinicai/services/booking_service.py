@@ -2982,7 +2982,9 @@ async def _co_so_lich(
     """Cơ sở của lịch hẹn đang sửa — ca trực phải ở ĐÚNG cơ sở ấy, không phải
     cơ sở người bấm đang đứng. Lịch chưa có cơ sở thì lấy của người bấm."""
     loc = await conn.fetchval(
-        "SELECT location_id::text FROM appointment WHERE id = $1::uuid",
+        "SELECT location_id::text FROM appointment"
+        " WHERE id = $1::uuid AND clinic_id = $2::uuid",
         appointment_id,
+        identity.clinic_id,
     )
     return loc or identity.location_id or None
