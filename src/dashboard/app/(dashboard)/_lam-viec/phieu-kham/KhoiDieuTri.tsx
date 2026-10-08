@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import { fmtTime } from "@/lib/datetime";
+import { docLT, type LieuTrinhLuot } from "@/lib/lieu-trinh";
 import { nhanLoi, type ThanLoi } from "@/lib/loi-api";
 import type { ChiDinhVaKetQua } from "@/lib/phieu-kham";
 import { MAU_PHIEU_DIEU_TRI } from "@/lib/phieu-ket-qua";
@@ -31,6 +32,7 @@ import { useNgheBang } from "../../dung-nghe-bang";
 import PhieuDieuTri, { type BanDieuTri } from "../PhieuDieuTri";
 import PhieuKetQua, { type MauKetQua } from "../PhieuKetQua";
 import KetQuaChiDinh, { type PhanKetQua } from "./KetQuaChiDinh";
+import { DaiLieuTrinh, DeXuatLieuTrinh, KhungLieuTrinh } from "./LieuTrinhThe";
 
 export interface TheDieuTri {
   order_id: string;
@@ -123,6 +125,42 @@ export default function KhoiDieuTri({
   // Phòng bấm Bắt đầu / Xong, quầy thu tiền, lễ tân check-out → thẻ tự đổi.
   useNgheBang(["service_order", "form_instance", "visit"], nap);
 
+  // LIỆU TRÌNH (08/10/2026): dải trong thẻ + liệu trình chỉ đề xuất từ lượt này.
+  // Máy chủ trả số, trạng thái, nút; không có quyền đọc → null, không vẽ gì.
+  const [lt, setLt] = useState<LieuTrinhLuot | null>(null);
+  const napLT = useCallback(() => {
+    void docLT<LieuTrinhLuot>("theo-luot", visitId).then((d) => {
+      if (d) setLt(d);
+    });
+  }, [visitId]);
+  useEffect(() => {
+    let huy = false;
+    void docLT<LieuTrinhLuot>("theo-luot", visitId).then((d) => {
+      if (!huy && d) setLt(d);
+    });
+    return () => {
+      huy = true;
+    };
+  }, [visitId, khoaDs]);
+  // Buổi tự gắn / gỡ (trigger), quầy trả trước, người khác điều chỉnh → dải đổi.
+  useNgheBang(["lieu_trinh", "lieu_trinh_buoi", "lieu_trinh_lich_su", "lieu_trinh_tra_truoc"], napLT);
+  const ltCua = useMemo(() => new Map((lt?.chi_dinh ?? []).map((c) => [c.order_id, c] as const)), [lt]);
+  // Liệu trình của lượt KHÔNG gắn với chỉ định nào đang hiện (chỉ đề xuất, hoặc
+  // buổi hôm nay đã gỡ) — vẽ riêng dưới thẻ.
+  const ltRieng = (lt?.lieu_trinh ?? []).filter(
+    (x) => !(lt?.chi_dinh ?? []).some((c) => c.lieu_trinh_id === x.id && chiDinh.some((d) => d.service_order_id === c.order_id)),
+  );
+  const phanLT = (
+    <>
+      {ltRieng.map((x) => (
+        <KhungLieuTrinh key={x.id} lt={x} choGhi={choGhi} onDoi={napLT} />
+      ))}
+      {choGhi && lt ? (
+        <DeXuatLieuTrinh visitId={visitId} dichVu={lt.dich_vu_de_xuat ?? []} onDoi={napLT} />
+      ) : null}
+    </>
+  );
+
   async function bam(t: TheDieuTri, lenh: Lenh) {
     if (dang) return;
     setDang(t.order_id);
@@ -153,11 +191,16 @@ export default function KhoiDieuTri({
 
   // Không có chỉ định điều trị: không vẽ vùng thẻ — chỉ một dòng gợi ý khi ghi được.
   if (chiDinh.length === 0) {
-    return choGhi ? (
-      <p className="text-meta text-ink-muted">
-        Chưa có chỉ định điều trị — chọn dịch vụ điều trị ở danh mục bên dưới.
-      </p>
-    ) : null;
+    return (
+      <div className="space-y-2">
+        {choGhi ? (
+          <p className="text-meta text-ink-muted">
+            Chưa có chỉ định điều trị — chọn dịch vụ điều trị ở danh mục bên dưới.
+          </p>
+        ) : null}
+        {phanLT}
+      </div>
+    );
   }
 
   // Ghi được phiếu: người có quyền ghi hồ sơ, lượt chưa check-out (máy chủ nói).
@@ -185,6 +228,7 @@ export default function KhoiDieuTri({
     if (!t) return null;
     const ban = dang === t.order_id;
     const moi = loi[t.order_id];
+    const cdLT = ltCua.get(t.order_id);
     const coNut = t.lam_duoc || t.xong_duoc || t.huy_lam_duoc || t.hoan_tac_xong_duoc;
     return (
       <div className="space-y-3">
@@ -230,13 +274,15 @@ export default function KhoiDieuTri({
           // Dịch vụ điều trị mà quản lý gắn mẫu khác: phiếu kết quả chung.
           <PhieuKetQua serviceOrderId={t.order_id} mau={t.mau} mauMacDinh={t.mau_chon_san} onHoanTat={nap} />
         )}
+        {lt && cdLT ? <DaiLieuTrinh visitId={visitId} cd={cdLT} luot={lt} choGhi={choGhi} onDoi={napLT} /> : null}
       </div>
     );
   };
 
   return (
-    <section aria-label="Chỉ định điều trị đã kê">
+    <section aria-label="Chỉ định điều trị đã kê" className="space-y-2">
       <KetQuaChiDinh ds={chiDinh} {...ketQua} dieuTri={{ chip, than }} />
+      {phanLT}
     </section>
   );
 }

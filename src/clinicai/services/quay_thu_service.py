@@ -259,6 +259,27 @@ def dung_hoa_don_quay(
             }
         )
 
+    # Trả trước k buổi liệu trình (08/10/2026): thêm / bỏ ở khối "Liệu trình"
+    # của quầy (`/lieu-trinh/quay`); trong hoá đơn là dòng khoá như vật tư.
+    lieu_trinh_quay: list[dict[str, Any]] = []
+    for d in hd.get("dong") or []:
+        if d.get("source_type") != "lieu_trinh":
+            continue
+        lieu_trinh_quay.append(
+            {
+                "id": str(d["source_id"]),
+                "loai": "lieu_trinh",
+                "lieu_trinh_id": d.get("ma"),
+                "ten": d.get("ten"),
+                "so_buoi": int(Decimal(str(d.get("so_luong") or 1))),
+                "gia": _so(d.get("thanh_tien")),
+                "van_de": d.get("van_de"),
+                "chon": True,
+                "sua_duoc": False,
+                "trong_lua_chon": False,
+            }
+        )
+
     for c in chi_dinh:
         cid = str(c["id"])
         chon_c = c.get("selection_status") != "NOT_SELECTED"
@@ -290,6 +311,8 @@ def dung_hoa_don_quay(
             "can_xep_phong": bool(c.get("phong_chon_duoc")),
             # Dây Nhận tại phòng BẬT: ô phòng là hướng dẫn (không bắt buộc).
             "huong_dan": bool(c.get("huong_dan")),
+            # Buổi liệu trình: {lieu_trinh_id, buoi_so, so_buoi, tra_truoc}.
+            "lieu_trinh": c.get("lieu_trinh"),
         }
         if la_doi_tac:
             muc["doi_tac_da_thu"] = (dong or {}).get("doi_tac_da_thu")
@@ -301,7 +324,10 @@ def dung_hoa_don_quay(
     # mà chưa thu…): vẫn là khoản phải thu — hiện, tick khoá.
     for d in hd.get("dong") or []:
         sid = str(d["source_id"])
-        if d.get("source_type") in ("exam", "phu_thu", "vat_tu") or sid in theo_id:
+        if (
+            d.get("source_type") in ("exam", "phu_thu", "vat_tu", "lieu_trinh")
+            or sid in theo_id
+        ):
             continue
         phong_kham.append(
             {
@@ -317,6 +343,7 @@ def dung_hoa_don_quay(
         )
     phong_kham.extend(phu_thu_quay)
     phong_kham.extend(vat_tu_quay)
+    phong_kham.extend(lieu_trinh_quay)
     for d in hd.get("dong_doi_tac") or []:
         sid = str(d["source_id"])
         if sid in theo_id:
@@ -1357,6 +1384,9 @@ class QuayThuService:
                         "thanh_tien": _so(r["thanh_tien"]),
                         "lan": r["lan"],
                         "da_bo": bool(r["da_bo"]),
+                        # Dòng "‹dịch vụ› — trả trước k buổi" in kèm "(liệu
+                        # trình)"; số buổi đã nằm trong tên.
+                        "lieu_trinh": r["source_type"] == "lieu_trinh",
                         **({} if r["da_bo"] else _phong_cua_dong(r, phong)),
                     }
                     for r in await conn.fetch(_DONG_SQL, cid, [id_])

@@ -42,6 +42,9 @@ export interface Phieu {
     lan?: number | null;
     /** Chỉ định đã bỏ sau khi thu — in lại ghi "đã bỏ", không in phòng. */
     da_bo?: boolean;
+    /** Dòng "‹dịch vụ› — trả trước k buổi" của liệu trình (08/10/2026): in kèm
+     *  "(liệu trình)"; số buổi đã nằm trong tên nên không in "× k". */
+    lieu_trinh?: boolean;
     /** Phòng làm dịch vụ — in cho khách đi theo (30/09/2026). Chỉ dòng dịch vụ.
      *  Chỉ in TÊN PHÒNG, không in tầng (Tuyền 30/09/2026). */
     phong?: {
@@ -235,7 +238,7 @@ export function PhieuThuGiay({ p }: { p: Phieu }) {
             <tr key={i} className="border-b border-line">
               <td className="py-1">
                 {d.ten}
-                {d.so_luong !== 1 ? ` × ${d.so_luong}` : ""}
+                {d.lieu_trinh ? " (liệu trình)" : d.so_luong !== 1 ? ` × ${d.so_luong}` : ""}
                 {d.lan ? ` · Lần ${d.lan}` : ""}
                 {d.da_bo ? " · đã bỏ" : ""}
                 {d.phong ? (

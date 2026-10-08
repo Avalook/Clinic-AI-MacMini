@@ -106,7 +106,9 @@ test("MỘT component phiếu điều trị cho bàn khám và phòng dịch v�
   assert.match(DT, /fetch\("\/api\/phieu"/);
   assert.match(DT, /form_id: `KQ_\$\{MAU_PHIEU_DIEU_TRI\}`/);
   assert.match(KHOI, /Chưa có chỉ định điều trị — chọn dịch vụ điều trị ở danh mục bên dưới/);
-  assert.match(KHOI, /if \(chiDinh\.length === 0\) \{\s*return choGhi \?/);
+  // Chưa có chỉ định điều trị: dòng gợi ý (khi ghi được) + phần liệu trình
+  // (liệu trình chỉ đề xuất, lối "Chỉ đề xuất") — 08/10/2026.
+  assert.match(KHOI, /if \(chiDinh\.length === 0\) \{\s*return \(\s*<div className="space-y-2">\s*\{choGhi \?/);
 });
 
 test("phiếu điều trị GỌN: mỗi ô một nhãn, tự lưu, chân Bản n · người · giờ, không Hoàn tất", () => {

@@ -121,6 +121,12 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('queue_entry', 'reason', 'chu'),
     ('consultation_note', 'body', 'chu'),
     ('luot_ghi_chu', 'noi_dung', 'chu'),
+    -- liệu trình điều trị (20261008100000): ghi chú lộ trình / lý do dừng gõ tự
+    -- do; lịch sử chép lại hai cột ấy trong ban_cu / ban_moi.
+    ('lieu_trinh', 'ghi_chu_lo_trinh', 'chu'),
+    ('lieu_trinh', 'ly_do_dung', 'chu'),
+    ('lieu_trinh_lich_su', 'ban_cu', 'json'),
+    ('lieu_trinh_lich_su', 'ban_moi', 'json'),
     ('clinical_record', 'soap_subjective', 'json'),
     ('clinical_record', 'soap_objective', 'json'),
     ('clinical_record', 'soap_assessment', 'json'),

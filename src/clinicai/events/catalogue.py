@@ -162,6 +162,56 @@ class VatTuDaDoi(PayloadSuKien):
     can_ql_duyet: bool = False
 
 
+class LieuTrinhDaTao(PayloadSuKien):
+    """`lieu_trinh.created` — bác sĩ / ĐD / TKYK đề xuất một liệu trình điều trị
+    nhiều buổi (08/10/2026). Có `service_order_id` = chỉ định hôm nay là buổi 1;
+    rỗng = "chỉ đề xuất, không làm hôm nay". Không có tên khách."""
+
+    lieu_trinh_id: str
+    clinic_patient_id: str
+    service_code: str
+    so_buoi: int
+    visit_id: str | None = None
+    service_order_id: str | None = None
+
+
+class LieuTrinhDaSua(PayloadSuKien):
+    """`lieu_trinh.revised` — kế hoạch liệu trình đổi do NGƯỜI bấm: `hanh_dong` =
+    DIEU_CHINH | DANG_KY | DUNG | MO_LAI | HOAN_TAC. Đổi tự động (tự thêm buổi,
+    tự sang Xong) chỉ nằm ở lịch sử liệu trình, không phát sự kiện."""
+
+    lieu_trinh_id: str
+    clinic_patient_id: str
+    hanh_dong: str
+    revision: int
+    trang_thai: str
+    so_buoi: int
+
+
+class LieuTrinhBuoiDaDoi(PayloadSuKien):
+    """`lieu_trinh.session_relinked` — người gắn (`GAN`) hoặc gỡ (`GO`) một chỉ
+    định khỏi liệu trình bằng tay. Gắn / gỡ tự động theo trạng thái chỉ định là
+    hệ quả của sự kiện chỉ định, không phát lại."""
+
+    lieu_trinh_id: str
+    service_order_id: str
+    hanh_dong: str
+    buoi_so: int | None = None
+
+
+class LieuTrinhTraTruocDaDat(PayloadSuKien):
+    """`lieu_trinh.prepay_set` — quầy thu dịch vụ đặt (`dat`) hoặc bỏ (`bo`) dòng
+    "trả trước k buổi" liệu trình trong hoá đơn đang thu (08/10/2026). Chưa phải
+    tiền đã thu — tiền là lần thu dịch vụ của lượt."""
+
+    visit_id: str
+    lieu_trinh_id: str
+    tra_truoc_id: str
+    so_buoi: int
+    don_gia: int
+    hanh_dong: str
+
+
 class DichVuKhamDaDoi(PayloadSuKien):
     """`visit.exam_service_changed` — tick / bỏ tick DỊCH VỤ KHÁM CON của lượt
     (bảng `luot_phi_kham`, C18 02/10/2026). Trước đây chỉ ghi nhật ký thao tác,
@@ -1158,6 +1208,42 @@ DANH_MUC: dict[str, SuKien] = {
             payload=LamThemDaBo,
             nhan="Bỏ làm thêm tại quầy",
             consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="lieu_trinh.created",
+            version=1,
+            aggregate_type="lieu_trinh",
+            source_module="lieu_trinh",
+            payload=LieuTrinhDaTao,
+            nhan="Đề xuất liệu trình",
+            is_public=False,
+        ),
+        SuKien(
+            ten="lieu_trinh.revised",
+            version=1,
+            aggregate_type="lieu_trinh",
+            source_module="lieu_trinh",
+            payload=LieuTrinhDaSua,
+            nhan="Sửa liệu trình",
+            is_public=False,
+        ),
+        SuKien(
+            ten="lieu_trinh.session_relinked",
+            version=1,
+            aggregate_type="lieu_trinh",
+            source_module="lieu_trinh",
+            payload=LieuTrinhBuoiDaDoi,
+            nhan="Gắn / gỡ buổi liệu trình",
+            is_public=False,
+        ),
+        SuKien(
+            ten="lieu_trinh.prepay_set",
+            version=1,
+            aggregate_type="lieu_trinh",
+            source_module="lieu_trinh",
+            payload=LieuTrinhTraTruocDaDat,
+            nhan="Trả trước liệu trình",
+            is_public=False,
         ),
         SuKien(
             ten="visit.supply_changed",

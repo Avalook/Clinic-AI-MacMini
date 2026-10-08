@@ -125,6 +125,8 @@ class OrderFinanceFacts:
     thu_truoc_khi_lam: bool = False
     #: Lượt đã tick "Làm trước – thu sau".
     lam_truoc_thu_sau: bool = False
+    #: Buổi liệu trình dùng tiền TRẢ TRƯỚC (08/10/2026) — đã thu ở lần trả trước.
+    phu_lieu_trinh: bool = False
 
 
 @dataclass(frozen=True)
@@ -199,6 +201,16 @@ def cau_chan_lam(q: FinanceDecision | None) -> str:
 
 def derive_finance_state(f: OrderFinanceFacts) -> FinanceDecision:
     """Thứ tự ưu tiên đúng FINANCE-GATE §4. Hàm thuần."""
+    # 0. Buổi liệu trình đã TRẢ TRƯỚC (08/10/2026, #6/#20): khách đã trả tiền
+    #    buổi này = đã chốt làm — cổng mở như đã thu, kể cả khi quầy chưa bấm
+    #    chốt lựa chọn (lượt Điều trị: phòng làm ngay, không cần tick). Postgres
+    #    cấm dòng thu lẻ cho buổi phủ, nên không có dấu vết tiền nào cạnh tranh.
+    if (
+        f.phu_lieu_trinh
+        and f.selection_status != "NOT_SELECTED"
+        and not any(fp.cycle_status != "VOIDED" for fp in f.footprints)
+    ):
+        return _quyet(f, PAID, required=True)
     # 1. Khách chưa chọn làm → chưa tới bước tài chính.
     if f.selection_status != "SELECTED":
         return _quyet(f, NOT_APPLICABLE, required=False)
@@ -280,16 +292,27 @@ WITH o AS (
      WHERE clinic_id = $1::uuid AND id = ANY($2::uuid[])
 ),
 gia AS (
+    -- Buổi liệu trình: đơn giá CHỐT của liệu trình (cùng luật hoá đơn).
     SELECT o.id,
-           coalesce(array_agg(pr.unit_price)
-                    FILTER (WHERE pr.unit_price IS NOT NULL), '{}') AS gia,
-           coalesce(array_agg(DISTINCT pr.billing_owner)
-                    FILTER (WHERE pr.billing_owner IS NOT NULL), '{}') AS ben_thu
+           CASE WHEN lt.id IS NOT NULL THEN ARRAY[lt.don_gia]
+                ELSE coalesce(array_agg(pr.unit_price)
+                              FILTER (WHERE pr.unit_price IS NOT NULL), '{}')
+           END AS gia,
+           CASE WHEN lt.id IS NOT NULL THEN ARRAY['CLINIC']::text[]
+                ELSE coalesce(array_agg(DISTINCT pr.billing_owner)
+                              FILTER (WHERE pr.billing_owner IS NOT NULL), '{}')
+           END AS ben_thu,
+           coalesce(bool_or(lb.tra_truoc), false) AS phu
       FROM o
+      LEFT JOIN public.lieu_trinh_buoi lb
+        ON lb.clinic_id = o.clinic_id AND lb.service_order_id = o.id
+       AND lb.go_luc IS NULL
+      LEFT JOIN public.lieu_trinh lt
+        ON lt.clinic_id = lb.clinic_id AND lt.id = lb.lieu_trinh_id
       LEFT JOIN public.service_price pr
         ON pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
        AND pr.active AND pr."group" = 'dich_vu'
-     GROUP BY o.id
+     GROUP BY o.id, lt.id, lt.don_gia
 ),
 dau_vet AS (
     SELECT bl.source_id,
@@ -342,7 +365,7 @@ luot_mo_ho AS (
                          AND bl.payment_cycle_id = p.payment_cycle_id))
 )
 SELECT o.id::text AS id, o.selection_status, o.exec_status, o.execution_status,
-       g.gia, g.ben_thu, d.fps,
+       g.gia, g.ben_thu, g.phu, d.fps,
        (m.visit_id IS NOT NULL) AS mo_ho,
        (v.lam_truoc_thu_sau_luc IS NOT NULL) AS lam_truoc,
        (SELECT dn.gia_tri FROM public.day_nghiep_vu dn
@@ -399,6 +422,7 @@ async def states_for_orders(
                 visit_allocation_unknown=bool(r["mo_ho"]),
                 thu_truoc_khi_lam=bool(giai_gia_tri(DAY_THU_TRUOC, r["thu_truoc"])),
                 lam_truoc_thu_sau=bool(r["lam_truoc"]),
+                phu_lieu_trinh=bool(r["phu"]),
             )
         )
         for r in rows
