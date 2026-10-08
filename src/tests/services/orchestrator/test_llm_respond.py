@@ -28,6 +28,7 @@ async def test_llm_respond_returns_text() -> None:
     mock = _make_mock_llm("  Phòng khám đã nhận yêu cầu của anh/chị.  ")
     node = make_respond_node_llm(mock)
     state: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "đặt lịch khám",
         "route": "scheduling",
@@ -48,6 +49,7 @@ async def test_llm_respond_empty_message_uses_template() -> None:
     mock.chat = AsyncMock()
     node = make_respond_node_llm(mock)
     state: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "   ",
         "route": "unknown",
@@ -63,6 +65,7 @@ async def test_llm_respond_empty_llm_text_falls_back_template() -> None:
     mock = _make_mock_llm("   ")
     node = make_respond_node_llm(mock)
     state: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "đặt lịch",
         "route": "scheduling",
@@ -78,6 +81,7 @@ async def test_llm_respond_api_error_falls_back_template() -> None:
     mock.chat = AsyncMock(side_effect=ConnectionError("network down"))
     node = make_respond_node_llm(mock)
     state: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "xét nghiệm máu",
         "route": "lab",

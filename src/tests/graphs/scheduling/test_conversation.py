@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from uuid import uuid4
 
 import pytest
 
@@ -13,7 +14,11 @@ from clinicai.graphs.scheduling.state import SchedulingState
 
 @pytest.mark.asyncio
 async def test_ask_date_first_turn_greeting() -> None:
-    state: SchedulingState = {"user_message": "đặt lịch", "turn_count": 0}
+    state: SchedulingState = {
+        "clinic_id": uuid4(),
+        "user_message": "đặt lịch",
+        "turn_count": 0,
+    }
     result = await ask_date_node(state)
     assert "khám vào ngày nào" in result["response"]
     assert result["step"] == "ask_date"
@@ -24,6 +29,7 @@ async def test_ask_date_first_turn_greeting() -> None:
 async def test_ask_date_parse_success() -> None:
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
     state: SchedulingState = {
+        "clinic_id": uuid4(),
         "user_message": "mai",
         "turn_count": 1,
         "step": "ask_date",
@@ -36,6 +42,7 @@ async def test_ask_date_parse_success() -> None:
 @pytest.mark.asyncio
 async def test_ask_date_parse_fail_retry() -> None:
     state: SchedulingState = {
+        "clinic_id": uuid4(),
         "user_message": "blah",
         "turn_count": 1,
         "step": "ask_date",
@@ -48,6 +55,7 @@ async def test_ask_date_parse_fail_retry() -> None:
 @pytest.mark.asyncio
 async def test_ask_time_parse_success() -> None:
     state: SchedulingState = {
+        "clinic_id": uuid4(),
         "user_message": "sáng",
         "turn_count": 2,
         "step": "ask_time",
@@ -61,6 +69,7 @@ async def test_ask_time_parse_success() -> None:
 @pytest.mark.asyncio
 async def test_confirm_yes() -> None:
     state: SchedulingState = {
+        "clinic_id": uuid4(),
         "user_message": "có",
         "turn_count": 4,
         "step": "confirm",
@@ -75,6 +84,7 @@ async def test_confirm_yes() -> None:
 @pytest.mark.asyncio
 async def test_confirm_no() -> None:
     state: SchedulingState = {
+        "clinic_id": uuid4(),
         "user_message": "hủy",
         "turn_count": 4,
         "step": "confirm",
@@ -91,6 +101,7 @@ async def test_subgraph_routes_by_step() -> None:
     """Conditional entry: step='ask_time' → ask_time_node parses 'sáng'."""
     graph = build_scheduling_subgraph()
     initial: SchedulingState = {
+        "clinic_id": uuid4(),
         "step": "ask_time",
         "user_message": "sáng",
         "turn_count": 2,

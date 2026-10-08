@@ -36,6 +36,9 @@ export interface PhongChonDuoc {
   dang_cho: number;
   /** Phòng nhiều bác sĩ (30/09/2026): bác sĩ trực hôm nay — chỉ khi ≥2. */
   bac_si?: LuaChonBacSi[];
+  /** Phòng chuyên ★ (07/10/2026); `goi_y` = phòng chuyên DUY NHẤT — máy chủ gợi ý. */
+  chuyen?: boolean;
+  goi_y?: boolean;
 }
 
 export interface ChiDinhChoQuyet {
@@ -57,6 +60,10 @@ export interface ChiDinhChoQuyet {
   bat_buoc?: boolean;
   /** Làm thêm tại quầy (01/10/2026) — câu máy chủ viết; null = bác sĩ chỉ định. */
   lam_them?: string | null;
+  /** Lần chỉ định (06/10/2026) — máy chủ gán; null = mang sang / làm thêm tại quầy. */
+  lan_chi_dinh?: number | null;
+  /** Dây Nhận tại phòng bật (07/10/2026): ô phòng là hướng dẫn, không bắt buộc. */
+  huong_dan?: boolean;
 }
 
 export interface ChoKhachQuyet {
@@ -228,6 +235,11 @@ export default function ChonDichVu({
               />
               <span className="min-w-0 flex-1 text-body text-ink">
                 {c.ten}
+                {c.lan_chi_dinh ? (
+                  <span className="ml-2">
+                    <Chip tone="brand">Lần {c.lan_chi_dinh}</Chip>
+                  </span>
+                ) : null}
                 {c.bat_buoc ? (
                   <span
                     className="ml-2"
@@ -267,7 +279,9 @@ export default function ChonDichVu({
             </label>
             {chon.has(c.id) && (c.phong_chon_duoc?.length ?? 0) > 0 ? (
               <label className="ml-7 flex flex-wrap items-center gap-2 pb-1">
-                <span className="text-meta text-ink-muted">Làm ở phòng</span>
+                <span className="text-meta text-ink-muted">
+                  {c.huong_dan ? "Hướng dẫn phòng (không bắt buộc)" : "Làm ở phòng"}
+                </span>
                 <select
                   value={phong[c.id] ?? ""}
                   disabled={dang}
@@ -284,10 +298,35 @@ export default function ChonDichVu({
                   <option value="">— Vui lòng chọn phòng —</option>
                   {(c.phong_chon_duoc ?? []).map((ph) => (
                     <option key={ph.id} value={ph.id}>
-                      {ph.ten} · {ph.dang_cho} người chờ
+                      {ph.ten}
+                      {ph.chuyen ? " ★" : ""} · {ph.dang_cho} người chờ
                     </option>
                   ))}
                 </select>
+                {(() => {
+                  // GỢI Ý phòng chuyên ★ (07/10/2026) — chỉ gợi ý, bấm mới lưu.
+                  const goiY = c.huong_dan && !phong[c.id] ? (c.phong_chon_duoc ?? []).find((ph) => ph.goi_y) : undefined;
+                  return goiY ? (
+                    <span className="flex flex-wrap items-center gap-2 text-meta text-ink-muted">
+                      Gợi ý: {goiY.ten} ★ (chưa lưu)
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="soft"
+                        disabled={dang}
+                        onClick={() => {
+                          const moi = { ...phong, [c.id]: goiY.id };
+                          const bsMoi = { ...bacSi, [c.id]: "" };
+                          setPhong(moi);
+                          setBacSi(bsMoi);
+                          void chot(chon, moi, bsMoi);
+                        }}
+                      >
+                        Hướng dẫn tới đây
+                      </Button>
+                    </span>
+                  ) : null;
+                })()}
                 {(() => {
                   const ds = bsCuaPhong(c, phong[c.id] ?? "");
                   return coChonBacSi(ds) ? (

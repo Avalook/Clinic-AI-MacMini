@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
+from clinicai.services import dich_vu_dat_lich
 
 router = APIRouter(tags=["catalog"])
 
@@ -134,6 +135,20 @@ async def list_service_types(
         identity.clinic_id,
     )
     return _private_json([dict(r) for r in rows])
+
+
+@router.get("/catalog/dich-vu-dat-lich")
+async def dich_vu_dat_lich_nhom(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> JSONResponse:
+    """Ô chọn dịch vụ khi đặt / sửa lịch: 4 nhóm (Thuốc ẩn) — `dich_vu_dat_lich`."""
+    async with pool.acquire() as conn:
+        data = await dich_vu_dat_lich.doc(conn, identity.clinic_id)
+    return JSONResponse(
+        content=jsonable_encoder(data),
+        headers={"Cache-Control": "private, no-store", "Vary": "Authorization"},
+    )
 
 
 @router.get("/catalog/danh-muc-ke")

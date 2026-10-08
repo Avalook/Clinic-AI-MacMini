@@ -56,6 +56,8 @@ export interface WeekApptRow {
   so_tiep_don?: number | null;
   doctor_id: string | null;
   booking_channel: string | null;
+  /** Ghi chú CSKH lúc đặt (`appointment.notes`) — lễ tân đọc ngay ở dòng. */
+  notes?: string | null;
   /** Giá trị BACKEND trả: "Tái khám" | "Khám lần đầu" | "". Chữ hiện lên
    *  màn hình đi qua `nhanPhanLoaiKham` — xem lib/phan-loai-kham.ts. */
   /** Bác sĩ của lịch này không còn ca KHÁM vào ngày khám — backend tính
@@ -911,6 +913,11 @@ export default function WeeklyAppointmentsTable({
                                       {a.so_tiep_don != null ? ` · Quầy ${a.so_tiep_don}` : ""}
                                       {isWalkinChannel(a.booking_channel) ? " · vãng lai" : ""}
                                     </span>
+                                    {a.notes ? (
+                                      <span className="block max-w-xs whitespace-normal text-meta text-ink-soft">
+                                        Ghi chú: {a.notes}
+                                      </span>
+                                    ) : null}
                                   </div>
                                 </div>
                               </td>

@@ -43,6 +43,7 @@ import {
   giaTriDoc,
   gomNhom,
   hienThi,
+  oPhieuDieuTri,
   type ChiDinhVaKetQua,
   type DauPhieu,
   type DinhNghiaPhieu,
@@ -74,11 +75,14 @@ interface PhieuLuot extends DinhNghiaPhieu {
 }
 
 interface DuLieuIn {
-  phieu: PhieuLuot;
+  /** null = lượt chưa mở phiếu khám (lượt Điều trị / Khác) — vẫn in phần khác. */
+  phieu: PhieuLuot | null;
   dau: DauPhieu | null;
   chiDinh: ChiDinhVaKetQua[];
   don: DongDonMayChu[];
   maThuThuat: Set<string>;
+  /** Ô chữ tự do của lượt "Khác" (bản mới nhất). */
+  ghiChu: string | null;
 }
 
 async function doc<T>(url: string): Promise<T | null> {
@@ -210,6 +214,43 @@ function KetQuaCls({ ds, coTrangAnh }: { ds: ChiDinhVaKetQua[]; coTrangAnh: bool
   );
 }
 
+/** Mục "Điều trị" — mỗi dịch vụ điều trị: tên + các ô đã ghi của phiếu điều
+ *  trị ("Cảm nhận", "Vấn đề sau điều trị" — nhãn lấy từ khung, mỗi ô một nhãn). */
+function DieuTriIn({ ds }: { ds: ChiDinhVaKetQua[] }) {
+  return (
+    <ol className="space-y-3">
+      {ds.map((c, i) => {
+        const o = oPhieuDieuTri(c);
+        return (
+          <li key={c.service_order_id} className="in-giu space-y-1">
+            <p className="font-semibold text-ink">
+              {i + 1}. {c.ten_hien_thi}
+            </p>
+            {/* Liệu trình nhiều buổi (08/10/2026) — số buổi máy chủ trả. */}
+            {c.lieu_trinh ? (
+              <p className="pl-4 text-ink-muted">
+                Liệu trình: buổi {c.lieu_trinh.buoi_so}/{c.lieu_trinh.so_buoi}
+              </p>
+            ) : null}
+            {o.length ? (
+              <dl className="space-y-1 pl-4">
+                {o.map((x) => (
+                  <div key={x.ma} className="grid grid-cols-[minmax(0,14rem)_minmax(0,1fr)] gap-2">
+                    <dt className="text-ink-muted">{x.ten}</dt>
+                    <dd className="whitespace-pre-wrap">{x.gia}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="pl-4 text-ink-muted">Chưa ghi phiếu điều trị.</p>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 /** Trang ẢNH — ảnh kết quả CLS theo từng chỉ định, 2 ảnh / hàng. */
 function TrangAnh({
   ds,
@@ -330,7 +371,7 @@ export default function InPhieuKham({
   useEffect(() => {
     let huy = false;
     void (async () => {
-      const [phieu, dau, kq, don, tc] = await Promise.all([
+      const [phieu, dau, kq, don, tc, gc] = await Promise.all([
         doc<PhieuLuot & { form_id: string | null }>(
           `/api/phieu-kham?visit_id=${visitId}&xem=phieu`,
         ),
@@ -338,24 +379,32 @@ export default function InPhieuKham({
         doc<{ chi_dinh: ChiDinhVaKetQua[] }>(`/api/phieu-kham?visit_id=${visitId}`),
         doc<{ dong: DongDonMayChu[] }>(`/api/phieu-kham?visit_id=${visitId}&xem=don-thuoc`),
         doc<{ thu_thuat: ThuThuatNguon[] }>("/api/phieu-kham?xem=tham-chieu"),
+        doc<{ ban: { noi_dung: string } | null }>(`/api/ho-so-kham?visit_id=${visitId}&xem=ghi-chu`),
       ]);
       if (huy) return;
-      if (!phieu) {
-        setLoi("Không đọc được phiếu khám của lượt này.");
+      if (!phieu && !kq) {
+        setLoi("Không đọc được lượt khám này.");
         return;
       }
-      if (!phieu.form_id) {
-        setLoi("Lượt này chưa mở phiếu khám nào — chưa có gì để in.");
+      // IN GỘP MỘT LƯỢT (Tuyền 07/10/2026): lượt chưa mở phiếu khám (Điều trị,
+      // Khác) vẫn in thông tin lượt + dịch vụ + phiếu điều trị + ghi chú. Trước
+      // đó báo "chưa có gì để in" dù lượt có phiếu điều trị.
+      const ghiChu = gc?.ban?.noi_dung?.trim() ? gc.ban.noi_dung : null;
+      const chiDinh = kq?.chi_dinh ?? [];
+      const dsDon = don?.dong ?? [];
+      if (!phieu?.form_id && chiDinh.length === 0 && dsDon.length === 0 && !ghiChu) {
+        setLoi("Lượt này chưa có phiếu khám, dịch vụ, đơn thuốc hay ghi chú nào — chưa có gì để in.");
         return;
       }
       setDl({
-        phieu,
+        phieu: phieu?.form_id ? phieu : null,
         dau,
-        chiDinh: kq?.chi_dinh ?? [],
-        don: don?.dong ?? [],
+        chiDinh,
+        don: dsDon,
         maThuThuat: new Set(
           (tc?.thu_thuat ?? []).flatMap((t) => (t.service_code ? [t.service_code] : [])),
         ),
+        ghiChu,
       });
     })();
     return () => {
@@ -366,8 +415,15 @@ export default function InPhieuKham({
   if (loi) return <p className="p-8 text-body text-danger">{loi}</p>;
   if (!dl) return <p className="p-8 text-body text-ink-muted">Đang tải phiếu…</p>;
   const { phieu, dau } = dl;
-  const cls = dl.chiDinh.filter((c) => !dl.maThuThuat.has(c.service_code));
-  const thuThuat = dl.chiDinh.filter((c) => dl.maThuThuat.has(c.service_code));
+  const khung = phieu?.khung ?? [];
+  // NHÓM THEO DỮ LIỆU (máy chủ: `dieu_tri` = dịch vụ nhóm DIEU_TRI), không viết
+  // cứng tên: điều trị → mục "Điều trị"; thủ thuật → "Tóm tắt bệnh án" khi
+  // phiếu khám có mục thủ thuật, còn lại → "Dịch vụ · cận lâm sàng".
+  const dieuTri = dl.chiDinh.filter((c) => c.dieu_tri);
+  const conLai = dl.chiDinh.filter((c) => !c.dieu_tri);
+  const coMucThuThuat = khung.some((m) => m.lien_ket?.loai === "chi_dinh_thu_thuat");
+  const thuThuat = coMucThuThuat ? conLai.filter((c) => dl.maThuThuat.has(c.service_code)) : [];
+  const cls = conLai.filter((c) => !thuThuat.includes(c));
   const ngayKham = dau?.hanh_chinh["encounter.date"] ?? null;
   const tk = dau?.the_khach;
   const hc = dau?.hanh_chinh;
@@ -382,7 +438,7 @@ export default function InPhieuKham({
 
   // I. TÓM TẮT BỆNH ÁN = mọi mục của phiếu có dữ liệu, TRỪ danh sách chỉ định
   // CLS (sang mục III) và đơn thuốc (mục II). Thủ thuật ở lại mục I.
-  const tomTat = phieu.khung
+  const tomTat = khung
     .filter(
       (m) =>
         m.ma !== "HANH_CHINH" &&
@@ -390,27 +446,31 @@ export default function InPhieuKham({
         m.lien_ket?.loai !== "don_thuoc",
     )
     .flatMap((m) => {
+      const duLieu = phieu?.du_lieu ?? {};
       const coThuThuat = m.lien_ket?.loai === "chi_dinh_thu_thuat" && thuThuat.length > 0;
-      const coO = m.block.some((o) => coNhap(phieu.du_lieu[o.ma]));
+      const coO = m.block.some((o) => coNhap(duLieu[o.ma]));
       if (!coThuThuat && !coO) return [];
       return [
         <div key={m.ma} className="in-giu space-y-1">
           <h3 className="font-semibold text-ink">{m.ten}</h3>
           {coThuThuat ? <DsChiDinh ds={thuThuat} /> : null}
-          <KhoiO m={m} duLieu={phieu.du_lieu} />
+          <KhoiO m={m} duLieu={duLieu} />
         </div>,
       ];
     });
   // Ô ghi thêm của mục CLS / đơn thuốc (nếu phòng khám thêm ô vào đó) vẫn in.
+  const oCuaMuc = khung.filter((m) => m.lien_ket?.loai === "chi_dinh_cls" || m.lien_ket?.loai === "don_thuoc");
+  const coOCua = (loai: string) =>
+    oCuaMuc.some((m) => m.lien_ket?.loai === loai && m.block.some((o) => coNhap(phieu?.du_lieu[o.ma])));
   const oCua = (loai: string) =>
-    phieu.khung
+    khung
       .filter((m) => m.lien_ket?.loai === loai)
-      .map((m) => <KhoiO key={m.ma} m={m} duLieu={phieu.du_lieu} />);
+      .map((m) => <KhoiO key={m.ma} m={m} duLieu={phieu?.du_lieu ?? {}} />);
 
   const coAnh = cls.some((c) => anhInDuoc(c).length > 0);
   const CHON: { ma: PhanIn; nhan: string; tat?: boolean }[] = [
     { ma: "ca", nhan: "Cả phiếu" },
-    { ma: "tom_tat", nhan: "Tóm tắt bệnh án" },
+    { ma: "tom_tat", nhan: "Tóm tắt bệnh án", tat: tomTat.length === 0 },
     { ma: "don", nhan: "Đơn thuốc", tat: dl.don.length === 0 },
     { ma: "cls_kem", nhan: "KQ CLS + ảnh", tat: cls.length === 0 || !coAnh },
     { ma: "cls", nhan: "KQ CLS", tat: cls.length === 0 },
@@ -423,8 +483,19 @@ export default function InPhieuKham({
   // Chỉ in ảnh: bỏ khối bệnh nhân + sinh hiệu (đầu trang + tên khách trên
   // trang ảnh vẫn nói ảnh của ai).
   const chiAnh = phan === "cls_anh";
-  // Đánh số I · II · III chỉ khi in cả phiếu.
-  const so = (x: string) => (ca ? x : null);
+  // MỤC TRỐNG THÌ ẨN, mục có dữ liệu KHÔNG BAO GIỜ bỏ sót (Tuyền 07/10/2026 —
+  // in gộp một lượt: khám · đơn · dịch vụ/CLS · điều trị · ghi chú). Đánh số
+  // I · II · III… theo các mục đang hiện, chỉ khi in cả phiếu.
+  const CO: Record<"kham" | "don" | "cls" | "dieu_tri" | "ghi_chu", boolean> = {
+    kham: tomTat.length > 0,
+    don: dl.don.length > 0 || coOCua("don_thuoc"),
+    cls: cls.length > 0 || coOCua("chi_dinh_cls"),
+    dieu_tri: dieuTri.length > 0,
+    ghi_chu: Boolean(dl.ghiChu),
+  };
+  const LA_MA = ["I", "II", "III", "IV", "V", "VI"];
+  const thuTu = (Object.keys(CO) as (keyof typeof CO)[]).filter((k) => CO[k]);
+  const so = (k: keyof typeof CO) => (ca ? (LA_MA[thuTu.indexOf(k)] ?? null) : null);
 
   return (
     <main className="in-a4 mx-auto w-full max-w-3xl bg-surface p-8 text-body text-ink print:max-w-none print:p-0">
@@ -460,7 +531,7 @@ export default function InPhieuKham({
       <DauTrangIn
         phongKham={tk?.phong_kham}
         trai={[tk?.co_so, tk?.dia_chi_co_so]}
-        tieuDe={TIEU_DE_PHAN[phan] ?? phieu.ten}
+        tieuDe={TIEU_DE_PHAN[phan] ?? phieu?.ten ?? "Hồ sơ lượt khám"}
         phai={[
           hc?.["patient.code"] ? `Mã khách ${hc["patient.code"]}` : null,
           dongSoLuot(tk?.so_booking, tk?.so_tiep_don),
@@ -487,20 +558,22 @@ export default function InPhieuKham({
       ) : null}
       </div>
 
-      <Muc so={so("I")} ten="Tóm tắt bệnh án" an={!ca && phan !== "tom_tat"}>
-        {tomTat.length ? tomTat : <p className="text-ink-muted">Chưa ghi nội dung khám.</p>}
+      <Muc so={so("kham")} ten="Tóm tắt bệnh án" an={!CO.kham || (!ca && phan !== "tom_tat")}>
+        {tomTat}
       </Muc>
-      <Muc so={so("II")} ten="Đơn thuốc" an={!ca && phan !== "don"}>
-        {dl.don.length ? <DonThuoc dong={dl.don} /> : <p className="text-ink-muted">Không kê đơn.</p>}
+      <Muc so={so("don")} ten="Đơn thuốc" an={!CO.don || (!ca && phan !== "don")}>
+        {dl.don.length ? <DonThuoc dong={dl.don} /> : null}
         {oCua("don_thuoc")}
       </Muc>
-      <Muc so={so("III")} ten="Kết quả cận lâm sàng" an={!inCls}>
-        {cls.length ? (
-          <KetQuaCls ds={cls} coTrangAnh={inAnh} />
-        ) : (
-          <p className="text-ink-muted">Không chỉ định cận lâm sàng.</p>
-        )}
+      <Muc so={so("cls")} ten="Dịch vụ · kết quả cận lâm sàng" an={!CO.cls || !inCls}>
+        {cls.length ? <KetQuaCls ds={cls} coTrangAnh={inAnh} /> : null}
         {oCua("chi_dinh_cls")}
+      </Muc>
+      <Muc so={so("dieu_tri")} ten="Điều trị" an={!CO.dieu_tri || !ca}>
+        <DieuTriIn ds={dieuTri} />
+      </Muc>
+      <Muc so={so("ghi_chu")} ten="Ghi chú" an={!CO.ghi_chu || !ca}>
+        <p className="in-giu whitespace-pre-wrap">{dl.ghiChu}</p>
       </Muc>
 
       {/* ── TRANG ẢNH ── */}

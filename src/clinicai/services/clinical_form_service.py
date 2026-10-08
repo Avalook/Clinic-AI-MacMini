@@ -39,6 +39,7 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.phieu_kham.doc_chu import noi_dung_phieu
 from clinicai.phieu_kham.mang_sang import MA_CHAN_DOAN, chan_doan_tu_phieu
 from clinicai.services.audit import record_event
+from clinicai.services.nhan_luot import doc_nhan_luot, tra_nhan
 from clinicai.services.sinh_hieu_buoi import chi_so_do, sinh_hieu_cua_buoi
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky, kiem_thu_ky_duoc_lam
 
@@ -185,6 +186,9 @@ class ClinicalFormService:
                 identity.clinic_id,
                 clinic_patient_id,
             )
+            # Chip "Lượt khám n" / "Buổi k/N" (08/10/2026): đếm trên MỌI lượt
+            # của khách (services/nhan_luot.py), không theo số phiếu nạp về.
+            nhan = await doc_nhan_luot(conn, identity.clinic_id, [clinic_patient_id])
 
         def chung(r: asyncpg.Record) -> dict[str, Any]:
             return {
@@ -194,6 +198,7 @@ class ClinicalFormService:
                 "bac_si": r["bac_si"],
                 "kham_luc": r["checked_in_at"] or r["updated_at"],
                 "visit_status": r["visit_status"],
+                "nhan_luot": tra_nhan(nhan, visit_id=r["visit_id"]),
             }
 
         ra = [

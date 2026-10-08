@@ -16,7 +16,19 @@ import Link from "next/link";
 import { fetchFromBackend } from "@/lib/backend-proxy";
 import { requireNavAccess } from "@/lib/clinic-session";
 
-import { type PhongHomNay } from "../_lam-viec/api";
+import LiveBoardSync from "../LiveBoardSync";
+import { type DemPhong, type PhongHomNay } from "../_lam-viec/api";
+
+/** Ba số của ô phòng (07/10/2026) — máy chủ đếm, ô chỉ in. `sap_den` null =
+ *  dây Nhận tại phòng tắt (không có danh sách Sắp đến). */
+function SoPhong({ dem }: { dem: DemPhong }) {
+  const so = [
+    ...(dem.sap_den != null ? [`${dem.sap_den} sắp đến`] : []),
+    `${dem.dang_cho} đang chờ`,
+    `${dem.dang_lam} đang làm`,
+  ];
+  return <span className="text-meta tabular-nums text-ink-soft">{so.join(" · ")}</span>;
+}
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Phòng dịch vụ · ClinicAI" };
@@ -46,22 +58,27 @@ export default async function DanhSachPhongPage() {
   }
 
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {phong.map((p) => (
-        <li key={p.id}>
-          <Link
-            href={`/phong/${p.id}`}
-            className="flex min-h-16 flex-col justify-center gap-1 rounded-card bg-surface p-4 shadow-card transition-colors hover:bg-surface-sunken"
-          >
-            <span className="text-emph font-semibold text-ink">{p.ten}</span>
-            <span className="text-meta text-ink-muted">
-              {/* Không in tầng (27/09/2026 đợt 3): phòng khám đổi bố cục phòng liên tục.
-                  Bản cũ còn in "Tầng Tầng 1" vì dữ liệu vốn đã có chữ "Tầng". */}
-              {cuaToi.has(p.id) ? "Hôm nay bạn đứng phòng này" : " "}
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <>
+      {/* Tự cập nhật: vào màn lấy bản mới; tin đổi bảng (RealtimeRefresher) vẽ lại. */}
+      <LiveBoardSync />
+      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {phong.map((p) => (
+          <li key={p.id}>
+            <Link
+              href={`/phong/${p.id}`}
+              className="flex min-h-16 flex-col justify-center gap-1 rounded-card bg-surface p-4 shadow-card transition-colors hover:bg-surface-sunken"
+            >
+              <span className="text-emph font-semibold text-ink">{p.ten}</span>
+              {p.dem ? <SoPhong dem={p.dem} /> : null}
+              <span className="text-meta text-ink-muted">
+                {/* Không in tầng (27/09/2026 đợt 3): phòng khám đổi bố cục phòng liên tục.
+                    Bản cũ còn in "Tầng Tầng 1" vì dữ liệu vốn đã có chữ "Tầng". */}
+                {cuaToi.has(p.id) ? "Hôm nay bạn đứng phòng này" : " "}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

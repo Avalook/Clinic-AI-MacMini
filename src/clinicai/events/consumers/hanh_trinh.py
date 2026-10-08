@@ -23,6 +23,7 @@ Giữ luật THỨ TỰ khách đi. Nghe sự thật đã xảy ra, rồi gửi 
                                     TẮT: V10, chưa thu cũng xếp)
         service_order.desk_added  → lễ tân / người đo tick "+ dịch vụ" (làm
                                     thêm tại quầy, 01/10/2026): như trên
+        service_order.restored    → hoàn tác bỏ chỉ định (06/10/2026): như trên
         visit.defer_payment_set   → vừa tick "Làm trước – thu sau": chạy lại
                                     đúng lệnh ấy bằng quyền người tick
         payment.service_collected → chạy lại đúng lệnh ấy bằng quyền người thu
@@ -61,6 +62,14 @@ from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.service_routing_service import ServiceRoutingService
 
 
+async def _tu_xep_bat(conn: asyncpg.Connection, clinic_id: str) -> bool:
+    """Dây H4 tự xếp phòng — trừ khi dây Nhận tại phòng BẬT (07/10/2026): khi
+    ấy không ai xếp thay phòng, phòng tự bấm Nhận ở danh sách Sắp đến."""
+    return bool(await doc_day(conn, clinic_id, "h4_tu_xep_phong")) and not bool(
+        await doc_day(conn, clinic_id, "nhan_tai_phong")
+    )
+
+
 async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     if su_kien.la_phat_lai:
         return
@@ -95,7 +104,7 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
             visit_id=visit_id,
             causation_id=su_kien.event_id,
         )
-        if mang and await doc_day(conn, su_kien.clinic_id, "h4_tu_xep_phong"):
+        if mang and await _tu_xep_bat(conn, su_kien.clinic_id):
             # Mang từ lượt trước: vào thẳng hàng phòng, thay người check-in —
             # lệnh tự bỏ chỉ định không qua cửa làm (khách chưa chốt / tiền đang
             # hoàn / dây thu trước bật mà chưa thu, lượt chưa tick).
@@ -123,7 +132,7 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
                 causation_id=su_kien.event_id,
             )
     elif su_kien.event_type == "payment.service_collected":
-        if await doc_day(conn, su_kien.clinic_id, "h4_tu_xep_phong"):
+        if await _tu_xep_bat(conn, su_kien.clinic_id):
             await ServiceRoutingService(pool=None).tu_xep_da_thu(
                 conn,
                 clinic_id=su_kien.clinic_id,
@@ -138,6 +147,9 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
         # Làm thêm tại quầy (01/10/2026): lễ tân / người đo tick là chỉ định đã
         # chốt — đi đúng cửa làm như khách vừa chốt ở quầy thu.
         "service_order.desk_added",
+        # Hoàn tác bỏ chỉ định (Khối 2, 06/10/2026): chỉ định quay lại — đã thu
+        # thì xếp phòng lại ngay như lúc vừa chốt.
+        "service_order.restored",
     ):
         # Khách chốt xong (hoặc lượt vừa được tick "Làm trước – thu sau") → xếp
         # phòng ngay mọi chỉ định QUA CỬA LÀM của FinanceGate, bằng quyền NGƯỜI
@@ -147,7 +159,7 @@ async def xu_ly_hanh_trinh(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> N
         # trước, thu sau" mọi lượt. Người bấm không có quyền điều phối thì để
         # nguyên — thu tiền sau đó chạy lại bằng quyền người thu, hoặc người có
         # quyền xếp tay.
-        if await doc_day(conn, su_kien.clinic_id, "h4_tu_xep_phong"):
+        if await _tu_xep_bat(conn, su_kien.clinic_id):
             await ServiceRoutingService(pool=None).tu_xep_da_thu(
                 conn,
                 clinic_id=su_kien.clinic_id,

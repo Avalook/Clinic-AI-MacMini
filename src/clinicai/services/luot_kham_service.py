@@ -41,6 +41,7 @@ from clinicai.events.catalogue import (
     KhamXong,
     LuotDaKhamXong,
     PhienKhamBatDau,
+    PhienKhamTiepTuc,
     TuVanXong,
 )
 from clinicai.events.emit import HE_THONG, emit_event, nguoi, nguoi_lam_thay
@@ -591,13 +592,19 @@ class LuotKhamService:
         Làm: huỷ chỗ chờ tư vấn / bác sĩ chính còn sống + các phiên đang chờ,
         xoá đường đi, rồi xếp lại. Chỗ chờ PHÒNG DỊCH VỤ (chỉ định) không đụng.
         """
-        trang_thai = await conn.fetchval(
-            "SELECT status FROM visit WHERE clinic_id = $1::uuid"
+        luot = await conn.fetchrow(
+            "SELECT status, closed_at FROM visit WHERE clinic_id = $1::uuid"
             " AND visit_id = $2::uuid FOR UPDATE",
             clinic_id,
             visit_id,
         )
-        if trang_thai not in ("OPEN", "IN_PROGRESS"):
+        # Đã check-out (chỉ `closed_at`, status vẫn IN_PROGRESS): khách đã về,
+        # không đưa lại hàng tư vấn / bác sĩ (review 07/10/2026).
+        if (
+            luot is None
+            or luot["status"] not in ("OPEN", "IN_PROGRESS")
+            or luot["closed_at"] is not None
+        ):
             return None
         if await conn.fetchval(
             "SELECT EXISTS (SELECT 1 FROM consultation WHERE clinic_id = $1::uuid"
@@ -870,7 +877,13 @@ class LuotKhamService:
                        q.need, q.status, o.exec_status, o.selection_status,
                        """
                 + CO_KET_QUA_VONG_SQL
-                + """ AS co_ket_qua
+                + """ AS co_ket_qua,
+                       coalesce((SELECT x.noi_lam = 'BAN_KHAM'
+                                   FROM service_execution_attempt x
+                                  WHERE x.clinic_id = o.clinic_id
+                                    AND x.service_order_id = o.id
+                                  ORDER BY x.attempt_no DESC LIMIT 1), false)
+                         AS lam_tai_ban_kham
                   FROM round_requirement q
                   JOIN service_order o
                     ON o.id = q.service_order_id AND o.clinic_id = q.clinic_id
@@ -895,6 +908,7 @@ class LuotKhamService:
             # Không phải câu đọc nào cũng mang cột này (vd /cho-quyet) — thiếu
             # thì coi như chưa biết, không làm sập cả màn.
             q.get("selection_status"),
+            bool(q.get("lam_tai_ban_kham") or False),
         )
 
     async def _evaluate_rounds(
@@ -987,6 +1001,12 @@ class LuotKhamService:
                         "visit_id": visit_id,
                         "round_no": rd["round_no"],
                         **({"ly_do": "vong_rong"} if vong_rong else {}),
+                        # Bác sĩ tự làm tại bàn khám — không có gì để đọc lại.
+                        **(
+                            {"ly_do": "lam_tai_ban_kham"}
+                            if any(v.lam_tai_ban_kham for v in views)
+                            else {}
+                        ),
                     },
                 )
                 continue
@@ -1754,21 +1774,27 @@ class LuotKhamService:
                         )
                     # KHÁCH ĐÃ QUAY LẠI sau dịch vụ (phiên vẫn mở — "đợi quay
                     # lại", Tuyền 23/09): bấm Bắt đầu lần nữa = tiếp tục khám.
-                    quay_lai = await conn.fetchval(
+                    # `serving_at` là giờ HIỆN TẠI; mốc lần trước + giờ quay về
+                    # hàng đi vào `consultation.resumed` (07/10/2026) — không
+                    # cái gì sau đè mất cái trước.
+                    quay_lai = await conn.fetchrow(
                         """
-                        UPDATE queue_entry
+                        UPDATE queue_entry q
                            SET status = 'serving', serving_at = now(),
-                               eligible_at = coalesce(eligible_at, now()),
-                               version = version + 1, updated_at = now()
-                         WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                           AND ref_id = $3::uuid AND reason = $4
-                           AND status IN ('waiting', 'called')
+                               eligible_at = coalesce(q.eligible_at, now()),
+                               version = q.version + 1, updated_at = now()
+                          FROM queue_entry cu
+                         WHERE cu.id = q.id
+                           AND q.clinic_id = $1::uuid AND q.visit_id = $2::uuid
+                           AND q.ref_id = $3::uuid AND q.reason = $4
+                           AND q.status IN ('waiting', 'called')
                            AND NOT EXISTS (
                                SELECT 1 FROM queue_entry s
                                 WHERE s.clinic_id = $1::uuid
                                   AND s.visit_id = $2::uuid
                                   AND s.status = 'serving')
-                        RETURNING id::text
+                        RETURNING q.id::text AS id, cu.serving_at AS truoc,
+                                  cu.eligible_at AS ve_hang
                         """,
                         cid,
                         vid,
@@ -1776,8 +1802,37 @@ class LuotKhamService:
                         c["kind"],
                     )
                     if quay_lai is not None:
-                        await self._block_others(conn, cid, vid, quay_lai)
+                        await self._block_others(conn, cid, vid, quay_lai["id"])
                         await self._cap_nhat_vi_tri(conn, identity.clinic_id, vid)
+                        lan = 2 + int(
+                            await conn.fetchval(
+                                "SELECT count(*) FROM domain_event"
+                                " WHERE clinic_id = $1::uuid"
+                                "   AND aggregate_type = 'consultation'"
+                                "   AND aggregate_id = $2::uuid"
+                                "   AND event_type = 'consultation.resumed'",
+                                cid,
+                                con_id,
+                            )
+                        )
+                        await emit_event(
+                            conn,
+                            ten="consultation.resumed",
+                            clinic_id=cid,
+                            aggregate_id=con_id,
+                            payload=PhienKhamTiepTuc(
+                                visit_id=vid,
+                                consultation_id=con_id,
+                                loai=c["kind"],
+                                lan=lan,
+                                quay_ve_hang_luc=quay_lai["ve_hang"]
+                                and quay_lai["ve_hang"].isoformat(),
+                                bat_dau_lan_truoc_luc=quay_lai["truoc"]
+                                and quay_lai["truoc"].isoformat(),
+                            ),
+                            boi=nguoi_lam_thay(identity, bac_si_phien),
+                            correlation_id=vid,
+                        )
                     return {"ok": True, "consultation_id": con_id, "already": True}
                 raise LuotKhamConflictError(
                     "CONSULTATION_TAKEN", "Phiên khám này bác sĩ khác đang khám."
@@ -3049,10 +3104,16 @@ class LuotKhamService:
                   LEFT JOIN node_definition nd
                     ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
                   JOIN visit v ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
+                  LEFT JOIN appointment ap
+                    ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
                   JOIN patient p
                     ON p.clinic_patient_id = v.clinic_patient_id
                    AND p.clinic_id = v.clinic_id
                  WHERE q.clinic_id = $1::uuid
+                   -- Chỉ khách của cơ sở đang đứng; $3 NULL = không lọc.
+                   AND coalesce(v.location_id, ap.location_id, $3::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($3::uuid, v.location_id, ap.location_id)
                    AND r.status <> 'closed' AND q.status = 'open'
                    AND v.status IN ('OPEN', 'IN_PROGRESS')
                    -- Chỉ việc của BÁC SĨ: đang chờ kết quả (đã làm, chưa có kết
@@ -3073,6 +3134,7 @@ class LuotKhamService:
                 """,
                 cid,
                 bac_si,
+                identity.location_id or None,
             )
         # Hàng "chờ bác sĩ quyết": cắt im lặng là một yêu cầu chờ mãi.
         canh_bao_neu_day("bac_si.cho_quyet", len(rows), 200, clinic_id=cid)
@@ -3251,12 +3313,18 @@ class LuotKhamService:
                 SELECT 1 FROM clinic_room r
                  WHERE r.clinic_id = $1::uuid AND r.id = $2::uuid
                    AND phong_lam_duoc(r.clinic_id, r.id, $3, $4)
-                   AND r.is_active AND r.accepting)
+                   AND r.is_active AND r.accepting
+                   -- Cùng cơ sở lượt (08/10/2026): báo "phòng không làm" thay
+                   -- vì để chốt DB phòng-cùng-cơ-sở chặn cứng.
+                   AND coalesce(r.location_id, public.co_so_cua_luot($5::uuid))
+                       IS NOT DISTINCT FROM
+                       coalesce(public.co_so_cua_luot($5::uuid), r.location_id))
             """,
             cid,
             rid,
             o["node_code"],
             o["service_code"],
+            vid,
         )
         if not serves:
             raise LuotKhamConflictError(

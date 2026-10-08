@@ -99,6 +99,11 @@ class _Conn:
     def transaction(self) -> _GiaoDich:
         return _GiaoDich()
 
+    def is_in_transaction(self) -> bool:
+        # `remove` gỡ ca trong giao dịch → đặt người bấm cho sổ lịch sử lịch
+        # trực (Khối 3, 06/10/2026) đòi đang ở trong giao dịch.
+        return True
+
     async def fetchrow(self, sql: str, *args: object) -> dict[str, Any]:
         assert "FROM work_roster" in sql
         return dict(_CA)

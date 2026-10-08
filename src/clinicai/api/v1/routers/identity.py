@@ -28,6 +28,8 @@ from clinicai.api.identity import (
     get_display_identity,
     vai_theo_thu_tu,
 )
+from clinicai.core.chon_co_so import doc_chon_co_so
+from clinicai.core.clock import now_vn
 from clinicai.core.database import get_db_pool
 
 router = APIRouter()
@@ -65,6 +67,65 @@ async def me(
         "can_write_clinical": identity.can_write_clinical(),
         "is_doctor": identity.is_doctor(),
         "is_cashier": identity.is_cashier(),
+    }
+
+
+@router.get("/me/co-so")
+async def co_so_cua_toi(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Các cơ sở người gọi chọn được + cơ sở GỢI Ý — cho màn chọn cơ sở.
+
+    Mọi nhân viên vào được mọi cơ sở đang bật của phòng khám (Tuyền 08/10/2026).
+    Gợi ý theo thứ tự: cơ sở có ca trực hôm nay của chính người này → cơ sở
+    mặc định (`staff.primary_location_id`). Chỉ là gợi ý — người dùng bấm chọn.
+    """
+    co_so = await pool.fetch(
+        """
+        SELECT id::text AS id, code, name, address
+          FROM public.clinic_location
+         WHERE clinic_id = $1::uuid AND is_active IS NOT FALSE
+         ORDER BY created_at, name
+        """,
+        identity.clinic_id,
+    )
+    theo_lich = await pool.fetchval(
+        """
+        SELECT r.location_id::text
+          FROM public.work_roster w
+          JOIN public.vi_tri_lam_viec v
+            ON v.clinic_id = w.clinic_id AND v.code = w.station
+          JOIN public.clinic_room r ON r.id = v.room_id
+         WHERE w.clinic_id = $1::uuid AND w.staff_id = $2::uuid
+           AND w.work_date = $3::date AND w.status <> 'REJECTED'
+         ORDER BY array_position(ARRAY['SANG', 'CHIEU', 'TOI', 'FULL'], w.shift)
+         LIMIT 1
+        """,
+        identity.clinic_id,
+        identity.staff_id,
+        now_vn().date(),
+    )
+    mac_dinh = await pool.fetchval(
+        "SELECT primary_location_id::text FROM public.staff WHERE id = $1::uuid",
+        identity.staff_id,
+    )
+    hoi_chon, mac_dinh_pk = doc_chon_co_so(
+        await pool.fetchval(
+            "SELECT settings FROM public.clinic WHERE id = $1::uuid",
+            identity.clinic_id,
+        )
+    )
+    hop_le = {r["id"] for r in co_so}
+    goi_y = next((c for c in (theo_lich, mac_dinh_pk, mac_dinh) if c in hop_le), None)
+    return {
+        "co_so": [dict(r) for r in co_so],
+        "goi_y": goi_y,
+        "theo_lich": theo_lich in hop_le and theo_lich == goi_y,
+        "dang_chon": identity.location_id,
+        # Tắt (công tắc ở Cấu trúc phòng khám) → đăng nhập vào thẳng cơ sở
+        # mặc định; chip trên thanh trên vẫn mở được màn chọn.
+        "hoi_chon": hoi_chon,
     }
 
 
@@ -120,10 +181,19 @@ async def vi_tri_hom_nay(
           FROM public.vi_tri_lam_viec v
           LEFT JOIN public.clinic_room r
             ON r.id = v.room_id AND r.clinic_id = v.clinic_id AND r.is_active
+          -- Cơ sở của vị trí = cơ sở phòng nó gắn (kể cả phòng đang tắt).
+          LEFT JOIN public.clinic_room rr
+            ON rr.id = v.room_id AND rr.clinic_id = v.clinic_id
          WHERE v.clinic_id = $1::uuid AND v.is_active
+           -- CHỈ vị trí của cơ sở đang đứng (08/10/2026, mở Hào Nam): không lọc
+           -- thì bảng lịch hiện gấp đôi hàng (Kim Ngưu + Hào Nam). Vị trí không
+           -- gắn phòng (Trưởng ca DIEU_PHOI) dùng chung mọi cơ sở.
+           AND (v.room_id IS NULL OR $2::uuid IS NULL
+                OR rr.location_id = $2::uuid)
          ORDER BY v.sort, v.code
         """,
         identity.clinic_id,
+        identity.location_id or None,
     )
     phong = {
         r["code"]: {"room_id": r["room_id"], "ten": r["ten_phong"]}

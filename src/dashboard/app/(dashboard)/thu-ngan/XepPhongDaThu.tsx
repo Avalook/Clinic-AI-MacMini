@@ -25,6 +25,8 @@ export interface DaTraChoPhong {
   routing_revision: number;
   /** Bác sĩ đã chọn trong phòng nhiều bác sĩ ("BS X", máy chủ viết). */
   bac_si_lam?: string | null;
+  /** Dây Nhận tại phòng bật: ô phòng là hướng dẫn, phòng tự bấm Nhận. */
+  huong_dan?: boolean;
 }
 
 export default function XepPhongDaThu({
@@ -39,11 +41,12 @@ export default function XepPhongDaThu({
   visitId?: string;
 }) {
   if (ds.length === 0) return null;
+  const huongDan = ds.some((c) => c.huong_dan);
   return (
     <div className="space-y-2 border-b border-line px-4 py-3 last:border-b-0">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
-          Phòng làm dịch vụ (khách đã chốt)
+          {huongDan ? "Hướng dẫn phòng (không bắt buộc)" : "Phòng làm dịch vụ (khách đã chốt)"}
         </p>
         {visitId ? (
           <NutInPhieu href={`/print/phieu-thu/${visitId}?loai=huong_dan`} size="md">
@@ -56,9 +59,9 @@ export default function XepPhongDaThu({
           <li key={c.id}>
             <p className="text-body text-ink">
               {c.ten}
-              <span className={c.phong ? "text-ink-muted" : "text-warning"}>
+              <span className={c.phong || c.huong_dan ? "text-ink-muted" : "text-warning"}>
                 {" "}
-                · {c.phong ?? "vui lòng chọn phòng"}
+                · {c.phong ?? (c.huong_dan ? "chưa vào phòng nào" : "vui lòng chọn phòng")}
                 {c.phong && c.bac_si_lam ? ` · ${c.bac_si_lam}` : ""}
               </span>
             </p>

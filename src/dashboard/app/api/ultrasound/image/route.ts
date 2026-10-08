@@ -15,6 +15,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { ganCoSo } from "../../../../lib/co-so";
 
 const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
 
@@ -34,6 +35,7 @@ async function authHeaders(): Promise<Record<string, string> | null> {
   };
   const apiKey = process.env.BACKEND_API_KEY;
   if (apiKey) h["X-API-Key"] = apiKey;
+  await ganCoSo(h); // cơ sở đang đứng — lib/co-so.ts
   return h;
 }
 

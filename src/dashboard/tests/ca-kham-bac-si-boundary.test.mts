@@ -25,5 +25,6 @@ test("màn đặt lịch không đọc bảng lịch trực qua PostgREST — h�
     new URL("../../clinicai/services/config_service.py", import.meta.url),
     "utf8",
   );
-  assert.match(py, /station = ANY\(\$3::text\[\]\)[\s\S]*?sorted\(MA_CA_KHAM_BAC_SI\)/);
+  // 08/10/2026: so theo MÃ MẪU (bỏ tiền tố cơ sở `HN__`) để ca Hào Nam cũng là ca khám.
+  assert.match(py, /station, '\^\[A-Z0-9\]\+__'[\s\S]*?= ANY\(\$3::text\[\]\)[\s\S]*?sorted\(MA_CA_KHAM_BAC_SI\)/);
 });

@@ -17,11 +17,16 @@ const MIN_PASSWORD = 8;
 
 export default function NewUserForm({
   staffOptions,
+  defaultStaffId,
 }: {
   staffOptions: StaffOption[];
+  /** `?staff=` từ nút "Cấp tài khoản" ở /nhan-su — chỉ dùng khi còn trong danh sách. */
+  defaultStaffId?: string;
 }) {
   const router = useRouter();
-  const [staffId, setStaffId] = useState(staffOptions[0]?.id ?? "");
+  const [staffId, setStaffId] = useState(
+    staffOptions.find((o) => o.id === defaultStaffId)?.id ?? staffOptions[0]?.id ?? "",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

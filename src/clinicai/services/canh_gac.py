@@ -39,6 +39,8 @@ NGUONG_KIEU_LOI_5P = 3
 CHO_DAY_LAU_GIO = 6
 #: Một tệp đẩy hỏng từ chừng này lần → cảnh báo.
 NGUONG_LOI_DAY = 5
+#: Bất biến tiền chỉ định soát các lần thu trong chừng này giờ gần nhất.
+BAT_BIEN_TIEN_GIO = 24
 
 
 @dataclass(frozen=True)
@@ -109,6 +111,18 @@ def danh_gia(so: dict[str, Any]) -> list[KetQuaKiem]:
             f"{so.get('tep_loi_day', 0)} tệp đẩy sang Viettel CFS hỏng từ "
             f"{NGUONG_LOI_DAY} lần — xem lỗi cuối ở /ops.",
         ),
+        # Bất biến tiền chỉ định (Khối 2, 06/10/2026): thu − hoàn = phần của chỉ
+        # định còn hiệu lực + tiền thừa (chỉ định đã bỏ). Lệch = dòng thu lạc /
+        # hoàn quá tay / một chỉ định thu hai lần — quầy thu phải đối soát.
+        KetQuaKiem(
+            "TIEN_CHI_DINH",
+            "warning",
+            so.get("tien_chi_dinh_lech", 0) > 0,
+            f"{so.get('tien_chi_dinh_lech', 0)} chỗ lệch tiền chỉ định trong "
+            f"{BAT_BIEN_TIEN_GIO} giờ qua (thu − hoàn ≠ chỉ định còn hiệu lực + "
+            "tiền thừa; hoặc tiền trả trước liệu trình lệch) — chạy `SELECT * FROM"
+            " bat_bien_tien_chi_dinh(...)` / `bat_bien_lieu_trinh(...)` để xem.",
+        ),
     ]
     return ra
 
@@ -141,10 +155,16 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
             AS tep_cho_lau,
           (SELECT count(*) FROM tep_ket_qua t
             WHERE t.vi_tri = 'vps' AND t.da_don_tep_luc IS NULL
-              AND t.so_lan_day_loi >= $2) AS tep_loi_day
+              AND t.so_lan_day_loi >= $2) AS tep_loi_day,
+          (SELECT count(*) FROM clinic c,
+                  bat_bien_tien_chi_dinh(c.id, now() - make_interval(hours => $3)))
+          -- Liệu trình (08/10/2026): buổi trả trước vượt số đã trả, âm, thu trùng.
+          + (SELECT count(*) FROM clinic c, bat_bien_lieu_trinh(c.id))
+            AS tien_chi_dinh_lech
         """,
         CHO_DAY_LAU_GIO,
         NGUONG_LOI_DAY,
+        BAT_BIEN_TIEN_GIO,
     )
     assert r is not None
     return {
@@ -156,6 +176,7 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
         "luot_treo": int(r["luot_treo"]),
         "tep_cho_lau": int(r["tep_cho_lau"]),
         "tep_loi_day": int(r["tep_loi_day"]),
+        "tien_chi_dinh_lech": int(r["tien_chi_dinh_lech"]),
     }
 
 

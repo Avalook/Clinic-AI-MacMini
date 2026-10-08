@@ -264,9 +264,14 @@ async def doc_dau_phieu(
         "       bc.name AS kenh_dat, a.so_booking, a.so_tiep_don,"
         # Đầu trang bản in (27/09/2026): tên phòng khám + địa chỉ CƠ SỞ của lượt
         # (cơ sở chưa ghi địa chỉ thì rơi về địa chỉ phòng khám).
-        "       ck.name AS phong_kham,"
-        "       coalesce(nullif(btrim(lv.address), ''), nullif(btrim(l.address), ''),"
-        "                ck.address) AS dia_chi_co_so,"
+        # Cơ sở có `ten_in` (pháp nhân treo biển riêng, vd Hào Nam 08/10) thì in
+        # tên đó; SĐT cơ sở nối sau địa chỉ.
+        "       coalesce(nullif(btrim(lv.ten_in), ''), nullif(btrim(l.ten_in), ''),"
+        "                ck.name) AS phong_kham,"
+        "       concat_ws(' · ', coalesce(nullif(btrim(lv.address), ''),"
+        "                nullif(btrim(l.address), ''), ck.address),"
+        "                nullif(btrim(coalesce(lv.phone, l.phone)), ''))"
+        "         AS dia_chi_co_so,"
         # Bác sĩ ký phiếu (Tuyền 29/09: ĐD/TKYK thao tác hộ vẫn ký TÊN BÁC SĨ):
         # bác sĩ của LƯỢT → bác sĩ của LỊCH HẸN → bác sĩ phiên khám chính → bác
         # sĩ xếp lịch CÙNG PHÒNG với người bấm Bắt đầu khám hôm ấy (chỉ khi

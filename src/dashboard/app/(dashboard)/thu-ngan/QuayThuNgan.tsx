@@ -30,9 +30,12 @@ import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import ChonDichVuKham from "../_lam-viec/ChonDichVuKham";
 import VatTuQuay from "./VatTuQuay";
+import LieuTrinhQuay from "./LieuTrinhQuay";
 import { useNgheBang } from "../dung-nghe-bang";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
+import Button from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
+import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 import SoLuot from "@/components/ui/SoLuot";
 import { nhanPhan, tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
 import { gio, nhanLamTruocThuSau, type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
@@ -101,15 +104,35 @@ interface Luot {
   /** TIỀN THỪA (hoàn tác 01/10/2026): đã thu cho chỉ định nay đã bỏ / không
    *  làm — máy chủ tính (đã trừ khoản hoàn). */
   tien_thua?: TienThua | null;
+  /** Chỉ định ĐÃ XOÁ (chưa hoàn tác) — 06/10/2026: vẫn thấy, gạch ngang. */
+  da_bo_chi_dinh?: DaBoChiDinh[];
+  /** Máy chủ: lượt đang chờ thu ở quầy dịch vụ (`_xep_hang_cho_thu`). */
+  cho_thu?: boolean;
+}
+
+/** Một chỉ định đã xoá — câu "ai đã xoá" do máy chủ viết. */
+interface DaBoChiDinh {
+  so_id: string;
+  order_id: string | null;
+  nhom_nhan: string;
+  ten: string | null;
+  lan: number | null;
+  gia: number | null;
+  cau: string;
+  luc: string | null;
+  ly_do: string | null;
+  da_thu: number;
+  tien_thua: number;
 }
 
 interface TienThua {
   tong: number;
   dong: {
-    order_id: string;
+    order_id: string | null;
+    line_id?: string;
     ten: string | null;
     so_tien: number;
-    loai: "BO_CHI_DINH" | "KHONG_LAM";
+    loai: "BO_CHI_DINH" | "KHONG_LAM" | "BO_DICH_VU_KHAM";
     ly_do: string | null;
   }[];
 }
@@ -251,7 +274,19 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
   // xếp phòng (dây H4) ngay sau khi thu — màn vẫn hiện "chưa xếp phòng" với số
   // phiên bản cũ, bấm "Xếp phòng" thì bị báo "vừa được điều phối bởi người khác".
   useNgheBang(
-    ["service_order", "visit", "queue_entry", "payment", "payment_cycle", "prescription", "luot_vat_tu"],
+    [
+      "service_order",
+      "visit",
+      "queue_entry",
+      "payment",
+      "payment_cycle",
+      "prescription",
+      "luot_vat_tu",
+      // Sổ sửa chỉ định: xoá / hoàn tác → dòng "đã xoá" đổi ngay. Phí khám
+      // thêm/bỏ cũng tới qua đây (trigger `trg_so_sua_phi_kham` ghi sổ) —
+      // `luot_phi_kham` không có trigger báo tin nên nghe thẳng nó là vô ích.
+      "so_sua_chi_dinh",
+    ],
     () => void tai(),
   );
 
@@ -467,7 +502,15 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
   const conCho = ds.filter(
     (l) =>
       (quay !== "thuoc" &&
-        ((l.services.length > 0 && !daThuCua(l.visit_id, "dich_vu")) || choQuyet(l))) ||
+        ((l.services.length > 0 && !daThuCua(l.visit_id, "dich_vu")) ||
+          choQuyet(l) ||
+          // Đã thu đủ nhưng còn TIỀN THỪA (bỏ chỉ định sau khi thu — Khối 2,
+          // 06/10/2026): máy chủ xếp lượt vào hàng chờ xử lý (`ds_cho_thu`);
+          // thiếu vế này thì khối "Tiền thừa" không bao giờ hiện ở quầy.
+          (l.tien_thua?.tong ?? 0) > 0 ||
+          // Máy chủ nói lượt còn khoản chờ thu (vd CHỈ có dòng trả trước liệu
+          // trình, 08/10/2026 — không có dịch vụ nào trong `services`).
+          Boolean(l.cho_thu))) ||
       (quay !== "dich_vu" && l.drugs.length > 0 && !daThuCua(l.visit_id, "thuoc")),
   );
 
@@ -659,6 +702,11 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
                 }
               />
             ) : null}
+            {/* LIỆU TRÌNH (08/10/2026): trả trước … buổi / trả hết → dòng vào hoá
+                đơn đang thu (máy chủ tính tối đa, tiền). */}
+            {quay !== "thuoc" && !daThuCua(l.visit_id, "dich_vu") ? (
+              <LieuTrinhQuay visitId={l.visit_id} reloadToken={l.quay_thu?.revision} onDoi={() => void tai()} />
+            ) : null}
             {quay !== "thuoc" &&
             l.quay_thu &&
             !daThuCua(l.visit_id, "dich_vu") &&
@@ -713,7 +761,11 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
 
             {quay !== "thuoc" && l.lam_truoc?.dich_vu?.length ? <DichVuLamTruocKhoi ds={l.lam_truoc.dich_vu} /> : null}
 
-            {l.tien_thua && l.tien_thua.tong > 0 ? <TienThuaKhoi tt={l.tien_thua} /> : null}
+            {l.tien_thua && l.tien_thua.tong > 0 ? (
+              <TienThuaKhoi tt={l.tien_thua} visitId={l.visit_id} onDoi={() => void tai()} />
+            ) : null}
+
+            {quay !== "thuoc" && l.da_bo_chi_dinh?.length ? <DaBoChiDinhKhoi ds={l.da_bo_chi_dinh} /> : null}
 
             {quay !== "thuoc" ? (
               <XepPhongDaThu
@@ -800,7 +852,37 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
  *  nay đã bỏ / không làm. Quầy KHÔNG tự trả: hoàn cho khách (Hoàn tiền / Huỷ
  *  phiếu ở tab "Đã thanh toán hôm nay") hoặc trừ vào dịch vụ khác khi thu. Số
  *  tiền máy chủ tính, màn chỉ vẽ. */
-function TienThuaKhoi({ tt }: { tt: TienThua }) {
+function TienThuaKhoi({
+  tt,
+  visitId,
+  onDoi,
+}: {
+  tt: TienThua;
+  visitId: string;
+  onDoi: () => void;
+}) {
+  const [dang, setDang] = useState(false);
+  const [loi, setLoi] = useState<string | null>(null);
+  // HOÀN TIỀN THỪA (06/10/2026, E2b): máy hoàn ĐÚNG số còn thừa (tiền mặt) —
+  // không gõ số. Ai có lego Thu tiền dịch vụ; máy chủ kiểm lại.
+  const hoan = async () => {
+    setDang(true);
+    setLoi(null);
+    try {
+      const r = await fetch("/api/reception/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hanh_dong: "hoan_tien_thua", visit_id: visitId }),
+      });
+      const d = (await r.json().catch(() => null)) as { ok?: boolean } | null;
+      if (!r.ok || !d?.ok) setLoi(loiDocDuoc(d, `Chưa hoàn được (HTTP ${r.status}).`));
+      else onDoi();
+    } catch {
+      setLoi("Mất kết nối — chưa hoàn.");
+    } finally {
+      setDang(false);
+    }
+  };
   return (
     <div className="border-b border-line bg-warning-bg px-4 py-3">
       <p className="text-body font-semibold text-warning">
@@ -808,19 +890,78 @@ function TienThuaKhoi({ tt }: { tt: TienThua }) {
       </p>
       <ul className="mt-1 divide-y divide-line">
         {tt.dong.map((d) => (
-          <li key={d.order_id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+          <li
+            key={d.order_id ?? d.line_id ?? d.ten ?? ""}
+            className="flex flex-wrap items-center justify-between gap-2 py-1.5"
+          >
             <span className="flex min-w-0 flex-wrap items-center gap-2 text-body text-ink">
               {d.ten ?? "—"}
-              <Chip tone="warning">{d.loai === "BO_CHI_DINH" ? "Đã bỏ chỉ định" : "Không làm"}</Chip>
+              <Chip tone="warning">
+                {d.loai === "BO_CHI_DINH"
+                  ? "Đã bỏ chỉ định"
+                  : d.loai === "BO_DICH_VU_KHAM"
+                    ? "Đã bỏ dịch vụ khám"
+                    : "Không làm"}
+              </Chip>
               {d.ly_do ? <span className="text-meta text-ink-muted">{d.ly_do}</span> : null}
             </span>
             <span className="shrink-0 text-body tabular-nums text-ink">{tien(d.so_tien)}</span>
           </li>
         ))}
       </ul>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="primary" disabled={dang} onClick={() => void hoan()}>
+          {dang ? "Đang hoàn…" : `Hoàn tiền thừa ${tien(tt.tong)} (tiền mặt)`}
+        </Button>
+        {loi ? (
+          <span role="alert" className="text-meta text-danger">
+            {loi}
+          </span>
+        ) : null}
+      </div>
       <p className="mt-1 text-meta text-ink-muted">
-        Hoàn tiền / huỷ phiếu thu: tab “Đã thanh toán hôm nay”. Khách đổi sang dịch vụ khác thì
-        trừ khoản này khi thu dịch vụ mới.
+        Máy hoàn đúng số còn thừa của từng dòng. Hoàn chuyển khoản: tab “Đã thanh toán hôm nay”.
+        Khách không lấy lại: lúc check-out chọn “Giữ lại” và ghi lý do. Máy không tự trừ tiền
+        thừa vào dịch vụ khác — thu dịch vụ mới đủ số, rồi hoàn khoản thừa.
+      </p>
+    </div>
+  );
+}
+
+/** Chỉ định đã xoá (06/10/2026 — Tuyền: "không biến mất im lặng"): gạch
+ *  ngang, lần mấy, ai xoá + lúc nào, đã thu chưa. Máy chủ viết câu, màn chỉ vẽ. */
+function DaBoChiDinhKhoi({ ds }: { ds: DaBoChiDinh[] }) {
+  return (
+    <div className="border-b border-line px-4 py-3">
+      <p className="text-label font-semibold uppercase text-ink-muted">Chỉ định đã xoá</p>
+      <ul className="mt-1 divide-y divide-line">
+        {ds.map((d) => (
+          <li key={d.so_id} className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-1.5">
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="text-body text-ink-faint line-through">{d.ten ?? "—"}</span>
+                {d.lan ? <Chip tone="neutral">Lần {d.lan}</Chip> : null}
+                <Chip tone="danger">Đã xoá</Chip>
+              </span>
+              <span className="block text-meta text-ink-muted">
+                {d.cau}
+                {gio(d.luc) ? ` · ${gio(d.luc)}` : ""}
+                {d.ly_do ? ` · Lý do: ${d.ly_do}` : ""}
+              </span>
+            </span>
+            <span className="shrink-0 text-right text-meta tabular-nums text-ink-muted">
+              {d.da_thu > 0
+                ? `đã thu ${tien(d.da_thu)} → tiền thừa ${tien(d.tien_thua)}`
+                : d.gia != null
+                  ? `${tien(d.gia)} · không thu`
+                  : "không thu"}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-1 text-meta text-ink-muted">
+        Có vật tư mua thêm đi kèm dịch vụ đã xoá thì kiểm lại ở khối “Mua thêm vật tư” — máy
+        không tự bỏ vật tư.
       </p>
     </div>
   );

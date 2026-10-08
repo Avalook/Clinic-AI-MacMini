@@ -35,6 +35,8 @@ import asyncpg
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.danh_sach_khach_cskh import COT_KENH_DOI_HUY
+from clinicai.services.lich_su_luot import LOAI_DU_LIEU_SQL
+from clinicai.services.nhan_luot import doc_nhan_luot, tra_nhan
 from clinicai.services.thu_ky_bac_si import khach_duoc_xem
 
 #: Số hồ sơ một trang — cùng cỡ với Quản lý khách hàng (KHACH_MOT_TRANG).
@@ -191,16 +193,20 @@ SELECT {_COT_HO_SO}
 """
 )
 
-_LUOT_SQL = """
+# `visit_id` + `loai_du_lieu` (07/10/2026, T8): bấm một lượt mở đúng khung đọc
+# — phiếu v5 → hồ sơ kiểu Bàn khám; đời cũ / Notion / chưa phiếu → khung cũ.
+_LUOT_SQL = f"""
 SELECT a.id::text AS id, a.clinic_patient_id::text AS clinic_patient_id,
        a.status, a.queue_number, a.slot_start, a.booking_channel,
        st.name AS service_name, d.full_name AS doctor_name,
-       v.closed_at
+       v.closed_at, v.visit_id::text AS visit_id, v.loai_du_lieu
   FROM appointment a
   LEFT JOIN service_type st ON st.id = a.service_type_id
   LEFT JOIN staff d ON d.id = a.doctor_id
   LEFT JOIN LATERAL (
-      SELECT vi.closed_at FROM visit vi
+      SELECT vi.closed_at, vi.visit_id,
+             {LOAI_DU_LIEU_SQL.format(v="vi")} AS loai_du_lieu
+        FROM visit vi
        WHERE vi.clinic_id = a.clinic_id AND vi.appointment_id = a.id
        ORDER BY vi.checked_in_at DESC NULLS LAST
        LIMIT 1
@@ -346,11 +352,17 @@ class DanhSachBenhNhanService:
                 if can_luot
                 else []
             )
+            # "Lượt khám n" / "Buổi k/N" (08/10/2026) — đếm trên MỌI lượt của
+            # khách theo thời gian, không theo chỉ số mảng ở màn.
+            nhan = await doc_nhan_luot(conn, identity.clinic_id, can_luot)
         cac_luot = [
             {
                 **dict(r),
                 "slot_start": r["slot_start"].isoformat(),
                 "closed_at": r["closed_at"].isoformat() if r["closed_at"] else None,
+                "nhan_luot": tra_nhan(
+                    nhan, visit_id=r.get("visit_id"), appointment_id=r.get("id")
+                ),
             }
             for r in luot
         ]

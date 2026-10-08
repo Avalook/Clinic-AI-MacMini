@@ -1,6 +1,6 @@
 export interface DongCoLuaChon {
   id: string;
-  loai: "kham" | "chi_dinh" | "phu_thu" | "vat_tu";
+  loai: "kham" | "chi_dinh" | "phu_thu" | "vat_tu" | "lieu_trinh";
   order_id?: string | null;
   gia: number | null;
   chon: boolean;

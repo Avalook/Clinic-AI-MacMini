@@ -15,6 +15,7 @@ một lượt luôn nối tiếp nhau.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -29,6 +30,7 @@ from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.audit import record_event
 from clinicai.services.bac_si_ky import sql_join_bac_si_chi_dinh
 from clinicai.services.bill_service import THU_CU_KHONG_TRUY_DUOC_SQL
+from clinicai.services.day_noi import doc_day
 from clinicai.services.lam_them_tai_quay_service import nhan_lam_them
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
@@ -162,15 +164,20 @@ class OrderFacts:
     bat_buoc: bool = False
 
 
-def lock_of(o: OrderFacts) -> str | None:
-    """Mã khoá sửa lựa chọn của một chỉ định, hoặc None nếu còn quyết được."""
+def lock_of(o: OrderFacts, tai_phong: bool = False) -> str | None:
+    """Mã khoá sửa lựa chọn của một chỉ định, hoặc None nếu còn quyết được.
+
+    ``tai_phong`` = dây Nhận tại phòng BẬT (07/10/2026): phòng nhận khách được
+    TRƯỚC khi khách chốt ở quầy, nên đã vào phòng KHÔNG khoá lựa chọn — quầy bỏ
+    dịch vụ thì khách tự rời hàng phòng (``nhan_tai_phong.nha_khi_bo_chon``)."""
     if (o.execution_status not in (None, PENDING)) or (
         o.exec_status in _LEGACY_EXECUTION_LOCK
     ):
         return "SELECTION_EXECUTION_LOCKED"
     # Dòng cũ đã "assigned" cũng là đã xếp phòng: Selection không tự tháo (§8).
-    if o.routing_status in ("ASSIGNED", "REASSIGNMENT_REQUIRED") or (
-        o.exec_status == "assigned"
+    if not tai_phong and (
+        o.routing_status in ("ASSIGNED", "REASSIGNMENT_REQUIRED")
+        or o.exec_status == "assigned"
     ):
         return "SELECTION_ROUTING_LOCKED"
     if o.financially_committed:
@@ -178,9 +185,16 @@ def lock_of(o: OrderFacts) -> str | None:
     return None
 
 
-def decision_ids(orders: list[OrderFacts]) -> set[str]:
+def decision_ids(orders: list[OrderFacts], tai_phong: bool = False) -> set[str]:
     """Chỉ định còn ở giai đoạn khách quyết (§8). Nháp không phải chỉ định."""
-    return {o.id for o in orders if o.exec_status == "authorized" and not lock_of(o)}
+    duyet = {"authorized", "assigned"} if tai_phong else {"authorized"}
+    return {
+        o.id for o in orders if o.exec_status in duyet and not lock_of(o, tai_phong)
+    }
+
+
+async def dang_nhan_tai_phong(conn: asyncpg.Connection, clinic_id: str) -> bool:
+    return bool(await doc_day(conn, clinic_id, "nhan_tai_phong"))
 
 
 _LOCK_MESSAGES = {
@@ -193,7 +207,10 @@ _LOCK_MESSAGES = {
 
 
 def classify(
-    inp: SelectionInput, orders: list[OrderFacts], allocation_unknown: bool
+    inp: SelectionInput,
+    orders: list[OrderFacts],
+    allocation_unknown: bool,
+    tai_phong: bool = False,
 ) -> None:
     """Ném đúng một lỗi ổn định nếu lần xác nhận này không được phép.
 
@@ -201,7 +218,7 @@ def classify(
     VÌ SAO), rồi tiền cũ không truy được tới chỉ định, rồi tập đã đổi.
     """
     by_id = {o.id: o for o in orders}
-    locks = [lock_of(by_id[i]) for i in inp.order_ids_seen if i in by_id]
+    locks = [lock_of(by_id[i], tai_phong) for i in inp.order_ids_seen if i in by_id]
     for code in (
         "SELECTION_EXECUTION_LOCKED",
         "SELECTION_ROUTING_LOCKED",
@@ -215,7 +232,7 @@ def classify(
             "Lượt này có lần thu dịch vụ cũ không truy được tới từng chỉ định"
             " — cần đối soát tài chính trước.",
         )
-    current = decision_ids(orders)
+    current = decision_ids(orders, tai_phong)
     if set(inp.order_ids_seen) != current:
         raise LuotKhamConflictError(
             "SELECTION_ORDER_SET_CHANGED",
@@ -298,9 +315,24 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
                 WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
                   AND pr.active AND pr."group" = 'dich_vu'
                   AND pr.billing_owner = 'EXTERNAL_PARTNER') AS doi_tac_thu,
-       (SELECT min(pr.unit_price) FROM service_price pr
-         WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
-           AND pr.active AND pr."group" = 'dich_vu') AS gia,
+       -- Buổi liệu trình (08/10/2026): đơn giá CHỐT; buổi dùng tiền trả trước = 0đ.
+       coalesce(
+           (SELECT CASE WHEN lb.tra_truoc THEN 0 ELSE lt.don_gia END
+              FROM lieu_trinh_buoi lb
+              JOIN lieu_trinh lt
+                ON lt.clinic_id = lb.clinic_id AND lt.id = lb.lieu_trinh_id
+             WHERE lb.clinic_id = o.clinic_id AND lb.service_order_id = o.id
+               AND lb.go_luc IS NULL),
+           (SELECT min(pr.unit_price) FROM service_price pr
+             WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
+               AND pr.active AND pr."group" = 'dich_vu')) AS gia,
+       (SELECT jsonb_build_object('lieu_trinh_id', lt.id, 'buoi_so', lb.buoi_so,
+                                  'so_buoi', lt.so_buoi, 'tra_truoc', lb.tra_truoc)
+          FROM lieu_trinh_buoi lb
+          JOIN lieu_trinh lt
+            ON lt.clinic_id = lb.clinic_id AND lt.id = lb.lieu_trinh_id
+         WHERE lb.clinic_id = o.clinic_id AND lb.service_order_id = o.id
+           AND lb.go_luc IS NULL) AS lieu_trinh,
        EXISTS (
            SELECT 1
              FROM payment_bill_line bl
@@ -356,6 +388,7 @@ async def cho_khach_quyet(
     pq = PhongQuay(conn, clinic_id)
 
     rows = await conn.fetch(_CHO_QUYET_SQL, clinic_id, visit_ids)
+    tai_phong = await dang_nhan_tai_phong(conn, clinic_id)
     out: dict[str, dict[str, Any]] = {}
     for r in rows:
         facts = OrderFacts(
@@ -367,7 +400,7 @@ async def cho_khach_quyet(
             version=int(r["version"]),
             financially_committed=bool(r["financially_committed"]),
         )
-        if not decision_ids([facts]):
+        if not decision_ids([facts], tai_phong):
             continue
         luot = out.setdefault(
             r["visit_id"], {"revision": int(r["revision"]), "chi_dinh": []}
@@ -391,6 +424,8 @@ async def cho_khach_quyet(
                 # không có ô chọn phòng. Máy chủ quyết, màn chỉ đọc danh sách.
                 "phong_chon_duoc": phong,
                 "can_xep_phong": bool(phong),
+                # Dây Nhận tại phòng BẬT: chọn phòng = hướng dẫn (07/10/2026).
+                "huong_dan": tai_phong,
                 # Làm thêm tại quầy (01/10/2026): không có bác sĩ chỉ định —
                 # người tick (lễ tân / người đo) đứng ở "người bấm".
                 "bac_si_chi_dinh": None
@@ -400,9 +435,17 @@ async def cho_khach_quyet(
                 "lam_them": nhan_lam_them(r["nguon_lam_them"]),
                 "lan_chi_dinh": r["lan_chi_dinh"],
                 "chi_dinh_luc": _iso(r["chi_dinh_luc"]),
+                # Chip "Buổi k/N · đã trả trước" (liệu trình, 08/10/2026).
+                "lieu_trinh": _json_hoac_none(r["lieu_trinh"]),
             }
         )
     return out
+
+
+def _json_hoac_none(v: Any) -> dict[str, Any] | None:
+    if v is None:
+        return None
+    return dict(json.loads(v) if isinstance(v, str) else v)
 
 
 async def ap_lua_chon(
@@ -448,7 +491,8 @@ async def ap_lua_chon(
         for r in await conn.fetch(_ORDERS_SQL, cid, inp.visit_id)
     ]
     unknown = bool(await conn.fetchval(_ALLOCATION_UNKNOWN_SQL, cid, inp.visit_id))
-    classify(inp, orders, unknown)
+    tai_phong = await dang_nhan_tai_phong(conn, cid)
+    classify(inp, orders, unknown, tai_phong)
     changes = plan(inp, orders)
     versions = {o.id: o.version for o in orders}
     confirmed_by = state["confirmed_by"] if state else None
@@ -489,6 +533,12 @@ async def ap_lua_chon(
                 bo_ids,
                 identity.staff_id,
             )
+            if tai_phong:
+                from clinicai.services.nhan_tai_phong import nha_khi_bo_chon
+
+                await nha_khi_bo_chon(
+                    conn, identity, vid=inp.visit_id, order_ids=bo_ids
+                )
         row = await conn.fetchrow(
             """
             INSERT INTO service_selection_state

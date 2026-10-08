@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
-import { layCoSo, layDichVu } from "../../../../lib/danh-muc";
+import { layCoSo } from "../../../../lib/danh-muc";
 import { moDuocMan, requireNavAccess, vaiLamViec } from "../../../../lib/clinic-session";
 import { getCurrentStaff } from "../../../../lib/current-staff";
 import { canWriteIntake, isNurseRole } from "../../../../lib/roles";
@@ -60,9 +60,10 @@ export default async function NewPatientPage({
   // Supabase). Phường/xã load runtime theo tỉnh (/api/wards).
   // Lưu xong về màn Tiếp đón khách (Tuyền 29/09/2026) — chỉ khi người này
   // vào được màn ấy, hỏi ĐÚNG luật cửa của trang đích (lego), không hỏi vai.
-  const [coSo, dichVu, docRes, tinh, veTiepDon] = await Promise.all([
+  // Danh sách DỊCH VỤ không nạp ở đây nữa (07/10/2026): ô chọn 4 nhóm
+  // (`_lam-viec/ChonDichVuDatLich`) tự hỏi `/api/catalog/dich-vu-dat-lich`.
+  const [coSo, docRes, tinh, veTiepDon] = await Promise.all([
     layCoSo(),
-    layDichVu(),
     listBookableDoctors(),
     fetchFromBackend<{ code: string; name: string; full_name: string }[]>(
       "/api/v1/catalog/provinces",
@@ -71,11 +72,6 @@ export default async function NewPatientPage({
   ]);
 
   const locations: Option[] = coSo.map((r) => ({ id: r.id, label: r.name }));
-  // Lọc bỏ dịch vụ rác "FREE" (option import từ Notion) khỏi dropdown đặt lịch
-  // — feedback B5#3 ("tại sao có chữ free trong dịch vụ khám").
-  const services: Option[] = dichVu
-    .filter((r) => r.name.trim().toUpperCase() !== "FREE")
-    .map((r) => ({ id: r.id, label: r.name }));
   const doctors: Option[] = docRes;
   const provinces: ProvinceOpt[] = (tinh ?? []).map((r) => ({
     code: r.code,
@@ -121,7 +117,6 @@ export default async function NewPatientPage({
         coSoMacDinhId={(await getCurrentStaff())?.primary_location_id ?? null}
         role={role}
         locations={locations}
-        services={services}
         doctors={doctors}
         provinces={provinces}
         variant={variant}

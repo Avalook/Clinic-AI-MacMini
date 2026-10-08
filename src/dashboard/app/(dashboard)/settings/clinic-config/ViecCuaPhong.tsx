@@ -12,6 +12,11 @@
 // Danh sách "chọn được" là QUYẾT ĐỊNH của máy chủ (`viec_chon_duoc`); màn chỉ vẽ
 // và lọc theo chữ gõ. Chip việc quầy đã gắn (LUOTKHAM-*, THUOC-*…) vẫn hiện và
 // bỏ được, chỉ không mời thêm.
+//
+// PHÒNG CHUYÊN ★ (Tuyền chốt 07/10/2026): mỗi nhóm DỊCH VỤ của phòng có nút
+// "☆ chuyên" / "★ chuyên" — đánh dấu phòng này là phòng chuyên của nhóm ấy. Chỉ
+// để TICK SẴN khi phòng Nhận chỉ định chưa hướng dẫn và để quầy gợi ý hướng dẫn;
+// không thu hẹp phòng làm được, không ẩn khách. Máy chủ ghi nhật ký mỗi lần đổi.
 
 import { Star, X } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -22,6 +27,39 @@ import { unaccentVi } from "@/lib/validation";
 import type { ConfigRoom, ViecChonDuoc } from "./types";
 
 const O = "h-8 rounded-control border border-line bg-surface px-2 text-meta text-ink";
+
+function NutChuyen({
+  ten,
+  chuyen,
+  dangLam,
+  onDoi,
+}: {
+  ten: string;
+  chuyen: boolean;
+  dangLam: boolean;
+  onDoi: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={dangLam}
+      onClick={onDoi}
+      aria-pressed={chuyen}
+      aria-label={chuyen ? `Bỏ phòng chuyên ${ten}` : `Đánh phòng chuyên ${ten}`}
+      title={
+        chuyen
+          ? "Phòng chuyên ★ của nhóm này — bấm để bỏ"
+          : "Đánh phòng này là phòng chuyên ★ của nhóm (tick sẵn khi nhận khách, quầy gợi ý)"
+      }
+      className={`inline-flex h-7 items-center gap-0.5 rounded-full px-2 text-meta ring-1 ring-inset ${
+        chuyen ? "bg-warning-bg font-medium text-warning ring-warning" : "bg-surface text-ink-muted ring-line"
+      } hover:bg-surface-sunken`}
+    >
+      <Star className={`size-3 ${chuyen ? "fill-warning" : ""}`} aria-hidden="true" />
+      chuyên
+    </button>
+  );
+}
 
 function ChipDaGan({
   ten,
@@ -67,6 +105,7 @@ export default function ViecCuaPhong({
   dangLam,
   doiViec,
   doiDichVu,
+  doiChuyen,
 }: {
   phong: ConfigRoom;
   viec: ViecChonDuoc[];
@@ -74,6 +113,7 @@ export default function ViecCuaPhong({
   dangLam: boolean;
   doiViec: (nodes: string[]) => void;
   doiDichVu: (maDichVu: string[]) => void;
+  doiChuyen: (node: string, chuyen: boolean) => void;
 }) {
   const [mo, setMo] = useState(false);
   const [tim, setTim] = useState("");
@@ -108,13 +148,22 @@ export default function ViecCuaPhong({
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-meta text-ink-muted">Nhóm việc</span>
         {r.serves.map((c) => (
-          <ChipDaGan
-            key={c}
-            ten={tenBuoc(c)}
-            chinh={c === r.primary_node}
-            dangLam={dangLam}
-            onBo={() => doiViec(r.serves.filter((x) => x !== c))}
-          />
+          <span key={c} className="inline-flex items-center gap-0.5">
+            <ChipDaGan
+              ten={tenBuoc(c)}
+              chinh={c === r.primary_node}
+              dangLam={dangLam}
+              onBo={() => doiViec(r.serves.filter((x) => x !== c))}
+            />
+            {c.startsWith("DICHVU-") ? (
+              <NutChuyen
+                ten={tenBuoc(c)}
+                chuyen={(r.chuyen ?? []).includes(c)}
+                dangLam={dangLam}
+                onDoi={() => doiChuyen(c, !(r.chuyen ?? []).includes(c))}
+              />
+            ) : null}
+          </span>
         ))}
       </div>
       {dichVuLe.length > 0 ? (

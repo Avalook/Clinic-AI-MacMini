@@ -50,10 +50,13 @@ async def overview(
     svc = DispatchService(pool)
     return {
         "ok": True,
-        "patients": await svc.overview(clinic_id=identity.clinic_id),
-        # Chỉ phòng của CƠ SỞ người đang đứng — xem ghi chú ở _STATIONS_SQL.
+        # Chỉ lượt + phòng của CƠ SỞ người đang đứng — xem ghi chú ở
+        # _OVERVIEW_SQL / _STATIONS_SQL.
+        "patients": await svc.overview(
+            clinic_id=identity.clinic_id, location_id=identity.location_id or None
+        ),
         "rooms": await svc.stations(
-            clinic_id=identity.clinic_id, location_id=identity.location_id
+            clinic_id=identity.clinic_id, location_id=identity.location_id or None
         ),
     }
 
@@ -64,7 +67,9 @@ async def alerts(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Cảnh báo vận hành, đã xếp theo mức độ."""
-    items = await DispatchService(pool).alerts(clinic_id=identity.clinic_id)
+    items = await DispatchService(pool).alerts(
+        clinic_id=identity.clinic_id, location_id=identity.location_id or None
+    )
     return {"ok": True, "items": items}
 
 
@@ -86,7 +91,9 @@ async def history(
 ) -> dict[str, Any]:
     """Nhật ký điều phối: ai chuyển ai, từ đâu sang đâu, vì sao."""
     items = await DispatchService(pool).history(
-        clinic_id=identity.clinic_id, limit=limit
+        clinic_id=identity.clinic_id,
+        limit=limit,
+        location_id=identity.location_id or None,
     )
     return {"ok": True, "items": items}
 
@@ -104,9 +111,11 @@ async def tv_board(
     """
     svc = DispatchService(pool)
     rooms = await svc.stations(
-        clinic_id=identity.clinic_id, location_id=identity.location_id
+        clinic_id=identity.clinic_id, location_id=identity.location_id or None
     )
-    patients = await svc.overview(clinic_id=identity.clinic_id)
+    patients = await svc.overview(
+        clinic_id=identity.clinic_id, location_id=identity.location_id or None
+    )
 
     board = []
     for r in rooms:
@@ -448,6 +457,59 @@ async def checkout_huy_ghi_no(
     from clinicai.services.cong_no_service import CongNoService
 
     return await CongNoService(pool).huy(
+        identity=identity, visit_id=str(body.visit_id), ly_do=body.ly_do
+    )
+
+
+class TienThuaRequest(BaseModel):
+    visit_id: UUID
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+#: Hoàn tiền thừa = lego Thu tiền dịch vụ (Tuyền 06/10/2026, "ai có node cũng
+#: được"); lệnh tự kiểm lại trong giao dịch.
+_HOAN_TIEN_THUA_GUARD = cua_quyen("payment.service.collect")
+
+
+@router.post("/reception/checkout/hoan-tien-thua")
+async def checkout_hoan_tien_thua(
+    body: TienThuaRequest,
+    identity: StaffIdentity = Depends(_HOAN_TIEN_THUA_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """ "Đã hoàn cho khách": máy hoàn ĐÚNG phần tiền thừa còn lại (tiền mặt) của
+    lượt — chỉ định đã bỏ / không làm, dịch vụ khám đã bỏ (06/10/2026, E2)."""
+    from clinicai.services.hoan_tien_service import HoanTienService
+
+    return await HoanTienService(pool).hoan_tien_thua(
+        identity=identity, visit_id=str(body.visit_id), reason=body.ly_do
+    )
+
+
+@router.post("/reception/checkout/giu-lai-tien-thua")
+async def checkout_giu_lai_tien_thua(
+    body: TienThuaRequest,
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Khách không lấy lại tiền thừa — ghi lý do (bắt buộc), ai, lúc nào."""
+    from clinicai.services.tien_thua_service import TienThuaService
+
+    return await TienThuaService(pool).giu_lai(
+        identity=identity, visit_id=str(body.visit_id), ly_do=body.ly_do
+    )
+
+
+@router.post("/reception/checkout/huy-giu-lai-tien-thua")
+async def checkout_huy_giu_lai_tien_thua(
+    body: TienThuaRequest,
+    identity: StaffIdentity = Depends(_RECEPTION_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tác "giữ lại tiền thừa" — chỉ khi khách chưa check-out."""
+    from clinicai.services.tien_thua_service import TienThuaService
+
+    return await TienThuaService(pool).huy_giu_lai(
         identity=identity, visit_id=str(body.visit_id), ly_do=body.ly_do
     )
 

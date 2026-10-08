@@ -39,6 +39,7 @@ from clinicai.services.cashier_board_service import (
     hoan_tac_cua,
     quyen_thu_theo_loai,
 )
+from clinicai.services.day_noi import doc_day
 from clinicai.services.doi_hinh_thuc_service import gan_vao_lich_su, trang_thai_doi
 from clinicai.services.lan_bac_si import ten_bac_si
 from clinicai.services.phan_thu import (
@@ -104,6 +105,7 @@ class PhongQuay:
         from clinicai.services.service_routing_service import (
             co_so_cua_luot,
             eligible_rooms,
+            phong_chuyen_duy_nhat,
             rank_rooms,
         )
 
@@ -137,6 +139,7 @@ class PhongQuay:
                 [u["room_id"] for u in ung_vien],
                 tru_luot=visit_id,
             )
+            goi_y = phong_chuyen_duy_nhat(ung_vien)
             self._nho[khoa] = xep_vang_nhat(
                 [
                     {
@@ -144,6 +147,10 @@ class PhongQuay:
                         "ten": self._ten.get(u["room_id"], "Phòng"),
                         "dang_cho": u["queue_load"],
                         "bac_si": ds if can_chon_bac_si(ds) else [],
+                        # Phòng chuyên ★ (07/10/2026); ``goi_y`` = phòng chuyên
+                        # DUY NHẤT — ô hướng dẫn gợi ý, không tự lưu.
+                        "chuyen": bool(u.get("chuyen")),
+                        "goi_y": u["room_id"] == goi_y,
                     }
                     for u in ung_vien
                     for ds in [bac_si.get(u["room_id"], [])]
@@ -252,6 +259,27 @@ def dung_hoa_don_quay(
             }
         )
 
+    # Trả trước k buổi liệu trình (08/10/2026): thêm / bỏ ở khối "Liệu trình"
+    # của quầy (`/lieu-trinh/quay`); trong hoá đơn là dòng khoá như vật tư.
+    lieu_trinh_quay: list[dict[str, Any]] = []
+    for d in hd.get("dong") or []:
+        if d.get("source_type") != "lieu_trinh":
+            continue
+        lieu_trinh_quay.append(
+            {
+                "id": str(d["source_id"]),
+                "loai": "lieu_trinh",
+                "lieu_trinh_id": d.get("ma"),
+                "ten": d.get("ten"),
+                "so_buoi": int(Decimal(str(d.get("so_luong") or 1))),
+                "gia": _so(d.get("thanh_tien")),
+                "van_de": d.get("van_de"),
+                "chon": True,
+                "sua_duoc": False,
+                "trong_lua_chon": False,
+            }
+        )
+
     for c in chi_dinh:
         cid = str(c["id"])
         chon_c = c.get("selection_status") != "NOT_SELECTED"
@@ -271,6 +299,9 @@ def dung_hoa_don_quay(
             "trong_lua_chon": True,
             "bat_buoc": bool(c.get("bat_buoc")),
             "mang_sang": bool(c.get("mang_sang")),
+            # Lần chỉ định (06/10/2026) — quầy ghi "Lần 1 / Lần 2"; NULL = mang
+            # sang / làm thêm tại quầy (không thuộc lần bác sĩ chốt).
+            "lan": c.get("lan_chi_dinh"),
             # Làm thêm tại quầy (01/10/2026): "Làm thêm tại quầy tiếp đón".
             "lam_them": c.get("lam_them"),
             "doi_tac_lam": bool(c.get("doi_tac")),
@@ -278,6 +309,10 @@ def dung_hoa_don_quay(
             "phong_du_kien_id": c.get("phong_du_kien_id"),
             "bac_si_lam_id": c.get("bac_si_lam_id"),
             "can_xep_phong": bool(c.get("phong_chon_duoc")),
+            # Dây Nhận tại phòng BẬT: ô phòng là hướng dẫn (không bắt buộc).
+            "huong_dan": bool(c.get("huong_dan")),
+            # Buổi liệu trình: {lieu_trinh_id, buoi_so, so_buoi, tra_truoc}.
+            "lieu_trinh": c.get("lieu_trinh"),
         }
         if la_doi_tac:
             muc["doi_tac_da_thu"] = (dong or {}).get("doi_tac_da_thu")
@@ -289,7 +324,10 @@ def dung_hoa_don_quay(
     # mà chưa thu…): vẫn là khoản phải thu — hiện, tick khoá.
     for d in hd.get("dong") or []:
         sid = str(d["source_id"])
-        if d.get("source_type") in ("exam", "phu_thu", "vat_tu") or sid in theo_id:
+        if (
+            d.get("source_type") in ("exam", "phu_thu", "vat_tu", "lieu_trinh")
+            or sid in theo_id
+        ):
             continue
         phong_kham.append(
             {
@@ -305,6 +343,7 @@ def dung_hoa_don_quay(
         )
     phong_kham.extend(phu_thu_quay)
     phong_kham.extend(vat_tu_quay)
+    phong_kham.extend(lieu_trinh_quay)
     for d in hd.get("dong_doi_tac") or []:
         sid = str(d["source_id"])
         if sid in theo_id:
@@ -761,8 +800,15 @@ SELECT v.visit_id::text AS visit_id, p.full_name AS ten, p.patient_code AS ma_bn
 _DONG_SQL = """
 SELECT bl.id::text AS id, bl.payment_cycle_id::text AS cycle_id, bl.source_id,
        bl.source_type, bl.name_snapshot AS ten, bl.quantity AS so_luong,
-       bl.line_total AS thanh_tien
+       bl.line_total AS thanh_tien,
+       -- Phiếu ghi "Lần k" của chỉ định và "đã bỏ" khi in lại sau khi bỏ
+       -- (06/10/2026, E3) — dòng vẫn in (tiền đã thu là sự thật).
+       o.lan_chi_dinh AS lan,
+       coalesce(o.exec_status IN ('cancelled', 'not_performed'), false) AS da_bo
   FROM payment_bill_line bl
+  LEFT JOIN service_order o
+    ON bl.source_type = 'service_order' AND o.clinic_id = bl.clinic_id
+   AND o.id::text = bl.source_id
  WHERE bl.clinic_id = $1::uuid AND bl.payment_cycle_id = ANY($2::uuid[])
    AND bl.billing_owner = 'CLINIC'
  ORDER BY bl.source_type = 'exam' DESC, bl.created_at, bl.id
@@ -833,11 +879,15 @@ def _phong_cua_dong(
 
 
 #: Đầu phiếu: tên phòng khám + cơ sở + địa chỉ (cơ sở của lượt, thiếu địa chỉ
-#: thì rơi về địa chỉ phòng khám) — như đầu phiếu khám.
+#: thì rơi về địa chỉ phòng khám) — như đầu phiếu khám. Cơ sở có `ten_in` (biển
+#: pháp nhân riêng, vd Hào Nam "4WOMEN") thì in tên ấy; SĐT cơ sở nối sau.
 _DAU_PHIEU_SQL = """
-SELECT ck.name AS phong_kham, lv.name AS co_so,
-       coalesce(nullif(btrim(lv.address), ''),
-                nullif(btrim(la.address), ''), ck.address) AS dia_chi
+SELECT coalesce(nullif(btrim(lv.ten_in), ''), ck.name) AS phong_kham,
+       lv.name AS co_so,
+       concat_ws(' · ',
+                 coalesce(nullif(btrim(lv.address), ''),
+                          nullif(btrim(la.address), ''), ck.address),
+                 nullif(btrim(lv.phone), '')) AS dia_chi
   FROM visit v
   JOIN clinic ck ON ck.id = v.clinic_id
   LEFT JOIN appointment a
@@ -867,6 +917,49 @@ SELECT o.id::text AS source_id, 'service_order' AS source_type,
                                                  'NOT_PERFORMED')
  ORDER BY o.created_at, o.id
 """
+
+
+async def _phong_lam_duoc_cua_luot(
+    conn: asyncpg.Connection, cid: str, visit_id: str
+) -> dict[str, list[dict[str, Any]]]:
+    """Chỉ định → các phòng đang nhận khách làm được nó, cùng cơ sở (tên + ★)."""
+    out: dict[str, list[dict[str, Any]]] = {}
+    for r in await conn.fetch(
+        """
+        SELECT o.id::text AS id, r.name AS ten,
+               phong_chuyen(r.clinic_id, r.id, o.node_code, o.service_code)
+                   AS chuyen
+          FROM service_order o
+          JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+          LEFT JOIN appointment a
+            ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+          JOIN clinic_room r
+            ON r.clinic_id = o.clinic_id AND r.is_active AND r.accepting
+           AND NOT r.la_doi_tac
+           AND phong_lam_duoc(r.clinic_id, r.id, o.node_code, o.service_code)
+           AND (r.location_id IS NULL
+                OR coalesce(v.location_id, a.location_id) IS NULL
+                OR r.location_id = coalesce(v.location_id, a.location_id))
+         WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+         ORDER BY r.sort, r.code
+        """,
+        cid,
+        visit_id,
+    ):
+        out.setdefault(r["id"], []).append(
+            {"id": r["id"], "ten": r["ten"], "chuyen": bool(r["chuyen"])}
+        )
+    return out
+
+
+def phong_in_huong_dan(phong: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Phiếu hướng dẫn, chỉ định CHƯA chọn hướng dẫn (dây Nhận tại phòng bật)
+    — HÀM THUẦN: đúng MỘT phòng chuyên ★ thì in tên phòng ấy (07/10/2026);
+    không thì in "các phòng làm được" như trước."""
+    chuyen = [str(p["ten"]) for p in phong if p.get("chuyen")]
+    if len(chuyen) == 1:
+        return {"phong_chuyen": chuyen[0], "phong_lam_duoc": []}
+    return {"phong_chuyen": None, "phong_lam_duoc": [str(p["ten"]) for p in phong]}
 
 
 def dong_huong_dan(
@@ -929,6 +1022,7 @@ class QuayThuService:
         tim_s = doc_tim(tim)
         ht = doc_hinh_thuc(hinh_thuc)
         cid = identity.clinic_id
+        co_so = identity.location_id or None
         async with self._pool.acquire() as conn:
             lan_thu = await conn.fetch(
                 """
@@ -947,10 +1041,18 @@ class QuayThuService:
                   LEFT JOIN staff cb ON cb.id = pc.created_by
                   LEFT JOIN staff xn ON xn.id = pc.confirmed_by
                   LEFT JOIN staff dg ON dg.id = pc.closed_by
+                  LEFT JOIN visit v
+                    ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id
+                  LEFT JOIN appointment ah
+                    ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
                  WHERE pc.clinic_id = $1::uuid AND pc.kind = $4
                    AND pc.paid_at IS NOT NULL
                    AND (pc.paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                        BETWEEN $2 AND $3
+                   -- Chỉ sổ của cơ sở đang đứng ($5 NULL = không lọc).
+                   AND coalesce(v.location_id, ah.location_id, $5::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($5::uuid, v.location_id, ah.location_id)
                  ORDER BY pc.paid_at
                  LIMIT 3000
                 """,
@@ -958,6 +1060,7 @@ class QuayThuService:
                 a,
                 b,
                 loai,
+                co_so,
             )
             hoan = await conn.fetch(
                 """
@@ -973,10 +1076,17 @@ class QuayThuService:
                     ON rl.refund_id = r.refund_id AND rl.clinic_id = r.clinic_id
                   LEFT JOIN payment_bill_line bl
                     ON bl.id = rl.payment_bill_line_id AND bl.clinic_id = rl.clinic_id
+                  LEFT JOIN visit v
+                    ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
+                  LEFT JOIN appointment ah
+                    ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
                  WHERE r.clinic_id = $1::uuid AND r.kind = $4
                    AND r.status IN ('PENDING', 'COMPLETED')
                    AND (r.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                        BETWEEN $2 AND $3
+                   AND coalesce(v.location_id, ah.location_id, $5::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($5::uuid, v.location_id, ah.location_id)
                  GROUP BY r.refund_id, xn.full_name, tao.full_name
                  ORDER BY r.created_at
                  LIMIT 3000
@@ -985,6 +1095,7 @@ class QuayThuService:
                 a,
                 b,
                 loai,
+                co_so,
             )
             canh_bao_neu_day(
                 "quay_thu.lich_su.lan_thu", len(lan_thu), 3000, tu=a, den=b
@@ -1049,7 +1160,10 @@ class QuayThuService:
                         )
             # Huỷ phiếu: cùng quyền thu đúng loại tiền (PaymentService.void_payment).
             co_huy = await can(conn, identity, QUYEN_THU[0 if loai == "dich_vu" else 1])
-        from clinicai.services.hoan_tien_service import co_quyen_hoan
+            # Hoàn tiền theo lego thu đúng loại tiền (Tuyền 06/10/2026, thay HOLD J4).
+            from clinicai.services.hoan_tien_service import co_quyen_hoan
+
+            quyen_hoan = await co_quyen_hoan(conn, identity, loai)
 
         return {
             "tu": a.isoformat(),
@@ -1057,7 +1171,7 @@ class QuayThuService:
             "tong": tong_lich_su(loc),
             "nguoi_thu": ds_nguoi,
             "khach": loc,
-            "co_quyen_hoan": co_quyen_hoan(identity),
+            "co_quyen_hoan": quyen_hoan,
             "co_quyen_huy": co_huy,
         }
 
@@ -1150,9 +1264,21 @@ class QuayThuService:
             dong = dong_huong_dan(
                 await conn.fetch(_HUONG_DAN_SQL, cid, visit_id), phong
             )
+            # Dây Nhận tại phòng BẬT (07/10/2026): chưa hướng dẫn phòng thì in
+            # "các phòng làm được" — khách đến phòng nào, phòng ấy nhận.
+            huong_dan = bool(await doc_day(conn, cid, "nhan_tai_phong"))
+            if huong_dan:
+                lam_duoc = await _phong_lam_duoc_cua_luot(conn, cid, visit_id)
+                for d in dong:
+                    if d.get("phong") is None and d.get("order_id"):
+                        d.update(
+                            phong_in_huong_dan(lam_duoc.get(str(d["order_id"]), []))
+                        )
         return {
             "id": visit_id,
             "loai": "huong_dan",
+            # Dây Nhận tại phòng bật: phòng in ra là HƯỚNG DẪN (không bắt buộc).
+            "huong_dan_phong": huong_dan,
             "ma": "",
             "ma_phieu_goc": None,
             "kind": "dich_vu",
@@ -1278,7 +1404,12 @@ class QuayThuService:
                         "ten": r["ten"],
                         "so_luong": float(r["so_luong"]),
                         "thanh_tien": _so(r["thanh_tien"]),
-                        **_phong_cua_dong(r, phong),
+                        "lan": r["lan"],
+                        "da_bo": bool(r["da_bo"]),
+                        # Dòng "‹dịch vụ› — trả trước k buổi" in kèm "(liệu
+                        # trình)"; số buổi đã nằm trong tên.
+                        "lieu_trinh": r["source_type"] == "lieu_trinh",
+                        **({} if r["da_bo"] else _phong_cua_dong(r, phong)),
                     }
                     for r in await conn.fetch(_DONG_SQL, cid, [id_])
                 ]

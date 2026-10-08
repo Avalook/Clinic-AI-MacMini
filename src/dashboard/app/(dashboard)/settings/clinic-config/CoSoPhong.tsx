@@ -282,6 +282,8 @@ function DongPhong({
   const doiViec = (next: string[]) => void lam(() => goi("PUT", "room-nodes", { room_id: r.room_id, node_codes: next }));
   const doiDichVu = (next: string[]) =>
     void lam(() => goi("PUT", "room-services", { room_id: r.room_id, service_codes: next }));
+  const doiChuyen = (node: string, chuyen: boolean) =>
+    void lam(() => goi("PUT", "room-node-chuyen", { room_id: r.room_id, node_code: node, chuyen }));
   const homNay = todayVn();
   const nguoiHomNay = new Set(
     viTri.flatMap((v) => v.ca.filter((c) => c.ngay === homNay).map((c) => c.staff_id ?? c.ten)),
@@ -355,6 +357,7 @@ function DongPhong({
             dangLam={dangLam}
             doiViec={doiViec}
             doiDichVu={doiDichVu}
+            doiChuyen={doiChuyen}
           />
 
           <LichPhong

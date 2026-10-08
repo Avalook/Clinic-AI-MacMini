@@ -47,6 +47,7 @@ import {
 import { khoang } from "@/lib/hanh-trinh";
 
 import { useNgheBang } from "../dung-nghe-bang";
+import { DanhSachSoSua } from "./SoSuaChiDinh";
 import { docBang } from "./api";
 
 const BANG_NGHE = [
@@ -56,6 +57,8 @@ const BANG_NGHE = [
   "payment",
   "visit",
   "consultation",
+  // Sổ thêm / bỏ / hoàn tác chỉ định (Khối 2, 06/10/2026).
+  "so_sua_chi_dinh",
 ] as const;
 
 const MAU_DOAN: Record<TrangThaiBuoc, string> = {
@@ -219,10 +222,12 @@ function Buoc({
   const chuaToi = b.trang_thai === "chua" || b.trang_thai === "khong";
   // BƯỚC CHƯA XẢY RA (29/09/2026): chữ giữ chỗ xám "dự kiến", KHÔNG giờ.
   const duKien = b.du_kien === true;
+  // Khám bác sĩ TUỲ CHỌN (lượt Điều trị / Khác chưa qua bàn khám, 07/10/2026).
+  const tuyChon = b.tuy_chon === true;
   const meta = [
     b.ma === "LAM_DV" ? null : b.noi ? (b.noi_du_kien && !duKien ? `${b.noi} (dự kiến)` : b.noi) : null,
     tenAi(b),
-    duKien ? null : b.trang_thai === "khong" ? "không làm" : thoiGian(b, bayGio, dung) || null,
+    duKien || tuyChon ? null : b.trang_thai === "khong" ? "không làm" : thoiGian(b, bayGio, dung) || null,
   ].filter(Boolean);
   const ghi = b.ma === "KHAM" ? ghiChuKham(b) : b.ghi_chu;
   // Sinh hiệu đo lại — dòng RIÊNG, không gộp vào thời gian làm.
@@ -239,7 +244,7 @@ function Buoc({
         <p className={`flex flex-wrap items-center gap-2 ${chuaToi ? "text-body font-medium text-ink-muted" : "text-emph font-semibold text-ink"}`}>
           {b.ten}
           {b.dich_vu && b.dich_vu.length > 0 ? <Chip tone="run">{demThe(b.dich_vu)}</Chip> : null}
-          {duKien ? <Chip tone="neutral">dự kiến</Chip> : null}
+          {tuyChon ? <Chip tone="neutral">tuỳ chọn</Chip> : duKien ? <Chip tone="neutral">dự kiến</Chip> : null}
           {b.kham_lai ? <Chip tone="warning">đang khám lại</Chip> : null}
         </p>
         {meta.length > 0 ? (
@@ -342,6 +347,16 @@ export function KhungHanhTrinh({ ht, bayGio }: { ht: HanhTrinhKhach; bayGio: num
           />
         ))}
       </ol>
+      {ht.so_sua_chi_dinh && ht.so_sua_chi_dinh.dong.length > 0 ? (
+        // Khối 2 (06/10/2026): ai thêm / bỏ / hoàn tác chỉ định — chỉ xem ở
+        // đây; nút Hoàn tác nằm ở thông báo bác sĩ chính và Lịch sử sửa.
+        <section aria-label="Lịch sử sửa chỉ định" className="space-y-1 border-t border-hairline p-4">
+          <h3 className="text-label font-semibold uppercase tracking-wide text-ink-muted">
+            Lịch sử sửa chỉ định
+          </h3>
+          <DanhSachSoSua so={ht.so_sua_chi_dinh} />
+        </section>
+      ) : null}
       <p className="border-t border-hairline px-4 py-2 text-meta text-ink-muted">
         Xanh lá = xong · xanh dương = đang làm · cam = đang chờ · tím = chờ kết quả đối tác
         (không giữ khách) · xám = chưa tới.

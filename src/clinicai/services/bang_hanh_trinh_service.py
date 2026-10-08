@@ -170,6 +170,11 @@ class BangHanhTrinhService:
                        AND NOT EXISTS (
                            SELECT 1 FROM lich_su_notion.luot_that t
                             WHERE t.visit_id = v.visit_id)
+                       -- Chỉ lượt của cơ sở đang đứng (08/10/2026); không biết
+                       -- cơ sở của lượt hoặc không chọn cơ sở → giữ.
+                       AND coalesce(v.location_id, a.location_id, $5::uuid)
+                           IS NOT DISTINCT FROM
+                           coalesce($5::uuid, v.location_id, a.location_id)
                      -- Khách CÒN ở phòng khám trước, người mới tới trước: có
                      -- cắt ở trần thì cắt những lượt đã về lâu nhất.
                      ORDER BY (v.closed_at IS NOT NULL), v.created_at DESC
@@ -179,6 +184,7 @@ class BangHanhTrinhService:
                     tu,
                     _TRAN_LUOT,
                     den,
+                    identity.location_id or None,
                 )
             ]
             ids = [x["visit_id"] for x in luot]

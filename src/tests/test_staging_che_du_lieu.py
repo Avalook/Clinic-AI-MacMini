@@ -346,6 +346,30 @@ async def test_chay_hai_lan_ra_cung_ket_qua(conn: asyncpg.Connection) -> None:
 
 @pytest.mark.db
 @pytest.mark.asyncio
+async def test_bang_chua_co_trong_luoc_do_thi_bo_qua(conn: asyncpg.Connection) -> None:
+    """Bản sao prod chưa có bảng của migration nhánh staging (chưa lên prod) →
+    che vẫn chạy hết; đêm 08/10 dừng ở luot_ghi_chu / form_instance_lich_su."""
+    ids = await _gieo(conn)
+    await conn.execute("DROP TABLE luot_ghi_chu, form_instance_lich_su CASCADE")
+    await _che(conn)
+    ten = await conn.fetchval(
+        "SELECT full_name FROM patient WHERE clinic_patient_id = $1::uuid", ids["bn"]
+    )
+    assert re.fullmatch(r"Khách \d{4,}", ten)
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_bang_co_ma_thieu_cot_van_dung(conn: asyncpg.Connection) -> None:
+    await conn.execute(
+        "ALTER TABLE luot_ghi_chu RENAME COLUMN noi_dung TO noi_dung_moi"
+    )
+    with pytest.raises(asyncpg.RaiseError, match="luot_ghi_chu.noi_dung"):
+        await _che(conn)
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
 async def test_moi_cot_dinh_danh_khach_da_duoc_xep_loai(
     conn: asyncpg.Connection,
 ) -> None:
@@ -371,3 +395,61 @@ async def test_moi_cot_dinh_danh_khach_da_duoc_xep_loai(
         "Cột định danh chưa được xếp loại trong scripts/staging-che-du-lieu.sql "
         f"(_che_cot — che hay 'giu'): {thieu}"
     )
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_nhieu_khach_van_che_duoc(conn: asyncpg.Connection) -> None:
+    """08/10/2026: hồ sơ cũ Notion làm số khách tăng vọt, bản lọc gộp MỌI tên
+    vào một regex báo "regular expression is too complex" → nạp staging hỏng mỗi
+    đêm. 5.000 khách phải che được, và tên trong văn bản vẫn bị thay."""
+    ids = await _gieo(conn)
+    clinic, loc = await conn.fetchrow(
+        "SELECT clinic_id::text, location_id::text FROM patient"
+        " WHERE clinic_patient_id = $1::uuid",
+        ids["bn"],
+    )
+    await conn.execute(
+        """INSERT INTO patient (patient_code, full_name, location_id, clinic_id)
+           SELECT 'NHIEU-' || g || '-' || $3, 'Trần Thị Nhiều Khách ' || g,
+                  $1::uuid, $2::uuid
+             FROM generate_series(1, 5000) g""",
+        loc,
+        clinic,
+        uuid.uuid4().hex[:6],
+    )
+    await _che(conn)
+    con = await conn.fetchval(
+        "SELECT count(*) FROM patient WHERE full_name LIKE 'Trần Thị Nhiều Khách %'"
+    )
+    assert con == 0
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_ngay_sinh_dau_nam_1900_khong_lui_qua_1900(
+    conn: asyncpg.Connection,
+) -> None:
+    """Hồ sơ cũ Notion có ngày sinh giả 01/01/1900: lệch lùi thành 1899 thì vỡ
+    CHECK birth_year >= 1900 và cả lần nạp staging huỷ (08/10/2026)."""
+    ids = await _gieo(conn)
+    clinic, loc = await conn.fetchrow(
+        "SELECT clinic_id::text, location_id::text FROM patient"
+        " WHERE clinic_patient_id = $1::uuid",
+        ids["bn"],
+    )
+    await conn.execute(
+        """INSERT INTO patient (patient_code, full_name, location_id, clinic_id,
+               date_of_birth, birth_year)
+           SELECT 'NS1900-' || g || '-' || $3, 'Lê Văn Sinh Sớm ' || g,
+                  $1::uuid, $2::uuid, DATE '1900-01-01', 1900
+             FROM generate_series(1, 60) g""",
+        loc,
+        clinic,
+        uuid.uuid4().hex[:6],
+    )
+    await _che(conn)
+    nho_nhat = await conn.fetchval(
+        "SELECT min(date_of_birth) FROM patient WHERE patient_code LIKE 'NS1900-%'"
+    )
+    assert nho_nhat is not None and nho_nhat.year >= 1900

@@ -38,13 +38,18 @@
 //     [Lưu ngay] / [Thử lại].
 //   · [Hoàn tất] lưu nốt TRƯỚC (cùng hàng đợi, gộp đúng ô bảng `ma::cột`); lưu
 //     không được thì KHÔNG hoàn tất và nói lý do NGAY TRÊN nút.
-//   · Hoàn tất xong còn ô trống → "Còn N mục trống: …" cạnh nút, mỗi tên là
-//     link tới ô. Chỉ nhắc, không chặn (quyết định cũ, giữ nguyên).
+//   · Hoàn tất xong còn ô trống: không chặn, không nhắc (06/10/2026 Tuyền bỏ
+//     dải vàng "Còn N mục trống" — ô trống đã hiện "—" ngay trên phiếu).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { nhanLoi } from "@/lib/loi-api";
-import { ghepConTrong, gopGiaTri, KHOA_BANG, tachGiaTri } from "@/lib/phieu-ket-qua";
+import {
+  gopGiaTri,
+  KHOA_BANG,
+  MAU_PHIEU_DIEU_TRI,
+  tachGiaTri,
+} from "@/lib/phieu-ket-qua";
 import { LOI_MAT_KET_NOI, nenThuLai } from "@/lib/tu-luu";
 import { useTuLuu } from "@/lib/use-tu-luu";
 import BaoLoiCanhNut from "@/components/ui/BaoLoiCanhNut";
@@ -53,6 +58,7 @@ import Button, { buttonClass } from "@/components/ui/Button";
 import ChipChon from "@/components/ui/ChipChon";
 import OSo from "@/components/ui/OSo";
 import TrangThaiLuu from "@/components/ui/TrangThaiLuu";
+import PhieuDieuTri from "./PhieuDieuTri";
 
 export interface MauKetQua {
   ma: string;
@@ -181,7 +187,6 @@ export default function PhieuKetQua({
   /** Lỗi của [Hoàn tất] / [Sửa lại] / [Huỷ sửa] — NGAY TRÊN hàng nút (B8). */
   const [loiNut, setLoiNut] = useState<string | null>(null);
   /** Ô còn trống sau Hoàn tất — nhắc cạnh nút, không chặn. */
-  const [conTrong, setConTrong] = useState<{ ma: string; ten: string }[]>([]);
   // Chọn mẫu của dịch vụ KHÁC (Tuyền 24/09/2026): không chuyển phiếu, báo khách
   // chưa thanh toán dịch vụ ấy — muốn làm thì bác sĩ chỉ định + khách trả tiền.
   const [baoKhacDv, setBaoKhacDv] = useState<string | null>(null);
@@ -240,7 +245,8 @@ export default function PhieuKetQua({
   }, [phieu, onCacBen]);
 
   useEffect(() => {
-    if (!chonMau) return;
+    // Phiếu điều trị do `PhieuDieuTri` tự mở (cùng phiếu, cùng engine).
+    if (!chonMau || chonMau === MAU_PHIEU_DIEU_TRI) return;
     let huy = false;
     void goi<Phieu>({
       thao_tac: "mo",
@@ -268,18 +274,10 @@ export default function PhieuKetQua({
     tuLuu.danhDau();
   };
 
-  const denO = (ma: string) => {
-    if (!phieu) return;
-    const el = document.getElementById(idO(phieu.id, ma));
-    el?.scrollIntoView({ block: "center", behavior: "smooth" });
-    el?.querySelector<HTMLElement>("input, textarea, select")?.focus({ preventScroll: true });
-  };
-
   const hoanTat = async () => {
     if (!phieu) return;
     setDangHoanTat(true);
     setLoiNut(null);
-    setConTrong([]);
     // LƯU NỐT trước khi chốt, qua CHÍNH hàng đợi tự lưu: đợi lần đang bay, gửi
     // phần còn lại, revision lấy từ lần vừa xong. Lưu không được thì KHÔNG chốt
     // — chốt thiếu đúng câu vừa viết là tệ hơn chưa chốt.
@@ -319,8 +317,6 @@ export default function PhieuKetQua({
     };
     phieuRef.current = xong;
     setPhieu(xong);
-    const trong = ghepConTrong(phieu.khung, kq.data.con_trong);
-    setConTrong(trong);
     onHoanTat?.({
       daDongDichVu: kq.data.dich_vu?.da_dong ?? false,
       viSao: kq.data.dich_vu?.vi_sao ?? null,
@@ -342,7 +338,6 @@ export default function PhieuKetQua({
     if (!phieu) return;
     setDangHoanTat(true);
     setLoiNut(null);
-    setConTrong([]);
     const kq = await goi<Phieu>({ thao_tac: "mo-sua", phieu_id: phieu.id });
     setDangHoanTat(false);
     if (!kq.ok) {
@@ -388,6 +383,13 @@ export default function PhieuKetQua({
         lý kiểm tra danh mục mẫu kết quả.
       </p>
     );
+  }
+
+  // PHIẾU ĐIỀU TRỊ (07/10/2026): MỘT component chung với khối 4 Bàn khám — ô
+  // chữ gọn, không "Hoàn tất". Chỉ một mẫu thì không vẽ dòng tiêu đề / chọn mẫu.
+  const laPhieuDieuTri = chonMau === MAU_PHIEU_DIEU_TRI;
+  if (laPhieuDieuTri && mau.length === 1) {
+    return <PhieuDieuTri serviceOrderId={serviceOrderId} choGhi onXong={onHoanTat} />;
   }
 
   const daChot = phieu?.trang_thai === "READY" && !phieu.dang_sua;
@@ -438,7 +440,7 @@ export default function PhieuKetQua({
             Đang sửa lại — bản cũ vẫn là kết quả chính thức
           </span>
         ) : null}
-        {phieu && !daChot ? (
+        {phieu && !daChot && !laPhieuDieuTri ? (
           <TrangThaiLuu
             tt={tuLuu.trangThai}
             onLuuNgay={() => void tuLuu.luuNgay()}
@@ -466,6 +468,8 @@ export default function PhieuKetQua({
 
       {!chonMau ? (
         <p className="text-body text-ink-muted">Chọn mẫu để bắt đầu điền.</p>
+      ) : laPhieuDieuTri ? (
+        <PhieuDieuTri serviceOrderId={serviceOrderId} choGhi onXong={onHoanTat} />
       ) : phieu === null ? (
         <p className="text-body text-ink-muted">Đang mở phiếu…</p>
       ) : daChot ? (
@@ -489,20 +493,6 @@ export default function PhieuKetQua({
               )),
             )}
           </dl>
-          {conTrong.length > 0 ? (
-            <BaoLoiCanhNut muc="nhac">
-              Còn {conTrong.length} mục trống:{" "}
-              {conTrong.map((o, i) => (
-                <span key={o.ma}>
-                  {i > 0 ? ", " : ""}
-                  <button type="button" className="font-semibold underline" onClick={() => denO(o.ma)}>
-                    {o.ten}
-                  </button>
-                </span>
-              ))}
-              . Chỉ nhắc — phiếu đã hoàn tất; cần bổ sung thì bấm [Sửa lại].
-            </BaoLoiCanhNut>
-          ) : null}
           <BaoLoiCanhNut>{loiNut}</BaoLoiCanhNut>
           <Button
             size="md"

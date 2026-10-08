@@ -21,6 +21,7 @@ async def test_llm_respond_real_sonnet_returns_text() -> None:
     try:
         node = make_respond_node_llm(client)
         state: OrchestratorState = {
+            "clinic_id": uuid4(),
             "trace_id": uuid4(),
             "user_message": "Em muốn đặt lịch khám thai vào thứ Hai tuần sau",
             "route": "scheduling",

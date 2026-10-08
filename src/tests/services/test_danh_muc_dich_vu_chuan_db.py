@@ -365,3 +365,38 @@ async def test_bang_gia_them_nhom_hang_va_ma_tu_sinh(rb: RB) -> None:  # noqa: F
         )
         is None
     )
+
+
+async def test_nhom_dieu_tri_khoi_3_du_moi_dich_vu_dieu_tri_dung_thu_tu(
+    rb: RB,  # noqa: F811
+) -> None:
+    """Khối 3 liệt kê ĐỦ dịch vụ của loại khám nhóm Điều trị, đúng thứ tự ô chọn
+    lúc đặt lịch — phiếu giấy chỉ có 4 dòng, Laser tiền đình / 1 thành từng lọt
+    (Tuyền 08/10)."""
+    from clinicai.services.phieu_kham_service import NHOM_DIEU_TRI
+
+    pool = rb.pool
+    await _dong_bo(pool)
+    can = [
+        r["service_code"]
+        for r in await pool.fetch(
+            "SELECT sp.service_code FROM service_type st JOIN service_price sp"
+            " ON sp.id = st.service_price_id AND sp.clinic_id = st.clinic_id"
+            " JOIN danh_muc_dich_vu($1::uuid) d ON d.service_code = sp.service_code"
+            " WHERE st.clinic_id = $1::uuid AND st.nhom = 'DIEU_TRI'"
+            " AND coalesce(st.is_active, true) AND d.active"
+            " ORDER BY st.thu_tu, st.name",
+            CLINIC,
+        )
+    ]
+    assert len(can) >= 2, "DB test phải có loại khám Điều trị"
+    tc = await PhieuKhamService(pool, kiem_quyen=_cho_qua).tham_chieu_that(
+        identity=_ai()
+    )
+    co = [
+        t["service_code"]
+        for t in tc["thu_thuat"]
+        if t.get("nhom") == NHOM_DIEU_TRI and t.get("service_code")
+    ]
+    assert co[: len(can)] == can
+    assert len(co) == len(set(co)), f"trùng dòng điều trị: {co}"

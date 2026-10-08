@@ -35,6 +35,7 @@ async def test_event_type_lab() -> None:
     mock = _make_mock_llm()
     node = make_classify_intent_llm_node(mock)
     state: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "bất kỳ tin nhắn nào",
         "event_type": "lab_result_received",
@@ -50,6 +51,7 @@ async def test_event_type_previsit() -> None:
     node = make_classify_intent_llm_node(mock)
     # Empty user_message must NOT shadow the event-driven path.
     state: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "",
         "event_type": "previsit_trigger",
@@ -64,6 +66,7 @@ async def test_event_type_task() -> None:
     mock = _make_mock_llm()
     node = make_classify_intent_llm_node(mock)
     state: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "x",
         "event_type": "task_overdue",
@@ -78,6 +81,7 @@ async def test_event_type_unknown_fallback() -> None:
     mock = _make_mock_llm()
     node = make_classify_intent_llm_node(mock)
     state: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "x",
         "event_type": "unknown_event",
@@ -92,6 +96,7 @@ async def test_no_event_type_still_classifies() -> None:
     mock = _make_mock_llm()
     node = make_classify_intent_llm_node(mock)
     state: OrchestratorState = {
+        "clinic_id": uuid4(),
         "trace_id": uuid4(),
         "user_message": "Tôi muốn đặt lịch khám ngày mai",
     }

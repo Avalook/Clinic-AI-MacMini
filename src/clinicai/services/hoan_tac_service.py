@@ -339,6 +339,32 @@ async def tien_thua_cua_luot(
     """
     if not visit_ids:
         return {}
+    out = await _tien_thua_chi_dinh(conn, clinic_id, visit_ids)
+    # Dịch vụ khám đã thu rồi bỏ tick (06/10/2026, E7) — cũng là tiền thừa.
+    from clinicai.services.tien_thua_service import dong_tien_thua
+
+    for vid, ds in (await dong_tien_thua(conn, clinic_id, visit_ids)).items():
+        for d in ds:
+            if d["source_type"] != "exam":
+                continue
+            muc = out.setdefault(vid, {"tong": 0, "dong": []})
+            muc["tong"] += d["so_tien"]
+            muc["dong"].append(
+                {
+                    "order_id": None,
+                    "line_id": d["line_id"],
+                    "ten": d["ten"],
+                    "so_tien": d["so_tien"],
+                    "loai": "BO_DICH_VU_KHAM",
+                    "ly_do": None,
+                }
+            )
+    return out
+
+
+async def _tien_thua_chi_dinh(
+    conn: asyncpg.Connection, clinic_id: str, visit_ids: list[str]
+) -> dict[str, dict[str, Any]]:
     don = await conn.fetch(
         """
         SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
@@ -684,11 +710,21 @@ class HoanTacService:
         Hoàn tác Xong) — bỏ chỉ định không được xoá ngầm việc người khác đang làm.
         """
         from clinicai.services.luot_kham_service import LuotKhamService
+        from clinicai.services.so_sua_chi_dinh_service import (
+            bao_bac_si_chinh,
+            chan_ho_so_cu,
+            dat_ngu_canh,
+            dong_bo_moi_nhat,
+        )
 
         cid = identity.clinic_id
         oid = _uuid(order_id, "Mã chỉ định không hợp lệ.")
         ly = doc_ly_do(ly_do)
         async with self._pool.acquire() as conn, conn.transaction():
+            # QUYỀN, không vai (Khối 2, 06/10/2026): ai có quyền chỉ định thì bỏ
+            # được NGAY — trưởng ca, quản lý ngang bác sĩ chính; không chờ ai
+            # duyệt. Bác sĩ chính được báo (kèm nút Hoàn tác) nếu người bỏ là
+            # người khác.
             await doi_quyen(
                 conn,
                 identity,
@@ -696,6 +732,7 @@ class HoanTacService:
                 cau="Bạn không có quyền chỉ định dịch vụ nên không bỏ được chỉ định.",
             )
             vid = await luot_cua(conn, "service_order", cid, oid)
+            await chan_ho_so_cu(conn, vid)
             await khoa_luot(conn, cid, vid, cho_phep_ve_giua_chung=True)
             o = await conn.fetchrow(
                 "SELECT id::text, service_code, service_name, exec_status,"
@@ -736,10 +773,15 @@ class HoanTacService:
             if tien["cho_xac_minh"] > 0:
                 hau_qua.append(
                     f"Có khoản chuyển khoản {_tien(tien['cho_xac_minh'])} đang chờ"
-                    " xác minh cho dịch vụ này — quầy thu xử lý sau khi bỏ."
+                    " xác minh cho dịch vụ này — sau khi bỏ, quầy bấm “Huỷ lần chờ”"
+                    " rồi thu lại theo hoá đơn mới (xác minh nguyên số thì phần của"
+                    " dịch vụ này thành tiền thừa)."
                 )
             doi_xac_nhan(ly_do=ly, xac_nhan=xac_nhan, hau_qua=hau_qua)
 
+            # Sổ sửa chỉ định ghi bằng trigger trong chính lệnh UPDATE dưới —
+            # đặt người bấm / vai đang dùng / lý do cho nó.
+            await dat_ngu_canh(conn, identity, ly_do=ly)
             await conn.execute(
                 """
                 UPDATE service_order
@@ -785,6 +827,8 @@ class HoanTacService:
                 cid,
                 oid,
             )
+            so_id = await dong_bo_moi_nhat(conn, service_order_id=oid)
+            da_bao = await bao_bac_si_chinh(conn, identity, so_id)
             luot = LuotKhamService(pool=None)
             await mo_cho_bi_chan(conn, cid, vid)
             await luot._evaluate_rounds(conn, identity, vid)
@@ -830,6 +874,8 @@ class HoanTacService:
             "visit_id": vid,
             "da_thu_tien": thua > 0,
             "tien_thua": thua,
+            "so_sua_id": so_id,
+            "da_bao_bac_si_chinh": da_bao,
         }
 
     # ── (c) Xong làm dịch vụ → về đang làm ────────────────────────────────

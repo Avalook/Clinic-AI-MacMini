@@ -24,6 +24,7 @@ from clinicai.services.hanh_trinh_khach_service import (
     HanhTrinhKhachService,
     doc_hanh_trinh_khach,
 )
+from clinicai.services.lan_bac_si import noi_lam
 from clinicai.services.luot_kham_service import LuotKhamService
 from clinicai.services.service_execution_service import ServiceExecutionService
 from tests.chay_nguoi_dua_tin import chay_ben_nhan, chay_hanh_trinh
@@ -140,11 +141,16 @@ async def test_buoi_du_dang_o_tiep_theo_gio_tung_buoc_va_check_out(
     await chay_ben_nhan(pool, DONG_THOI_GIAN_LUOT)
 
     # Phòng dây H4 tự xếp cho o1 (DB thử dùng chung có thể có phòng cũ).
-    ten_phong = await pool.fetchval(
-        "SELECT r.name FROM service_order o JOIN clinic_room r ON r.id = o.room_id"
+    # Phòng nhiều bác sĩ (DB chung, bài khác chạy song song có thể đặt lịch bác
+    # sĩ vào phòng ấy): "đang ở" kèm bác sĩ quầy đã chọn — cùng hàm `noi_lam`.
+    dong_phong = await pool.fetchrow(
+        "SELECT r.name, s.full_name AS bac_si FROM service_order o"
+        " JOIN clinic_room r ON r.id = o.room_id"
+        " LEFT JOIN staff s ON s.id = o.bac_si_lam_id"
         " WHERE o.id = $1::uuid",
         o1,
     )
+    ten_phong = noi_lam(dong_phong["name"], dong_phong["bac_si"])
     async with pool.acquire() as conn:
         ht = (
             await doc_hanh_trinh_khach(

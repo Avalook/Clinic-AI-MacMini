@@ -68,8 +68,13 @@ async def _dung(pool: asyncpg.Pool) -> Ca:  # noqa: F811
     duoi = uuid.uuid4().hex[:8]
     async with pool.acquire() as conn:
         loc = await conn.fetchval(
-            "SELECT id::text FROM clinic_location WHERE clinic_id = $1::uuid"
-            " AND is_active ORDER BY created_at, id LIMIT 1",
+            # Cơ sở CÓ PHÒNG (08/10/2026): phòng của lượt phải cùng cơ sở lượt
+            # (chốt DB), mà seed có cơ sở rỗng tạo sớm hơn cơ sở chứa phòng.
+            # Cơ sở của PHÒNG SEED cũ nhất — ổn định khi test khác (chạy song
+            # song) thêm phòng ở cơ sở khác; đếm phòng thì lật kết quả.
+            "SELECT r.location_id::text FROM clinic_room r"
+            " WHERE r.clinic_id = $1::uuid AND r.is_active"
+            " ORDER BY r.created_at, r.id LIMIT 1",
             CLINIC,
         )
         ten_kham = f"Khám nhóm hai {duoi}"

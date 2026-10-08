@@ -2,7 +2,9 @@
 
 // Các lượt khám TRƯỚC của bệnh nhân đang mở.
 //
-// "Lần 1 ngày…, lần 2 ngày…" — rê chuột vào một ngày thì hiện tóm tắt ngay
+// "Lượt khám 3 · ngày…", "Buổi 2/10 · ngày…" — nhãn MÁY CHỦ đếm trên mọi lượt
+// của khách (`nhan_luot`, 08/10/2026; trước đó "Lần n" theo số phiếu nạp về —
+// thiếu phiếu là đánh số sai). Rê chuột vào một ngày thì hiện tóm tắt ngay
 // bên cạnh; bấm vào thì phiếu bên dưới quay về đúng hôm đó, kèm một nút để
 // quay lại khám tiếp.
 //
@@ -17,6 +19,7 @@ import { useEffect, useState } from "react";
 import { History, RotateCcw } from "lucide-react";
 
 import { doctorName } from "../../../../lib/doctor-name";
+import { chuNhanLuot, type NhanLuot } from "../../../../lib/nhan-luot";
 
 export interface LuotTruoc {
   visit_id: string;
@@ -30,6 +33,8 @@ export interface LuotTruoc {
    *  phiếu v5 chỉ-xem; `form_data` là {khoá ô: chữ đọc được}, chẩn đoán đầu. */
   phieu_v5?: boolean;
   chan_doan?: string | null;
+  /** Nhãn đếm lượt máy chủ tính ("Lượt khám 3", "Buổi 2/10"…). */
+  nhan_luot?: NhanLuot | null;
 }
 
 /** Vài dòng đầu của phiếu, đủ để nhớ ra hôm đó khám gì. */
@@ -117,7 +122,7 @@ export default function LuotKhamTruoc({
       ) : (
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className="text-ink-muted">Lượt khám trước:</span>
-          {items.map((l, i) => (
+          {items.map((l) => (
             <button
               key={l.visit_id}
               type="button"
@@ -128,7 +133,7 @@ export default function LuotKhamTruoc({
               onClick={() => onXem(l)}
               className="rounded-control bg-surface-muted px-2 py-1 text-ink-soft transition-colors hover:bg-brand-50 hover:text-brand-700"
             >
-              Lần {items.length - i} · {ngay(l.kham_luc)}
+              {chuNhanLuot(l.nhan_luot)} · {ngay(l.kham_luc)}
             </button>
           ))}
         </div>

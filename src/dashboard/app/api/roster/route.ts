@@ -2,6 +2,7 @@
 //   GET    ?date=YYYY-MM-DD          → bác sĩ trực hôm đó + `du_kien` (tuần chưa chốt)
 //   GET    ?tu=…&den=…               → những tuần đã áp dụng trong khoảng
 //   GET    ?staff_id=…               → vị trí người này được xếp vào
+//   GET    ?phien_ban=<tuần>[&ban=…] → lịch sử phiên bản lịch trực (người xếp lịch)
 //   POST   { week_start, work_date, … }  → thêm 1 ô
 //   POST   { apply_week: "YYYY-MM-DD" }  → chốt cả tuần
 //   DELETE { id }                        → xoá 1 ô
@@ -59,6 +60,15 @@ export async function GET(request: Request) {
   // trình duyệt thôi tự đọc `work_roster` bằng Supabase).
   if (sp.get("ca_cua_toi") === "1") {
     return proxyJsonToBackend("GET", "/api/v1/roster/ca-cua-toi", undefined);
+  }
+
+  // Lịch sử phiên bản lịch trực của một tuần (06/10/2026) — chỉ chuyển tiếp;
+  // backend gác quyền (người xếp lịch) và chịu được tuần / mã bản rác.
+  if (sp.has("phien_ban")) {
+    const q = new URLSearchParams({ tuan: sp.get("phien_ban") ?? "" });
+    const ban = sp.get("ban");
+    if (ban) q.set("ban", ban);
+    return proxyJsonToBackend("GET", `/api/v1/roster/phien-ban?${q}`, undefined);
   }
 
   const tu = (sp.get("tu") ?? "").trim();

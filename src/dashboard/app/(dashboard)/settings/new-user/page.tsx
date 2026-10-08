@@ -10,6 +10,7 @@ import {
 } from "../../../../lib/supabase-service";
 import { requireNavAccess } from "../../../../lib/clinic-session";
 import { ROLE_LABEL, type ClinicRole } from "../../../../lib/roles";
+import Link from "next/link";
 import NewUserForm from "./NewUserForm";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,12 @@ interface UnlinkedStaff {
 // Cùng một lỗi đã xảy ra ở ROLE_VI trong WorkItemActions.tsx: một bảng nhãn
 // chép tay là một bảng nhãn sẽ thiếu vai tiếp theo.
 
-export default async function NewUserPage() {
+export default async function NewUserPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ staff?: string }>;
+}) {
+  const { staff: chonSan } = await searchParams;
   // Lego 19 "Nhân sự & phân quyền" (27/09/2026) — trước gác vai Quản lý.
   await requireNavAccess("/settings/new-user");
 
@@ -78,15 +84,14 @@ export default async function NewUserPage() {
 
       {unlinked.length === 0 ? (
         <div className="rounded-card border border-line bg-surface px-4 py-8 text-sm text-ink-muted shadow-card">
-          Mọi nhân viên active đã được link với tài khoản. Để link thêm,
-          tạo staff mới trong Notion + chạy{" "}
-          <code className="text-xs font-mono">
-            build_seeds_from_notion.py
-          </code>{" "}
-          rồi mở lại trang này.
+          Mọi nhân viên đang làm đã có tài khoản. Người mới: thêm ở{" "}
+          <Link href="/nhan-su" className="font-medium text-brand-700 underline">
+            Quản lý nhân sự
+          </Link>{" "}
+          rồi quay lại đây.
         </div>
       ) : (
-        <NewUserForm staffOptions={options} />
+        <NewUserForm staffOptions={options} defaultStaffId={chonSan} />
       )}
     </main>
   );

@@ -188,8 +188,18 @@ BEGIN
     -- 97 → 99 (01/10/2026): payment_cycle_phan + anh_chuyen_khoan (20261002300000).
     -- 99 → 100 (02/10/2026): ngoai_le_ca_truc_select_own_clinic (20261002600000).
     -- 100 → 102 (01/10/2026, C13): luot_vat_tu + vat_tu_goi_y (20261003000000).
-    IF scoped_count <> 102 THEN
-        RAISE EXCEPTION 'expected 102 tenant-scoped read policies, found %', scoped_count;
+    -- 102 → 103 (06/10/2026, Khối 2): so_sua_chi_dinh (20261006200000).
+    -- 103 → 104 (06/10/2026, phần E): tien_thua_giu_lai (20261006200003).
+    -- 104 → 105 (07/10/2026): form_instance_lich_su (20261007630000, lịch sử sửa
+    -- mọi phiếu kết quả — chỉ thêm, trigger ghi).
+    -- 105 → 106 (07/10/2026): luot_ghi_chu (20261007640000, ô chữ tự do lượt
+    -- "Khác" — chỉ thêm phiên bản).
+    -- 106 → 109 (08/10/2026): lieu_trinh + lieu_trinh_lich_su + lieu_trinh_buoi
+    -- (20261008100000, liệu trình điều trị nhiều buổi — CHỈ SELECT).
+    -- 109 → 110 (08/10/2026): lieu_trinh_tra_truoc (20261008110000, trả trước
+    -- k buổi liệu trình vào hoá đơn dịch vụ).
+    IF scoped_count <> 110 THEN
+        RAISE EXCEPTION 'expected 110 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

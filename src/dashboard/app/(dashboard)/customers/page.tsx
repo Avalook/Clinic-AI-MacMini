@@ -47,7 +47,8 @@ import CustomersView, {
 type RecallRaw = MocTaiKham & { clinic_patient_id: string };
 import { listBookableDoctors } from "../../../lib/doctors-server";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { layCoSo, layDichVu } from "../../../lib/danh-muc";
+import { layCoSo } from "../../../lib/danh-muc";
+import type { NhanLuot } from "../../../lib/nhan-luot";
 import type { TrangThaiHienThi } from "../../../lib/trang-thai-lich";
 
 export const dynamic = "force-dynamic";
@@ -157,18 +158,16 @@ export default async function CustomersPage({
     thamSo.set("den", khoang.den);
   }
 
-  const [patRes, locRes, svcRes, docRes] = await Promise.all([
+  const [patRes, locRes, docRes] = await Promise.all([
     fetchFromBackend<{ rows: CustomerRow[]; total: number }>(
       `/api/v1/cskh/danh-sach-khach?${thamSo.toString()}`,
     ),
-    // Cơ sở + dịch vụ qua bộ nhớ tạm có hạn giờ: hai danh mục này đổi vài
-    // tháng một lần nhưng mọi lượt dựng trang đều hỏi lại. Xem `bo-nho-tam.ts`.
+    // Cơ sở qua bộ nhớ tạm có hạn giờ: danh mục này đổi vài tháng một lần
+    // nhưng mọi lượt dựng trang đều hỏi lại. Xem `bo-nho-tam.ts`.
     layCoSo().then((data) => ({ data })),
-    // Nạp dịch vụ + bác sĩ khi vai INTAKE (đặt/đổi/hủy lịch) — cho cả modal đổi
-    // lịch (canManage) lẫn nút "Đặt lịch" (canEdit gồm Lễ tân).
-    canEdit
-      ? layDichVu().then((data) => ({ data }))
-      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    // Bác sĩ khi vai INTAKE (đặt/đổi/hủy lịch) — cho cả modal đổi lịch
+    // (canManage) lẫn nút "Đặt lịch" (canEdit gồm Lễ tân). Danh sách DỊCH VỤ
+    // do ô chọn 4 nhóm tự nạp (`_lam-viec/ChonDichVuDatLich`, 07/10/2026).
     canEdit ? listBookableDoctors() : Promise.resolve([]),
   ]);
 
@@ -186,10 +185,6 @@ export default async function CustomersPage({
     id: r.id as string,
     label: r.name as string,
   }));
-  // Dropdown cho modal ĐỔI lịch — bỏ dịch vụ rác "FREE" (khớp trang đặt lịch).
-  const services: Opt[] = ((svcRes.data ?? []) as { id: string; name: string }[])
-    .filter((r) => (r.name ?? "").trim().toUpperCase() !== "FREE")
-    .map((r) => ({ id: r.id, label: r.name }));
   const doctors: Opt[] = docRes;
 
   const shownIds = rows.map((r) => r.clinic_patient_id);
@@ -355,6 +350,8 @@ type LichHenRaw = {
   bac_si_da_go_id?: string | null;
   location_id?: string | null;
   booking_channel?: string | null;
+  /** Ghi chú CSKH của lịch (`appointment.notes`). */
+  notes?: string | null;
   created_at?: string | null;
   cancelled_at?: string | null;
   ly_do_huy_ma?: string | null;
@@ -365,6 +362,10 @@ type LichHenRaw = {
   /** Nhãn trạng thái máy chủ quyết + mốc của nó (30/09/2026). */
   trang_thai?: TrangThaiHienThi | null;
   trang_thai_luc?: string | null;
+  /** Nhãn đếm lượt máy chủ tính (08/10/2026) — "Lượt khám 2", "Buổi 3/10"… */
+  nhan_luot?: NhanLuot | null;
+  /** Giờ thật của lượt (`visit.exam_completed_at`). */
+  kham_xong_luc?: string | null;
 };
 
   // Lịch hẹn của các khách đang hiển thị → "lịch đại diện": SẮP TỚI gần nhất,
@@ -490,6 +491,7 @@ type LichHenRaw = {
           doctor_name: pick1(repr.doctor)?.full_name ?? null,
           location_id: repr.location_id ?? null,
           booking_channel: repr.booking_channel ?? null,
+          notes: repr.notes ?? null,
         };
       }
       apptByPatient[pid] = {
@@ -961,6 +963,8 @@ type LichHenRaw = {
             service_name: pick1(a.service)?.name ?? null,
             doctor_name: pick1(a.doctor)?.full_name ?? null,
             lich_truoc_id: a.lich_truoc_id ?? null,
+            nhan_luot: a.nhan_luot ?? null,
+            kham_xong_luc: a.kham_xong_luc ?? null,
             // MẤT BÁC SĨ — TÍNH CHO CHÍNH LƯỢT NÀY.
             //
             // Cùng phép tính với `mat_bac_si` của lịch đại diện bên trên, chỉ
@@ -1018,33 +1022,14 @@ type LichHenRaw = {
         });
       if (!cacLuot.length) continue;
 
-      // GHÉP CHUỖI. Một lượt có `lich_truoc_id` thì nối vào chuỗi chứa lượt ấy;
-      // không có thì mở chuỗi mới. Duyệt theo thứ tự thời gian nên lượt trước
-      // luôn đã được xếp chỗ khi tới lượt sau.
-      const chuoiCuaLuot: Record<string, number> = {};
-      const chuoi: ChuoiKham[] = [];
-      for (const luot of cacLuot) {
-        const chiSo =
-          luot.lich_truoc_id !== null
-            ? chuoiCuaLuot[luot.lich_truoc_id]
-            : undefined;
-        if (chiSo !== undefined) {
-          chuoi[chiSo]!.luot.push(luot);
-          chuoiCuaLuot[luot.id] = chiSo;
-        } else {
-          // `lich_truoc_id` trỏ tới một lượt KHÔNG có trong danh sách (lịch đã
-          // bị dọn, hoặc ngoài phạm vi truy vấn) cũng rơi vào đây. Mở chuỗi mới
-          // còn hơn ném lượt ấy đi.
-          chuoiCuaLuot[luot.id] = chuoi.length;
-          chuoi.push({ luot: [luot] });
-        }
-      }
-      // Chuỗi mới nhất lên đầu — người trực quan tâm lần gần đây trước.
-      chuoi.sort(
-        (a, b) =>
-          mocMs(b.luot[b.luot.length - 1]!.slot_start) -
-          mocMs(a.luot[a.luot.length - 1]!.slot_start),
-      );
+      // MỘT DẢI THEO THỜI GIAN (Tuyền chốt 08/10/2026): không gom chuỗi theo
+      // dịch vụ / `lich_truoc_id` nữa — gom thế thì hai lượt cùng ngày của hai
+      // dịch vụ đều là "Lần đầu". Số lượt do máy chủ đếm (`nhan_luot`); ở đây
+      // chỉ xếp theo mốc: giờ check-in thật, chưa tới thì giờ hẹn.
+      const theoMoc = (l: LuotKham) => mocMs(l.bat_dau ?? l.slot_start);
+      const chuoi: ChuoiKham[] = [
+        { luot: [...cacLuot].sort((a, b) => theoMoc(a) - theoMoc(b)) },
+      ];
       lichSuKhamByPatient[pid] = chuoi;
     }
   }
@@ -1115,7 +1100,6 @@ type LichHenRaw = {
           canThemKhach={canThemKhach}
           canManage={canManage}
           canOperateCskh={canOperateCskh}
-          services={services}
           doctors={doctors}
         />
       )}

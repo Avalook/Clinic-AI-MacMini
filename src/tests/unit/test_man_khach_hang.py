@@ -152,7 +152,8 @@ async def test_muoi_cau_chay_tren_mot_ket_noi() -> None:
     người mở màn cùng lúc mà mỗi người giữ mười kết nối là chết cả api."""
     conn = _Conn({})
     await ManKhachHangService(_Pool(conn)).goi_du_lieu(clinic_id=CLINIC, ids=["p1"])
-    assert len(conn.cac_cau) == 10, "đúng mười câu, cùng một kết nối"
+    # 10 khối + 1 câu nhãn đếm lượt (services/nhan_luot.py, 08/10/2026).
+    assert len(conn.cac_cau) == 11, "đúng mười một câu, cùng một kết nối"
 
 
 # ── Endpoint: chặn đầu vào xấu ─────────────────────────────────────────────

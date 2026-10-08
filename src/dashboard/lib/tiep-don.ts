@@ -22,6 +22,8 @@ export interface DongTiepDon {
   so_tiep_don: number | null;
   gio_hen: string | null;
   loai_kham: string | null;
+  /** Ghi chú CSKH lúc đặt lịch (`appointment.notes`). */
+  ghi_chu?: string | null;
   bac_si: string | null;
   loai_khach: string | null;
   uu_tien: boolean;

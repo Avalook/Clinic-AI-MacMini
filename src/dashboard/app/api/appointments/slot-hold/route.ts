@@ -7,6 +7,7 @@
 // slot_hold_service.py — một bản sao luật ở đây là một bản sao sẽ lệch.
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
+import { ganCoSo } from "../../../../lib/co-so";
 
 const API_BASE = (process.env.CLINIC_API_URL ?? "").trim().replace(/\/$/, "");
 
@@ -41,6 +42,7 @@ async function proxy(
   };
   const apiKey = process.env.BACKEND_API_KEY;
   if (apiKey) headers["X-API-Key"] = apiKey;
+  await ganCoSo(headers); // cơ sở đang đứng — lib/co-so.ts
 
   let url = `${API_BASE}/api/v1/appointments/slot-hold`;
   let body: string | undefined;

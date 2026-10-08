@@ -49,6 +49,7 @@ import {
   type ClinicalCompletionMode,
 } from "@/lib/clinical-completion";
 import {
+  cauDangOPhong,
   docBang,
   guiThaoTac,
   soPhutTu,
@@ -63,6 +64,7 @@ import DoiPhong from "../_lam-viec/DoiPhong";
 import { TomTatLuotContext } from "../_lam-viec/phieu-kham/TomTatLuot";
 import XemLuot from "../_lam-viec/XemLuot";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
+import type { DatChiDinh } from "@/lib/phieu-kham";
 import BanTuVan from "./BanTuVan";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -75,6 +77,8 @@ import ThaiKy from "./ThaiKy";
 import SoLuot from "@/components/ui/SoLuot";
 import { useNgheBang } from "../dung-nghe-bang";
 import { useNgayXem } from "../_lam-viec/dung-ngay-xem";
+import { useChipLieuTrinh } from "../_lam-viec/dung-chip-lieu-trinh";
+import { nhanLieuTrinhLuot, type ChipLieuTrinh } from "@/lib/lieu-trinh-cskh";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 // ── Dữ liệu của bảng lượt khám (chỉ những trường màn này dùng) ─────────────
@@ -172,7 +176,8 @@ function tone(d: DongHangCho): { tone: StatusTone; nhan: string } {
     case "waiting":
       return { tone: "ready", nhan: "Chờ khám" };
     case "blocked":
-      return { tone: "blocked", nhan: "Đang ở bước khác" };
+      // Máy chủ nói khách đang chờ / làm ở phòng dịch vụ nào (07/10/2026).
+      return { tone: "blocked", nhan: d.dang_o_phong ? cauDangOPhong(d.dang_o_phong) : "Đang ở bước khác" };
     case "left":
       return { tone: "blocked", nhan: "Khách đã về (chưa xong)" };
     default:
@@ -316,6 +321,9 @@ export default function BanKham({
       ),
     );
   }, [hang, query]);
+  // Chip liệu trình (08/10/2026): một lần gọi cho cả hàng chờ — chỉ thêm chữ
+  // cạnh khách, không đổi nhóm / đếm / thứ tự.
+  const chipLt = useChipLieuTrinh((hang ?? []).map((d) => d.visit_id));
 
   const dangKham = hienRa.filter((d) => d.trang_thai === "serving");
   const dangCho = hienRa.filter(
@@ -534,28 +542,28 @@ export default function BanKham({
             <div className="max-h-[720px] overflow-y-auto">
               {tuVan ? (
                 <>
-                  <Nhom ten="Đang tư vấn" chinh chuDang="đang tư vấn" ds={dangKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Chưa có ai đang tư vấn." />
-                  <Nhom ten="Chờ tư vấn" chinh ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Không có khách đang chờ." batDau={nutBatDau} />
-                  <Nhom ten="Chưa đo sinh hiệu" ghiChu="vẫn nhận được" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} />
-                  <Nhom key={`xong-${ngay}`} ten={`Đã chuyển bác sĩ chính ${nhanNgay}`} gap={laHomNay} ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
-                  <Nhom ten="Khách đã về (chưa xong)" ds={daVe} chon={chon?.id ?? null} onChon={chonKhach} />
+                  <Nhom ten="Đang tư vấn" chinh chuDang="đang tư vấn" ds={dangKham} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Chưa có ai đang tư vấn." />
+                  <Nhom ten="Chờ tư vấn" chinh ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Không có khách đang chờ." batDau={nutBatDau} />
+                  <Nhom ten="Chưa đo sinh hiệu" ghiChu="vẫn nhận được" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
+                  <Nhom key={`xong-${ngay}`} ten={`Đã chuyển bác sĩ chính ${nhanNgay}`} gap={laHomNay} ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
+                  <Nhom ten="Khách đã về (chưa xong)" ds={daVe} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
                 </>
               ) : (
               <>
-              <Nhom ten={laThuKy ? "Đang hỗ trợ" : "Đang khám"} chinh ds={dangKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Chưa có ai đang khám." />
-              <Nhom ten="Kết quả cần đọc" ds={canDoc} chon={chon?.id ?? null} onChon={chonKhach} daKhamLuc={daKhamLuc} />
-              <Nhom ten="Chờ khám" chinh ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} trong="Không có khách đang chờ." batDau={nutBatDau} />
+              <Nhom ten={laThuKy ? "Đang hỗ trợ" : "Đang khám"} chinh ds={dangKham} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Chưa có ai đang khám." />
+              <Nhom ten="Kết quả cần đọc" ds={canDoc} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} daKhamLuc={daKhamLuc} />
+              <Nhom ten="Chờ khám" chinh ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Không có khách đang chờ." batDau={nutBatDau} />
               {laHomNay ? <NhomSapToi ds={sapToi} /> : null}
-              <Nhom ten="Đang ở bước khác" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} />
+              <Nhom ten="Đang ở bước khác" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
               {laThuKy ? (
                 <>
-                  <Nhom ten="Chờ bác sĩ hoàn tất" ds={choKy} chon={chon?.id ?? null} onChon={chonKhach} />
-                  <Nhom key={`ky-${ngay}`} ten={`Đã hoàn tất ${nhanNgay}`} gap={laHomNay} ds={daKy} chon={chon?.id ?? null} onChon={chonKhach} />
+                  <Nhom ten="Chờ bác sĩ hoàn tất" ds={choKy} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
+                  <Nhom key={`ky-${ngay}`} ten={`Đã hoàn tất ${nhanNgay}`} gap={laHomNay} ds={daKy} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
                 </>
               ) : (
-                <Nhom key={`xong-${ngay}`} ten={`Đã khám xong ${nhanNgay}`} gap={laHomNay} ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} />
+                <Nhom key={`xong-${ngay}`} ten={`Đã khám xong ${nhanNgay}`} gap={laHomNay} ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
               )}
-              <Nhom ten="Khách đã về (chưa xong)" ds={daVe} chon={chon?.id ?? null} onChon={chonKhach} />
+              <Nhom ten="Khách đã về (chưa xong)" ds={daVe} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
               </>
               )}
             </div>
@@ -655,7 +663,10 @@ function Nhom({
   ghiChu,
   batDau,
   chuDang = "đang khám",
+  lieuTrinh = null,
 }: {
+  /** Chip liệu trình của cả hàng chờ (08/10/2026) — "Liệu trình …: còn N buổi đã trả". */
+  lieuTrinh?: ChipLieuTrinh | null;
   ten: string;
   ds: DongHangCho[];
   chon: string | null;
@@ -708,6 +719,7 @@ function Nhom({
       ) : (
         ds.map((d) => {
           const dangChon = d.id === chon;
+          const lt = nhanLieuTrinhLuot(lieuTrinh, d.visit_id);
           return (
             <div
               key={d.id}
@@ -747,6 +759,9 @@ function Nhom({
                     ) : (
                       <span>chờ {soPhutTu(d.vao_hang_luc)}</span>
                     )}
+                    {d.dang_o_phong && d.trang_thai !== "done" ? (
+                      <span className="text-warning">{cauDangOPhong(d.dang_o_phong)}</span>
+                    ) : null}
                     {d.vong === "REVIEW" ? (
                       <span className="text-warning">
                         {d.trang_thai === "done"
@@ -754,6 +769,7 @@ function Nhom({
                           : `đã khám${daKhamLuc?.[d.visit_id] ? ` ${gioVn(daKhamLuc[d.visit_id])}` : ""} · có kết quả mới`}
                       </span>
                     ) : null}
+                    {lt ? <span className="font-medium text-brand-700">{lt}</span> : null}
                   </span>
                 </span>
               </button>
@@ -862,21 +878,22 @@ function HoSo({
 
   // Chỉ định xong → "Đã chỉ định N dịch vụ · Hoàn tác" (01/10/2026): hoàn tác
   // = bỏ đúng các chỉ định vừa tạo (máy chủ trả `order_ids`), quầy thu bớt ngay.
-  const datChiDinh = async (
-    codes: string[],
-    batBuoc: string[],
-  ): Promise<{ ok: true } | { ok: false; loi: string }> => {
+  // Lần do máy chủ gán (06/10/2026): mặc định lần hiện tại; `lan.lan_moi` chỉ
+  // khi bác sĩ bấm "Chỉ định thêm (lần N)".
+  const datChiDinh: DatChiDinh = async (codes, batBuoc, lan) => {
     const kq = await guiThaoTac("chi-dinh", dong.ref_id, {
       service_codes: codes,
       bat_buoc_codes: batBuoc,
+      ...(lan?.lan_moi ? { lan_moi: true, lan_dang_thay: lan.lan_dang_thay } : {}),
     });
     if (!kq.ok) return { ok: false, loi: kq.loi };
     const ids = Array.isArray(kq.data.order_ids)
       ? kq.data.order_ids.filter((x): x is string => typeof x === "string")
       : [];
+    const lanGan = typeof kq.data.lan === "number" ? kq.data.lan : null;
     if (ids.length > 0) {
       setThongBao({
-        cau: `Đã chỉ định ${ids.length} dịch vụ — ${dong.ten}`,
+        cau: `Đã chỉ định ${ids.length} dịch vụ${lanGan ? ` (lần ${lanGan})` : ""} — ${dong.ten}`,
         goi: async (duLieu) => {
           for (const id of ids) {
             const r = await lenhHoanTac("huy-chi-dinh", id)(duLieu);
@@ -886,7 +903,7 @@ function HoSo({
         },
       });
     }
-    return { ok: true };
+    return { ok: true, order_ids: ids, lan: lanGan };
   };
 
   const gui = async (thaoTac: "nhan-kham" | "kham-xong" | "xong-tu-van") => {
@@ -1056,7 +1073,9 @@ function HoSo({
             ) : null}
             {!tuVan && dong.trang_thai === "blocked" ? (
               <p className="text-xs text-warning">
-                Khách đang ở một bước khác (đang làm dịch vụ) — chưa gọi vào được.
+                {dong.dang_o_phong
+                  ? `${cauDangOPhong(dong.dang_o_phong)} — chưa gọi vào được.`
+                  : "Khách đang ở một bước khác (đang làm dịch vụ) — chưa gọi vào được."}
               </p>
             ) : null}
             {loiHienTai && dong.trang_thai !== "serving" ? (
@@ -1274,6 +1293,7 @@ function HoSo({
               choGhi={choBam}
               datChiDinh={datChiDinh}
               onDaDat={onDaBam}
+              onDaBoChiDinh={dongThongBao}
               onTrangThai={baoGate}
               chanRay={laPhieuMoi ? nutHoanTat : undefined}
             />

@@ -912,17 +912,38 @@ async def test_lo_30_chi_dinh_mot_truy_van(q: Quay) -> None:
     assert {d.finance_state for d in lo.values()} == {"DUE"}
 
 
-async def test_khong_bo_duoc_dich_vu_kham_da_thu(q: Quay) -> None:
-    """Thêm sau khi thu thì được; BỎ dịch vụ khám đã thu thì bị chặn — không để
-    khoản đã thu biến khỏi hoá đơn mà không hoàn (30/09/2026)."""
+async def test_e7_bo_dich_vu_kham_da_thu_thanh_tien_thua_hoan_roi_tick_lai_la_no(
+    q: Quay,
+) -> None:
+    """Tuyền chốt 06/10/2026 (E7 + E5): BỎ dịch vụ khám đã thu → cho bỏ ngay,
+    khoản đã thu thành TIỀN THỪA; quầy hoàn đúng số; tick lại = NỢ MỚI (không
+    kẹt im lặng vì lần thu đã hoàn còn "phủ")."""
+    from clinicai.services.hoan_tac_service import tien_thua_cua_luot
+
     a = await _phi_kham_con(q, f"Khám bỏ A {q.duoi}", 180_000)
     b = await _phi_kham_con(q, f"Khám bỏ B {q.duoi}", 220_000)
     svc = PhiKhamService(q.pool)
     await svc.chon(visit_id=q.visit_id, ids=[a], identity=q.bac_si)
     await _thu(q, bill_revision=(await _hd(q)).revision)
     await svc.chon(visit_id=q.visit_id, ids=[a, b], identity=q.bac_si)
-    with pytest.raises(ValidationError, match="đã thu tiền"):
-        await svc.chon(visit_id=q.visit_id, ids=[b], identity=q.bac_si)
-    # B chưa thu thì bỏ được bình thường.
-    await svc.chon(visit_id=q.visit_id, ids=[a], identity=q.bac_si)
+    await svc.chon(visit_id=q.visit_id, ids=[b], identity=q.bac_si)  # bỏ A đã thu
+    async with q.pool.acquire() as conn:
+        tt = (await tien_thua_cua_luot(conn, CLINIC, [q.visit_id]))[q.visit_id]
+    assert tt["tong"] == 180_000
+    assert [d["loai"] for d in tt["dong"]] == ["BO_DICH_VU_KHAM"]
+    assert {d.source_id for d in (await _hd(q)).dong} == {
+        f"exam-{q.visit_id}-selected-{b}"
+    }
+    kq = await HoanTienService(q.pool).hoan_tien_thua(
+        identity=q.thu_ngan, visit_id=q.visit_id
+    )
+    assert kq["amount"] == 180_000
+    async with q.pool.acquire() as conn:
+        assert q.visit_id not in await tien_thua_cua_luot(conn, CLINIC, [q.visit_id])
+    # Tick lại A sau khi đã hoàn tiền → thành khoản CHƯA THU.
+    await svc.chon(visit_id=q.visit_id, ids=[a, b], identity=q.bac_si)
+    assert f"exam-{q.visit_id}-selected-{a}" in {
+        d.source_id for d in (await _hd(q)).dong
+    }
+    await _thu(q, bill_revision=(await _hd(q)).revision)  # thu lại được, không trùng
     assert (await _hd(q)).dong == []

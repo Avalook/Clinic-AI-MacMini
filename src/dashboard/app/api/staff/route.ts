@@ -36,6 +36,29 @@ export async function GET() {
   return NextResponse.json({ items: rows });
 }
 
+// Tạo nhân viên mới — chỉ chuyển tiếp đúng các trường StaffCreateDTO nhận.
+// Tài khoản đăng nhập cấp SAU, ở /settings/new-user (mỗi nhân viên một tài khoản).
+export async function POST(request: Request) {
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: "Dữ liệu gửi lên không hợp lệ" }, { status: 400 });
+  }
+  const allowed = [
+    "full_name",
+    "short_name",
+    "primary_department",
+    "primary_location_id",
+    "employment_type",
+  ] as const;
+  const payload: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (key in body) payload[key] = body[key];
+  }
+  return proxyJsonToBackend("POST", "/api/v1/staff", payload);
+}
+
 export async function PATCH(request: Request) {
   let body: Record<string, unknown>;
   try {

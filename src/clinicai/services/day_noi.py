@@ -76,6 +76,16 @@ DAY: dict[str, Day] = {
             "bat_tat",
         ),
         Day(
+            "nhan_tai_phong",
+            # Tuyền chốt 07/10/2026 (docs/KE-HOACH-NHAN-TAI-PHONG.md). TẮT = y như
+            # cũ. BẬT thì thắng dây tự xếp phòng ở trên: không ai xếp thay phòng.
+            "Nhận khách tại phòng: phòng tự bấm Nhận khách ở danh sách Sắp đến;"
+            " quầy thu / bàn khám / trưởng ca chọn phòng chỉ là HƯỚNG DẪN, hệ"
+            " thống không tự xếp phòng",
+            False,
+            "bat_tat",
+        ),
+        Day(
             "thu_truoc_khi_lam",
             'Thu tiền trước khi làm dịch vụ — chỉ lượt được tick "Làm trước –'
             ' thu sau" (ở Bàn khám / quầy thu) mới xếp phòng, bắt đầu làm khi'

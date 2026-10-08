@@ -18,6 +18,7 @@ from typing import Any
 
 import asyncpg
 
+from clinicai.services.audit_labels import NHAN_NHAN_VAO_PHONG
 from clinicai.services.lan_bac_si import ten_bac_si
 
 LOAI_LICH_SU = ("service.routed", "service.room_transferred", "service.doctor_chosen")
@@ -27,6 +28,7 @@ TEN_NGUON = {
     "quay_thu": "Quầy thu",
     "truong_ca": "Trưởng ca",
     "tu_dong": "Tự động",
+    "tai_phong": "Tại phòng",
     "khac": "Nhân viên",
 }
 
@@ -81,6 +83,9 @@ def dong_lich_su(
     ten_nguon = TEN_NGUON.get(nguon or "", "Nhân viên")
     phong = f"{tu_phong or '—'} → {den_phong or '—'}" if tu else f"→ {den_phong or '—'}"
     cau = f"{ten_nguon} {viec} {phong}"
+    if loai == "service.routed" and nguon == "tai_phong":
+        # Phòng tự bấm Nhận (07/10/2026) — không phải nhân viên xếp phòng.
+        cau = f"{NHAN_NHAN_VAO_PHONG} · {den_phong or '—'}"
     if ly_do:
         cau += f": {ly_do}"
     return {

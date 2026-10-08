@@ -39,6 +39,7 @@ from clinicai.services.config_service import (
     Shift,
 )
 from clinicai.services.danh_muc_dich_vu_service import DanhMucDichVuService
+from clinicai.services.lich_truc_phien_ban_service import LichTrucPhienBanService
 from clinicai.services.ngoai_le_ca_truc_service import NgoaiLeCaTrucService
 
 router = APIRouter()
@@ -348,6 +349,22 @@ async def lich_tuan(
 ) -> dict[str, Any]:
     """Dữ liệu màn Lịch làm việc cho một tuần — ai có lego Lịch làm việc."""
     return await RosterService(pool).lich_tuan(identity=identity, tuan=tuan)
+
+
+@router.get("/roster/phien-ban")
+async def lich_truc_phien_ban(
+    tuan: str | None = None,
+    ban: str | None = None,
+    identity: StaffIdentity = Depends(_ROSTER_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch sử phiên bản lịch trực của một tuần (Khối 3, 06/10/2026) — chỉ
+    người xếp lịch: trưởng ca (`roster.manage`) hoặc lego 18. `tuan` / `ban`
+    nhận chuỗi thô: rác thì trả rỗng / bản mới nhất, không 422 (luật ngày giờ
+    từ người dùng)."""
+    return await LichTrucPhienBanService(pool).xem(
+        identity=identity, tuan=tuan, ban=ban
+    )
 
 
 @router.get("/roster/bac-si-ngay")

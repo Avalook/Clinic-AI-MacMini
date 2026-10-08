@@ -28,17 +28,22 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
-from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.events.catalogue import DaHoanTien
 from clinicai.events.emit import emit_event, nguoi
+from clinicai.permissions.can import can
+from clinicai.services.lieu_trinh_tien import loi_tien_lieu_trinh
 from clinicai.services.phan_lo_service import so
 
-#: AI ĐƯỢC HOÀN TIỀN — TẠM THỜI, CHỜ DR4WOMEN DUYỆT (HOLD J4).
-#: Chỉ Quản lý, để làm và thử CP5 trên PR nháp. Đây KHÔNG phải luật nghiệp vụ
-#: cuối: trước khi merge / lên production phải thay bằng quyết định thật của
-#: phòng khám (thu ngân tự hoàn tới mức nào, khoản nào Quản lý duyệt).
-VAI_HOAN_TIEN_TAM_THOI: frozenset[ClinicRole] = frozenset({ClinicRole.MANAGEMENT})
+#: AI ĐƯỢC HOÀN TIỀN (Tuyền chốt 06/10/2026 — "ai có node cũng được"): QUYỀN,
+#: không vai. Hoàn tiền DỊCH VỤ = ai có lego Thu tiền dịch vụ; hoàn tiền THUỐC =
+#: ai có lego Thu tiền thuốc. Thay luật tạm HOLD J4 (chỉ vai Quản lý). Số tiền
+#: hoàn luôn do máy tính từ dòng ảnh chụp hoá đơn — không gõ số tuỳ ý.
+QUYEN_HOAN: dict[str, str] = {
+    "dich_vu": "payment.service.collect",
+    "thuoc": "payment.medicine.collect",
+}
 
 PHUONG_THUC = frozenset({"CASH", "TRANSFER", "QR"})
 DONG = frozenset({"FAILED", "CANCELLED"})
@@ -51,19 +56,31 @@ def _ly_do(raw: object) -> str:
     return ly
 
 
-def co_quyen_hoan(identity: StaffIdentity) -> bool:
-    return identity.co_vai(VAI_HOAN_TIEN_TAM_THOI)
+async def co_quyen_hoan(
+    conn: asyncpg.Connection, identity: StaffIdentity, kind: str | None = None
+) -> bool:
+    """Có lego thu đúng loại tiền (không nói loại = có lego thu loại nào cũng được)."""
+    loai = [kind] if kind in QUYEN_HOAN else list(QUYEN_HOAN)
+    for k in loai:
+        if await can(conn, identity, QUYEN_HOAN[str(k)]):
+            return True
+    return False
+
+
+async def _doi_quyen_hoan(
+    conn: asyncpg.Connection, identity: StaffIdentity, kind: str
+) -> None:
+    if not await co_quyen_hoan(conn, identity, kind):
+        raise SafetyGateError(
+            "Bạn chưa được cấp lego "
+            + ("Thu tiền thuốc" if kind == "thuoc" else "Thu tiền dịch vụ")
+            + " nên không hoàn tiền loại này được."
+        )
 
 
 class HoanTienService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
-
-    def _cong(self, identity: StaffIdentity) -> None:
-        if not co_quyen_hoan(identity):
-            raise SafetyGateError(
-                "Hoàn tiền tạm thời chỉ Quản lý làm được (chờ phòng khám chốt quyền)."
-            )
 
     async def tao(
         self,
@@ -77,7 +94,6 @@ class HoanTienService:
         reason: object,
     ) -> dict[str, Any]:
         """Một khoản hoàn cho các dòng của ảnh chụp hoá đơn lần thu gốc."""
-        self._cong(identity)
         if method not in PHUONG_THUC:
             raise ValidationError(f"Phương thức hoàn không hợp lệ: {method!r}")
         ly_do = _ly_do(reason)
@@ -96,130 +112,75 @@ class HoanTienService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                await _khoa_luot(conn, identity, visit_id)
-                lan = await conn.fetchrow(
-                    """
-                    SELECT payment_cycle_id, paid_at FROM public.payment_cycle
-                     WHERE payment_cycle_id = $1::uuid AND clinic_id = $2::uuid
-                       AND visit_id = $3::uuid AND kind = $4
-                     FOR UPDATE
-                    """,
-                    payment_cycle_id,
-                    identity.clinic_id,
-                    visit_id,
-                    kind,
-                )
-                if lan is None:
-                    raise NotFoundError("Không tìm thấy lần thu này của lượt khám.")
-                if lan["paid_at"] is None:
-                    raise ConflictError(
-                        "Lần thu này chưa từng thu tiền — không có gì để hoàn."
-                    )
-                con = {
-                    r["id"]: r
-                    for r in await _con_hoan(conn, identity, payment_cycle_id)
-                }
-                tong = 0
-                ghi: list[tuple[str, Decimal, int]] = []
-                for ma, sl in yeu_cau.items():
-                    r = con.get(ma)
-                    if r is None:
-                        raise ValidationError(
-                            "Dòng hoàn không thuộc hoá đơn đã thu của lần thu này."
-                        )
-                    if r["don_gia"] is None or r["billing_owner"] != "CLINIC":
-                        raise ValidationError(
-                            f"“{r['ten']}” không phải khoản phòng khám đã thu "
-                            "— không hoàn."
-                        )
-                    if sl > r["con_hoan"]:
-                        raise ConflictError(
-                            f"“{r['ten']}” đã thu {so(r['so_luong'])}, đã hoàn "
-                            f"{so(r['da_hoan'])} — chỉ còn hoàn được "
-                            f"{so(r['con_hoan'])}."
-                        )
-                    tien = int(
-                        (sl * r["don_gia"]).quantize(Decimal(1), rounding=ROUND_HALF_UP)
-                    )
-                    if tien <= 0:
-                        raise ValidationError(
-                            f"“{r['ten']}” thu 0đ — không có tiền để hoàn."
-                        )
-                    ghi.append((ma, sl, tien))
-                    tong += tien
-                refund_id = str(uuid.uuid4())
-                tien_mat = method == "CASH"
-                await conn.execute(
-                    """
-                    INSERT INTO public.payment_refund (
-                        refund_id, clinic_id, visit_id, kind, payment_cycle_id,
-                        amount, status, method, reason, created_by,
-                        completed_by, completed_at)
-                    VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7, $8,
-                            $9, $10::uuid,
-                            CASE WHEN $7 = 'COMPLETED' THEN $10::uuid END,
-                            CASE WHEN $7 = 'COMPLETED' THEN now() END)
-                    """,
-                    refund_id,
-                    identity.clinic_id,
-                    visit_id,
-                    kind,
-                    payment_cycle_id,
-                    tong,
-                    "COMPLETED" if tien_mat else "PENDING",
-                    method,
-                    ly_do,
-                    identity.staff_id,
-                )
-                await conn.executemany(
-                    """
-                    INSERT INTO public.payment_refund_line (
-                        clinic_id, refund_id, payment_cycle_id, payment_bill_line_id,
-                        quantity, amount)
-                    VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6)
-                    """,
-                    [
-                        (identity.clinic_id, refund_id, payment_cycle_id, ma, sl, tien)
-                        for ma, sl, tien in ghi
-                    ],
-                )
-                if tien_mat:
-                    await _phat_da_hoan(conn, identity, visit_id, refund_id, int(tong))
-                await _log(
+                await _doi_quyen_hoan(conn, identity, kind)
+                return await _tao_trong(
                     conn,
-                    identity,
-                    "payment.refunded" if tien_mat else "payment.refund_pending",
-                    refund_id,
-                    {
-                        "refund_id": refund_id,
-                        "payment_cycle_id": payment_cycle_id,
-                        "visit_id": visit_id,
-                        "kind": kind,
-                        "amount": tong,
-                        "method": method,
-                        "lines": [
-                            {"payment_bill_line_id": ma, "quantity": str(sl)}
-                            for ma, sl, _ in ghi
-                        ],
-                    },
+                    identity=identity,
+                    payment_cycle_id=payment_cycle_id,
+                    visit_id=visit_id,
+                    kind=kind,
+                    yeu_cau=yeu_cau,
+                    method=method,
+                    ly_do=ly_do,
                 )
-        return {
-            "refund_id": refund_id,
-            "status": "COMPLETED" if tien_mat else "PENDING",
-            "amount": tong,
-        }
+
+    async def hoan_tien_thua(
+        self, *, identity: StaffIdentity, visit_id: str, reason: object = None
+    ) -> dict[str, Any]:
+        """HOÀN TIỀN THỪA của lượt (Tuyền 06/10/2026, E2): máy hoàn ĐÚNG phần
+        còn thừa của từng dòng hoá đơn (chỉ định đã bỏ / không làm, dịch vụ khám
+        đã bỏ tick), tiền mặt. Không gõ số. Ai có lego Thu tiền dịch vụ.
+        Không còn gì để hoàn → trả `already`."""
+        from clinicai.services.tien_thua_service import dong_tien_thua
+
+        ly_do = (
+            _ly_do(reason)
+            if isinstance(reason, str) and reason.strip()
+            else "Hoàn tiền thừa — chỉ định / dịch vụ khám đã bỏ"
+        )
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                await _doi_quyen_hoan(conn, identity, "dich_vu")
+                await _khoa_luot(conn, identity, visit_id)
+                dong = (await dong_tien_thua(conn, identity.clinic_id, [visit_id])).get(
+                    visit_id, []
+                )
+                nhom: dict[tuple[str, str], dict[str, Decimal]] = {}
+                for d in dong:
+                    if d["con_sl"] <= 0 or d["so_tien"] <= 0:
+                        continue
+                    k = (d["line_visit_id"], d["payment_cycle_id"])
+                    nhom.setdefault(k, {})[d["line_id"]] = d["con_sl"]
+                if not nhom:
+                    return {"ok": True, "already": True, "amount": 0, "refund_ids": []}
+                tong = 0
+                ids: list[str] = []
+                for (vid, cycle), yeu_cau in sorted(nhom.items()):
+                    kq = await _tao_trong(
+                        conn,
+                        identity=identity,
+                        payment_cycle_id=cycle,
+                        visit_id=vid,
+                        kind="dich_vu",
+                        yeu_cau=yeu_cau,
+                        method="CASH",
+                        ly_do=ly_do,
+                    )
+                    tong += int(kq["amount"])
+                    ids.append(str(kq["refund_id"]))
+        return {"ok": True, "amount": tong, "refund_ids": ids}
 
     async def xac_nhan(
         self, *, identity: StaffIdentity, refund_id: str, reference: object
     ) -> dict[str, Any]:
         """Khoản hoàn chuyển khoản / QR đã chuyển xong, kèm mã giao dịch."""
-        self._cong(identity)
         ma = reference.strip() if isinstance(reference, str) else ""
         if not 3 <= len(ma) <= 100:
             raise ValidationError("Nhập mã giao dịch ngân hàng (3–100 ký tự).")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 hoan = await _khoa_hoan(conn, identity, refund_id)
+                await _doi_quyen_hoan(conn, identity, str(hoan["kind"]))
                 if hoan["status"] == "COMPLETED":
                     if hoan["reference"] == ma or hoan["method"] == "CASH":
                         return {"refund_id": refund_id, "status": "COMPLETED"}
@@ -272,13 +233,13 @@ class HoanTienService:
     ) -> dict[str, Any]:
         """Khoản hoàn đang chờ: thử mà không thành (FAILED) hoặc chủ động huỷ
         yêu cầu chưa làm (CANCELLED). Hai sự thật khác nhau, giữ riêng."""
-        self._cong(identity)
         if trang_thai not in DONG:
             raise ValidationError("Chỉ đóng khoản hoàn thành FAILED hoặc CANCELLED.")
         ly_do = _ly_do(reason)
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 hoan = await _khoa_hoan(conn, identity, refund_id)
+                await _doi_quyen_hoan(conn, identity, str(hoan["kind"]))
                 if hoan["status"] == trang_thai:
                     return {"refund_id": refund_id, "status": trang_thai}
                 if hoan["status"] != "PENDING":
@@ -314,6 +275,125 @@ class HoanTienService:
                     },
                 )
         return {"refund_id": refund_id, "status": trang_thai}
+
+
+async def _tao_trong(
+    conn: asyncpg.Connection,
+    *,
+    identity: StaffIdentity,
+    payment_cycle_id: str,
+    visit_id: str,
+    kind: str,
+    yeu_cau: dict[str, Decimal],
+    method: str,
+    ly_do: str,
+) -> dict[str, Any]:
+    """Thân lệnh hoàn tiền, TRONG giao dịch của người gọi (đã kiểm quyền)."""
+    await _khoa_luot(conn, identity, visit_id)
+    lan = await conn.fetchrow(
+        """
+        SELECT payment_cycle_id, paid_at FROM public.payment_cycle
+         WHERE payment_cycle_id = $1::uuid AND clinic_id = $2::uuid
+           AND visit_id = $3::uuid AND kind = $4
+         FOR UPDATE
+        """,
+        payment_cycle_id,
+        identity.clinic_id,
+        visit_id,
+        kind,
+    )
+    if lan is None:
+        raise NotFoundError("Không tìm thấy lần thu này của lượt khám.")
+    if lan["paid_at"] is None:
+        raise ConflictError("Lần thu này chưa từng thu tiền — không có gì để hoàn.")
+    con = {r["id"]: r for r in await _con_hoan(conn, identity, payment_cycle_id)}
+    tong = 0
+    ghi: list[tuple[str, Decimal, int]] = []
+    for ma, sl in yeu_cau.items():
+        r = con.get(ma)
+        if r is None:
+            raise ValidationError(
+                "Dòng hoàn không thuộc hoá đơn đã thu của lần thu này."
+            )
+        if r["don_gia"] is None or r["billing_owner"] != "CLINIC":
+            raise ValidationError(
+                f"“{r['ten']}” không phải khoản phòng khám đã thu — không hoàn."
+            )
+        if sl > r["con_hoan"]:
+            raise ConflictError(
+                f"“{r['ten']}” đã thu {so(r['so_luong'])}, đã hoàn "
+                f"{so(r['da_hoan'])} — chỉ còn hoàn được "
+                f"{so(r['con_hoan'])}."
+            )
+        tien = int((sl * r["don_gia"]).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+        if tien <= 0:
+            raise ValidationError(f"“{r['ten']}” thu 0đ — không có tiền để hoàn.")
+        ghi.append((ma, sl, tien))
+        tong += tien
+    refund_id = str(uuid.uuid4())
+    tien_mat = method == "CASH"
+    await conn.execute(
+        """
+        INSERT INTO public.payment_refund (
+            refund_id, clinic_id, visit_id, kind, payment_cycle_id,
+            amount, status, method, reason, created_by,
+            completed_by, completed_at)
+        VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::uuid, $6, $7, $8,
+                $9, $10::uuid,
+                CASE WHEN $7 = 'COMPLETED' THEN $10::uuid END,
+                CASE WHEN $7 = 'COMPLETED' THEN now() END)
+        """,
+        refund_id,
+        identity.clinic_id,
+        visit_id,
+        kind,
+        payment_cycle_id,
+        tong,
+        "COMPLETED" if tien_mat else "PENDING",
+        method,
+        ly_do,
+        identity.staff_id,
+    )
+    try:
+        await conn.executemany(
+            """
+            INSERT INTO public.payment_refund_line (
+                clinic_id, refund_id, payment_cycle_id, payment_bill_line_id,
+                quantity, amount)
+            VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6)
+            """,
+            [
+                (identity.clinic_id, refund_id, payment_cycle_id, ma, sl, tien)
+                for ma, sl, tien in ghi
+            ],
+        )
+    except asyncpg.CheckViolationError as e:
+        # Hoàn tiền trả trước liệu trình quá số buổi chưa dùng (08/10/2026).
+        raise loi_tien_lieu_trinh(e) from None
+    if tien_mat:
+        await _phat_da_hoan(conn, identity, visit_id, refund_id, int(tong))
+    await _log(
+        conn,
+        identity,
+        "payment.refunded" if tien_mat else "payment.refund_pending",
+        refund_id,
+        {
+            "refund_id": refund_id,
+            "payment_cycle_id": payment_cycle_id,
+            "visit_id": visit_id,
+            "kind": kind,
+            "amount": tong,
+            "method": method,
+            "lines": [
+                {"payment_bill_line_id": ma, "quantity": str(sl)} for ma, sl, _ in ghi
+            ],
+        },
+    )
+    return {
+        "refund_id": refund_id,
+        "status": "COMPLETED" if tien_mat else "PENDING",
+        "amount": tong,
+    }
 
 
 async def _phat_da_hoan(
@@ -368,7 +448,8 @@ async def _khoa_hoan(
     )
     hoan = await conn.fetchrow(
         """
-        SELECT refund_id, payment_cycle_id, status, method, amount, reference
+        SELECT refund_id, payment_cycle_id, status, method, amount, reference,
+               kind
           FROM public.payment_refund
          WHERE refund_id = $1::uuid AND clinic_id = $2::uuid
          FOR UPDATE

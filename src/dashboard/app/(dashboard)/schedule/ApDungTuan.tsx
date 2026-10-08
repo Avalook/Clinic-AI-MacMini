@@ -15,17 +15,27 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarCheck, Info } from "lucide-react";
 
+import Button from "../../../components/ui/Button";
+import Chip from "../../../components/ui/Chip";
+
 export default function ApDungTuan({
   weekStart,
   daApDung,
   laQuanLy,
   soCa,
+  gon = false,
+  onXong,
 }: {
   weekStart: string;
   daApDung: boolean;
   laQuanLy: boolean;
   /** Số ô lịch của tuần. 0 thì không có gì để áp dụng. */
   soCa: number;
+  /** Dáng gọn trên thanh công cụ của bảng xếp ca (06/10/2026): chỉ nút / chip,
+   *  không dải chữ — dải trạng thái vẫn ở đầu trang. */
+  gon?: boolean;
+  /** Gọi sau khi máy chủ nhận — bảng xếp ca nạp lại ô Phiên bản (lịch gốc mới). */
+  onXong?: () => void;
 }) {
   const router = useRouter();
   const [dangGui, setDangGui] = useState(false);
@@ -56,7 +66,34 @@ export default function ApDungTuan({
       return;
     }
     setVuaApDung(true);
+    onXong?.();
     router.refresh();
+  }
+
+  if (gon) {
+    if (daApDung || vuaApDung) {
+      return (
+        <Chip tone="success" title="Đặt lịch chọn được bác sĩ theo đúng ca trực.">
+          <CalendarCheck className="size-3.5" aria-hidden="true" />
+          Đã áp dụng
+        </Chip>
+      );
+    }
+    if (!laQuanLy) return null;
+    return (
+      <span className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={apDung}
+          disabled={dangGui || soCa === 0}
+          title={soCa === 0 ? "Chưa xếp ca nào — xếp lịch trước rồi mới áp dụng được." : undefined}
+        >
+          {dangGui ? "Đang áp dụng…" : `Áp dụng tuần (${soCa} ca)`}
+        </Button>
+        {loi ? <span className="text-meta text-danger">{loi}</span> : null}
+      </span>
+    );
   }
 
   if (daApDung || vuaApDung) {

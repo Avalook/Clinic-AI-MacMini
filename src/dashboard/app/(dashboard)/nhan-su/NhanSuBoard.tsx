@@ -8,8 +8,10 @@ import { buttonClass } from "@/components/ui/Button";
 import type { StaffRow } from "../../api/staff/route";
 import { loiDocDuoc } from "../../../lib/loi-doc-duoc";
 
+// overview trả `location_id`, KHÔNG có `id`. Đọc `l.id` thì option không có
+// value, trình duyệt lấy chữ "Kim Ngưu" làm giá trị và backend trả 422 UUID.
 interface ConfigLocation {
-  id: string;
+  location_id: string;
   name: string;
 }
 
@@ -74,6 +76,14 @@ export default function NhanSuBoard({
   // Cùng lý do như nút đặt lịch: state chỉ đổi sau lần render kế tiếp, nên hai
   // cú click nhanh đều lọt. useRef đổi ngay.
   const savingRef = useRef(false);
+  // Thêm nhân viên mới. Tài khoản đăng nhập cấp ở bước sau (/settings/new-user).
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDept, setNewDept] = useState(DEPARTMENTS[0].value);
+  const [newLoc, setNewLoc] = useState(locations[0]?.location_id ?? "");
+  const [addError, setAddError] = useState<string | null>(null);
+  const [justAddedId, setJustAddedId] = useState<string | null>(null);
+  const addingRef = useRef(false);
 
   const counts = useMemo(() => {
     const map = new Map<string, number>();
@@ -107,6 +117,42 @@ export default function NhanSuBoard({
     setDraft({});
     setError(null);
     setSaved(false);
+    setJustAddedId(null);
+  }
+
+  async function addStaff() {
+    if (addingRef.current) return;
+    addingRef.current = true;
+    setAddError(null);
+    try {
+      const res = await fetch("/api/staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: newName,
+          primary_department: newDept,
+          primary_location_id: newLoc || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setAddError(loiDocDuoc(err, "Không thêm được nhân viên."));
+        return;
+      }
+      const created = (await res.json()) as StaffRow;
+      setStaff((list) => [...list, created]);
+      setQuery("");
+      setDeptFilter("");
+      pick(created);
+      setJustAddedId(created.id);
+      setAdding(false);
+      setNewName("");
+      router.refresh();
+    } catch {
+      setAddError("Mất kết nối tới máy chủ — chưa thêm được nhân viên.");
+    } finally {
+      addingRef.current = false;
+    }
   }
 
   function edit<K extends keyof StaffRow>(key: K, value: StaffRow[K]) {
@@ -178,6 +224,82 @@ export default function NhanSuBoard({
               ))}
             </select>
           </div>
+          {!adding ? (
+            <button
+              type="button"
+              onClick={() => {
+                setAdding(true);
+                setAddError(null);
+              }}
+              className={buttonClass("secondary", "sm") + " mt-2 w-full"}
+            >
+              + Thêm nhân viên
+            </button>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void addStaff();
+              }}
+              className="mt-2 space-y-2 rounded-lg border border-line bg-surface-sunken p-3"
+            >
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Họ và tên"
+                aria-label="Họ và tên nhân viên mới"
+                required
+                autoFocus
+                className={INPUT}
+              />
+              <select
+                value={newDept}
+                onChange={(e) => setNewDept(e.target.value)}
+                aria-label="Vai trò"
+                className={INPUT}
+              >
+                {DEPARTMENTS.map((d) => (
+                  <option key={d.value} value={d.value}>
+                    {d.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={newLoc}
+                onChange={(e) => setNewLoc(e.target.value)}
+                aria-label="Cơ sở làm việc"
+                className={INPUT}
+              >
+                <option value="">— Chưa gán cơ sở —</option>
+                {locations.map((l) => (
+                  <option key={l.location_id} value={l.location_id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+              {addError && (
+                <p className="rounded-lg border border-danger bg-danger-bg px-2 py-1.5 text-xs text-danger">
+                  {addError}
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={!newName.trim()}
+                  className={buttonClass("primary", "sm")}
+                >
+                  Thêm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdding(false)}
+                  className={buttonClass("ghost", "sm")}
+                >
+                  Huỷ
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
         <ul className="max-h-[calc(100vh-16rem)] divide-y divide-line overflow-y-auto">
@@ -288,7 +410,7 @@ export default function NhanSuBoard({
                 >
                   <option value="">— Chưa gán —</option>
                   {locations.map((l) => (
-                    <option key={l.id} value={l.id}>
+                    <option key={l.location_id} value={l.location_id}>
                       {l.name}
                     </option>
                   ))}
@@ -431,6 +553,17 @@ export default function NhanSuBoard({
                 >
                   Mở Phân quyền cho người này
                 </Link>
+                {justAddedId === selected.id && (
+                  <p className="mt-2 text-sm text-ink-muted">
+                    Đã thêm. Bước tiếp:{" "}
+                    <Link
+                      href={`/settings/new-user?staff=${encodeURIComponent(selected.id)}`}
+                      className="font-medium text-brand-700 underline"
+                    >
+                      Cấp tài khoản đăng nhập cho người này
+                    </Link>
+                  </p>
+                )}
               </div>
             </div>
 

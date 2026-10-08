@@ -291,6 +291,9 @@ if [ "$MOI" = 1 ]; then
     # …rồi bật lại Thủ thuật + Sàn chậu chuyên sâu (24/09) mà câu trên vừa tắt.
     psql_db <"$REPO/supabase/migrations/20260925000006_dat_lich_thu_thuat_san_chau.sql" >>"$LOG_DIR/nam-dich-vu.log" 2>&1 || {
         red "  chạy lại 20260925000006_dat_lich_thu_thuat_san_chau hỏng — xem $LOG_DIR/nam-dich-vu.log"; exit 1; }
+    # …và nhóm Điều trị + "Khác" của ô chọn đặt lịch (07/10) mà câu đầu cũng vừa tắt.
+    psql_db <"$REPO/supabase/migrations/20261007600000_nhom_dich_vu_dat_lich.sql" >>"$LOG_DIR/nam-dich-vu.log" 2>&1 || {
+        red "  chạy lại 20261007600000_nhom_dich_vu_dat_lich hỏng — xem $LOG_DIR/nam-dich-vu.log"; exit 1; }
     # …và bên thu theo KiotViet (29/09): seed nạp danh mục dịch vụ SAU migration,
     # nên phân loại thu hộ phải áp lại (chạy lại được — chỉ chạm 4 mã).
     psql_db <"$REPO/supabase/migrations/20260929000020_ben_thu_theo_dich_vu.sql" >>"$LOG_DIR/nam-dich-vu.log" 2>&1 || {
