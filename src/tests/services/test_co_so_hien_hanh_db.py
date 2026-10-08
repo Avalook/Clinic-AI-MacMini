@@ -26,7 +26,9 @@ from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
-async def _nhan_ban_phong_sang(conn: asyncpg.Connection, tu: str, sang: str) -> None:
+async def _nhan_ban_phong_sang(
+    conn: asyncpg.Connection, tu: str, sang: str
+) -> list[str]:
     """Chép mọi phòng đang bật của cơ sở `tu` sang `sang`, sort NHỎ HƠN — để
     nếu SQL không lọc cơ sở thì nó chọn trúng phòng cơ sở kia."""
     phong = await conn.fetch(
@@ -35,6 +37,7 @@ async def _nhan_ban_phong_sang(conn: asyncpg.Connection, tu: str, sang: str) -> 
         CLINIC,
         tu,
     )
+    tao: list[str] = []
     for p in phong:
         moi = await conn.fetchval(
             "INSERT INTO clinic_room (clinic_id, location_id, code, name, node_code,"
@@ -54,20 +57,29 @@ async def _nhan_ban_phong_sang(conn: asyncpg.Connection, tu: str, sang: str) -> 
             p["id"],
             moi,
         )
+        tao.append(str(moi))
+    return tao
 
 
 async def test_check_in_vao_tram_dau_dung_co_so(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
     khac = await _co_so_khac(pool, ca.loc)
     async with pool.acquire() as conn:
-        await _nhan_ban_phong_sang(conn, ca.loc, khac)
-    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
-    co_so_phong = await pool.fetchval(
-        "SELECT r.location_id::text FROM visit v"
-        " JOIN clinic_room r ON r.id = v.current_room_id WHERE v.visit_id = $1::uuid",
-        visit,
-    )
-    assert co_so_phong in (None, ca.loc), "check-in không được đặt khách sang cơ sở kia"
+        tao = await _nhan_ban_phong_sang(conn, ca.loc, khac)
+    try:
+        visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+        co_so_phong = await pool.fetchval(
+            "SELECT r.location_id::text FROM visit v JOIN clinic_room r"
+            " ON r.id = v.current_room_id WHERE v.visit_id = $1::uuid",
+            visit,
+        )
+        assert co_so_phong in (None, ca.loc), "check-in không được sang cơ sở kia"
+    finally:
+        # Phòng sort rất nhỏ ở cơ sở kia — để lại thì test khác (chạy song song)
+        # chọn "phòng đầu tiên theo bước" sẽ vớ trúng.
+        await pool.execute(
+            "UPDATE clinic_room SET is_active = false WHERE id = ANY($1::uuid[])", tao
+        )
 
 
 async def test_phong_khac_co_so_bi_db_tu_choi(pool: asyncpg.Pool) -> None:  # noqa: F811

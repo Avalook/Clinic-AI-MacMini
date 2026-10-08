@@ -289,9 +289,13 @@ async def _chay(pool: asyncpg.Pool) -> None:
             room = await pool.fetchval(
                 "SELECT r.id::text FROM clinic_room r JOIN clinic_room_node rn ON"
                 " rn.room_id = r.id WHERE r.clinic_id = $1::uuid AND rn.node_code ="
-                " $2 AND r.is_active AND r.accepting ORDER BY r.sort LIMIT 1",
+                " $2 AND r.is_active AND r.accepting"
+                # Phòng cùng cơ sở lượt — chốt DB chặn phòng cơ sở khác.
+                " AND r.location_id = co_so_cua_luot($3::uuid)"
+                " ORDER BY r.sort LIMIT 1",
                 CLINIC,
                 room_node,
+                vid,
             )
             await pool.execute(_VE_LEGACY, oid)
             await goi(
@@ -432,8 +436,11 @@ async def _chay(pool: asyncpg.Pool) -> None:
         room = await pool.fetchval(
             "SELECT r.id::text FROM clinic_room r JOIN clinic_room_node rn ON"
             " rn.room_id = r.id WHERE r.clinic_id = $1::uuid AND rn.node_code ="
-            " 'DICHVU-SIEUAM' AND r.is_active AND r.accepting ORDER BY r.sort LIMIT 1",
+            " 'DICHVU-SIEUAM' AND r.is_active AND r.accepting"
+            " AND r.location_id = co_so_cua_luot($2::uuid)"
+            " ORDER BY r.sort LIMIT 1",
             CLINIC,
+            vid2,
         )
         await pool.execute(_VE_LEGACY, sa2)
         await goi(
