@@ -32,7 +32,7 @@ export default async function ChonCoSoPage({
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-50 via-white to-brand-100 px-4">
       <form
         action={chonCoSo}
-        className="w-full max-w-sm space-y-4 rounded-2xl bg-white/90 p-7 shadow-[0_4px_24px_rgba(0,0,0,0.08)]"
+        className="w-full max-w-sm space-y-4 rounded-2xl bg-white/90 p-7 shadow-panel"
       >
         <input type="hidden" name="next" value={next} />
         <div className="space-y-1 text-center">
