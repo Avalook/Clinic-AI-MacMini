@@ -282,6 +282,8 @@ SELECT r.id::text AS id, r.visit_id::text AS visit_id, r.nguon, r.drug_name_raw,
   FROM prescription r
   LEFT JOIN drug_catalog c ON c.id = r.drug_catalog_id AND c.clinic_id = r.clinic_id
  WHERE r.clinic_id = $1::uuid AND r.visit_id = ANY($2::uuid[])
+ -- rx:gom-ca-lich-su: dòng đính chính SAU khi bán vẫn là thuốc đã bán thật;
+ -- gom_thuoc_theo_khach bỏ dòng đã gỡ mà chưa từng bán.
 """
 
 #: Dòng hoá đơn thuốc của lần thu PAID tới hết khung ($3) — ảnh chụp lúc thu.
