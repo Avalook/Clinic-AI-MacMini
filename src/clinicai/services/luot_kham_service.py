@@ -3104,10 +3104,16 @@ class LuotKhamService:
                   LEFT JOIN node_definition nd
                     ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
                   JOIN visit v ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
+                  LEFT JOIN appointment ap
+                    ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
                   JOIN patient p
                     ON p.clinic_patient_id = v.clinic_patient_id
                    AND p.clinic_id = v.clinic_id
                  WHERE q.clinic_id = $1::uuid
+                   -- Chỉ khách của cơ sở đang đứng; $3 NULL = không lọc.
+                   AND coalesce(v.location_id, ap.location_id, $3::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($3::uuid, v.location_id, ap.location_id)
                    AND r.status <> 'closed' AND q.status = 'open'
                    AND v.status IN ('OPEN', 'IN_PROGRESS')
                    -- Chỉ việc của BÁC SĨ: đang chờ kết quả (đã làm, chưa có kết
@@ -3128,6 +3134,7 @@ class LuotKhamService:
                 """,
                 cid,
                 bac_si,
+                identity.location_id or None,
             )
         # Hàng "chờ bác sĩ quyết": cắt im lặng là một yêu cầu chờ mãi.
         canh_bao_neu_day("bac_si.cho_quyet", len(rows), 200, clinic_id=cid)

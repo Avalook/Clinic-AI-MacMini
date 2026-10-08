@@ -595,6 +595,12 @@ class WorkItemService:
                    = ANY(coalesce($7::text[], ARRAY[
                          coalesce(coalesce(v.attending_doctor_id, a.doctor_id)::text,
                                   '~')]))
+               -- Chỉ việc của cơ sở đang đứng (hai cơ sở, 08/10/2026). Việc không
+               -- lượt, không lịch (OPS-*) hiện ở cả hai; $10 NULL = không lọc
+               -- (IS NOT DISTINCT FROM: `= NULL` sẽ giấu hết).
+               AND coalesce(v.location_id, a.location_id, $10::uuid)
+                   IS NOT DISTINCT FROM
+                   coalesce($10::uuid, v.location_id, a.location_id)
              ORDER BY w.priority, w.created_at
             """,
             workspace,
@@ -606,6 +612,8 @@ class WorkItemService:
             await bac_si_cua_thu_ky(self._pool, identity),
             identity.ds_vai(),
             ca_khu,
+            # Đặt CUỐI: test đọc tham số theo vị trí ($1..$9 giữ nguyên chỗ).
+            identity.location_id or None,
         )
 
         return [
