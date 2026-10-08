@@ -6,8 +6,10 @@ import StatCard from "../StatCard";
 import Link from "next/link";
 import { Fragment } from "react";
 import { buttonClass } from "@/components/ui/Button";
+import { ChonCoSoLink } from "@/components/ui/ChonCoSo";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../lib/clinic-session";
+import { layCoSo } from "../../../lib/danh-muc";
 import { fmtDate, VN_TZ } from "../../../lib/datetime";
 import PrintReportButton from "./PrintReportButton";
 import CuoiNgay from "./CuoiNgay";
@@ -57,24 +59,34 @@ function ThanhTabBaoCao({ dangMo }: { dangMo: MaTab }) {
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; co_so?: string }>;
 }) {
   // Cửa theo LEGO Báo cáo (27/09/2026) — trước gác vai isOpsAdmin, nên cấp
   // lego cho người khác vai thì mục hiện trên thanh bên mà bấm vào bị đá về.
   await requireNavAccess("/reports");
-  const { tab } = await searchParams;
+  const { tab, co_so } = await searchParams;
   // Tham số lạ (gõ tay, link hỏng) thì về tab đầu, không ném.
   const dangMo: MaTab = TAB.some((t) => t.ma === tab) ? (tab as MaTab) : "van-hanh";
+  // Cơ sở (08/10/2026 — mở Hào Nam): danh sách cho ô chọn; lọc do máy chủ làm.
+  const coSo = await layCoSo();
   if (dangMo === "cuoi-ngay") {
     return (
       <main className="page-in min-w-0 space-y-4 p-4 lg:p-5">
         <style>{IN_CSS}</style>
         <ThanhTabBaoCao dangMo={dangMo} />
         <h1 className="text-xl font-semibold text-ink lg:text-2xl">Báo cáo cuối ngày</h1>
-        <CuoiNgay />
+        <CuoiNgay coSo={coSo} />
       </main>
     );
   }
+  // "" / thiếu = tất cả cơ sở. Mã lạ chuyển nguyên — máy chủ trả số 0.
+  const coSoChon = co_so ? co_so.slice(0, 64) : null;
+  const locCoSo = coSoChon ? `co_so=${encodeURIComponent(coSoChon)}` : "";
+  const tenCoSo = coSoChon
+    ? (coSo.find((c) => c.id === coSoChon)?.name ?? "Không có cơ sở này")
+    : coSo.length > 1
+      ? "Tất cả cơ sở"
+      : null;
 
   // 24/09/2026: mọi ô đếm đọc qua backend MỘT lượt (`/reports/tong-quan`) —
   // trang từng bắn 12 truy vấn Supabase rời ở 12 thời điểm khác nhau.
@@ -91,7 +103,7 @@ export default async function ReportsPage({
     khach_moi_30: number;
     theo_bac_si: { name: string; total: number; done: number; waiting: number }[];
     theo_ngay: { ngay: string; count: number }[];
-  }>(`/api/v1/reports/tong-quan`);
+  }>(`/api/v1/reports/tong-quan${locCoSo ? `?${locCoSo}` : ""}`);
 
   // ---- Khối 1 + 2 ----
   const todayTotal = tq?.hom_nay ?? 0;
@@ -135,7 +147,7 @@ export default async function ReportsPage({
     items: { code: string; name: string; count: number }[];
     unset: number;
     unknown: number;
-  }>(`/api/v1/reports/booking-channels?days=30`);
+  }>(`/api/v1/reports/booking-channels?days=30${locCoSo ? `&${locCoSo}` : ""}`);
   // KPI ĐẶT LỊCH THEO NHÂN VIÊN. Đọc qua backend: "ai đặt lịch này" chỉ trả lời
   // được từ sổ sự kiện (`appointment` không có cột người tạo), và đó là một phép
   // gộp — kéo cả sổ về trình duyệt để đếm là sai chỗ.
@@ -147,7 +159,7 @@ export default async function ReportsPage({
       tuan: { tong: number; tai_kham: number; kham_moi: number };
       thang: { tong: number; tai_kham: number; kham_moi: number };
     }[];
-  }>(`/api/v1/reports/kpi-dat-lich`);
+  }>(`/api/v1/reports/kpi-dat-lich${locCoSo ? `?${locCoSo}` : ""}`);
   const kpiRows = kpi?.items ?? [];
 
   const channelStats = (chan?.items ?? [])
@@ -178,11 +190,18 @@ export default async function ReportsPage({
         <div>
           <h1 className="text-xl font-semibold text-ink lg:text-2xl">Báo cáo vận hành</h1>
           <p className="mt-1 text-sm text-ink-muted">
-            KPI vận hành phòng khám · {fmtDate(new Date())} · chỉ đọc
+            KPI vận hành phòng khám · {tenCoSo ? `${tenCoSo} · ` : ""}
+            {fmtDate(new Date())} · chỉ đọc
           </p>
         </div>
         <PrintReportButton />
       </header>
+
+      <ChonCoSoLink
+        coSo={coSo}
+        dangChon={coSoChon}
+        href={(id) => (id ? `/reports?co_so=${encodeURIComponent(id)}` : "/reports")}
+      />
 
       {queryError && (
         <div className="rounded-card border border-danger bg-danger-bg px-4 py-3 text-sm text-danger">

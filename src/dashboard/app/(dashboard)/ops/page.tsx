@@ -29,10 +29,10 @@ type MaTab = (typeof TAB)[number]["ma"];
 export default async function OpsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; co_so?: string }>;
 }) {
   await requireNavAccess("/ops");
-  const { tab } = await searchParams;
+  const { tab, co_so } = await searchParams;
   // Tham số lạ (gõ tay, link hỏng) thì về tab đầu, không ném.
   const dangMo: MaTab = TAB.some((t) => t.ma === tab) ? (tab as MaTab) : "he-thong";
   return (
@@ -52,7 +52,7 @@ export default async function OpsPage({
       {dangMo === "api" ? (
         <SucKhoeApi />
       ) : dangMo === "toan-canh" ? (
-        <ToanCanh />
+        <ToanCanh coSo={co_so} />
       ) : dangMo === "loi" ? (
         <LoiCanhBao />
       ) : dangMo === "nhat-ky" ? (
