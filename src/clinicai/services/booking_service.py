@@ -90,6 +90,7 @@ from clinicai.services.doi_dich_vu_kham import (
     doc_trang_thai,
 )
 from clinicai.services.lenh_kham_core import ma_uuid
+from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 from clinicai.services.lich_truc_phien_ban_service import giao_dich_lich_truc
 from clinicai.services.slot_hold_service import release_on_booking
 
@@ -624,7 +625,7 @@ class BookingService:
                         raise ConflictError(busy)
 
                     off_duty = await self._roster_warning(
-                        conn, doctor_id, slot_start, identity
+                        conn, doctor_id, slot_start, identity, location_id=location_id
                     )
                     if off_duty:
                         if await self._roster_is_required(conn, identity):
@@ -1254,7 +1255,11 @@ class BookingService:
                     except ValidationError:
                         ngoai_ca = True
                     if not ngoai_ca and await self._roster_warning(
-                        conn, doctor_id, slot_start, identity
+                        conn,
+                        doctor_id,
+                        slot_start,
+                        identity,
+                        location_id=await _co_so_lich(conn, appointment_id, identity),
                     ):
                         ngoai_ca = True
                 ghi = (
@@ -1980,7 +1985,12 @@ class BookingService:
             # Khách đến sớm ngoài giờ ca (đổi lịch nhanh): bác sĩ vẫn phải CÓ ca
             # trong ngày, chỉ bỏ câu "không có mặt lúc HH:MM".
             off_duty = await self._roster_warning(
-                conn, doctor_id, slot_start, identity, chi_can_co_ca=cho_ngoai_ca
+                conn,
+                doctor_id,
+                slot_start,
+                identity,
+                chi_can_co_ca=cho_ngoai_ca,
+                location_id=await _co_so_lich(conn, exclude_id, identity),
             )
             if off_duty and await self._roster_is_required(conn, identity):
                 raise ConflictError(off_duty)
@@ -2293,8 +2303,13 @@ class BookingService:
         slot_start: datetime,
         identity: StaffIdentity,
         chi_can_co_ca: bool = False,
+        location_id: str | None = None,
     ) -> str | None:
         """Câu cảnh báo nếu bác sĩ không có ca trực hôm đó; None nếu ổn.
+
+        ``location_id`` = cơ sở của LỊCH HẸN: ca ở cơ sở khác không tính (Hào
+        Nam 08/10 — bác sĩ trực Kim Ngưu không phải đang trực Hào Nam). None =
+        mọi cơ sở.
 
         CHỈ CẢNH BÁO KHI ĐÃ CÓ LỊCH TRỰC CHO NGÀY ĐÓ. Đây là điểm mấu chốt:
         CSKH đặt lịch trước cả tháng, lúc đó lịch trực chưa xếp. Cảnh báo mọi
@@ -2338,6 +2353,9 @@ class BookingService:
                       WHERE rw.clinic_id = work_roster.clinic_id
                         AND rw.week_start = work_roster.week_start
                    )
+                   AND """
+            + ca_thuoc_co_so("work_roster", "$4")
+            + """
               ), ARRAY[]::text[]) AS shifts,
               (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
                 AS open_minute,
@@ -2350,6 +2368,7 @@ class BookingService:
             identity.clinic_id,
             work_date,
             doctor_id,
+            location_id or None,
         )
         if row is None or not row["roster_exists"]:
             return None
@@ -2955,3 +2974,15 @@ async def _log(
         ),
         origin,
     )
+
+
+async def _co_so_lich(
+    conn: asyncpg.Connection, appointment_id: str, identity: StaffIdentity
+) -> str | None:
+    """Cơ sở của lịch hẹn đang sửa — ca trực phải ở ĐÚNG cơ sở ấy, không phải
+    cơ sở người bấm đang đứng. Lịch chưa có cơ sở thì lấy của người bấm."""
+    loc = await conn.fetchval(
+        "SELECT location_id::text FROM appointment WHERE id = $1::uuid",
+        appointment_id,
+    )
+    return loc or identity.location_id or None

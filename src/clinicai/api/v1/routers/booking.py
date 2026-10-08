@@ -44,6 +44,7 @@ from clinicai.services.clinic_policy import (
     load_clinic_policy,
     load_effective_policy,
 )
+from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 from clinicai.services.slot_hold_service import SlotHoldService
 
 router = APIRouter()
@@ -316,6 +317,10 @@ async def cho_xep_bac_si(
                             AND w.work_date =
                                 (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')
                                 ::date
+                            -- …và CƠ SỞ: ca ở cơ sở khác không giữ lịch ở đây.
+                            AND """
+            + ca_thuoc_co_so("w", "a.location_id")
+            + """
                        )
                      )
                )
@@ -527,6 +532,7 @@ async def luoi_ngay_dat_cho(
         date=date,
         doctor_ids=[x for x in doctor_ids.split(",") if x.strip()],
         bo_qua_lich_id=bo_qua_lich_id,
+        location_id=identity.location_id,
     )
 
 

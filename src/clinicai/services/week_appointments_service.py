@@ -42,6 +42,7 @@ from clinicai.core.trang_thai_lich import (
     trang_thai_hien_thi,
 )
 from clinicai.services.hanh_trinh_khach_service import dang_o_cac_luot
+from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 from clinicai.services.queue_order import QueueDecision
 from clinicai.services.queue_rows import thu_tu_goi_theo_ngay
 
@@ -61,7 +62,7 @@ WITH tuan AS (
     SELECT a.id, a.slot_start, a.status, a.queue_number, a.doctor_id,
            a.so_booking, a.so_tiep_don,
            a.booking_channel, a.clinic_patient_id, a.service_type_id,
-           a.created_at, a.bac_si_da_go_id, a.notes
+           a.created_at, a.bac_si_da_go_id, a.notes, a.location_id
       FROM appointment a
      WHERE a.clinic_id  = $1::uuid
        AND a.slot_start >= $2
@@ -137,6 +138,10 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
               AND public.la_ca_kham_bac_si(w.clinic_id, w.station)
               AND w.work_date =
                   (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+              -- Ca ở cơ sở khác không giữ được lịch ở cơ sở này.
+              AND """
+    + ca_thuoc_co_so("w", "t.location_id")
+    + """
          )
        ) AS mat_bac_si,
        -- BÁC SĨ ĐÃ BỊ GỠ khỏi lịch này khi ca trực của họ bị xoá.
@@ -161,6 +166,9 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
               AND public.la_ca_kham_bac_si(wg.clinic_id, wg.station)
               AND wg.work_date =
                   (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+              AND """
+    + ca_thuoc_co_so("wg", "t.location_id")
+    + """
          )
        ) AS bs_go_co_ca_lai,
        -- Lịch VƯỢT SỨC CHỨA sau khi công bố lịch trực (20260915000014) — trang
@@ -221,8 +229,7 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
   ) cap ON TRUE
  ORDER BY t.slot_start, t.created_at, t.id
 """
-    % MAX_ROWS
-)
+) % MAX_ROWS
 
 
 class WeekAppointmentsService:
