@@ -110,10 +110,11 @@ async def _chay(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         loc = await conn.fetchval(
             # Cơ sở CÓ PHÒNG — phòng điều phối phải cùng cơ sở lượt (08/10/2026).
-            "SELECT l.id::text FROM clinic_location l"
-            " WHERE l.clinic_id = $1::uuid AND l.is_active"
-            " ORDER BY (SELECT count(*) FROM clinic_room r WHERE r.location_id = l.id"
-            " AND r.is_active) DESC, l.created_at, l.id LIMIT 1",
+            # Cơ sở của PHÒNG SEED cũ nhất — ổn định khi test khác (chạy song
+            # song) thêm phòng ở cơ sở khác; đếm phòng thì lật kết quả.
+            "SELECT r.location_id::text FROM clinic_room r"
+            " WHERE r.clinic_id = $1::uuid AND r.is_active"
+            " ORDER BY r.created_at, r.id LIMIT 1",
             CLINIC,
         )
         le_tan = await nguoi(conn, loc, "RECEPTION")

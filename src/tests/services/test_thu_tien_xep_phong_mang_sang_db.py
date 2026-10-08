@@ -70,10 +70,11 @@ async def _dung(pool: asyncpg.Pool) -> Ca:  # noqa: F811
         loc = await conn.fetchval(
             # Cơ sở CÓ PHÒNG (08/10/2026): phòng của lượt phải cùng cơ sở lượt
             # (chốt DB), mà seed có cơ sở rỗng tạo sớm hơn cơ sở chứa phòng.
-            "SELECT l.id::text FROM clinic_location l"
-            " WHERE l.clinic_id = $1::uuid AND l.is_active"
-            " ORDER BY (SELECT count(*) FROM clinic_room r WHERE r.location_id = l.id"
-            " AND r.is_active) DESC, l.created_at, l.id LIMIT 1",
+            # Cơ sở của PHÒNG SEED cũ nhất — ổn định khi test khác (chạy song
+            # song) thêm phòng ở cơ sở khác; đếm phòng thì lật kết quả.
+            "SELECT r.location_id::text FROM clinic_room r"
+            " WHERE r.clinic_id = $1::uuid AND r.is_active"
+            " ORDER BY r.created_at, r.id LIMIT 1",
             CLINIC,
         )
         ten_kham = f"Khám nhóm hai {duoi}"
