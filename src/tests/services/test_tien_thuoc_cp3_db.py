@@ -257,13 +257,21 @@ async def test_lo_cua_phong_kham_khac_bi_tu_choi_ca_o_db(q: Quay) -> None:
         " VALUES ($1::uuid, 'X', 'X') RETURNING id::text",
         khac,
     )
+    # Lô thuộc một cơ sở CỦA phòng khám khác (kho theo cơ sở, 20261008200000).
+    co_so_khac = await q.pool.fetchval(
+        "INSERT INTO clinic_location (clinic_id, code, name, is_active)"
+        " VALUES ($1::uuid, 'X', 'Cơ sở X', false) RETURNING id::text",
+        khac,
+    )
     lo_khac = await q.pool.fetchval(
-        "INSERT INTO drug_batch (clinic_id, drug_catalog_id, batch_code,"
+        "INSERT INTO drug_batch (clinic_id, location_id, drug_catalog_id, batch_code,"
         " expiry_date, quantity_on_hand, unit)"
-        " VALUES ($1::uuid, $2::uuid, $3, '2099-01-01', 0, 'viên') RETURNING id::text",
+        " VALUES ($1::uuid, $4::uuid, $2::uuid, $3, '2099-01-01', 0, 'viên')"
+        " RETURNING id::text",
         khac,
         thuoc_khac,
         f"LX-{q.duoi}",
+        co_so_khac,
     )
     with pytest.raises(NotFoundError):
         await _chon(q, rx, lo_khac, 10)

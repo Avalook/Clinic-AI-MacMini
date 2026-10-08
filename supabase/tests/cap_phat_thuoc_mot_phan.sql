@@ -44,10 +44,14 @@ BEGIN
     VALUES ('Kiểm thử', 'Thuốc kiểm thử 500mg', v_clinic)
     RETURNING id INTO v_thuoc;
 
+    -- Lô thuộc một cơ sở CỦA phòng khám (khoá ngoại ghép, 20261008200000).
     INSERT INTO public.drug_batch
-        (clinic_id, drug_catalog_id, batch_code, expiry_date,
+        (clinic_id, location_id, drug_catalog_id, batch_code, expiry_date,
          quantity_on_hand, unit, received_at)
-    VALUES (v_clinic, v_thuoc, 'LO-KIEMTHU-001',
+    VALUES (v_clinic,
+            (SELECT id FROM public.clinic_location WHERE clinic_id = v_clinic
+              ORDER BY created_at, id LIMIT 1),
+            v_thuoc, 'LO-KIEMTHU-001',
             current_date + 365, 0, 'viên', now())
     RETURNING id INTO v_lo;
 
