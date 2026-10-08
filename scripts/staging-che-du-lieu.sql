@@ -279,23 +279,34 @@ WHERE that IS NULL OR length(that) < 5 OR position(' ' IN that) = 0
    OR lower(replace(replace(public.f_unaccent(that), 'đ', 'd'), 'Đ', 'D'))
       ~ '^((khach|nguoi nha khach|nguoi gioi thieu) [0-9]+|\(da che\)|khach da xoa)$';
 
--- Một biểu thức chính quy gộp mọi tên — lọc nhanh "chuỗi này có tên nào không"
--- trước khi thay từng tên (Postgres giữ sẵn bản biên dịch của biểu thức).
-SELECT set_config('clinicai.che_re',
-    coalesce((SELECT string_agg(regexp_replace(that, '([.^$*+?()\[\]{}|\\])', '\\\1', 'g'), '|'
-                                ORDER BY length(that) DESC) FROM _che_ten), ''),
-    true);
+-- LỌC NHANH THEO CẶP HAI CHỮ ĐẦU CỦA TÊN (08/10/2026). Bản cũ ghép MỌI tên
+-- thành một biểu thức chính quy; từ khi nhập hồ sơ cũ Notion (05/10) số khách
+-- tăng vọt và Postgres báo "regular expression is too complex" → nạp staging
+-- hỏng mỗi đêm từ 07/10. Nay: mỗi tên mang `cap` = hai chữ đầu (đánh index); một
+-- chuỗi chỉ được thử thay những tên có `cap` trùng một cặp chữ liền nhau trong
+-- chuỗi. Không giới hạn theo số khách, kết quả che y như cũ.
+ALTER TABLE _che_ten ADD COLUMN cap text;
+UPDATE _che_ten SET cap = (
+    SELECT w[1] || ' ' || w[2]
+      FROM (SELECT array_remove(regexp_split_to_array(that, '[[:space:][:punct:]]+'), '') AS w) x);
+CREATE INDEX ON _che_ten (cap);
+ANALYZE _che_ten;
 
 CREATE FUNCTION pg_temp.che_chu(s text) RETURNS text LANGUAGE plpgsql AS $f$
 DECLARE
     r record;
-    re text := current_setting('clinicai.che_re', true);
+    w text[];
+    caps text[];
 BEGIN
     IF s IS NULL OR s = '' THEN
         RETURN s;
     END IF;
-    IF re <> '' AND s ~ re THEN
-        FOR r IN SELECT that, gia FROM _che_ten ORDER BY length(that) DESC LOOP
+    w := array_remove(regexp_split_to_array(s, '[[:space:][:punct:]]+'), '');
+    IF coalesce(array_length(w, 1), 0) >= 2 THEN
+        caps := ARRAY(SELECT DISTINCT w[i] || ' ' || w[i + 1]
+                        FROM generate_series(1, array_length(w, 1) - 1) i);
+        FOR r IN SELECT that, gia FROM _che_ten WHERE cap = ANY (caps)
+                  ORDER BY length(that) DESC LOOP
             IF position(r.that IN s) > 0 THEN
                 s := replace(s, r.that, r.gia);
             END IF;

@@ -371,3 +371,31 @@ async def test_moi_cot_dinh_danh_khach_da_duoc_xep_loai(
         "Cột định danh chưa được xếp loại trong scripts/staging-che-du-lieu.sql "
         f"(_che_cot — che hay 'giu'): {thieu}"
     )
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_nhieu_khach_van_che_duoc(conn: asyncpg.Connection) -> None:
+    """08/10/2026: hồ sơ cũ Notion làm số khách tăng vọt, bản lọc gộp MỌI tên
+    vào một regex báo "regular expression is too complex" → nạp staging hỏng mỗi
+    đêm. 5.000 khách phải che được, và tên trong văn bản vẫn bị thay."""
+    ids = await _gieo(conn)
+    clinic, loc = await conn.fetchrow(
+        "SELECT clinic_id::text, location_id::text FROM patient"
+        " WHERE clinic_patient_id = $1::uuid",
+        ids["bn"],
+    )
+    await conn.execute(
+        """INSERT INTO patient (patient_code, full_name, location_id, clinic_id)
+           SELECT 'NHIEU-' || g || '-' || $3, 'Trần Thị Nhiều Khách ' || g,
+                  $1::uuid, $2::uuid
+             FROM generate_series(1, 5000) g""",
+        loc,
+        clinic,
+        uuid.uuid4().hex[:6],
+    )
+    await _che(conn)
+    con = await conn.fetchval(
+        "SELECT count(*) FROM patient WHERE full_name LIKE 'Trần Thị Nhiều Khách %'"
+    )
+    assert con == 0
