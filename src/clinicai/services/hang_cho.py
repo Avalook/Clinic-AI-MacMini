@@ -217,11 +217,20 @@ async def cap_nhat_vi_tri(conn: asyncpg.Connection, cid: str, vid: str) -> None:
                       FROM work_roster w
                       JOIN vi_tri_lam_viec vt
                         ON vt.clinic_id = w.clinic_id AND vt.code = w.station
+                      JOIN clinic_room cr ON cr.id = vt.room_id
                      WHERE w.clinic_id = q.clinic_id
                        AND w.staff_id = coalesce(q.doctor_staff_id,
                                                  c.doctor_staff_id)
                        AND w.status <> 'REJECTED'
                        AND vt.room_id IS NOT NULL
+                       -- Phòng bác sĩ ở ĐÚNG cơ sở lượt: bác sĩ có ca ở hai cơ
+                       -- sở cùng ngày thì LIMIT 1 có thể vớ phòng cơ sở kia →
+                       -- chốt DB phòng-cùng-cơ-sở chặn cứng (08/10/2026).
+                       AND coalesce(cr.location_id,
+                                    public.co_so_cua_luot(q.visit_id))
+                           IS NOT DISTINCT FROM
+                           coalesce(public.co_so_cua_luot(q.visit_id),
+                                    cr.location_id)
                        AND w.work_date
                            = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                      ORDER BY vt.sort

@@ -3313,12 +3313,18 @@ class LuotKhamService:
                 SELECT 1 FROM clinic_room r
                  WHERE r.clinic_id = $1::uuid AND r.id = $2::uuid
                    AND phong_lam_duoc(r.clinic_id, r.id, $3, $4)
-                   AND r.is_active AND r.accepting)
+                   AND r.is_active AND r.accepting
+                   -- Cùng cơ sở lượt (08/10/2026): báo "phòng không làm" thay
+                   -- vì để chốt DB phòng-cùng-cơ-sở chặn cứng.
+                   AND coalesce(r.location_id, public.co_so_cua_luot($5::uuid))
+                       IS NOT DISTINCT FROM
+                       coalesce(public.co_so_cua_luot($5::uuid), r.location_id))
             """,
             cid,
             rid,
             o["node_code"],
             o["service_code"],
+            vid,
         )
         if not serves:
             raise LuotKhamConflictError(

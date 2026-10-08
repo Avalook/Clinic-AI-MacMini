@@ -232,7 +232,11 @@ SELECT coalesce(sum(rl.amount), 0)
 
 
 async def bao_cao_tien_thua(
-    conn: asyncpg.Connection, clinic_id: str, tu: Any, den: Any
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    tu: Any,
+    den: Any,
+    co_so: str | None = None,
 ) -> dict[str, int]:
     """Tiền thừa của các lượt trong khoảng ngày (giờ VN) cho báo cáo cuối ngày
     (06/10/2026, E2c): đã hoàn · giữ lại · còn treo (chưa hoàn, chưa giữ lại)."""
@@ -241,10 +245,15 @@ async def bao_cao_tien_thua(
         for v in await conn.fetchval(
             "SELECT coalesce(array_agg(visit_id::text), '{}') FROM public.visit"
             " WHERE clinic_id = $1::uuid AND (coalesce(checked_in_at, created_at)"
-            "   AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3",
+            "   AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3"
+            # Báo cáo lọc một cơ sở (08/10/2026): chỉ lượt của cơ sở ấy.
+            "   AND coalesce(public.co_so_cua_luot(clinic_id, visit_id), $4::uuid)"
+            "       IS NOT DISTINCT FROM"
+            "       coalesce($4::uuid, public.co_so_cua_luot(clinic_id, visit_id))",
             clinic_id,
             tu,
             den,
+            co_so,
         )
     ]
     if not vids:

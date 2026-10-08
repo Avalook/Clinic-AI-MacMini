@@ -1051,6 +1051,11 @@ SELECT o.id::text,
                  ON d3.room_id IS NULL AND d3.clinic_id = r3.clinic_id
          WHERE r3.clinic_id = o.clinic_id AND r3.is_active AND r3.accepting
            AND NOT r3.la_doi_tac
+           -- Chỉ phòng ở cơ sở của lượt (08/10/2026) — không thì chọn được
+           -- phòng cơ sở kia rồi mới bị chặn khi xếp.
+           AND coalesce(r3.location_id, public.co_so_cua_luot(v.clinic_id, v.visit_id))
+               IS NOT DISTINCT FROM
+               coalesce(public.co_so_cua_luot(v.clinic_id, v.visit_id), r3.location_id)
            -- Dịch vụ gắn phòng riêng thì chỉ các phòng ấy (30/09/2026).
            AND public.phong_lam_duoc(r3.clinic_id, r3.id, o.node_code,
                                      o.service_code)

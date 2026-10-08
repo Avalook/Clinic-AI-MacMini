@@ -169,3 +169,79 @@ async def test_tv_chi_goi_khach_cua_co_so_minh(pool: asyncpg.Pool) -> None:  # n
     tat_ca = await svc.board(clinic_id=CLINIC, start=tu, end=den)
     assert len(tat_ca["items"]) >= dem[ca.loc] + dem[khac] > len(mot["items"])
     assert hen  # hai lịch hẹn đã tạo
+
+
+async def test_bac_si_co_ca_hai_co_so_con_tro_chon_phong_dung_co_so(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Bác sĩ có ca ở CẢ HAI cơ sở cùng ngày: con trỏ "khách đang ở đâu" suy
+    phòng bàn khám theo lịch trực phải lấy phòng cùng cơ sở lượt — không thì
+    chốt DB phòng-cùng-cơ-sở chặn cứng (08/10/2026)."""
+    from clinicai.services.hang_cho import cap_nhat_vi_tri
+    from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
+        _kham_va_chi_dinh,
+    )
+
+    ca = await _dung(pool)
+    khac = await _co_so_khac(pool, ca.loc)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    await _kham_va_chi_dinh(pool, ca, visit)
+    duoi = uuid.uuid4().hex[:6]
+    async with pool.acquire() as conn:
+        phong_kia = await conn.fetchval(
+            "INSERT INTO clinic_room (clinic_id, location_id, code, name, node_code,"
+            " is_active, accepting, sort) VALUES ($1::uuid, $2::uuid, $3, 'Kia',"
+            " 'KHAM-NOITIET', true, true, -9999) RETURNING id",
+            CLINIC,
+            khac,
+            f"HN-{duoi}",
+        )
+        phong_day = await conn.fetchval(
+            "SELECT id FROM clinic_room WHERE clinic_id = $1::uuid"
+            " AND location_id = $2::uuid AND is_active ORDER BY sort LIMIT 1",
+            CLINIC,
+            ca.loc,
+        )
+        for ma, phong, sort in (
+            (f"HN__VT{duoi}", phong_kia, -9999),
+            (f"VT{duoi}", phong_day, 9999),
+        ):
+            await conn.execute(
+                "INSERT INTO vi_tri_lam_viec (clinic_id, code, ten, nhom_nghe, sort,"
+                " is_active, room_id) VALUES ($1::uuid, $2, 'BS thử', 'BAC_SI', $3,"
+                " true, $4::uuid)",
+                CLINIC,
+                ma,
+                sort,
+                phong,
+            )
+            await conn.execute(
+                "INSERT INTO work_roster (clinic_id, week_start, work_date, shift,"
+                " station, staff_id, staff_name, status)"
+                " SELECT $1::uuid, d - (extract(isodow FROM d)::int - 1), d, 'FULL',"
+                "        $2, $3::uuid, 'BS', 'APPROVED'"
+                "   FROM (SELECT (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS d) x",
+                CLINIC,
+                ma,
+                ca.bac_si.staff_id,
+            )
+        # Hàng bác sĩ chưa gắn phòng → con trỏ phải suy phòng từ lịch trực.
+        await conn.execute(
+            "UPDATE queue_entry SET room_id = NULL WHERE visit_id = $1::uuid"
+            " AND lane = 'DOCTOR'",
+            visit,
+        )
+        await cap_nhat_vi_tri(conn, CLINIC, visit)  # không được nổ
+        co_so = await conn.fetchval(
+            "SELECT r.location_id::text FROM visit v JOIN clinic_room r"
+            " ON r.id = v.current_room_id WHERE v.visit_id = $1::uuid",
+            visit,
+        )
+        await conn.execute(
+            "UPDATE vi_tri_lam_viec SET is_active = false WHERE code = ANY($1::text[])",
+            [f"HN__VT{duoi}", f"VT{duoi}"],
+        )
+        await conn.execute(
+            "UPDATE clinic_room SET is_active = false WHERE id = $1::uuid", phong_kia
+        )
+    assert co_so in (None, ca.loc)

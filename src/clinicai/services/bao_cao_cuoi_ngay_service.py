@@ -750,7 +750,7 @@ class BaoCaoCuoiNgayService:
             from clinicai.services.tien_thua_service import bao_cao_tien_thua
 
             tien_thua = (
-                await bao_cao_tien_thua(conn, cid, a, b)
+                await bao_cao_tien_thua(conn, cid, a, b, co_so=cs)
                 if loai_loc != "thuoc"
                 else None
             )

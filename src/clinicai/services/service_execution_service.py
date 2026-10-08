@@ -168,8 +168,13 @@ SELECT coalesce(
     (SELECT vt.room_id
        FROM work_roster w
        JOIN vi_tri_lam_viec vt ON vt.clinic_id = w.clinic_id AND vt.code = w.station
+       JOIN clinic_room cr ON cr.id = vt.room_id
       WHERE w.clinic_id = $1::uuid AND w.status <> 'REJECTED'
         AND vt.room_id IS NOT NULL
+        -- Phòng ở ĐÚNG cơ sở lượt (hai cơ sở, 08/10/2026).
+        AND coalesce(cr.location_id, public.co_so_cua_luot($2::uuid))
+            IS NOT DISTINCT FROM
+            coalesce(public.co_so_cua_luot($2::uuid), cr.location_id)
         AND w.work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
         AND w.staff_id IN (bs.id, $3::uuid)
       ORDER BY (w.staff_id = bs.id) DESC, vt.sort LIMIT 1)
