@@ -204,6 +204,9 @@ WITH hom_nay AS (
        AND a.slot_start >= $2
        AND a.slot_start <  $3
        AND a.status <> ALL($4::text[])
+       -- Chỉ lịch của cơ sở đang đứng (hai cơ sở, 08/10/2026); NULL = mọi cơ sở.
+       AND coalesce(a.location_id, $7::uuid)
+           IS NOT DISTINCT FROM coalesce($7::uuid, a.location_id)
      ORDER BY a.slot_start, a.created_at, a.id
      LIMIT $5
 ),
@@ -414,6 +417,7 @@ class TiepDonService:
                     list(AN_KHOI_DANH_SACH),
                     _TRAN,
                     ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"],
+                    identity.location_id or None,
                 )
             ]
             ids = [r["visit_id"] for r in rows if r["visit_id"]]

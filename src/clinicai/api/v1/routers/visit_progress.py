@@ -49,7 +49,10 @@ async def read_visit_progress(
     non-clinical roles.
     """
     rows = await VisitProgressService(pool).for_range(
-        date_from=date_from, date_to=date_to, clinic_id=identity.clinic_id
+        date_from=date_from,
+        date_to=date_to,
+        clinic_id=identity.clinic_id,
+        location_id=identity.location_id or None,
     )
     return [VisitProgressRead(**vars(r)) for r in rows]
 
@@ -262,9 +265,13 @@ async def active_visits(
                    now() AT TIME ZONE
                    'Asia/Ho_Chi_Minh'
                )::date::timestamptz
+               -- Chỉ lượt của cơ sở đang đứng (08/10/2026); không biết → giữ.
+               AND coalesce(v.location_id, a.location_id, $2::uuid)
+                   IS NOT DISTINCT FROM coalesce($2::uuid, v.location_id, a.location_id)
              ORDER BY v.checked_in_at
             """,
             identity.clinic_id,
+            identity.location_id or None,
         )
 
     return {

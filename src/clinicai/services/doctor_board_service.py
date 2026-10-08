@@ -65,6 +65,9 @@ WITH lich AS (
        -- $6 = bác sĩ mà THƯ KÝ được phân (20260915000020); rỗng = không lọc.
        AND coalesce(a.doctor_id::text, '~')
            = ANY(coalesce($6::text[], ARRAY[coalesce(a.doctor_id::text, '~')]))
+       -- $7 = cơ sở đang đứng (08/10/2026); rỗng = mọi cơ sở.
+       AND coalesce(a.location_id, $7::uuid)
+           IS NOT DISTINCT FROM coalesce($7::uuid, a.location_id)
      -- Thứ tự phải XÁC ĐỊNH: nhiều lịch trùng mốc giờ là chuyện thường, và
      -- `ORDER BY slot_start` trần cho phép Postgres đổi thứ tự giữa các lần
      -- chạy. Bảng này là thứ bác sĩ đọc dọc để gọi tên.
@@ -183,10 +186,18 @@ class DoctorBoardService:
         doctor_id: str | None,
         statuses: list[str] | None = None,
         chi_bac_si: list[str] | None = None,
+        location_id: str | None = None,
     ) -> list[dict[str, Any]]:
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
-                _SQL, clinic_id, start, end, doctor_id, statuses, chi_bac_si
+                _SQL,
+                clinic_id,
+                start,
+                end,
+                doctor_id,
+                statuses,
+                chi_bac_si,
+                location_id or None,
             )
 
         logger.info(

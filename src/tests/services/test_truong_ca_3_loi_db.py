@@ -113,7 +113,11 @@ async def test_tong_quan_chi_tinh_luot_con_mo_hom_nay(pool: asyncpg.Pool) -> Non
                 conn, loc, ten="Lượt hôm qua", node="LUOTKHAM-03", ngay_truoc=2
             )
             rows = await conn.fetch(
-                ds._OVERVIEW_SQL, CLINIC, list(ds.LIVE_VISIT_STATUSES)
+                # None = mọi cơ sở (lọc cơ sở 08/10/2026).
+                ds._OVERVIEW_SQL,
+                CLINIC,
+                list(ds.LIVE_VISIT_STATUSES),
+                None,
             )
             ids = {str(r["visit_id"]) for r in rows}
             assert con_mo in ids

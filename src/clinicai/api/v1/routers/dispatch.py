@@ -50,10 +50,13 @@ async def overview(
     svc = DispatchService(pool)
     return {
         "ok": True,
-        "patients": await svc.overview(clinic_id=identity.clinic_id),
-        # Chỉ phòng của CƠ SỞ người đang đứng — xem ghi chú ở _STATIONS_SQL.
+        # Chỉ lượt + phòng của CƠ SỞ người đang đứng — xem ghi chú ở
+        # _OVERVIEW_SQL / _STATIONS_SQL.
+        "patients": await svc.overview(
+            clinic_id=identity.clinic_id, location_id=identity.location_id or None
+        ),
         "rooms": await svc.stations(
-            clinic_id=identity.clinic_id, location_id=identity.location_id
+            clinic_id=identity.clinic_id, location_id=identity.location_id or None
         ),
     }
 
@@ -64,7 +67,9 @@ async def alerts(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Cảnh báo vận hành, đã xếp theo mức độ."""
-    items = await DispatchService(pool).alerts(clinic_id=identity.clinic_id)
+    items = await DispatchService(pool).alerts(
+        clinic_id=identity.clinic_id, location_id=identity.location_id or None
+    )
     return {"ok": True, "items": items}
 
 
@@ -86,7 +91,9 @@ async def history(
 ) -> dict[str, Any]:
     """Nhật ký điều phối: ai chuyển ai, từ đâu sang đâu, vì sao."""
     items = await DispatchService(pool).history(
-        clinic_id=identity.clinic_id, limit=limit
+        clinic_id=identity.clinic_id,
+        limit=limit,
+        location_id=identity.location_id or None,
     )
     return {"ok": True, "items": items}
 
@@ -104,9 +111,11 @@ async def tv_board(
     """
     svc = DispatchService(pool)
     rooms = await svc.stations(
-        clinic_id=identity.clinic_id, location_id=identity.location_id
+        clinic_id=identity.clinic_id, location_id=identity.location_id or None
     )
-    patients = await svc.overview(clinic_id=identity.clinic_id)
+    patients = await svc.overview(
+        clinic_id=identity.clinic_id, location_id=identity.location_id or None
+    )
 
     board = []
     for r in rooms:

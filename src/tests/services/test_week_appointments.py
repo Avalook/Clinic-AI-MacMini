@@ -154,7 +154,9 @@ async def test_the_range_sent_down_is_exactly_seven_local_days() -> None:
     await WeekAppointmentsService(_Pool(conn)).week(
         clinic_id=CLINIC, week_start=datetime.date(2026, 8, 3)
     )
-    _clinic, start, end, hidden = conn.args
+    _clinic, start, end, hidden, co_so = conn.args
+    # Không truyền cơ sở → None = mọi cơ sở (08/10/2026).
+    assert co_so is None
     assert isinstance(start, datetime.datetime)
     assert isinstance(end, datetime.datetime)
     assert end - start == datetime.timedelta(days=7)

@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-08 10:49. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-08 14:10. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -163,7 +163,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/appointments/doi-dich-vu-kham`, `/api/appointments/doi-lich-nhanh`, `/api/cskh/tuong-tac`, `/api/appointments/luoi-ngay`, `/api/appointments`, `/api/luot-kham`
 - gọi thẳng backend (server): `/api/v1/home/bang-dieu-khien`
 - service: doi_dich_vu_kham.o_doi_dich_vu · BookingService.{doi_dich_vu_kham, doi_lich_nhanh, create, apply_action} · doi_lich_nhanh.o_doi_lich · TuongTacCskhService.{lich_su, ghi} · capacity_service · CapacityService (+12 service)
-- test: test_thanh_ngay_moi_ban_db.py, test_ngay_kham_lo_hong_db.py, test_so_tuong_tac_cskh.py, test_chan_dat_ngoai_khung_ca.py, test_doi_dich_vu_kham_db.py (+27)
+- test: test_thanh_ngay_moi_ban_db.py, test_ngay_kham_lo_hong_db.py, test_so_tuong_tac_cskh.py, test_chan_dat_ngoai_khung_ca.py, test_doi_dich_vu_kham_db.py (+28)
 
 ### `/kham/[loai]`
 - page: `src/dashboard/app/(dashboard)/kham/[loai]/page.tsx` · quyền: ?
@@ -177,7 +177,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - page: `src/dashboard/app/(dashboard)/lich-do-ve/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
 - gọi thẳng backend (server): `/api/v1/appointments/week`
 - service: WeekAppointmentsService.week
-- test: test_thu_thuat_nhu_kham_thuong_db.py, test_week_appointments.py
+- test: test_loc_co_so_nhom_a_db.py, test_week_appointments.py
 
 ### `/login`
 - page: `src/dashboard/app/(auth)/login/page.tsx` · quyền: ?
@@ -358,7 +358,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/appointments/doi-dich-vu-kham`, `/api/appointments/doi-lich-nhanh`, `/api/lam-them`, `/api/cskh/tuong-tac`, `/api/reception/checkout`, `/api/appointments/luoi-ngay`, `/api/appointments`, `/api/luot-kham`
 - gọi thẳng backend (server): `/api/v1/reception/danh-sach`, `/api/v1/home/bang-dieu-khien`
 - service: doi_dich_vu_kham.o_doi_dich_vu · BookingService.{doi_dich_vu_kham, doi_lich_nhanh, create, apply_action} · doi_lich_nhanh.o_doi_lich · LamThemTaiQuayService.{cau_hinh, nut_cho_luot, dat, dong_dich_vu, +1} · TuongTacCskhService.{lich_su, ghi} · CheckoutService.{pending_list, stale_list, chi_tiet, readiness, +1} (+17 service)
-- test: test_hoan_tac_moi_thao_tac_db.py, test_so_tuong_tac_cskh.py, test_thanh_ngay_moi_ban_db.py, test_hanh_trinh_trang_thai_hien_tai_db.py, test_lam_them_tai_quay_db.py (+39)
+- test: test_hoan_tac_moi_thao_tac_db.py, test_so_tuong_tac_cskh.py, test_thanh_ngay_moi_ban_db.py, test_hanh_trinh_trang_thai_hien_tai_db.py, test_lam_them_tai_quay_db.py (+40)
 
 ### `/reports` — Báo cáo
 - page: `src/dashboard/app/(dashboard)/reports/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
@@ -499,14 +499,14 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: app/(dashboard)/truong-ca/HistoryClient.tsx, app/(dashboard)/truong-ca/load.ts, app/(dashboard)/truong-ca/types.ts
 - gọi thẳng backend (server): `/api/v1/dispatch/overview`, `/api/v1/dispatch/alerts`, `/api/v1/dispatch/routes`, `/api/v1/dispatch/history`, `/api/v1/dispatch/*`
 - service: DispatchService.{overview, stations, alerts, routes, +4} · DoiBacSiService.{bac_si_trong_phong_kham, doi}
-- test: test_dieu_phoi_api_1509.py, test_doi_bac_si_theo_quyen_db.py, test_luat_1509_thu_ky_va_dieu_phoi.py, test_truong_ca_3_loi_db.py, test_ban_le_thuoc_db.py (+2)
+- test: test_dieu_phoi_api_1509.py, test_doi_bac_si_theo_quyen_db.py, test_luat_1509_thu_ky_va_dieu_phoi.py, test_truong_ca_3_loi_db.py, test_ban_le_thuoc_db.py (+3)
 
 ### `/truong-ca/tv` — TV phòng chờ
 - page: `src/dashboard/app/(dashboard)/truong-ca/tv/page.tsx` · quyền: lego `dieu_phoi` (Điều phối khách · mặc định: Trưởng ca)
 - thành phần: app/(dashboard)/truong-ca/load.ts, app/(dashboard)/truong-ca/ten-phong.ts, app/(dashboard)/truong-ca/types.ts
 - gọi thẳng backend (server): `/api/v1/dispatch/overview`, `/api/v1/dispatch/alerts`, `/api/v1/dispatch/routes`, `/api/v1/dispatch/history`, `/api/v1/dispatch/*`
 - service: DispatchService.{overview, stations, alerts, routes, +4} · DoiBacSiService.{bac_si_trong_phong_kham, doi}
-- test: test_dieu_phoi_api_1509.py, test_doi_bac_si_theo_quyen_db.py, test_luat_1509_thu_ky_va_dieu_phoi.py, test_truong_ca_3_loi_db.py, test_ban_le_thuoc_db.py (+2)
+- test: test_dieu_phoi_api_1509.py, test_doi_bac_si_theo_quyen_db.py, test_luat_1509_thu_ky_va_dieu_phoi.py, test_truong_ca_3_loi_db.py, test_ban_le_thuoc_db.py (+3)
 
 ### `/tu-van` — Bàn khám tư vấn
 - page: `src/dashboard/app/(dashboard)/tu-van/page.tsx` · quyền: lego `tu_van` (Khám tư vấn · mặc định: Bác sĩ tư vấn)
@@ -817,7 +817,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [routes] GET `/api/v1/dispatch/routes` → `src/clinicai/api/v1/routers/dispatch.py:routes` → DispatchService.routes
 - [bac-si] GET `/api/v1/dispatch/bac-si` → `src/clinicai/api/v1/routers/dispatch.py:danh_sach_bac_si` → DoiBacSiService.bac_si_trong_phong_kham
 - GET `/api/v1/dispatch/chi-dinh/{visit_id}` → `src/clinicai/api/v1/routers/dispatch.py:chi_dinh_cua_luot` → DispatchService.chi_dinh
-- test: src/tests/api/test_dieu_phoi_api_1509.py, src/tests/services/test_thu_tien_xep_phong_mang_sang_db.py, src/tests/services/test_truong_ca_3_loi_db.py (+4)
+- test: src/tests/api/test_dieu_phoi_api_1509.py, src/tests/services/test_thu_tien_xep_phong_mang_sang_db.py, src/tests/services/test_truong_ca_3_loi_db.py (+5)
 - màn dùng: /truong-ca
 
 #### `/api/dispatch/[action]` · `src/dashboard/app/api/dispatch/[action]/route.ts`
