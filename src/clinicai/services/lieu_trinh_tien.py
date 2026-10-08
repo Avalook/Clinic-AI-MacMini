@@ -40,12 +40,27 @@ QUYEN_THU = "payment.service.collect"
 HET = "het"
 
 
-def loi_tien_lieu_trinh(e: asyncpg.PostgresError) -> Exception:
+#: #16 (giữ chặn — đặc tả): hoàn tác / huỷ phiếu lần thu có tiền trả trước mà
+#: buổi đã làm bằng tiền ấy. Câu cho thu ngân — nói lối đi tiếp.
+CAU_HUY_TRA_TRUOC_DA_DUNG = (
+    "Lần thu này có tiền trả trước liệu trình và khách đã làm buổi bằng tiền ấy"
+    " — không hoàn tác / huỷ phiếu được. Thu nhầm số buổi thì hoàn phần buổi CHƯA"
+    " dùng bằng [Hoàn tiền] ở tab “Đã thanh toán”."
+)
+
+
+def loi_tien_lieu_trinh(
+    e: asyncpg.PostgresError, *, cau_phu_vuot: str | None = None
+) -> Exception:
     """Lỗi bất biến LIỆU TRÌNH từ lệnh tiền (huỷ phiếu, hoàn tiền) → 409 có câu;
-    lỗi khác trả nguyên để nơi gọi ném lại như cũ."""
+    lỗi khác trả nguyên để nơi gọi ném lại như cũ. ``cau_phu_vuot`` thay câu kỹ
+    thuật của Postgres khi lệnh làm buổi đã làm mất tiền trả trước."""
     from clinicai.services.lieu_trinh_service import RANG_BUOC_LIEU_TRINH, loi_db
 
-    if (getattr(e, "constraint_name", None) or "") in RANG_BUOC_LIEU_TRINH:
+    ten = getattr(e, "constraint_name", None) or ""
+    if ten == "lieu_trinh_phu_vuot" and cau_phu_vuot:
+        return LuotKhamConflictError("PHU_VUOT_DA_TRA", cau_phu_vuot)
+    if ten in RANG_BUOC_LIEU_TRINH:
         return loi_db(e)
     nguyen: Exception = e
     return nguyen
@@ -492,6 +507,7 @@ def _so_nguyen(raw: Any) -> int:
 
 
 __all__ = [
+    "CAU_HUY_TRA_TRUOC_DA_DUNG",
     "HET",
     "LieuTrinhTienService",
     "doc_so_buoi_tra",

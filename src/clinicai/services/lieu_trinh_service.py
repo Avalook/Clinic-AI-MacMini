@@ -40,6 +40,7 @@ from clinicai.services.lenh_kham_core import (
     bien_nhan_ghi,
 )
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
+from clinicai.services.service_execution_service import NOI_BAN_KHAM
 
 #: Đề xuất / điều chỉnh / dừng / mở lại / gắn-gỡ buổi: khối y khoa (bác sĩ, ĐD,
 #: TKYK) + trưởng ca (quản lý có mọi khối).
@@ -249,11 +250,21 @@ SELECT b.id::text AS id, b.lieu_trinh_id::text AS lieu_trinh_id,
        b.gan_luc, b.gan_cach, sg.full_name AS gan_boi,
        b.go_luc, b.go_cach, so.full_name AS go_boi,
        o.visit_id::text AS visit_id, o.selection_status, o.execution_status,
-       o.exec_status, coalesce(v.checked_in_at, v.created_at) AS ngay
+       o.exec_status, coalesce(v.checked_in_at, v.created_at) AS ngay,
+       -- Nơi làm buổi (thẻ liệu trình ở hồ sơ khám): lần làm mới nhất — bàn
+       -- khám hay phòng nào; chưa làm thì phòng đang xếp.
+       a.noi_lam, ra.name AS phong
   FROM public.lieu_trinh_buoi b
   JOIN public.service_order o
     ON o.clinic_id = b.clinic_id AND o.id = b.service_order_id
   JOIN public.visit v ON v.clinic_id = o.clinic_id AND v.visit_id = o.visit_id
+  LEFT JOIN LATERAL (
+       SELECT x.noi_lam, x.room_id_snapshot
+         FROM public.service_execution_attempt x
+        WHERE x.clinic_id = o.clinic_id AND x.service_order_id = o.id
+        ORDER BY x.attempt_no DESC LIMIT 1) a ON true
+  LEFT JOIN public.clinic_room ra
+    ON ra.clinic_id = o.clinic_id AND ra.id = coalesce(a.room_id_snapshot, o.room_id)
   LEFT JOIN public.staff sg ON sg.id = b.gan_boi
   LEFT JOIN public.staff so ON so.id = b.go_boi
  WHERE b.clinic_id = $1::uuid AND b.lieu_trinh_id = ANY($2::uuid[])
@@ -297,7 +308,35 @@ def _buoi(r: asyncpg.Record) -> dict[str, Any]:
     d["da_lam"] = d["execution_status"] == "COMPLETED" or (
         d["execution_status"] is None and d["exec_status"] == "performed"
     )
+    d["noi_lam"] = "Bàn khám" if d.pop("noi_lam", None) == NOI_BAN_KHAM else d["phong"]
     return d
+
+
+def nut_lieu_trinh(lt: dict[str, Any]) -> dict[str, bool]:
+    """Nút trên dải liệu trình (hồ sơ khám) theo trạng thái. Thuần.
+
+    Dừng rồi thì chỉ còn Mở lại; còn lại được điều chỉnh và dừng. Quyền do lệnh
+    gác lại (màn chỉ đọc khi ``choGhi`` tắt)."""
+    dung = lt.get("trang_thai") == "DUNG"
+    return {"dieu_chinh": not dung, "dung": not dung, "mo_lai": dung}
+
+
+def nut_chi_dinh(c: dict[str, Any]) -> dict[str, bool]:
+    """Nút liệu trình trên thẻ một chỉ định điều trị. Thuần.
+
+    ``tao``: chỉ định còn sống chưa thuộc liệu trình nào → ô "Lộ trình N buổi".
+    ``go``: đang là buổi của một liệu trình → gỡ thành buổi lẻ. ``tach``: đang là
+    buổi của liệu trình cũ → lập liệu trình MỚI (xác nhận tách, #14).
+    ``chon``: có liệu trình cùng dịch vụ để gắn / chuyển sang (#15)."""
+    song = bool(c.get("song"))
+    co = bool(c.get("lieu_trinh_id"))
+    khac = [u for u in c.get("ung_vien") or [] if u.get("id") != c.get("lieu_trinh_id")]
+    return {
+        "tao": song and not co,
+        "go": song and co,
+        "tach": song and co,
+        "chon": song and bool(khac),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -440,6 +479,44 @@ class LieuTrinhService:
                 if ma
                 else []
             )
+            # [Hoàn tác] trên dải: lần sửa MỚI NHẤT do người bấm (cùng luật lệnh
+            # hoàn tác — lần tự động thì không).
+            moi_nhat = {
+                r["lt"]: r
+                for r in await conn.fetch(
+                    "SELECT DISTINCT ON (h.lieu_trinh_id) h.lieu_trinh_id::text AS lt,"
+                    "       h.id::text AS id, h.revision, h.hanh_dong"
+                    "  FROM public.lieu_trinh_lich_su h"
+                    " WHERE h.clinic_id = $1::uuid"
+                    "   AND h.lieu_trinh_id = ANY($2::uuid[])"
+                    " ORDER BY h.lieu_trinh_id, h.revision DESC, h.luc DESC",
+                    cid,
+                    [d["id"] for d in ds],
+                )
+            }
+            # "Chỉ đề xuất liệu trình (không làm hôm nay)": dịch vụ nhóm Điều trị.
+            dich_vu = [
+                dict(r)
+                for r in await conn.fetch(
+                    "SELECT DISTINCT ON (sp.service_code) sp.service_code,"
+                    "       sp.name AS ten"
+                    "  FROM public.service_type st JOIN public.service_price sp"
+                    "    ON sp.id = st.service_price_id AND sp.clinic_id = st.clinic_id"
+                    " WHERE st.clinic_id = $1::uuid AND st.nhom = 'DIEU_TRI'"
+                    " ORDER BY sp.service_code, sp.name",
+                    cid,
+                )
+            ]
+        for d in ds:
+            d["nut"] = nut_lieu_trinh(d)
+            h = moi_nhat.get(d["id"])
+            d["hoan_tac"] = (
+                {"lich_su_id": h["id"], "hanh_dong": h["hanh_dong"]}
+                if h is not None
+                and int(h["revision"]) == int(d["revision"])
+                and h["hanh_dong"] in HANH_DONG_HOAN_TAC_DUOC
+                else None
+            )
         for c in chi_dinh:
             uv = [u for u in ung_vien if u["service_code"] == c["service_code"]]
             c["ung_vien"] = [
@@ -456,11 +533,13 @@ class LieuTrinhService:
             c["can_chon"] = (
                 bool(c["song"]) and not c["lieu_trinh_id"] and len(dang_lam) > 1
             )
+            c["nut"] = nut_chi_dinh(c)
         return {
             "visit_id": vid,
             "clinic_patient_id": pid,
             "lieu_trinh": ds,
             "chi_dinh": chi_dinh,
+            "dich_vu_de_xuat": dich_vu,
         }
 
     async def chip(self, *, identity: StaffIdentity, visit_ids: Any) -> dict[str, Any]:

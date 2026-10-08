@@ -30,6 +30,7 @@ import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import ChonDichVuKham from "../_lam-viec/ChonDichVuKham";
 import VatTuQuay from "./VatTuQuay";
+import LieuTrinhQuay from "./LieuTrinhQuay";
 import { useNgheBang } from "../dung-nghe-bang";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
 import Button from "@/components/ui/Button";
@@ -105,6 +106,8 @@ interface Luot {
   tien_thua?: TienThua | null;
   /** Chỉ định ĐÃ XOÁ (chưa hoàn tác) — 06/10/2026: vẫn thấy, gạch ngang. */
   da_bo_chi_dinh?: DaBoChiDinh[];
+  /** Máy chủ: lượt đang chờ thu ở quầy dịch vụ (`_xep_hang_cho_thu`). */
+  cho_thu?: boolean;
 }
 
 /** Một chỉ định đã xoá — câu "ai đã xoá" do máy chủ viết. */
@@ -504,7 +507,10 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
           // Đã thu đủ nhưng còn TIỀN THỪA (bỏ chỉ định sau khi thu — Khối 2,
           // 06/10/2026): máy chủ xếp lượt vào hàng chờ xử lý (`ds_cho_thu`);
           // thiếu vế này thì khối "Tiền thừa" không bao giờ hiện ở quầy.
-          (l.tien_thua?.tong ?? 0) > 0)) ||
+          (l.tien_thua?.tong ?? 0) > 0 ||
+          // Máy chủ nói lượt còn khoản chờ thu (vd CHỈ có dòng trả trước liệu
+          // trình, 08/10/2026 — không có dịch vụ nào trong `services`).
+          Boolean(l.cho_thu))) ||
       (quay !== "dich_vu" && l.drugs.length > 0 && !daThuCua(l.visit_id, "thuoc")),
   );
 
@@ -695,6 +701,11 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
                   })
                 }
               />
+            ) : null}
+            {/* LIỆU TRÌNH (08/10/2026): trả trước … buổi / trả hết → dòng vào hoá
+                đơn đang thu (máy chủ tính tối đa, tiền). */}
+            {quay !== "thuoc" && !daThuCua(l.visit_id, "dich_vu") ? (
+              <LieuTrinhQuay visitId={l.visit_id} reloadToken={l.quay_thu?.revision} onDoi={() => void tai()} />
             ) : null}
             {quay !== "thuoc" &&
             l.quay_thu &&

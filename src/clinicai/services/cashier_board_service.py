@@ -178,7 +178,23 @@ WITH v AS (
                    AND pc.payment_cycle_id = bl.payment_cycle_id
                  WHERE so.clinic_id = vi.clinic_id AND so.visit_id = vi.visit_id
                    AND so.exec_status IN ('cancelled', 'not_performed')
-                   AND pc.status = 'PAID'))
+                   AND pc.status = 'PAID')
+            -- TRẢ TRƯỚC LIỆU TRÌNH chưa thu (08/10/2026): lượt chỉ có dòng
+            -- "trả trước k buổi" (vd buổi hôm nay đã phủ 0đ, khách trả thêm)
+            -- vẫn là khoản chờ ở quầy dịch vụ.
+            OR EXISTS (
+                SELECT 1 FROM public.lieu_trinh_tra_truoc t
+                 WHERE t.clinic_id = vi.clinic_id AND t.visit_id = vi.visit_id
+                   AND t.bo_luc IS NULL
+                   AND NOT EXISTS (
+                       SELECT 1 FROM public.payment_bill_line bl
+                         JOIN public.payment_cycle c
+                           ON c.clinic_id = bl.clinic_id
+                          AND c.payment_cycle_id = bl.payment_cycle_id
+                        WHERE bl.clinic_id = t.clinic_id
+                          AND bl.source_type = 'lieu_trinh'
+                          AND bl.source_id = t.id::text
+                          AND c.status = 'PAID')))
      ORDER BY vi.created_at DESC
      LIMIT 300
 )

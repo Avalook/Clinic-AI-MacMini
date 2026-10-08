@@ -58,7 +58,10 @@ from clinicai.services.bill_service import (
 )
 from clinicai.services.chot_0d import ghi_chot_0d
 from clinicai.services.lenh_kham_core import bien_nhan_doc, bien_nhan_ghi, khoa_luot
-from clinicai.services.lieu_trinh_tien import loi_tien_lieu_trinh
+from clinicai.services.lieu_trinh_tien import (
+    CAU_HUY_TRA_TRUOC_DA_DUNG,
+    loi_tien_lieu_trinh,
+)
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import (
     PhanLo,
@@ -1336,7 +1339,9 @@ class PaymentService:
                 except asyncpg.CheckViolationError as e:
                     # Lần thu có tiền TRẢ TRƯỚC liệu trình mà buổi đã làm bằng
                     # tiền ấy (08/10/2026, #16) — Postgres từ chối.
-                    raise loi_tien_lieu_trinh(e) from None
+                    raise loi_tien_lieu_trinh(
+                        e, cau_phu_vuot=CAU_HUY_TRA_TRUOC_DA_DUNG
+                    ) from None
                 if phan_lo:
                     # CP3: dòng chưa giao gì → đảo bán đúng một lần; dòng đã
                     # giao → không tự nhập lại kho, ghi cần xử lý trả thuốc (CP5).
