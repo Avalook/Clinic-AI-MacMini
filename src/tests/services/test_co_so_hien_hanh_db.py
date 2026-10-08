@@ -107,3 +107,53 @@ async def test_phong_khac_co_so_bi_db_tu_choi(pool: asyncpg.Pool) -> None:  # no
             visit,
             phong_cung,
         )
+
+
+async def test_tv_chi_goi_khach_cua_co_so_minh(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Tuyền 08/10: "TV Hào Nam chỉ có số của Hào Nam" — Kim Ngưu tạm đóng."""
+    from datetime import UTC, datetime, timedelta
+
+    from clinicai.services.display_board_service import DisplayBoardService
+
+    ca = await _dung(pool)
+    khac = await _co_so_khac(pool, ca.loc)
+    bd = datetime.now(UTC).replace(microsecond=0) + timedelta(minutes=45)
+    hen: dict[str, str] = {}
+    for loc in (ca.loc, khac):
+        hen[loc] = str(
+            await pool.fetchval(
+                "INSERT INTO appointment (clinic_id, clinic_patient_id, location_id,"
+                " service_type_id, slot_start, slot_end, doctor_id, status)"
+                " VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7::uuid,"
+                " 'CONFIRMED') RETURNING id::text",
+                CLINIC,
+                await _benh_nhan(pool, ca),
+                loc,
+                ca.loai_kham,
+                bd,
+                bd + timedelta(minutes=15),
+                ca.bac_si.staff_id,
+            )
+        )
+    tu, den = bd - timedelta(hours=1), bd + timedelta(hours=1)
+    svc = DisplayBoardService(pool)
+    # Bảng TV không mang id (ràng buộc ① — không định danh), nên so SỐ DÒNG với
+    # số lịch hẹn của từng cơ sở trong khung giờ.
+    dem = {
+        loc: await pool.fetchval(
+            "SELECT count(*) FROM appointment WHERE clinic_id = $1::uuid"
+            " AND location_id = $2::uuid AND slot_start >= $3 AND slot_start < $4"
+            " AND status <> ALL (ARRAY['CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED'])",
+            CLINIC,
+            loc,
+            tu,
+            den,
+        )
+        for loc in (ca.loc, khac)
+    }
+    mot = await svc.board(clinic_id=CLINIC, start=tu, end=den, location_id=ca.loc)
+    assert len(mot["items"]) == dem[ca.loc]
+    # Không truyền cơ sở → như cũ (cả phòng khám) — gồm cả lịch cơ sở kia.
+    tat_ca = await svc.board(clinic_id=CLINIC, start=tu, end=den)
+    assert len(tat_ca["items"]) >= dem[ca.loc] + dem[khac] > len(mot["items"])
+    assert hen  # hai lịch hẹn đã tạo

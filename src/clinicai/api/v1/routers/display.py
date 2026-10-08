@@ -92,4 +92,5 @@ async def display_queue(
         clinic_id=identity.clinic_id,
         start=dau,
         end=dau + timedelta(days=1),
+        location_id=identity.location_id,
     )
