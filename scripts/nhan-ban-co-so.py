@@ -35,9 +35,14 @@ QUY ƯỚC MÃ
   xoá) quyền do script cấp ở bộ cũ, suy lại từ KN cho bộ mới. `DIEU_PHOI` và vị
   trí không phòng: dùng chung, không chép.
 
-Không làm: tạo tài khoản đăng nhập (TV in hướng dẫn); chép `block_budget`,
-`visit_gate_rule`, `staff_node` theo cơ sở; chép lô thuốc khi chưa có cột
-`drug_batch.location_id`.
+* Cơ sở HN: tên, địa chỉ, SĐT, `ten_in` (tên in trên phiếu) — chạy lại thì đưa
+  về đúng giá trị; cột `phone` / `ten_in` chưa có thì bỏ qua.
+* `--chep-kho`: mỗi lô KN → lô HN cùng số lô, tồn 0 + MỘT dòng sổ RECEIVE (trigger
+  cộng tồn) để thẻ kho khớp tồn. Chưa có cột `drug_batch.location_id` thì bỏ qua.
+
+Không làm: tạo tài khoản đăng nhập (TV in hướng dẫn); chép `block_budget` (chỉ
+tô màu ô lịch), `visit_gate_rule` (luật không gắn cơ sở áp mọi cơ sở),
+`staff_node` (không theo cơ sở) — bài trọn luồng đặt lịch HN không cần chúng.
 """
 
 from __future__ import annotations
@@ -56,8 +61,12 @@ import asyncpg
 MA_KN = "KN"
 MA_HN = "HN"
 TEN_HN = "Hào Nam"
-DIA_CHI_HN = "Tầng 1, 2, 3 Nhà số 24 Ngõ 168 Phố Hào Nam, Phường Ô Chợ Dừa, Hà Nội"
+DIA_CHI_HN = (
+    "Tầng 1, 2, 3 Nhà số 24 Ngõ 168 Phố Hào Nam, Phường Ô Chợ Dừa, Thành phố Hà Nội"
+)
 SDT_HN = "0966 558 833"
+#: Tên in trên phiếu của cơ sở (cột `ten_in`, migration 20261008100000).
+TEN_IN_HN = "Phòng khám chuyên khoa - Phụ sản 4WOMEN"
 TIEN_TO_VI_TRI = "HN__"
 #: Dấu nguồn ghi vào `ly_do` / `ghi_chu` các dòng script tạo — để gỡ đúng dòng.
 DAU_NGUON = "nhan-ban-co-so HN"
@@ -108,6 +117,7 @@ BANG = (
     "staff_vi_tri",
     "capability_grant",
     "drug_batch",
+    "inventory_txn",
 )
 
 
@@ -174,7 +184,7 @@ class NguCanh:
     kn: str
     hn: str | None
     thao_tac: str | None
-    co_sdt: bool
+    cot_co_so: frozenset[str]  # cột tuỳ chọn của clinic_location đang có
     kho_co_co_so: bool
 
 
@@ -226,7 +236,13 @@ async def _ngu_canh(conn: asyncpg.Connection, clinic_id: str | None) -> NguCanh:
         kn=kn,
         hn=hn,
         thao_tac=thao_tac,
-        co_sdt=await _co_cot(conn, "clinic_location", "phone"),
+        cot_co_so=frozenset(
+            [
+                c
+                for c in ("phone", "ten_in")
+                if await _co_cot(conn, "clinic_location", c)
+            ]
+        ),
         kho_co_co_so=await _co_cot(conn, "drug_batch", "location_id"),
     )
 
@@ -257,6 +273,7 @@ async def dau_van_kn(
         "staff_vi_tri": f"clinic_id = $2::uuid AND vi_tri_code NOT {LA_VI_TRI_HN}",
         "capability_grant": f"scope_type = 'ROOM' AND scope_id IN {phong_kn}",
         "drug_batch": kho,
+        "inventory_txn": f"drug_batch_id IN (SELECT id FROM drug_batch WHERE {kho})",
     }
     kq: dict[str, tuple[int, str]] = {}
     for bang, dk in dieu_kien.items():
@@ -275,40 +292,39 @@ async def dau_van_kn(
 # Dựng
 # ----------------------------------------------------------------------------
 async def _co_so_hn(conn: asyncpg.Connection, ctx: NguCanh, bc: BaoCao) -> str:
+    moi = ctx.hn is None
     if ctx.hn is None:
         ctx.hn = await conn.fetchval(
-            "INSERT INTO clinic_location (clinic_id, code, name, address, is_active)"
-            " VALUES ($1::uuid, $2, $3, $4, false) RETURNING id::text",
+            "INSERT INTO clinic_location (clinic_id, code, name, is_active)"
+            " VALUES ($1::uuid, $2, $3, false) RETURNING id::text",
             ctx.cid,
             MA_HN,
             TEN_HN,
-            DIA_CHI_HN,
         )
+    assert ctx.hn is not None
+    # Thông tin in trên phiếu: chạy lại thì đưa về đúng giá trị (chỉ dòng HN).
+    gia_tri: dict[str, str] = {"name": TEN_HN, "address": DIA_CHI_HN}
+    for cot, v in (("phone", SDT_HN), ("ten_in", TEN_IN_HN)):
+        if cot in ctx.cot_co_so:
+            gia_tri[cot] = v
+        else:
+            bc.ghi_chu.append(f"clinic_location chưa có cột {cot} — chưa ghi.")
+    cots = list(gia_tri)
+    n = _so(
+        await conn.execute(
+            "UPDATE clinic_location SET "
+            + ", ".join(f"{c} = ${i}" for i, c in enumerate(cots, start=2))
+            + " WHERE id = $1::uuid AND ("
+            + " OR ".join(f"{c} IS DISTINCT FROM ${i}" for i, c in enumerate(cots, 2))
+            + ")",
+            ctx.hn,
+            *gia_tri.values(),
+        )
+    )
+    if moi:
         bc.them("clinic_location", moi=1)
     else:
-        n = _so(
-            await conn.execute(
-                "UPDATE clinic_location SET name = $2, address = $3"
-                " WHERE id = $1::uuid"
-                "   AND (name IS DISTINCT FROM $2 OR address IS DISTINCT FROM $3)",
-                ctx.hn,
-                TEN_HN,
-                DIA_CHI_HN,
-            )
-        )
         bc.them("clinic_location", co=1 - n, doi=n)
-    assert ctx.hn is not None
-    if ctx.co_sdt:
-        await conn.execute(
-            "UPDATE clinic_location SET phone = $2 WHERE id = $1::uuid"
-            " AND phone IS DISTINCT FROM $2",
-            ctx.hn,
-            SDT_HN,
-        )
-    else:
-        bc.ghi_chu.append(
-            "clinic_location chưa có cột phone — chưa ghi SĐT (nhánh khác thêm)."
-        )
     return ctx.hn
 
 
@@ -627,35 +643,61 @@ async def _chep_kho(conn: asyncpg.Connection, ctx: NguCanh, bc: BaoCao) -> None:
             "--chep-kho: chưa có migration kho (drug_batch.location_id) — bỏ qua."
         )
         return
-    dem_lo = (
-        "SELECT count(*) FROM drug_batch"
-        " WHERE clinic_id = $1::uuid AND location_id = $2::uuid"
+    # Lô HN tạo với tồn 0 rồi ghi MỘT dòng sổ RECEIVE (trigger cộng vào tồn) —
+    # như PharmacyService.nhap_vao_lo: tồn và sổ kho (thẻ kho) khớp nhau.
+    lo_kn = await conn.fetch(
+        """
+        SELECT b.id::text AS id, b.drug_catalog_id::text AS thuoc, b.batch_code,
+               b.expiry_date, b.quantity_on_hand, b.unit, b.cost_price,
+               b.received_at,
+               EXISTS (SELECT 1 FROM drug_batch x
+                        WHERE x.clinic_id = b.clinic_id AND x.location_id = $3::uuid
+                          AND x.batch_code = b.batch_code) AS da_co
+          FROM drug_batch b
+         WHERE b.clinic_id = $1::uuid AND b.location_id = $2::uuid
+         ORDER BY b.batch_code
+        """,
+        ctx.cid,
+        ctx.kn,
+        ctx.hn,
     )
-    nguon = await conn.fetchval(dem_lo, ctx.cid, ctx.kn)
-    moi = _so(
-        await conn.execute(
+    for lo in lo_kn:
+        if lo["da_co"]:
+            bc.them("drug_batch", co=1)
+            continue
+        lo_hn = await conn.fetchval(
             """
             INSERT INTO drug_batch (clinic_id, location_id, drug_catalog_id,
                                     batch_code, expiry_date, quantity_on_hand, unit,
                                     cost_price, received_at)
-            SELECT b.clinic_id, $3::uuid, b.drug_catalog_id, b.batch_code,
-                   b.expiry_date, b.quantity_on_hand, b.unit, b.cost_price,
-                   b.received_at
-              FROM drug_batch b
-             WHERE b.clinic_id = $1::uuid AND b.location_id = $2::uuid
-               AND NOT EXISTS (SELECT 1 FROM drug_batch x
-                                WHERE x.clinic_id = b.clinic_id
-                                  AND x.location_id = $3::uuid
-                                  AND x.batch_code = b.batch_code)
-            ON CONFLICT DO NOTHING
+            VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, 0, $6, $7, $8)
+            RETURNING id::text
             """,
             ctx.cid,
-            ctx.kn,
             ctx.hn,
+            lo["thuoc"],
+            lo["batch_code"],
+            lo["expiry_date"],
+            lo["unit"],
+            lo["cost_price"],
+            lo["received_at"],
         )
-    )
-    da_co = await conn.fetchval(dem_lo, ctx.cid, ctx.hn)
-    bc.them("drug_batch", moi=moi, co=int(da_co) - moi, bo_qua=int(nguon) - int(da_co))
+        bc.them("drug_batch", moi=1)
+        if lo["quantity_on_hand"] > 0:
+            if ctx.thao_tac is None:
+                raise SystemExit("✗ Không có tài khoản Quản lý để ghi sổ kho — DỪNG.")
+            await conn.execute(
+                "INSERT INTO inventory_txn (clinic_id, drug_batch_id, txn_type,"
+                " quantity, reason, ref_type, performed_by_staff_id, performed_at)"
+                " VALUES ($1::uuid, $2::uuid, 'RECEIVE', $3, $4, 'manual',"
+                " $5::uuid, now())",
+                ctx.cid,
+                lo_hn,
+                lo["quantity_on_hand"],
+                f"{DAU_NGUON} từ lô KN {lo['id']}",
+                ctx.thao_tac,
+            )
+            bc.them("inventory_txn", moi=1)
 
 
 # ----------------------------------------------------------------------------
