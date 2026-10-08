@@ -477,15 +477,28 @@ async def test_18_check_out_buoi_phu_da_lam_khong_no(pool: asyncpg.Pool) -> None
 @pytest.mark.db
 @pytest.mark.asyncio
 async def test_21_bao_cao_ngay_tinh_tien_tra_truoc_ngay_thu(pool: asyncpg.Pool) -> None:
-    """#21: báo cáo doanh thu ngày có dòng "… — trả trước 5 buổi" ngày thu."""
+    """#21: tiền trả trước tính vào doanh thu NGÀY THU; dòng hoá đơn "‹dịch vụ›
+    — trả trước 5 buổi" (so tổng trước/sau — bài khác cùng ngày không làm lệch)."""
     ca = await dung_ca(pool)
-    await lt_da_tra_truoc(ca, 8, 5)
     async with pool.acquire() as conn:
         ql = await _nguoi(conn, ca.loc, "MANAGEMENT")
-    bc = await BaoCaoCuoiNgayService(pool).bao_cao(identity=ql, loai="dich_vu")
-    ten = f"{ca.ten} — trả trước 5 buổi"
-    (dong,) = [t for t in bc["top_dich_vu"] if t["ten"] == ten]
-    assert dong["doanh_thu"] == 5 * GIA and dong["so_luong"] == 5
+    svc = BaoCaoCuoiNgayService(pool)
+
+    def thu_dv(bc: dict[str, Any]) -> int:
+        (d,) = [x for x in bc["theo_loai"] if x["ma"] == "dich_vu"]
+        return int(d["thu"])
+
+    truoc = thu_dv(await svc.bao_cao(identity=ql, loai="dich_vu"))
+    _, cyc = await lt_da_tra_truoc(ca, 8, 5)
+    sau = thu_dv(await svc.bao_cao(identity=ql, loai="dich_vu"))
+    assert sau - truoc == 5 * GIA
+    dong = await pool.fetchrow(
+        "SELECT name_snapshot, quantity FROM payment_bill_line"
+        " WHERE payment_cycle_id = $1::uuid",
+        cyc,
+    )
+    assert dong["name_snapshot"] == f"{ca.ten} — trả trước 5 buổi"
+    assert int(dong["quantity"]) == 5
 
 
 @pytest.mark.db
