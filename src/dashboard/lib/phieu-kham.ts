@@ -844,20 +844,37 @@ export function locMauThuoc(ds: readonly MauThuoc[], tu: string): MauThuoc[] {
 // ---------------------------------------------------------------------------
 // Hiển thị
 // ---------------------------------------------------------------------------
-/** Ô trống in "—" (DESIGN.md §6.5), không bỏ trắng. */
-/** BA KHỐI của phiếu bác sĩ chính (Tuyền chốt 25/09/2026 — bản giao diện mẫu):
- *  gom các mục SẴN CÓ, không đổi `ma` ô nào — phiếu đã lưu vẫn đọc đúng. Mục
- *  hành chính luôn nằm trên, ngoài các khối. Màn khám và bản in dùng chung. */
+/** BỐN KHỐI của phiếu bác sĩ chính: gom các mục SẴN CÓ của mẫu JSON, không đổi
+ *  `ma` ô nào — phiếu đã lưu vẫn đọc đúng. Mục hành chính luôn nằm trên, ngoài
+ *  các khối. Thứ tự theo luồng lâm sàng: CLS → kết quả → CHẨN ĐOÁN (mục D, cuối
+ *  khối 2 — mọi phiếu, HMVS/NT có tới 16/9 ô nên không bỏ được) → điều trị. Khối
+ *  3 còn có thẻ CHỈ ĐỊNH ĐIỀU TRỊ (không thuộc mẫu JSON — shell vẽ qua `oDieuTri`,
+ *  đứng đầu khối). */
 export type SoKhoi = 1 | 2 | 3 | 4;
-/** Khối 4 "Điều trị" (07/10/2026): KHÔNG thuộc mẫu phiếu JSON — thẻ các chỉ định
- *  điều trị của lượt (phiếu kết quả PHIEU_DIEU_TRI + làm tại bàn khám), shell vẽ
- *  qua `oDieuTri`; `muc` rỗng. */
 export const KHOI_PHIEU: { so: SoKhoi; ten: string; muc: string[] }[] = [
   { so: 1, ten: "Thông tin cơ bản", muc: ["A", "B"] },
-  { so: 2, ten: "Chỉ định cận lâm sàng", muc: ["C"] },
-  { so: 3, ten: "Chỉ định điều trị", muc: ["D", "E", "F", "G"] },
-  { so: 4, ten: "Điều trị", muc: [] },
+  { so: 2, ten: "Chỉ định cận lâm sàng", muc: ["C", "D"] },
+  { so: 3, ten: "Chỉ định điều trị", muc: ["F", "G"] },
+  { so: 4, ten: "Đơn thuốc", muc: ["E"] },
 ];
+
+/** Chia chỉ định của lượt theo chỗ hiện trên hồ sơ khám. ĐIỀU TRỊ theo MỘT định
+ *  nghĩa — cờ `dieu_tri` máy chủ trả (dịch vụ mà loại khám nhóm DIEU_TRI trỏ tới)
+ *  — và xét TRƯỚC: Ghế điện nằm cả trong danh mục thủ thuật vẫn chỉ ra một thẻ
+ *  điều trị; Laser tiền đình không ở danh mục thủ thuật cũng không rơi vào CLS.
+ *  Phần còn lại: mã trong danh mục thủ thuật → thủ thuật, khác → CLS. */
+export function phanChiDinh(
+  ds: readonly ChiDinhVaKetQua[],
+  maThuThuat?: ReadonlySet<string>,
+): { dieuTri: ChiDinhVaKetQua[]; thuThuat: ChiDinhVaKetQua[]; cls: ChiDinhVaKetQua[] } {
+  const ra = { dieuTri: [] as ChiDinhVaKetQua[], thuThuat: [] as ChiDinhVaKetQua[], cls: [] as ChiDinhVaKetQua[] };
+  for (const c of ds) {
+    if (c.dieu_tri) ra.dieuTri.push(c);
+    else if (maThuThuat?.has(c.service_code)) ra.thuThuat.push(c);
+    else ra.cls.push(c);
+  }
+  return ra;
+}
 
 /** Ô đã có dữ liệu? (rỗng · mảng rỗng · bảng mọi cột rỗng = chưa) — bản in ẩn ô trống. */
 export function coNhap(nhap: ONhap | undefined): boolean {

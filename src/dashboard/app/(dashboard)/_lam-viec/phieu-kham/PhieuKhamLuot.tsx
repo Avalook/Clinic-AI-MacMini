@@ -30,6 +30,7 @@ import {
   dongTuDon,
   gopSoLuongQuayDien,
   nhomThuThuat,
+  phanChiDinh,
   phanThayDoi,
   type ChiDinhVaKetQua,
   type DatChiDinh,
@@ -52,7 +53,7 @@ import LichSuSuaPhieu from "./LichSuSuaPhieu";
 import DatLichTaiKham from "./DatLichTaiKham";
 import { KhungDatLichTaiKham } from "./ONhapPhieu";
 import PhieuKham, { type KetQuaLuu, type ThamChieu } from "./PhieuKham";
-import KetQuaChiDinh from "./KetQuaChiDinh";
+import KetQuaChiDinh, { type PhanKetQua } from "./KetQuaChiDinh";
 import GhiChuLuot from "./GhiChuLuot";
 import KhoiDichVuHoSo from "./KhoiDichVuHoSo";
 import KhoiDieuTri from "./KhoiDieuTri";
@@ -413,11 +414,13 @@ export default function PhieuKhamLuot({
     }
     return ra;
   }, [tc]);
-  // Mã thủ thuật — kết quả của chúng hiện ở khối 3, không lẫn vào khối 2.
+  // Mã thủ thuật — thẻ của chúng ở khối 3, không lẫn vào khối 2.
   const maThuThuat = useMemo(
     () => new Set((tc?.thu_thuat ?? []).flatMap((t) => (t.service_code ? [t.service_code] : []))),
     [tc],
   );
+  // Chỉ định ĐIỀU TRỊ theo cờ máy chủ (`phanChiDinh`) — thẻ điều trị đầu khối 3.
+  const dsDieuTri = useMemo(() => phanChiDinh(ketQua, maThuThuat).dieuTri, [ketQua, maThuThuat]);
   const goiYMau = useMemo(() => {
     const ra: Record<string, string> = {};
     for (const n of tc?.chi_dinh_cls ?? []) {
@@ -453,20 +456,31 @@ export default function PhieuKhamLuot({
 
   // DỊCH VỤ CỦA LƯỢT (07/10/2026, T1/T5) — đầu hồ sơ; xem lại lượt cũ thì không.
   const dsCls = (tc?.chi_dinh_cls ?? []) as NhomCls[];
-  const choKetQua = (ds: ChiDinhVaKetQua[]) => (
-    <KetQuaChiDinh
-      ds={ds}
-      mauDuPhong={mauDuPhong}
-      goiYMau={goiYMau}
-      nhanGiay={nhanGiay}
-      choDien={choGhi}
-      clinicPatientId={clinicPatientId}
-      onDoi={() => {
-        void napKetQua();
-        onDaDat();
-      }}
-    />
-  );
+  // Thuộc tính thẻ chỉ định — MỘT bộ cho thẻ CLS, thủ thuật và điều trị, ở cả
+  // phiếu đầy đủ lẫn hồ sơ tối giản (cùng Hoàn tác chỉ định, cùng "bắt buộc").
+  const propsKetQua: PhanKetQua & Required<Pick<PhanKetQua, "mauDuPhong" | "goiYMau" | "choDien" | "onDoi">> = {
+    mauDuPhong,
+    goiYMau,
+    nhanGiay,
+    // Ô "bắt buộc" của chỉ định đã đặt: ở thẻ từng chỉ định (27/09).
+    onDoiBatBuoc: choGhi ? doiBatBuoc : undefined,
+    // Hoàn tác chỉ định — quầy thu cập nhật ngay (hoá đơn máy chủ dựng lại); đã
+    // thu thì hỏi xác nhận, thành tiền thừa.
+    onBoChiDinh: choGhi
+      ? (id) => async (duLieu) => {
+          const r = await lenhHoanTac("huy-chi-dinh", id)(duLieu);
+          if (r.ok) onDaBoChiDinh?.();
+          return r;
+        }
+      : undefined,
+    choDien: choGhi,
+    clinicPatientId,
+    onDoi: () => {
+      void napKetQua();
+      onDaDat();
+    },
+  };
+  const theDieuTri = <KhoiDieuTri visitId={visitId} choGhi={choGhi} chiDinh={dsDieuTri} ketQua={propsKetQua} />;
   const khoiDichVu =
     xemLai || chiMuc ? null : (
       <div className="space-y-2">
@@ -499,19 +513,21 @@ export default function PhieuKhamLuot({
     );
 
   if (chonDuoc) {
-    // HỒ SƠ TỐI GIẢN (07/10/2026, T3): loại khám không gắn phiếu (Điều trị,
-    // Khác) — dịch vụ của lượt, khối Điều trị, kê chỉ định CLS / thủ thuật; phiếu
-    // khám đầy đủ là TUỲ CHỌN.
+    // HỒ SƠ TỐI GIẢN (T3): loại khám không gắn phiếu (Điều trị, Khác) — dịch vụ
+    // của lượt, thẻ chỉ định điều trị, chỉ định khác, kê chỉ định CLS / thủ thuật;
+    // phiếu khám đầy đủ là TUỲ CHỌN. Cùng thứ tự với khối 3 của phiếu đầy đủ:
+    // thẻ điều trị trước, chỉ định khác sau (không lặp thẻ điều trị), lưới cuối.
+    const dsKhac = ketQua.filter((c) => !dsDieuTri.includes(c));
     return (
       <div className="space-y-3">
         {khoiDichVu}
         {/* Lượt "Khác": MỘT ô chữ to tự do (máy chủ quyết có hiện không). */}
         <GhiChuLuot visitId={visitId} choGhi={choGhi} />
-        <KhoiDieuTri visitId={visitId} choGhi={choGhi} />
-        {ketQua.length > 0 ? (
+        {theDieuTri}
+        {dsKhac.length > 0 ? (
           <section className="space-y-2 rounded-card border border-hairline bg-surface p-4">
             <h2 className="text-title text-ink">Đã chỉ định &amp; kết quả</h2>
-            {choKetQua(ketQua)}
+            <KetQuaChiDinh ds={dsKhac} {...propsKetQua} />
           </section>
         ) : null}
         {choGhi ? (
@@ -595,7 +611,7 @@ export default function PhieuKhamLuot({
             </>
           )
         }
-        oDieuTri={chiMuc ? undefined : <KhoiDieuTri visitId={visitId} choGhi={choGhi} />}
+        oDieuTri={chiMuc ? undefined : theDieuTri}
         // Tick dịch vụ khám (mã KiotViet) → tiền khám tính theo đó (28/09/2026).
         oDichVuKham={chiMuc || xemLai ? undefined : <ChonDichVuKham visitId={visitId} />}
         chanRay={chanRay}
@@ -689,29 +705,7 @@ export default function PhieuKhamLuot({
           />
         }
         maThuThuat={maThuThuat}
-        ketQua={{
-          mauDuPhong,
-          goiYMau,
-          nhanGiay,
-          // Ô "bắt buộc" của chỉ định đã đặt: nay ở thẻ từng chỉ định (27/09).
-          onDoiBatBuoc: choGhi ? doiBatBuoc : undefined,
-          // Hoàn tác chỉ định (01/10/2026) — quầy thu cập nhật ngay (hoá đơn
-          // máy chủ dựng lại); đã thu thì hỏi xác nhận, thành tiền thừa.
-          onBoChiDinh:
-            choGhi && !xemLai
-              ? (id) => async (duLieu) => {
-                  const r = await lenhHoanTac("huy-chi-dinh", id)(duLieu);
-                  if (r.ok) onDaBoChiDinh?.();
-                  return r;
-                }
-              : undefined,
-          choDien: choGhi,
-          clinicPatientId,
-          onDoi: () => {
-            void napKetQua();
-            onDaDat();
-          },
-        }}
+        ketQua={propsKetQua}
       />
     </div>
     </KhungDatLichTaiKham.Provider>

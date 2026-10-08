@@ -42,6 +42,7 @@ import {
   giaTriBanDau,
   gomNhom,
   KHOI_PHIEU,
+  phanChiDinh,
   type SoKhoi,
   soODaDien,
   type CheDoPhieu,
@@ -88,7 +89,7 @@ const NHAN_CHE_DO: Record<CheDoPhieu, { ten: string; tone: "neutral" | "warning"
   amendment_mode: { ten: "Đang đính chính", tone: "warning" },
 };
 
-/** Ba khối — định nghĩa ở lib/phieu-kham (dùng chung với bản in). */
+/** Bốn khối — định nghĩa ở lib/phieu-kham. */
 const KHOI = KHOI_PHIEU;
 
 export default function PhieuKham({
@@ -116,7 +117,6 @@ export default function PhieuKham({
   baoLoiDon,
   oDichVuKham,
   oDieuTri,
-  tomTatDieuTri,
 }: {
   /** Khung của ĐÚNG phiên bản phiếu đang ghim. */
   dinhNghia: DinhNghiaPhieu;
@@ -140,11 +140,8 @@ export default function PhieuKham({
   /** Ô tick DỊCH VỤ KHÁM theo mã KiotViet (28/09/2026) — vẽ ngay dưới mục
    *  đầu của khối 1 ("Bác sĩ tư vấn ghi"); shell truyền vào. */
   oDichVuKham?: ReactNode;
-  /** Khối 4 "Điều trị" (07/10/2026) — thẻ chỉ định điều trị, shell vẽ (không
-   *  thuộc mẫu phiếu JSON). Không truyền = không có khối 4. */
+  /** Thẻ chỉ định điều trị — đầu khối 3, shell vẽ (không thuộc mẫu phiếu JSON). */
   oDieuTri?: ReactNode;
-  /** Chữ tóm tắt trên nút khối 4. */
-  tomTatDieuTri?: string;
   /** Lỗi lưu đơn thuốc (kèm ô lý do) — vẽ NGAY trong mục E (góp ý B8). */
   baoLoiDon?: ReactNode;
   /** Mục E: đơn thuốc thật của lượt. */
@@ -174,7 +171,8 @@ export default function PhieuKham({
      *  của đúng chỉ định ấy. Không truyền = không có nút (chỉ xem). */
     onBoChiDinh?: (orderId: string) => (duLieu: DuLieuHoanTac) => Promise<KetQuaHoanTac>;
   };
-  /** Mã dịch vụ thủ thuật — kết quả của chúng hiện ở khối 3 (bản mẫu). */
+  /** Mã dịch vụ thủ thuật — thẻ của chúng ở khối 3 (chỉ định điều trị đã tách
+   *  trước theo cờ `dieu_tri`, xem `phanChiDinh`). */
   maThuThuat?: ReadonlySet<string>;
   /** Nút mở bản in của phiếu — shell biết lượt nào nên shell dựng. */
   nutIn?: ReactNode;
@@ -295,8 +293,8 @@ export default function PhieuKham({
   const nhanCheDo =
     cheDo in NHAN_CHE_DO ? NHAN_CHE_DO[cheDo] : { ten: "Chế độ lạ — chỉ đọc", tone: "neutral" as const };
 
-  // Tóm tắt trên nút khối — như bản mẫu: số ô đã điền · chỉ định & kết quả ·
-  // thuốc & hẹn.
+  // Tóm tắt trên nút khối: số ô đã điền · chỉ định & kết quả · điều trị, thủ
+  // thuật & hẹn · thuốc.
   const oTheoMuc = (ds: string[]) =>
     dinhNghia.khung.filter((m) => ds.includes(m.ma)).flatMap((m) => m.block.map((o) => o.ma));
   const soDien = oTheoMuc(["A", "B"]).filter((ma) => coGiaTriO(gia[ma])).length;
@@ -307,27 +305,36 @@ export default function PhieuKham({
   useEffect(() => {
     if (khoaChiMuc) onTomTat?.(soDienChiMuc, dinhNghia.ten.replace(/^Phiếu\s+/i, ""));
   }, [khoaChiMuc, soDienChiMuc, dinhNghia.ten, onTomTat]);
-  const laTT = (c: ChiDinhVaKetQua) => Boolean(maThuThuat?.has(c.service_code));
-  const ketQuaCls = ketQuaChiDinh.filter((c) => !laTT(c));
-  const ketQuaTT = ketQuaChiDinh.filter(laTT);
+  // Thẻ điều trị do shell vẽ (`oDieuTri`) — ở đây chỉ đếm, không vẽ lại.
+  const {
+    dieuTri: ketQuaDT,
+    thuThuat: ketQuaTT,
+    cls: ketQuaCls,
+  } = useMemo(() => phanChiDinh(ketQuaChiDinh, maThuThuat), [ketQuaChiDinh, maThuThuat]);
   const coKq = ketQuaCls.filter((c) => c.ket_qua_trang_thai === "CO_KET_QUA").length;
   // Chip "N mới" trên nút khối 2: kết quả đã về mà chưa ai xem.
   const coKqMoi = ketQuaCls.filter(
     (c) => c.ket_qua_trang_thai === "CO_KET_QUA" && !c.da_xem_luc,
   ).length;
   const soThuoc = (donThuoc?.dong ?? []).filter((d) => d.ten_thuoc.trim()).length;
+  const coChanDoan = oTheoMuc(["D"]).some((ma) => coGiaTriO(gia[ma]));
   const coHen = oTheoMuc(["G"]).some((ma) => /follow_date|ngay/.test(ma) && coGiaTriO(gia[ma]));
   const tomTat: Record<SoKhoi, string> = {
     1: `${soDien} ô đã điền`,
-    2: ketQuaCls.length ? `${ketQuaCls.length} chỉ định · ${coKq} có KQ` : "chưa chỉ định",
+    2:
+      (ketQuaCls.length ? `${ketQuaCls.length} chỉ định · ${coKq} có KQ` : "chưa chỉ định") +
+      (coChanDoan ? " · có chẩn đoán" : ""),
     3:
-      [soThuoc ? `${soThuoc} thuốc` : "", ketQuaTT.length ? `${ketQuaTT.length} dịch vụ` : "", coHen ? "có hẹn" : ""]
+      [
+        ketQuaDT.length ? `${ketQuaDT.length} điều trị` : "",
+        ketQuaTT.length ? `${ketQuaTT.length} thủ thuật` : "",
+        coHen ? "có hẹn" : "",
+      ]
         .filter(Boolean)
         .join(" · ") || "chưa có gì",
-    4: tomTatDieuTri ?? "phiếu điều trị · làm tại bàn khám",
+    4: soThuoc ? `${soThuoc} thuốc` : "chưa kê thuốc",
   };
-  const cacKhoi = oDieuTri ? KHOI : KHOI.filter((k) => k.so !== 4);
-  const khoiCuoi = cacKhoi[cacKhoi.length - 1]?.so ?? 3;
+  const khoiCuoi = KHOI[KHOI.length - 1]?.so ?? 4;
 
   const dongTrangThai = (
     <TrangThaiLuu
@@ -362,7 +369,7 @@ export default function PhieuKham({
     },
     B: { ten: `Khai thác & khám — ${dinhNghia.ten.replace(/^Phiếu\s+/i, "")}`, phu: "theo phiếu khám của phòng khám" },
     C: { ten: "Danh mục chỉ định", phu: "xếp như phiếu chỉ định giấy · giá KiotViet" },
-    D: { ten: "Chẩn đoán và xử lý" },
+    D: { ten: "Chẩn đoán và xử lý", phu: "sau khi xem kết quả cận lâm sàng" },
     E: { ten: "Đơn thuốc", phu: "xếp như phiếu giấy · giá KiotViet" },
     F: { ten: "Dịch vụ khác (thủ thuật · điều trị)" },
     G: { ten: "Hẹn khám" },
@@ -370,8 +377,8 @@ export default function PhieuKham({
   const GOI_Y_KHOI: Record<SoKhoi, string | null> = {
     1: null,
     2: "tick là thêm · kết quả về tự hiện bên dưới",
-    3: null,
-    4: "mỗi chỉ định điều trị một thẻ · phiếu cùng phòng dịch vụ",
+    3: "mỗi chỉ định điều trị một thẻ · phiếu cùng phòng dịch vụ",
+    4: null,
   };
 
   // B4 (đợt 3, 27/09/2026 — góp ý bác sĩ + thư ký y khoa): mỗi thẻ mục GẬP/MỞ
@@ -412,9 +419,6 @@ export default function PhieuKham({
           />
         ) : null}
         {m.lien_ket?.loai === "chi_dinh_thu_thuat" && oThuThuat ? oThuThuat : null}
-        {m.lien_ket?.loai === "chi_dinh_thu_thuat" && ketQuaTT.length > 0 ? (
-          <KetQuaChiDinh ds={ketQuaTT} {...(ketQua ?? {})} />
-        ) : null}
         {m.lien_ket?.loai === "chi_dinh_thu_thuat" && !oThuThuat ? (
           <ChiDinhThuThuat
             ds={tc?.thu_thuat ?? []}
@@ -432,6 +436,12 @@ export default function PhieuKham({
           <TheCon ten="Đã chỉ định & kết quả" moSan nhoKhoa={nho("KET_QUA")}>
             {ketQuaCls.length > 0 ? <KetQuaChiDinh ds={ketQuaCls} {...(ketQua ?? {})} /> : null}
             <TepChuaGan tep={tepChuaGan} />
+          </TheCon>
+        ) : null}
+        {/* Thủ thuật đã chỉ định (không phải điều trị) cũng đứng TRÊN lưới chọn. */}
+        {m.lien_ket?.loai === "chi_dinh_thu_thuat" && ketQuaTT.length > 0 ? (
+          <TheCon ten="Thủ thuật đã chỉ định" moSan nhoKhoa={nho("THU_THUAT_DA_CHI_DINH")}>
+            <KetQuaChiDinh ds={ketQuaTT} {...(ketQua ?? {})} />
           </TheCon>
         ) : null}
         <TheCon
@@ -461,16 +471,18 @@ export default function PhieuKham({
 
   const hanhChinh = dinhNghia.khung.find((m) => m.ma === "HANH_CHINH");
   const mucKhoi = dinhNghia.khung.filter((m) => (KHOI[khoi - 1]?.muc ?? []).includes(m.ma));
+  // Mục GÕ đầu của khối cũng mở sẵn: khối 2 mở sẵn ô Chẩn đoán dưới danh mục CLS.
+  const mucGoDau = mucKhoi.find((m) => m.lien_ket?.loai !== "mang_sang" && m.block.length > 0)?.ma;
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_12.5rem] xl:grid-cols-[minmax(0,1fr)_15rem]">
-      {/* CỘT PHẢI — ba nút khối + In + Hoàn tất, dính khi cuộn (bản mẫu `ray`).
+      {/* CỘT PHẢI — bốn nút khối + In + Hoàn tất, dính khi cuộn (bản mẫu `ray`).
           Màn hẹp: thanh cuộn ngang dính dưới thanh đầu trang; dòng trạng thái
           lưu nằm NGAY DƯỚI thanh ấy (cùng khối dính) — 375 vẫn thấy (đợt 3). */}
       <aside className="sticky top-16 z-10 min-w-0 lg:order-last lg:top-20">
         <div className="rounded-card border border-hairline bg-surface">
           <div className="flex gap-2 overflow-x-auto p-2 lg:flex-col lg:overflow-visible lg:p-3">
-            {cacKhoi.map((k) => {
+            {KHOI.map((k) => {
               const dang = khoi === k.so;
               const moi = k.so === 2 ? coKqMoi : 0;
               return (
@@ -527,14 +539,15 @@ export default function PhieuKham({
 
         <TieuDeKhoi so={khoi} ten={KHOI[khoi - 1]?.ten ?? ""} phu={GOI_Y_KHOI[khoi] ?? undefined} />
 
+        {/* Khối 3: thẻ chỉ định điều trị ĐẦU khối, trước thủ thuật và lưới chọn. */}
+        {khoi === 3 ? oDieuTri : null}
         {mucKhoi.map((m, i) => (
           <Fragment key={`muc-${m.ma}`}>
-            {theMuc(m, m.ma === mucDau(mucKhoi))}
+            {theMuc(m, m.ma === mucDau(mucKhoi) || m.ma === mucGoDau)}
             {/* Dưới dòng "Bác sĩ tư vấn ghi" (Tuyền 28/09/2026). */}
             {khoi === 1 && i === 0 ? oDichVuKham : null}
           </Fragment>
         ))}
-        {khoi === 4 ? oDieuTri : null}
 
         <div className="flex justify-between gap-2 pb-8">
           {khoi > 1 ? (

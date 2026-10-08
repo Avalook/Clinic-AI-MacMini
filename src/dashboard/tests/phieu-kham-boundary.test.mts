@@ -18,6 +18,7 @@ import {
   giaTriDoc,
   gomNhom,
   hienThi,
+  KHOI_PHIEU,
   locMauThuoc,
   oDangHien,
   oThuGonDangAn,
@@ -262,4 +263,22 @@ test("phiếu tự do in theo TÊN DỊCH VỤ, không in chữ 'tự do' (28/09
     tenPhieuKetQua({ form_id: "KQ_CHUNG", ten: "Kết quả chung (nhập tự do)" }, null),
     "Kết quả chung (nhập tự do)",
   );
+});
+
+// Sắp lại khối 08/10: không mục nào của bảy phiếu rơi khỏi màn (HMVS 16 ô / NT 9
+// ô "Chẩn đoán và xử lý" từng suýt mất). Mỗi mục A–G ở ĐÚNG một khối; chẩn đoán
+// (D) cùng khối và SAU danh mục CLS (C) theo thứ tự khung.
+test("bảy phiếu: mỗi mục A–G ở đúng một khối; D sau C trong khối 2", () => {
+  const theoMuc = new Map<string, number[]>();
+  for (const k of KHOI_PHIEU) for (const m of k.muc) theoMuc.set(m, [...(theoMuc.get(m) ?? []), k.so]);
+  for (const id of FORM_IDS) {
+    const ds = khung(id);
+    for (const m of ds.filter((x) => /^[A-G]$/.test(x.ma))) {
+      assert.equal(theoMuc.get(m.ma)?.length, 1, `${id} mục ${m.ma} phải ở đúng một khối`);
+    }
+    const d = ds.find((x) => x.ma === "D");
+    assert.ok(d && d.block.length >= 2, `${id} còn mục D có ô`);
+    assert.deepEqual(theoMuc.get("D"), theoMuc.get("C"));
+    assert.ok(ds.findIndex((x) => x.ma === "C") < ds.findIndex((x) => x.ma === "D"), `${id}: D sau C`);
+  }
 });
