@@ -336,7 +336,7 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
               role="tab"
               aria-selected={loai === ma}
               onClick={() => setLoai(ma)}
-              className={`min-h-10 rounded-control px-3 text-sm font-medium ${
+              className={`min-h-10 whitespace-nowrap rounded-control px-3 text-sm font-medium ${
                 loai === ma ? "bg-brand-600 text-white" : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
               }`}
             >
@@ -360,7 +360,7 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
                 role="tab"
                 aria-selected={ca === ma}
                 onClick={() => setCa(ma)}
-                className={`min-h-10 rounded-control px-3 text-sm font-medium ${
+                className={`min-h-10 whitespace-nowrap rounded-control px-3 text-sm font-medium ${
                   ca === ma ? "bg-brand-600 text-white" : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
                 }`}
               >

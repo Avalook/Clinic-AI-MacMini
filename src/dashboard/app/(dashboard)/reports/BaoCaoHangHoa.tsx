@@ -31,18 +31,25 @@ function ngayVn(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
+// "08/10/2026 15:59" — ngày trước giờ, như KiotViet.
 function bayGio(): string {
-  return new Date().toLocaleString("vi-VN", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Ho_Chi_Minh",
-  });
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "Asia/Ho_Chi_Minh",
+    })
+      .formatToParts(new Date())
+      .map((x) => [x.type, x.value]),
+  );
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`;
 }
 
-const NUT = "min-h-10 rounded-control px-3 text-sm font-medium";
+const NUT = "min-h-10 whitespace-nowrap rounded-control px-3 text-sm font-medium";
 
 export default function BaoCaoHangHoa({ coSo = [] }: { coSo?: CoSo[] }) {
   const [homNay] = useState(todayVn);
@@ -95,7 +102,7 @@ export default function BaoCaoHangHoa({ coSo = [] }: { coSo?: CoSo[] }) {
           soNgaySau={0}
           dangTai={dangTai}
           onChon={(k) => setKhoang(k ?? { tu: congNgay(homNay, -92), den: homNay })}
-          className="min-w-0 flex-1"
+          className="min-w-0 basis-full lg:basis-0 lg:flex-1"
         />
         <div role="tablist" aria-label="Loại hàng" className="flex gap-1">
           {(

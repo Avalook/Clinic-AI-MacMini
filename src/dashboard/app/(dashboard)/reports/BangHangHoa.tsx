@@ -24,7 +24,7 @@ export interface HangHoa {
   }[];
 }
 
-const TH = "px-3 py-3 font-semibold";
+const TH = "px-3 py-3 font-semibold whitespace-nowrap";
 const SO = "px-3 py-3 text-right tabular-nums";
 
 // Kiểu số của KiotViet: 6,800,000 (dấu phẩy ngăn nghìn).
@@ -37,7 +37,8 @@ export default function BangHangHoa({ hh }: { hh: HangHoa }) {
       <table className="w-full border-collapse text-body">
         <thead>
           <tr className="bg-info-bg text-left text-ink">
-            <th className={TH}>Mã hàng</th>
+            {/* Điện thoại: mã xuống dưới tên hàng, để tên + số không bị đẩy khỏi màn. */}
+            <th className={`${TH} hidden sm:table-cell`}>Mã hàng</th>
             <th className={TH}>Tên hàng</th>
             <th className={`${TH} text-right`}>SL Bán</th>
             <th className={`${TH} text-right`}>Doanh thu</th>
@@ -48,8 +49,9 @@ export default function BangHangHoa({ hh }: { hh: HangHoa }) {
         </thead>
         <tbody>
           <tr className="border-b border-line bg-warning-bg font-semibold text-ink">
-            <td className="px-3 py-3 whitespace-nowrap" colSpan={2}>
-              SL Mặt hàng: {t.so_mat_hang}
+            <td className="hidden px-3 py-3 whitespace-nowrap sm:table-cell">SL Mặt hàng: {t.so_mat_hang}</td>
+            <td className="px-3 py-3 whitespace-nowrap">
+              <span className="sm:hidden">SL Mặt hàng: {t.so_mat_hang}</span>
             </td>
             <td className={SO}>{so(t.sl_ban)}</td>
             <td className={SO}>{so(t.doanh_thu)}</td>
@@ -66,10 +68,13 @@ export default function BangHangHoa({ hh }: { hh: HangHoa }) {
           ) : (
             hh.dong.map((m) => (
               <tr key={`${m.ma ?? ""}-${m.ten}`} className="border-b border-line text-ink break-inside-avoid">
-                <td className="px-3 py-3 whitespace-nowrap font-semibold text-info">{m.ma ?? "—"}</td>
+                <td className="hidden px-3 py-3 whitespace-nowrap text-meta font-semibold text-info sm:table-cell">
+                  {m.ma ?? "—"}
+                </td>
                 <td className="px-3 py-3 min-w-44">
                   {m.ten}
                   {m.don_vi ? ` (${m.don_vi})` : ""}
+                  {m.ma ? <span className="block text-meta text-info sm:hidden">{m.ma}</span> : null}
                 </td>
                 <td className={SO}>{so(m.sl_ban)}</td>
                 <td className={SO}>{so(m.doanh_thu)}</td>

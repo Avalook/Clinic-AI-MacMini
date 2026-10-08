@@ -781,16 +781,22 @@ SELECT r.refund_id::text AS refund_id, r.visit_id::text AS visit_id, r.kind,
 #: thuốc KHO (mã hàng = mã KiotViet), dịch vụ theo mã chỉ định nếu có.
 _HANG_HOA_COT = """
        CASE WHEN bl.source_type = 'prescription' THEN c.ma_hang
-            WHEN bl.source_type = 'service_order' THEN so.service_code END AS hh_ma,
+            WHEN bl.source_type = 'service_order' THEN so.service_code
+            ELSE kh.service_code END AS hh_ma,
        coalesce(c.name_raw, bl.name_snapshot) AS hh_ten,
        coalesce(c.don_vi_ban, bl.unit) AS hh_don_vi,
-       coalesce(bl.drug_catalog_id::text, so.service_code, bl.name_snapshot) AS hh_khoa
+       coalesce(bl.drug_catalog_id::text, so.service_code, kh.service_code,
+                bl.name_snapshot) AS hh_khoa
 """
 _HANG_HOA_JOIN = """
   LEFT JOIN drug_catalog c ON c.id = bl.drug_catalog_id AND c.clinic_id = bl.clinic_id
   LEFT JOIN service_order so
     ON bl.source_type = 'service_order' AND so.id::text = bl.source_id
    AND so.clinic_id = bl.clinic_id
+  -- Dòng khám: source_id "exam-<lượt>-selected-<service_price.id>".
+  LEFT JOIN service_price kh
+    ON bl.source_type = 'exam' AND kh.clinic_id = bl.clinic_id
+   AND kh.id::text = substring(bl.source_id from 'selected-(.*)$')
 """
 
 _DONG_SQL = (
