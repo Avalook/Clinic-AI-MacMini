@@ -33,6 +33,7 @@ from clinicai.core.exceptions import SafetyGateError
 from clinicai.events.catalogue import DaHoanTien
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
+from clinicai.services.lieu_trinh_tien import loi_tien_lieu_trinh
 from clinicai.services.phan_lo_service import so
 
 #: AI ĐƯỢC HOÀN TIỀN (Tuyền chốt 06/10/2026 — "ai có node cũng được"): QUYỀN,
@@ -353,18 +354,22 @@ async def _tao_trong(
         ly_do,
         identity.staff_id,
     )
-    await conn.executemany(
-        """
-        INSERT INTO public.payment_refund_line (
-            clinic_id, refund_id, payment_cycle_id, payment_bill_line_id,
-            quantity, amount)
-        VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6)
-        """,
-        [
-            (identity.clinic_id, refund_id, payment_cycle_id, ma, sl, tien)
-            for ma, sl, tien in ghi
-        ],
-    )
+    try:
+        await conn.executemany(
+            """
+            INSERT INTO public.payment_refund_line (
+                clinic_id, refund_id, payment_cycle_id, payment_bill_line_id,
+                quantity, amount)
+            VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6)
+            """,
+            [
+                (identity.clinic_id, refund_id, payment_cycle_id, ma, sl, tien)
+                for ma, sl, tien in ghi
+            ],
+        )
+    except asyncpg.CheckViolationError as e:
+        # Hoàn tiền trả trước liệu trình quá số buổi chưa dùng (08/10/2026).
+        raise loi_tien_lieu_trinh(e) from None
     if tien_mat:
         await _phat_da_hoan(conn, identity, visit_id, refund_id, int(tong))
     await _log(

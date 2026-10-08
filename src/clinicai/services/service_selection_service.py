@@ -15,6 +15,7 @@ một lượt luôn nối tiếp nhau.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -314,9 +315,24 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
                 WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
                   AND pr.active AND pr."group" = 'dich_vu'
                   AND pr.billing_owner = 'EXTERNAL_PARTNER') AS doi_tac_thu,
-       (SELECT min(pr.unit_price) FROM service_price pr
-         WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
-           AND pr.active AND pr."group" = 'dich_vu') AS gia,
+       -- Buổi liệu trình (08/10/2026): đơn giá CHỐT; buổi dùng tiền trả trước = 0đ.
+       coalesce(
+           (SELECT CASE WHEN lb.tra_truoc THEN 0 ELSE lt.don_gia END
+              FROM lieu_trinh_buoi lb
+              JOIN lieu_trinh lt
+                ON lt.clinic_id = lb.clinic_id AND lt.id = lb.lieu_trinh_id
+             WHERE lb.clinic_id = o.clinic_id AND lb.service_order_id = o.id
+               AND lb.go_luc IS NULL),
+           (SELECT min(pr.unit_price) FROM service_price pr
+             WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
+               AND pr.active AND pr."group" = 'dich_vu')) AS gia,
+       (SELECT jsonb_build_object('lieu_trinh_id', lt.id, 'buoi_so', lb.buoi_so,
+                                  'so_buoi', lt.so_buoi, 'tra_truoc', lb.tra_truoc)
+          FROM lieu_trinh_buoi lb
+          JOIN lieu_trinh lt
+            ON lt.clinic_id = lb.clinic_id AND lt.id = lb.lieu_trinh_id
+         WHERE lb.clinic_id = o.clinic_id AND lb.service_order_id = o.id
+           AND lb.go_luc IS NULL) AS lieu_trinh,
        EXISTS (
            SELECT 1
              FROM payment_bill_line bl
@@ -419,9 +435,17 @@ async def cho_khach_quyet(
                 "lam_them": nhan_lam_them(r["nguon_lam_them"]),
                 "lan_chi_dinh": r["lan_chi_dinh"],
                 "chi_dinh_luc": _iso(r["chi_dinh_luc"]),
+                # Chip "Buổi k/N · đã trả trước" (liệu trình, 08/10/2026).
+                "lieu_trinh": _json_hoac_none(r["lieu_trinh"]),
             }
         )
     return out
+
+
+def _json_hoac_none(v: Any) -> dict[str, Any] | None:
+    if v is None:
+        return None
+    return dict(json.loads(v) if isinstance(v, str) else v)
 
 
 async def ap_lua_chon(

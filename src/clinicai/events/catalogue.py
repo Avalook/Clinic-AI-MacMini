@@ -199,6 +199,19 @@ class LieuTrinhBuoiDaDoi(PayloadSuKien):
     buoi_so: int | None = None
 
 
+class LieuTrinhTraTruocDaDat(PayloadSuKien):
+    """`lieu_trinh.prepay_set` — quầy thu dịch vụ đặt (`dat`) hoặc bỏ (`bo`) dòng
+    "trả trước k buổi" liệu trình trong hoá đơn đang thu (08/10/2026). Chưa phải
+    tiền đã thu — tiền là lần thu dịch vụ của lượt."""
+
+    visit_id: str
+    lieu_trinh_id: str
+    tra_truoc_id: str
+    so_buoi: int
+    don_gia: int
+    hanh_dong: str
+
+
 class DichVuKhamDaDoi(PayloadSuKien):
     """`visit.exam_service_changed` — tick / bỏ tick DỊCH VỤ KHÁM CON của lượt
     (bảng `luot_phi_kham`, C18 02/10/2026). Trước đây chỉ ghi nhật ký thao tác,
@@ -1221,6 +1234,15 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="lieu_trinh",
             payload=LieuTrinhBuoiDaDoi,
             nhan="Gắn / gỡ buổi liệu trình",
+            is_public=False,
+        ),
+        SuKien(
+            ten="lieu_trinh.prepay_set",
+            version=1,
+            aggregate_type="lieu_trinh",
+            source_module="lieu_trinh",
+            payload=LieuTrinhTraTruocDaDat,
+            nhan="Trả trước liệu trình",
             is_public=False,
         ),
         SuKien(
