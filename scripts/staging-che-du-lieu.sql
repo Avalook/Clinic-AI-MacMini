@@ -202,8 +202,25 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('cskh_log', 'confirmed_by', 'giu'),
     ('cskh_log', 'cskh_by', 'giu');
 
--- Cột trong danh sách mà lược đồ không có → DỪNG: một cột bị đổi tên ở
--- migration mới thì cột tên mới đang KHÔNG được che (test CI bắt trước).
+-- Cả BẢNG chưa có trong lược đồ → bỏ khỏi danh sách. Bước che chạy trên bản sao
+-- prod TRƯỚC khi áp migration của nhánh staging; bảng do migration chưa lên prod
+-- tạo ra thì đến sau bước che, rỗng (hoặc chỉ chép từ cột đã che). Không bỏ thì
+-- đợt nào thêm bảng chứa chữ của khách cũng làm staging ngừng nạp mỗi đêm (03:31
+-- 08/10: luot_ghi_chu, form_instance_lich_su).
+DO $$
+DECLARE bo text;
+BEGIN
+    SELECT string_agg(DISTINCT c.bang, ', ') INTO bo
+    FROM _che_cot c
+    WHERE to_regclass(format('public.%I', c.bang)) IS NULL;
+    IF bo IS NOT NULL THEN
+        RAISE NOTICE 'che dữ liệu: bỏ qua bảng chưa có trong lược đồ (migration chưa lên prod): %', bo;
+        DELETE FROM _che_cot c WHERE to_regclass(format('public.%I', c.bang)) IS NULL;
+    END IF;
+END $$;
+
+-- Bảng CÓ mà thiếu cột trong danh sách → DỪNG: một cột bị đổi tên ở migration
+-- mới thì cột tên mới đang KHÔNG được che (test CI bắt trước).
 DO $$
 DECLARE thieu text;
 BEGIN

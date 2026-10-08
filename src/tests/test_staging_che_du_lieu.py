@@ -346,6 +346,30 @@ async def test_chay_hai_lan_ra_cung_ket_qua(conn: asyncpg.Connection) -> None:
 
 @pytest.mark.db
 @pytest.mark.asyncio
+async def test_bang_chua_co_trong_luoc_do_thi_bo_qua(conn: asyncpg.Connection) -> None:
+    """Bản sao prod chưa có bảng của migration nhánh staging (chưa lên prod) →
+    che vẫn chạy hết; đêm 08/10 dừng ở luot_ghi_chu / form_instance_lich_su."""
+    ids = await _gieo(conn)
+    await conn.execute("DROP TABLE luot_ghi_chu, form_instance_lich_su CASCADE")
+    await _che(conn)
+    ten = await conn.fetchval(
+        "SELECT full_name FROM patient WHERE clinic_patient_id = $1::uuid", ids["bn"]
+    )
+    assert re.fullmatch(r"Khách \d{4,}", ten)
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_bang_co_ma_thieu_cot_van_dung(conn: asyncpg.Connection) -> None:
+    await conn.execute(
+        "ALTER TABLE luot_ghi_chu RENAME COLUMN noi_dung TO noi_dung_moi"
+    )
+    with pytest.raises(asyncpg.RaiseError, match="luot_ghi_chu.noi_dung"):
+        await _che(conn)
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
 async def test_moi_cot_dinh_danh_khach_da_duoc_xep_loai(
     conn: asyncpg.Connection,
 ) -> None:
