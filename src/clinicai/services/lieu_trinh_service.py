@@ -80,7 +80,15 @@ _MA_LOI_DB: dict[str, str] = {
     "lieu_trinh_phu_vuot": "PHU_VUOT_DA_TRA",
     "uq_lieu_trinh_buoi_chi_dinh_song": "DA_GAN_LIEU_TRINH",
     "uq_lieu_trinh_buoi_so_song": "TRUNG_SO_BUOI",
+    # B2 — tiền trả trước.
+    "lieu_trinh_tra_vuot": "TRA_VUOT",
+    "lieu_trinh_tra_truoc_da_thu": "DA_NAM_TRONG_LAN_THU",
+    "lieu_trinh_tra_truoc_da_dung": "LIEU_TRINH_DA_DUNG",
+    "payment_bill_line_buoi_da_tra_truoc": "BUOI_DA_TRA_TRUOC",
 }
+
+#: Ràng buộc của liệu trình — lỗi khác (của bảng tiền cũ) để nguyên cho nơi gọi.
+RANG_BUOC_LIEU_TRINH = frozenset(_MA_LOI_DB)
 
 _KHONG_DOI: Any = object()
 

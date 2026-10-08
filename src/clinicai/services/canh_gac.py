@@ -120,7 +120,8 @@ def danh_gia(so: dict[str, Any]) -> list[KetQuaKiem]:
             so.get("tien_chi_dinh_lech", 0) > 0,
             f"{so.get('tien_chi_dinh_lech', 0)} chỗ lệch tiền chỉ định trong "
             f"{BAT_BIEN_TIEN_GIO} giờ qua (thu − hoàn ≠ chỉ định còn hiệu lực + "
-            "tiền thừa) — chạy `SELECT * FROM bat_bien_tien_chi_dinh(...)` để xem.",
+            "tiền thừa; hoặc tiền trả trước liệu trình lệch) — chạy `SELECT * FROM"
+            " bat_bien_tien_chi_dinh(...)` / `bat_bien_lieu_trinh(...)` để xem.",
         ),
     ]
     return ra
@@ -157,6 +158,8 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
               AND t.so_lan_day_loi >= $2) AS tep_loi_day,
           (SELECT count(*) FROM clinic c,
                   bat_bien_tien_chi_dinh(c.id, now() - make_interval(hours => $3)))
+          -- Liệu trình (08/10/2026): buổi trả trước vượt số đã trả, âm, thu trùng.
+          + (SELECT count(*) FROM clinic c, bat_bien_lieu_trinh(c.id))
             AS tien_chi_dinh_lech
         """,
         CHO_DAY_LAU_GIO,

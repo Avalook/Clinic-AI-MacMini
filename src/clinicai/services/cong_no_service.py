@@ -229,6 +229,8 @@ def loc_no_dich_vu(hd: HoaDon, da_lam: Iterable[str]) -> list[DongNo]:
             # là đã nhận — còn nợ thì chặn check-out như mọi khoản dịch vụ.
             pass
         else:
+            # Trả trước liệu trình chưa thu (08/10/2026) không phải nợ: khách
+            # chưa nhận buổi nào bằng khoản ấy — bỏ dòng là xong.
             continue
         so = None if d.thanh_tien is None else int(d.thanh_tien)
         if so is not None and so <= 0:

@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.services.lieu_trinh_service import LieuTrinhService
+from clinicai.services.lieu_trinh_tien import LieuTrinhTienService
 
 router = APIRouter()
 
@@ -287,5 +288,65 @@ async def go(
         identity=identity,
         service_order_id=body.service_order_id,
         expected_lieu_trinh_id=body.expected_lieu_trinh_id,
+        idempotency_key=body.idempotency_key,
+    )
+
+
+# ── quầy thu: trả trước (B2) ───────────────────────────────────────────────
+
+
+@router.get("/lieu-trinh/quay/{visit_id}")
+async def quay(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Khối "Liệu trình" của quầy: đã làm / đã trả / còn lại / tiền còn lại,
+    tối đa trả trước, dòng đang chọn, dòng hoàn được (Q5)."""
+    return await LieuTrinhTienService(pool).quay(identity=identity, visit_id=visit_id)
+
+
+class TraTruocBody(BaseModel):
+    visit_id: UUID
+    lieu_trinh_id: UUID
+    #: Số buổi, hoặc "het" = trả hết phần còn lại.
+    so_buoi: int | str
+    #: Số buổi màn đang thấy ở dòng đang chọn (rỗng = chưa chọn).
+    expected_so_buoi: int | None = None
+    idempotency_key: str = _KHOA
+
+
+@router.post("/lieu-trinh/tra-truoc")
+async def tra_truoc(
+    body: TraTruocBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """[Trả trước k buổi] / [Trả hết] vào hoá đơn dịch vụ đang thu."""
+    return await LieuTrinhTienService(pool).dat_tra_truoc(
+        identity=identity,
+        visit_id=body.visit_id,
+        lieu_trinh_id=body.lieu_trinh_id,
+        so_buoi=body.so_buoi,
+        expected_so_buoi=body.expected_so_buoi,
+        idempotency_key=body.idempotency_key,
+    )
+
+
+class KhoaBody(BaseModel):
+    idempotency_key: str = _KHOA
+
+
+@router.post("/lieu-trinh/tra-truoc/{tra_truoc_id}/bo")
+async def bo_tra_truoc(
+    tra_truoc_id: UUID,
+    body: KhoaBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bỏ dòng trả trước khỏi hoá đơn đang thu (chưa thu)."""
+    return await LieuTrinhTienService(pool).bo_tra_truoc(
+        identity=identity,
+        tra_truoc_id=tra_truoc_id,
         idempotency_key=body.idempotency_key,
     )

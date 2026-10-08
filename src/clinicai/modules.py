@@ -129,13 +129,21 @@ MODULE: dict[str, Module] = {
                 "UndoTreatmentPlanChange",
                 "LinkPlanSession",
                 "UnlinkPlanSession",
+                "SetPlanPrepayment",
+                "RemovePlanPrepayment",
             ],
             phat=[
                 "lieu_trinh.created",
                 "lieu_trinh.revised",
                 "lieu_trinh.session_relinked",
+                "lieu_trinh.prepay_set",
             ],
-            bang=["lieu_trinh", "lieu_trinh_lich_su", "lieu_trinh_buoi"],
+            bang=[
+                "lieu_trinh",
+                "lieu_trinh_lich_su",
+                "lieu_trinh_buoi",
+                "lieu_trinh_tra_truoc",
+            ],
         ),
         Module(
             ma="phi_kham",
