@@ -127,12 +127,19 @@ class BangLuotKham:
                        = ANY(coalesce(
                              $2::text[],
                              ARRAY[coalesce(v.attending_doctor_id::text, '~')]))
+                   -- Chỉ lượt của cơ sở đang đứng (hai cơ sở, 08/10/2026).
+                   -- Lượt chưa rõ cơ sở hiện ở cả hai; $5 NULL = không lọc
+                   -- (IS NOT DISTINCT FROM: `= NULL` sẽ giấu hết).
+                   AND coalesce(v.location_id, ap.location_id, $5::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($5::uuid, v.location_id, ap.location_id)
                  ORDER BY v.checked_in_at, v.visit_id
                 """,
                 cid,
                 await bac_si_cua_thu_ky(conn, identity),
                 la_hom_nay,
                 ngay_xem,
+                identity.location_id or None,
             )
             ids = [r["visit_id"] for r in visits]
             # Sinh hiệu theo BUỔI (27/09/2026, đợt 3): lượt check-in thêm trong
@@ -330,9 +337,13 @@ class BangLuotKham:
                        AND a.status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
                        AND (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                            = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                       -- Lịch của cơ sở đang đứng; $2 NULL = mọi cơ sở.
+                       AND coalesce(a.location_id, $2::uuid)
+                           IS NOT DISTINCT FROM coalesce($2::uuid, a.location_id)
                      ORDER BY a.slot_start, a.id
                     """,
                     cid,
+                    identity.location_id or None,
                 )
 
         by_visit: dict[str, dict[str, Any]] = {}
@@ -821,13 +832,20 @@ class BangLuotKham:
             rows = await conn.fetch(
                 """
                 WITH stt AS (
+                    -- Số thứ tự đếm RIÊNG từng cơ sở (hai cơ sở, 08/10/2026):
+                    -- khách Hào Nam không đẩy số của khách Kim Ngưu.
                     SELECT v.visit_id,
                            row_number() OVER (ORDER BY v.checked_in_at, v.visit_id)
                                AS so
                       FROM visit v
+                      LEFT JOIN appointment sa
+                        ON sa.id = v.appointment_id AND sa.clinic_id = v.clinic_id
                      WHERE v.clinic_id = $1::uuid AND v.checked_in_at IS NOT NULL
                        AND (v.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                            = $6::date
+                       AND coalesce(v.location_id, sa.location_id, $8::uuid)
+                           IS NOT DISTINCT FROM
+                           coalesce($8::uuid, v.location_id, sa.location_id)
                 )
                 SELECT q.id::text AS id, q.status, q.lane, q.reason,
                        q.ref_id::text AS ref_id, q.visit_id::text AS visit_id,
@@ -880,6 +898,10 @@ class BangLuotKham:
                   LEFT JOIN appointment ap
                     ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
                  WHERE q.clinic_id = $1::uuid
+                   -- Chỉ khách của cơ sở đang đứng; $8 NULL = không lọc.
+                   AND coalesce(v.location_id, ap.location_id, $8::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($8::uuid, v.location_id, ap.location_id)
                    AND (q.status IN ('blocked', 'waiting', 'called', 'serving', 'done')
                         -- Ngày cũ: cả chỗ chờ khách đã về (`left`) — quay lại
                         -- làm / sửa được (Tuyền 29/09/2026).
@@ -934,6 +956,7 @@ class BangLuotKham:
                 tu_van,
                 ngay_xem,
                 la_hom_nay,
+                identity.location_id or None,
             )
             # SẮP TỚI (Tuyền chốt 24/09): khách của bác sĩ chính đang ở bước tư
             # vấn — bác sĩ chính THẤY trước nhưng chưa gọi được (chưa có chỗ chờ
@@ -968,11 +991,15 @@ class BangLuotKham:
                             OR v.attending_doctor_id::text = ANY($2::text[])
                             OR (v.attending_doctor_id IS NULL
                                 AND cardinality($2::text[]) > 0))
+                       AND coalesce(v.location_id, a.location_id, $4::uuid)
+                           IS NOT DISTINCT FROM
+                           coalesce($4::uuid, v.location_id, a.location_id)
                      ORDER BY v.checked_in_at, v.visit_id
                     """,
                     cid,
                     ds_bac_si,
                     tat_ca_bac_si,
+                    identity.location_id or None,
                 )
             )
         now_rows = [
@@ -1139,17 +1166,14 @@ class BangLuotKham:
                           AND phong_lam_duoc(r2.clinic_id, r2.id, o.node_code,
                                              o.service_code)
                           AND r2.is_active
-                          AND (coalesce(v.location_id, (
-                                   SELECT a.location_id FROM appointment a
-                                    WHERE a.id = v.appointment_id
-                                      AND a.clinic_id = v.clinic_id)) IS NULL
-                               OR r2.location_id = coalesce(v.location_id, (
-                                   SELECT a.location_id FROM appointment a
-                                    WHERE a.id = v.appointment_id
-                                      AND a.clinic_id = v.clinic_id))))
+                          AND (coalesce(v.location_id, ap.location_id) IS NULL
+                               OR r2.location_id
+                                  = coalesce(v.location_id, ap.location_id)))
                                                                 AS khong_co_phong
               FROM service_order o
               JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+              LEFT JOIN appointment ap
+                ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
               JOIN patient p
                 ON p.clinic_patient_id = v.clinic_patient_id
                AND p.clinic_id = v.clinic_id
@@ -1162,26 +1186,38 @@ class BangLuotKham:
                AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
                AND (o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                    = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+               -- Chỉ khách của cơ sở đang đứng; $3 NULL = không lọc.
+               AND coalesce(v.location_id, ap.location_id, $3::uuid)
+                   IS NOT DISTINCT FROM
+                   coalesce($3::uuid, v.location_id, ap.location_id)
              ORDER BY o.created_at, o.id
              LIMIT $2
             """,
             identity.clinic_id,
             _TRAN_CHI_DINH_HOM_NAY,
+            identity.location_id or None,
         )
         # Cắt bớt mà không nói là nói dối bằng cách im lặng: trưởng ca nhìn một
         # bảng thiếu người mà tưởng đã hết. Đếm tổng để màn hình báo được.
         tong = await self._pool.fetchval(
             """
             SELECT count(*) FROM service_order o
+              JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+              LEFT JOIN appointment ap
+                ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
              WHERE o.clinic_id = $1::uuid
                AND o.exec_status NOT IN ('draft', 'cancelled')
-               -- Cùng điều kiện với danh sách (khách BỎ không tính) — lệch là
-               -- báo nhầm "bảng đang bị cắt".
+               -- Cùng điều kiện với danh sách (khách BỎ không tính, cùng cơ
+               -- sở) — lệch là báo nhầm "bảng đang bị cắt".
                AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
                AND (o.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                    = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+               AND coalesce(v.location_id, ap.location_id, $2::uuid)
+                   IS NOT DISTINCT FROM
+                   coalesce($2::uuid, v.location_id, ap.location_id)
             """,
             identity.clinic_id,
+            identity.location_id or None,
         )
         nhom = {
             "authorized": "can_dieu_phoi",
@@ -1241,6 +1277,8 @@ class BangLuotKham:
                        pf.full_name AS nguoi_lam, o.duyet_luc
                   FROM service_order o
                   JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+                  LEFT JOIN appointment ap
+                    ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
                   LEFT JOIN node_definition nd
                     ON nd.clinic_id = o.clinic_id AND nd.code = o.node_code
                   JOIN patient p
@@ -1249,6 +1287,10 @@ class BangLuotKham:
                   LEFT JOIN staff d ON d.id = v.attending_doctor_id
                   LEFT JOIN staff pf ON pf.id = o.performed_by
                  WHERE o.clinic_id = $1::uuid
+                   -- Chỉ khách của cơ sở đang đứng; $3 NULL = không lọc.
+                   AND coalesce(v.location_id, ap.location_id, $3::uuid)
+                       IS NOT DISTINCT FROM
+                       coalesce($3::uuid, v.location_id, ap.location_id)
                    AND (
                      (coalesce(nd.lam_ben_ngoai, false) AND EXISTS (
                          SELECT 1 FROM v_tep_ket_qua_hieu_luc t
@@ -1276,6 +1318,7 @@ class BangLuotKham:
                 """,
                 cid,
                 identity.staff_id,
+                identity.location_id or None,
             )
             teps = await conn.fetch(
                 """

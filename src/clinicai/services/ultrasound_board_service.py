@@ -122,6 +122,10 @@ SELECT w.id                                   AS work_item_id,
        = ANY(coalesce($4::text[], ARRAY[
              coalesce(w.assigned_to::text,
                       coalesce(v.attending_doctor_id, a.doctor_id)::text, '~')]))
+   -- Chỉ khách của cơ sở đang đứng (hai cơ sở, 08/10/2026). Lượt chưa rõ cơ sở
+   -- hiện ở cả hai; $6 NULL = không lọc (IS NOT DISTINCT FROM: `= NULL` giấu hết).
+   AND coalesce(v.location_id, a.location_id, $6::uuid)
+       IS NOT DISTINCT FROM coalesce($6::uuid, v.location_id, a.location_id)
  ORDER BY w.created_at
  LIMIT 300
 """
@@ -248,6 +252,7 @@ class UltrasoundBoardService:
             _vn_midnight(),
             bac_si,
             await bac_si_sieu_am_trong(self._pool, identity.clinic_id, bac_si or []),
+            identity.location_id or None,
         )
         return {
             "items": [_queue_row(r, i) for i, r in enumerate(rows, start=1)],
