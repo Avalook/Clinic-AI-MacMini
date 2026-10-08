@@ -16,6 +16,9 @@ vào thẻ kho, không vào XNT.
 
 Tồn trước/sau tính NGƯỢC từ tồn hiện tại (tồn sau của một dòng = tồn hiện tại
 − tổng các dòng sau nó), nên đúng cả khi một lô có tồn khởi điểm không qua sổ.
+
+KHO RIÊNG TỪNG CƠ SỞ (08/10/2026): mọi màn ở đây (thẻ kho, XNT, phiếu nhập,
+kiểm kho) chỉ đọc/ghi kho của cơ sở đang làm — `identity.location_id`.
 """
 
 from __future__ import annotations
@@ -69,6 +72,11 @@ def khoang_xnt(tu: Any, den: Any, hom_nay: date) -> tuple[date, date]:
     return a, b
 
 
+def ma_phieu_kho(loai: str, ma_co_so: str, so: int) -> str:
+    """Mã phiếu kho theo cơ sở: `PN-HN-0001`, `KK-KN-0012` (08/10/2026)."""
+    return f"{_TIEN_TO[loai]}-{ma_co_so}-{so:04d}"
+
+
 def dau_ngay_vn(ngay: date) -> datetime:
     """00:00 giờ VN của một ngày — mốc so với `performed_at` (timestamptz)."""
     return datetime.combine(ngay, time.min, tzinfo=CLINIC_TZ)
@@ -100,6 +108,7 @@ async def the_kho(
                       FROM (SELECT sum(b.quantity_on_hand) AS ton
                               FROM public.drug_batch b
                              WHERE b.clinic_id = c.clinic_id
+                               AND b.location_id = $3::uuid
                                AND b.drug_catalog_id = c.id
                              GROUP BY lower(btrim(b.unit))
                             HAVING sum(b.quantity_on_hand) <> 0) dv) AS ton_hien_tai,
@@ -111,6 +120,7 @@ async def the_kho(
                                       sum(b.quantity_on_hand) AS ton
                                  FROM public.drug_batch b
                                 WHERE b.clinic_id = c.clinic_id
+                                  AND b.location_id = $3::uuid
                                   AND b.drug_catalog_id = c.id
                                 GROUP BY lower(btrim(b.unit))
                                HAVING sum(b.quantity_on_hand) <> 0) dv
@@ -120,6 +130,7 @@ async def the_kho(
             """,
             identity.clinic_id,
             drug_catalog_id,
+            identity.location_id,
         )
         if thuoc is None:
             raise NotFoundError("Không tìm thấy thuốc này trong danh mục.")
@@ -131,6 +142,7 @@ async def the_kho(
                 SELECT lower(btrim(b.unit)) AS dv, sum(b.quantity_on_hand) AS ton
                   FROM public.drug_batch b
                  WHERE b.clinic_id = $1::uuid AND b.drug_catalog_id = $2::uuid
+                   AND b.location_id = $4::uuid
                  GROUP BY lower(btrim(b.unit))
             ), so AS (
                 SELECT t.id, t.performed_at, t.txn_type, t.quantity, t.reason,
@@ -142,6 +154,7 @@ async def the_kho(
                     ON b.id = t.drug_batch_id AND b.clinic_id = t.clinic_id
                  WHERE t.clinic_id = $1::uuid
                    AND b.drug_catalog_id = $2::uuid
+                   AND b.location_id = $4::uuid
                    AND t.txn_type = ANY($3::text[])
             ), tinh AS (
                 -- Tồn trước → sau chạy RIÊNG từng đơn vị lô.
@@ -193,6 +206,7 @@ async def the_kho(
             identity.clinic_id,
             drug_catalog_id,
             list(LOAI_VAT_LY),
+            identity.location_id,
         )
     canh_bao_neu_day("kho.the_kho", len(rows), 1000, clinic_id=identity.clinic_id)
     return {
@@ -244,7 +258,7 @@ async def xuat_nhap_ton(
                        coalesce(so.huy, 0) AS huy, coalesce(so.tra_lai, 0) AS tra_lai
                   FROM public.drug_batch b
                   LEFT JOIN so ON so.drug_batch_id = b.id
-                 WHERE b.clinic_id = $1::uuid
+                 WHERE b.clinic_id = $1::uuid AND b.location_id = $5::uuid
             )
             -- Một dòng mỗi (thuốc, đơn vị lô) — không cộng hộp với viên (29/09).
             SELECT c.id::text AS drug_catalog_id, c.name_raw AS ten, c.ma_hang,
@@ -272,6 +286,7 @@ async def xuat_nhap_ton(
             moc_dau,
             moc_cuoi,
             list(LOAI_VAT_LY),
+            identity.location_id,
         )
     return {"tu": a.isoformat(), "den": b.isoformat(), "dong": [dict(r) for r in rows]}
 
@@ -303,11 +318,13 @@ async def danh_sach_phieu(
               FROM public.phieu_kho pk
               LEFT JOIN public.staff s ON s.id = pk.tao_boi
              WHERE pk.clinic_id = $1::uuid AND pk.loai = $2
+               AND pk.location_id = $3::uuid
              ORDER BY pk.tao_luc DESC
              LIMIT 100
             """,
             identity.clinic_id,
             loai,
+            identity.location_id,
         )
     canh_bao_neu_day("kho.phieu", len(rows), 100, clinic_id=identity.clinic_id)
     return [{**dict(r), "dong": json.loads(r["dong"])} for r in rows]
@@ -349,25 +366,37 @@ async def _mo_phieu(
     ngay_chung_tu: date | None = None,
     ghi_chu: str | None = None,
 ) -> tuple[str, str]:
-    """Tạo đầu phiếu với mã kế tiếp. Khoá tư vấn theo (phòng khám, loại) để hai
-    phiếu cùng lúc không tranh một mã; UNIQUE (clinic_id, ma_phieu) là chốt cuối."""
+    """Tạo đầu phiếu với mã kế tiếp CỦA KHO CƠ SỞ đang làm — `PN-HN-0001`:
+    mỗi cơ sở một dãy số, mã cơ sở (`clinic_location.code`) nằm trong mã nên
+    hai cơ sở không trùng nhau. Khoá tư vấn theo (phòng khám, cơ sở, loại) để
+    hai phiếu cùng lúc không tranh một mã; UNIQUE (clinic_id, ma_phieu) là
+    chốt cuối."""
     await conn.execute(
         "SELECT pg_advisory_xact_lock(hashtext($1))",
-        f"phieu_kho:{identity.clinic_id}:{loai}",
+        f"phieu_kho:{identity.clinic_id}:{identity.location_id}:{loai}",
     )
+    ma_co_so = await conn.fetchval(
+        "SELECT upper(btrim(code)) FROM public.clinic_location"
+        " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+        identity.location_id,
+        identity.clinic_id,
+    )
+    if not ma_co_so:
+        raise NotFoundError("Không xác định được cơ sở đang làm — đăng nhập lại.")
     so = await conn.fetchval(
         "SELECT count(*) FROM public.phieu_kho"
-        " WHERE clinic_id = $1::uuid AND loai = $2",
+        " WHERE clinic_id = $1::uuid AND location_id = $2::uuid AND loai = $3",
         identity.clinic_id,
+        identity.location_id,
         loai,
     )
-    ma = f"{_TIEN_TO[loai]}{int(so) + 1:06d}"
+    ma = ma_phieu_kho(loai, ma_co_so, int(so) + 1)
     phieu_id = await conn.fetchval(
         """
         INSERT INTO phieu_kho
-            (clinic_id, loai, ma_phieu, nha_cung_cap, so_hoa_don, ngay_chung_tu,
-             ghi_chu, tao_boi, khoa_gui)
-        VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8::uuid, $9)
+            (clinic_id, location_id, loai, ma_phieu, nha_cung_cap, so_hoa_don,
+             ngay_chung_tu, ghi_chu, tao_boi, khoa_gui)
+        VALUES ($1::uuid, $10::uuid, $2, $3, $4, $5, $6, $7, $8::uuid, $9)
         RETURNING id::text
         """,
         identity.clinic_id,
@@ -379,6 +408,7 @@ async def _mo_phieu(
         ghi_chu,
         identity.staff_id,
         khoa_gui,
+        identity.location_id,
     )
     return str(phieu_id), ma
 
@@ -570,23 +600,27 @@ async def kiem_kho(
                     ghi_chu=_chu(ghi_chu, 1000),
                 )
                 # Khoá lô theo thứ tự id — hai phiếu kiểm chồng lô không khoá chéo.
+                # Chỉ lô của kho cơ sở đang làm: lô cơ sở khác = "không thấy".
                 los = await conn.fetch(
                     """
                     SELECT id::text, drug_catalog_id::text, quantity_on_hand
                       FROM public.drug_batch
                      WHERE clinic_id = $1::uuid AND id = ANY($2::uuid[])
+                       AND location_id = $3::uuid
                      ORDER BY id
                      FOR UPDATE
                     """,
                     identity.clinic_id,
                     list(sach),
+                    identity.location_id,
                 )
                 theo_id = {r["id"]: r for r in los}
                 for stt, (lo_id, thuc_te) in enumerate(sach.items(), start=1):
                     ban_ghi = theo_id.get(lo_id)
                     if ban_ghi is None:
                         raise NotFoundError(
-                            f"Dòng {stt}: không tìm thấy lô này trong kho."
+                            f"Dòng {stt}: không tìm thấy lô này trong kho cơ sở "
+                            "đang làm."
                         )
                     ton_may = Decimal(str(ban_ghi["quantity_on_hand"]))
                     lech = thuc_te - ton_may
