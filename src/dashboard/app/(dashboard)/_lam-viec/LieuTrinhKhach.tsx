@@ -9,8 +9,11 @@
 //   Đang làm → [Dừng] (lý do)       ·   Đã dừng → [Mở lại]
 //   mọi trạng thái trừ Đã dừng → [Đặt lịch buổi kế] (bộ đặt lịch sẵn có của màn
 //   cha, khoá đúng loại khám Điều trị của dịch vụ)
+//   Sắp hết lộ trình (máy chủ trả `sap_het_ly_do`, 08/10/2026) → chip lý do +
+//   [Ghi cuộc gọi] (sổ chạm khách sẵn có) · [Thêm buổi] (đăng ký thêm buổi) ·
+//   [Kết thúc liệu trình] (dừng) · [Đã xử lý] (ẩn khỏi danh sách tới mốc sau)
 // Mỗi lệnh xong → thông báo kèm [Hoàn tác] (lệnh hoàn tác của máy chủ — lần sửa
-// mới nhất). Tiền KHÔNG thu ở đây (Q3: thu ở quầy khi khách có mặt).
+// mới nhất, hoặc rút lại dòng sổ chạm khách). Tiền KHÔNG thu ở đây (Q3).
 //
 // Màn chỉ vẽ + gửi lệnh: quyền (crm.manage | booking.create), bản cũ (409),
 // bấm hai lần (khoá theo revision) — máy chủ quyết. Không luật nghiệp vụ ở đây.
@@ -30,7 +33,9 @@ import {
   docSoBuoiDangKy,
   NHAN_HANH_DONG_LT,
   NHAN_TRANG_THAI_LT,
+  nhanSapHet,
   nhanTienDo,
+  soBuoiSauKhiThem,
   type DongLichSuLieuTrinh,
   type LieuTrinh,
   type TrangThaiLieuTrinh,
@@ -38,6 +43,7 @@ import {
 import { tienVn } from "@/lib/phieu-kham";
 
 import { useNgheBang } from "../dung-nghe-bang";
+import { KET_QUA_GOI } from "./ThaoTacLichTaiCho";
 
 const TONE: Record<TrangThaiLieuTrinh, ChipTone> = {
   DE_XUAT: "warning",
@@ -46,21 +52,35 @@ const TONE: Record<TrangThaiLieuTrinh, ChipTone> = {
   DUNG: "neutral",
 };
 
-type KetQua = { ok: true } | { ok: false; loi: string };
+type KetQua = { ok: true; data: Record<string, unknown> | null } | { ok: false; loi: string };
 
-async function guiLenh(id: string, than: Record<string, unknown>): Promise<KetQua> {
+async function guiPost(url: string, than: Record<string, unknown>, khoa?: string): Promise<KetQua> {
   try {
-    const r = await fetch(`/api/cskh/lieu-trinh/${id}`, {
+    const r = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(khoa ? { "Idempotency-Key": khoa } : {}) },
       body: JSON.stringify(than),
     });
-    if (r.ok) return { ok: true };
-    const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
+    const d = (await r.json().catch(() => null)) as
+      | (Record<string, unknown> & { message?: string; error?: string })
+      | null;
+    if (r.ok) return { ok: true, data: d };
     return { ok: false, loi: d?.message ?? d?.error ?? `Không ghi được (HTTP ${r.status}).` };
   } catch {
     return { ok: false, loi: "Mất kết nối — CHƯA ghi, bấm lại." };
   }
+}
+
+function guiLenh(id: string, than: Record<string, unknown>): Promise<KetQua> {
+  return guiPost(`/api/cskh/lieu-trinh/${id}`, than);
+}
+
+/** Hoàn tác một dòng sổ chạm khách (lệnh SẴN CÓ — dòng ở lại, chỉ thôi được tính). */
+function hoanTacTuongTac(id: string): (d: DuLieuHoanTac) => Promise<KetQuaHoanTac> {
+  return async () => {
+    const kq = await guiPost(`/api/cskh/tuong-tac/${id}/hoan-tac`, {});
+    return kq.ok ? { ok: true } : kq;
+  };
 }
 
 async function docLichSu(id: string): Promise<{ revision: number; dong: DongLichSuLieuTrinh[] } | string> {
@@ -83,12 +103,13 @@ export function hoanTacLieuTrinh(id: string): (d: DuLieuHoanTac) => Promise<KetQ
     if (typeof ls === "string") return { ok: false, loi: ls };
     const dong = ls.dong.find((x) => x.loai === "SUA" && x.hoan_tac_duoc);
     if (!dong) return { ok: false, loi: "Không còn lần sửa nào hoàn tác được." };
-    return guiLenh(id, {
+    const kq = await guiLenh(id, {
       thao_tac: "hoan-tac",
       lich_su_id: dong.id,
       expected_revision: ls.revision,
       idempotency_key: `lt-${id}-hoan-tac-${dong.id}-r${ls.revision}`,
     });
+    return kq.ok ? { ok: true } : kq;
   };
 }
 
@@ -153,7 +174,7 @@ function LichSuSua({ id, onDaHoanTac }: { id: string; onDaHoanTac: () => void })
   );
 }
 
-type Mo = null | "dang-ky" | "dung";
+type Mo = null | "dang-ky" | "dung" | "them" | "goi";
 
 export function DongLieuTrinh({
   lt,
@@ -178,11 +199,18 @@ export function DongLieuTrinh({
 }) {
   const [mo, setMo] = useState<Mo>(null);
   const [soChon, setSoChon] = useState<string>(String(lt.so_buoi));
+  const [soThem, setSoThem] = useState("1");
+  const [ketQuaGoi, setKetQuaGoi] = useState<string | null>(null);
+  const [ghiChuGoi, setGhiChuGoi] = useState("");
+  /** Khoá chống ghi trùng cho MỘT lần mở hộp ghi cuộc gọi (bấm đúp / gửi lại). */
+  const [khoaGoi, setKhoaGoi] = useState("");
   const [lyDo, setLyDo] = useState("");
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
 
   const soDangKy = docSoBuoiDangKy(soChon);
+  const soSauThem = soBuoiSauKhiThem(lt.so_buoi, soThem);
+  const sapHet = nhanSapHet(lt);
   const lam = async (than: Record<string, unknown>, cau: string) => {
     setDang(true);
     setLoi(null);
@@ -195,6 +223,22 @@ export function DongLieuTrinh({
     }
     setMo(null);
     onBao({ cau, goi: hoanTacLieuTrinh(lt.id) });
+    onDaDoi();
+  };
+  /** Lệnh ghi một dòng sổ chạm khách → Hoàn tác = rút lại đúng dòng ấy. */
+  const lamSo = async (goi: () => Promise<KetQua>, cau: string) => {
+    setDang(true);
+    setLoi(null);
+    const kq = await goi();
+    setDang(false);
+    if (!kq.ok) {
+      setLoi(kq.loi);
+      onDaDoi();
+      return;
+    }
+    const id = kq.data?.tuong_tac_id ?? kq.data?.id;
+    setMo(null);
+    if (typeof id === "string") onBao({ cau, goi: hoanTacTuongTac(id) });
     onDaDoi();
   };
   const ten = `${lt.service_name}${lt.ten_khach ? ` — ${lt.ten_khach}` : ""}`;
@@ -214,6 +258,11 @@ export function DongLieuTrinh({
         </span>
         <Chip tone={TONE[lt.trang_thai]}>{NHAN_TRANG_THAI_LT[lt.trang_thai]}</Chip>
       </div>
+      {sapHet ? (
+        <p>
+          <Chip tone={lt.sap_het_da_xu_ly ? "neutral" : "warning"}>{sapHet}</Chip>
+        </p>
+      ) : null}
       <p className="text-meta tabular-nums text-ink">
         {nhanTienDo(lt)} · đã trả {lt.da_tra} · còn lại {lt.con_lai} buổi
         {lt.tien_con_lai > 0 ? ` · còn phải trả ${tienVn(lt.tien_con_lai)}` : ""}
@@ -238,6 +287,26 @@ export function DongLieuTrinh({
             Đăng ký
           </Button>
         ) : null}
+        {coQuyen && lt.sap_het_ly_do && mo === null ? (
+          <>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={dang}
+              onClick={() => {
+                setKetQuaGoi(null);
+                setGhiChuGoi("");
+                setKhoaGoi(`lt-goi-${lt.id}-${Date.now()}`);
+                setMo("goi");
+              }}
+            >
+              Ghi cuộc gọi
+            </Button>
+            <Button size="sm" variant="secondary" disabled={dang} onClick={() => setMo("them")}>
+              Thêm buổi
+            </Button>
+          </>
+        ) : null}
         {onDatLich && lt.trang_thai !== "DUNG" ? (
           <Button
             size="sm"
@@ -251,7 +320,22 @@ export function DongLieuTrinh({
         ) : null}
         {coQuyen && (lt.trang_thai === "DE_XUAT" || lt.trang_thai === "DANG_LAM") && mo === null ? (
           <Button size="sm" variant="ghost" disabled={dang} onClick={() => setMo("dung")}>
-            {lt.trang_thai === "DE_XUAT" ? "Không đăng ký" : "Dừng"}
+            {lt.trang_thai === "DE_XUAT" ? "Không đăng ký" : lt.sap_het_ly_do ? "Kết thúc liệu trình" : "Dừng"}
+          </Button>
+        ) : null}
+        {coQuyen && lt.sap_het_ly_do && !lt.sap_het_da_xu_ly && mo === null ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={dang}
+            onClick={() =>
+              void lamSo(
+                () => guiLenh(lt.id, { thao_tac: "da-xu-ly-sap-het" }),
+                `Đã xử lý "sắp hết lộ trình" ${ten}`,
+              )
+            }
+          >
+            Đã xử lý
           </Button>
         ) : null}
         {coQuyen && lt.trang_thai === "DUNG" ? (
@@ -308,6 +392,74 @@ export function DongLieuTrinh({
               <OSo nguyen value={soChon} onChange={setSoChon} donVi="buổi" aria-label="Số buổi khác" />
             </label>
           </div>
+        </XacNhanTaiCho>
+      ) : null}
+
+      {mo === "them" ? (
+        <XacNhanTaiCho
+          cau={`Thêm buổi cho liệu trình ${lt.service_name} (đang ${lt.so_buoi} buổi)? Tiền thu ở quầy khi khách đến.`}
+          nhanDongY={soSauThem ? `Lên ${soSauThem} buổi` : "Thêm buổi"}
+          choDongY={soSauThem !== null}
+          dangGui={dang}
+          onThoi={() => setMo(null)}
+          onDongY={() =>
+            void lam(
+              {
+                thao_tac: "dang-ky",
+                so_buoi: soSauThem,
+                idempotency_key: `lt-${lt.id}-them-${soSauThem}-r${lt.revision}`,
+              },
+              `Đã thêm buổi — ${ten} thành ${soSauThem} buổi`,
+            )
+          }
+        >
+          <label className="flex items-center gap-1.5 text-meta text-ink-muted">
+            Thêm
+            <OSo nguyen value={soThem} onChange={setSoThem} donVi="buổi" aria-label="Số buổi thêm" />
+          </label>
+        </XacNhanTaiCho>
+      ) : null}
+
+      {mo === "goi" ? (
+        <XacNhanTaiCho
+          cau={`Ghi cuộc gọi về liệu trình ${lt.service_name}${lt.sdt ? ` · ${lt.sdt}` : ""}`}
+          nhanDongY="Lưu cuộc gọi"
+          choDongY={ketQuaGoi !== null}
+          dangGui={dang}
+          onThoi={() => setMo(null)}
+          onDongY={() =>
+            void lamSo(
+              () =>
+                guiPost(
+                  "/api/cskh/tuong-tac",
+                  {
+                    clinic_patient_id: lt.khach_id,
+                    loai: "KHAC",
+                    kenh: "GOI",
+                    ket_qua: ketQuaGoi,
+                    noi_dung: `Liệu trình ${lt.service_name}: ${ghiChuGoi.trim() || "gọi về sắp hết lộ trình"}`,
+                  },
+                  khoaGoi,
+                ),
+              `Đã ghi cuộc gọi — ${ten}`,
+            )
+          }
+        >
+          <div role="radiogroup" aria-label="Kết quả cuộc gọi" className="flex flex-wrap items-center gap-2">
+            {KET_QUA_GOI.map(([m, nhan]) => (
+              <ChipChon key={m} kieu="mot" ten={`goi-lt-${lt.id}`} chon={ketQuaGoi === m} onDoi={() => setKetQuaGoi(m)}>
+                {nhan}
+              </ChipChon>
+            ))}
+          </div>
+          <input
+            value={ghiChuGoi}
+            onChange={(e) => setGhiChuGoi(e.target.value)}
+            maxLength={500}
+            placeholder="Ghi chú (không bắt buộc) — vd khách muốn thêm 3 buổi"
+            aria-label="Ghi chú cuộc gọi"
+            className="mt-2 w-full rounded-control border border-line bg-surface px-3 py-2 text-body text-ink placeholder:text-ink-faint"
+          />
         </XacNhanTaiCho>
       ) : null}
 
@@ -368,7 +520,7 @@ export function LieuTrinhCuaKhach({
   const [thongBao, setThongBao] = useState<ThongBao | null>(null);
   const dongThongBao = useCallback(() => setThongBao(null), []);
   const napLai = useCallback(() => setLan((n) => n + 1), []);
-  useNgheBang(["lieu_trinh", "lieu_trinh_buoi", "lieu_trinh_tra_truoc"], napLai);
+  useNgheBang(["lieu_trinh", "lieu_trinh_buoi", "lieu_trinh_tra_truoc", "tuong_tac_cskh"], napLai);
 
   useEffect(() => {
     let huy = false;

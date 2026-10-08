@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
+import { chuNhanLuot, type NhanLuot } from "@/lib/nhan-luot";
 import { todayVn } from "@/lib/roster";
 import type { Khoang } from "@/lib/thanh-ngay";
 
@@ -35,6 +36,8 @@ export interface LuotLichSu {
   loai_du_lieu: string;
   nhan_loai: string;
   service_code_cu: string | null;
+  /** Nhãn đếm lượt máy chủ tính (08/10/2026): "Lượt khám n" / "Buổi k/N"… */
+  nhan_luot?: NhanLuot | null;
 }
 
 interface GoiLichSu {
@@ -178,6 +181,7 @@ export default function LichSuKham({
                     }`}
                   >
                     <b className="tabular-nums text-ink">{ngayVN(l.ngay)}</b>
+                    <Chip tone="info">{chuNhanLuot(l.nhan_luot)}</Chip>
                     <span className="text-ink">{l.dich_vu ?? "—"}</span>
                     <span className="text-meta text-ink-muted">{l.bac_si ?? ""}</span>
                     <Chip tone="neutral">{l.nhan_loai}</Chip>

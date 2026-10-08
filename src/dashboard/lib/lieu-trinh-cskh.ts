@@ -38,6 +38,11 @@ export interface LieuTrinh {
   lan_cuoi: string | null;
   /** Chỉ ở danh sách CSKH. */
   lich_hen_sap_toi?: string | null;
+  /** "Sắp hết lộ trình" — lý do máy chủ tính ("còn 1 buổi" / "đã dùng hết N
+   *  buổi trả trước, còn M buổi chưa trả"); null = không sắp hết. */
+  sap_het_ly_do?: string | null;
+  /** Khung khách: CSKH đã [Đã xử lý] đúng mốc hiện tại. */
+  sap_het_da_xu_ly?: boolean;
 }
 
 /** Một dòng "Lịch sử sửa" (GET /lieu-trinh/{id}/lich-su). */
@@ -100,6 +105,26 @@ export const NHAN_HANH_DONG_LT: Record<string, string> = {
   HOAN_TAC: "Hoàn tác",
   TU_DONG: "Hệ thống tự cập nhật",
 };
+
+/** Ba danh sách của tab Liệu trình (máy chủ lọc). */
+export type LoaiDsCskh = "sap_het" | "de_xuat" | "dang_do";
+
+/** Chip "Sắp hết lộ trình · <lý do>" (null khi không sắp hết). */
+export function nhanSapHet(l: Pick<LieuTrinh, "sap_het_ly_do" | "sap_het_da_xu_ly">): string | null {
+  if (!l.sap_het_ly_do) return null;
+  return `Sắp hết lộ trình · ${l.sap_het_ly_do}${l.sap_het_da_xu_ly ? " · CSKH đã xử lý" : ""}`;
+}
+
+/** [Thêm buổi]: số buổi kế hoạch MỚI = hiện tại + số gõ (1..200 tổng). Gõ rác /
+ *  ≤ 0 / vượt 200 → null (nút tắt) — không ném. Lệnh gửi `dang-ky` với số này
+ *  (CSKH được đăng ký thêm buổi; máy chủ gác quyền + bản cũ). */
+export function soBuoiSauKhiThem(hienTai: number, raw: string): number | null {
+  const s = raw.trim();
+  if (!/^\d{1,3}$/.test(s)) return null;
+  const them = Number(s);
+  const tong = hienTai + them;
+  return them >= 1 && tong <= 200 ? tong : null;
+}
 
 /** Ngưỡng "quá X ngày chưa quay lại" để chọn nhanh (mặc định = máy chủ: 14). */
 export const QUA_NGAY_CHON = [7, 14, 30, 60] as const;

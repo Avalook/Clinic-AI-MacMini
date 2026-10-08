@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Plus, CalendarPlus } from "lucide-react";
 import { fmtDate, fmtDateTimeOrDate } from "../../../lib/datetime";
+import { chuNhanLuot, type NhanLuot } from "../../../lib/nhan-luot";
 import { toHref } from "../../../lib/url";
 import { INPUT, LABEL } from "../form-ui";
 import PatientAdminEditor from "../PatientAdminEditor";
@@ -72,6 +73,8 @@ interface HistoryItem {
   doctor: string | null;
   chief_complaint: string;
   assessment: string;
+  /** Nhãn đếm lượt máy chủ tính (08/10/2026) — "Lượt khám n" / "Buổi k/N". */
+  nhan_luot?: NhanLuot | null;
 }
 interface ApiRx {
   id: string;
@@ -378,7 +381,12 @@ export default function ClinicalRecordForm({
   // Pager lượt khám (◀ ▶): trang 0 = LƯỢT NÀY (lịch đang mở, ghi được); trang >0 =
   // lượt khám CŨ (chỉ đọc). `pages` dựng 1 lần ở lần nạp trang 0 (ref để đọc trong
   // effect mà không phải thêm vào deps). Lượt cũ nạp bằng visitId.
-  interface PageRef { visitId: string | null; date: string; service: string | null }
+  interface PageRef {
+    visitId: string | null;
+    date: string;
+    service: string | null;
+    nhanLuot?: NhanLuot | null;
+  }
   const [pages, setPages] = useState<PageRef[]>([]);
   const [pageIdx, setPageIdx] = useState(0);
   const pagesRef = useRef<PageRef[]>([]);
@@ -497,6 +505,7 @@ export default function ClinicalRecordForm({
               visitId: h.visit_id,
               date: h.created_at,
               service: h.service,
+              nhanLuot: h.nhan_luot ?? null,
             })),
           ];
           pagesRef.current = built;
@@ -1089,7 +1098,8 @@ export default function ClinicalRecordForm({
               {pages.slice(1).map((pg, i) => {
                 const visitIdx = i + 1;
                 const isSelected = pageIdx === visitIdx;
-                const lanLabel = `Lần ${pages.length - visitIdx}`;
+                // Nhãn máy chủ đếm trên MỌI lượt của khách (08/10/2026).
+                const lanLabel = chuNhanLuot(pg.nhanLuot);
                 return (
                   <button
                     key={pg.visitId ?? visitIdx}

@@ -48,6 +48,7 @@ type RecallRaw = MocTaiKham & { clinic_patient_id: string };
 import { listBookableDoctors } from "../../../lib/doctors-server";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { layCoSo } from "../../../lib/danh-muc";
+import type { NhanLuot } from "../../../lib/nhan-luot";
 import type { TrangThaiHienThi } from "../../../lib/trang-thai-lich";
 
 export const dynamic = "force-dynamic";
@@ -361,6 +362,10 @@ type LichHenRaw = {
   /** Nhãn trạng thái máy chủ quyết + mốc của nó (30/09/2026). */
   trang_thai?: TrangThaiHienThi | null;
   trang_thai_luc?: string | null;
+  /** Nhãn đếm lượt máy chủ tính (08/10/2026) — "Lượt khám 2", "Buổi 3/10"… */
+  nhan_luot?: NhanLuot | null;
+  /** Giờ thật của lượt (`visit.exam_completed_at`). */
+  kham_xong_luc?: string | null;
 };
 
   // Lịch hẹn của các khách đang hiển thị → "lịch đại diện": SẮP TỚI gần nhất,
@@ -958,6 +963,8 @@ type LichHenRaw = {
             service_name: pick1(a.service)?.name ?? null,
             doctor_name: pick1(a.doctor)?.full_name ?? null,
             lich_truoc_id: a.lich_truoc_id ?? null,
+            nhan_luot: a.nhan_luot ?? null,
+            kham_xong_luc: a.kham_xong_luc ?? null,
             // MẤT BÁC SĨ — TÍNH CHO CHÍNH LƯỢT NÀY.
             //
             // Cùng phép tính với `mat_bac_si` của lịch đại diện bên trên, chỉ
@@ -1015,33 +1022,14 @@ type LichHenRaw = {
         });
       if (!cacLuot.length) continue;
 
-      // GHÉP CHUỖI. Một lượt có `lich_truoc_id` thì nối vào chuỗi chứa lượt ấy;
-      // không có thì mở chuỗi mới. Duyệt theo thứ tự thời gian nên lượt trước
-      // luôn đã được xếp chỗ khi tới lượt sau.
-      const chuoiCuaLuot: Record<string, number> = {};
-      const chuoi: ChuoiKham[] = [];
-      for (const luot of cacLuot) {
-        const chiSo =
-          luot.lich_truoc_id !== null
-            ? chuoiCuaLuot[luot.lich_truoc_id]
-            : undefined;
-        if (chiSo !== undefined) {
-          chuoi[chiSo]!.luot.push(luot);
-          chuoiCuaLuot[luot.id] = chiSo;
-        } else {
-          // `lich_truoc_id` trỏ tới một lượt KHÔNG có trong danh sách (lịch đã
-          // bị dọn, hoặc ngoài phạm vi truy vấn) cũng rơi vào đây. Mở chuỗi mới
-          // còn hơn ném lượt ấy đi.
-          chuoiCuaLuot[luot.id] = chuoi.length;
-          chuoi.push({ luot: [luot] });
-        }
-      }
-      // Chuỗi mới nhất lên đầu — người trực quan tâm lần gần đây trước.
-      chuoi.sort(
-        (a, b) =>
-          mocMs(b.luot[b.luot.length - 1]!.slot_start) -
-          mocMs(a.luot[a.luot.length - 1]!.slot_start),
-      );
+      // MỘT DẢI THEO THỜI GIAN (Tuyền chốt 08/10/2026): không gom chuỗi theo
+      // dịch vụ / `lich_truoc_id` nữa — gom thế thì hai lượt cùng ngày của hai
+      // dịch vụ đều là "Lần đầu". Số lượt do máy chủ đếm (`nhan_luot`); ở đây
+      // chỉ xếp theo mốc: giờ check-in thật, chưa tới thì giờ hẹn.
+      const theoMoc = (l: LuotKham) => mocMs(l.bat_dau ?? l.slot_start);
+      const chuoi: ChuoiKham[] = [
+        { luot: [...cacLuot].sort((a, b) => theoMoc(a) - theoMoc(b)) },
+      ];
       lichSuKhamByPatient[pid] = chuoi;
     }
   }

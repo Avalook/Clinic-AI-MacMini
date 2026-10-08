@@ -1,19 +1,21 @@
 "use client";
 
-// THANH CHỌN LƯỢT KHÁM — đầu cột giữa, gom theo ĐỢT (Tuyền duyệt 16/09/2026).
+// THANH CHỌN LƯỢT KHÁM — đầu cột giữa (Tuyền duyệt 16/09/2026).
 //
-// Thay cho khối "Lịch sử các lần khám" tít dưới đáy vùng làm việc: muốn xem lượt
-// khác phải cuộn xuống rồi bấm, còn dòng "Lượt đang xem" chỉ là chữ nhỏ. Nay mỗi
-// lượt là một thẻ nằm ngang; thẻ nối nhau theo chuỗi tái khám (`lich_truoc_id`),
-// nhìn là biết khách đang ở lần mấy của đợt nào. Chấm đỏ = lượt còn việc CSKH
-// đang mở — không phải mở từng lượt mới biết sót.
+// Mỗi lượt là một ô nằm ngang trên MỘT DẢI THEO THỜI GIAN (Tuyền chốt 08/10/2026
+// — trước đó gom chuỗi theo dịch vụ / `lich_truoc_id`, nên hai lượt cùng ngày
+// của hai dịch vụ đều là "Lần đầu"). Ô: ngày · nhãn máy chủ đếm ("Lượt khám 2",
+// "Buổi 3/10", "Điều trị · buổi lẻ", "Lịch hẹn", "Đã huỷ") · tên dịch vụ ·
+// trạng thái. Chấm đỏ = lượt còn việc CSKH đang mở.
 //
-// Chuỗi dựng sẵn ở page.tsx (ChuoiKham); ở đây chỉ vẽ.
+// Dải dựng sẵn ở page.tsx; số do máy chủ (`nhan_luot`) — ở đây chỉ vẽ.
 
 import { useState } from "react";
 import { FileText } from "lucide-react";
 import HoSoKhamModal from "../_lam-viec/HoSoKham";
 import LichSuKham from "../_lam-viec/LichSuKham";
+import { chipBuoiPhu, chuNhanLuot } from "@/lib/nhan-luot";
+
 import type { ChuoiKham, LuotKham } from "./CustomersView";
 
 const NHAN_TRANG_THAI: Record<string, string> = {
@@ -103,61 +105,40 @@ export default function ThanhLuotKham({
         aria-label="Các lượt khám của khách"
         className="mt-2 flex gap-3 overflow-x-auto pb-1"
       >
-        {chuoi.map((c, i) => {
-          const dau = c.luot[0]!;
-          const moDot = c.luot.some(dangMo);
+        {chuoi.flatMap((c) => c.luot).map((l) => {
+          const chon = l.id === luotDangXem;
+          const buoiPhu = chipBuoiPhu(l.nhan_luot);
           return (
-            <div key={dau.id} className="shrink-0">
-              <p className="mb-1 text-label font-semibold text-ink-muted">
-                {dau.service_name ?? "Chưa chọn dịch vụ"}
-                <span className="font-normal text-ink-faint">
-                  {moDot ? " · đợt đang mở" : " · đã xong"}
-                </span>
-              </p>
-              <div className="flex gap-1.5">
-                {c.luot.map((l, j) => {
-                  const chon = l.id === luotDangXem;
-                  // Lịch ĐÃ HUỶ vẫn hiện (dấu vết) nhưng không ăn số lần khám:
-                  // bác sĩ huỷ để đặt lại trên phiếu (02/10/2026) thì lịch mới
-                  // vẫn là "Tái khám 1", không nhảy thành 2, 3.
-                  const soLan = c.luot
-                    .slice(0, j)
-                    .filter((x) => x.status !== "CANCELLED").length;
-                  return (
-                    <button
-                      key={l.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={chon}
-                      onClick={() => onChonLuot(l.id)}
-                      className={`relative rounded-control px-2.5 py-1.5 text-left text-label ring-1 ring-inset ${
-                        chon
-                          ? "bg-brand-600 font-semibold text-white ring-brand-600"
-                          : dangMo(l)
-                            ? "bg-surface text-ink ring-brand-300 hover:bg-brand-50"
-                            : "bg-surface-muted text-ink-soft ring-line hover:bg-surface-sunken"
-                      }`}
-                    >
-                      {luotConViec.has(l.id) && (
-                        <span
-                          aria-label="còn việc chưa xong"
-                          className="absolute -right-1 -top-1 size-2.5 rounded-full bg-danger ring-2 ring-surface"
-                        />
-                      )}
-                      <span className="block tabular-nums">
-                        {ngay(l.slot_start)}
-                      </span>
-                      <span className="block">
-                        {l.status === "CANCELLED"
-                          ? "Đã huỷ"
-                          : `${soLan === 0 ? "Lần đầu" : `Tái khám ${soLan}`} · ${NHAN_TRANG_THAI[l.status] ?? l.status}`}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {i < chuoi.length - 1 && <span className="sr-only">,</span>}
-            </div>
+            <button
+              key={l.id}
+              type="button"
+              role="tab"
+              aria-selected={chon}
+              onClick={() => onChonLuot(l.id)}
+              className={`relative max-w-48 shrink-0 rounded-control px-2.5 py-1.5 text-left text-label ring-1 ring-inset ${
+                chon
+                  ? "bg-brand-600 font-semibold text-white ring-brand-600"
+                  : dangMo(l)
+                    ? "bg-surface text-ink ring-brand-300 hover:bg-brand-50"
+                    : "bg-surface-muted text-ink-soft ring-line hover:bg-surface-sunken"
+              }`}
+            >
+              {luotConViec.has(l.id) && (
+                <span
+                  aria-label="còn việc chưa xong"
+                  className="absolute -right-1 -top-1 size-2.5 rounded-full bg-danger ring-2 ring-surface"
+                />
+              )}
+              <span className="block tabular-nums">{ngay(l.bat_dau ?? l.slot_start)}</span>
+              <span className="block font-semibold">
+                {chuNhanLuot(l.nhan_luot, l.status === "CANCELLED" ? "Đã huỷ" : "Lượt")}
+                {buoiPhu ? ` · ${buoiPhu}` : ""}
+              </span>
+              <span className="block truncate">{l.service_name ?? "Chưa chọn dịch vụ"}</span>
+              {l.status !== "CANCELLED" ? (
+                <span className="block">{NHAN_TRANG_THAI[l.status] ?? l.status}</span>
+              ) : null}
+            </button>
           );
         })}
       </div>
@@ -168,7 +149,7 @@ export default function ThanhLuotKham({
           className="mt-2 inline-flex items-center gap-1.5 rounded-control bg-brand-50 px-3 py-1.5 text-sm font-semibold text-brand-700 ring-1 ring-inset ring-brand-300 hover:bg-brand-100"
         >
           <FileText className="size-4" aria-hidden="true" />
-          Xem hồ sơ khám lượt {ngay(luotChon.slot_start)}
+          Xem hồ sơ khám lượt {ngay(luotChon.bat_dau ?? luotChon.slot_start)}
         </button>
       )}
       {luotChon && coHoSo && (

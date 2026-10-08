@@ -23,6 +23,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.services.nhan_luot import doc_nhan_luot, tra_nhan
 
 #: Nhãn hiện cạnh mỗi lượt (máy chủ nói, màn chỉ vẽ).
 NHAN_LOAI: dict[str, str] = {
@@ -126,6 +127,8 @@ async def doc(
 ) -> dict[str, Any]:
     """Mọi lượt của khách (mới nhất trước) + ngày có khám + loại dịch vụ đã khám."""
     rows = await conn.fetch(_SQL, clinic_id, clinic_patient_id)
+    # "Lượt khám n" / "Buổi k/N" — đếm trên mọi lượt của khách (nhan_luot.py).
+    nhan = await doc_nhan_luot(conn, clinic_id, [clinic_patient_id])
     tat_ca = [
         {
             "visit_id": r["visit_id"],
@@ -140,6 +143,9 @@ async def doc(
             "loai_du_lieu": r["loai_du_lieu"],
             "nhan_loai": NHAN_LOAI.get(r["loai_du_lieu"], r["loai_du_lieu"]),
             "service_code_cu": r["service_code_cu"],
+            "nhan_luot": tra_nhan(
+                nhan, visit_id=r["visit_id"], appointment_id=r["appointment_id"]
+            ),
         }
         for r in rows
     ]

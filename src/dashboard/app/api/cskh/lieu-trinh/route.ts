@@ -2,6 +2,7 @@
 //
 //   GET ?loai=de_xuat                 → đề xuất chưa đăng ký
 //   GET ?loai=dang_do&qua_ngay=14     → đang dở, quá X ngày chưa quay lại
+//   GET ?loai=sap_het                 → sắp hết lộ trình (có lý do)
 //   GET ?khach=<clinic_patient_id>    → mọi liệu trình của một khách
 //
 // Chỉ là ống dẫn: ai được xem, đếm buổi, trạng thái — FastAPI
@@ -25,8 +26,8 @@ export async function GET(request: Request) {
     return proxyJsonToBackend("GET", `/api/v1/lieu-trinh/theo-khach/${khach}`, undefined);
   }
   const loai = q.get("loai");
-  if (loai !== "de_xuat" && loai !== "dang_do") {
-    return sai("Thiếu ?loai=de_xuat|dang_do hoặc ?khach=.");
+  if (loai !== "de_xuat" && loai !== "dang_do" && loai !== "sap_het") {
+    return sai("Thiếu ?loai=de_xuat|dang_do|sap_het hoặc ?khach=.");
   }
   const thamSo = new URLSearchParams({ loai });
   const quaNgay = q.get("qua_ngay");

@@ -138,6 +138,9 @@ MODULE: dict[str, Module] = {
                 "lieu_trinh.session_relinked",
                 "lieu_trinh.prepay_set",
             ],
+            # Buổi làm xong mà liệu trình sắp hết → chuông CSKH (08/10/2026).
+            nghe=["service.completed"],
+            ben_nhan=["lieu_trinh_sap_het"],
             bang=[
                 "lieu_trinh",
                 "lieu_trinh_lich_su",
