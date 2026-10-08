@@ -12,6 +12,8 @@ interface DongLichSu {
   id: string;
   source_ref: string | null;
   drug_name_raw: string | null;
+  /** Thuốc kho quầy đã chọn — thuốc THẬT đã giao (08/10/2026). */
+  ten_thuoc_kho: string | null;
   dosage_instructions: string | null;
   quantity: string | null;
   quantity_note: string | null;

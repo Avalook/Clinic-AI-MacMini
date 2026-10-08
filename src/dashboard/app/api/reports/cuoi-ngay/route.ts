@@ -19,6 +19,9 @@ export async function GET(request: Request) {
   // Xem riêng tiền dịch vụ / tiền thuốc (01/10/2026); rác thì bỏ → cả hai.
   const loai = url.searchParams.get("loai");
   if (loai === "dich_vu" || loai === "thuoc") q.set("loai", loai);
+  // Cuối ca (08/10/2026): SANG | CHIEU | TOI; khác thì bỏ → cả ngày.
+  const ca = url.searchParams.get("ca");
+  if (ca === "SANG" || ca === "CHIEU" || ca === "TOI") q.set("ca", ca);
   // Một cơ sở (08/10/2026); rỗng = tất cả. Chuyển nguyên — máy chủ tự xử mã rác
   // (ra số 0), không để lớp này lặng lẽ biến một cơ sở thành "tất cả".
   const coSo = url.searchParams.get("co_so") ?? "";

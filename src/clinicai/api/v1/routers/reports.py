@@ -114,14 +114,20 @@ async def bao_cao_cuoi_ngay(
         description="dich_vu | thuoc — xem riêng một loại tiền; rỗng/rác = cả hai",
     ),
     co_so: str | None = _CO_SO,
+    ca: str | None = Query(
+        None,
+        max_length=10,
+        description="SANG | CHIEU | TOI — cuối ca (một ngày); rác = cả ngày",
+    ),
     identity: StaffIdentity = Depends(_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Thu gốc · huỷ · hoàn · thực thu; theo hình thức / loại / người thu / ngày.
+    """Thu gốc · huỷ · hoàn · thực thu; theo hình thức / loại / người thu / ngày;
+    thuốc kê vs thực bán theo khách. ``ca`` → chỉ khung giờ một ca (cuối ca).
 
     Không chọn cơ sở → thêm ``theo_co_so`` (từng cơ sở, tiền cộng lại = tổng)."""
     return await BaoCaoCuoiNgayService(pool).bao_cao(
-        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so
+        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so, ca=ca
     )
 
 
@@ -131,12 +137,13 @@ async def bao_cao_cuoi_ngay_csv(
     den: str | None = Query(None, max_length=40),
     loai: str | None = Query(None, max_length=20),
     co_so: str | None = _CO_SO,
+    ca: str | None = Query(None, max_length=10),
     identity: StaffIdentity = Depends(_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
     """[Xuất Excel]: CSV UTF-8 có BOM."""
     bc = await BaoCaoCuoiNgayService(pool).bao_cao(
-        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so
+        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so, ca=ca
     )
     ten = f"bao-cao-cuoi-ngay-{bc['tu']}_{bc['den']}.csv"
     return Response(

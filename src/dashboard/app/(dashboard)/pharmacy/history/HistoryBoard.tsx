@@ -15,6 +15,8 @@ interface HistRow {
   id: string;
   source_ref: string | null;
   drug_name_raw: string | null;
+  /** Thuốc kho quầy đã chọn = thuốc THẬT đã giao; drug_name_raw là chữ bác sĩ gõ. */
+  ten_thuoc_kho?: string | null;
   dosage_instructions: string | null;
   quantity: string | null;
   quantity_note: string | null;
@@ -49,6 +51,7 @@ export default function HistoryBoard({ records }: Props) {
       (r) =>
         r.patient?.full_name?.toLowerCase().includes(q) ||
         r.drug_name_raw?.toLowerCase().includes(q) ||
+        r.ten_thuoc_kho?.toLowerCase().includes(q) ||
         r.source_ref?.toLowerCase().includes(q),
     );
   }, [records, search]);
@@ -102,7 +105,12 @@ export default function HistoryBoard({ records }: Props) {
                       </span>
                     ) : null}
                   </td>
-                  <td className="px-3 py-2 text-ink">{r.drug_name_raw ?? "—"}</td>
+                  <td className="px-3 py-2 text-ink">
+                    {r.ten_thuoc_kho ?? r.drug_name_raw ?? "—"}
+                    {r.ten_thuoc_kho && r.drug_name_raw && r.drug_name_raw !== r.ten_thuoc_kho ? (
+                      <span className="block text-xs text-ink-faint">Bác sĩ ghi: {r.drug_name_raw}</span>
+                    ) : null}
+                  </td>
                   <td className="px-3 py-2 text-ink-muted">
                     {r.dosage_instructions ?? "—"}
                   </td>
