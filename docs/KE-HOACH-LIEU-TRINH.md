@@ -182,3 +182,33 @@ liệu trình); hoàn tác bỏ → gắn lại. Không sửa 6 đường tạo,
 Kiểm: mỗi PR `scripts/test-nhanh.sh <tệp test mới + 1–2 tệp trực tiếp>` → `ci-may.sh` một lần.
 Không chạy tay loạt test cũ, không diễn tập migration tay (diễn tập trên bản sao prod lúc lên
 staging/prod theo `len-prod`). Ước: A ~1,5h; B1–B4 ~7–9h AI.
+
+---
+
+## Sắp hết lộ trình (Tuyền 08/10/2026, PR `claude/lieu-trinh-sap-het`)
+
+**Luật (máy chủ, `lieu_trinh_service.ly_do_sap_het`):** liệu trình ĐANG LÀM còn buổi chưa
+làm, và (a) còn ≤ `SAP_HET_CON_TOI_DA` buổi (MỘT hằng số, mặc định 1) → "còn 1 buổi";
+hoặc (b) đã trả trước > 0 mà buổi đang dùng tiền trả trước ≥ đã trả, còn buổi chưa trả →
+"đã dùng hết N buổi trả trước, còn M buổi chưa trả" (M = số buổi − đã trả − đã trả lẻ;
+M = 0 thì không có gì để thu → không báo). Hai lý do cùng đúng → nối " · ".
+
+**Mốc** = (liệu trình, đã làm, số buổi, đã trả) — `moc_sap_het`. CSKH [Đã xử lý] ghi MỘT
+dòng sổ chạm khách `tuong_tac_cskh` (loại KHAC · kênh "không liên hệ" · kết quả "bỏ qua"
+— không phải một cuộc gọi) với `trang_thai_ma` = mốc → dòng rời danh sách tới khi mốc đổi
+(làm thêm buổi, thêm buổi, trả thêm). Hoàn tác = lệnh hoàn tác SẴN CÓ của sổ
+(`huy_luc`, dòng ở lại). KHÔNG migration.
+
+**Danh sách** `GET /lieu-trinh/cskh?loai=sap_het` — ĐẦU tab Liệu trình của `/nhac-tai-kham`,
+không lọc khách có lịch hẹn (có lịch buổi cuối vẫn cần gọi tư vấn thêm buổi). Nút: [Ghi
+cuộc gọi] (sổ chạm khách) · [Thêm buổi] (= `dang-ky` với số buổi mới — CSKH có quyền
+đăng ký; `dieu-chinh` chỉ khối y khoa/trưởng ca) · [Đặt lịch buổi kế] · [Kết thúc liệu
+trình] (= `dung`, mở lại được) · [Đã xử lý]. Khung khách: chip "Sắp hết lộ trình · lý do"
+(kèm "CSKH đã xử lý" nếu đã xử lý mốc này) + cùng nút.
+
+**Chuông:** consumer `lieu_trinh_sap_het` nghe `service.completed`: chỉ định gắn liệu
+trình vừa xong mà liệu trình chạm luật → MỘT chuông cho vai CSKH (`nguon =
+lieu_trinh_sap_het`, `nguon_id` = mốc); đã từng báo mốc này (kể cả chuông đã đóng) hoặc
+CSKH đã xử lý mốc → im. Phát lại → im.
+
+**Phạm vi:** không dòng nào ở phòng / hàng chờ / Hành trình / TV (test boundary canh).

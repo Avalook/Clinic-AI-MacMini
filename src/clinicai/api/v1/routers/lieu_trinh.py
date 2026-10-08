@@ -69,7 +69,8 @@ async def cskh(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """CSKH: ``de_xuat`` (chưa đăng ký) | ``dang_do`` (quá X ngày chưa quay lại)."""
+    """CSKH: ``de_xuat`` (chưa đăng ký) | ``dang_do`` (quá X ngày chưa quay lại)
+    | ``sap_het`` (sắp hết lộ trình, mỗi dòng có ``sap_het_ly_do``)."""
     return await LieuTrinhService(pool).cskh(
         identity=identity, loai=loai, qua_ngay=qua_ngay, ca_co_lich=ca_co_lich
     )
@@ -222,6 +223,19 @@ async def mo_lai(
         lieu_trinh_id=lieu_trinh_id,
         expected_revision=body.expected_revision,
         idempotency_key=body.idempotency_key,
+    )
+
+
+@router.post("/lieu-trinh/{lieu_trinh_id}/da-xu-ly-sap-het")
+async def da_xu_ly_sap_het(
+    lieu_trinh_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """CSKH [Đã xử lý] dòng "Sắp hết lộ trình" ở mốc hiện tại → ``tuong_tac_id``
+    (hoàn tác: ``POST /cskh/tuong-tac/{id}/hoan-tac``)."""
+    return await LieuTrinhService(pool).da_xu_ly_sap_het(
+        identity=identity, lieu_trinh_id=lieu_trinh_id
     )
 
 

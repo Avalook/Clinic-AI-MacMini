@@ -63,6 +63,14 @@ QUA_NGAY_TOI_DA = 3650
 TRAN_DANH_SACH = 200
 TRAN_LUOT = 300
 
+#: "Sắp hết lộ trình" (Tuyền 08/10/2026): liệu trình đang làm còn ≤ ngần này buổi
+#: chưa làm thì CSKH gọi tư vấn thêm buổi / đặt lịch buổi kế. MỘT chỗ để đổi.
+SAP_HET_CON_TOI_DA = 1
+#: Tiền tố mã "đã xử lý" ghi vào ``tuong_tac_cskh.trang_thai_ma`` — mã đầy đủ là
+#: MỐC ``LT_SAP_HET:<liệu trình>:<đã làm>:<số buổi>:<đã trả>``: mốc đổi (làm thêm
+#: buổi, thêm buổi, trả thêm) thì dòng hiện lại.
+MA_SAP_HET = "LT_SAP_HET"
+
 #: Lần sửa người bấm hoàn tác được (lần tự động thì không — nó là hệ quả).
 HANH_DONG_HOAN_TAC_DUOC = frozenset(
     {"DIEU_CHINH", "DANG_KY", "DUNG", "MO_LAI", "HOAN_TAC"}
@@ -180,6 +188,41 @@ def con_lai(lt: dict[str, Any]) -> dict[str, int]:
         "con_tra_truoc": max(da_tra - dung_tra, 0),
         "chua_tra": max(so_buoi - da_tra - int(lt.get("tra_le") or 0), 0),
     }
+
+
+def ly_do_sap_het(lt: dict[str, Any]) -> str | None:
+    """Vì sao liệu trình này "sắp hết lộ trình" (None = không sắp hết). Thuần.
+
+    Chỉ liệu trình ĐANG LÀM còn buổi chưa làm, và:
+      * còn ≤ ``SAP_HET_CON_TOI_DA`` buổi → "còn 1 buổi";
+      * HOẶC đã dùng hết buổi trả trước (đã trả > 0, buổi đang dùng tiền trả
+        trước ≥ đã trả) mà còn buổi chưa trả → "đã dùng hết 2 buổi trả trước,
+        còn 1 buổi chưa trả".
+    Cả hai cùng đúng → nối bằng " · "."""
+    if lt.get("trang_thai") != "DANG_LAM":
+        return None
+    so_buoi = int(lt.get("so_buoi") or 0)
+    da_lam = int(lt.get("da_lam") or 0)
+    da_tra = int(lt.get("da_tra") or 0)
+    phu = int(lt.get("dung_tra_truoc") or 0)
+    con = so_buoi - da_lam
+    if con <= 0:
+        return None
+    ly: list[str] = []
+    if con <= SAP_HET_CON_TOI_DA:
+        ly.append(f"còn {con} buổi")
+    chua_tra = max(so_buoi - da_tra - int(lt.get("tra_le") or 0), 0)
+    if da_tra > 0 and da_tra - phu <= 0 and chua_tra > 0:
+        ly.append(f"đã dùng hết {da_tra} buổi trả trước, còn {chua_tra} buổi chưa trả")
+    return " · ".join(ly) or None
+
+
+def moc_sap_het(lt: dict[str, Any]) -> str:
+    """Mốc "sắp hết" = (liệu trình, đã làm, số buổi, đã trả). Thuần."""
+    return (
+        f"{MA_SAP_HET}:{lt['id']}:{int(lt['da_lam'])}:{int(lt['so_buoi'])}"
+        f":{int(lt['da_tra'])}"
+    )
 
 
 def _iso(v: Any) -> Any:
@@ -307,6 +350,7 @@ def _lt(r: asyncpg.Record | dict[str, Any]) -> dict[str, Any]:
     d["dang_cho"] = bool(d.get("dang_cho"))
     d.update(con_lai(d))
     d["tien_con_lai"] = d["chua_tra"] * d["don_gia"]
+    d["sap_het_ly_do"] = ly_do_sap_het(d)
     return d
 
 
@@ -437,7 +481,33 @@ class LieuTrinhService:
             # Màn (khung khách) hiện nút Đăng ký / Dừng / Mở lại / Hoàn tác theo
             # cờ này — chính lệnh vẫn tự gác quyền.
             quyen_cskh = await self._co_mot(conn, identity, QUYEN_DANG_KY)
+            # Chip "Sắp hết lộ trình" hiện cả khi CSKH đã xử lý (khung khách là
+            # hồ sơ), kèm cờ đã xử lý mốc này chưa.
+            da = await self.da_xu_ly_sap_het_cac_moc(
+                conn,
+                identity.clinic_id,
+                [moc_sap_het(d) for d in ds if d["sap_het_ly_do"]],
+            )
+        for d in ds:
+            d["sap_het_da_xu_ly"] = bool(d["sap_het_ly_do"]) and moc_sap_het(d) in da
         return {"clinic_patient_id": pid, "lieu_trinh": ds, "quyen_cskh": quyen_cskh}
+
+    @staticmethod
+    async def da_xu_ly_sap_het_cac_moc(
+        conn: asyncpg.Connection, cid: str, cac_moc: Sequence[str]
+    ) -> set[str]:
+        """Mốc "sắp hết" nào CSKH đã [Đã xử lý] (dòng sổ chạm khách còn hiệu lực
+        — hoàn tác thì dòng thôi được tính, mốc hiện lại)."""
+        if not cac_moc:
+            return set()
+        rows = await conn.fetch(
+            "SELECT DISTINCT trang_thai_ma FROM public.tuong_tac_cskh"
+            " WHERE clinic_id = $1::uuid AND huy_luc IS NULL"
+            "   AND trang_thai_ma = ANY($2::text[])",
+            cid,
+            list(cac_moc),
+        )
+        return {str(r["trang_thai_ma"]) for r in rows}
 
     async def theo_luot(
         self, *, identity: StaffIdentity, visit_id: Any
@@ -635,11 +705,16 @@ class LieuTrinhService:
         qua_ngay: Any = None,
         ca_co_lich: Any = False,
     ) -> dict[str, Any]:
-        """Hai danh sách của CSKH: ``de_xuat`` (đề xuất chưa đăng ký) và
+        """Ba danh sách của CSKH: ``de_xuat`` (đề xuất chưa đăng ký),
         ``dang_do`` (đang làm dở, quá X ngày chưa quay lại, không còn buổi đang
-        chờ làm). Mặc định bỏ khách đã có lịch hẹn sắp tới (``ca_co_lich``)."""
-        if loai not in ("de_xuat", "dang_do"):
-            raise ValidationError("Loại danh sách không hợp lệ (de_xuat | dang_do).")
+        chờ làm) và ``sap_het`` (sắp hết lộ trình — ``ly_do_sap_het``; bỏ dòng
+        CSKH đã [Đã xử lý] đúng mốc hiện tại). Mặc định bỏ khách đã có lịch hẹn
+        sắp tới (``ca_co_lich``) — trừ ``sap_het``: có lịch buổi cuối vẫn cần gọi
+        tư vấn thêm buổi."""
+        if loai not in ("de_xuat", "dang_do", "sap_het"):
+            raise ValidationError(
+                "Loại danh sách không hợp lệ (de_xuat | dang_do | sap_het)."
+            )
         so_ngay = doc_so_ngay(qua_ngay)
         if so_ngay is None:
             so_ngay = QUA_NGAY_MAC_DINH
@@ -658,27 +733,46 @@ class LieuTrinhService:
                 QUYEN_DANG_KY,
                 "Bạn không có quyền xem danh sách liệu trình của CSKH.",
             )
+            thu_tu = "coalesce(b.lan_cuoi, lt.tao_luc), lt.id"
             if loai == "de_xuat":
                 dk = "lt.trang_thai = 'DE_XUAT'"
                 args: list[Any] = []
-            else:
+            elif loai == "dang_do":
                 dk = (
                     "lt.trang_thai = 'DANG_LAM' AND NOT coalesce(b.dang_cho, false)"
                     " AND coalesce(b.lan_cuoi, lt.dang_ky_luc, lt.tao_luc)"
                     "     < now() - make_interval(days => $2::int)"
                 )
                 args = [so_ngay]
-            if not ca_co_lich:
+            else:
+                # Lọc thô ở SQL (để LIMIT không cắt mất dòng), luật đúng ở
+                # ``ly_do_sap_het`` bên dưới.
+                dk = (
+                    "lt.trang_thai = 'DANG_LAM'"
+                    " AND lt.so_buoi > coalesce(b.da_lam, 0)"
+                    " AND (lt.so_buoi - coalesce(b.da_lam, 0) <= $2::int"
+                    "  OR (public.lieu_trinh_so_buoi_da_tra(lt.clinic_id, lt.id) > 0"
+                    "      AND public.lieu_trinh_so_buoi_da_tra(lt.clinic_id, lt.id)"
+                    "          <= coalesce(b.dung_tra_truoc, 0)))"
+                )
+                args = [SAP_HET_CON_TOI_DA]
+                thu_tu = "coalesce(b.lan_cuoi, lt.tao_luc) DESC, lt.id"
+            if not ca_co_lich and loai != "sap_het":
                 dk += f" AND {lich} IS NULL"
             ds = await self.doc_nhieu(
                 conn,
                 cid,
                 dk,
                 *args,
-                thu_tu="coalesce(b.lan_cuoi, lt.tao_luc), lt.id"
-                f" LIMIT {TRAN_DANH_SACH}",
+                thu_tu=f"{thu_tu} LIMIT {TRAN_DANH_SACH}",
                 kem_buoi=False,
             )
+            if loai == "sap_het":
+                ds = [d for d in ds if d["sap_het_ly_do"]]
+                da = await self.da_xu_ly_sap_het_cac_moc(
+                    conn, cid, [moc_sap_het(d) for d in ds]
+                )
+                ds = [d for d in ds if moc_sap_het(d) not in da]
             if ds:
                 hen = {
                     r["id"]: _iso(r["hen"])
@@ -1270,6 +1364,57 @@ class LieuTrinhService:
             cau_quyen="Bạn không có quyền mở lại liệu trình.",
             lam=lam,
         )
+
+    async def da_xu_ly_sap_het(
+        self, *, identity: StaffIdentity, lieu_trinh_id: Any
+    ) -> dict[str, Any]:
+        """CSKH [Đã xử lý] dòng "Sắp hết lộ trình" ở ĐÚNG mốc hiện tại.
+
+        Ghi MỘT dòng sổ chạm khách (``tuong_tac_cskh``, chỉ-thêm, hoàn tác bằng
+        lệnh hoàn tác sẵn có ``/cskh/tuong-tac/{id}/hoan-tac``) với
+        ``trang_thai_ma`` = mốc — KHÔNG phải một cuộc gọi (kênh "không liên hệ",
+        kết quả "bỏ qua"; gọi thì ghi bằng [Ghi cuộc gọi]). Mốc đổi → dòng hiện
+        lại. Bấm lại ở cùng mốc → trả dòng đã có (không ghi thêm)."""
+        from clinicai.services.tuong_tac_cskh_service import TuongTacCskhService
+
+        lt_id = _uuid(lieu_trinh_id, "Mã liệu trình không hợp lệ.")
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn:
+            await self._doi(
+                conn,
+                identity,
+                QUYEN_DANG_KY,
+                "Bạn không có quyền xử lý danh sách liệu trình của CSKH.",
+            )
+            lt = await self._mot(conn, cid, lt_id)
+            ly_do = lt["sap_het_ly_do"]
+            if not ly_do:
+                raise LuotKhamConflictError(
+                    "KHONG_SAP_HET",
+                    "Liệu trình này không còn ở mốc sắp hết lộ trình — đã tải lại.",
+                )
+            moc = moc_sap_het(lt)
+            cu = await conn.fetchval(
+                "SELECT id::text FROM public.tuong_tac_cskh"
+                " WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid"
+                "   AND huy_luc IS NULL AND trang_thai_ma = $3"
+                " ORDER BY created_at DESC LIMIT 1",
+                cid,
+                lt["khach_id"],
+                moc,
+            )
+        if cu is not None:
+            return {"ok": True, "tuong_tac_id": cu, "moc": moc, "da_co": True}
+        kq = await TuongTacCskhService(self._pool).ghi(
+            identity=identity,
+            clinic_patient_id=lt["khach_id"],
+            loai="KHAC",
+            kenh="KHONG_LIEN_HE",
+            ket_qua="BO_QUA",
+            noi_dung=f"Đã xử lý sắp hết lộ trình {lt['service_name']}: {ly_do}.",
+            trang_thai_ma=moc,
+        )
+        return {"ok": True, "tuong_tac_id": kq.get("id"), "moc": moc, "da_co": False}
 
     async def hoan_tac(
         self,

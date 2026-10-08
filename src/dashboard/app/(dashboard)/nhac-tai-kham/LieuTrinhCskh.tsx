@@ -2,11 +2,14 @@
 
 // TAB "LIỆU TRÌNH" CỦA CSKH (08/10/2026, docs/KE-HOACH-LIEU-TRINH.md — luồng CSKH).
 //
-// Hai danh sách máy chủ lọc (`GET /lieu-trinh/cskh`), MỘT KHÁCH MỘT DÒNG mỗi
+// Ba danh sách máy chủ lọc (`GET /lieu-trinh/cskh`), MỘT KHÁCH MỘT DÒNG mỗi
 // liệu trình:
+//   0. Sắp hết lộ trình (08/10/2026, ĐẦU tab) — còn ≤ 1 buổi, hoặc đã dùng hết
+//      buổi trả trước; chip lý do máy chủ tính; [Đã xử lý] ẩn tới mốc sau.
 //   1. Đề xuất chưa đăng ký — bác sĩ đề xuất, khách chưa nhận.
 //   2. Đang dở, quá X ngày chưa quay lại — không còn buổi đang chờ làm.
-// Mặc định máy chủ bỏ khách đã có lịch hẹn sắp tới (đã đặt thì khỏi gọi).
+// Mặc định máy chủ bỏ khách đã có lịch hẹn sắp tới (đã đặt thì khỏi gọi) — trừ
+// "Sắp hết" (có lịch buổi cuối vẫn cần gọi tư vấn thêm buổi).
 // Danh sách này CHỈ ở màn CSKH + khung khách — không sinh dòng ở phòng / hàng
 // chờ / Hành trình / TV (phạm vi hiển thị đã chốt).
 
@@ -14,7 +17,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import ChipLoc from "@/components/ui/ChipLoc";
 import ThongBaoHoanTac, { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
-import { QUA_NGAY_CHON, QUA_NGAY_MAC_DINH, type LieuTrinh } from "@/lib/lieu-trinh-cskh";
+import { QUA_NGAY_CHON, QUA_NGAY_MAC_DINH, type LieuTrinh, type LoaiDsCskh } from "@/lib/lieu-trinh-cskh";
 
 import DatLichBuoiKe, { type MucChon } from "../_lam-viec/DatLichBuoiKe";
 import { DongLieuTrinh } from "../_lam-viec/LieuTrinhKhach";
@@ -22,7 +25,7 @@ import { useNgheBang } from "../dung-nghe-bang";
 
 type Doc = LieuTrinh[] | string | null;
 
-async function docDs(loai: "de_xuat" | "dang_do", quaNgay: number): Promise<LieuTrinh[] | string> {
+async function docDs(loai: LoaiDsCskh, quaNgay: number): Promise<LieuTrinh[] | string> {
   const q = new URLSearchParams({ loai });
   if (loai === "dang_do") q.set("qua_ngay", String(quaNgay));
   try {
@@ -107,6 +110,7 @@ export default function LieuTrinhCskh({
   locations: MucChon[];
 }) {
   const [quaNgay, setQuaNgay] = useState<number>(QUA_NGAY_MAC_DINH);
+  const [sapHet, setSapHet] = useState<Doc>(null);
   const [deXuat, setDeXuat] = useState<Doc>(null);
   const [dangDo, setDangDo] = useState<Doc>(null);
   const [lan, setLan] = useState(0);
@@ -114,15 +118,19 @@ export default function LieuTrinhCskh({
   const [thongBao, setThongBao] = useState<ThongBao | null>(null);
   const dongThongBao = useCallback(() => setThongBao(null), []);
   const napLai = useCallback(() => setLan((n) => n + 1), []);
-  useNgheBang(["lieu_trinh", "lieu_trinh_buoi", "appointment"], napLai);
+  // `tuong_tac_cskh`: [Đã xử lý] / hoàn tác ở máy khác đổi danh sách "Sắp hết".
+  useNgheBang(["lieu_trinh", "lieu_trinh_buoi", "lieu_trinh_tra_truoc", "appointment", "tuong_tac_cskh"], napLai);
 
   useEffect(() => {
     let huy = false;
-    void Promise.all([docDs("de_xuat", quaNgay), docDs("dang_do", quaNgay)]).then(([a, b]) => {
-      if (huy) return;
-      setDeXuat(a);
-      setDangDo(b);
-    });
+    void Promise.all([docDs("sap_het", quaNgay), docDs("de_xuat", quaNgay), docDs("dang_do", quaNgay)]).then(
+      ([s, a, b]) => {
+        if (huy) return;
+        setSapHet(s);
+        setDeXuat(a);
+        setDangDo(b);
+      },
+    );
     return () => {
       huy = true;
     };
@@ -131,6 +139,15 @@ export default function LieuTrinhCskh({
   return (
     <div className="space-y-5">
       <ThongBaoHoanTac thongBao={thongBao} onDong={dongThongBao} onHoanTacXong={napLai} />
+      <Nhom
+        tieuDe="Sắp hết lộ trình"
+        moTa="Còn 1 buổi, hoặc đã dùng hết buổi trả trước. Gọi tư vấn thêm buổi / đặt lịch buổi kế; xong bấm Đã xử lý."
+        ds={sapHet}
+        trong="Không có liệu trình nào sắp hết cần gọi."
+        onDatLich={setDatLich}
+        onDaDoi={napLai}
+        onBao={setThongBao}
+      />
       <Nhom
         tieuDe="Đề xuất chưa đăng ký"
         moTa="Bác sĩ đề xuất liệu trình, khách chưa nhận. Gọi mời đăng ký; tiền thu ở quầy khi khách đến."

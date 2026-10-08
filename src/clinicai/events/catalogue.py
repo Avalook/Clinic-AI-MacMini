@@ -76,6 +76,9 @@ CONG_NO = "cong_no"
 #: Lịch ĐIỀU TRỊ (07/10/2026): khách đã vào hàng → sinh sẵn chỉ định đúng dịch vụ
 #: đã đặt (`events/consumers/dieu_tri.py`). Không xếp phòng, không thu tiền khám.
 DIEU_TRI_SINH_CHI_DINH = "dieu_tri_sinh_chi_dinh"
+#: Liệu trình SẮP HẾT (08/10/2026): một buổi của liệu trình làm xong mà liệu trình
+#: chạm ngưỡng → chuông cho CSKH (`events/consumers/lieu_trinh_sap_het.py`).
+LIEU_TRINH_SAP_HET = "lieu_trinh_sap_het"
 
 
 @dataclass(frozen=True)
@@ -1449,6 +1452,7 @@ DANH_MUC: dict[str, SuKien] = {
                 VONG_DOC,
                 DOI_TAC_NHAN_VIEC,
                 CHUONG_NHAN_CHEO,
+                LIEU_TRINH_SAP_HET,
             ],
             theo_thu_tu=True,
         ),
@@ -2107,6 +2111,7 @@ def moi_consumer() -> frozenset[str]:
 __all__ = [
     "CONG_NO",
     "DIEU_TRI_SINH_CHI_DINH",
+    "LIEU_TRINH_SAP_HET",
     "CongNoDaGhi",
     "CongNoDaHuy",
     "CongNoDaThu",

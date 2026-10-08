@@ -5,6 +5,8 @@
 //   POST { thao_tac: "dung",    expected_revision, ly_do?,   idempotency_key }
 //   POST { thao_tac: "mo-lai",  expected_revision,           idempotency_key }
 //   POST { thao_tac: "hoan-tac", lich_su_id, expected_revision, idempotency_key }
+//   POST { thao_tac: "da-xu-ly-sap-het" }                  → { tuong_tac_id } (hoàn tác:
+//        POST /api/cskh/tuong-tac/{tuong_tac_id}/hoan-tac)
 //
 // Chỉ là ống dẫn: quyền (crm.manage | booking.create, khối y khoa), bản cũ
 // (409 STALE_LIEU_TRINH), bấm hai lần — FastAPI + Postgres quyết.
@@ -14,7 +16,7 @@ import { NextResponse } from "next/server";
 import { proxyJsonToBackend } from "@/lib/backend-proxy";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const LENH = new Set(["dang-ky", "dung", "mo-lai", "hoan-tac"]);
+const LENH = new Set(["dang-ky", "dung", "mo-lai", "hoan-tac", "da-xu-ly-sap-het"]);
 
 function sai(message: string) {
   return NextResponse.json({ error: "BAD_REQUEST", message }, { status: 400 });

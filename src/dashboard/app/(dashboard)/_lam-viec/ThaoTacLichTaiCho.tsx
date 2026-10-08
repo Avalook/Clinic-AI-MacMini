@@ -173,7 +173,7 @@ export function HuyLichTaiCho({
 
 /** Kết quả cuộc gọi — cùng bộ nút gọi ở Quản lý khách hàng (HanhDongTrangThai);
  *  mã khớp `KET_QUA_HOP_LE` của máy chủ. */
-const KET_QUA_GOI: [string, string][] = [
+export const KET_QUA_GOI: [string, string][] = [
   ["DA_LIEN_HE", "Đã liên hệ được"],
   ["CHUA_NGHE_MAY", "Không nghe máy"],
   ["KHONG_LIEN_LAC_DUOC", "Không liên lạc được"],
