@@ -155,6 +155,10 @@ _PROGRESS_SQL = """
            OR (a.slot_start >= $2::timestamptz AND a.slot_start < $3::timestamptz)
        )
        AND (a.status IS NULL OR a.status NOT IN ('CANCELLED', 'NO_SHOW'))
+       -- Chỉ lượt của cơ sở đang đứng (08/10/2026). Không biết cơ sở của lượt
+       -- hoặc không chọn cơ sở ($4 rỗng) → giữ.
+       AND coalesce(v.location_id, a.location_id, $4::uuid)
+           IS NOT DISTINCT FROM coalesce($4::uuid, v.location_id, a.location_id)
 """
 
 
@@ -165,7 +169,12 @@ class VisitProgressService:
         self._pool = pool
 
     async def for_range(
-        self, *, date_from: date, date_to: date, clinic_id: str | None
+        self,
+        *,
+        date_from: date,
+        date_to: date,
+        clinic_id: str | None,
+        location_id: str | None = None,
     ) -> list[VisitProgress]:
         """Flags for every live appointment from `date_from` to `date_to`.
 
@@ -187,7 +196,9 @@ class VisitProgressService:
         end = datetime.combine(date_to, time.min, tzinfo=_VN) + timedelta(days=1)
 
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(_PROGRESS_SQL, clinic_id, start, end)
+            rows = await conn.fetch(
+                _PROGRESS_SQL, clinic_id, start, end, location_id or None
+            )
             buoi = (
                 await sinh_hieu_cua_buoi_nhieu(
                     conn, clinic_id, [r["visit_id"] for r in rows]

@@ -75,6 +75,9 @@ WHERE a.slot_start >= ($1::date)::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh'
   -- đánh dấu COMPLETED sẽ là nói dối rằng bác sĩ đã khám xong. Nên chỗ lọc
   -- đúng là trạng thái LƯỢT KHÁM.
   AND coalesce(v.status, '') <> ALL ($3::text[])
+  -- Chỉ lịch của cơ sở đang đứng (08/10/2026); NULL = mọi cơ sở.
+  AND coalesce(a.location_id, $4::uuid)
+      IS NOT DISTINCT FROM coalesce($4::uuid, a.location_id)
 """
 
 _LAB_SQL = """
@@ -100,7 +103,11 @@ async def get_queue(
     """
     day = date or date_cls.today()
     appt_rows = await pool.fetch(
-        _APPT_SQL, day, identity.clinic_id, sorted(VISIT_DA_RA_VE)
+        _APPT_SQL,
+        day,
+        identity.clinic_id,
+        sorted(VISIT_DA_RA_VE),
+        identity.location_id or None,
     )
     appt_ids = [r["appointment_id"] for r in appt_rows]
 

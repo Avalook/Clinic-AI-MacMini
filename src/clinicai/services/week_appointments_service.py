@@ -67,6 +67,9 @@ WITH tuan AS (
        AND a.slot_start >= $2
        AND a.slot_start <  $3
        AND a.status <> ALL($4::text[])
+       -- Chỉ lịch của cơ sở đang đứng (hai cơ sở, 08/10/2026); NULL = mọi cơ sở.
+       AND coalesce(a.location_id, $5::uuid)
+           IS NOT DISTINCT FROM coalesce($5::uuid, a.location_id)
      -- THỨ TỰ PHẢI XÁC ĐỊNH, và bản cũ thì không.
      --
      -- Prod đang có BA lịch hẹn cùng mốc 10:15 ngày 15/07. Với `ORDER BY
@@ -228,13 +231,29 @@ class WeekAppointmentsService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def week(self, *, clinic_id: str, week_start: date) -> list[dict[str, Any]]:
-        """Bảy ngày kể từ ``week_start`` (giờ Việt Nam)."""
+    async def week(
+        self,
+        *,
+        clinic_id: str,
+        week_start: date,
+        location_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Bảy ngày kể từ ``week_start`` (giờ Việt Nam).
+
+        ``location_id``: chỉ lịch của cơ sở ấy; ``None`` = mọi cơ sở.
+        """
         start = _vn_midnight(week_start)
         end = _vn_midnight(week_start + timedelta(days=7))
 
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(_SQL, clinic_id, start, end, list(HIDDEN_STATUSES))
+            rows = await conn.fetch(
+                _SQL,
+                clinic_id,
+                start,
+                end,
+                list(HIDDEN_STATUSES),
+                location_id or None,
+            )
             # Khách đang ở / đang chờ ở đâu — cùng hàm với Hành trình khách,
             # chỉ cho lượt CÒN MỞ (thường chỉ hôm nay, vài chục lượt).
             dang_o = await dang_o_cac_luot(
