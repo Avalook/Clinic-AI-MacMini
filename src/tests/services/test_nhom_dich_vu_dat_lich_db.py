@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import re
 import uuid
 from uuid import UUID
 
@@ -66,7 +67,11 @@ async def test_sau_loai_dieu_tri_tro_dung_dong_gia(pool: asyncpg.Pool) -> None: 
         """,
         CLINIC,
     )
-    theo_ma = {r["code"]: r for r in rows}
+    # Bỏ loại điều trị do bài liệu trình tự dựng (`dung_ca`: mã "DT-<8 hex>") —
+    # cùng DB test, thứ tự chạy khác nhau thì chúng có hoặc không.
+    theo_ma = {
+        r["code"]: r for r in rows if not re.fullmatch(r"DT-[0-9a-f]{8}", r["code"])
+    }
     assert set(theo_ma) == set(GIA_DIEU_TRI)
     for ma, gia in GIA_DIEU_TRI.items():
         r = theo_ma[ma]
