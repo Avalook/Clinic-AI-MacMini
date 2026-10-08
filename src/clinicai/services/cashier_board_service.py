@@ -106,8 +106,10 @@ WITH v AS (
            a.so_tiep_don,
            st.name                 AS exam_service_name,
            bs.full_name            AS bac_si,
+           -- Đã về: check-out (`closed_at`) hoặc lượt đã đóng — FINALIZED,
+           -- AMENDED, INCOMPLETE (về giữa chừng) đều không tick lại ở quầy.
            (vi.closed_at IS NOT NULL
-            OR vi.status NOT IN ('OPEN', 'IN_PROGRESS')) AS da_ve,
+            OR vi.status IN ('FINALIZED', 'AMENDED', 'INCOMPLETE')) AS da_ve,
            -- CHỜ Ở QUẦY TỪ LÚC NÀO (27/09/2026): chỉ định còn nợ sớm nhất (lúc
            -- bác sĩ chỉ định); không có chỉ định thì lúc khám xong, rồi check-in.
            coalesce(
