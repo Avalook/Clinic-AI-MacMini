@@ -89,9 +89,9 @@ def gom_thuoc_theo_khach(
     """
     tra: dict[str, tuple[Decimal, Decimal]] = {}
     for h in hoan:
-        k = str(h.get("bill_line_id"))
-        sl, tt = tra.get(k, (_0, _0))
-        tra[k] = (
+        khoa = str(h.get("bill_line_id"))
+        sl, tt = tra.get(khoa, (_0, _0))
+        tra[khoa] = (
             sl + (_so(h.get("quantity")) or _0),
             tt + (_so(h.get("amount")) or _0),
         )

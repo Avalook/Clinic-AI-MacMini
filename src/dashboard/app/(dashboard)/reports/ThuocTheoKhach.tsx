@@ -103,8 +103,8 @@ export default function ThuocTheoKhach({ data }: { data: ThuocTheoKhachData }) {
       {data.khach.length === 0 ? (
         <p className="text-meta text-ink-muted">Không có khách nào có đơn thuốc trong khoảng này.</p>
       ) : (
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(240px,0.8fr)_minmax(0,1.6fr)]">
-          <ul className="divide-y divide-surface-sunken overflow-hidden rounded-card border border-line bg-surface shadow-card print:hidden">
+        <div className="grid items-start gap-4 lg:grid-cols-3">
+          <ul className="min-w-0 divide-y divide-surface-sunken overflow-hidden rounded-card border border-line bg-surface shadow-card print:hidden">
             {data.khach.map((k) => {
               const dang = dangXem?.visit_id === k.visit_id;
               return (
@@ -132,7 +132,7 @@ export default function ThuocTheoKhach({ data }: { data: ThuocTheoKhachData }) {
           </ul>
 
           {dangXem ? (
-            <section className="space-y-2 rounded-card border border-line bg-surface p-3 shadow-card">
+            <section className="min-w-0 space-y-2 rounded-card border border-line bg-surface p-3 shadow-card lg:col-span-2">
               <div>
                 <h4 className="text-body font-semibold text-ink">
                   {dangXem.khach ?? "—"}
