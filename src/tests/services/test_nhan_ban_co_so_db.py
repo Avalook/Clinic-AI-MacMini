@@ -578,7 +578,7 @@ async def test_tu_choi_khi_khong_ro_kim_nguu(pool: asyncpg.Pool, pk: PK) -> None
 
 async def test_chep_kho_theo_trang_thai_migration(pool: asyncpg.Pool, pk: PK) -> None:
     """Chưa có cột `drug_batch.location_id` → bỏ qua, báo rõ. Có cột (migration
-    kho 20261008200000) → lô KN sang HN cùng số lô, tồn ghi qua sổ RECEIVE."""
+    kho 20261008710000) → lô KN sang HN cùng số lô, tồn ghi qua sổ RECEIVE."""
     co_cot = await pool.fetchval(
         "SELECT 1 FROM information_schema.columns WHERE table_schema = 'public'"
         " AND table_name = 'drug_batch' AND column_name = 'location_id'"

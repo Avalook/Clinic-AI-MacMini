@@ -65,7 +65,7 @@ DIA_CHI_HN = (
     "Tầng 1, 2, 3 Nhà số 24 Ngõ 168 Phố Hào Nam, Phường Ô Chợ Dừa, Thành phố Hà Nội"
 )
 SDT_HN = "0966 558 833"
-#: Tên in trên phiếu của cơ sở (cột `ten_in`, migration 20261008100000).
+#: Tên in trên phiếu của cơ sở (cột `ten_in`, migration 20261008700000).
 TEN_IN_HN = "Phòng khám chuyên khoa - Phụ sản 4WOMEN"
 TIEN_TO_VI_TRI = "HN__"
 #: Dấu nguồn ghi vào `ly_do` / `ghi_chu` các dòng script tạo — để gỡ đúng dòng.

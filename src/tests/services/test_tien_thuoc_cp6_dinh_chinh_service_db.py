@@ -378,7 +378,7 @@ async def test_ham_db_doc_don_deu_da_duyet(q: Quay) -> None:
         # đọc THEO ID dòng của chính giao dịch / phân lô — tự kiểm removed_at
         "drug_return_guard": "trả thuốc theo lần giao gốc (đối soát được)",
         "inventory_txn_ban_hop_le": "theo phân lô; chặn SALE/DISPENSE lịch sử",
-        # chỉ tra lượt của dòng sổ để so cơ sở kho (20261008200000)
+        # chỉ tra lượt của dòng sổ để so cơ sở kho (20261008710000)
         "inventory_txn_dung_co_so": "theo id dòng đơn — lấy lượt so cơ sở",
         "prescription_allocation_guard": "theo dòng; chặn phân lô lịch sử",
         "prescription_dinh_chinh_guard": "guard của chính bảng",

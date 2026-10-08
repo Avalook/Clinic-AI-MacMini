@@ -257,7 +257,7 @@ async def test_lo_cua_phong_kham_khac_bi_tu_choi_ca_o_db(q: Quay) -> None:
         " VALUES ($1::uuid, 'X', 'X') RETURNING id::text",
         khac,
     )
-    # Lô thuộc một cơ sở CỦA phòng khám khác (kho theo cơ sở, 20261008200000).
+    # Lô thuộc một cơ sở CỦA phòng khám khác (kho theo cơ sở, 20261008710000).
     co_so_khac = await q.pool.fetchval(
         "INSERT INTO clinic_location (clinic_id, code, name, is_active)"
         " VALUES ($1::uuid, 'X', 'Cơ sở X', false) RETURNING id::text",

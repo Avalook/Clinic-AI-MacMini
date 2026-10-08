@@ -44,7 +44,7 @@ BEGIN
     VALUES ('Kiểm thử', 'Thuốc kiểm thử 500mg', v_clinic)
     RETURNING id INTO v_thuoc;
 
-    -- Lô thuộc một cơ sở CỦA phòng khám (khoá ngoại ghép, 20261008200000).
+    -- Lô thuộc một cơ sở CỦA phòng khám (khoá ngoại ghép, 20261008710000).
     INSERT INTO public.drug_batch
         (clinic_id, location_id, drug_catalog_id, batch_code, expiry_date,
          quantity_on_hand, unit, received_at)

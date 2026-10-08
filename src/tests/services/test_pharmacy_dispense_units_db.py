@@ -96,7 +96,7 @@ async def stock_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
             END $$;
             CREATE TRIGGER apply_stock AFTER INSERT ON inventory_txn
             FOR EACH ROW EXECUTE FUNCTION pg_temp.apply_stock();
-            -- Kho theo cơ sở (20261008200000): bài này chỉ kiểm ĐƠN VỊ, một
+            -- Kho theo cơ sở (20261008710000): bài này chỉ kiểm ĐƠN VỊ, một
             -- cơ sở — lô luôn đúng cơ sở của lượt.
             CREATE FUNCTION pg_temp.lo_dung_co_so_luot(uuid, uuid, uuid)
             RETURNS boolean LANGUAGE sql AS 'SELECT true';

@@ -2,7 +2,7 @@
 
 Trước đó `place_visit_at_first_station` và `move_visit_to_station` chọn/nhận
 phòng theo node của CẢ phòng khám — khách Hào Nam check-in có thể bị đặt vào
-phòng Kim Ngưu. Chốt nằm ở Postgres (migration 20261008100000).
+phòng Kim Ngưu. Chốt nằm ở Postgres (migration 20261008700000).
 """
 
 from __future__ import annotations
