@@ -9,6 +9,11 @@ paths:
 - Lược đồ = `supabase/migrations/*.sql` (theo git). Đổi database = **migration
   MỚI**; không sửa migration cũ, **không bao giờ** sửa lược đồ bằng tay.
 - Mỗi việc chạy song song dùng **một dải giờ migration riêng** để tên tệp không đè nhau.
+  Sổ migration khoá theo **số** (phần trước `_`), nên số phải duy nhất trên MỌI nhánh
+  đợt, không chỉ `main` — trùng số thì bên lên sau bị **bỏ qua im lặng** (08/10/2026:
+  Hào Nam và liệu trình cùng lấy `20261008100000`). Soát trước khi tạo tệp:
+  `git fetch origin && for b in $(git branch -r | grep -o 'origin/dot/[^ ]*'); do git diff --name-only origin/main...$b -- supabase/migrations; done`.
+  An toàn nhất: lấy giờ thật lúc tạo tệp (`date +%Y%m%d%H%M%S`).
 - Áp bằng **`scripts/apply-pending-migrations.sh`** — nó so thư mục với sổ ghi và
   áp mỗi migration cùng dòng ghi sổ trong một giao dịch. **Không dùng `supabase db push`.**
   Test: `scripts/test-nhanh.sh` tự áp migration của nhánh vào DB tạm mỗi lượt (bản
