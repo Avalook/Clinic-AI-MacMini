@@ -422,7 +422,8 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Đối tác (người NGOÀI phòng khám) và màn TV cũng không có lịch làm việc
   // (17/09/2026: thanh bên đối tác hiện "Lịch làm việc").
   "/schedule": ALL_ROLES.filter((r) => r !== "CSKH" && r !== "PARTNER" && r !== "DISPLAY"),
-  "/reports": ["MANAGEMENT"],
+  "/reports": ["MANAGEMENT", "TRUONG_CA"],
+  "/bao-cao-ca": ALL_ROLES.filter((r) => r !== "PARTNER" && r !== "DISPLAY"),
   // Lịch sử thao tác (audit log) — CSKH + Quản lý + Trưởng ca.
   "/audit-log": ["CSKH", "MANAGEMENT"],
   // Duyệt kết quả theo chỉ định — thay /result-review. Chỉ bác sĩ (duyệt là
@@ -513,6 +514,10 @@ export function hienTrenThanhBen(
   quyen: readonly string[] | null = null,
 ): boolean {
   if (TAT_KHOI_THANH_BEN.has(href)) return false;
+  if (href === "/bao-cao-ca") {
+    return role !== null && role !== "PARTNER" && role !== "DISPLAY" &&
+      !(quyen !== null ? quyenMoDuocMan(quyen, "/reports") : canSeeNavGoc(role, "/reports"));
+  }
   // THANH BÊN DỰNG THEO LEGO CỦA TÀI KHOẢN (Tuyền 25/09/2026): màn thuộc một
   // lego thì hiện KHI VÀ CHỈ KHI có quyền mở nó — thu lego là mất mục, cấp là
   // có, không phụ thuộc vai. Người ngoài phòng khám (DISPLAY, PARTNER) và màn
@@ -717,7 +722,7 @@ export const GIU_LOI_VAO_CU: Readonly<Record<string, readonly ClinicRole[]>> = {
  *  được bằng lego — kể cả khi mọi lego mang vai của tài khoản đều tắt (vai hôm
  *  nay rỗng). Cửa xét VAI TÀI KHOẢN: mọi thành viên nội bộ, trừ đối tác và TV
  *  (khớp `la_noi_bo` ở identity.py — đợt 3, 27/09/2026). */
-export const LUON_BAT: readonly string[] = ["/home", "/hanh-trinh"];
+export const LUON_BAT: readonly string[] = ["/home", "/hanh-trinh", "/bao-cao-ca"];
 
 export function luonBatChoVaiGoc(href: string, vaiGoc: ClinicRole | null): boolean {
   return (

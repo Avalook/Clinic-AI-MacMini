@@ -1001,6 +1001,14 @@ class BaoCaoCuoiNgayService:
             from clinicai.services.cong_no_service import doc_khach_con_no
 
             con_no = await doc_khach_con_no(conn, cid, location_id=cs)
+            # Nợ TRONG CA (09/10/2026): ghi mới / thu lại / huỷ trong khung ca.
+            from clinicai.services.cong_no_service import doc_no_trong_khung
+
+            no_trong_ca = (
+                await doc_no_trong_khung(conn, cid, khung[0], khung[1], location_id=cs)
+                if khung
+                else None
+            )
             ds_co_so = await doc_ds_co_so(conn, cid)
             # Tiền thừa (06/10/2026, E2c): đã hoàn / giữ lại / còn treo — tiền
             # DỊCH VỤ, báo cáo quầy thuốc không có.
@@ -1049,6 +1057,7 @@ class BaoCaoCuoiNgayService:
             so_luot_khong_chon_dich_vu_kham=sum(luot_khong_chon.values()),
         )
         bc["khach_con_no"] = con_no
+        bc["no_trong_ca"] = no_trong_ca
         bc["tien_thua"] = tien_thua
         bc["loai"] = loai_loc
         bc["ca"] = khung[2] if khung else None

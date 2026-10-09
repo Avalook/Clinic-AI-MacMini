@@ -14,6 +14,7 @@ from clinicai.api.identity import (
     ClinicRole,
     RoleGuard,
     StaffIdentity,
+    cua_noi_bo,
     get_current_identity,
 )
 from clinicai.api.v1.routers import tools as tools_module
@@ -123,6 +124,19 @@ def test_reports_and_the_staff_roster_are_management_only_reads() -> None:
         calls = _dependency_calls(route)
         assert not [c for c in calls if isinstance(c, RoleGuard)], path
         assert _quyen_cua(calls) == {quyen}, path
+
+
+def test_bao_cao_ca_cua_toi_cua_noi_bo_va_khong_nhan_ngay() -> None:
+    """09/10/2026: /reports/ca-cua-toi KHÔNG đòi lego Báo cáo — cửa là thành viên
+    nội bộ (như màn luôn bật), quyền thật suy từ lịch trực trong service. Không
+    có tham số ngày: client không xin được số ngày khác."""
+    route = next(r for r in _routes(reports_router) if r.path == "/reports/ca-cua-toi")
+    calls = _dependency_calls(route)
+    assert cua_noi_bo in calls
+    assert not [c for c in calls if isinstance(c, RoleGuard)]
+    assert _quyen_cua(calls) == set()
+    tham_so = {p.name for p in route.dependant.query_params}
+    assert tham_so == {"ca", "co_so", "loai"}
 
 
 def _identity() -> StaffIdentity:

@@ -61,7 +61,7 @@ VAI_NOI_BO = (
 )
 
 #: Mẫu quyền mọi người phải có sau khi mở (thu tiền DV + thuốc, khám, hoàn tất,
-#: duyệt KQ, kho, điều phối, bảng giá, báo cáo…).
+#: duyệt KQ, kho, điều phối, bảng giá…).
 PHAI_CO = (
     "payment.service.collect",
     "payment.medicine.collect",
@@ -73,9 +73,11 @@ PHAI_CO = (
     "pharmacy.dispense",
     "dispatch.manage",
     "price.service.manage",
-    "report.view",
     "booking.manage",
 )
+#: 09/10/2026: lego Báo cáo thu về Quản lý + Trưởng ca (migration 20261010300000)
+#: — nhân viên khác xem báo cáo ca mình ở /bao-cao-ca.
+CHI_TRUONG_CA = ("report.view",)
 CHI_QUAN_LY = tuple(q.ma for q in QUYEN.values() if q.khoi in KHOI_CHI_QUAN_LY)
 
 
@@ -106,6 +108,8 @@ async def test_moi_vai_noi_bo_du_lego_tru_bon_khoi_quan_ly(
             assert await can(conn, ai, q), f"{vai} thiếu {q}"
         for q in CHI_QUAN_LY:
             assert not await can(conn, ai, q), f"{vai} không được có {q}"
+        for q in CHI_TRUONG_CA:
+            assert await can(conn, ai, q) is (vai == "TRUONG_CA"), f"{vai} · {q}"
 
 
 async def test_quan_ly_van_giu_bon_khoi_doi_tac_chi_co_doi_tac(kb: KichBan) -> None:

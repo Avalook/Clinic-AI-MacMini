@@ -814,11 +814,23 @@ KHOI_CHI_QUAN_LY: frozenset[str] = frozenset(
 )
 
 #: Khối mở cho MỌI nhân sự nội bộ.
-KHOI_MO_FULL: list[str] = [k for k in KHOI if k not in KHOI_CHI_QUAN_LY]
+KHOI_MO_FULL: list[str] = [
+    k for k in KHOI if k not in KHOI_CHI_QUAN_LY and k != "bao_cao"
+]
 
 for _vai in PRESET:
     if _vai not in ("PARTNER", "MANAGEMENT"):
-        PRESET[_vai] = list(KHOI_MO_FULL)
+        PRESET[_vai] = [*KHOI_MO_FULL, *(["bao_cao"] if _vai == "TRUONG_CA" else [])]
+
+#: Khối THU LẠI khỏi "mở full" — chỉ Quản lý + Trưởng ca giữ (Tuyền 09/10/2026:
+#: ai cũng xem được /reports mọi ngày mọi ca). Nhân viên khác xem báo cáo CA
+#: MÌNH TRỰC ở /bao-cao-ca (quyền suy từ lịch trực, không lego). Migration
+#: 20261010300000 thu đúng dòng mở full + sửa `quyen_preset` y hệt.
+KHOI_CHI_QUAN_LY_TRUONG_CA: frozenset[str] = frozenset({"bao_cao"})
+
+for _vai in PRESET:
+    if _vai not in ("PARTNER", "MANAGEMENT", "TRUONG_CA"):
+        PRESET[_vai] = [k for k in PRESET[_vai] if k not in KHOI_CHI_QUAN_LY_TRUONG_CA]
 
 
 # ── QUYỀN THEO MÀN (Tuyền chốt 23/09/2026) ───────────────────────────────
@@ -1037,6 +1049,9 @@ MAN: dict[str, Man] = {
 LUON_BAT: list[tuple[str, str]] = [
     ("Trang chủ", "/home"),
     ("Hành trình khách hôm nay", "/hanh-trinh"),
+    # 09/10/2026: báo cáo bán hàng của ca mình trực hôm nay — máy chủ soát lịch
+    # trực (`bao_cao_ca_cua_toi_service`); không có ca thì màn báo, không lộ số.
+    ("Báo cáo ca của tôi", "/bao-cao-ca"),
 ]
 
 #: (Cũ — thay bằng lego 11–13, 21 và LUON_BAT từ 25/09/2026.) Giữ tên để màn
@@ -1132,6 +1147,7 @@ __all__ = [
     "KHOI",
     "KHOI_AN",
     "KHOI_CHI_QUAN_LY",
+    "KHOI_CHI_QUAN_LY_TRUONG_CA",
     "KHOI_MO_FULL",
     "LUON_BAT",
     "MAN",

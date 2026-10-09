@@ -16,9 +16,10 @@ import asyncpg
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.identity import StaffIdentity, cua_noi_bo
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services.bao_cao_ca_cua_toi_service import BaoCaoCaCuaToiService
 from clinicai.services.bao_cao_cuoi_ngay_service import (
     BaoCaoCuoiNgayService,
     csv_bao_cao,
@@ -129,6 +130,25 @@ async def bao_cao_cuoi_ngay(
     Không chọn cơ sở → thêm ``theo_co_so`` (từng cơ sở, tiền cộng lại = tổng)."""
     return await BaoCaoCuoiNgayService(pool).bao_cao(
         identity=identity, tu=tu, den=den, loai=loai, co_so=co_so, ca=ca
+    )
+
+
+@router.get("/reports/ca-cua-toi")
+async def bao_cao_ca_cua_toi(
+    ca: str | None = Query(
+        None,
+        description="SANG | CHIEU | TOI; rỗng = ca hiện tại (nếu trực); rác = 403",
+    ),
+    co_so: str | None = Query(None, description="Cơ sở trong lịch trực hôm nay"),
+    loai: str | None = Query(None, max_length=20, description="dich_vu | thuoc"),
+    identity: StaffIdentity = Depends(cua_noi_bo),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Báo cáo bán hàng của ca MÌNH trực HÔM NAY (09/10/2026) — không cần lego
+    Báo cáo. Cửa = mọi thành viên nội bộ (cùng luật màn luôn bật); quyền thật
+    suy từ lịch trực bên trong service. KHÔNG nhận ngày: luôn là hôm nay."""
+    return await BaoCaoCaCuaToiService(pool).bao_cao(
+        identity=identity, ca=ca, co_so=co_so, loai=loai
     )
 
 

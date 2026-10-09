@@ -40,7 +40,7 @@ hệ thống: một khung bắt đầu đúng 17:30 thuộc ca TỐI, không thu
 from __future__ import annotations
 
 import json
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 Window = tuple[int, int]
 
@@ -348,6 +348,31 @@ def khung_chot_ca(ca: str, bang: Mapping[str, Window] | None = None) -> Window |
             hi = co_mat[i + 1][0] if i + 1 < len(co_mat) else 24 * 60
             return (lo, hi)
     return None
+
+
+def ca_xem_duoc(
+    dong_lich: Iterable[Mapping[str, Any]], co_so_mac_dinh: str | None = None
+) -> set[tuple[str, str]]:
+    """Dòng lịch trực HÔM NAY của một người → các cặp (ca, cơ sở) người ấy được
+    xem báo cáo bán hàng (Tuyền 09/10/2026: ai có tên trong ca nào, ở cơ sở nào
+    thì chỉ xem đúng ca ấy, cơ sở ấy).
+
+    Mỗi dòng cần ``shift``, ``status``, ``co_so`` (cơ sở của vị trí; ``None`` =
+    vị trí chưa gắn cơ sở). ``FULL`` = cả ba ca. Bỏ dòng ``REJECTED``. Nhãn ca lạ
+    → bỏ (đóng, không mở — khác ``shift_windows``: đây là cửa quyền). Cơ sở
+    trống → ``co_so_mac_dinh`` (phòng khám chỉ có MỘT cơ sở); vẫn trống thì bỏ.
+    """
+    ra: set[tuple[str, str]] = set()
+    for d in dong_lich:
+        if str(d.get("status") or "").upper() == "REJECTED":
+            continue
+        co_so = d.get("co_so") or co_so_mac_dinh
+        if not co_so:
+            continue
+        nhan = str(d.get("shift") or "").strip().upper()
+        cac = CAC_CA if nhan == "FULL" else tuple([nhan]) if nhan in CAC_CA else ()
+        ra |= {(c, str(co_so)) for c in cac}
+    return ra
 
 
 def merge_windows(windows: list[Window]) -> list[Window]:

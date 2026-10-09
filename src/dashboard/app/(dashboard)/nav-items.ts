@@ -216,6 +216,7 @@ export const NAV: NavItem[] = [
     label: "Lịch đổ về",
     icon: CalendarRange,
   },
+  { href: "/bao-cao-ca", label: "Báo cáo ca của tôi", icon: BarChart3 },
   { href: "/reports", label: "Báo cáo", icon: BarChart3 },
   {
     href: "/audit-log",
@@ -657,7 +658,7 @@ export function nhomThanhBen(
   const daCo = new Set(nhom.flatMap((g) => g.muc.map((i) => i.href)));
   const dau = [
     ...homNay.filter((i) => i.href === "/home"),
-    ...theoVai.filter((i) => i.href === "/hanh-trinh" && !daCo.has(i.href)),
+    ...theoVai.filter((i) => (i.href === "/hanh-trinh" || i.href === "/bao-cao-ca") && !daCo.has(i.href)),
   ];
   for (const i of dau) daCo.add(i.href);
   daCo.add("/home");
@@ -773,7 +774,7 @@ export function xepNodeCon<T extends { href: string; cha?: string }>(ds: T[][]):
 // khách thay vì một danh sách phẳng 17 mục. Chỉ là TRÌNH BÀY: mục nào hiện vẫn
 // do `mucHienRa` / lego quyết; mục không thuộc nhóm nào rơi vào "Khác".
 export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly string[] }[] = [
-  { ma: "hom-nay", ten: "Hôm nay", hrefs: ["/home", "/viec-can-xu-ly", "/hanh-trinh"] },
+  { ma: "hom-nay", ten: "Hôm nay", hrefs: ["/home", "/viec-can-xu-ly", "/hanh-trinh", "/bao-cao-ca"] },
   {
     ma: "tiep-don",
     ten: "Tiếp đón & thu",
