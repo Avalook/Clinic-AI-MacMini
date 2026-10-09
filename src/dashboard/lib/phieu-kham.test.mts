@@ -7,6 +7,9 @@ import { vnYmd } from "./datetime.ts";
 import { docNhoGap, ghiNhoGap, moBanDau, type KhoNho } from "./ngan-gap.ts";
 import {
   anhInDuoc,
+  danhSachThuThuatBanKham,
+  docKhoi1,
+  mucAnKhoi1,
   phanChiDinh,
   chipMauDanhMuc,
   coGiaTriO,
@@ -110,6 +113,34 @@ test("dongKetQua: bỏ ô trống, tách Kết luận, gắn đơn vị cho số
   const { dong, ketLuan } = dongKetQua(k);
   assert.deepEqual(dong, [{ nhan: "Tử cung", gia: "45 mm" }]);
   assert.equal(ketLuan, "Bình thường");
+});
+
+test("dongKetQua: đơn vị theo don_vi (09/10/2026); goi_y là gợi ý cách gõ thì không nối", () => {
+  const k = {
+    loai: "PHIEU",
+    ten: "Siêu âm thai",
+    khung: [
+      {
+        ma: "do",
+        ten: "Số đo",
+        block: [
+          { ma: "bpp", ten: "BPP", kieu: "text", goi_y: "điểm", don_vi: "điểm" },
+          { ma: "ga", ten: "GA", kieu: "text", goi_y: "tuần + ngày" },
+          { ma: "so_thai", ten: "Số thai", kieu: "text", don_vi: "thai" },
+        ],
+      },
+    ],
+    du_lieu: {
+      bpp: { gia_tri: "8" },
+      ga: { gia_tri: "34" },
+      so_thai: { gia_tri: "01" },
+    },
+  } as unknown as KetQuaMotChiDinh;
+  assert.deepEqual(dongKetQua(k).dong, [
+    { nhan: "BPP", gia: "8 điểm" },
+    { nhan: "GA", gia: "34" },
+    { nhan: "Số thai", gia: "01 thai" },
+  ]);
 });
 
 test("tachDanhMucKhac: nhóm phiếu giấy giữ nguyên, nhóm bảng giá gom một danh sách", () => {
@@ -488,5 +519,67 @@ test("phanChiDinh: điều trị theo cờ máy chủ, một chỉ định một
   const chuaNap = phanChiDinh([gheDien, datVong]);
   assert.deepEqual(chuaNap.dieuTri, [gheDien]);
   assert.deepEqual(chuaNap.cls, [datVong]);
-  assert.deepEqual(phanChiDinh([], maTT), { dieuTri: [], thuThuat: [], cls: [] });
+  assert.deepEqual(phanChiDinh([], maTT), { dieuTri: [], thuThuat: [], cls: [], banKham: [] });
+});
+
+// Khối 1 theo loại lượt (09/10/2026): chỉ định `ban_kham` (máy chủ) của lượt
+// Điều trị / Thủ thuật về khối 1, không rơi vào khối 3; lượt khám thường như cũ.
+test("phanChiDinh: khoi1 khác null → chỉ định ban_kham ở khối 1, không ở khối 3", () => {
+  const cd = (service_code: string, co: { dieu_tri?: boolean; ban_kham?: boolean } = {}) =>
+    ({ service_order_id: service_code, service_code, ...co }) as unknown as ChiDinhVaKetQua;
+  const laser = cd("LASER", { dieu_tri: true, ban_kham: true });
+  const thaoQue = cd("TT_THAO_QUE", { ban_kham: true }); // thủ thuật của lượt Thủ thuật
+  const datVong = cd("TT_DAT_VONG"); // kê ở lưới khối 3 lượt khác
+  const sieuAm = cd("SA_2D");
+  const maTT = new Set(["TT_THAO_QUE", "TT_DAT_VONG"]);
+  const tt = phanChiDinh([sieuAm, laser, thaoQue, datVong], maTT, "THU_THUAT");
+  assert.deepEqual(tt.banKham, [laser, thaoQue]);
+  assert.deepEqual(tt.dieuTri, []);
+  assert.deepEqual(tt.thuThuat, [datVong]);
+  assert.deepEqual(tt.cls, [sieuAm]);
+  const dtri = phanChiDinh([laser, sieuAm], maTT, "DIEU_TRI");
+  assert.deepEqual(dtri.banKham, [laser]);
+  assert.deepEqual(dtri.dieuTri, []);
+  // Lượt khám thường: cờ ban_kham bị bỏ qua — điều trị vẫn ở khối 3.
+  const thuong = phanChiDinh([laser, thaoQue], maTT);
+  assert.deepEqual(thuong.banKham, []);
+  assert.deepEqual(thuong.dieuTri, [laser]);
+  assert.deepEqual(thuong.thuThuat, [thaoQue]);
+});
+
+test("docKhoi1 / mucAnKhoi1: rác → null; chỉ lượt Điều trị ẩn A/B", () => {
+  assert.equal(docKhoi1("DIEU_TRI"), "DIEU_TRI");
+  assert.equal(docKhoi1("THU_THUAT"), "THU_THUAT");
+  for (const rac of [null, undefined, "", "PK", 1, {}]) assert.equal(docKhoi1(rac), null);
+  assert.deepEqual(mucAnKhoi1("DIEU_TRI"), ["A", "B"]);
+  assert.deepEqual(mucAnKhoi1("THU_THUAT"), []); // mục B (ô chữ tự do) vẫn hiện
+  assert.deepEqual(mucAnKhoi1(null), []);
+});
+
+test("danhSachThuThuatBanKham: mỗi thủ thuật một lần, bỏ dòng khoá / chưa có mã, lọc theo chữ", () => {
+  const ds: NhomCls[] = [
+    {
+      nhom: "Thủ thuật",
+      muc: [
+        { nhan: "Tháo que tránh thai", cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: "TT_THAO_QUE", gia: 700000 },
+        { nhan: "Đặt vòng", cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: "TT_DAT_VONG", gia: 1000000 },
+        { nhan: "Chưa có giá", cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: null },
+        { nhan: "Bị khoá", cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: "TT_KHOA", khoa: "chưa gắn" },
+      ],
+    },
+    {
+      nhom: "Sàn chậu",
+      muc: [{ nhan: "Tháo que (lặp)", cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: "TT_THAO_QUE" }],
+    },
+  ];
+  assert.deepEqual(
+    danhSachThuThuatBanKham(ds, "").map((m) => m.service_code),
+    ["TT_THAO_QUE", "TT_DAT_VONG"],
+  );
+  assert.deepEqual(
+    danhSachThuThuatBanKham(ds, "thao QUE").map((m) => m.service_code),
+    ["TT_THAO_QUE"],
+  );
+  assert.deepEqual(danhSachThuThuatBanKham(ds, "không có"), []);
+  assert.deepEqual(danhSachThuThuatBanKham([], "que"), []);
 });

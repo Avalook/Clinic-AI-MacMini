@@ -12,6 +12,8 @@ thái lượt, không biết mốc chốt nằm ở đâu. Nó chỉ nhận MỘ
 Giá trị lạ hoặc thiếu → CHẶN (đóng khi nghi ngờ). Một phiếu mở ra ghi được chỉ
 vì shell quên truyền chế độ là đúng loại lỗi không ai thấy cho tới ngày có
 chuyện.
+
+Cuối tệp: `che_do_khoi1` — khối 1 vẽ gì theo loại khám của lượt.
 """
 
 from __future__ import annotations
@@ -44,4 +46,41 @@ def doi_ghi_duoc(che_do: object) -> None:
         raise ValidationError("Hồ sơ đã chốt — phiếu chỉ còn đọc.")
 
 
-__all__ = ["CHE_DO", "CheDo", "doi_ghi_duoc", "ghi_duoc", "kiem_che_do"]
+# ---------------------------------------------------------------------------
+# KHỐI 1 theo loại lượt (Tuyền chốt 09/10/2026). Khác ba chế độ trên: đây là
+# LOẠI KHÁM của lượt quyết khối 1 "Thông tin cơ bản" vẽ gì; khối 2–4 không đổi.
+#   DIEU_TRI   lượt Điều trị (6 loại DT_*): phiếu cảm nhận + liệu trình + làm
+#              tại bàn khám thay mục A/B.
+#   THU_THUAT  lượt Thủ thuật: chọn thủ thuật đã làm (làm luôn tại bàn khám)
+#              trên đầu; mục B (ô chữ tự do của phiếu thủ thuật) vẫn ở dưới.
+#   None       sáu loại khám có phiếu riêng, Sàn chậu, Khác — như cũ.
+# ---------------------------------------------------------------------------
+
+Khoi1 = Literal["DIEU_TRI", "THU_THUAT"]
+KHOI1_DIEU_TRI: Khoi1 = "DIEU_TRI"
+KHOI1_THU_THUAT: Khoi1 = "THU_THUAT"
+
+
+def che_do_khoi1(nhom: object, form_code: object) -> Khoi1 | None:
+    """Khối 1 của hồ sơ khám theo loại khám của lượt — hàm thuần, không ném.
+
+    ``nhom`` = ``service_type.nhom``; ``form_code`` = phiếu gắn với loại khám.
+    Điều trị thắng (nhóm là nguồn chuẩn); giá trị lạ / thiếu → None (như cũ)."""
+    if nhom == "DIEU_TRI":
+        return KHOI1_DIEU_TRI
+    if form_code == "THU_THUAT":
+        return KHOI1_THU_THUAT
+    return None
+
+
+__all__ = [
+    "CHE_DO",
+    "KHOI1_DIEU_TRI",
+    "KHOI1_THU_THUAT",
+    "CheDo",
+    "Khoi1",
+    "che_do_khoi1",
+    "doi_ghi_duoc",
+    "ghi_duoc",
+    "kiem_che_do",
+]

@@ -37,6 +37,9 @@ export interface HanhTrinhGon extends DangO {
   lam_them?: string[];
   xong_buoi: boolean;
   doan: TrangThaiBuoc[];
+  /** Song song `doan`: đoạn nào là bước / thẻ "bấm dồn?" (09/10/2026). Máy chủ
+   *  cũ chưa trả → không có. */
+  doan_bam_don?: boolean[];
   dv_xong: number;
   dv_tong: number;
   con_cho: string[];
@@ -47,19 +50,32 @@ export interface LanLam {
   so: number;
   trang_thai: string | null;
   vao: string | null;
+  /** Khách rời hàng rồi về lại: giờ về lại (09/10/2026). */
+  quay_lai?: string | null;
   bat_dau: string | null;
   xong: string | null;
   /** Lần bị dừng giữa chừng: giờ dừng. */
   dung: string | null;
 }
 
-export interface TheDichVu {
+/** Dấu "bấm dồn?" (Tuyền 09/10/2026) — MÁY CHỦ quyết (`ly_do_bam_don`): đã
+ *  xong mà không có giờ bắt đầu thật, hoặc bắt đầu và xong trong cùng một phút.
+ *  Máy chủ cũ chưa trả → không có. */
+export interface CoBamDon {
+  bam_don?: boolean;
+  bam_don_ly_do?: string | null;
+}
+
+export interface TheDichVu extends CoBamDon {
   id: string | null;
   ten: string;
   noi: string;
   doi_tac: boolean;
   trang_thai: TrangThaiThe;
+  /** Giờ vào hàng LẦN ĐẦU (09/10/2026 — trước đây là lần gần nhất). */
   vao: string | null;
+  /** Khách rời hàng rồi về lại: giờ về lại. */
+  quay_lai?: string | null;
   bat_dau: string | null;
   xong: string | null;
   thu: string | null;
@@ -77,13 +93,16 @@ export interface TheDichVu {
   xong_boi?: string | null;
 }
 
-export interface BuocHanhTrinh {
+export interface BuocHanhTrinh extends CoBamDon {
   ma: string;
   ten: string;
   trang_thai: TrangThaiBuoc;
   noi: string;
   ai: string | null;
+  /** Giờ vào hàng LẦN ĐẦU (09/10/2026). */
   vao: string | null;
+  /** Khách rời hàng rồi về lại (ví dụ đi làm dịch vụ giữa buổi khám). */
+  quay_lai?: string | null;
   bat_dau: string | null;
   xong: string | null;
   ghi_chu: string | null;
@@ -236,7 +255,11 @@ export function dongDoSinhHieu(b: Pick<BuocHanhTrinh, "lan_do">): string {
  *  dừng 11:05". Lần đang chờ làm lại: "Lần 2 · vào 11:06 · đang chờ 3′". */
 export function dongLanLam(l: LanLam, bayGio: number, dungDongHo = false): string {
   const ket = l.xong ?? l.dung;
-  let tg = thoiGian({ vao: l.vao, bat_dau: l.bat_dau, xong: ket }, bayGio, dungDongHo);
+  let tg = thoiGian(
+    { vao: l.vao, bat_dau: l.bat_dau, xong: ket, quay_lai: l.quay_lai },
+    bayGio,
+    dungDongHo,
+  );
   if (!l.xong && l.dung) tg = tg.replace(/xong (\d)/, "dừng $1");
   return [`Lần ${l.so}`, tg].filter(Boolean).join(" · ");
 }
@@ -247,7 +270,7 @@ export function dongLanLam(l: LanLam, bayGio: number, dungDongHo = false): strin
  * tới `bayGio` — trừ khi `dungDongHo` (khách đã về: đồng hồ dừng).
  */
 export function thoiGian(
-  x: { vao: string | null; bat_dau: string | null; xong: string | null },
+  x: { vao: string | null; bat_dau: string | null; xong: string | null; quay_lai?: string | null },
   bayGio: number,
   dungDongHo = false,
 ): string {
@@ -276,7 +299,16 @@ export function thoiGian(
     if (p != null) ra.push(`đang làm ${p}′`);
   }
   if (xong) ra.push(`xong ${gio(xong)}`);
+  // Chờ tính từ LẦN ĐẦU vào hàng; về lại hàng giữa chừng ghi riêng (09/10/2026).
+  const quay = sach(x.quay_lai ?? null);
+  if (quay) ra.push(`quay lại ${gio(quay)}`);
   return ra.join(" · ");
+}
+
+/** Nhãn "bấm dồn?" + lý do (tooltip) — rỗng khi máy chủ không gắn cờ. */
+export function nhanBamDon(x: CoBamDon): { nhan: string; ly_do: string } | null {
+  if (!x.bam_don) return null;
+  return { nhan: "bấm dồn?", ly_do: x.bam_don_ly_do || "có thể bấm bù, không đúng lúc làm" };
 }
 
 /** Ghi chú bước Khám: "Chỉ định 3 dịch vụ · thu tiền 10:56 (Vũ Thu Hà)". */

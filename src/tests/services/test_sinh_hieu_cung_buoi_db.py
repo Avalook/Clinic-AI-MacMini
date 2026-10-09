@@ -21,6 +21,7 @@ from typing import Any
 import asyncpg
 import pytest
 
+from clinicai.api.exceptions import ConflictError
 from clinicai.core.clock import now_vn
 from clinicai.phieu_kham.mang_sang import doc_dau_phieu
 from clinicai.services.booking_service import BookingService
@@ -385,18 +386,24 @@ async def test_luot_1_hom_nay_0001_thi_cung_buoi(
     assert f["vitals_status"] == "recorded" and f["tu"] == l1.visit
 
 
-async def test_luot_1_hoan_tac_check_in_so_do_van_la_that(
+async def test_luot_1_ve_giua_chung_so_do_van_la_that(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
-    """Hoàn tác check-in không làm lần đo thành không có (booking_service:
-    "the patient really did have their vitals taken")."""
+    """Lượt dừng giữa chừng không làm lần đo thành không có (booking_service:
+    "the patient really did have their vitals taken").
+
+    Bản trước dừng lượt bằng Hoàn tác check-in; từ 09/10/2026 đã đo thì máy chủ
+    TỪ CHỐI hoàn tác (hoan_tac_check_in) — lượt dừng bằng "khách về giữa chừng".
+    """
     ca = await _dung(pool)
     pid = await _benh_nhan(pool, ca)
     l1 = await _check_in(pool, ca, pid, ca.loai_kham)
     await _do(pool, ca, l1.visit)
-    await BookingService(pool).apply_action(
-        appointment_id=l1.appt, action="undo_checkin", identity=ca.le_tan
-    )
+    with pytest.raises(ConflictError):
+        await BookingService(pool).apply_action(
+            appointment_id=l1.appt, action="undo_checkin", identity=ca.le_tan
+        )
+    await _dong_luot(pool, l1.visit)
     assert (
         await pool.fetchval(
             "SELECT status FROM visit WHERE visit_id = $1::uuid", l1.visit

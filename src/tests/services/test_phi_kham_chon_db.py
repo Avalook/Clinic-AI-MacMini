@@ -352,3 +352,74 @@ async def test_tien_kham_khong_tinh_hai_lan_khi_phi_kham_chi_dinh_duoc(
     )
     kq = await svc.chon(visit_id=kb.visit_id, them_vao=[a], identity=kb.bac_si)
     assert kq["da_chon"] == [a]
+
+
+# ── Thủ thuật không tự cộng phí khám (Tuyền chốt 09/10/2026) ────────────────
+
+
+@pytest.mark.parametrize(
+    ("nhom", "code", "route", "ra"),
+    [
+        ("DIEU_TRI", "DT_LASER_TIEN_DINH", None, True),
+        ("DIEU_TRI", "DT_LASER_TIEN_DINH", "TU_VAN", True),
+        ("KHAM", "THU_THUAT", "PRIMARY", True),
+        ("KHAM", "THU_THUAT", "SERVICES", True),
+        ("KHAM", "THU_THUAT", None, True),
+        # Lượt cũ đã đi đường qua tư vấn: giữ dòng phí khám như lúc mở.
+        ("KHAM", "THU_THUAT", "TU_VAN", False),
+        ("KHAM", "SAN_CHAU", "PRIMARY", False),
+        ("KHAM", "PHU_KHOA", "TU_VAN", False),
+        (None, None, None, False),
+    ],
+)
+async def test_khong_tu_cong_phi_kham(
+    nhom: str | None, code: str | None, route: str | None, ra: bool
+) -> None:
+    from clinicai.services.bill_service import khong_tu_cong_phi_kham
+
+    assert khong_tu_cong_phi_kham(nhom, code, route) is ra
+
+
+async def _luot_thu_thuat(kb: KichBan, route: str) -> None:
+    """Lượt thử thành lượt THỦ THUẬT, đường đi ``route`` đã xếp lúc check-in."""
+    async with kb.pool.acquire() as conn:
+        st = await conn.fetchval(
+            "SELECT id::text FROM service_type WHERE clinic_id = $1::uuid"
+            " AND code = 'THU_THUAT'",
+            kb.bac_si.clinic_id,
+        )
+        assert st is not None
+        await conn.execute(
+            "UPDATE visit SET service_type_id = $2::uuid WHERE visit_id = $1::uuid",
+            kb.visit_id,
+            st,
+        )
+        await conn.execute(
+            "INSERT INTO encounter_flow (clinic_id, visit_id, route_decision,"
+            " route_decided_at) VALUES ($1::uuid, $2::uuid, $3, now())"
+            " ON CONFLICT (visit_id) DO UPDATE SET route_decision = $3,"
+            " route_decided_at = now()",
+            kb.bac_si.clinic_id,
+            kb.visit_id,
+            route,
+        )
+
+
+async def test_thu_thuat_khong_tu_cong_phi_kham_tick_thi_co(kb: KichBan) -> None:
+    await _luot_thu_thuat(kb, "PRIMARY")
+    assert await _dong_kham(kb) == []
+    # Bác sĩ có khám thật → tick dịch vụ khám con → tính đúng phần đã tick.
+    child = await _dich_vu_kham(kb, "Khám trước thủ thuật (thử)", 150000)
+    await PhiKhamService(kb.pool).chon(
+        visit_id=kb.visit_id, ids=[child], identity=kb.bac_si
+    )
+    [d] = await _dong_kham(kb)
+    assert d["ten"] == "Khám trước thủ thuật (thử)"
+    assert Decimal(str(d["don_gia"])) == 150000
+
+
+async def test_thu_thuat_luot_cu_qua_tu_van_giu_phi_kham(kb: KichBan) -> None:
+    """Lượt Thủ thuật mở theo đường cũ (qua TƯ VẤN) trước khi deploy: dòng phí
+    khám giữ nguyên — không biến thành tiền thừa."""
+    await _luot_thu_thuat(kb, "TU_VAN")
+    assert len(await _dong_kham(kb)) == 1

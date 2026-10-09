@@ -569,6 +569,9 @@ export default function GlobalHeader({
         {coSo ? (
           <Link
             href={`/chon-co-so?doi=1&next=${encodeURIComponent(pathname || "/home")}`}
+            // Không tải trước: đường dẫn mang `pathname` nên đổi ở MỌI trang —
+            // staging 09/10 tải trước nó 138 lần trong 24 phút.
+            prefetch={false}
             title="Đổi cơ sở"
             className="flex min-h-8 max-w-40 items-center gap-1 rounded-full border border-line px-2.5 text-meta font-medium text-ink-soft transition-colors hover:border-brand-600 hover:text-brand-700"
           >

@@ -81,7 +81,7 @@ async def doc_ket_qua_theo_chi_dinh(
     """Mỗi chỉ định (chưa huỷ) của lượt + kết quả của CHÍNH nó."""
     # Nhóm ĐIỀU TRỊ theo DỮ LIỆU (dịch vụ mà loại khám nhóm DIEU_TRI trỏ tới) —
     # bản in lượt tách mục "Điều trị" (07/10/2026). Nhập muộn: tránh vòng import.
-    from clinicai.services.dieu_tri_ban_kham import MA_DIEU_TRI_SQL
+    from clinicai.services.dieu_tri_ban_kham import MA_DIEU_TRI_SQL, ma_ban_kham_sql
 
     # "LẦN chỉ định" (Tuyền 25/09/2026: "chỉ định thêm 2, 3 lượt trong CÙNG một
     # lần khám") = cột `lan_chi_dinh`, trigger gán mỗi lần bấm chốt (26/09 — lát 4).
@@ -94,6 +94,11 @@ async def doc_ket_qua_theo_chi_dinh(
         "       o.service_code IN ("
         + MA_DIEU_TRI_SQL.replace("$1", "o.clinic_id")
         + ") AS dieu_tri,"
+        # LÀM TẠI BÀN KHÁM được (09/10/2026): điều trị ∪ thủ thuật của lượt
+        # Thủ thuật — thẻ ở khối 1 khi lượt có khối 1 riêng.
+        "       o.service_code IN ("
+        + ma_ban_kham_sql("o.clinic_id", "o.visit_id")
+        + ") AS ban_kham,"
         "       o.lan_chi_dinh, o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc,"
         # Việc của ĐỐI TÁC: bước làm bên ngoài HOẶC mẫu gửi đối tác (29/09/2026).
         "       " + LA_VIEC_DOI_TAC_SQL + " AS ben_ngoai,"
@@ -114,13 +119,14 @@ async def doc_ket_qua_theo_chi_dinh(
         "                WHERE tt.clinic_id = o.clinic_id"
         "                  AND tt.service_order_id = o.id AND tt.huy_luc IS NULL)"
         "         AS doi_tac_da_thu,"
-        # Buổi của liệu trình (08/10/2026) — bản in "Liệu trình: buổi k/N".
+        # Buổi của liệu trình — bản in "Liệu trình: buổi k/N"; số = thứ tự làm
+        # xong (`v_lieu_trinh_buoi`), kèm đã làm / chưa làm.
         "       ltb.buoi_so AS lt_buoi_so, ltb.so_buoi AS lt_so_buoi,"
-        "       ltb.tra_truoc AS lt_tra_truoc"
+        "       ltb.tra_truoc AS lt_tra_truoc, ltb.da_lam AS lt_da_lam"
         "  FROM service_order o"
         "  LEFT JOIN LATERAL ("
-        "       SELECT b.buoi_so, b.tra_truoc, l.so_buoi"
-        "         FROM lieu_trinh_buoi b"
+        "       SELECT b.buoi_so, b.tra_truoc, b.da_lam, l.so_buoi"
+        "         FROM v_lieu_trinh_buoi b"
         "         JOIN lieu_trinh l"
         "           ON l.clinic_id = b.clinic_id AND l.id = b.lieu_trinh_id"
         "        WHERE b.clinic_id = o.clinic_id AND b.service_order_id = o.id"
@@ -229,12 +235,16 @@ async def doc_ket_qua_theo_chi_dinh(
                 "lam_them": nhan_lam_them(r["nguon_lam_them"]),
                 # Chỉ định ĐIỀU TRỊ (phiếu điều trị 2 ô) — bản in mục riêng.
                 "dieu_tri": bool(r["dieu_tri"]),
+                # Làm được tại bàn khám (thẻ khối 1 của lượt Điều trị / Thủ
+                # thuật). KHÔNG thay `dieu_tri` — bản in đọc cờ ấy.
+                "ban_kham": bool(r["ban_kham"]),
                 # Buổi k/N của liệu trình đang gắn; None = buổi lẻ.
                 "lieu_trinh": (
                     {
                         "buoi_so": int(r["lt_buoi_so"]),
                         "so_buoi": int(r["lt_so_buoi"]),
                         "tra_truoc": bool(r["lt_tra_truoc"]),
+                        "da_lam": bool(r["lt_da_lam"]),
                     }
                     if r["lt_buoi_so"] is not None
                     else None

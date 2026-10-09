@@ -106,6 +106,10 @@ WITH v AS (
            a.so_tiep_don,
            st.name                 AS exam_service_name,
            bs.full_name            AS bac_si,
+           -- Đã về: check-out (`closed_at`) hoặc lượt đã đóng — FINALIZED,
+           -- AMENDED, INCOMPLETE (về giữa chừng) đều không tick lại ở quầy.
+           (vi.closed_at IS NOT NULL
+            OR vi.status IN ('FINALIZED', 'AMENDED', 'INCOMPLETE')) AS da_ve,
            -- CHỜ Ở QUẦY TỪ LÚC NÀO (27/09/2026): chỉ định còn nợ sớm nhất (lúc
            -- bác sĩ chỉ định); không có chỉ định thì lúc khám xong, rồi check-in.
            coalesce(
@@ -142,14 +146,21 @@ WITH v AS (
       LEFT JOIN public.service_type st
              ON st.id = coalesce(vi.service_type_id, a.service_type_id)
      WHERE vi.clinic_id = $1::uuid
-       AND ((vi.created_at >= $2 AND vi.created_at < $3)
+       -- TẬP ỨNG VIÊN = lượt trong ngày ∪ lượt còn nợ, mỗi vế đi chỉ mục của
+       -- nó. Viết `ngày OR EXISTS(nợ)` thẳng trong WHERE thì Postgres không
+       -- dùng được chỉ mục created_at: quét mọi lượt từng có (chậm dần theo
+       -- tháng) và ước chi phí ~1 triệu — đủ bật JIT, 3s mỗi lần tải (09/10/2026).
+       AND vi.visit_id IN (
+            SELECT d.visit_id FROM public.visit d
+             WHERE d.clinic_id = $1::uuid
+               AND d.created_at >= $2 AND d.created_at < $3
+            UNION ALL
             -- THU NỢ (01/10/2026): lượt ngày trước đã GHI NỢ, còn chưa thu —
             -- khách quay lại trả ở quầy theo đúng đường thu có sẵn. Chỉ khi
             -- xem HÔM NAY ($4): xem lại một ngày cũ thì chỉ khách của ngày ấy.
-            OR ($4::boolean AND EXISTS (
-                SELECT 1 FROM public.cong_no n
-                 WHERE n.clinic_id = vi.clinic_id AND n.visit_id = vi.visit_id
-                   AND n.trang_thai = 'CHUA_THU')))
+            SELECT n.visit_id FROM public.cong_no n
+             WHERE $4::boolean AND n.clinic_id = $1::uuid
+               AND n.trang_thai = 'CHUA_THU')
        -- CƠ SỞ ĐANG ĐỨNG ($5, 08/10/2026): chỉ khách của cơ sở ấy. Lượt chưa
        -- biết cơ sở vẫn hiện; $5 NULL (danh tính không mang cơ sở) = không lọc.
        AND coalesce(vi.location_id, a.location_id, $5::uuid)
@@ -558,6 +569,15 @@ class CashierBoardService:
                             tinh_dv,
                             chon.get(item["visit_id"]),
                         )
+                        # Hoá đơn DỰ KIẾN còn dòng khách làm → CHƯA thu xong.
+                        # Hoá đơn thật chỉ có chỉ định đã chốt; lượt Điều trị
+                        # không phí khám, chỉ định còn chờ chọn → hoá đơn thật
+                        # rỗng → màn ghi "Đã thu" dù còn tiền (staging 08/10).
+                        # Cùng vế với `_xep_hang_cho_thu`.
+                        if any(
+                            r.get("chon") for r in item["quay_thu"]["phong_kham"]
+                        ) and not item.get("da_chot_0d"):
+                            con_no_dv.add(item["visit_id"])
             await _lam_truoc_dich_vu(
                 conn,
                 identity,
@@ -727,6 +747,18 @@ def _xep_hang_cho_thu(out: dict[str, Any], *, cho: set[str]) -> None:
         item["cho_phut"] = phut
         item["cho_lau"] = cho_thu_lau(phut)
         item["cho_thu"] = dang_cho
+        # KHÁCH BỎ HẾT, CHƯA VỀ (staging 08/10/2026): lượt Điều trị không có phí
+        # khám → bỏ tick dịch vụ duy nhất là hoá đơn rỗng, lượt rời "chờ thu" và
+        # quầy mất chỗ tick lại (thao tác không hoàn tác được). Cờ này đưa lượt
+        # vào khối "Khách đã bỏ dịch vụ" — tick lại là lượt về hàng chờ.
+        item["tick_lai"] = (
+            not dang_cho
+            and not item.get("da_ve")
+            and any(
+                r.get("loai") == "chi_dinh" and not r.get("chon") and r.get("sua_duoc")
+                for r in qt.get("phong_kham", [])
+            )
+        )
         if dang_cho:
             ds.append({"visit_id": item["visit_id"], "cho_tu": cho_tu})
     ds.sort(key=lambda x: (x["cho_tu"] is None, x["cho_tu"] or bay_gio))
@@ -873,6 +905,7 @@ def build_rows(raw: dict[str, Any], *, want_svc: bool, want_rx: bool) -> dict[st
                 "loai_kham": clean_name(v.get("exam_service_name")) or None,
                 "bac_si": v.get("bac_si"),
                 "cho_tu": v.get("cho_tu"),
+                "da_ve": bool(v.get("da_ve")),
                 "services": services,
                 # Tiền thuốc không đợi khám xong (nhóm 4, 24/09/2026).
                 "drugs": rx_by_visit.get(v["visit_id"], []) if want_rx else [],

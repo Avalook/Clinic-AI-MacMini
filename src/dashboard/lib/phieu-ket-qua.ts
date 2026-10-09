@@ -47,7 +47,9 @@ export function gopGiaTri(
  * đi theo thứ tự, không tra theo tên. Tên lạ / rác → bỏ qua, không ném.
  */
 export function ghepConTrong(
-  khung: readonly { block?: readonly { ma: string; ten?: string }[] | null }[],
+  khung: readonly {
+    block?: readonly { ma: string; ten?: string; tuy_chon?: boolean }[] | null;
+  }[],
   conTrong: unknown,
 ): { ma: string; ten: string }[] {
   if (!Array.isArray(conTrong)) return [];
@@ -57,6 +59,8 @@ export function ghepConTrong(
   for (const muc of khung ?? []) {
     for (const o of muc?.block ?? []) {
       if (i >= ten.length) return ra;
+      // Ô tuỳ chọn máy chủ không đếm — bỏ qua để ô trùng tên phía sau nhận đúng mã.
+      if (o.tuy_chon === true) continue;
       if ((o.ten ?? o.ma) === ten[i]) {
         ra.push({ ma: o.ma, ten: ten[i] });
         i += 1;
@@ -64,6 +68,55 @@ export function ghepConTrong(
     }
   }
   return ra;
+}
+
+/** `goi_y` là ĐƠN VỊ THUẦN — cùng danh sách với migration
+ *  `20261009300000_o_tuy_chon_don_vi.sql` (ô mang thêm `don_vi` = goi_y). */
+export const DON_VI_THUAN: ReadonlySet<string> = new Set([
+  "mm",
+  "cm",
+  "cm/s",
+  "chu kỳ/phút",
+  "lần/phút",
+  "điểm",
+  "%",
+  "ml",
+  "gram",
+  "grams",
+]);
+
+/** Một ô của khung mẫu kết quả — đủ trường để biết đơn vị. */
+export interface ODonVi {
+  kieu?: string;
+  goi_y?: unknown;
+  don_vi?: unknown;
+}
+
+/**
+ * Đơn vị của một ô (09/10/2026): khai `don_vi` thì dùng nó. Khung TRƯỚC ngày ấy
+ * (phiếu đã điền ghim bản cũ) chưa có `don_vi` — khi đó `goi_y` là đơn vị thuần
+ * ("mm", "cm/s"…) thì dùng `goi_y`, như hồ sơ khám vẫn làm. `goi_y` kiểu "tuần +
+ * ngày", "PSV cm/s | EDV cm/s | RI" là gợi ý cách gõ, KHÔNG phải đơn vị. Rác → null.
+ */
+export function donViCuaO(o: ODonVi | null | undefined): string | null {
+  if (!o || typeof o !== "object") return null;
+  if (typeof o.don_vi === "string" && o.don_vi.trim()) return o.don_vi.trim();
+  if (o.don_vi !== undefined && o.don_vi !== null) return null;
+  if (o.kieu !== undefined && o.kieu !== "text" && o.kieu !== "so") return null;
+  const g = typeof o.goi_y === "string" ? o.goi_y.trim() : "";
+  return DON_VI_THUAN.has(g) ? g : null;
+}
+
+/**
+ * Giá trị một ô kèm đơn vị — CHỈ khi có giá trị và giá trị kết thúc bằng chữ số:
+ * "89.6" → "89.6 mm"; "bình thường", "12 mm" (đã gõ đơn vị), "" giữ nguyên.
+ * Dùng chung cho bản in, màn xem kết quả, hồ sơ khám — một kết quả ra một chữ.
+ */
+export function giaKemDonVi(gia: unknown, o: ODonVi | null | undefined): string {
+  const s = gia === null || gia === undefined ? "" : String(gia);
+  const dv = donViCuaO(o);
+  if (!dv || !/\d\s*$/.test(s)) return s;
+  return `${s.trimEnd()} ${dv}`;
 }
 
 /** Mẫu PHIẾU ĐIỀU TRỊ? Nhận mã mẫu có hoặc không tiền tố (`PHIEU_DIEU_TRI`,

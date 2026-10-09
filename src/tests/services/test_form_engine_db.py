@@ -124,8 +124,9 @@ async def test_mo_phieu_hai_lan_khong_tao_hai_phieu(pool: asyncpg.Pool) -> None:
     p2 = await svc.mo_phieu(service_order_id=order_id, form_id="KQ_SA_VU", identity=bs)
     assert p1["id"] == p2["id"]
     assert p1["trang_thai"] == "DRAFT"
-    # Mẫu v2 điền sẵn câu bình thường: chỉ "Đề nghị" còn trống.
-    assert p1["con_trong"] == ["Đề nghị / lời dặn"]
+    # Mẫu điền sẵn câu bình thường; "Đề nghị" trống nhưng là ô tuỳ chọn
+    # (20261009300000) — không còn gì để nhắc.
+    assert p1["con_trong"] == []
 
 
 async def test_tu_luu_khong_phat_su_kien(pool: asyncpg.Pool) -> None:
@@ -200,8 +201,9 @@ async def test_hoan_tat_xac_nhan_toan_bo_va_phat_su_kien(pool: asyncpg.Pool) -> 
         thuc_hien_boi=bs.staff_id,
     )
     assert xong["da_hoan_tat"] is True
-    # Còn ô "Đề nghị" chưa điền — vẫn cho hoàn tất, chỉ nhắc.
-    assert xong["con_trong"] == ["Đề nghị / lời dặn"]
+    # Ô "Đề nghị" để trống nhưng là ô TUỲ CHỌN (migration 20261009300000) —
+    # không nhắc nữa; ô thường trống vẫn được nhắc (test_o_tuy_chon_don_vi_db).
+    assert xong["con_trong"] == []
 
     dong = await pool.fetchrow(
         "SELECT trang_thai, du_lieu, nhap_boi::text AS nhap,"
@@ -221,7 +223,7 @@ async def test_hoan_tat_xac_nhan_toan_bo_va_phat_su_kien(pool: asyncpg.Pool) -> 
     )
     assert su_kien is not None
     payload = json.loads(su_kien["payload"])
-    assert payload["so_o_con_trong"] == 1
+    assert payload["so_o_con_trong"] == 0
     assert payload["thuc_hien_boi"] == bs.staff_id
     # Không có chữ lâm sàng nào trong payload.
     assert "Nhu mô đều" not in su_kien["payload"]

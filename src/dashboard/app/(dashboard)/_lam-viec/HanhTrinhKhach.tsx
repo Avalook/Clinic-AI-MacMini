@@ -16,7 +16,8 @@
 // bộ). Ở đây chỉ đổi thời điểm thành số phút theo đồng hồ (`lib/hanh-trinh-khach`).
 //
 // Màu (token sẵn có): xanh lá = xong · xanh dương = đang làm · cam = đang chờ ·
-// tím = chờ kết quả đối tác (không giữ khách) · xám = chưa tới.
+// tím = chờ kết quả đối tác (không giữ khách) · xám = chưa tới. Xong mà máy chủ
+// gắn cờ "bấm dồn?" (09/10/2026) → xanh NHẠT / chấm rỗng + nhãn có lý do.
 
 import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -32,11 +33,13 @@ import {
   dongPhuGon,
   ghiChuKham,
   gio,
+  nhanBamDon,
   nhanThe,
   noiGon,
   phut,
   thoiGian,
   type BuocHanhTrinh,
+  type CoBamDon,
   type DongLichSuPhong,
   type HanhTrinhGon,
   type HanhTrinhKhach,
@@ -70,16 +73,34 @@ const MAU_DOAN: Record<TrangThaiBuoc, string> = {
   khong: "bg-surface-sunken",
 };
 
+/** Đoạn / chấm / viền của bước XONG mà máy chủ gắn "bấm dồn?" — xanh nhạt,
+ *  khác xanh đặc "xong" thật. */
+const MAU_DOAN_BAM_DON = "bg-success/40";
+const CHAM_BAM_DON = "border-success bg-surface";
+const VIEN_THE_BAM_DON = "border-l-success/40";
+
 /** Thanh đoạn màu — mỗi bước / mỗi dịch vụ một đoạn, ĐÚNG thứ tự và màu chấm /
- *  viền thẻ của khung đầy đủ (máy chủ `doan_tu_buoc`). */
-export function ThanhDoan({ doan }: { doan: TrangThaiBuoc[] }) {
+ *  viền thẻ của khung đầy đủ (máy chủ `doan_tu_buoc`, `doan_bam_don`). */
+export function ThanhDoan({ doan, bamDon }: { doan: TrangThaiBuoc[]; bamDon?: boolean[] }) {
   if (doan.length === 0) return null;
   return (
     <div className="mt-1.5 flex gap-1" aria-hidden="true">
       {doan.map((d, i) => (
-        <span key={i} className={`h-1.5 flex-1 rounded-chip ${MAU_DOAN[d]}`} />
+        <span key={i} className={`h-1.5 flex-1 rounded-chip ${bamDon?.[i] ? MAU_DOAN_BAM_DON : MAU_DOAN[d]}`} />
       ))}
     </div>
+  );
+}
+
+/** Nhãn "bấm dồn?" — rê chuột / chạm giữ đọc lý do máy chủ ghi. */
+function ChipBamDon({ x }: { x: CoBamDon }) {
+  const n = nhanBamDon(x);
+  if (!n) return null;
+  return (
+    <Chip tone="warning" title={n.ly_do}>
+      {n.nhan}
+      <span className="sr-only"> — {n.ly_do}</span>
+    </Chip>
   );
 }
 
@@ -108,7 +129,7 @@ export function DongHanhTrinhGon({ gon, bayGio }: { gon: HanhTrinhGon; bayGio: n
           </Chip>
         ) : null}
       </p>
-      <ThanhDoan doan={gon.doan} />
+      <ThanhDoan doan={gon.doan} bamDon={gon.doan_bam_don} />
       {phu ? <p className="mt-1 text-meta text-ink-muted">{phu}</p> : null}
     </div>
   );
@@ -159,9 +180,12 @@ function TheDv({
   const cacLan = t.lan ?? [];
   const gioThe = cacLan.length > 1 ? "" : thoiGian(t, bayGio, dung);
   return (
-    <div className={`rounded-card border border-l-4 border-hairline bg-surface p-3 ${VIEN_THE[t.trang_thai]}`}>
+    <div
+      className={`rounded-card border border-l-4 border-hairline bg-surface p-3 ${t.bam_don ? VIEN_THE_BAM_DON : VIEN_THE[t.trang_thai]}`}
+    >
       <p className="flex flex-wrap items-center gap-2 text-emph font-semibold text-ink">
         {t.noi}
+        <ChipBamDon x={t} />
         {(t.so_lan ?? 1) >= 2 ? <Chip tone="warning">{`Làm lại · lần ${t.so_lan}`}</Chip> : null}
         {t.lam_them ? <Chip tone="info">{t.lam_them}</Chip> : null}
         {t.xong_boi ? <Chip tone="success">{`Xong tại quầy · ${t.xong_boi}`}</Chip> : null}
@@ -235,7 +259,9 @@ function Buoc({
   return (
     <li className="flex gap-3">
       <div className="flex flex-col items-center" aria-hidden="true">
-        <span className={`mt-1 size-3.5 shrink-0 rounded-full border-2 ${CHAM[b.trang_thai]}`} />
+        <span
+          className={`mt-1 size-3.5 shrink-0 rounded-full border-2 ${b.bam_don ? CHAM_BAM_DON : CHAM[b.trang_thai]}`}
+        />
         {!cuoi ? (
           <span className={`mt-1 w-0.5 flex-1 ${b.trang_thai === "xong" ? "bg-success-bg" : "bg-hairline"}`} />
         ) : null}
@@ -246,6 +272,7 @@ function Buoc({
           {b.dich_vu && b.dich_vu.length > 0 ? <Chip tone="run">{demThe(b.dich_vu)}</Chip> : null}
           {tuyChon ? <Chip tone="neutral">tuỳ chọn</Chip> : duKien ? <Chip tone="neutral">dự kiến</Chip> : null}
           {b.kham_lai ? <Chip tone="warning">đang khám lại</Chip> : null}
+          <ChipBamDon x={b} />
         </p>
         {meta.length > 0 ? (
           <p className="text-meta tabular-nums text-ink-muted">{meta.join(" · ")}</p>
@@ -358,8 +385,8 @@ export function KhungHanhTrinh({ ht, bayGio }: { ht: HanhTrinhKhach; bayGio: num
         </section>
       ) : null}
       <p className="border-t border-hairline px-4 py-2 text-meta text-ink-muted">
-        Xanh lá = xong · xanh dương = đang làm · cam = đang chờ · tím = chờ kết quả đối tác
-        (không giữ khách) · xám = chưa tới.
+        Xanh lá = xong · xanh nhạt + “bấm dồn?” = xong nhưng có thể bấm bù · xanh dương = đang
+        làm · cam = đang chờ · tím = chờ kết quả đối tác (không giữ khách) · xám = chưa tới.
       </p>
     </div>
   );

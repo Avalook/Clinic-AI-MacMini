@@ -114,6 +114,8 @@ class ViTriSuaBody(BaseModel):
     ten: str | None = Field(default=None, max_length=120)
     ten_ngan: str | None = Field(default=None, max_length=200)
     tang: str | None = Field(default=None, max_length=60)
+    #: Chữ cột Phòng của bảng lịch khi vị trí không gắn phòng thật.
+    phong: str | None = Field(default=None, max_length=120)
     room_id: UUID | None = None
     bo_phong: bool = False
     is_active: bool | None = None
@@ -132,6 +134,7 @@ async def sua_vi_tri(
         ten=body.ten,
         ten_ngan=body.ten_ngan,
         tang=body.tang,
+        phong=body.phong,
         room_id=str(body.room_id) if body.room_id else None,
         bo_phong=body.bo_phong,
         is_active=body.is_active,

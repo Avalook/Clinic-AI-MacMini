@@ -120,6 +120,14 @@ vấn / đi thẳng phòng · chuông sự kiện báo ai**
   `BookingOverrideService` (luật số chỗ, "luật mới cắt luật cũ"). Test:
   `T/services/test_booking_policy_dau_vao_rac_db.py`, FT `booking-policy-boundary.test.mts`.
 
+**Khung giờ "đã qua" ở màn đặt / đổi lịch** (09/10/2026) — đã qua = khung đã KẾT
+THÚC (khung đang chạy vẫn đặt được), cùng luật máy chủ `_chan_dat_vao_qua_khu`.
+MỘT hàm `src/dashboard/lib/khung-da-qua.ts` (`khungDaQua`, `khungDaQuaTheoPhut`,
+`khungDaQuaVn`) dùng ở `patients/new/NewPatientForm.tsx`, `patients/CinemaSlotPicker.tsx`,
+`patients/AppointmentBooking.tsx` (→ `DatLichModal`, `AppointmentEditModal`,
+`DatLichBuoiKe`), `appointments/BangBacSiTuan.tsx` (→ `BookingHub`). Test FT
+`lib/khung-da-qua.test.mts`. Ngoài ca / giờ mở cửa: máy chủ, không đổi.
+
 **Hành vi đặt / đổi / huỷ lịch, chặn trùng, ngoài khung ca**
 - Màn: `/appointments` (`D/appointments/BookingHub.tsx`), popover đổi lịch
   `D/_lam-viec/DoiLichTaiCho.tsx`, huỷ `D/_lam-viec/ThaoTacLichTaiCho.tsx`.
@@ -154,11 +162,16 @@ vấn / đi thẳng phòng · chuông sự kiện báo ai**
 ## 4. Tiếp đón · check-in · sinh hiệu
 
 **Check-in / Không đến / Hoàn tác** — màn duy nhất `/reception/queue`
-(`D/reception/queue/QueueBoard.tsx`, bảng `D/home/WeeklyAppointmentsTable.tsx`,
-nút `src/dashboard/components/ui/NutCheckIn.tsx`). Code: `S/luot_kham_service.py`
-`LuotKhamService.check_in` + `xep_sau_check_in` (khách đi đâu sau check-in),
-`S/tiep_don_service.py` `TiepDonService`. Test: `T/services/test_check_in_lai_sau_hoan_tac_db.py`,
-`T/unit/test_tiep_don_service.py`.
+(`D/reception/queue/ManTiepDon.tsx` → thanh tìm + lọc `ThanhLocTiepDon.tsx`,
+`QueueBoard.tsx`, bảng `D/home/WeeklyAppointmentsTable.tsx`; lọc là hàm thuần
+`src/dashboard/lib/tiep-don.ts`; nút `src/dashboard/components/ui/NutCheckIn.tsx`).
+Code: `S/luot_kham_service.py` `LuotKhamService.check_in` + `xep_sau_check_in`
+(khách đi đâu sau check-in), `S/tiep_don_service.py` `TiepDonService`.
+**Hoàn tác check-in chỉ khi chưa làm gì** (09/10/2026): luật + câu từ chối ở
+`S/hoan_tac_check_in.py` (`ly_do_khong_hoan_tac`, `VIEC_DA_LAM_SQL`), gọi từ
+`S/booking_service.py` `_hanh_dong_trong_gd` (khoá lịch → lượt → luồng). Test:
+`T/services/test_hoan_tac_check_in_db.py`, `T/unit/test_hoan_tac_check_in.py`,
+`T/services/test_check_in_lai_sau_hoan_tac_db.py`, `T/unit/test_tiep_don_service.py`.
 
 **Đo sinh hiệu** — màn duy nhất `/do-sinh-hieu` (`D/do-sinh-hieu/BangDoSinhHieu.tsx`).
 Code: `S/sinh_hieu_service.py` `SinhHieuService` (`record_vitals`,
@@ -224,7 +237,8 @@ phiếu ở đúng một khối), `lib/phieu-kham.test.mts`.
 luật mở khoá `S/doi_dich_vu_kham.py` `ly_do_khong_doi(trong_ho_so=…)`, quyền
 `QUYEN_DOI_TRONG_HO_SO`). Phiếu theo dịch vụ HIỆN TẠI: `S/phieu_kham_service.py` `doc_luot`.
 Lượt Điều trị vào hàng → chỉ định sẵn: consumer `src/clinicai/events/consumers/dieu_tri.py`
-(nghe `visit.routed`) → `sinh_chi_dinh_dieu_tri`; không phí khám `S/bill_service.py` `_kham`;
+(nghe `visit.routed`) → `sinh_chi_dinh_dieu_tri`; không phí khám `S/bill_service.py` `_kham`
+(luật `khong_tu_cong_phi_kham`: Điều trị + Thủ thuật trừ lượt cũ qua TU_VAN, 09/10/2026);
 không chặn check-out `S/checkout_service.py` (`exam_open`); tick dịch vụ khám cho
 Điều trị / Khác + giữ tick khi đổi `S/phi_kham_service.py` `_doc`. Test:
 `T/services/test_ho_so_kham_db.py`, `T/unit/test_doi_dich_vu_kham.py`, FT `ho-so-dich-vu-boundary.test.mts`.
@@ -239,13 +253,51 @@ trạng thái, nút làm, phiếu `PhieuDieuTri` / `PhieuKetQua` của chỉ đ�
 `/api/ho-so-kham` (`xem=dieu-tri`, `thao_tac=ban-kham`) → `R/ho_so_kham.py` (`/ho-so-kham/{visit}/dieu-tri…`) → `S/dieu_tri_ban_kham.py`
 (`doc_the`, `thao_tac`) → lệnh `S/service_execution_service.py` `bat_dau_tai_ban_kham` /
 `xong_tai_ban_kham` / `huy_bat_dau_tai_ban_kham` / `hoan_tac_xong_tai_ban_kham` (lần làm
-`noi_lam = BAN_KHAM`; chỉ định chưa có phòng thì xếp vào phòng bàn khám; cửa tiền
-`cua_tien_ban_kham` = FinanceGate của phòng). Kê lại dịch vụ điều trị đã có trong lượt
+`noi_lam = BAN_KHAM`; chỉ định chưa có phòng thì xếp vào phòng bàn khám, đã có phòng
+khác thì CHUYỂN sang phòng bàn khám — phòng cũ ở `service_execution_attempt.phong_truoc_ban_kham`,
+hoàn tác trả về (09/10/2026); cửa tiền `cua_tien_chot_ho` = cùng cửa với phòng). Kê lại dịch vụ điều trị đã có trong lượt
 không đẻ dòng thứ hai: `S/chi_dinh_service.py` (`chi_dinh_dieu_tri_dang_co`). Test:
 `T/services/test_dieu_tri_ban_kham_db.py`, `T/unit/test_dieu_tri_ban_kham.py`, FT
 `khoi-dieu-tri-boundary.test.mts`. Lịch sử sửa MỌI phiếu kết quả: trigger
 `trg_form_instance_lich_su` → bảng chỉ thêm `form_instance_lich_su` (migration
 `20261007630000`; test `T/services/test_form_instance_lich_su_db.py`).
+
+**Khối 1 theo loại lượt — lượt Điều trị / Thủ thuật (09/10/2026)** — luật thuần
+`src/clinicai/phieu_kham/che_do.py` `che_do_khoi1(nhom, form_code)` → `DIEU_TRI` /
+`THU_THUAT` / None; `S/phieu_kham_service.py` `doc_luot` trả `khoi1` (lượt Điều trị không
+phiếu → mở khung TRUNG TÍNH "Hồ sơ điều trị" `HO_SO_DIEU_TRI` — `src/clinicai/phieu_kham/khung.py`,
+`dinh_nghia/HO_SO_DIEU_TRI.json`, mig `20261009600000`; ngoài `FORM_IDS`, không A/B; dòng phiếu chỉ sinh
+khi bác sĩ ghi — không bao giờ mở phiếu THU_THUAT cho lượt Điều trị). Thẻ làm tại bàn khám:
+`S/dieu_tri_ban_kham.py` `ma_ban_kham_sql` (điều trị ∪ thủ thuật `DICHVU-THUTHUAT` khi lượt
+Thủ thuật) — `doc_the` (`khoi1`, `nhac_tick`), `thao_tac`, `chon_thu_thuat` (chỉ định +
+Bắt đầu tại bàn khám; `/api/ho-so-kham` `thao_tac=chon-thu-thuat` →
+`R/ho_so_kham.py` `/ho-so-kham/{visit}/dieu-tri/chon-thu-thuat`); cờ `ban_kham` mỗi chỉ
+định ở `src/clinicai/phieu_kham/ket_qua_chi_dinh.py` (`dieu_tri` giữ cho bản in). Ô
+"Làm trước – thu sau" tại chỗ CHỈ khi FinanceGate chặn vì chưa thu + chưa tick:
+cờ `nhac_tick` = `S/service_execution_service.py` `chan_vi_chua_thu` (E1; cửa tiền
+`cua_tien_chot_ho` trên `states_for_orders(gia_su_chon=True)`) ở `doc_the` và
+`S/nhan_tai_phong.py` `_chi_dinh` (chỉ định ở khung phải phòng). Link "Mở bàn khám" ở
+Sắp đến: `S/nhan_tai_phong.py` `mo_ban_kham`. Test: `T/unit/test_khoi1_theo_loai_luot.py`,
+`T/services/test_khoi1_ban_kham_db.py`, `T/services/test_nhac_tick_phong_db.py`.
+Giao diện: `PhieuKham.tsx` prop `oKhoi1` + `khoi1` (ẩn A/B lượt Điều trị — `mucAnKhoi1`),
+`PhieuKhamLuot.tsx` dựng `oKhoi1` (thẻ `ban_kham` theo `phanChiDinh(…, khoi1).banKham`),
+nút chọn `D/_lam-viec/phieu-kham/ChonThuThuatBanKham.tsx` (lọc `danhSachThuThuatBanKham`), ô
+tick tại chỗ `D/_lam-viec/OLamTruocThuSau.tsx` `OTickTaiCho` (khối 1 qua `KhoiDieuTri` prop
+`oTick`; khung phải `D/phong/[ma]/KhungChiDinhKhach.tsx`), link `D/phong/[ma]/SapDenPhong.tsx`.
+FT `khoi-dieu-tri-boundary.test.mts`, `nhan-tai-phong-boundary.test.mts`, `lib/phieu-kham.test.mts`.
+
+**Liệu trình MINH BẠCH (09/10/2026, Tuyền chốt):** mặc định mỗi chỉ định điều trị là
+BUỔI LẺ; bác sĩ đề xuất lộ trình KHÔNG biến chỉ định hôm nay thành buổi 1 (`tao`
+mặc định chỉ đề xuất; `khach_chon` = khách nhận luôn). Khách nhận = [Khách chọn lộ trình]
+(lệnh `gan` vào liệu trình DE_XUAT → máy chủ ghi đăng ký; bỏ tick "tính buổi hôm nay" =
+`dang-ky`) — `S/lieu_trinh_service.py` `_khach_chon`; hoàn tác đăng ký gỡ buổi gắn cùng lệnh.
+Trigger tự gắn chỉ nhắm liệu trình ĐANG LÀM (mig `20261009145151_lieu_trinh_minh_bach.sql`).
+SỐ BUỔI HIỆN = thứ tự làm xong, đọc qua view `v_lieu_trinh_buoi` (`buoi_so`, `da_lam`);
+chữ "Buổi k/N · đã làm / chưa làm" = `S/nhan_luot.py` `chu_buoi` (nhãn lượt, chip, thẻ) và
+`nhanBuoi` ở `D/lib/lieu-trinh*.ts` (quầy, phòng, in). Dải ở PHÒNG DỊCH VỤ: `D/_lam-viec/
+phieu-kham/LieuTrinhChiDinh.tsx` (vẽ trong `D/phong/[ma]/PhongDichVu.tsx`, cùng `DaiLieuTrinh`),
+quyền sửa theo cờ máy chủ `ghi_duoc`. Test: `T/services/test_lieu_trinh_db.py`
+(`test_staging_0910_*`, `test_so_buoi_theo_thu_tu_lam_xong`), FT `lieu-trinh-boundary.test.mts`.
 
 **Liệu trình điều trị nhiều buổi — dải trong thẻ điều trị (08/10/2026, C1)** — đặc tả
 `docs/KE-HOACH-LIEU-TRINH.md`. Dải "Buổi k/N · đã làm · đã trả · còn nợ", [Tạo liệu trình]
@@ -333,6 +385,12 @@ Lượt Bán lẻ ở quầy thuốc: `D/pharmacy/BanLeThu.tsx` → `S/ban_le_se
 (`thu_truoc_khi_lam`). Code: `S/lam_truoc_thu_sau.py`, cổng `S/finance_gate.py`
 (`cua_lam`, `can_start`), ô tick `D/_lam-viec/OLamTruocThuSau.tsx`. Test:
 `T/services/test_thu_truoc_lam_truoc_tick_db.py`, `T/services/test_lam_truoc_thu_sau_db.py`.
+**Cửa tiền CHUNG khi Bắt đầu làm (phòng + bàn khám, 09/10/2026)** — hàm thuần
+`S/service_execution_service.py` `cua_tien_chot_ho` (cờ hiện ô tick: `chan_vi_chua_thu`),
+đầu vào `finance_gate.states_for_orders(gia_su_chon=True)`; lệnh `_cua_tien_chot_ho` chốt hộ
+chỉ định chờ quyết (`lam_truoc_thu_sau.chot_mot_chi_dinh`, nguồn `lam_tai_phong` /
+`lam_tai_ban_kham`), Huỷ bắt đầu trả về (`_tra_lua_chon`). Test:
+`T/services/test_phong_bat_dau_chot_ho_db.py`, `T/unit/test_cua_tien_chot_ho.py`.
 
 **Phiếu thu (80mm), phiếu hoàn, phiếu hướng dẫn phòng** — trang in
 `src/dashboard/app/print/phieu-thu/[id]/InPhieuThu.tsx` (`?loai=thu|hoan|huong_dan`;
@@ -506,6 +564,15 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `add_shift`, `decide`); lịch phòng `S/lich_phong_service.py` `LichPhongService`.
   Nạp cả tuần từ bảng: `scripts/ap-lich-tuan-2809.py`. Test:
   `T/unit/test_lich_phong.py`, `T/services/test_doi_nguoi_trong_ca_db.py`.
+- **Ô chọn nhân viên khi xếp ca (09/10):** ô tìm + nhóm theo vai xổ ra/thu vào —
+  `D/schedule/ChonNhanVien.tsx`; lọc/chia nhóm ở `src/dashboard/lib/chon-nhan-vien.ts`
+  (test `chon-nhan-vien.test.mts`). Ai được xếp vào ô vẫn lọc theo ma trận
+  `vai_duoc_vao_tram` trong `RosterRegisterTable.tsx` (`nhanVienHopLe`).
+- **Chữ cột Phòng / Tầng của vị trí không gắn phòng** (Trưởng ca → "Quản lý ca
+  khám"): trên màn `/settings/day-noi` → Vị trí trực → "Chữ cột Phòng/Tầng".
+  Code `S/day_noi_service.py` `sua_vi_tri` (`phong`, `tang`); bảng lịch đọc ở
+  `R/identity.py` `vi_tri_hom_nay` (phòng thật trước, chữ sau). Test
+  `T/services/test_vi_tri_chu_phong_db.py`.
 - **Lịch sử thay đổi lịch trực (06/10):** khối "Lịch sử thay đổi" ở `/schedule`
   (`D/schedule/PhienBanLich.tsx`, tô màu ô trong `D/home/WorkRosterTable.tsx`
   `MAU_THAY_DOI`) → `GET /api/v1/roster/phien-ban` → `S/lich_truc_phien_ban_service.py`

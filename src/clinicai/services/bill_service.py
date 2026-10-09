@@ -730,12 +730,30 @@ _LIEU_TRINH_CHUA_THU = "NOT " + _DA_PHU.format(loai="'lieu_trinh'", nguon="t.id:
 _KHONG_PHU_LIEU_TRINH = "NOT coalesce(lb.tra_truoc, false)"
 
 
+def khong_tu_cong_phi_kham(
+    nhom: str | None, code: str | None, route_decision: str | None
+) -> bool:
+    """Lượt này KHÔNG tự cộng phí khám khi chưa tick dịch vụ khám nào — hàm
+    THUẦN. Tick dịch vụ khám con thì vẫn tính đúng phần đã tick (người gọi).
+
+    * Lượt ĐIỀU TRỊ (nhóm DIEU_TRI, T2 07/10/2026): tiền là của chính chỉ định.
+    * Lượt THỦ THUẬT (Tuyền 09/10/2026: đi thẳng, không tự cộng phí khám) — TRỪ
+      lượt đã đi đường cũ qua TƯ VẤN (``route_decision = 'TU_VAN'``, mở trước
+      khi bật lại "đi thẳng phòng"): dòng phí khám của nó giữ nguyên, không
+      biến thành tiền thừa sau khi deploy.
+    """
+    if nhom == "DIEU_TRI":
+        return True
+    return code == "THU_THUAT" and route_decision != "TU_VAN"
+
+
 async def _kham(
     conn: asyncpg.Connection, clinic_id: str, visit_id: str
 ) -> dict[str, Any] | None:
     kham_row = await conn.fetchrow(
         """
-        SELECT st.id::text AS st_id, st.name, st.nhom,
+        SELECT st.id::text AS st_id, st.name, st.nhom, st.code,
+               ef.route_decision,
                coalesce(st.gia_mac_dinh, 0) AS gia_mac_dinh,
                (vi.appointment_id IS NULL) AS khong_hen,
                -- Tái khám: khách đã có lượt HOÀN TẤT cùng loại khám trước lượt này.
@@ -783,9 +801,15 @@ async def _kham(
         clinic_id,
         visit_id,
     )
-    # Lượt ĐIỀU TRỊ (T2, 07/10/2026): tiền là của chính chỉ định (giá dòng bảng
-    # giá), KHÔNG tự thu phí khám. Bác sĩ có khám thật thì tick dịch vụ khám con.
-    if kham_row is not None and kham_row["nhom"] == "DIEU_TRI" and not chon:
+    # Lượt ĐIỀU TRỊ / THỦ THUẬT: tiền là của chính chỉ định, KHÔNG tự thu phí
+    # khám. Bác sĩ có khám thật thì tick dịch vụ khám con.
+    if (
+        kham_row is not None
+        and not chon
+        and khong_tu_cong_phi_kham(
+            kham_row["nhom"], kham_row["code"], kham_row["route_decision"]
+        )
+    ):
         return None
     return dong_kham_theo_chon(kham_row, chon)
 

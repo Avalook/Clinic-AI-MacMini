@@ -42,6 +42,17 @@ test("dải liệu trình: nút theo cờ máy chủ, không tự suy trạng th
   assert.match(m, /cd\.nut\?\.go/);
   assert.match(m, /cd\.nut\?\.tao/);
   assert.match(m, /cd\.nut\?\.chon/);
+  // Buổi lẻ mặc định; [Khách chọn lộ trình] = gắn (máy chủ ghi đăng ký) hoặc
+  // đăng ký không tính buổi hôm nay (Tuyền 09/10/2026).
+  assert.match(m, /Buổi lẻ<\/span> — làm xong trả tiền như thường/);
+  assert.match(m, /Khách chọn lộ trình/);
+  assert.match(m, /Tính buổi hôm nay vào lộ trình/);
+  assert.match(m, /lenhLT\("dang-ky", \{ expected_revision: u\.revision \}, u\.id\)/);
+  assert.match(m, /khach_chon: chon/);
+  // Số buổi + đã làm / chưa làm của máy chủ; ô trống kế hoạch = `chua_gan`.
+  assert.match(m, /Buổi này: \{cd\.chu_buoi\}/);
+  assert.match(m, /\{daLam \? "ĐÃ LÀM" : "CHƯA LÀM"\}/);
+  assert.match(m, /const conTrong = lt\.chua_gan \?\? 0;/);
   // Không tự tính tiền / còn nợ trong TSX — số của máy chủ.
   assert.match(m, /còn nợ \$\{lt\.chua_tra\} buổi \(\$\{tienLT\(lt\.tien_con_lai\)\}\)/);
   assert.doesNotMatch(m, /so_buoi\s*-\s*|don_gia\s*\*/);
@@ -57,19 +68,22 @@ test("dải liệu trình: nút theo cờ máy chủ, không tự suy trạng th
 
 test("mọi nút ghi của dải nằm sau choGhi (popup Lịch sử khám, /patient-list chỉ đọc)", () => {
   const m = ma(THE);
-  for (const nut of ["Điều chỉnh", "Dừng", "Mở lại", "Gỡ khỏi liệu trình", "Lập liệu trình mới"]) {
+  for (const nut of ["Điều chỉnh", "Dừng", "Mở lại", "Gỡ khỏi lộ trình", "Lập lộ trình mới", "Khách chọn lộ trình"]) {
     assert.ok(m.includes(nut), `thiếu nút ${nut}`);
   }
   assert.match(m, /\{choGhi && lt\.nut\?\.dieu_chinh && !sua \?/);
   assert.match(m, /\{choGhi && lt\.nut\?\.dung && !hoiDung \?/);
   assert.match(m, /\{choGhi && lt\.nut\?\.mo_lai \?/);
   assert.match(m, /\{choGhi \? them : null\}/);
-  assert.match(m, /\{choGhi && \(cd\.nut\?\.tao \|\| moTach\) && !hoiTach \?/);
-  assert.match(KHOI, /\{choGhi && lt \? \(\s*<DeXuatLieuTrinh/);
+  assert.match(m, /\{choGhi && \(\(cd\.nut\?\.tao && !deXuatTuDay\) \|\| moTach\) && !hoiTach \?/);
+  assert.match(m, /deXuat\.map\(\(u\) =>\s*choGhi \?/);
+  // Bàn khám: choGhi của hồ sơ VÀ quyền máy chủ (`ghi_duoc`).
+  assert.match(KHOI, /const ghiLT = choGhi && lt\?\.ghi_duoc !== false;/);
+  assert.match(KHOI, /\{ghiLT && lt \? \(\s*<DeXuatLieuTrinh/);
 });
 
 test("KhoiDieuTri: dải trong thân thẻ + nghe đúng bảng liệu trình", () => {
-  assert.match(KHOI, /<DaiLieuTrinh visitId=\{visitId\} cd=\{cdLT\} luot=\{lt\} choGhi=\{choGhi\} onDoi=\{napLT\} \/>/);
+  assert.match(KHOI, /<DaiLieuTrinh visitId=\{visitId\} cd=\{cdLT\} luot=\{lt\} choGhi=\{ghiLT\} onDoi=\{napLT\} \/>/);
   assert.match(
     KHOI,
     /useNgheBang\(\["lieu_trinh", "lieu_trinh_buoi", "lieu_trinh_lich_su", "lieu_trinh_tra_truoc"\], napLT\)/,
@@ -95,10 +109,23 @@ test("quầy: khối Liệu trình ở hoá đơn khách đang chọn, trả tr�
 test("hoá đơn quầy: [Bỏ] dòng trả trước + chip Buổi k/N trên chỉ định", () => {
   assert.match(HD, /lenhLT\("bo-tra-truoc", \{\}, id\)/);
   assert.match(HD, /d\.loai === "lieu_trinh" && boTraTruoc \?/);
-  assert.match(HD, /nhanBuoi\(d\.lieu_trinh\.buoi_so, d\.lieu_trinh\.so_buoi, d\.lieu_trinh\.tra_truoc\)/);
-  assert.match(LIB, /`Buổi \$\{buoiSo\}\/\$\{soBuoi\}\$\{traTruoc \? " · đã trả trước" : ""\}`/);
+  assert.match(
+    HD,
+    /nhanBuoi\(d\.lieu_trinh\.buoi_so, d\.lieu_trinh\.so_buoi, d\.lieu_trinh\.tra_truoc, d\.lieu_trinh\.da_lam\)/,
+  );
+  assert.match(LIB, /`Buổi \$\{buoiSo\}\/\$\{soBuoi\}\$\{lam\}\$\{traTruoc \? " · đã trả trước" : ""\}`/);
+  assert.match(LIB, /daLam === true \? " · đã làm" : daLam === false \? " · chưa làm" : ""/);
 });
 
 test("phiếu thu in dòng trả trước kèm (liệu trình), không in × k", () => {
   assert.match(IN, /\{d\.lieu_trinh \? " \(liệu trình\)" : d\.so_luong !== 1 \?/);
+});
+
+test("phòng dịch vụ: CÙNG dải liệu trình với bàn khám, quyền do máy chủ (09/10/2026)", () => {
+  const PHONG = doc("../app/(dashboard)/phong/[ma]/PhongDichVu.tsx");
+  const CD = ma(doc("../app/(dashboard)/_lam-viec/phieu-kham/LieuTrinhChiDinh.tsx"));
+  assert.match(PHONG, /<LieuTrinhChiDinh visitId=\{dong\.visit_id\} orderId=\{dong\.ref_id\} \/>/);
+  assert.match(CD, /<DaiLieuTrinh visitId=\{visitId\} cd=\{cd\} luot=\{lt\} choGhi=\{lt\.ghi_duoc !== false\} onDoi=\{nap\} \/>/);
+  assert.match(CD, /docLT<LieuTrinhLuot>\("theo-luot", visitId\)/);
+  assert.match(CD, /useNgheBang\(\["lieu_trinh", "lieu_trinh_buoi", "lieu_trinh_lich_su", "lieu_trinh_tra_truoc", "service_order"\], nap\)/);
 });

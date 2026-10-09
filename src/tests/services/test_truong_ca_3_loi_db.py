@@ -133,23 +133,27 @@ async def test_lich_su_co_nhan_tieng_viet(pool: asyncpg.Pool) -> None:
         loc = await _loc(conn)
         visit = await _luot(conn, loc, ten="Khách lịch sử", node="LUOTKHAM-15")
     # DB dùng một lần: visit / event_log là append-only nên không dọn tay.
+    # Check-out KHÔNG còn lên Lịch sử điều phối (09/10/2026) — chỉ dòng trưởng
+    # ca chuyển bước bằng tay.
     async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            INSERT INTO event_log (clinic_id, source, aggregate_type, aggregate_id,
-                                   event_type, payload, metadata)
-            VALUES ($1::uuid, 'test', 'visit', $2::uuid, 'dispatch.checkout',
-                    $3::jsonb, '{}'::jsonb)
-            """,
-            CLINIC,
-            visit,
-            json.dumps({"to_node": "LUOTKHAM-15"}),
-        )
+        for loai in ("dispatch.checkout", "dispatch.moved"):
+            await conn.execute(
+                """
+                INSERT INTO event_log (clinic_id, source, aggregate_type,
+                                       aggregate_id, event_type, payload, metadata)
+                VALUES ($1::uuid, 'test', 'visit', $2::uuid, $3,
+                        $4::jsonb, '{}'::jsonb)
+                """,
+                CLINIC,
+                visit,
+                loai,
+                json.dumps({"to_node": "LUOTKHAM-15"}),
+            )
     rows = await DispatchService(pool).history(clinic_id=CLINIC, limit=50)
     [r] = [x for x in rows if x["visit_id"] == visit]
-    assert r["event_label"] == "Cho khách về (check-out)"
+    assert r["event_label"] == "Chuyển sang bước khác"
     assert r["to_node_name"] == "Đóng lượt khám"
-    assert r["event_type"] == "dispatch.checkout"
+    assert r["event_type"] == "dispatch.moved"
 
 
 async def _mot_phong(

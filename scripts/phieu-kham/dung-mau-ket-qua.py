@@ -35,6 +35,21 @@ RA = Path(__file__).resolve().parents[2] / "src/clinicai/phieu_kham/mau_ket_qua.
 
 O = dict[str, Any]  # noqa: E741 — "ô" của phiếu
 
+#: `goi_y` là ĐƠN VỊ THUẦN → ô mang thêm `don_vi` (in "89.6 mm"); cùng danh sách
+#: với migration 20261009300000_o_tuy_chon_don_vi.sql.
+DON_VI_THUAN = {
+    "mm",
+    "cm",
+    "cm/s",
+    "chu kỳ/phút",
+    "lần/phút",
+    "điểm",
+    "%",
+    "ml",
+    "gram",
+    "grams",
+}
+
 
 def chu(ma: str, ten: str, mac_dinh: str = "", goi_y: str = "") -> O:
     o: O = {"ma": ma, "ten": ten, "kieu": "text"}
@@ -42,12 +57,15 @@ def chu(ma: str, ten: str, mac_dinh: str = "", goi_y: str = "") -> O:
         o["mac_dinh"] = mac_dinh
     if goi_y:
         o["goi_y"] = goi_y
+    if goi_y in DON_VI_THUAN:
+        o["don_vi"] = goi_y
     return o
 
 
 def doan(ma: str, ten: str, mac_dinh: str = "", goi_y: str = "") -> O:
     o = chu(ma, ten, mac_dinh, goi_y)
     o["kieu"] = "doan_van"
+    o.pop("don_vi", None)  # đoạn văn không có đơn vị
     return o
 
 
@@ -75,7 +93,10 @@ def ket_luan(mac_dinh: str = "") -> O:
 
 
 def de_nghi() -> O:
-    return muc("de_nghi", "Đề nghị", doan("de_nghi", "Đề nghị / lời dặn"))
+    # Tuỳ chọn: để trống không bị nhắc "còn trống" lúc Hoàn tất (09/10/2026).
+    return muc(
+        "de_nghi", "Đề nghị", {**doan("de_nghi", "Đề nghị / lời dặn"), "tuy_chon": True}
+    )
 
 
 MM = "mm"

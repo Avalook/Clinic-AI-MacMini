@@ -32,6 +32,10 @@ from clinicai.services.nhan_trang_thai_dieu_phoi import (
     trang_thai_dich_vu,
     trang_thai_khach,
 )
+from clinicai.services.service_routing_service import (
+    NGUON_TAI_PHONG,
+    NGUON_TU_NGUOI,
+)
 
 logger = structlog.get_logger()
 
@@ -40,9 +44,35 @@ logger = structlog.get_logger()
 _LY_DO_XEP = {
     "INITIAL_ASSIGNMENT": "xếp phòng",
     "LOAD_BALANCE": "cân tải",
+    # [Làm tại bàn khám] chuyển chỉ định sang phòng bác sĩ / hoàn tác (PR #383).
+    "LAM_TAI_BAN_KHAM": "Làm tại bàn khám",
+    "HUY_LAM_TAI_BAN_KHAM": "Huỷ làm tại bàn khám — trả phòng cũ",
 }
 #: Màn gây ra lần xếp (`nguon`).
 _NGUON_XEP = {"truong_ca": "trưởng ca", "quay_thu": "quầy thu", "tu_dong": "tự động"}
+
+# ── Lịch sử điều phối = CHỈ thao tác điều phối NGƯỜI bấm (Tuyền 09/10/2026) ──
+# DANH SÁCH ĐƯỢC PHÉP, không danh sách loại trừ: loại sự kiện mới mặc định KHÔNG
+# lên màn này (sổ đủ vẫn ở /audit-log). Trước đây màn lọc `dispatch.%` nên
+# check-in (`dispatch.checkin` — hàm SQL `place_visit_at_first_station` tự đặt
+# trạm đầu), check-out ("Đến: Đóng lượt khám"), gọi bộ phận và mọi lần dây H4
+# tự xếp phòng đều lọt vào, che mất mấy dòng trưởng ca thật sự cần đọc.
+
+#: Sự kiện theo LƯỢT chỉ có đường bấm tay ở màn trưởng ca (`/dispatch/move`,
+#: `/dispatch/transfer-room`, `/dispatch/route`). `move_visit_to_station` mặc
+#: định `dispatch.moved` nhưng đường tự động duy nhất gọi nó ghi `dispatch.checkin`.
+DIEU_PHOI_TAY_LUOT = (
+    "dispatch.moved",
+    "dispatch.transfer_room",
+    "dispatch.route_applied",
+)
+#: `dispatch.assigned` (chỉ định đời cũ) dùng chung cho xếp tay
+#: (`LuotKhamService.dispatch_order`) và tự xếp (`_tu_xep_phong`) — chỉ dòng có
+#: dấu này trong payload là người bấm.
+DAU_BAM_TAY = "bam_tay"
+#: `service.routed` có `nguon` = màn người chọn phòng (quầy thu, trưởng ca,
+#: Bàn khám…). `tu_dong` (dây H4) và sự kiện cũ thiếu `nguon` không lên màn.
+NGUON_XEP_TAY = tuple(sorted(NGUON_TU_NGUOI))
 
 
 def _ly_do_xep_phong(r: Any) -> str | None:
@@ -641,11 +671,11 @@ class DispatchService:
     async def history(
         self, *, clinic_id: str, limit: int = 200, location_id: str | None = None
     ) -> list[dict[str, Any]]:
-        """Lịch sử điều phối: sổ `dispatch.*` cũ (theo lượt) GỘP với xếp / đổi
-        phòng TỪNG CHỈ ĐỊNH của luồng mới (`service.routed` — Bàn khám, quầy thu,
-        trưởng ca, kéo thả ở Điều phối ca). Thiếu nửa sau thì mọi lần chuyển
-        phòng đời mới không hiện ở đâu cả (bấm thật 28/09/2026). Phòng trả TÊN,
-        không trả mã."""
+        """Lịch sử điều phối — CHỈ thao tác điều phối do NGƯỜI bấm (danh sách
+        được phép ở đầu tệp): chuyển bước / chuyển phòng / áp tuyến ở màn trưởng
+        ca, cộng xếp / đổi phòng TỪNG CHỈ ĐỊNH do người chọn (`service.routed`
+        có nguồn người, Nhận tại phòng khi kéo khách từ phòng khác,
+        `service.room_transferred`). Phòng trả TÊN, không trả mã."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
@@ -664,6 +694,12 @@ class DispatchService:
                     LEFT JOIN public.clinic_room rt
                       ON rt.clinic_id = h.clinic_id AND rt.code = h.to_room
                    WHERE h.clinic_id = $1::uuid
+                     AND (h.event_type = ANY($4::text[])
+                          OR (h.event_type = 'dispatch.assigned'
+                              AND EXISTS (
+                                  SELECT 1 FROM public.event_log d
+                                   WHERE d.event_id = h.id
+                                     AND (d.payload ->> $6) = 'true')))
                   UNION ALL
                   SELECT e.occurred_at, e.event_type, e.payload ->> 'visit_id',
                          NULL, NULL, rf.name, rt.name, NULL, s.full_name,
@@ -690,8 +726,17 @@ class DispatchService:
                      AND p.clinic_patient_id = v.clinic_patient_id
                    WHERE e.clinic_id = $1::uuid
                      AND e.aggregate_type = 'service_order'
-                     AND e.event_type IN ('service.routed',
-                                          'service.room_transferred')
+                     AND (e.event_type = 'service.room_transferred'
+                          OR (e.event_type = 'service.routed'
+                              AND (e.payload ->> 'nguon' = ANY($5::text[])
+                                   -- Nhận tại phòng chỉ là điều phối khi kéo
+                                   -- khách từ hàng phòng KHÁC (nhận chéo).
+                                   OR (e.payload ->> 'nguon' = $7
+                                       AND NULLIF(e.payload ->> 'from_room_id', '')
+                                           IS NOT NULL
+                                       AND e.payload ->> 'from_room_id'
+                                           IS DISTINCT FROM
+                                           e.payload ->> 'to_room_id'))))
                 ) x
                 LEFT JOIN public.node_definition nf
                   ON nf.clinic_id = $1::uuid AND nf.code = x.from_node
@@ -709,6 +754,10 @@ class DispatchService:
                 clinic_id,
                 limit,
                 location_id or None,
+                list(DIEU_PHOI_TAY_LUOT),
+                list(NGUON_XEP_TAY),
+                DAU_BAM_TAY,
+                NGUON_TAI_PHONG,
             )
         return [
             {

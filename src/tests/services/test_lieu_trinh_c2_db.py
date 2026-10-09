@@ -84,7 +84,12 @@ async def test_du_lieu_man_cskh_chip_va_ban_in(pool: asyncpg.Pool) -> None:
         kq = await doc_ket_qua_theo_chi_dinh(conn, clinic_id=CLINIC, visit_id=v3)
     (dong,) = [d for d in kq if d["service_order_id"] == o]
     assert dong["dieu_tri"] is True
-    assert dong["lieu_trinh"] == {"buoi_so": 1, "so_buoi": 5, "tra_truoc": True}
+    assert dong["lieu_trinh"] == {
+        "buoi_so": 1,
+        "so_buoi": 5,
+        "tra_truoc": True,
+        "da_lam": True,
+    }
 
     # Lượt không có buổi liệu trình → None (bản in không thêm dòng).
     v4 = await luot(ca)

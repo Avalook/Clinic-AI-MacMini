@@ -21,7 +21,8 @@ const bang = doc("../app/(dashboard)/home/WeeklyAppointmentsTable.tsx");
 const taiCho = doc("../app/(dashboard)/_lam-viec/ThaoTacLichTaiCho.tsx");
 const trangChu = doc("../app/(dashboard)/home/page.tsx");
 const tiepDon = doc("../app/(dashboard)/reception/queue/page.tsx");
-const queueBoard = doc("../app/(dashboard)/reception/queue/QueueBoard.tsx");
+// 09/10/2026: "+ Thêm khách hàng" lên thanh tìm + lọc trên cùng màn Tiếp đón.
+const thanhLoc = doc("../app/(dashboard)/reception/queue/ThanhLocTiepDon.tsx");
 const trangThemKhach = doc("../app/(dashboard)/patients/new/page.tsx");
 const danhSachBn = doc("../app/(dashboard)/patient-list/page.tsx");
 
@@ -54,8 +55,8 @@ test("dòng '＋ Thêm khách hàng' của quầy về màn Thêm khách hàng, 
   );
 });
 
-test("nút '+ Thêm khách hàng' ở thanh QueueBoard trỏ cùng màn", () => {
-  assert.match(queueBoard, /<Link href=\{hrefThemKhach\(\)\}[^>]*>\s*\+ Thêm khách hàng/);
+test("nút '+ Thêm khách hàng' ở thanh lọc trên cùng Tiếp đón trỏ cùng màn", () => {
+  assert.match(thanhLoc, /<Link href=\{hrefThemKhach\(\)\}[^>]*>\s*\+ Thêm khách hàng/);
 });
 
 test("Mở hồ sơ khách → Danh sách bệnh nhân chọn sẵn khách, cùng tab", () => {

@@ -164,13 +164,13 @@ export default function Nav({
           <Link
             key={href}
             href={href}
-            // prefetch KHÔNG bật cứng. Với App Router, prefetch={true} kéo về
-            // TOÀN BỘ payload RSC kể cả route force-dynamic — tức chạy trọn bộ
-            // truy vấn server của trang đó. Sidebar có ~30 mục và Next prefetch
-            // mọi link lọt vào khung nhìn, nên chỉ mở sidebar đã có thể châm
-            // ngòi cho ba mươi lượt render server. Mặc định (auto) dừng ở ranh
-            // giới loading.tsx — vốn đã có ở (dashboard)/loading.tsx — nên vẫn
-            // vào trang tức thì mà không kéo theo cái giá đó.
+            prefetch={false}
+            // prefetch TẮT. Mặc định (auto) dừng ở ranh giới loading.tsx nên mỗi
+            // lượt nhẹ, nhưng Next tải trước LẠI mọi link trong khung nhìn sau
+            // mỗi lần chuyển trang / router.refresh() (tức mỗi tin sự kiện). Đo
+            // staging 09/10/2026: 1.881 / 2.631 request trong 24 phút (71%) là
+            // ~19 link thanh bên tải trước, từng đợt 10–50 request mỗi giây. Đổi
+            // lại: bấm một mục thì khung tải hiện sau một vòng mạng thay vì tức thì.
             onClick={(e) => {
               if (onNavigate) onNavigate();
               // Điều hướng trong một transition để isPending phản ánh đúng lúc

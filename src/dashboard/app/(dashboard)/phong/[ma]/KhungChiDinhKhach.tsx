@@ -10,17 +10,25 @@
 // + [Nhận cả N] khi ≥2 chỉ định nhận được. Bấm tên chỉ định (đã ở phòng) thì
 // phiếu kết quả của nó mở ngay bên dưới. Thứ tự làm tuỳ người dùng.
 //
+// Ô "Làm trước – thu sau" (Tuyền 09/10/2026) ở đầu khung — CHỈ khi máy chủ mời
+// (`nhac_tick` của chỉ định: chưa thu, lượt chưa tick, dây thu trước bật): người
+// làm tick được ngay tại chỗ, không phải sang quầy thu. Lượt Thủ thuật chưa có
+// chỉ định ở đây: link "Mở bàn khám" (phòng không tự chọn thủ thuật).
+//
 // [Bắt đầu] / [Xong] không tự gọi lệnh ở đây: chọn chỉ định rồi nhờ khung phiếu
 // bên dưới (`KhachTrongPhong`) làm đúng lệnh nó vẫn làm (đọc revision, hỏi lại
 // khi máy chủ trả 409) — một chỗ xử lý, không hai.
 
-import Button from "@/components/ui/Button";
+import Link from "next/link";
+
+import Button, { buttonClass } from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
 import { nhanBuoi, type ChipLieuTrinh } from "@/lib/lieu-trinh-cskh";
 
-import { cauChiDinhPhong, type ChiDinhPhong, type DongHangCho } from "../../_lam-viec/api";
+import { cauChiDinhPhong, coMoiTick, type ChiDinhPhong, type DongHangCho } from "../../_lam-viec/api";
 import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "../../_lam-viec/ChonBacSiLam";
+import { OTickTaiCho } from "../../_lam-viec/OLamTruocThuSau";
 import NhanChiDinh from "./NhanChiDinh";
 
 export type HanhDong = "bat-dau" | "xong";
@@ -55,7 +63,10 @@ export default function KhungChiDinhKhach({
   onDaNhan,
   onBao,
   lieuTrinh = null,
+  moBanKham = null,
 }: {
+  /** Link "Mở bàn khám" (máy chủ trả ở Sắp đến): lượt Thủ thuật chưa có chỉ định. */
+  moBanKham?: string | null;
   /** Chip liệu trình của cả lô (08/10/2026): "Buổi k/N · đã trả trước" trên dòng
    *  chỉ định thuộc liệu trình — chỉ thêm chip, không đổi nút / thứ tự. */
   lieuTrinh?: ChipLieuTrinh | null;
@@ -135,8 +146,16 @@ export default function KhungChiDinhKhach({
           </span>
         ) : null}
       </header>
+      <OTickTaiCho visitId={visitId} moi={coMoiTick(chiDinh)} onDoi={onDaNhan} />
       {hang.length === 0 ? (
-        <p className="text-meta text-ink-muted">Khách chưa có chỉ định nào phòng này làm được.</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-meta text-ink-muted">Khách chưa có chỉ định nào phòng này làm được.</p>
+          {moBanKham ? (
+            <Link href={moBanKham} className={buttonClass("secondary", "sm")}>
+              Mở bàn khám
+            </Link>
+          ) : null}
+        </div>
       ) : (
         <ul className="divide-y divide-line">
           {hang.map((h) => {

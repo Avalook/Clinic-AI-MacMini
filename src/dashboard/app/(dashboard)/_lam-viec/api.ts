@@ -124,6 +124,15 @@ export interface ChiDinhPhong {
   nhan_duoc: boolean;
   /** Đang chờ ở phòng khác mà tiền đang hoàn / sổ lệch — vì sao không Nhận. */
   ly_do_khong_nhan?: string | null;
+  /** Mời tick "Làm trước – thu sau" tại chỗ (09/10/2026, máy chủ): FinanceGate
+   *  đang chặn chỉ định này vì chưa thu và lượt chưa tick. */
+  nhac_tick?: boolean;
+}
+
+/** Khung phải hiện ô "Làm trước – thu sau" khi máy chủ mời tick ở ít nhất một
+ *  chỉ định của khách (tick ở mức lượt — một ô cho cả khách). */
+export function coMoiTick(ds: readonly ChiDinhPhong[]): boolean {
+  return ds.some((c) => c.nhac_tick === true);
 }
 
 /** Nhãn trạng thái của một chỉ định trong ô khách — chỉ ghép chữ từ máy chủ. */

@@ -45,6 +45,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { nhanLoi } from "@/lib/loi-api";
 import {
+  donViCuaO,
   gopGiaTri,
   KHOA_BANG,
   MAU_PHIEU_DIEU_TRI,
@@ -74,6 +75,11 @@ interface O {
   kieu: string;
   mac_dinh?: string;
   goi_y?: string;
+  /** Đơn vị hiện bên phải ô (09/10/2026) — máy chủ lấy từ khung; luật ở
+   *  `donViCuaO`. */
+  don_vi?: string;
+  /** Ô tuỳ chọn: máy chủ không nhắc "còn trống" (Đề nghị…). */
+  tuy_chon?: boolean;
   chon?: string[];
   /** Cách vẽ ô chọn — "o_tick": ô tích nhanh xếp ngang (29/09/2026, "Kết luận
    *  nhanh" phiếu đo mật độ xương). Chỉ là hiển thị: vẫn CHỌN MỘT, lưu một chuỗi. */
@@ -723,8 +729,11 @@ function OPhieu({
   // Ô số (27/09/2026, `components/ui/OSo`): trước là `type="number"` — chặn
   // "12 x 8", lăn chuột lướt qua đổi số, bước 1 làm sai số thập phân. Phiếu kết
   // quả lưu chữ nguyên văn nên cho gõ kích thước.
+  // Đơn vị bên phải ô; `goi_y` chỉ còn là chữ mờ gợi cách gõ (trùng đơn vị
+  // thì thôi, khỏi nói hai lần).
+  const donVi = donViCuaO(o);
+  const goiY = o.goi_y && o.goi_y !== donVi ? o.goi_y : "";
   if (o.kieu === "so") {
-    const donVi = o.goi_y && o.goi_y.length <= 16 ? o.goi_y : null;
     return (
       <label id={id} className="block">
         {nhan}
@@ -734,7 +743,7 @@ function OPhieu({
             value={giaTri}
             onChange={onDoi}
             donVi={donVi}
-            placeholder={donVi ? undefined : (o.goi_y ?? "")}
+            placeholder={goiY || undefined}
           />
         </span>
       </label>
@@ -749,12 +758,10 @@ function OPhieu({
           type={o.kieu === "ngay" ? "date" : "text"}
           value={giaTri}
           onChange={(e) => onDoi(e.target.value)}
-          placeholder={o.goi_y ?? ""}
+          placeholder={goiY}
           className="min-h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
         />
-        {o.goi_y && o.goi_y.length <= 16 ? (
-          <span className="shrink-0 text-meta text-ink-muted">{o.goi_y}</span>
-        ) : null}
+        {donVi ? <span className="shrink-0 text-meta text-ink-muted">{donVi}</span> : null}
       </span>
     </label>
   );
@@ -842,7 +849,9 @@ function BangMuc({
             <tr key={o.ma}>
               <td className="py-1.5 pr-3 align-top text-ink">
                 {o.ten}
-                {o.goi_y ? <span className="ml-1 text-meta text-ink-muted">({o.goi_y})</span> : null}
+                {donViCuaO(o) || o.goi_y ? (
+                  <span className="ml-1 text-meta text-ink-muted">({donViCuaO(o) ?? o.goi_y})</span>
+                ) : null}
               </td>
               {cot.map((c) => (
                 <td key={c.ma} className="py-1.5 pr-3 align-top">

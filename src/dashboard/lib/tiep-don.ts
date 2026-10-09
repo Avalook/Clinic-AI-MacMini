@@ -33,6 +33,11 @@ export interface DongTiepDon {
   check_out_duoc: boolean;
   /** Khách đã về — máy chủ cho "Hoàn tác" mở lại lượt (01/10/2026). */
   mo_lai_duoc?: boolean;
+  /** Hoàn tác CHECK-IN được (09/10/2026) — máy chủ: chỉ khi khách chưa có việc
+   *  thật nào sau check-in. Lệnh ghi vẫn tự kiểm lại. */
+  hoan_tac_duoc?: boolean;
+  /** Vì sao không hoàn tác check-in được ("Khách đã được đo sinh hiệu — …"). */
+  ly_do_khong_hoan_tac?: string | null;
 }
 
 export interface BuoiTiepDon {
@@ -74,7 +79,17 @@ export function chuanHoa(s: string): string {
     .trim();
 }
 
-function khop(d: DongTiepDon, kim: string): boolean {
+/** Những gì ô tìm so được của MỘT khách — chung cho danh sách tiếp đón và
+ *  bảng Lịch hẹn, để gõ một từ khoá hai bảng lọc như nhau. */
+interface KhachTim {
+  ten?: string | null;
+  ma_khach?: string | null;
+  so_booking?: number | null;
+  sdt?: string | null;
+}
+
+/** `kim` đã chuẩn hoá (`chuanHoa`). Rỗng = khớp mọi khách. */
+function khop(d: KhachTim, kim: string): boolean {
   if (!kim) return true;
   const chu = chuanHoa(
     [d.ten, d.ma_khach, d.so_booking != null ? `#${d.so_booking}` : null]
@@ -108,6 +123,76 @@ export function locTiepDon(
       ),
     }))
     .filter((b) => b.dong.length > 0);
+}
+
+/** Bộ lọc thanh trên cùng màn Tiếp đón (09/10/2026): một ô tìm + tab lọc CẢ
+ *  bảng Lịch hẹn lẫn danh sách tiếp đón. */
+export interface LocTiepDon {
+  tab: TabTiepDon;
+  tim: string;
+}
+
+export const LOC_MAC_DINH: LocTiepDon = { tab: "tat_ca", tim: "" };
+
+/** Đang lọc gì không (tab khác "Tất cả" hoặc ô tìm có chữ). Rác → không lọc. */
+export function dangLoc(loc: LocTiepDon | null | undefined): boolean {
+  if (!loc) return false;
+  const tim = typeof loc.tim === "string" ? loc.tim.trim() : "";
+  return loc.tab === "chua_den" || loc.tab === "da_den" || tim !== "";
+}
+
+/** Trạng thái lịch hẹn → tab. Cùng nghĩa với `nhom` máy chủ trả cho danh sách
+ *  tiếp đón: chưa tới quầy = "Chưa đến"; đã check-in (kể cả khám xong) = "Đã
+ *  check-in"; không đến / huỷ / bác sĩ từ chối chỉ ở "Tất cả". */
+export function nhomLichHen(status: string | null | undefined): NhomTab {
+  if (status === "SCHEDULED" || status === "CSKH_CONFIRMED" || status === "CONFIRMED") {
+    return "chua_den";
+  }
+  if (status === "CHECKED_IN" || status === "COMPLETED") return "da_den";
+  return "khac";
+}
+
+/** Một dòng bảng Lịch hẹn — chỉ phần bộ lọc cần (`WeekApptRow` thoả). */
+export interface DongLichLoc {
+  status: string;
+  so_booking?: number | null;
+  patient?: {
+    full_name?: string | null;
+    patient_code?: string | null;
+    phone_primary?: string | null;
+  } | null;
+}
+
+/** Lọc bảng Lịch hẹn theo cùng tab + ô tìm. GIỮ mọi ngày (dải ngày không nhảy),
+ *  chỉ bớt lịch trong ngày. Không lọc gì → trả nguyên mảng. */
+export function locLichHen<R extends DongLichLoc, D extends { items: readonly R[] }>(
+  days: readonly D[] | null | undefined,
+  loc: LocTiepDon | null | undefined,
+): D[] {
+  if (!Array.isArray(days)) return [];
+  if (!loc || !dangLoc(loc)) return [...days];
+  const kim = chuanHoa(typeof loc.tim === "string" ? loc.tim : "");
+  // Tab lạ → như "Tất cả" (không lọc mất cả bảng).
+  const tab = loc.tab === "chua_den" || loc.tab === "da_den" ? loc.tab : null;
+  return days.map((d) => {
+    const items: readonly R[] = Array.isArray(d?.items) ? d.items : [];
+    return {
+      ...d,
+      items: items.filter(
+        (a: R) =>
+          (tab === null || nhomLichHen(a?.status) === tab) &&
+          khop(
+            {
+              ten: a?.patient?.full_name,
+              ma_khach: a?.patient?.patient_code,
+              so_booking: a?.so_booking,
+              sdt: a?.patient?.phone_primary,
+            },
+            kim,
+          ),
+      ),
+    };
+  });
 }
 
 /** Hướng xem danh sách (29/09/2026, Tuyền): CÁCH XEM, không phải luật.

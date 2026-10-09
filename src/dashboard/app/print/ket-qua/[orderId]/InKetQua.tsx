@@ -23,6 +23,7 @@
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { giaKemDonVi } from "@/lib/phieu-ket-qua";
 import { tenPhieuKetQua } from "@/lib/phieu-kham";
 import { tenMucHien } from "@/lib/sua-mau";
 
@@ -34,6 +35,9 @@ interface O {
   ma: string;
   ten: string;
   kieu: string;
+  goi_y?: string;
+  /** Đơn vị (09/10/2026) — in "89.6 mm"; luật ở `giaKemDonVi`. */
+  don_vi?: string;
 }
 interface Muc {
   ma: string;
@@ -93,22 +97,23 @@ function coGia(v: unknown): boolean {
   return true;
 }
 
-function chuO(v: unknown): string {
+function chuO(v: unknown, o: O): string {
   if (Array.isArray(v)) return v.join(", ");
   if (v && typeof v === "object") {
     return Object.values(v as Record<string, unknown>)
       .filter((x) => coGia(x))
+      .map((x) => giaKemDonVi(x, o))
       .join(" · ");
   }
-  return v === null || v === undefined ? "" : String(v);
+  return giaKemDonVi(v, o);
 }
 
 /** Một ô của mục dạng BẢNG (mẫu v3): {ma_cột: giá trị}. Hàng đã in mà cột
  *  này trống thì in "—" (DESIGN.md §6.5) — cả hàng trống thì đã bị bỏ. */
-function oBang(v: unknown, cot: string): string {
+function oBang(v: unknown, cot: string, o: O): string {
   if (!v || typeof v !== "object" || Array.isArray(v)) return "—";
   const x = (v as Record<string, unknown>)[cot];
-  return coGia(x) ? String(x) : "—";
+  return coGia(x) ? giaKemDonVi(x, o) : "—";
 }
 
 const GIOI: Record<string, string> = { F: "Nữ", M: "Nam", female: "Nữ", male: "Nam" };
@@ -266,7 +271,7 @@ function CacToPhieu({ dl, kyCuoiSauAnh = false }: { dl: DuLieuIn; kyCuoiSauAnh?:
                             <td className="border border-line px-2 py-1 text-ink-muted">{o.ten}</td>
                             {m.cot?.map((c) => (
                               <td key={c.ma} className="whitespace-pre-wrap border border-line px-2 py-1">
-                                {oBang(p.du_lieu[o.ma]?.gia_tri, c.ma)}
+                                {oBang(p.du_lieu[o.ma]?.gia_tri, c.ma, o)}
                               </td>
                             ))}
                           </tr>
@@ -274,13 +279,13 @@ function CacToPhieu({ dl, kyCuoiSauAnh = false }: { dl: DuLieuIn; kyCuoiSauAnh?:
                       </tbody>
                     </table>
                   ) : m.block.length === 1 && m.block[0].ten === m.ten ? (
-                    <p className="mt-1 whitespace-pre-wrap">{chuO(p.du_lieu[m.block[0].ma]?.gia_tri)}</p>
+                    <p className="mt-1 whitespace-pre-wrap">{chuO(p.du_lieu[m.block[0].ma]?.gia_tri, m.block[0])}</p>
                   ) : (
                     <dl className="mt-1 grid grid-cols-[minmax(0,14rem)_minmax(0,1fr)] gap-x-3 gap-y-1">
                       {m.block.map((o) => (
                         <div key={o.ma} className="contents">
                           <dt className="text-ink-muted">{o.ten}</dt>
-                          <dd className="whitespace-pre-wrap">{chuO(p.du_lieu[o.ma]?.gia_tri)}</dd>
+                          <dd className="whitespace-pre-wrap">{chuO(p.du_lieu[o.ma]?.gia_tri, o)}</dd>
                         </div>
                       ))}
                     </dl>

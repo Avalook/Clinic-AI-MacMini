@@ -19,6 +19,7 @@ import { useMemo } from "react";
 import { vnLocalToUtcISO, nowMs, slotRange } from "../../../lib/datetime";
 import { clinicHoursForDate } from "../../../lib/roster";
 import { trongKhungNhanLich } from "../../../lib/khung-nhan-lich";
+import { khungDaQua } from "../../../lib/khung-da-qua";
 import {
   daDung,
   hangCua,
@@ -353,7 +354,9 @@ export default function CinemaSlotPicker({
                       iso = "";
                     }
                     const bucketMs = iso ? Date.parse(iso) : 0;
-                    const isPast = iso ? bucketMs < now : false;
+                    // ĐÃ QUA = khung đã KẾT THÚC (09/10/2026): khung đang chạy vẫn
+                    // đặt được — cùng luật máy chủ `_chan_dat_vao_qua_khu`.
+                    const isPast = iso ? khungDaQua(bucketMs, policy.slotMinutes, now) : false;
                     // NGOÀI CA TRỰC — luật cao hơn cả sức chứa.
                     //
                     // Lưới này trước đây chỉ lọc "bác sĩ nào CÓ ca hôm đó", rồi

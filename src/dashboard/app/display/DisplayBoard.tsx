@@ -61,6 +61,23 @@ interface Props {
 
 const LAM_MOI_MS = 30_000;
 
+/** SỐ KHÁCH ĐANG CHỜ hiện trên TV (09/10/2026, phòng khám xin "tăng số lượng bệnh
+ *  nhân hiển thị chờ tại mỗi phòng"). Đo cho TV 1920×1080 không cuộn; phần không
+ *  vừa gói thành "+N người nữa". Máy chủ trả tới 200 dòng — không phải cổ chai.
+ *
+ *  TV TỔNG: mỗi khu một cột (6 cột ở xl), ô chờ lưới 3 × 8 dòng gọn (~28px/dòng)
+ *  — trước là 9 (3 × 3), cột còn trống nửa dưới. */
+const TV_TONG_SO_CHO = 24;
+/** TV MỘT PHÒNG: lưới 4 cột × 6 dòng ở xl, chữ 2xl (~56px/dòng) — trước là 12
+ *  dòng chữ 3xl ở 3 cột, quá nửa màn để trống. */
+const TV_PHONG_SO_CHO = 24;
+
+/** "+12 người nữa" — số khách chờ không vừa màn; 0 hoặc rác → không hiện. */
+function conNua(tong: number, daHien: number): string | null {
+  const n = tong - daHien;
+  return Number.isFinite(n) && n > 0 ? `+${n} người nữa` : null;
+}
+
 /** "994" + tiền tố "C" → "C994"; giữ ba chữ số cho dễ đọc từ xa. */
 function soHienThi(queueNumber: string | null, prefix?: string): string {
   const so = (queueNumber ?? "").trim();
@@ -148,7 +165,8 @@ export default function DisplayBoard({
           const dangGoi = rows.find((m) => m.is_current) ?? rows[0] ?? null;
           const conLai = rows.filter((m) => m !== dangGoi);
           const tiepTheo = conLai[0] ?? null;
-          const xepHang = conLai.slice(1, 10);
+          const xepHang = conLai.slice(1, 1 + TV_TONG_SO_CHO);
+          const them = conNua(Math.max(conLai.length - 1, 0), xepHang.length);
 
           return (
             <section
@@ -212,7 +230,7 @@ export default function DisplayBoard({
 
               <div className="flex-1 border-t border-slate-100 px-2.5 py-2.5">
                 <div className="text-center text-label font-semibold tracking-widest text-slate-400">
-                  ĐANG CHỜ
+                  ĐANG CHỜ{conLai.length > 1 ? ` (${conLai.length - 1})` : ""}
                 </div>
                 {xepHang.length === 0 ? (
                   <div className="mt-2 text-center text-xs text-slate-300">—</div>
@@ -233,6 +251,9 @@ export default function DisplayBoard({
                     ))}
                   </div>
                 )}
+                {them ? (
+                  <div className="mt-1.5 text-center text-label font-semibold text-slate-500">{them}</div>
+                ) : null}
               </div>
             </section>
           );
@@ -261,6 +282,8 @@ function PhongMotMan({ ten, rows }: { ten: string; rows: DisplayItem[] }) {
   const dangGoi = rows.find((m) => m.is_current) ?? rows[0] ?? null;
   const conLai = rows.filter((m) => m !== dangGoi);
   const goi = (m: DisplayItem | null) => (m ? (m.patient_name ?? soHienThi(m.queue_number)) : "—");
+  const hien = conLai.slice(0, TV_PHONG_SO_CHO);
+  const them = conNua(conLai.length, hien.length);
   return (
     <main className="flex flex-1 flex-col gap-5 p-8">
       <h2 className="text-center text-4xl font-bold uppercase tracking-wide text-teal-700">{ten}</h2>
@@ -280,20 +303,23 @@ function PhongMotMan({ ten, rows }: { ten: string; rows: DisplayItem[] }) {
         {conLai.length === 0 ? (
           <div className="mt-4 text-3xl text-slate-300">—</div>
         ) : (
-          <ol className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-3">
-            {conLai.slice(0, 12).map((m, i) => (
+          <ol className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4">
+            {hien.map((m, i) => (
               <li
                 key={`${m.queue_number ?? "?"}-${i}`}
-                className={`truncate rounded-2xl px-5 py-3 text-3xl font-semibold ${
+                className={`truncate rounded-xl px-4 py-2 text-2xl font-semibold ${
                   i === 0 ? "bg-teal-100 text-teal-800" : "bg-slate-100 text-slate-700"
                 }`}
               >
-                <span className="mr-3 tabular-nums text-slate-400">{i + 1}.</span>
+                <span className="mr-2 tabular-nums text-slate-400">{i + 1}.</span>
                 {goi(m)}
               </li>
             ))}
           </ol>
         )}
+        {them ? (
+          <div className="mt-3 text-center text-2xl font-semibold text-slate-500">{them}</div>
+        ) : null}
       </section>
     </main>
   );
