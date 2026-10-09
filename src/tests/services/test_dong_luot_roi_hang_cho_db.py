@@ -14,6 +14,7 @@ import asyncpg
 import pytest
 
 from clinicai.services.checkout_service import CheckoutService
+from clinicai.services.dispatch_service import DispatchService
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
@@ -66,6 +67,16 @@ async def test_dong_luot_thi_khach_roi_moi_hang_cho(
         visit,
     )
     assert json.loads(payload)["hang_cho_roi"] >= 1
+    # Check-in / check-out là sổ thao tác, không phải điều phối (09/10/2026):
+    # không lên Lịch sử điều phối của trưởng ca.
+    lich_su = await DispatchService(pool).history(clinic_id=CLINIC, limit=500)
+    assert not [
+        r
+        for r in lich_su
+        if r["visit_id"] == visit
+        and r["event_type"]
+        in ("dispatch.checkin", "dispatch.checkout", "visit.closed_incomplete")
+    ]
 
 
 async def test_thu_tien_roi_ve_ngay_thi_khong_tu_xep_phong(
