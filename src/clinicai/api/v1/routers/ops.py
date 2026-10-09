@@ -15,6 +15,7 @@ from clinicai.core.telemetry import SLOW_REQUEST_MS, telemetry
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.schemas.ops import OpsStatusResponse
 from clinicai.services import (
+    agent_giam_sat,
     canh_gac,
     canh_gac_kho_tep,
     day_tep,
@@ -172,6 +173,80 @@ async def nhat_ky(
     return await nhat_ky_van_hanh.doc_nhat_ky(
         pool, clinic_id=identity.clinic_id, ngay=ngay, tim=tim
     )
+
+
+# ── Agent giám sát (09/10/2026, shadow) — services/agent_giam_sat.py ─────────
+
+
+@router.get("/ops/agent")
+async def agent_nhan_dinh(
+    response: Response,
+    chi_mo: bool = Query(default=False),
+    identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Nhận định của agent (đang mở trước), độ đúng 14 ngày theo loại, công tắc.
+    Shadow: chỉ quản lý thấy ở đây — chưa réo chuông ai."""
+    response.headers["Cache-Control"] = "no-store"
+    return await agent_giam_sat.danh_sach(
+        pool, clinic_id=identity.clinic_id, chi_dang_mo=chi_mo
+    )
+
+
+class DanhGiaNhanDinh(BaseModel):
+    #: None = bỏ chấm (hoàn tác).
+    danh_gia: str | None = None
+    ghi_chu: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/ops/agent/{nhan_dinh_id}/danh-gia")
+async def danh_gia_nhan_dinh(
+    nhan_dinh_id: UUID,
+    body: DanhGiaNhanDinh,
+    identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Quản lý chấm ĐÚNG / SAI / KHÔNG RÕ — số đo để quyết lên giai đoạn sau."""
+    if body.danh_gia is not None and body.danh_gia not in agent_giam_sat.DANH_GIA:
+        raise ValidationError("Đánh giá không hợp lệ.")
+    ok = await agent_giam_sat.danh_gia(
+        pool,
+        clinic_id=identity.clinic_id,
+        nhan_dinh_id=str(nhan_dinh_id),
+        gia_tri=body.danh_gia,
+        ghi_chu=body.ghi_chu,
+        staff_id=identity.staff_id,
+    )
+    if not ok:
+        raise NotFoundError("Không tìm thấy nhận định này.")
+    return {"ok": True}
+
+
+class CheDoAgent(BaseModel):
+    loai: str = Field(max_length=60)
+    che_do: str
+
+
+@router.post("/ops/agent/che-do")
+async def dat_che_do_agent(
+    body: CheDoAgent,
+    identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Bật/tắt một loại nhận định, hoặc `loai='*'` = mọi loại (công tắc khẩn).
+    Có hiệu lực ở vòng kế (≤ 1 phút), không cần deploy."""
+    if body.loai != "*" and body.loai not in agent_giam_sat.LOAI:
+        raise ValidationError("Loại nhận định không có.")
+    if body.che_do not in agent_giam_sat.CHE_DO:
+        raise ValidationError("Chế độ không hợp lệ.")
+    await agent_giam_sat.dat_che_do(
+        pool,
+        clinic_id=identity.clinic_id,
+        loai=body.loai,
+        che_do=body.che_do,
+        staff_id=identity.staff_id,
+    )
+    return {"ok": True}
 
 
 class LoiTrinhDuyet(BaseModel):
