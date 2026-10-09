@@ -62,6 +62,14 @@ logger = structlog.get_logger()
 # Bước "Đóng lượt khám" trong node_definition.
 CLOSE_NODE = "LUOTKHAM-15"
 
+# Lượt thuộc cơ sở đang đứng (tham số ``$n``) — lượt chưa biết cơ sở vẫn hiện;
+# tham số NULL (danh tính không mang cơ sở) = không lọc. Không dùng OR.
+_DK_CO_SO = (
+    "coalesce(public.co_so_cua_luot(v.clinic_id, v.visit_id), ${n}::uuid)"
+    " IS NOT DISTINCT FROM"
+    " coalesce(${n}::uuid, public.co_so_cua_luot(v.clinic_id, v.visit_id))"
+)
+
 _READINESS_SQL = (
     """
 SELECT
@@ -102,9 +110,14 @@ SELECT
                  AND q.status = 'open'), 0)                    AS lab_pending,
     -- ②b Bác sĩ chưa khám/đọc xong: còn phiên khám đang chờ hoặc đang khám,
     --     hoặc vòng đọc kết quả chưa đóng.
+    --     Lượt ĐIỀU TRỊ (07/10/2026): hàng bác sĩ là TUỲ CHỌN — phiên chưa ai
+    --     nhận ('queued') không tính là "bác sĩ chưa khám".
     (EXISTS (SELECT 1 FROM public.consultation c
               WHERE c.clinic_id = v.clinic_id AND c.visit_id = v.visit_id
-                AND c.status IN ('queued', 'in_progress'))
+                AND c.status IN ('queued', 'in_progress')
+                AND NOT (c.status = 'queued' AND EXISTS (
+                    SELECT 1 FROM public.service_type st
+                     WHERE st.id = v.service_type_id AND st.nhom = 'DIEU_TRI')))
      OR EXISTS (SELECT 1 FROM public.review_round r
                  WHERE r.clinic_id = v.clinic_id AND r.visit_id = v.visit_id
                    AND r.status <> 'closed'))                   AS exam_open,
@@ -402,12 +415,15 @@ class CheckoutService:
                     # check-out ở quầy.
                     "   AND NOT v.ban_le"
                     "   AND coalesce(v.checked_in_at, v.created_at) >= $3"
+                    # Chỉ lượt của cơ sở đang đứng ($4 NULL = không lọc).
+                    f"   AND {_DK_CO_SO.format(n=4)}"
                     " ORDER BY coalesce(v.checked_in_at, v.created_at) DESC"
                     " LIMIT 300",
                 ),
                 identity.clinic_id,
                 CLOSE_NODE,
                 _vn_day_start(),
+                identity.location_id or None,
             )
             rows = await _gan_doi_tac_tu_thu(conn, identity.clinic_id, rows)
 
@@ -677,11 +693,15 @@ class CheckoutService:
                     "WHERE v.clinic_id = $1::uuid AND v.visit_id = $3::uuid",
                     "WHERE v.clinic_id = $1::uuid"
                     f"   AND {dieu_kien_luot_treo('v')}"
+                    # Cơ sở lọc Ở ĐÂY, không trong dieu_kien_luot_treo — bộ
+                    # canh gác LUOT_TREO dùng chung câu ấy cho cả phòng khám.
+                    f"   AND {_DK_CO_SO.format(n=3)}"
                     " ORDER BY v.checked_in_at DESC"
                     " LIMIT 300",
                 ),
                 identity.clinic_id,
                 CLOSE_NODE,
+                identity.location_id or None,
             )
             rows = await _gan_doi_tac_tu_thu(conn, identity.clinic_id, rows)
 
@@ -1038,6 +1058,7 @@ async def _gan_doi_tac_tu_thu(
     """
     from clinicai.services.bill_service import hoa_don_con_no, tinh_hoa_don
     from clinicai.services.cong_no_service import no_khi_ve
+    from clinicai.services.tien_thua_service import tien_thua_khi_ve
 
     out: list[dict[str, Any]] = []
     for r in rows:
@@ -1057,6 +1078,15 @@ async def _gan_doi_tac_tu_thu(
                     conn, clinic_id=clinic_id, visit_id=visit_id, hd_dich_vu=dich_vu
                 )
             ).cho_api()
+            # TIỀN THỪA (Tuyền chốt 06/10/2026, E2a): còn tiền thừa chưa hoàn /
+            # chưa "giữ lại" (kèm lý do) → chặn check-out, nhưng hai lối qua
+            # ngay trong hộp. `chan` của no_khi_ve gộp cả hai để mọi nút
+            # Check-out khoá đúng; `chan_no` giữ nghĩa cũ (chỉ nợ).
+            tt = await tien_thua_khi_ve(conn, clinic_id, visit_id)
+            nkv = d["no_khi_ve"]
+            nkv["chan_no"] = bool(nkv.get("chan"))
+            nkv["tien_thua"] = tt
+            nkv["chan"] = bool(nkv.get("chan")) or bool(tt["chan"])
             if d.get("has_drug") and not d.get("paid_drug"):
                 thuoc = await tinh_hoa_don(
                     conn, clinic_id=clinic_id, visit_id=visit_id, kind="thuoc"
@@ -1081,7 +1111,7 @@ def build_blockers(row: dict[str, Any]) -> list[dict[str, Any]]:
     # Đã ghi nợ phủ đủ thì không còn vướng tiền nào.
     no = row.get("no_khi_ve") or {}
     loai_no = {str(d.get("loai")) for d in no.get("dong") or []}
-    if no.get("chan"):
+    if no.get("chan_no", no.get("chan")):
         from clinicai.services.cong_no_service import tien_vn
 
         chua_gia = sum(1 for d in no["dong"] if d.get("so_tien") is None)
@@ -1093,6 +1123,22 @@ def build_blockers(row: dict[str, Any]) -> list[dict[str, Any]]:
                     f"Khách còn nợ {tien_vn(no.get('tong'))}đ"
                     + (f" (+{chua_gia} khoản chưa có giá)" if chua_gia else "")
                     + " — thu ngay hoặc ghi nợ (kèm lý do) mới check-out được"
+                ),
+            }
+        )
+
+    tt = no.get("tien_thua") or {}
+    if tt.get("chan"):
+        from clinicai.services.cong_no_service import tien_vn
+
+        out.append(
+            {
+                "type": "tien_thua",
+                "chan": True,
+                "message": (
+                    f"Còn tiền thừa {tien_vn(tt.get('tong'))}đ chưa xử lý — bấm"
+                    " “Đã hoàn cho khách” (máy hoàn đúng số) hoặc “Giữ lại” (ghi"
+                    " lý do) rồi mới check-out được"
                 ),
             }
         )

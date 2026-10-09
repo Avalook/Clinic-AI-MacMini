@@ -31,6 +31,7 @@ import asyncpg
 
 from clinicai.core.trang_thai_lich import trang_thai_hien_thi
 from clinicai.services.hanh_trinh_khach_service import dang_o_cac_luot
+from clinicai.services.nhan_luot import doc_nhan_luot, tra_nhan
 
 # Trần số dòng GIỮ NGUYÊN từ bản PostgREST — không phải số thiêng, chỉ là không
 # đổi hai thứ trong một lần vá. Phân trang 50 khách khiến các trần này gần như
@@ -68,13 +69,14 @@ class ManKhachHangService:
                        a.created_at, a.cancelled_at, a.ly_do_huy_ma,
                        a.cancellation_reason, a.service_type_id, a.doctor_id,
                        a.bac_si_da_go_id, a.location_id, a.booking_channel,
-                       a.lich_truoc_id,
+                       a.lich_truoc_id, a.notes,
                        st.name AS ten_dich_vu, bs.full_name AS ten_bac_si,
                        -- NHÃN TRẠNG THÁI (30/09/2026): đã về hay chưa là
                        -- chuyện của LƯỢT — `trang_thai_hien_thi`.
                        lv.visit_id::text AS luot_id, lv.status AS trang_thai_luot,
                        lv.checked_in_at AS den_luc, lv.closed_at AS ve_luc,
-                       (lv.exam_completed_at IS NOT NULL) AS kham_xong
+                       (lv.exam_completed_at IS NOT NULL) AS kham_xong,
+                       lv.exam_completed_at AS kham_xong_luc
                   FROM appointment a
                   LEFT JOIN service_type st ON st.id = a.service_type_id
                   LEFT JOIN staff bs ON bs.id = a.doctor_id
@@ -93,9 +95,16 @@ class ManKhachHangService:
             # kết nối). "Mất bác sĩ" chỉ có nghĩa khi tuần đã công bố lịch trực:
             # chưa công bố là đặt tự do (luật 15/09), và bảng nháp thiếu ca KHÔNG
             # phải bác sĩ nghỉ (16/09/2026). Dòng tuần có staff_id NULL.
+            # Kèm CƠ SỞ của ca (vị trí → phòng → cơ sở; NULL = mọi cơ sở): ca ở
+            # Kim Ngưu không giữ được lịch ở Hào Nam (08/10/2026).
             ca_truc_va_tuan = await conn.fetch(
                 """
-                SELECT staff_id, work_date, NULL::date AS tuan_cong_bo
+                SELECT staff_id, work_date, NULL::date AS tuan_cong_bo,
+                       (SELECT r.location_id
+                          FROM vi_tri_lam_viec v
+                          JOIN clinic_room r ON r.id = v.room_id
+                         WHERE v.clinic_id = work_roster.clinic_id
+                           AND v.code = work_roster.station) AS location_id
                   FROM work_roster
                  WHERE clinic_id = $1::uuid
                    AND public.la_ca_kham_bac_si(clinic_id, station)
@@ -103,7 +112,7 @@ class ManKhachHangService:
                    AND work_date >=
                        (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date - 1
                 UNION ALL
-                SELECT NULL::uuid, NULL::date, rw.week_start
+                SELECT NULL::uuid, NULL::date, rw.week_start, NULL::uuid
                   FROM roster_week rw
                  WHERE rw.clinic_id = $1::uuid
                    AND rw.week_start >=
@@ -344,8 +353,12 @@ class ManKhachHangService:
                 ],
             )
 
+            # Nhãn đếm lượt (08/10/2026): máy chủ đếm trên MỌI lượt của khách
+            # theo thời gian — `services/nhan_luot.py`.
+            nhan = await doc_nhan_luot(conn, clinic_id, ids)
+
         return {
-            "appts": [_lich(r, dang_o) for r in appts],
+            "appts": [_lich(r, dang_o, nhan) for r in appts],
             "ca_truc": [dict(r) for r in ca_truc],
             "tuan_cong_bo": [str(w) for w in tuan_cong_bo],
             "trang_thai": [dict(r) for r in trang_thai],
@@ -377,7 +390,11 @@ _CAC_KHOI = (
 )
 
 
-def _lich(r: asyncpg.Record, dang_o: dict[str, Any] | None = None) -> dict[str, Any]:
+def _lich(
+    r: asyncpg.Record,
+    dang_o: dict[str, Any] | None = None,
+    nhan: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Một dòng lịch hẹn, LỒNG `service`/`doctor` y như PostgREST.
 
     page.tsx đọc `a.service?.name` và `a.doctor?.full_name` — đổi sang cột
@@ -396,6 +413,7 @@ def _lich(r: asyncpg.Record, dang_o: dict[str, Any] | None = None) -> dict[str, 
     den_luc = d.pop("den_luc", None)
     ve_luc = d.pop("ve_luc", None)
     kham_xong = bool(d.pop("kham_xong", False))
+    kham_xong_luc = d.pop("kham_xong_luc", None)
     d["service"] = {"name": ten_dv} if ten_dv else None
     d["doctor"] = {"full_name": ten_bs} if ten_bs else None
     d["trang_thai"] = trang_thai_hien_thi(
@@ -407,6 +425,12 @@ def _lich(r: asyncpg.Record, dang_o: dict[str, Any] | None = None) -> dict[str, 
     )
     moc = ve_luc or den_luc
     d["trang_thai_luc"] = moc.isoformat() if moc else None
+    # GIỜ THẬT của lượt (khung phải: "khám xong hh:mm · về hh:mm") — lượt đã tới
+    # không hiện giờ hẹn slot_start.
+    d["den_luc"] = den_luc.isoformat() if den_luc else None
+    d["kham_xong_luc"] = kham_xong_luc.isoformat() if kham_xong_luc else None
+    d["ve_luc"] = ve_luc.isoformat() if ve_luc else None
+    d["nhan_luot"] = tra_nhan(nhan or {}, visit_id=luot_id, appointment_id=d.get("id"))
     return d
 
 

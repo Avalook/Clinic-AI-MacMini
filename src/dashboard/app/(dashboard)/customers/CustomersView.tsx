@@ -48,6 +48,9 @@ import { todayVn } from "@/lib/roster";
 import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
 import { khoangTuKy, type Khoang } from "@/lib/thanh-ngay";
 import KhungKhach from "../_lam-viec/KhungKhach";
+import DatLichBuoiKe from "../_lam-viec/DatLichBuoiKe";
+import type { LieuTrinh } from "@/lib/lieu-trinh-cskh";
+import { gioLuot, type NhanLuot } from "@/lib/nhan-luot";
 import LichSuNotion from "../patient-list/LichSuNotion";
 import LichTrungCuaKhach from "./LichTrungCuaKhach";
 import DatLichModal from "./DatLichModal";
@@ -242,6 +245,10 @@ export interface LuotKham {
   bs_go_co_ca_lai?: boolean;
   /** Lượt trước trong chuỗi tái khám. null = mở đầu một đợt. */
   lich_truoc_id: string | null;
+  /** Nhãn đếm lượt máy chủ tính ("Lượt khám 2", "Buổi 3/10", "Lịch hẹn"…). */
+  nhan_luot?: NhanLuot | null;
+  /** `visit.exam_completed_at` — giờ khám xong thật. */
+  kham_xong_luc?: string | null;
   /** Lý do huỷ CỦA CHÍNH LƯỢT NÀY — mã chọn sẵn và chữ tự viết. */
   ly_do_huy_ma: string | null;
   cancellation_reason: string | null;
@@ -271,7 +278,8 @@ export interface ViecDoiTac {
   luc: string | null;
 }
 
-/** Một ĐỢT: các lượt nối nhau bằng `lich_truoc_id`, sớm trước. */
+/** Các lượt của khách, sớm trước. Từ 08/10/2026 page.tsx dựng MỘT dải theo thời
+ *  gian (không gom chuỗi theo dịch vụ / `lich_truoc_id` nữa). */
 export interface ChuoiKham {
   luot: LuotKham[];
 }
@@ -390,6 +398,9 @@ const NHAN_KET_QUA_NGAN_GOI: Record<string, string> = {
  *  đọc cho khách nghe. */
 function nhanLuot(l: MocLich | null): string {
   if (!l?.status) return "Lịch hẹn";
+  // Nhãn đếm máy chủ (08/10/2026): "Lượt khám 2 · đã khám xong".
+  if (l.nhan_luot && (l.status === "CHECKED_IN" || l.status === "COMPLETED"))
+    return `${l.nhan_luot.nhan} · ${l.status === "CHECKED_IN" ? "đang khám" : "đã khám xong"}`;
   if (l.status === "CHECKED_IN") return "Lượt đang khám";
   if (l.status === "COMPLETED") return "Lượt đã khám xong";
   if (["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"].includes(l.status))
@@ -605,7 +616,6 @@ export default function CustomersView({
   canThemKhach = false,
   canManage = false,
   canOperateCskh = false,
-  services = [],
   doctors = [],
 }: {
   rows: CustomerRow[];
@@ -651,7 +661,6 @@ export default function CustomersView({
   canManage?: boolean;
   /** Có quyền ghi nghiệp vụ CSKH; quyền mở danh bạ không tự suy ra quyền này. */
   canOperateCskh?: boolean;
-  services?: Opt[];
   doctors?: Opt[];
 }) {
   const router = useRouter();
@@ -692,6 +701,8 @@ export default function CustomersView({
   const [ghiChuChung, setGhiChuChung] = useState("");
   /** Form đặt lịch đang mở kiểu nào; null = đóng. */
   const [datLich, setDatLich] = useState<"tai-kham" | "kham-moi" | null>(null);
+  /** [Đặt lịch buổi kế] từ khối Liệu trình của khung khách (08/10/2026). */
+  const [datLichLt, setDatLichLt] = useState<LieuTrinh | null>(null);
   // LƯỢT KHÁM ĐANG XEM — cặp (khách, lượt), không phải mỗi id lượt.
   //
   // Đổi khách mà chỉ giữ id lượt thì lượt của người trước dính sang người sau.
@@ -931,6 +942,10 @@ export default function CustomersView({
         service_type_id: luot.service_type_id,
         service_name: luot.service_name,
         quay_dong_luc: luot.quay_dong_luc ?? null,
+        nhan_luot: luot.nhan_luot ?? null,
+        bat_dau: luot.bat_dau,
+        kham_xong_luc: luot.kham_xong_luc ?? null,
+        ket_thuc: luot.ket_thuc,
         co_thu_thuat: luot.co_thu_thuat ?? false,
         thu_thuat_xong_luc: luot.thu_thuat_xong_luc ?? null,
         theo_doi_thu_thuat: luot.theo_doi_thu_thuat ?? null,
@@ -1720,6 +1735,7 @@ export default function CustomersView({
             })()}
             thanhLuot={
               <ThanhLuotKham
+                clinicPatientId={selected.clinic_patient_id}
                 chuoi={lichSuKhamByPatient[selected.clinic_patient_id] ?? []}
                 luotDangXem={luotDangXem?.id ?? null}
                 luotConViec={
@@ -1853,8 +1869,10 @@ export default function CustomersView({
                           ? "Lịch dự kiến"
                           : nhanLuot(luotDangXem)}
                       </span>
+                      {/* Lượt đã tới → giờ THẬT (đến · khám xong · về), không
+                          giờ hẹn slot (08/10/2026). */}
                       <span className="mt-1 block text-sm font-semibold text-ink">
-                        {fmtDateTimeOrDate(luotDangXem?.slot_start ?? null)}
+                        {luotDangXem ? gioLuot(luotDangXem) : "—"}
                       </span>
                       {/* Đếm ngược tới giờ hẹn — tự dừng khi tới giờ, xem
                           DemNguocKham. Cả HAI khối lịch hẹn cùng có (12.2). */}
@@ -1885,9 +1903,7 @@ export default function CustomersView({
                       {nhanLuot(luotDangXem)}
                     </p>
                     <p className="mt-1 text-sm font-semibold text-ink">
-                      {luotDangXem?.slot_start
-                        ? fmtDateTimeOrDate(luotDangXem.slot_start)
-                        : "Chưa có lịch hẹn"}
+                      {luotDangXem ? gioLuot(luotDangXem) : "Chưa có lịch hẹn"}
                     </p>
                     <DemNguocKham
                       slotStart={luotDangXem?.slot_start}
@@ -2036,6 +2052,7 @@ export default function CustomersView({
                   <KhungKhach
                     key={selected.clinic_patient_id}
                     clinicPatientId={selected.clinic_patient_id}
+                    onDatLichLieuTrinh={canEdit ? setDatLichLt : undefined}
                   />
                 )}
 
@@ -2171,7 +2188,6 @@ export default function CustomersView({
           patientName={selected.full_name}
           clinicPatientId={selected.clinic_patient_id}
           gioiThieu={selected.nguoi_gioi_thieu ?? ""}
-          services={services}
           doctors={doctors}
           locations={locations}
           onClose={() => setEditOpen(false)}
@@ -2198,7 +2214,6 @@ export default function CustomersView({
         <DatLichModal
           tenKhach={selected.full_name}
           clinicPatientId={selected.clinic_patient_id}
-          services={services}
           doctors={doctors}
           locations={locations}
           defaultLocationId={selected.location_id ?? undefined}
@@ -2232,6 +2247,28 @@ export default function CustomersView({
           // lượt nào. Mọi luật suy diễn khác rồi cũng sai ở một ca nào đó.
           onXong={(appointmentId) => {
             setDatLich(null);
+            if (appointmentId && selected) {
+              setLuotChon({ pid: selected.clinic_patient_id, id: appointmentId });
+              setViecDangGhi(null);
+              setGhiChuChung("");
+              setEditOpen(false);
+            }
+            router.refresh();
+          }}
+        />
+      ) : null}
+
+      {/* Đặt lịch buổi kế của một liệu trình — cùng bộ đặt lịch, khoá loại khám
+          Điều trị của dịch vụ (08/10/2026). Đặt xong chuyển sang lượt mới như trên. */}
+      {canEdit && datLichLt && selected?.clinic_patient_id === datLichLt.khach_id ? (
+        <DatLichBuoiKe
+          lt={datLichLt}
+          doctors={doctors}
+          locations={locations}
+          defaultLocationId={selected.location_id ?? undefined}
+          onDong={() => setDatLichLt(null)}
+          onXong={(appointmentId) => {
+            setDatLichLt(null);
             if (appointmentId && selected) {
               setLuotChon({ pid: selected.clinic_patient_id, id: appointmentId });
               setViecDangGhi(null);

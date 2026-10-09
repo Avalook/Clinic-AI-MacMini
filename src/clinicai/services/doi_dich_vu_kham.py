@@ -23,7 +23,9 @@ import asyncpg
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
+from clinicai.permissions.y_khoa import QUYEN_Y_KHOA
 from clinicai.services.bill_service import _DA_PHU
+from clinicai.services.dich_vu_dat_lich import COT_SQL, gom_nhom, ten_sach
 from clinicai.services.lenh_kham_core import ma_uuid
 
 #: Có MỘT trong hai quyền là đổi được (Tuyền chốt 30/09/2026): người quản lý
@@ -33,11 +35,18 @@ QUYEN_DOI_DICH_VU_KHAM: tuple[str, ...] = (
     "reception.checkin.perform",
 )
 
+#: Đổi TRONG HỒ SƠ KHÁM (Tuyền chốt 07/10/2026, T5): bác sĩ, điều dưỡng, thư ký
+#: (khối y khoa) + trưởng ca (điều phối khách); quản lý có mọi khối.
+QUYEN_DOI_TRONG_HO_SO: tuple[str, ...] = (*QUYEN_Y_KHOA, "dispatch.manage")
+
 #: Lịch chưa tới quầy — chỉ đổi lịch, chưa có lượt khám. DOCTOR_DECLINED (bác sĩ
 #: từ chối, chờ xếp người khác) cũng là lịch chưa khám.
 TRUOC_CHECK_IN = frozenset(
     {"SCHEDULED", "CSKH_CONFIRMED", "CONFIRMED", "DOCTOR_DECLINED"}
 )
+
+#: Lượt đã check-out (``visit.closed_at``) — mọi đường đổi dịch vụ khám.
+CAU_DA_CHECK_OUT = "Lượt đã check-out — mở lại lượt trước."
 
 _LICH_DA_XONG: dict[str, str] = {
     "COMPLETED": "Lịch đã khám xong",
@@ -54,8 +63,28 @@ def ly_do_khong_doi(
     co_phieu_kham: bool,
     da_thu_tien_kham: bool,
     da_chon_dich_vu_con: bool,
+    trong_ho_so: bool = False,
+    da_check_out: bool = False,
 ) -> str | None:
-    """Câu nói rõ vì sao KHÔNG đổi được dịch vụ khám; None = đổi được."""
+    """Câu nói rõ vì sao KHÔNG đổi được dịch vụ khám; None = đổi được.
+
+    ``trong_ho_so`` (Tuyền chốt 07/10/2026, T5): đổi ngay trong hồ sơ khám —
+    phiên đã bắt đầu, đã có phiếu, đã thu tiền khám, đã tick dịch vụ con đều
+    ĐỔI ĐƯỢC (phiếu cũ giữ nguyên, tick giữ nguyên, chênh tiền theo luật tiền
+    thừa / nợ). Chỉ lượt đã đóng (check-out) mới không đổi ở đây.
+
+    ``da_check_out``: check-out chỉ đặt ``visit.closed_at`` (status vẫn
+    IN_PROGRESS) — đổi dịch vụ sau khi khách về là đổi phí khám, xếp lại hàng
+    cho người không còn ở phòng khám (review 07/10/2026).
+    """
+    if trang_thai_luot is not None and da_check_out:
+        return CAU_DA_CHECK_OUT
+    if trong_ho_so:
+        if trang_thai_luot is None:
+            return "Lượt khám chưa mở — đổi dịch vụ ở dòng lịch hẹn."
+        if trang_thai_luot not in ("OPEN", "IN_PROGRESS"):
+            return "Lượt khám đã đóng (khách đã về) — không đổi dịch vụ khám được."
+        return None
     if trang_thai_lich in TRUOC_CHECK_IN:
         return None
     if trang_thai_lich != "CHECKED_IN":
@@ -104,12 +133,13 @@ class TrangThaiDoi:
     da_thu_tien_kham: bool
     da_chon_dich_vu_con: bool
     bac_si_con_kham: bool
+    da_check_out: bool = False
 
     @property
     def sau_check_in(self) -> bool:
         return self.trang_thai_lich == "CHECKED_IN"
 
-    def ly_do_khong_doi(self) -> str | None:
+    def ly_do_khong_doi(self, *, trong_ho_so: bool = False) -> str | None:
         return ly_do_khong_doi(
             trang_thai_lich=self.trang_thai_lich,
             trang_thai_luot=self.trang_thai_luot,
@@ -117,6 +147,8 @@ class TrangThaiDoi:
             co_phieu_kham=self.co_phieu_kham,
             da_thu_tien_kham=self.da_thu_tien_kham,
             da_chon_dich_vu_con=self.da_chon_dich_vu_con,
+            trong_ho_so=trong_ho_so,
+            da_check_out=self.da_check_out,
         )
 
 
@@ -127,6 +159,7 @@ SELECT a.id::text AS appointment_id, a.status, a.clinic_patient_id::text,
        a.doctor_id::text, a.service_type_id::text AS dich_vu_id,
        st.name AS ten_dich_vu,
        v.visit_id::text, v.status AS trang_thai_luot,
+       v.closed_at IS NOT NULL AS da_check_out,
        EXISTS (
            SELECT 1 FROM public.consultation c
             WHERE c.clinic_id = a.clinic_id AND c.visit_id = v.visit_id
@@ -175,6 +208,7 @@ async def doc_trang_thai(
         da_thu_tien_kham=bool(r["da_thu_tien_kham"]),
         da_chon_dich_vu_con=bool(r["da_chon_dich_vu_con"]),
         bac_si_con_kham=bool(r["bac_si_con_kham"]),
+        da_check_out=bool(r["da_check_out"]),
     )
 
 
@@ -195,9 +229,11 @@ async def o_doi_dich_vu(
     luat = BookingService(pool)
     async with pool.acquire() as conn:
         tt = await doc_trang_thai(conn, cid, aid)
+        # Cùng nguồn + cùng nhóm với ô chọn lúc đặt lịch (`dich_vu_dat_lich`).
         dich_vu = await conn.fetch(
-            "SELECT id::text, name FROM public.service_type"
-            " WHERE clinic_id = $1::uuid AND is_active ORDER BY name",
+            f"SELECT {COT_SQL} FROM public.service_type"
+            " WHERE clinic_id = $1::uuid AND is_active AND nhom <> 'THUOC'"
+            " ORDER BY thu_tu, name",
             cid,
         )
         lua_chon: list[dict[str, Any]] = []
@@ -217,10 +253,12 @@ async def o_doi_dich_vu(
             lua_chon.append(
                 {
                     "id": d["id"],
-                    "ten": d["name"],
+                    "ten": ten_sach(d["name"]),
                     "hien_tai": d["id"] == tt.dich_vu_id,
                     "chan": chan,
                     "ghi_chu": ghi_chu,
+                    "nhom": d["nhom"],
+                    "form_code": d["form_code"],
                 }
             )
     ly_do = tt.ly_do_khong_doi()
@@ -235,6 +273,8 @@ async def o_doi_dich_vu(
         "duoc_doi": ly_do is None,
         "ly_do_khong_doi": ly_do,
         "lua_chon": lua_chon,
+        # Cùng danh sách, gom theo nhóm đặt lịch (Khám · Điều trị · Khác).
+        "nhom": gom_nhom(lua_chon),
     }
 
 
@@ -247,6 +287,7 @@ CAU_BAC_SI_NGHI = (
 __all__ = [
     "CAU_BAC_SI_NGHI",
     "QUYEN_DOI_DICH_VU_KHAM",
+    "QUYEN_DOI_TRONG_HO_SO",
     "TRUOC_CHECK_IN",
     "TrangThaiDoi",
     "doc_trang_thai",

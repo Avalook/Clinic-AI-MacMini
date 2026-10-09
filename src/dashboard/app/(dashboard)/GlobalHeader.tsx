@@ -11,8 +11,11 @@ import {
   CheckCircle2,
   AlertCircle,
   LogOut,
+  MapPin,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
+import NutHoanTac from "@/components/ui/NutHoanTac";
+import { lenhHoanTac } from "./_lam-viec/hoan-tac";
 import { ROLE_LABEL, type ClinicRole } from "@/lib/roles";
 import { NAV, navLabelFor } from "./nav-items";
 import { NHOM_CONG_VIEC } from "./nav-items";
@@ -29,6 +32,8 @@ interface GlobalHeaderProps {
   featureMode?: string;
   /** Server action thoát — cùng action với nút Thoát ở chân thanh bên. */
   leaveAction: () => void | Promise<void>;
+  /** Tên cơ sở đang đứng (máy chủ trả theo cơ sở đã chọn). */
+  coSo?: string;
 }
 
 export default function GlobalHeader({
@@ -38,6 +43,7 @@ export default function GlobalHeader({
   quyen = null,
   featureMode = "FULL_CLINIC",
   leaveAction,
+  coSo,
 }: GlobalHeaderProps) {
   const pathname = usePathname();
   const headerRef = useRef<HTMLElement>(null);
@@ -193,7 +199,7 @@ export default function GlobalHeader({
   // Nguồn thật hiện có: quyết định duyệt/từ chối ca làm việc của CHÍNH mình
   // (NotificationContext, realtime + poll). Ít hơn ba dòng kia rất nhiều, và
   // chuông im khi không có gì — đó mới là điều làm nó đáng tin.
-  const { notifs, unread: unreadCount, markAllRead, danhDauDaXuLy } =
+  const { notifs, unread: unreadCount, markAllRead, danhDauDaXuLy, docLai } =
     useNotifications();
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -507,7 +513,19 @@ export default function GlobalHeader({
                     //
                     // Không đóng hộ khi bấm vào đường dẫn: đi xem một việc
                     // không phải là đã làm xong nó.
-                    const nutXong = n.thongBaoId ? (
+                    // "Chỉ định bị bỏ" (Khối 2, Tuyền 06/10/2026): nút DUY
+                    // NHẤT là Hoàn tác — không có "Xong"/"Đã biết". Hoàn tác
+                    // xong máy chủ tự đóng thông báo.
+                    const nutXong = n.chiHoanTac ? (
+                      n.hoanTacSoId ? (
+                        <NutHoanTac
+                          className="shrink-0 self-start"
+                          goi={lenhHoanTac("hoan-tac-bo-chi-dinh", n.hoanTacSoId)}
+                          onXong={docLai}
+                          moTa="Đặt lại chỉ định vừa bị bỏ"
+                        />
+                      ) : null
+                    ) : n.thongBaoId ? (
                       <button
                         type="button"
                         onClick={(e) => {
@@ -544,6 +562,20 @@ export default function GlobalHeader({
             </div>
           )}
         </div>
+
+        {/* CƠ SỞ ĐANG ĐỨNG (08/10/2026 — hai cơ sở). Luôn hiện để không ai làm
+            nhầm cơ sở mà không biết; bấm để đổi. Phòng khám một cơ sở thì
+            /chon-co-so tự quay lại ngay. */}
+        {coSo ? (
+          <Link
+            href={`/chon-co-so?doi=1&next=${encodeURIComponent(pathname || "/home")}`}
+            title="Đổi cơ sở"
+            className="flex min-h-8 max-w-40 items-center gap-1 rounded-full border border-line px-2.5 text-meta font-medium text-ink-soft transition-colors hover:border-brand-600 hover:text-brand-700"
+          >
+            <MapPin size={14} className="shrink-0 text-brand-600" aria-hidden />
+            <span className="truncate">{coSo}</span>
+          </Link>
+        ) : null}
 
         {/* THẺ TÊN — BẤM ĐƯỢC, MỞ Ô CÓ NÚT THOÁT (27/09/2026, đợt 3).
             Góp ý phòng khám: "log out 'chữ Thoát' cho lên trên bên phải". Trước

@@ -50,6 +50,8 @@ const WRITE_PATHS: Record<string, string> = {
   "room-name": "/api/v1/clinic-config/room-name",
   "room-active": "/api/v1/clinic-config/room-active",
   "room-nodes": "/api/v1/clinic-config/room-nodes",
+  // Phòng chuyên ★ của một nhóm việc (07/10/2026) — tick sẵn khi nhận khách.
+  "room-node-chuyen": "/api/v1/clinic-config/room-node-chuyen",
   // Dịch vụ lẻ của phòng — dịch vụ gắn ở đây chỉ làm ở phòng được gắn (30/09/2026).
   "room-services": "/api/v1/clinic-config/room-services",
   // Một dịch vụ làm ở phòng nào — màn Bảng giá dịch vụ & phòng (01/10/2026).
@@ -61,6 +63,8 @@ const WRITE_PATHS: Record<string, string> = {
   "thu-ky-bac-si": "/api/v1/clinic-config/thu-ky-bac-si",
   // Cơ sở (27/09/2026, màn Cấu trúc phòng khám làm lại).
   location: "/api/v1/clinic-config/location",
+  // Hỏi chọn cơ sở khi đăng nhập + cơ sở mặc định (08/10/2026).
+  "chon-co-so": "/api/v1/clinic-config/chon-co-so",
 };
 
 export async function PUT(request: Request) {

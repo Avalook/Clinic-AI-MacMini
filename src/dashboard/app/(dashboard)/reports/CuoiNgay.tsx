@@ -6,15 +6,24 @@
 // `bao_cao_cuoi_ngay_service`), cùng sổ và cùng luật cộng trừ với tab Lịch sử
 // của quầy thu. Màn chỉ VẼ: chọn khoảng ngày, In (window.print), Xuất Excel
 // (CSV UTF-8 BOM do máy chủ dựng).
+//
+// Theo cơ sở (08/10/2026 — mở Hào Nam): ô chọn "Tất cả cơ sở / từng cơ sở".
+// Tất cả → thêm bảng từng cơ sở + dòng Tổng; mọi số (kể cả Tổng) do máy chủ trả.
+//
+// Cuối ca (08/10/2026): xem MỘT ngày thì chọn được ca Sáng / Chiều / Tối — máy
+// chủ cắt mọi số theo khung giờ ca. Khối "Thuốc theo khách": kê vs thực bán.
 
 import { useCallback, useEffect, useState } from "react";
 
 import Button, { buttonClass } from "@/components/ui/Button";
+import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import ThanhNgay from "@/components/ui/ThanhNgay";
 import { fmtDayTime } from "@/lib/datetime";
 import { todayVn } from "@/lib/roster";
 import { congNgay, nhanKhoang, type Khoang } from "@/lib/thanh-ngay";
+
+import ThuocTheoKhach, { type ThuocTheoKhachData } from "./ThuocTheoKhach";
 
 interface OTien {
   thu: number;
@@ -86,6 +95,14 @@ interface BaoCao {
     ly_do: string | null;
   }[];
   top_dich_vu: { ten: string; so_luong: number; doanh_thu: number }[];
+  /** Tiền thừa của các lượt trong khoảng (06/10/2026): đã hoàn / giữ lại / còn
+   *  treo (chưa hoàn, chưa giữ lại). Báo cáo quầy thuốc: null. */
+  tien_thua?: {
+    da_hoan: number;
+    giu_lai: number;
+    con_treo: number;
+    so_luot_con_treo: number;
+  } | null;
   /** Khách còn nợ (01/10/2026): khoản ghi nợ lúc check-out còn CHƯA THU — tính
    *  tới hiện tại, không theo khoảng ngày. */
   khach_con_no?: {
@@ -104,6 +121,20 @@ interface BaoCao {
     }[];
   };
   theo_ngay: (OTien & { ngay: string; so_phieu: number })[];
+  /** Ca đang xem (08/10/2026) — null = cả ngày. Khung giờ do máy chủ tính. */
+  ca?: { ma: string; ten: string; tu: string; den: string } | null;
+  /** Thuốc kê vs thực bán theo khách — báo cáo dịch vụ: null. */
+  thuoc_theo_khach?: ThuocTheoKhachData | null;
+  /** Cơ sở đang xem (08/10/2026) — null = tất cả. */
+  co_so?: string | null;
+  ten_co_so?: string | null;
+  /** Chỉ có khi xem tất cả: từng cơ sở, tiền cộng lại = `tong`. */
+  theo_co_so?: {
+    location_id: string | null;
+    ten: string;
+    tong: OTien & { so_phieu_thu: number };
+    khach: { so_luot_kham: number };
+  }[];
 }
 
 const TEN_PT: Record<string, string> = { CASH: "Tiền mặt", TRANSFER: "Chuyển khoản", QR: "Chuyển khoản" };
@@ -191,7 +222,52 @@ function Khoi({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-export default function CuoiNgay() {
+function BangCoSo({ bc }: { bc: BaoCao }) {
+  const t = bc.tong;
+  return (
+    <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-card">
+      <table className="w-full border-collapse text-body">
+        <thead>
+          <tr className="border-b border-line bg-surface-muted text-left text-meta text-ink-muted">
+            <th className={TH}>Cơ sở</th>
+            <th className={`${TH} text-right`}>Lượt khám</th>
+            <th className={`${TH} text-right`}>Phiếu thu</th>
+            <th className={`${TH} text-right`}>Thu gốc</th>
+            <th className={`${TH} text-right`}>Huỷ phiếu</th>
+            <th className={`${TH} text-right`}>Hoàn</th>
+            <th className={`${TH} text-right`}>Thực thu</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(bc.theo_co_so ?? []).map((o) => (
+            <tr key={o.location_id ?? "chua-ro"} className="border-b border-surface-sunken">
+              <td className={`${TD} whitespace-nowrap`}>{o.ten}</td>
+              <td className={SO}>{o.khach.so_luot_kham}</td>
+              <td className={SO}>{o.tong.so_phieu_thu}</td>
+              <td className={SO}>{tien(o.tong.thu)}</td>
+              <td className={SO}>{am(o.tong.huy)}</td>
+              <td className={SO}>{am(o.tong.hoan)}</td>
+              <td className={`${SO} font-semibold`}>{tien(o.tong.thuc_thu)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-line bg-surface-muted font-semibold">
+            <td className={TD}>Tổng</td>
+            <td className={SO}>{bc.khach.so_luot_kham}</td>
+            <td className={SO}>{t.so_phieu_thu}</td>
+            <td className={SO}>{tien(t.thu)}</td>
+            <td className={SO}>{am(t.huy)}</td>
+            <td className={SO}>{am(t.hoan)}</td>
+            <td className={SO}>{tien(t.thuc_thu)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+}
+
+export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
   const [homNay] = useState(todayVn);
   const [khoang, setKhoang] = useState<Khoang>({ tu: homNay, den: homNay });
   const [bc, setBc] = useState<BaoCao | null>(null);
@@ -200,8 +276,19 @@ export default function CuoiNgay() {
   // Thuốc và dịch vụ thu RIÊNG HẲN (Tuyền 01/10/2026): mỗi quầy một ngăn kéo —
   // chọn "Dịch vụ" / "Thuốc" để mọi bảng chỉ cộng đúng loại tiền ấy.
   const [loai, setLoai] = useState<"" | "dich_vu" | "thuoc">("");
+  // "" = Tất cả cơ sở (mặc định).
+  const [coSoChon, setCoSoChon] = useState("");
+  // "" = cả ngày. Chỉ gửi khi xem một ngày (máy chủ cũng bỏ ca nếu nhiều ngày).
+  const [ca, setCa] = useState<"" | "SANG" | "CHIEU" | "TOI">("");
+  const motNgay = khoang.tu === khoang.den;
 
-  const chuoi = new URLSearchParams({ tu: khoang.tu, den: khoang.den, ...(loai ? { loai } : {}) }).toString();
+  const chuoi = new URLSearchParams({
+    tu: khoang.tu,
+    den: khoang.den,
+    ...(loai ? { loai } : {}),
+    ...(coSoChon ? { co_so: coSoChon } : {}),
+    ...(ca && motNgay ? { ca } : {}),
+  }).toString();
 
   const tai = useCallback(async () => {
     setDangTai(true);
@@ -249,7 +336,7 @@ export default function CuoiNgay() {
               role="tab"
               aria-selected={loai === ma}
               onClick={() => setLoai(ma)}
-              className={`min-h-10 rounded-control px-3 text-sm font-medium ${
+              className={`min-h-10 whitespace-nowrap rounded-control px-3 text-sm font-medium ${
                 loai === ma ? "bg-brand-600 text-white" : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
               }`}
             >
@@ -257,19 +344,47 @@ export default function CuoiNgay() {
             </button>
           ))}
         </div>
+        {motNgay ? (
+          <div role="tablist" aria-label="Ca" className="flex gap-1">
+            {(
+              [
+                ["", "Cả ngày"],
+                ["SANG", "Ca sáng"],
+                ["CHIEU", "Ca chiều"],
+                ["TOI", "Ca tối"],
+              ] as const
+            ).map(([ma, nhan]) => (
+              <button
+                key={ma}
+                type="button"
+                role="tab"
+                aria-selected={ca === ma}
+                onClick={() => setCa(ma)}
+                className={`min-h-10 whitespace-nowrap rounded-control px-3 text-sm font-medium ${
+                  ca === ma ? "bg-brand-600 text-white" : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
+                }`}
+              >
+                {nhan}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <ChonCoSoO coSo={coSo} dangChon={coSoChon} onChon={setCoSoChon} />
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={() => window.print()} disabled={!bc}>
             In
           </Button>
           <a href={`/api/reports/cuoi-ngay?xuat=csv&${chuoi}`} className={buttonClass("secondary", "sm")}>
-            Xuất Excel
+            Xuất Excel (tổng hợp)
           </a>
         </div>
       </div>
 
       <p className="text-meta text-ink-muted">
-        Báo cáo cuối ngày · {bc ? nhanKhoang({ tu: bc.tu, den: bc.den }) : nhanKhoang(khoang)} · giờ
-        Việt Nam · chỉ đọc
+        Báo cáo cuối ngày · {bc?.co_so ? `${bc.ten_co_so ?? "Không có cơ sở này"} · ` : ""}
+        {bc ? nhanKhoang({ tu: bc.tu, den: bc.den }) : nhanKhoang(khoang)}
+        {bc?.ca ? ` · ${bc.ca.ten} ${bc.ca.tu}–${bc.ca.den}` : ""} · giờ Việt Nam · chỉ đọc
+        {bc?.ca ? " · tiền thừa và khách còn nợ vẫn tính cả ngày" : ""}
       </p>
 
       {loi ? (
@@ -312,6 +427,17 @@ export default function CuoiNgay() {
               />
             ) : null}
           </StatRow>
+          {bc.tien_thua ? (
+            <StatRow>
+              <StatCard label="Tiền thừa đã hoàn" value={tien(bc.tien_thua.da_hoan)} />
+              <StatCard label="Tiền thừa giữ lại" value={tien(bc.tien_thua.giu_lai)} />
+              <StatCard
+                label={`Tiền thừa còn treo: ${bc.tien_thua.so_luot_con_treo} lượt`}
+                value={tien(bc.tien_thua.con_treo)}
+                tone={bc.tien_thua.con_treo > 0 ? "warning" : "neutral"}
+              />
+            </StatRow>
+          ) : null}
           {bc.khach.so_luot_ban_le ? (
             <p className="text-meta text-ink-muted">
               Lượt bán lẻ thuốc (khách chỉ mua thuốc): {bc.khach.so_luot_ban_le} — không tính vào
@@ -322,6 +448,12 @@ export default function CuoiNgay() {
             <p className="text-meta text-ink-muted">
               Hoàn còn chờ chuyển: {tien(t.hoan_cho)} — chưa trừ vào thực thu.
             </p>
+          ) : null}
+
+          {(bc.theo_co_so ?? []).length > 1 ? (
+            <Khoi title="Theo cơ sở">
+              <BangCoSo bc={bc} />
+            </Khoi>
           ) : null}
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -343,6 +475,20 @@ export default function CuoiNgay() {
                 tieuDe="Ngày"
                 dong={bc.theo_ngay.map((o) => ({ ...o, ten: o.ngay }))}
               />
+            </Khoi>
+          ) : null}
+
+          <p className="text-meta text-ink-muted print:hidden">
+            Bảng mặt hàng đã bán theo mẫu KiotViet:{" "}
+            <a href="/reports?tab=hang-hoa" className="font-medium text-brand-700 underline">
+              tab Hàng hoá
+            </a>
+            .
+          </p>
+
+          {bc.thuoc_theo_khach ? (
+            <Khoi title="Thuốc theo khách — bác sĩ kê vs thực bán">
+              <ThuocTheoKhach data={bc.thuoc_theo_khach} />
             </Khoi>
           ) : null}
 

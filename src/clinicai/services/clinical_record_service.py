@@ -58,6 +58,7 @@ from clinicai.services.luot_kham_rules import (
     parse_vitals,
     thieu_sinh_hieu_khi_co_thai,
 )
+from clinicai.services.nhan_luot import doc_nhan_luot, tra_nhan
 from clinicai.services.thu_ky_bac_si import (
     bac_si_cua_thu_ky,
     kiem_thu_ky_duoc_lam,
@@ -618,13 +619,17 @@ class ClinicalRecordService:
             """
             INSERT INTO visit (
                 clinic_id, clinic_patient_id, appointment_id,
-                attending_doctor_id, status, checked_in_at, service_type_id
+                attending_doctor_id, status, checked_in_at, service_type_id,
+                location_id
             )
-            -- Loại khám lấy từ lịch hẹn (C18, 02/10/2026): lượt mở từ ghi bệnh
-            -- án không được mất loại khám trên bảng Hành trình.
+            -- Loại khám + cơ sở lấy từ lịch hẹn (C18, 02/10/2026; cơ sở 08/10):
+            -- lượt mở từ ghi bệnh án không được mất loại khám trên bảng Hành
+            -- trình, và phải mang cơ sở để báo cáo/xếp phòng đúng nơi.
             VALUES ($4::uuid, $1::uuid, $2::uuid, $3::uuid,
                     'IN_PROGRESS', now(),
                     (SELECT a.service_type_id FROM appointment a
+                      WHERE a.id = $2::uuid AND a.clinic_id = $4::uuid),
+                    (SELECT a.location_id FROM appointment a
                       WHERE a.id = $2::uuid AND a.clinic_id = $4::uuid))
             ON CONFLICT (appointment_id) WHERE appointment_id IS NOT NULL
             DO NOTHING
@@ -940,6 +945,9 @@ async def lich_su_cho_ho_so(
     06/10/2026: bỏ trần 8 — lịch sử khám cũ đã chuyển thành lượt thật, khách
     quen có 20+ lượt; thẻ "Khám cũ" đánh "Lần N" theo số lượt nạp về nên thiếu
     lượt là đánh số sai. Trần 200 chỉ để chặn dữ liệu hỏng.
+
+    08/10/2026: số không còn đếm ở màn — mỗi dòng mang ``nhan_luot`` máy chủ
+    tính trên MỌI lượt của khách ("Lượt khám n" / "Buổi k/N", nhan_luot.py).
     """
     rows = await conn.fetch(
         """
@@ -959,6 +967,7 @@ async def lich_su_cho_ho_so(
     )
     canh_bao_neu_day("ho_so.lich_su_luot", len(rows), 200)
     appt = ngu_canh.appointment_id
+    nhan = await doc_nhan_luot(conn, ngu_canh.clinic_id, [ngu_canh.khach])
     ra: list[dict[str, Any]] = []
     for r in rows:
         if appt is not None and r["appointment_id"] == appt:
@@ -971,5 +980,8 @@ async def lich_su_cho_ho_so(
         )
         if cd:
             d["soap_assessment"] = cd
+        d["nhan_luot"] = tra_nhan(
+            nhan, visit_id=r["visit_id"], appointment_id=r["appointment_id"]
+        )
         ra.append(d)
     return {"history_raw": ra}

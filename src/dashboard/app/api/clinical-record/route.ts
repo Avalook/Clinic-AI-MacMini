@@ -29,6 +29,8 @@ interface HoSoTho {
     doctor: string | null;
     chief_complaint_at_visit: string | null;
     soap_assessment: unknown;
+    /** Nhãn đếm lượt máy chủ tính (08/10/2026) — chuyển nguyên cho màn. */
+    nhan_luot?: unknown;
   }[];
   prescriptions: unknown[];
   vital_latest: DongSinhHieu | null;
@@ -90,6 +92,7 @@ export async function GET(request: Request) {
     doctor: v.doctor,
     chief_complaint: v.chief_complaint_at_visit ?? "",
     assessment: flatten(v.soap_assessment),
+    nhan_luot: v.nhan_luot ?? null,
   }));
 
   // Số đo mới nhất ghép vào ô sinh hiệu của phiếu (trình bày).

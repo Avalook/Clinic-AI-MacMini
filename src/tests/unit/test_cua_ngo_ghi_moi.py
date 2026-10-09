@@ -293,7 +293,8 @@ class TestCapPhatNoiTruocRangBuoc:
     def _conn(don: Any, lo: Any) -> _Conn:
         # CP3: tìm lượt → khoá dòng → lần thu thuốc (cũ → luồng cấp phát cũ,
         # đúng luồng các câu từ chối này thuộc về) → lô.
-        return _Conn("v1", {**don, "visit_id": "v1"}, _LAN_THU_CU, lo)
+        # `True` = lô đúng cơ sở của lượt (`lo_dung_co_so_luot`, 08/10/2026).
+        return _Conn("v1", {**don, "visit_id": "v1"}, _LAN_THU_CU, lo, True)
 
     @pytest.mark.asyncio
     async def test_cap_qua_so_ke_thi_noi_con_bao_nhieu(self) -> None:
@@ -689,6 +690,7 @@ class TestCapPhatDiTronVen:
                 "expiry_date": date(2027, 12, 31),
                 "name_base": "Paracetamol",
             },
+            True,  # lô đúng cơ sở của lượt (08/10/2026)
             {"dispensed_qty": 4, "dispense_status": "CAP_MOT_PHAN"},
         )
         ra = await PharmacyService(_PoolCo(conn)).cap_phat(

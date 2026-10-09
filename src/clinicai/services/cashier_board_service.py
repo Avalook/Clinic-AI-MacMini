@@ -42,11 +42,13 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, doc_ngay_xem, hom_nay_vn
 from clinicai.permissions.can import can
 from clinicai.services.anh_chuyen_khoan_service import anh_cua_cac_lan_thu
+from clinicai.services.chot_0d import da_chot_0d, doc_chot_0d
 from clinicai.services.doi_hinh_thuc_service import trang_thai_doi
 from clinicai.services.hoan_tac_service import tien_thua_cua_luot
 from clinicai.services.hoan_tien_service import co_quyen_hoan, hoan_cua_cac_lan_thu
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_thu import doc_phan_db
+from clinicai.services.so_sua_chi_dinh_service import da_bo_cua_cac_luot
 
 if TYPE_CHECKING:
     from clinicai.services.bill_service import HoaDon
@@ -148,6 +150,10 @@ WITH v AS (
                 SELECT 1 FROM public.cong_no n
                  WHERE n.clinic_id = vi.clinic_id AND n.visit_id = vi.visit_id
                    AND n.trang_thai = 'CHUA_THU')))
+       -- CƠ SỞ ĐANG ĐỨNG ($5, 08/10/2026): chỉ khách của cơ sở ấy. Lượt chưa
+       -- biết cơ sở vẫn hiện; $5 NULL (danh tính không mang cơ sở) = không lọc.
+       AND coalesce(vi.location_id, a.location_id, $5::uuid)
+           IS NOT DISTINCT FROM coalesce($5::uuid, vi.location_id, a.location_id)
        -- Luật 1: đã khám xong (ô thuốc + dịch vụ), HOẶC đã có chỉ định chính
        -- thức (ô dịch vụ — trả tiền trong lúc phiên bác sĩ còn mở).
        AND ("""
@@ -176,7 +182,23 @@ WITH v AS (
                    AND pc.payment_cycle_id = bl.payment_cycle_id
                  WHERE so.clinic_id = vi.clinic_id AND so.visit_id = vi.visit_id
                    AND so.exec_status IN ('cancelled', 'not_performed')
-                   AND pc.status = 'PAID'))
+                   AND pc.status = 'PAID')
+            -- TRẢ TRƯỚC LIỆU TRÌNH chưa thu (08/10/2026): lượt chỉ có dòng
+            -- "trả trước k buổi" (vd buổi hôm nay đã phủ 0đ, khách trả thêm)
+            -- vẫn là khoản chờ ở quầy dịch vụ.
+            OR EXISTS (
+                SELECT 1 FROM public.lieu_trinh_tra_truoc t
+                 WHERE t.clinic_id = vi.clinic_id AND t.visit_id = vi.visit_id
+                   AND t.bo_luc IS NULL
+                   AND NOT EXISTS (
+                       SELECT 1 FROM public.payment_bill_line bl
+                         JOIN public.payment_cycle c
+                           ON c.clinic_id = bl.clinic_id
+                          AND c.payment_cycle_id = bl.payment_cycle_id
+                        WHERE bl.clinic_id = t.clinic_id
+                          AND bl.source_type = 'lieu_trinh'
+                          AND bl.source_id = t.id::text
+                          AND c.status = 'PAID')))
      ORDER BY vi.created_at DESC
      LIMIT 300
 )
@@ -305,6 +327,8 @@ class CashierBoardService:
               FROM payment_cycle pc
               JOIN visit vi
                 ON vi.visit_id = pc.visit_id AND vi.clinic_id = pc.clinic_id
+              LEFT JOIN appointment ap
+                ON ap.id = vi.appointment_id AND ap.clinic_id = vi.clinic_id
               LEFT JOIN patient p
                 ON p.clinic_patient_id = vi.clinic_patient_id
                AND p.clinic_id = vi.clinic_id
@@ -314,6 +338,10 @@ class CashierBoardService:
              WHERE pc.clinic_id = $1::uuid AND pc.kind = ANY($4::text[])
                AND (coalesce(pc.paid_at, pc.created_at) AT TIME ZONE
                     'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+               -- Chỉ giao dịch của cơ sở đang đứng ($5 NULL = không lọc).
+               AND coalesce(vi.location_id, ap.location_id, $5::uuid)
+                   IS NOT DISTINCT FROM
+                   coalesce($5::uuid, vi.location_id, ap.location_id)
              ORDER BY coalesce(pc.paid_at, pc.created_at) DESC
              LIMIT 1000
             """,
@@ -321,6 +349,7 @@ class CashierBoardService:
             a,
             b,
             loai,
+            identity.location_id or None,
         )
         # CP5: khoản hoàn của từng lần thu đã từng thu (kể cả đã huỷ phiếu) +
         # dòng còn hoàn được. Nút hoàn chỉ cho vai hoàn tiền TẠM THỜI (HOLD J4).
@@ -335,10 +364,12 @@ class CashierBoardService:
                 conn, identity.clinic_id, [r["id"] for r in rows]
             )
             quyen = await quyen_thu_theo_loai(conn, identity)
+            # Hoàn tiền theo lego thu (Tuyền 06/10/2026, thay HOLD J4 chỉ Quản lý).
+            co_hoan = await co_quyen_hoan(conn, identity, kind)
         return {
             "tu": a.isoformat(),
             "den": b.isoformat(),
-            "co_quyen_hoan": co_quyen_hoan(identity),
+            "co_quyen_hoan": co_hoan,
             "giao_dich": [
                 {
                     "id": r["id"],
@@ -390,7 +421,12 @@ class CashierBoardService:
         la_hom_nay = ngay_xem == hom_nay_vn()
 
         row = await self._pool.fetchval(
-            _SQL, identity.clinic_id, start, end, la_hom_nay
+            _SQL,
+            identity.clinic_id,
+            start,
+            end,
+            la_hom_nay,
+            identity.location_id or None,
         )
         raw = json.loads(row) if isinstance(row, str) else row
 
@@ -462,6 +498,9 @@ class CashierBoardService:
             chon: dict[str, dict[str, Any]] = {}
             phong: dict[str, list[dict[str, Any]]] = {}
             pq = PhongQuay(conn, identity.clinic_id)
+            chot0 = (
+                await doc_chot_0d(conn, identity.clinic_id, vids) if want_svc else {}
+            )
             if want_svc:
                 chon = await cho_khach_quyet(conn, identity.clinic_id, vids)
                 # Đã trả, chưa bắt đầu → xếp / đổi phòng SAU khi thu (24/09).
@@ -489,7 +528,11 @@ class CashierBoardService:
                     # nói "khách trả trực tiếp cho đối tác", nhưng KHÔNG tính là
                     # còn nợ — lượt không kẹt ở quầy.
                     if k == "dich_vu" and tinh.dong:
-                        con_no_dv.add(item["visit_id"])
+                        # Hoá đơn 0đ quầy đã bấm chốt (đúng bản này) = xong tiền.
+                        if da_chot_0d(tinh, chot0.get(item["visit_id"])):
+                            item["da_chot_0d"] = True
+                        else:
+                            con_no_dv.add(item["visit_id"])
                     hd[k] = tinh.cho_api()
                 item["hoa_don"] = hd
                 if want_svc:
@@ -525,14 +568,26 @@ class CashierBoardService:
             # Tiền thừa (hoàn tác 01/10/2026): đã thu cho chỉ định nay đã bỏ /
             # không làm — quầy hoàn cho khách hoặc trừ vào dịch vụ khác.
             thua = await tien_thua_cua_luot(conn, identity.clinic_id, vids)
+            # Chỉ định đã xoá (06/10/2026): vẫn hiện ở quầy dịch vụ — gạch
+            # ngang, ai xoá, lúc nào, lần mấy — không biến mất im lặng.
+            da_bo = (
+                await da_bo_cua_cac_luot(conn, identity.clinic_id, vids)
+                if want_svc
+                else {}
+            )
             for item in out["items"]:
                 item["tien_thua"] = thua.get(item["visit_id"])
+                if want_svc:
+                    item["da_bo_chi_dinh"] = da_bo.get(item["visit_id"], [])
         if want_svc:
             _xep_hang_cho_thu(out, cho={v for v, k in cho if k == "dich_vu"})
             out["dem"] = {
                 "cho_thu": len(out["ds_cho_thu"]),
                 "da_thu_hom_nay": await _dem_da_thu_hom_nay(
-                    self._pool, identity.clinic_id, ngay_xem
+                    self._pool,
+                    identity.clinic_id,
+                    ngay_xem,
+                    identity.location_id or None,
                 ),
             }
         if want_svc:
@@ -659,7 +714,10 @@ def _xep_hang_cho_thu(out: dict[str, Any], *, cho: set[str]) -> None:
         )
         dang_cho = (
             item["visit_id"] in cho
-            or any(r.get("chon") for r in qt.get("phong_kham", []))
+            or (
+                any(r.get("chon") for r in qt.get("phong_kham", []))
+                and not item.get("da_chot_0d")
+            )
             or cho_quyet
             # Còn tiền thừa phải hoàn / trừ (hoàn tác chỉ định đã thu).
             or bool(item.get("tien_thua"))
@@ -687,13 +745,16 @@ def _doc_luc(v: Any) -> datetime | None:
         return None
 
 
-async def _dem_da_thu_hom_nay(pool: asyncpg.Pool, clinic_id: str, ngay: date) -> int:
+async def _dem_da_thu_hom_nay(
+    pool: asyncpg.Pool, clinic_id: str, ngay: date, location_id: str | None
+) -> int:
     """Số khách ở tab "Đã thu ngày …" — cùng tập với sổ gom theo khách
-    (``QuayThuService.lich_su`` đúng ngày ấy): lần thu đã thu hoặc khoản hoàn."""
+    (``QuayThuService.lich_su`` đúng ngày ấy, cùng cơ sở): lần thu đã thu hoặc
+    khoản hoàn. ``location_id`` None = không lọc cơ sở."""
     return int(
         await pool.fetchval(
             """
-            SELECT count(DISTINCT visit_id) FROM (
+            SELECT count(DISTINCT x.visit_id) FROM (
                 SELECT visit_id FROM payment_cycle
                  WHERE clinic_id = $1::uuid AND kind = 'dich_vu'
                    AND paid_at IS NOT NULL
@@ -704,9 +765,13 @@ async def _dem_da_thu_hom_nay(pool: asyncpg.Pool, clinic_id: str, ngay: date) ->
                    AND status IN ('PENDING', 'COMPLETED')
                    AND (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                        = $2::date) x
+             WHERE coalesce(public.co_so_cua_luot($1::uuid, x.visit_id), $3::uuid)
+                   IS NOT DISTINCT FROM
+                   coalesce($3::uuid, public.co_so_cua_luot($1::uuid, x.visit_id))
             """,
             clinic_id,
             ngay,
+            location_id,
         )
         or 0
     )

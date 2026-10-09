@@ -51,3 +51,27 @@ def test_sau_check_in_chua_vuong_gi_thi_doi_duoc() -> None:
 def test_vuong_thi_noi_ro_ly_do(ghi_de: dict[str, Any], cau: str) -> None:
     ly_do = _hoi(**ghi_de)
     assert ly_do is not None and cau in ly_do
+
+
+def test_trong_ho_so_da_co_phieu_da_thu_da_tick_van_doi_duoc() -> None:
+    """T5 (07/10/2026): đổi trong hồ sơ khám không bị khoá bởi phiếu / tiền / tick."""
+    assert (
+        _hoi(
+            trong_ho_so=True,
+            trang_thai_lich="COMPLETED",
+            phien_da_bat_dau=True,
+            co_phieu_kham=True,
+            da_thu_tien_kham=True,
+            da_chon_dich_vu_con=True,
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    ("luot", "cau"),
+    [("FINALIZED", "đã đóng"), ("INCOMPLETE", "đã đóng"), (None, "chưa mở")],
+)
+def test_trong_ho_so_chi_luot_da_dong_moi_khong_doi(luot: str | None, cau: str) -> None:
+    ly_do = _hoi(trong_ho_so=True, trang_thai_luot=luot)
+    assert ly_do is not None and cau in ly_do

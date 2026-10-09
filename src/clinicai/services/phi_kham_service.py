@@ -30,6 +30,12 @@ from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
 from clinicai.services.lenh_kham_core import khoa_luot
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
+from clinicai.services.so_sua_chi_dinh_service import (
+    bao_bac_si_chinh,
+    chan_ho_so_cu,
+    dat_ngu_canh,
+    dong_bo_moi_nhat,
+)
 
 #: Có MỘT trong các quyền này thì tick được: người khám, người ghi bệnh án,
 #: người tư vấn, quầy thu tiền dịch vụ.
@@ -41,7 +47,7 @@ QUYEN_TICK = (
 )
 
 _LOAI_KHAM_SQL = """
-SELECT st.id::text AS st_id, st.name,
+SELECT st.id::text AS st_id, st.name, st.nhom,
        coalesce(st.di_thang_phong, false) AS di_thang,
        (coalesce(st.di_thang_phong, false)
         AND coalesce(ef.route_decision, 'SERVICES') = 'SERVICES') AS khong_kham
@@ -72,11 +78,49 @@ async def _co_quyen_tick(conn: asyncpg.Connection, identity: StaffIdentity) -> b
     return False
 
 
+#: Loại không có danh sách khám riêng (Điều trị, Khác — 07/10/2026): chọn được
+#: mọi dịch vụ khám của các loại KHÁM — bác sĩ có khám thật thì tick như cũ.
+_LUA_CHON_CHUNG_SQL = """
+SELECT DISTINCT ON (sp.id) sp.id::text AS id, sp.ma_kiotviet, sp.name, sp.unit_price
+  FROM public.loai_kham_phi l
+  JOIN public.service_type st
+    ON st.id = l.service_type_id AND st.clinic_id = l.clinic_id
+   AND st.nhom = 'KHAM' AND st.is_active
+  JOIN public.service_price sp
+    ON sp.id = l.service_price_id AND sp.clinic_id = l.clinic_id AND sp.active
+ WHERE l.clinic_id = $1::uuid
+ ORDER BY sp.id, l.thu_tu
+"""
+
+#: Tick đang còn sống mà không thuộc danh sách của loại hiện tại (đổi dịch vụ
+#: khám trong hồ sơ, T5) — GIỮ NGUYÊN, vẫn hiện để bỏ được.
+_DA_CHON_NGOAI_SQL = """
+SELECT sp.id::text AS id, sp.ma_kiotviet, sp.name, sp.unit_price
+  FROM public.luot_phi_kham l
+  JOIN public.service_price sp
+    ON sp.id = l.service_price_id AND sp.clinic_id = l.clinic_id
+ WHERE l.clinic_id = $1::uuid AND l.visit_id = $2::uuid AND l.bo_luc IS NULL
+   AND NOT (sp.id::text = ANY($3::text[]))
+ ORDER BY l.chon_luc, l.id
+"""
+
+
 async def _doc(
     conn: asyncpg.Connection, clinic_id: str, visit_id: str
 ) -> dict[str, Any]:
     loai = await conn.fetchrow(_LOAI_KHAM_SQL, clinic_id, visit_id)
-    lua_chon = await conn.fetch(_LUA_CHON_SQL, clinic_id, loai["st_id"]) if loai else []
+    lua_chon = (
+        list(await conn.fetch(_LUA_CHON_SQL, clinic_id, loai["st_id"])) if loai else []
+    )
+    if loai and not lua_chon and loai["nhom"] in ("DIEU_TRI", "KHAC"):
+        lua_chon = sorted(
+            await conn.fetch(_LUA_CHON_CHUNG_SQL, clinic_id), key=lambda r: r["name"]
+        )
+    lua_chon += list(
+        await conn.fetch(
+            _DA_CHON_NGOAI_SQL, clinic_id, visit_id, [r["id"] for r in lua_chon]
+        )
+    )
     da_chon = [
         r["id"]
         for r in await conn.fetch(
@@ -113,20 +157,31 @@ async def _chan_bo_dich_vu_da_thu(
     visit_id: str,
     bo: list[str],
     lua_chon: list[dict[str, Any]],
-) -> None:
-    """Tick THÊM sau khi thu thì được (thu lần 2); BỎ một dịch vụ khám ĐÃ THU thì
-    không — khoản đã thu sẽ biến khỏi hoá đơn mà không có hoàn tiền (30/09/2026).
+) -> dict[str, int]:
+    """BỎ một dịch vụ khám ĐÃ THU (Tuyền chốt 06/10/2026, E7): CHO BỎ NGAY như
+    chỉ định — khoản đã thu thành TIỀN THỪA ở quầy (`tien_thua_service`). Trả
+    {service_price_id: số tiền còn thừa} để ghi sổ.
 
-    Đã thu = dòng `exam-{visit}-selected-{id}` trong lần thu còn hiệu lực, hoặc
-    (thu trước V2) dòng gộp `exam-{visit}` mà tên ghép có tên dịch vụ này.
+    Chỉ còn chặn hai ca không tách được tiền đúng dòng:
+      * chuyển khoản đang CHỜ XÁC MINH — quầy xác minh / huỷ lần chờ trước;
+      * dòng gộp cũ `exam-{visit}` (thu trước V2) — tiền không tách theo dịch vụ.
     """
     rows = await conn.fetch(
         """
-        SELECT bl.source_id, bl.name_snapshot
+        SELECT bl.source_id, bl.name_snapshot, c.status, bl.line_total,
+               coalesce((SELECT sum(rl.amount)
+                           FROM public.payment_refund_line rl
+                           JOIN public.payment_refund r
+                             ON r.refund_id = rl.refund_id
+                            AND r.clinic_id = rl.clinic_id
+                          WHERE rl.clinic_id = bl.clinic_id
+                            AND rl.payment_bill_line_id = bl.id
+                            AND r.status IN ('PENDING', 'COMPLETED')), 0) AS da_hoan
           FROM public.payment_bill_line bl
           JOIN public.payment_cycle c
             ON c.clinic_id = bl.clinic_id AND c.payment_cycle_id = bl.payment_cycle_id
          WHERE bl.clinic_id = $1::uuid AND bl.source_type = 'exam'
+           AND bl.billing_owner = 'CLINIC'
            AND (bl.source_id = $2 OR bl.source_id LIKE $2 || '-selected-%')
            AND c.status IN ('PENDING_VERIFICATION', 'PAID')
         """,
@@ -134,24 +189,36 @@ async def _chan_bo_dich_vu_da_thu(
         f"exam-{visit_id}",
     )
     ten = {str(x["id"]): str(x.get("ten") or "") for x in lua_chon}
-    da_thu_nguon = {str(r["source_id"]) for r in rows}
     ten_gop = [
         str(r["name_snapshot"] or "").split(" + ")
         for r in rows
         if str(r["source_id"]) == f"exam-{visit_id}"
     ]
-    da_thu = [
+    cho = {str(r["source_id"]) for r in rows if r["status"] == "PENDING_VERIFICATION"}
+    chan = [
         i
         for i in bo
-        if f"exam-{visit_id}-selected-{i}" in da_thu_nguon
+        if f"exam-{visit_id}-selected-{i}" in cho
         or any(ten.get(i) and ten[i] in g for g in ten_gop)
     ]
-    if da_thu:
+    if chan:
         raise ValidationError(
-            "Dịch vụ khám đã thu tiền: "
-            + ", ".join(ten.get(i) or i for i in da_thu)
-            + ". Muốn bỏ phải huỷ phiếu thu / hoàn tiền trước."
+            "Dịch vụ khám "
+            + ", ".join(ten.get(i) or i for i in chan)
+            + " đang trong lần thu chuyển khoản chờ xác minh (hoặc phiếu gộp cũ)"
+            " — quầy xác minh / huỷ lần chờ trước rồi bỏ."
         )
+    thua: dict[str, int] = {}
+    for r in rows:
+        sid = str(r["source_id"])
+        if r["status"] != "PAID" or "-selected-" not in sid:
+            continue
+        spid = sid.rsplit("-selected-", 1)[1]
+        if spid in bo:
+            thua[spid] = thua.get(spid, 0) + max(
+                int(r["line_total"]) - int(r["da_hoan"]), 0
+            )
+    return thua
 
 
 async def chan_trung_dich_vu_kham(
@@ -252,6 +319,10 @@ class PhiKhamService:
             if not await _co_quyen_tick(conn, identity):
                 raise SafetyGateError("Bạn không có quyền chọn dịch vụ khám.")
             luot = await khoa_luot(conn, cid, vid, cho_phep_da_ky=True)
+            # Sổ sửa chỉ định (Khối 2, 06/10/2026): trigger trên luot_phi_kham
+            # ghi tick / bỏ tick — đặt người bấm + vai đang dùng cho nó.
+            await dat_ngu_canh(conn, identity)
+            await chan_ho_so_cu(conn, vid)
             if luot["closed_at"] is not None:
                 raise ValidationError(
                     "Lượt đã check-out — không thể đổi dịch vụ khám sau khi khách về."
@@ -276,20 +347,37 @@ class PhiKhamService:
                 )
             bo = sorted(cu - set(muon))
             them = [i for i in muon if i not in cu]
+            thua: dict[str, int] = {}
             if bo:
-                await _chan_bo_dich_vu_da_thu(conn, cid, vid, bo, hien["lua_chon"])
+                thua = await _chan_bo_dich_vu_da_thu(
+                    conn, cid, vid, bo, hien["lua_chon"]
+                )
             if them:
                 await chan_trung_dich_vu_kham(conn, cid, vid, id_tick=them)
             if bo:
-                await conn.execute(
+                da_bo = await conn.fetch(
                     "UPDATE public.luot_phi_kham SET bo_luc = now(), bo_boi = $4::uuid"
                     " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
-                    " AND service_price_id = ANY($3::uuid[]) AND bo_luc IS NULL",
+                    " AND service_price_id = ANY($3::uuid[]) AND bo_luc IS NULL"
+                    " RETURNING id::text, service_price_id::text",
                     cid,
                     vid,
                     bo,
                     identity.staff_id,
                 )
+                # Người khác bác sĩ chính bỏ dịch vụ khám → báo bác sĩ chính.
+                for r in da_bo:
+                    so_id = await dong_bo_moi_nhat(conn, luot_phi_kham_id=r["id"])
+                    # Đã thu (E7): sổ ghi đã thu → tiền thừa, như bỏ chỉ định.
+                    tien = thua.get(r["service_price_id"], 0)
+                    if so_id and tien > 0:
+                        await conn.execute(
+                            "UPDATE so_sua_chi_dinh SET da_thu = $2, tien_thua = $2"
+                            " WHERE id = $1::uuid",
+                            so_id,
+                            tien,
+                        )
+                    await bao_bac_si_chinh(conn, identity, so_id)
             for i in them:
                 await conn.execute(
                     "INSERT INTO public.luot_phi_kham"

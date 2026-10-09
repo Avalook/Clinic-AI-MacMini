@@ -29,7 +29,7 @@ from __future__ import annotations
 import csv
 import io
 from collections.abc import Iterable, Mapping
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -37,8 +37,11 @@ import asyncpg
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.shifts import CAC_CA, NHAN_CA, ca_tu_settings, khung_chot_ca
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.services.bao_cao_thuoc_service import doc_thuoc_theo_khach
 from clinicai.services.cashier_board_service import doc_khoang_ngay
+from clinicai.services.co_so_bao_cao import TEN_CHUA_RO, doc_co_so, doc_ds_co_so
 from clinicai.services.phan_thu import (
     HINH_THUC_THU,
     chuan_hinh_thuc,
@@ -78,6 +81,28 @@ _TRAN = 5000
 def doc_khoang(tu: Any, den: Any) -> tuple[date, date]:
     """Ngày rác / rỗng → hôm nay (giờ VN); đảo chiều thì đổi chỗ. Không ném."""
     return doc_khoang_ngay(tu, den)
+
+
+def khung_ca(
+    ngay: date, ca: Any, settings: Any
+) -> tuple[datetime, datetime, dict[str, str]] | None:
+    """Ca của MỘT ngày → (từ lúc, tới lúc, nhãn). Ca rỗng / rác → ``None`` (cả
+    ngày), không ném. Ba ca khít nhau phủ trọn ngày (``khung_chot_ca``)."""
+    ma = str(ca or "").strip().upper()
+    if ma not in CAC_CA:
+        return None
+    phut = khung_chot_ca(ma, ca_tu_settings(settings))
+    if phut is None:
+        return None
+    goc = datetime.combine(ngay, time(0), tzinfo=CLINIC_TZ)
+    lo, hi = phut
+    nhan = {
+        "ma": ma,
+        "ten": NHAN_CA[ma],
+        "tu": f"{lo // 60:02d}:{lo % 60:02d}",
+        "den": f"{hi // 60:02d}:{hi % 60:02d}",
+    }
+    return goc + timedelta(minutes=lo), goc + timedelta(minutes=hi), nhan
 
 
 def _tien(v: Any) -> int:
@@ -334,6 +359,128 @@ def gom_bao_cao(
     }
 
 
+def _so_luong(v: Any) -> float:
+    try:
+        return float(Decimal(str(v))) if v is not None else 0.0
+    except Exception:  # noqa: BLE001 — số rác từ DB không làm sập báo cáo
+        return 0.0
+
+
+def gom_hang_hoa(
+    ban: Iterable[Mapping[str, Any]], tra: Iterable[Mapping[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    """ "Báo cáo cuối ngày về hàng hoá" (khuôn KiotViet), tách Thuốc / Dịch vụ.
+
+    ``ban``: dòng hoá đơn của lần thu PAID trong khoảng. ``tra``: dòng hoàn ĐÃ
+    XONG của khoản hoàn trong khoảng. Một mặt hàng = một ``hh_khoa``; doanh thu
+    thuần = doanh thu − giá trị trả; xếp doanh thu giảm dần như KiotViet. Thuần.
+    """
+    ra: dict[str, dict[str, dict[str, Any]]] = {k: {} for k in TEN_LOAI}
+
+    def o(r: Mapping[str, Any]) -> dict[str, Any] | None:
+        loai = r.get("kind")
+        if loai not in ra:
+            return None
+        khoa = str(r.get("hh_khoa") or r.get("hh_ten") or "?")
+        return ra[loai].setdefault(
+            khoa,
+            {"ma": r.get("hh_ma"), "ten": r.get("hh_ten") or "Không tên"}
+            | {"don_vi": r.get("hh_don_vi"), "sl_ban": 0.0, "doanh_thu": 0}
+            | {"sl_tra": 0.0, "gia_tri_tra": 0},
+        )
+
+    for r in ban:
+        if (m := o(r)) is not None:
+            m["sl_ban"] += _so_luong(r.get("so_luong"))
+            m["doanh_thu"] += _tien(r.get("thanh_tien"))
+    for r in tra:
+        if (m := o(r)) is not None:
+            m["sl_tra"] += _so_luong(r.get("so_luong"))
+            m["gia_tri_tra"] += _tien(r.get("thanh_tien"))
+    kq: dict[str, dict[str, Any]] = {}
+    for loai, mat_hang in ra.items():
+        dong = sorted(
+            (
+                {**m, "doanh_thu_thuan": m["doanh_thu"] - m["gia_tri_tra"]}
+                for m in mat_hang.values()
+            ),
+            key=lambda m: (-m["doanh_thu"], m["ten"]),
+        )
+        kq[loai] = {
+            "tong": {
+                "so_mat_hang": len(dong),
+                "sl_ban": sum(m["sl_ban"] for m in dong),
+                "doanh_thu": sum(m["doanh_thu"] for m in dong),
+                "sl_tra": sum(m["sl_tra"] for m in dong),
+                "gia_tri_tra": sum(m["gia_tri_tra"] for m in dong),
+                "doanh_thu_thuan": sum(m["doanh_thu_thuan"] for m in dong),
+            },
+            "dong": dong,
+        }
+    return kq
+
+
+def tach_theo_co_so(
+    *,
+    tu: date,
+    den: date,
+    co_so_ds: Iterable[Mapping[str, Any]],
+    lan_thu: Iterable[Mapping[str, Any]],
+    hoan: Iterable[Mapping[str, Any]],
+    dong: Iterable[Mapping[str, Any]],
+    doi_tac: Iterable[Mapping[str, Any]],
+    doi_hinh_thuc: Iterable[Mapping[str, Any]],
+    luot: Mapping[str | None, int],
+    luot_khong_chon: Mapping[str | None, int],
+) -> list[dict[str, Any]]:
+    """Báo cáo của TỪNG cơ sở — cùng khuôn ``gom_bao_cao``, cùng tập dòng DB.
+
+    Mỗi dòng DB mang ``co_so`` (cơ sở của lượt). Mọi cơ sở của phòng khám đều có
+    một phần (kể cả số 0 — cơ sở không ai thu hôm nay vẫn phải hiện ra). Dòng
+    không gắn được cơ sở nào gom vào phần ``Chưa rõ cơ sở`` — chỉ hiện khi có —
+    để tiền của các phần CỘNG LẠI ĐÚNG BẰNG TỔNG.
+    """
+    lan_thu, hoan, doi_tac, doi_hinh_thuc = (
+        list(lan_thu),
+        list(hoan),
+        list(doi_tac),
+        list(doi_hinh_thuc),
+    )
+    dong = list(dong)
+    ten = {str(c["id"]): str(c["ten"]) for c in co_so_ds}
+    khoa: list[str | None] = list(ten)
+    gap = {r.get("co_so") for r in (*lan_thu, *hoan, *doi_tac, *doi_hinh_thuc)}
+    gap |= {k for k, n in (*luot.items(), *luot_khong_chon.items()) if n}
+    # Cơ sở lạ (không còn trong danh mục) vẫn có phần riêng, rồi tới "chưa rõ".
+    khoa += sorted(k for k in gap if k is not None and k not in ten)
+    if None in gap:
+        khoa.append(None)
+    ra: list[dict[str, Any]] = []
+    for k in khoa:
+
+        def cua(ds: list[Mapping[str, Any]], k: str | None = k) -> list[Any]:
+            return [r for r in ds if r.get("co_so") == k]
+
+        bc = gom_bao_cao(
+            tu=tu,
+            den=den,
+            lan_thu=cua(lan_thu),
+            hoan=cua(hoan),
+            # Dòng hoá đơn đi theo lần thu: gom_bao_cao chỉ nhận dòng của lần
+            # thu CÓ trong phần này, nên đưa cả tập không lệch.
+            dong=dong,
+            doi_tac=cua(doi_tac),
+            so_luot_kham=int(luot.get(k, 0)),
+            doi_hinh_thuc=cua(doi_hinh_thuc),
+            so_luot_khong_chon_dich_vu_kham=int(luot_khong_chon.get(k, 0)),
+        )
+        bc.pop("tu", None)
+        bc.pop("den", None)
+        nhan = ten.get(k) if k is not None else TEN_CHUA_RO
+        ra.append({"location_id": k, "ten": nhan or "Cơ sở khác", **bc})
+    return ra
+
+
 # ---------------------------------------------------------------------------
 # CSV — UTF-8 có BOM, cùng kiểu `csv_lich_su`
 # ---------------------------------------------------------------------------
@@ -350,10 +497,32 @@ def csv_bao_cao(bc: Mapping[str, Any]) -> str:
     w = csv.writer(buf, lineterminator="\r\n")
     t = bc["tong"]
     w.writerow(["BÁO CÁO CUỐI NGÀY", f"{bc['tu']} → {bc['den']}"])
+    if bc.get("ca"):
+        ca = bc["ca"]
+        w.writerow(["Ca", f"{ca['ten']} {ca['tu']}–{ca['den']}"])
+    if bc.get("co_so"):
+        w.writerow(["Cơ sở", _o(bc.get("ten_co_so") or "Không có cơ sở này")])
     w.writerow([])
     w.writerow(["Tổng", "Thu gốc", "Huỷ phiếu", "Hoàn", "Thực thu", "Hoàn chờ chuyển"])
     w.writerow(["", t["thu"], t["huy"], t["hoan"], t["thuc_thu"], t["hoan_cho"]])
     w.writerow([])
+    # Tất cả cơ sở (08/10/2026): một dòng mỗi cơ sở + dòng Tổng (= cộng các dòng).
+    if bc.get("theo_co_so"):
+        w.writerow(
+            ["Cơ sở", "Lượt khám", "Phiếu thu", "Thu gốc", "Huỷ phiếu", "Hoàn"]
+            + ["Thực thu"]
+        )
+        for o in bc["theo_co_so"]:
+            ot = o["tong"]
+            w.writerow(
+                [_o(o["ten"]), o["khach"]["so_luot_kham"], ot["so_phieu_thu"]]
+                + [ot["thu"], ot["huy"], ot["hoan"], ot["thuc_thu"]]
+            )
+        w.writerow(
+            ["Tổng", bc["khach"]["so_luot_kham"], t["so_phieu_thu"]]
+            + [t["thu"], t["huy"], t["hoan"], t["thuc_thu"]]
+        )
+        w.writerow([])
     w.writerow(["Lượt khám", bc["khach"]["so_luot_kham"]])
     w.writerow(
         [
@@ -451,7 +620,93 @@ def csv_bao_cao(bc: Mapping[str, Any]) -> str:
                 TEN_HINH_THUC.get(str(o["hinh_thuc"]), ""),
             ]
         )
+    _csv_thuoc(w, bc.get("thuoc_theo_khach"))
     return "﻿" + buf.getvalue()
+
+
+def csv_hang_hoa(bc: Mapping[str, Any], loai: Any) -> str:
+    """Khuôn "Báo cáo cuối ngày về hàng hóa" của KiotViet (tệp quầy thuốc gửi
+    08/10/2026) — để nhân viên quen tay. ``loai`` rác → thuốc. Tồn đầu / tồn
+    cuối CHƯA có: nhà thuốc bán chưa trừ kho nên số tồn máy chưa đúng."""
+    loai_ = loai if loai in TEN_LOAI else "thuoc"
+    hh = (bc.get("hang_hoa") or {}).get(loai_) or {"tong": {}, "dong": []}
+    t = hh["tong"]
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\r\n")
+    w.writerow(["Báo cáo cuối ngày về hàng hóa", TEN_LOAI[loai_]])
+    w.writerow(["Ngày lập: " + datetime.now(CLINIC_TZ).strftime("%d/%m/%Y %H:%M")])
+    ngay = (
+        _ngay_vn_chu(bc["tu"])
+        if bc["tu"] == bc["den"]
+        else f"{_ngay_vn_chu(bc['tu'])} - {_ngay_vn_chu(bc['den'])}"
+    )
+    ca = bc.get("ca")
+    w.writerow(
+        ["Ngày bán: " + ngay + (f" · {ca['ten']} {ca['tu']}–{ca['den']}" if ca else "")]
+    )
+    w.writerow(["Chi nhánh: " + _o(bc.get("ten_co_so") or "Tất cả cơ sở")])
+    w.writerow([])
+    w.writerow(
+        ["Mã hàng", "Tên hàng", "SL bán", "Doanh thu", "SL trả", "Giá trị trả"]
+        + ["Doanh thu thuần"]
+    )
+    w.writerow(
+        ["", f"SL mặt hàng: {t.get('so_mat_hang', 0)}", _sl(t.get("sl_ban"))]
+        + [t.get("doanh_thu", 0), _sl(t.get("sl_tra")), t.get("gia_tri_tra", 0)]
+        + [t.get("doanh_thu_thuan", 0)]
+    )
+    for m in hh["dong"]:
+        ten = m["ten"] + (f" ({m['don_vi']})" if m.get("don_vi") else "")
+        w.writerow(
+            [_o(m.get("ma")), _o(ten), _sl(m["sl_ban"]), m["doanh_thu"]]
+            + [_sl(m["sl_tra"]), m["gia_tri_tra"], m["doanh_thu_thuan"]]
+        )
+    return "\ufeff" + buf.getvalue()
+
+
+def _ngay_vn_chu(iso: str) -> str:
+    try:
+        return date.fromisoformat(iso).strftime("%d/%m/%Y")
+    except ValueError:
+        return iso
+
+
+TEN_TRANG_THAI_THUOC = {
+    "da_ban": "Đã bán",
+    "khong_lay": "Khách không lấy",
+    "chua_thu": "Chưa thu",
+}
+
+
+def _sl(v: Any) -> str:
+    return "" if v is None else f"{v:g}"
+
+
+def _csv_thuoc(w: Any, tt: Mapping[str, Any] | None) -> None:
+    """Thuốc theo khách (kê vs thực bán) + tiêu hao theo thuốc."""
+    if not tt:
+        return
+    w.writerow([])
+    w.writerow(
+        ["Thuốc theo khách", "Mã khách", "Thuốc", "Bác sĩ ghi", "Kê", "Thực bán"]
+        + ["Chênh", "Đơn vị", "Đơn giá", "Thành tiền", "Trạng thái", "Người thu"]
+    )
+    for k in tt["khach"]:
+        for d in k["dong"]:
+            w.writerow(
+                [_o(k["khach"]), _o(k["ma_bn"]), _o(d["ten"]), _o(d["ten_bac_si"])]
+                + [_sl(d["so_ke"]), _sl(d["thuc_ban"]), _sl(d["chenh"])]
+                + [_o(d["don_vi"]), d["don_gia"] or "", d["thanh_tien"]]
+                + [TEN_TRANG_THAI_THUOC.get(d["trang_thai"], "")]
+                + [_o(", ".join(k["nguoi_thu"]))]
+            )
+    w.writerow([])
+    w.writerow(["Tiêu hao thuốc", "Đơn vị", "Kê", "Thực bán", "Khách trả", "Tiền"])
+    for t in tt["tieu_hao"]:
+        w.writerow(
+            [_o(t["ten"]), _o(t["don_vi"]), _sl(t["so_ke"]), _sl(t["thuc_ban"])]
+            + [_sl(t["so_tra"]), t["tien"]]
+        )
 
 
 def _gio(iso: str | None) -> str:
@@ -478,17 +733,23 @@ SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
        pc.paid_at, pc.closed_at, pc.close_reason,
        coalesce(xn.full_name, cb.full_name) AS nguoi_thu, dg.full_name AS nguoi_huy,
        v.clinic_patient_id::text AS khach_id, p.full_name AS ten_khach,
-       p.patient_code AS ma_bn, coalesce(v.ban_le, false) AS ban_le
+       p.patient_code AS ma_bn, coalesce(v.ban_le, false) AS ban_le,
+       coalesce(v.location_id, ah.location_id)::text AS co_so
   FROM payment_cycle pc
   LEFT JOIN staff cb ON cb.id = pc.created_by
   LEFT JOIN staff xn ON xn.id = pc.confirmed_by
   LEFT JOIN staff dg ON dg.id = pc.closed_by
   LEFT JOIN visit v ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id
+  LEFT JOIN appointment ah
+    ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
   LEFT JOIN patient p
     ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
  WHERE pc.clinic_id = $1::uuid AND pc.status IN ('PAID', 'VOIDED')
    AND pc.paid_at IS NOT NULL
    AND (pc.paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+   AND ($5::timestamptz IS NULL OR pc.paid_at >= $5)
+   AND ($6::timestamptz IS NULL OR pc.paid_at < $6)
+   AND ($4::uuid IS NULL OR coalesce(v.location_id, ah.location_id) = $4::uuid)
  ORDER BY pc.paid_at
  LIMIT 5000
 """
@@ -497,38 +758,98 @@ _HOAN_SQL = """
 SELECT r.refund_id::text AS refund_id, r.visit_id::text AS visit_id, r.kind,
        r.amount, r.status, r.method, r.reason, r.created_at,
        coalesce(xn.full_name, tao.full_name) AS nguoi,
-       p.full_name AS ten_khach, p.patient_code AS ma_bn
+       p.full_name AS ten_khach, p.patient_code AS ma_bn,
+       coalesce(v.location_id, ah.location_id)::text AS co_so
   FROM payment_refund r
   LEFT JOIN staff tao ON tao.id = r.created_by
   LEFT JOIN staff xn ON xn.id = r.completed_by
   LEFT JOIN visit v ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
+  LEFT JOIN appointment ah
+    ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
   LEFT JOIN patient p
     ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
  WHERE r.clinic_id = $1::uuid AND r.status IN ('PENDING', 'COMPLETED')
    AND (r.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+   AND ($5::timestamptz IS NULL OR r.created_at >= $5)
+   AND ($6::timestamptz IS NULL OR r.created_at < $6)
+   AND ($4::uuid IS NULL OR coalesce(v.location_id, ah.location_id) = $4::uuid)
  ORDER BY r.created_at
  LIMIT 5000
 """
 
-_DONG_SQL = """
-SELECT bl.payment_cycle_id::text AS cycle_id, bl.source_type,
-       bl.name_snapshot AS ten, bl.quantity AS so_luong, bl.line_total AS thanh_tien
+#: Cột ``hh_*`` cho "Báo cáo cuối ngày về hàng hoá" (khuôn KiotViet): thuốc theo
+#: thuốc KHO (mã hàng = mã KiotViet), dịch vụ theo mã chỉ định nếu có.
+_HANG_HOA_COT = """
+       CASE WHEN bl.source_type = 'prescription' THEN c.ma_hang
+            WHEN bl.source_type = 'service_order' THEN so.service_code
+            ELSE kh.service_code END AS hh_ma,
+       coalesce(c.name_raw, bl.name_snapshot) AS hh_ten,
+       coalesce(c.don_vi_ban, bl.unit) AS hh_don_vi,
+       coalesce(bl.drug_catalog_id::text, so.service_code, kh.service_code,
+                bl.name_snapshot) AS hh_khoa
+"""
+_HANG_HOA_JOIN = """
+  LEFT JOIN drug_catalog c ON c.id = bl.drug_catalog_id AND c.clinic_id = bl.clinic_id
+  LEFT JOIN service_order so
+    ON bl.source_type = 'service_order' AND so.id::text = bl.source_id
+   AND so.clinic_id = bl.clinic_id
+  -- Dòng khám: source_id "exam-<lượt>-selected-<service_price.id>".
+  LEFT JOIN service_price kh
+    ON bl.source_type = 'exam' AND kh.clinic_id = bl.clinic_id
+   AND kh.id::text = substring(bl.source_id from 'selected-(.*)$')
+"""
+
+_DONG_SQL = (
+    """
+SELECT bl.payment_cycle_id::text AS cycle_id, bl.source_type, bl.kind,
+       bl.name_snapshot AS ten, bl.quantity AS so_luong, bl.line_total AS thanh_tien,
+"""
+    + _HANG_HOA_COT
+    + """
   FROM payment_bill_line bl
+"""
+    + _HANG_HOA_JOIN
+    + """
  WHERE bl.clinic_id = $1::uuid AND bl.payment_cycle_id = ANY($2::uuid[])
    AND bl.billing_owner = 'CLINIC'
 """
+)
+
+#: Dòng TRẢ (hoàn đã xong) của các khoản hoàn trong khoảng — cùng khoá hàng hoá.
+_TRA_HANG_SQL = (
+    """
+SELECT rl.refund_id::text AS refund_id, bl.kind, rl.quantity AS so_luong,
+       rl.amount AS thanh_tien,
+"""
+    + _HANG_HOA_COT
+    + """
+  FROM payment_refund_line rl
+  JOIN payment_bill_line bl
+    ON bl.id = rl.payment_bill_line_id AND bl.clinic_id = rl.clinic_id
+"""
+    + _HANG_HOA_JOIN
+    + """
+ WHERE rl.clinic_id = $1::uuid AND rl.refund_id = ANY($2::uuid[])
+"""
+)
 
 _DOI_TAC_SQL = """
 SELECT t.id::text AS id, t.so_tien, t.hinh_thuc, t.ghi_luc, o.service_name AS ten,
-       s.full_name AS nguoi, p.full_name AS ten_khach, p.patient_code AS ma_bn
+       s.full_name AS nguoi, p.full_name AS ten_khach, p.patient_code AS ma_bn,
+       coalesce(v.location_id, ah.location_id)::text AS co_so
   FROM doi_tac_thanh_toan t
   LEFT JOIN service_order o ON o.id = t.service_order_id AND o.clinic_id = t.clinic_id
   LEFT JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+  LEFT JOIN appointment ah
+    ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
   LEFT JOIN patient p
     ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
   LEFT JOIN staff s ON s.id = t.ghi_boi
  WHERE t.clinic_id = $1::uuid AND t.huy_luc IS NULL
    AND (t.ghi_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+   AND ($5::timestamptz IS NULL OR t.ghi_luc >= $5)
+   AND ($6::timestamptz IS NULL OR t.ghi_luc < $6)
+   AND ($4::uuid IS NULL OR coalesce(v.location_id, ah.location_id) = $4::uuid)
  ORDER BY t.ghi_luc
  LIMIT 5000
 """
@@ -538,30 +859,44 @@ _DOI_HINH_THUC_SQL = """
 SELECT d.id::text AS id, d.cycle_id::text AS cycle_id, d.method_cu, d.method_moi,
        d.tien_mat, d.chuyen_khoan,
        d.ly_do, d.luc, pc.kind, pc.amount, s.full_name AS nguoi,
-       p.full_name AS ten_khach, p.patient_code AS ma_bn
+       p.full_name AS ten_khach, p.patient_code AS ma_bn,
+       coalesce(v.location_id, ah.location_id)::text AS co_so
   FROM payment_cycle_doi_hinh_thuc d
   JOIN payment_cycle pc
     ON pc.payment_cycle_id = d.cycle_id AND pc.clinic_id = d.clinic_id
   LEFT JOIN staff s ON s.id = d.boi
   LEFT JOIN visit v ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id
+  LEFT JOIN appointment ah
+    ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
   LEFT JOIN patient p
     ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
  WHERE d.clinic_id = $1::uuid
    AND (d.luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+   AND ($5::timestamptz IS NULL OR d.luc >= $5)
+   AND ($6::timestamptz IS NULL OR d.luc < $6)
+   AND ($4::uuid IS NULL OR coalesce(v.location_id, ah.location_id) = $4::uuid)
  ORDER BY d.id
  LIMIT 5000
 """
 
 _LUOT_SQL = """
-SELECT count(*) FROM visit
- WHERE clinic_id = $1::uuid
+SELECT coalesce(v.location_id, ah.location_id)::text AS co_so, count(*) AS n
+  FROM visit v
+  LEFT JOIN appointment ah
+    ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
+ WHERE v.clinic_id = $1::uuid
    -- V8: lượt BÁN LẺ (khách chỉ mua thuốc) không phải lượt khám.
-   AND NOT ban_le
-   AND (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+   AND NOT v.ban_le
+   AND (v.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+   AND ($5::timestamptz IS NULL OR v.created_at >= $5)
+   AND ($6::timestamptz IS NULL OR v.created_at < $6)
+   AND ($4::uuid IS NULL OR coalesce(v.location_id, ah.location_id) = $4::uuid)
+ GROUP BY 1
 """
 
 _LUOT_KHONG_CHON_DICH_VU_KHAM_SQL = """
-SELECT count(*) FROM public.visit v
+SELECT coalesce(v.location_id, a.location_id)::text AS co_so, count(*) AS n
+  FROM public.visit v
   LEFT JOIN public.appointment a
     ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
   JOIN public.service_type st
@@ -571,6 +906,8 @@ SELECT count(*) FROM public.visit v
  WHERE v.clinic_id = $1::uuid
    AND NOT v.ban_le  -- V8: lượt bán lẻ không có bước khám
    AND (v.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+   AND ($5::timestamptz IS NULL OR v.created_at >= $5)
+   AND ($6::timestamptz IS NULL OR v.created_at < $6)
    -- Lượt đi thẳng phòng dịch vụ không có bước khám, nên không thể "chưa
    -- chọn dịch vụ khám". Nếu rẽ về bác sĩ chính thì vẫn được đếm.
    AND NOT (coalesce(st.di_thang_phong, false)
@@ -580,6 +917,8 @@ SELECT count(*) FROM public.visit v
         WHERE l.clinic_id = v.clinic_id AND l.visit_id = v.visit_id
           AND l.bo_luc IS NULL
    )
+   AND ($4::uuid IS NULL OR coalesce(v.location_id, a.location_id) = $4::uuid)
+ GROUP BY 1
 """
 
 
@@ -594,6 +933,8 @@ class BaoCaoCuoiNgayService:
         tu: Any = None,
         den: Any = None,
         loai: Any = None,
+        co_so: Any = None,
+        ca: Any = None,
     ) -> dict[str, Any]:
         """Báo cáo cuối ngày trong khoảng (giờ VN). Ngày rác → hôm nay.
 
@@ -602,13 +943,35 @@ class BaoCaoCuoiNgayService:
         loại ấy (theo hình thức, người thu, ngày đều theo loại); rỗng hoặc rác =
         cả hai (``theo_loai`` vẫn tách sẵn hai dòng). Khoản đối tác tự thu là
         tiền dịch vụ nên không hiện ở báo cáo thuốc.
+
+        ``co_so`` (08/10/2026): một cơ sở → mọi số chỉ của cơ sở ấy; rỗng →
+        cả phòng khám, kèm ``theo_co_so`` (từng cơ sở, cùng khuôn) mà tiền các
+        phần cộng lại bằng ``tong``; rác → số 0 (``co_so_bao_cao.doc_co_so``).
+
+        ``ca`` (08/10/2026 — báo cáo CUỐI CA): SANG | CHIEU | TOI, chỉ khi xem MỘT
+        ngày → mọi số chỉ trong khung giờ ca ấy (``khung_ca``); rỗng / rác / nhiều
+        ngày = cả ngày. Tiền thừa và khách còn nợ vẫn tính như cũ (không theo ca).
+
+        ``thuoc_theo_khach``: kê vs thực bán từng khách (``bao_cao_thuoc_service``)
+        — báo cáo dịch vụ không có.
         """
         a, b = doc_khoang(tu, den)
         loai_loc = loai if loai in TEN_LOAI else None
+        cs = doc_co_so(co_so)
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
-            lan_thu = await conn.fetch(_LAN_THU_SQL, cid, a, b)
-            hoan = await conn.fetch(_HOAN_SQL, cid, a, b)
+            khung = None
+            if a == b and ca:
+                khung = khung_ca(
+                    a,
+                    ca,
+                    await conn.fetchval(
+                        "SELECT settings FROM clinic WHERE id = $1::uuid", cid
+                    ),
+                )
+            k5, k6 = (khung[0], khung[1]) if khung else (None, None)
+            lan_thu = await conn.fetch(_LAN_THU_SQL, cid, a, b, cs, k5, k6)
+            hoan = await conn.fetch(_HOAN_SQL, cid, a, b, cs, k5, k6)
             canh_bao_neu_day(
                 "bao_cao_cuoi_ngay.lan_thu", len(lan_thu), _TRAN, tu=a, den=b
             )
@@ -616,17 +979,53 @@ class BaoCaoCuoiNgayService:
             dong = await conn.fetch(
                 _DONG_SQL, cid, [r["id"] for r in lan_thu if r["status"] == "PAID"]
             )
-            doi_tac = await conn.fetch(_DOI_TAC_SQL, cid, a, b)
-            so_luot = await conn.fetchval(_LUOT_SQL, cid, a, b)
-            doi_ht = await conn.fetch(_DOI_HINH_THUC_SQL, cid, a, b)
-            so_luot_khong_chon = await conn.fetchval(
-                _LUOT_KHONG_CHON_DICH_VU_KHAM_SQL, cid, a, b
+            doi_tac = await conn.fetch(_DOI_TAC_SQL, cid, a, b, cs, k5, k6)
+            tra_hang = await conn.fetch(
+                _TRA_HANG_SQL,
+                cid,
+                [r["refund_id"] for r in hoan if r["status"] == "COMPLETED"],
             )
+            luot = {
+                r["co_so"]: int(r["n"])
+                for r in await conn.fetch(_LUOT_SQL, cid, a, b, cs, k5, k6)
+            }
+            doi_ht = await conn.fetch(_DOI_HINH_THUC_SQL, cid, a, b, cs, k5, k6)
+            luot_khong_chon = {
+                r["co_so"]: int(r["n"])
+                for r in await conn.fetch(
+                    _LUOT_KHONG_CHON_DICH_VU_KHAM_SQL, cid, a, b, cs, k5, k6
+                )
+            }
             # "Khách còn nợ: n — x đ" (01/10/2026): khoản đã ghi nợ lúc check-out
             # còn CHƯA THU — tính tới hiện tại, không theo khoảng ngày.
             from clinicai.services.cong_no_service import doc_khach_con_no
 
-            con_no = await doc_khach_con_no(conn, cid)
+            con_no = await doc_khach_con_no(conn, cid, location_id=cs)
+            ds_co_so = await doc_ds_co_so(conn, cid)
+            # Tiền thừa (06/10/2026, E2c): đã hoàn / giữ lại / còn treo — tiền
+            # DỊCH VỤ, báo cáo quầy thuốc không có.
+            from clinicai.services.tien_thua_service import bao_cao_tien_thua
+
+            tien_thua = (
+                await bao_cao_tien_thua(conn, cid, a, b, co_so=cs)
+                if loai_loc != "thuoc"
+                else None
+            )
+            thuoc = (
+                await doc_thuoc_theo_khach(
+                    conn,
+                    cid,
+                    tu=a,
+                    den=b,
+                    co_so=cs,
+                    tu_luc=k5,
+                    den_luc=k6,
+                    het_khung=k6
+                    or datetime.combine(b + timedelta(days=1), time(0), CLINIC_TZ),
+                )
+                if loai_loc != "dich_vu"
+                else None
+            )
         lan_thu_ds = [dict(r) for r in lan_thu]
         hoan_ds = [dict(r) for r in hoan]
         doi_ht_ds = [dict(r) for r in doi_ht]
@@ -637,17 +1036,51 @@ class BaoCaoCuoiNgayService:
             doi_ht_ds = [r for r in doi_ht_ds if r.get("kind") == loai_loc]
             if loai_loc == "thuoc":
                 doi_tac_ds = []
+        dong_ds = [dict(r) for r in dong]
         bc = gom_bao_cao(
             tu=a,
             den=b,
             lan_thu=lan_thu_ds,
             hoan=hoan_ds,
-            dong=[dict(r) for r in dong],
+            dong=dong_ds,
             doi_tac=doi_tac_ds,
-            so_luot_kham=int(so_luot or 0),
+            so_luot_kham=sum(luot.values()),
             doi_hinh_thuc=doi_ht_ds,
-            so_luot_khong_chon_dich_vu_kham=int(so_luot_khong_chon or 0),
+            so_luot_khong_chon_dich_vu_kham=sum(luot_khong_chon.values()),
         )
         bc["khach_con_no"] = con_no
+        bc["tien_thua"] = tien_thua
         bc["loai"] = loai_loc
+        bc["ca"] = khung[2] if khung else None
+        bc["thuoc_theo_khach"] = thuoc
+        # Hàng hoá chỉ của lần thu / khoản hoàn ĐÃ lọc loại (dong lấy theo mọi
+        # lần thu PAID, trước khi lọc loại).
+        da_thu = {r["id"] for r in lan_thu_ds if r.get("status") == "PAID"}
+        da_hoan = {r["refund_id"] for r in hoan_ds}
+        bc["hang_hoa"] = gom_hang_hoa(
+            (r for r in dong_ds if r.get("cycle_id") in da_thu),
+            (dict(r) for r in tra_hang if r["refund_id"] in da_hoan),
+        )
+        bc["co_so"] = cs
+        bc["ten_co_so"] = next((c["ten"] for c in ds_co_so if c["id"] == cs), None)
+        # Đầu / chân báo cáo kiểu KiotViet: "Chi nhánh: …" + địa chỉ từng cơ sở.
+        bc["chi_nhanh"] = [
+            {"ten": c["ten_in"], "dia_chi": c["dia_chi"]}
+            for c in ds_co_so
+            if cs is None or c["id"] == cs
+        ]
+        bc["theo_co_so"] = []
+        if cs is None:
+            bc["theo_co_so"] = tach_theo_co_so(
+                tu=a,
+                den=b,
+                co_so_ds=ds_co_so,
+                lan_thu=lan_thu_ds,
+                hoan=hoan_ds,
+                dong=dong_ds,
+                doi_tac=doi_tac_ds,
+                doi_hinh_thuc=doi_ht_ds,
+                luot=luot,
+                luot_khong_chon=luot_khong_chon,
+            )
         return bc

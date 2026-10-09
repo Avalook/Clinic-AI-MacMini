@@ -1,6 +1,44 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **29/09/2026** — ngày bàn giao, chuẩn hoá lõi (mục "29/09" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm).
+Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+
+## 08/10/2026 — ĐỢT `dot/0710-nhan-tai-phong` ĐANG TRÊN STAGING, CHỜ BẤM THỬ RỒI LÊN PROD
+
+**Staging chạy `2d4abbbe`** (deploy 08/10 sáng, đã áp mọi migration — thử khô "Không còn
+migration nào"). CI máy xanh 5/5 ở `2d4abbbe`: 5.041 passed. Prod vẫn `main`.
+
+**Đợt gồm** (nhánh đợt = main + tất cả dưới đây, gộp + gỡ xung đột ở worktree
+`.claude/worktrees/dot-0710-nhan-tai-phong` và `service-room-assignment-flow-d71f40`):
+| Phần | PR / nhánh | Plan |
+|---|---|---|
+| Đợt 06/10 (lịch trực phiên bản, sửa/bỏ chỉ định + luật tiền E, nhân sự, hoá đơn 0đ, test E4 hết chập chờn) | #340 #342 #343 #346 #347 (+ eb6a4d78 E4) | memory `sua-chi-dinh-lich-truc-0610` |
+| Nhận khách tại phòng dịch vụ (dây `nhan_tai_phong`, Sắp đến mọi khách, một khách một dòng + khung phải nút theo chỉ định, nhận chéo không khoá, chuông nhận chéo, cùng phòng "Xong DV1 & bắt đầu DV2", ★ phòng chuyên = nhãn/xếp/gợi ý, BỎ nút Nhả, mốc giờ `v_moc_hanh_trinh`) | #350 (backend) #351 (giao diện) | `docs/KE-HOACH-NHAN-TAI-PHONG.md` |
+| Chọn dịch vụ 4 nhóm (Khám/Điều trị/Khác; Thuốc ẩn) + 6 loại Điều trị + đổi dịch vụ trong hồ sơ + phiếu điều trị 2 ô theo CHỈ ĐỊNH (mẫu `PHIEU_DIEU_TRI`, dùng chung bàn khám & phòng) + làm tại bàn khám + ô chữ lượt Khác + in gộp một lượt + lịch sử sửa mọi phiếu KQ (`form_instance_lich_su`) + popup lịch sử khám / `/patient-list` | #352 → #353 → #354 → #355 (xếp chồng) | `docs/KE-HOACH-CHON-DICH-VU-HO-SO-KHAM.md` |
+| Sửa 9 lỗi soát code (2 lỗi tiền cao: làm tại bàn khám chốt hộ mọi chỉ định; đổi dịch vụ sau check-out) — 13 test tái hiện | #359 (đã vào đợt) | thân PR #359 |
+| Hành trình xếp theo giờ thật, nhãn "Nhận vào phòng", bước bác sĩ "tuỳ chọn" khi lượt Điều trị không qua bàn khám | #358 | thân PR |
+| Sắp đến: khách đã xong ở phòng chỉ nằm ở Đã xong; lượt Điều trị xong hết ghi "chờ thanh toán / check-out"; sửa test tài khoản phụ thuộc thứ tự | nhánh `claude/sap-den-mot-nhom` (KHÔNG PR — đẩy thẳng vào đợt sau CI) | — |
+| Thanh tìm kiếm khách ở mọi phòng dịch vụ (`lib/tim-khach-phong.ts`) | nhánh `claude/tim-khach-phong` (KHÔNG PR — vào đợt sau CI) | — |
+
+Migration mới của đợt (đã áp staging): 20261007500000, 510000, 600000, 620000, 630000,
+640000, 650000, 650001 (+ các 20261006* của đợt 06/10). `tenant_scoped_rls.sql` = **106**.
+(20261007610000 `luot_dieu_tri_ghi` đã GỠ khỏi nhánh — staging từng áp, đêm nạp lại tự mất.)
+
+**Bước tiếp theo:**
+1. Tuyền bấm thử staging (staging nạp bản sao prod mỗi 03:30 → mỗi sáng phải BẬT lại dây
+   "Nhận khách tại phòng" ở `/settings/day-noi` và đánh lại ★ ở `/settings/clinic-config`:
+   Siêu âm → Phòng siêu âm 2 máy; Thủ thuật → Phòng thủ thuật). Kịch bản: thân PR #350/#351,
+   #353–#355, #358, #359.
+2. ĐẠT → merge cả đợt lên main (gợi ý: một PR `dot/0710-nhan-tai-phong → main` vì đợt có
+   commit gộp/gỡ xung đột + 2 nhánh không PR) → prod theo skill `len-prod`: sao lưu → diễn tập
+   ĐỦ migration trên bản sao prod → áp → deploy ghim SHA đã thử. Trên prod cũng phải bật dây
+   + đánh ★ (việc dữ liệu, Tuyền).
+3. Ngay sau prod: tách file to (memory `tach-file-sau-prod-0710`).
+4. Lượt sau phòng dịch vụ: chữ "sắp đến" → "chờ nhận" (memory `viec-treo-phong-dich-vu-0710`).
+
+**Bẫy đã gặp:** gộp hai nhánh cùng sửa một file → import thừa / con số RLS lệch (CI bắt);
+DB test chung phình sau 1 ngày (giờ dùng `scripts/test-nhanh.sh`); agent chạy tay loạt test
+cũ mất 30–50′/lượt (cấm — memory `chay-test-nhanh-0710`); Colima tắt qua đêm làm CI đỏ
+"docker API" — đã bật lại 10 CPU / 24 GiB (08/10); test thời gian phụ thuộc thứ tự worker xdist.
 
 ## 01/10/2026 — STAGING ONLINE (nhánh `claude/staging-online`, PR chờ merge)
 

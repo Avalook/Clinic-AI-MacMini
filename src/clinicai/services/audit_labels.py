@@ -105,6 +105,7 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.counter_changed": "Quầy thuốc chỉnh đơn bán (tích / số lượng / thêm)",
     "thong_bao.lich_mat_bac_si": "Báo CSKH và Trưởng ca lịch mất bác sĩ khi công bố",
     "thong_bao.ket_qua_ve": "Báo CSKH và bác sĩ kết quả vừa về",
+    "thong_bao.bo_chi_dinh": "Báo bác sĩ chính: chỉ định bị bỏ",
     "thong_bao.hen_goi_lai": "Đặt nhắc gọi lại đúng giờ",
     "nhac_tai_kham.hen_doi": "Bác sĩ đặt / đổi / bỏ ngày tái khám (việc CSKH theo)",
     # ── Nhà thuốc ───────────────────────────────────────────────────────────
@@ -141,6 +142,7 @@ EVENT_LABELS: dict[str, str] = {
     "clinic_config.service_type_created": "Quản lý thêm loại khám",
     "clinic_config.service_type_updated": "Quản lý sửa loại khám",
     "clinic_config.room_nodes": "Quản lý đổi bước phòng phục vụ",
+    "clinic_config.room_node_chuyen": "Quản lý đánh / bỏ phòng chuyên ★",
     "clinic_config.staff_nodes": "Quản lý đổi bước nhân sự làm được",
     "clinic_config.thu_ky_bac_si": "Quản lý phân thư ký theo bác sĩ",
     "config.desk_service_saved": "Lưu dịch vụ làm thêm tại quầy",
@@ -197,6 +199,7 @@ EVENT_LABELS: dict[str, str] = {
     "payment.confirmed": "Đã nhận tiền",
     "payment.pending_verification": "Ghi chuyển khoản/QR chờ xác minh",
     "payment.pending_cancelled": "Huỷ lần chuyển khoản/QR chờ xác minh",
+    "payment.service_zero_confirmed": "Quầy chốt dịch vụ 0đ (không có khoản thu)",
     "payment.reconciliation_needed": "Đã nhận tiền nhưng hoá đơn đổi — cần đối soát",
     "payment.sale_not_applied": "Đã nhận tiền nhưng chưa ghi bán thuốc — cần đối soát",
     "payment.drug_return_needed": (
@@ -241,6 +244,7 @@ EVENT_LABELS: dict[str, str] = {
     # HOÀN TÁC mọi thao tác (Tuyền 01/10/2026).
     "consult.reopened": "Hoàn tác khám xong — mở lại phiên khám",
     "service_order.cancelled": "Bỏ chỉ định",
+    "service_order.restored": "Hoàn tác bỏ chỉ định",
     "service.completion_undone": "Hoàn tác “Xong” của dịch vụ",
     "visit.reopened": "Hoàn tác check-out — mở lại lượt khám",
     "result.approval_revoked": "Thu hồi duyệt kết quả — về chờ bác sĩ duyệt",
@@ -325,6 +329,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:payment-doi-hinh-thuc": "Quầy thu — đổi hình thức thu (TM/CK/QR)",
     "api:phi-kham": "Bàn khám / quầy thu — chọn dịch vụ khám",
     "api:lam-truoc-thu-sau": "Bàn khám / quầy thu — tick Làm trước – thu sau",
+    "api:lam-tai-ban-kham": "Bàn khám — làm dịch vụ tại bàn khám (chốt khách làm)",
     "api:lam-them-tai-quay": "Tiếp đón / Đo sinh hiệu — làm thêm tại quầy",
     "api:quay-thuoc": "Quầy thu tiền thuốc — chỉnh đơn bán",
     "api:queue-reorder": "Hàng chờ tiếp nhận — đổi thứ tự khám",
@@ -344,6 +349,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:luot-kham": "Màn lượt khám",
     "api:chi-dinh": "Bàn khám — chỉ định dịch vụ",
     "api:hoan-tac": "Nút Hoàn tác",
+    "api:so-sua-chi-dinh": "Thông báo bỏ chỉ định / Lịch sử sửa — nút Hoàn tác",
     "api:day-noi": "Cài đặt — dây nối nghiệp vụ",
     "api:thai-ky": "Bàn khám — Thai kỳ",
     # Thai kỳ ghi theo hai ô kinh cuối / dự kiến sinh của phiếu Sản khoa v5.
@@ -394,6 +400,7 @@ AGGREGATE_LABELS: dict[str, str] = {
     "patient_link": "Liên kết hồ sơ",
     "slot_hold": "Giữ chỗ khung giờ",
     "visit": "Lượt khám",
+    "lieu_trinh": "Liệu trình điều trị",
     "consultation": "Phiên khám",
     # Lifecycle v1 (Slice 4): sự kiện điều phối gắn vào chính chỉ định.
     "service_order": "Chỉ định dịch vụ",
@@ -445,6 +452,19 @@ def action_label(event_type: str) -> str:
         or _nhan_danh_muc(event_type)
         or event_type
     )
+
+
+#: Nhãn thao tác Nhận tại phòng (`service.routed` nguồn `tai_phong`, 07/10/2026)
+#: — phòng tự nhận khách, KHÔNG phải nhân viên xếp phòng.
+NHAN_NHAN_VAO_PHONG = "Nhận vào phòng"
+
+
+def action_label_theo_nguon(event_type: str, nguon: object) -> str:
+    """`action_label` khi biết NGUỒN của sự kiện (payload `nguon`). Hiện chỉ
+    `service.routed` từ nút Nhận tại phòng có nhãn riêng; còn lại như cũ."""
+    if event_type == "service.routed" and nguon == "tai_phong":
+        return NHAN_NHAN_VAO_PHONG
+    return action_label(event_type)
 
 
 def _nhan_danh_muc(event_type: str) -> str | None:

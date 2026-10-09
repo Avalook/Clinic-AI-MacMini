@@ -36,6 +36,7 @@ SET LOCAL session_replication_role = replica;
 
 DELETE FROM tep_ket_qua t USING _v WHERE t.appointment_id = _v.appointment_id
    AND t.khoa LIKE '%/lich-su-notion/%';
+DELETE FROM form_instance_lich_su h USING _so WHERE h.service_order_id = _so.id;
 DELETE FROM form_instance f USING _so WHERE f.service_order_id = _so.id;
 DELETE FROM service_order s USING _so WHERE s.id = _so.id;
 DELETE FROM prescription p USING _v WHERE p.visit_id = _v.visit_id
@@ -46,6 +47,7 @@ DELETE FROM phieu_kham_luot p USING _v WHERE p.visit_id = _v.visit_id;
 DELETE FROM consultation_note n USING consultation c, _v
  WHERE n.consultation_id = c.id AND c.visit_id = _v.visit_id;
 DELETE FROM consultation c USING _v WHERE c.visit_id = _v.visit_id;
+DELETE FROM luot_ghi_chu g USING _v WHERE g.visit_id = _v.visit_id;
 DELETE FROM clinical_release r USING _v WHERE r.visit_id = _v.visit_id;
 DELETE FROM visit v USING _v WHERE v.visit_id = _v.visit_id;
 DELETE FROM appointment a USING _v WHERE a.id = _v.appointment_id;

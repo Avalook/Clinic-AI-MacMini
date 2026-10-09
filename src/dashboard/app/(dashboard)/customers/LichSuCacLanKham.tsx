@@ -1,25 +1,20 @@
 "use client";
 
-// Lịch sử các lần khám — dạng chuỗi, không phải danh sách phẳng.
+// Lịch sử các lần khám — timeline dọc, mỗi lượt có giờ bắt đầu / kết thúc và
+// những trạng thái CSKH đã bấm (Quang 10/08/2026).
 //
-// QUANG 10/08/2026: timeline dọc trên xuống, hiện những trạng thái CSKH đã bấm
-// ở lần trước, có giờ bắt đầu và kết thúc. Và điều quan trọng nhất: *"nếu là
-// timeline tái khám, thì lần tái khám sẽ là nối tiếp của lần khám trước, còn
-// khám xong rồi hoặc khám mới thì nó là lịch sử riêng"*.
-//
-// MỘT CHUỖI = MỘT CÂU CHUYỆN. Khách khám phụ khoa tháng 3 rồi tái khám tháng 4
-// là một chuyện; tháng 9 khám nội tiết là chuyện khác. Trộn cả hai vào một danh
-// sách theo ngày thì người đọc phải tự đoán đâu là nối tiếp, đâu là bắt đầu
-// lại — và họ sẽ đoán sai đúng lúc cần nhất.
-//
-// CHUỖI DỰNG TỪ `appointment.lich_truoc_id` (20260810000007), không suy diễn từ
-// "cùng dịch vụ, gần ngày nhau". Xem migration ấy để biết vì sao suy diễn sai.
+// TỪ 08/10/2026 (Tuyền chốt luật đếm): MỘT DẢI THEO THỜI GIAN trên toàn bộ lượt
+// của khách — không còn gom "đợt" theo `lich_truoc_id`. Nhãn mỗi lượt do MÁY CHỦ
+// đếm (`nhan_luot`: "Lượt khám n" · "Buổi k/N" · "Điều trị · buổi lẻ" · "Lịch
+// hẹn" · "Đã huỷ") — trước đó màn tự đếm "tái khám lần n" trong từng chuỗi nên
+// hai lượt cùng ngày của hai dịch vụ đều là lần đầu.
 
 import { useState } from "react";
 import Chip from "@/components/ui/Chip";
 import { Clock, CircleDashed, Check, FileText } from "lucide-react";
 import HoSoKhamModal from "../_lam-viec/HoSoKham";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
+import { chipBuoiPhu, chuNhanLuot } from "@/lib/nhan-luot";
 import type { ChuoiKham, LuotKham } from "./CustomersView";
 
 const NHAN_TRANG_THAI: Record<string, string> = {
@@ -95,12 +90,10 @@ function khoangThoiGian(luot: LuotKham): string {
 
 function MotLuot({
   luot,
-  thuTu,
   dangXem,
   onChon,
 }: {
   luot: LuotKham;
-  thuTu: number;
   /** Lượt này có đang là lượt ba cột đang làm việc trên đó không. */
   dangXem: boolean;
   /** Bấm để chuyển sang làm việc trên lượt này. Không truyền = chỉ đọc. */
@@ -124,7 +117,7 @@ function MotLuot({
                 : "border-brand-500 bg-brand-50 text-brand-700"
           }`}
         >
-          {xong ? <Check className="size-3" strokeWidth={3} /> : thuTu}
+          {xong ? <Check className="size-3" strokeWidth={3} /> : (luot.nhan_luot?.so ?? "·")}
         </span>
         <span className="w-0.5 flex-1 bg-line" style={{ minHeight: 8 }} />
       </div>
@@ -142,11 +135,10 @@ function MotLuot({
           <Chip tone={luot.trang_thai?.tone ?? "neutral"}>
             {luot.trang_thai?.nhan ?? NHAN_TRANG_THAI[luot.status] ?? luot.status}
           </Chip>
-          {thuTu > 1 && (
-            <span className="rounded-chip bg-brand-50 px-1.5 py-0.5 text-label font-semibold text-brand-700">
-              tái khám lần {thuTu - 1}
-            </span>
-          )}
+          <span className="rounded-chip bg-brand-50 px-1.5 py-0.5 text-label font-semibold text-brand-700">
+            {chuNhanLuot(luot.nhan_luot)}
+            {chipBuoiPhu(luot.nhan_luot) ? ` · ${chipBuoiPhu(luot.nhan_luot)}` : ""}
+          </span>
           {/* CHỌN LƯỢT ĐỂ LÀM VIỆC.
               Đây là chỗ DUY NHẤT trên màn liệt kê đủ mọi lượt của khách, nên nó
               cũng là chỗ tự nhiên để chuyển lượt. Trước 10/08/2026 không có chỗ
@@ -277,11 +269,6 @@ export default function LichSuCacLanKham({
           <Clock className="size-4 text-ink-muted" aria-hidden="true" />
           Lịch sử các lần khám
         </h2>
-        {chuoi.length > 1 && (
-          <span className="text-label text-ink-muted">
-            {chuoi.length} đợt khám riêng
-          </span>
-        )}
       </header>
 
       <div className="space-y-3 px-4 py-3">
@@ -290,31 +277,13 @@ export default function LichSuCacLanKham({
             Khách chưa có lượt khám nào.
           </p>
         ) : (
-          chuoi.map((c, i) => (
-            <div
-              key={c.luot[0]?.id ?? i}
-              className="rounded-xl border border-line p-3"
-            >
-              {/* MỖI HỘP LÀ MỘT ĐỢT. Nhiều lượt trong một hộp = chuỗi tái khám
-                  nối tiếp nhau; hộp riêng = câu chuyện riêng. */}
-              <p className="mb-1.5 text-label font-semibold uppercase tracking-wide text-ink-faint">
-                {c.luot.length > 1
-                  ? `Đợt ${c.luot[0]?.service_name ?? "khám"} · ${c.luot.length} lượt`
-                  : "Khám một lượt"}
-              </p>
-              <ol>
-                {c.luot.map((l, j) => (
-                  <MotLuot
-                    key={l.id}
-                    luot={l}
-                    thuTu={j + 1}
-                    dangXem={l.id === luotDangXem}
-                    onChon={onChonLuot}
-                  />
-                ))}
-              </ol>
-            </div>
-          ))
+          <ol>
+            {chuoi
+              .flatMap((c) => c.luot)
+              .map((l) => (
+                <MotLuot key={l.id} luot={l} dangXem={l.id === luotDangXem} onChon={onChonLuot} />
+              ))}
+          </ol>
         )}
       </div>
     </section>

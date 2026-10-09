@@ -1,8 +1,7 @@
 """C18 (02/10/2026): hành trình theo TRẠNG THÁI HIỆN TẠI + dịch vụ khám hiện trên
 hành trình + sửa tick dịch vụ khám tự bỏ.
 
-    DATABASE_URL_TEST=postgresql://postgres:postgres@127.0.0.1:55600/postgres \\
-        .venv/bin/pytest src/tests/services/test_hanh_trinh_trang_thai_hien_tai_db.py
+    scripts/test-nhanh.sh src/tests/services/test_hanh_trinh_trang_thai_hien_tai_db.py
 
 Mối lo của Tuyền: mở sửa / hoàn tác chỉ định cho điều dưỡng, thư ký, bác sĩ làm
 Hành trình khách ghi "xong ở bác sĩ chính" trong khi dịch vụ khám không thấy đâu.

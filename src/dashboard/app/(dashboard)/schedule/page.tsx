@@ -21,7 +21,6 @@ import {
   weekStartOf,
   shiftWeek,
   currentWeekStartVn,
-  nhanViTri,
   viTriTuDb,
 } from "../../../lib/roster";
 import OfficialRosterTable, {
@@ -30,11 +29,12 @@ import OfficialRosterTable, {
 import ApDungTuan from "./ApDungTuan";
 import LichTheoNguoi from "./LichTheoNguoi";
 import TabLichLamViec from "./TabLichLamViec";
-import DoiNguoiTrongCa, { type VetThayNguoi } from "./DoiNguoiTrongCa";
 import NgoaiLeCaTruc, { type NgoaiLeCaTrucItem } from "./NgoaiLeCaTruc";
+import type { PhienBanTraVe } from "./PhienBanLich";
 import RosterRegisterTable, {
   type RegisterRow,
   type StaffOpt,
+  type VetThayNguoi,
 } from "./RosterRegisterTable";
 import type { DongCaRow } from "../home/WorkRosterTable";
 import { doctorName } from "../../../lib/doctor-name";
@@ -81,7 +81,10 @@ export default async function SchedulePage({
   // 24/09/2026: đọc qua backend `GET /api/v1/roster/lich-tuan` thay vì tự đọc
   // 5 bảng bằng Supabase. Nhân sự + trạm theo vai chỉ về khi người xem là người
   // xếp lịch (backend quyết); ở đây chỉ còn rút gọn tên để hiển thị.
-  const [lich, viTri] = await Promise.all([
+  // Lịch sử phiên bản (06/10/2026): MÁY CHỦ quyết ai xem (cửa người xếp lịch —
+  // trưởng ca / quản lý); không được xem → `null` → bảng xếp ca không bày ô
+  // Phiên bản / "Lịch sử ô này".
+  const [lich, viTri, phienBan] = await Promise.all([
     fetchFromBackend<{
       da_ap_dung: boolean;
       doi_nguoi?: boolean;
@@ -101,6 +104,9 @@ export default async function SchedulePage({
       tram_theo_vai: { vai: string; tram_ma: string }[];
     }>(`/api/v1/roster/lich-tuan?tuan=${encodeURIComponent(week)}`),
     getViTriHomNay(),
+    fetchFromBackend<PhienBanTraVe>(
+      `/api/v1/roster/phien-ban?tuan=${encodeURIComponent(week)}`,
+    ),
   ]);
   const stations = viTriTuDb(viTri?.danh_muc);
   const dong = lich?.dong_ca ?? [];
@@ -175,10 +181,12 @@ export default async function SchedulePage({
         </Link>
       </div>
 
+      {/* Dải trạng thái tuần cho mọi người xem. NÚT Áp dụng tuần nằm trên thanh
+          công cụ dính của bảng xếp ca (06/10/2026) — không bày hai nút. */}
       <ApDungTuan
         weekStart={week}
         daApDung={Boolean(tuanApDung)}
-        laQuanLy={isAdmin}
+        laQuanLy={false}
         soCa={approvedRows.length}
       />
 
@@ -201,30 +209,6 @@ export default async function SchedulePage({
           }
         />
       </section>
-
-      {/* ĐỔI NGƯỜI TRONG CA (29/09/2026) — trưởng ca (quyền riêng trong lego
-          Điều phối khách) hoặc người xếp lịch. Hôm nay và các ngày tới. */}
-      {doiNguoi && (
-        <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
-          <div>
-            <h2 className="font-semibold text-ink">Đổi người trong ca</h2>
-            <p className="mt-0.5 text-sm text-ink-muted">
-              Người đứng ca có việc đột xuất → bấm <b>Thay người</b>. Người mới có ngay quyền của
-              vị trí ấy, người cũ thôi; lịch giữ vết ai đứng tới giờ nào.
-            </p>
-          </div>
-          <DoiNguoiTrongCa
-            homNay={lich?.hom_nay ?? dates[0]}
-            dong={approvedRows}
-            vet={lich?.thay_nguoi ?? []}
-            nhanViTri={nhanViTri(stations)}
-            // Tài khoản đối tác (lab) không đứng ca của phòng khám.
-            nhanSu={staffOptions
-              .filter((s) => s.vai !== "PARTNER")
-              .map((s) => ({ id: s.id, name: s.name }))}
-          />
-        </section>
-      )}
 
       {quanLyNgoaiLe && (
         <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
@@ -252,17 +236,31 @@ export default async function SchedulePage({
           CHỈ NGƯỜI XẾP LỊCH, và đó không phải lựa chọn thẩm mỹ: đường ghi ở API
           gác bằng quyền (`RosterService._xep_lich`). Bày ô "+" cho người khác là
           bày một nút bấm vào sẽ ăn 403 — tệ hơn không có nút. */}
-      {isAdmin && (
+      {/* 06/10/2026 (Tuyền): "Đổi người trong ca" và "Lịch sử thay đổi" GỘP vào
+          bảng này — nút [Đổi người] trong popup ô, ô Phiên bản trên thanh công cụ
+          dính, "Lịch sử ô này" cuối popup. Người chỉ có quyền đổi người
+          (`roster.shift.swap`, không xếp lịch) vẫn thấy bảng, nhưng không có ô +,
+          thùng rác hay Áp dụng tuần (`xepDuoc` = người xếp lịch, cùng câu máy chủ hỏi). */}
+      {(isAdmin || doiNguoi) && (
         <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
           <div>
             <h2 className="font-semibold text-ink">Đăng ký / xếp ca</h2>
             <p className="mt-0.5 text-sm text-ink-muted">
-              Form y hệt file Excel: hàng là vị trí, cột là ngày và ca. Bấm dấu{" "}
-              <b>+</b> trong ô để chọn người.
+              Form y hệt file Excel: hàng là vị trí, cột là ngày và ca. Bấm vào ô để{" "}
+              {isAdmin ? (
+                <>
+                  xếp người (dấu <b>+</b>), gỡ ca hoặc <b>Đổi người</b>.
+                </>
+              ) : (
+                <>
+                  <b>Đổi người</b> trong ca.
+                </>
+              )}{" "}
               Ca xếp ở đây vào thẳng lịch chính thức của tuần.
             </p>
           </div>
           <RosterRegisterTable
+            key={week}
             stations={stations}
             weekStart={week}
             dates={dates}
@@ -272,6 +270,16 @@ export default async function SchedulePage({
             staff={staffOptions}
             tramTheoVai={tramTheoVai}
             isApprover
+            xepDuoc={isAdmin}
+            daApDung={Boolean(tuanApDung)}
+            phienBan={phienBan}
+            doiNguoi={doiNguoi}
+            homNay={homNay}
+            vet={lich?.thay_nguoi ?? []}
+            // Tài khoản đối tác (lab) không đứng ca của phòng khám.
+            nhanSuDoi={staffOptions
+              .filter((s) => s.vai !== "PARTNER")
+              .map((s) => ({ id: s.id, name: s.name }))}
           />
         </section>
       )}

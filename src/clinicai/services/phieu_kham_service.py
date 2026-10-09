@@ -150,6 +150,44 @@ def _khoa_ten(t: str) -> str:
     return "".join(t.split()).lower()
 
 
+NHOM_DIEU_TRI = "Sàn chậu — định hướng điều trị"
+
+
+def _du_nhom_dieu_tri(
+    thu_thuat: list[dict[str, Any]],
+    ma_dieu_tri: list[str],
+    theo_ma: dict[str, Any],
+    gan: Callable[[ax.DichVuPhieu | None], dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Nhóm điều trị của khối 3 = ĐỦ dịch vụ của loại khám nhóm ĐIỀU TRỊ, đúng thứ
+    tự ô chọn lúc đặt lịch. Phiếu giấy chỉ có 4 dòng (Biofeedback, Ghế ĐTT, Laser
+    trẻ hoá, Laser ST/SSD) nên Laser tiền đình và Laser 1 thành từng lọt xuống
+    "danh mục phòng khám" ở khối 2 (Tuyền 08/10)."""
+    co = {t["service_code"] for t in thu_thuat if t.get("service_code")}
+    them = [
+        {
+            "ma": f"dieu_tri:{ma}",
+            "nhan": theo_ma[ma]["name"],
+            "nhom": NHOM_DIEU_TRI,
+            "form_id_ket_qua": None,
+            **gan(ax.DichVuPhieu(ma, theo_ma[ma]["name"], theo_ma[ma]["node_code"], 0)),
+        }
+        for ma in ma_dieu_tri
+        if ma in theo_ma and ma not in co
+    ]
+    ds = thu_thuat + them
+    thu_tu = {ma: i for i, ma in enumerate(ma_dieu_tri)}
+    # Xếp lại TRONG nhóm điều trị, các nhóm khác giữ chỗ.
+    vi_tri = [i for i, t in enumerate(ds) if t.get("nhom") == NHOM_DIEU_TRI]
+    xep = sorted(
+        (ds[i] for i in vi_tri),
+        key=lambda t: thu_tu.get(t.get("service_code") or "", len(thu_tu)),
+    )
+    for i, t in zip(vi_tri, xep, strict=True):
+        ds[i] = t
+    return ds
+
+
 #: Nhóm hiển thị của dịch vụ danh mục phòng khám theo phòng làm (node).
 _NHOM_THEO_NODE = {
     "DICHVU-SIEUAM": "Siêu âm",
@@ -240,6 +278,12 @@ class PhieuKhamService:
             )
             if luot is None:
                 raise ValidationError("Không tìm thấy lượt khám.")
+            # PHIẾU THEO DỊCH VỤ HIỆN TẠI (T5, 07/10/2026): đổi dịch vụ khám thì
+            # mở phiếu của dịch vụ mới; phiếu cũ GIỮ NGUYÊN dòng của nó, đổi
+            # ngược về là mở lại đúng phiếu cũ đủ dữ liệu. Dịch vụ không gắn
+            # phiếu (Điều trị, Khác) thì giữ phiếu người dùng đã tự chọn gần nhất.
+            if form_id is None and luot["form_code"] in FORM_IDS:
+                form_id = str(luot["form_code"])
             dong = await conn.fetchrow(
                 "SELECT form_id, version, du_lieu, revision, sua_luc"
                 "  FROM phieu_kham_luot"
@@ -563,6 +607,19 @@ class PhieuKhamService:
                 cid,
             )
             dv = {r["service_code"]: r["unit_price"] for r in dong_dv}
+            # Dịch vụ của loại khám nhóm ĐIỀU TRỊ, đúng thứ tự ô chọn lúc đặt lịch.
+            ma_dieu_tri = [
+                r["service_code"]
+                for r in await conn.fetch(
+                    "SELECT sp.service_code FROM public.service_type st"
+                    "  JOIN public.service_price sp"
+                    "    ON sp.id = st.service_price_id AND sp.clinic_id = st.clinic_id"
+                    " WHERE st.clinic_id = $1::uuid AND st.nhom = 'DIEU_TRI'"
+                    "   AND coalesce(st.is_active, true)"
+                    " ORDER BY st.thu_tu, st.name",
+                    cid,
+                )
+            ]
             # Khách trả TRỰC TIẾP cho đối tác (27/09/2026): nút "Chỉ định N mục
             # · tổng" ở bàn khám chỉ cộng phần phòng khám — cờ do máy chủ nói.
             dt_thu = {r["service_code"] for r in dong_dv if r["doi_tac_thu"]}
@@ -610,6 +667,7 @@ class PhieuKhamService:
         tc["thu_thuat"] = [
             {**t, **gan(ax.THU_THUAT.get(t["ma"]))} for t in tc["thu_thuat"]
         ]
+        tc["thu_thuat"] = _du_nhom_dieu_tri(tc["thu_thuat"], ma_dieu_tri, theo_ma, gan)
 
         # DANH MỤC PHÒNG KHÁM: MỌI dịch vụ đang bán mà phiếu giấy chưa liệt kê
         # đều chỉ định được — gom theo NHÓM HÀNG của danh mục chuẩn (Tuyền
@@ -844,6 +902,17 @@ class PhieuKhamService:
             return await doc_ket_qua_theo_chi_dinh(
                 conn, clinic_id=identity.clinic_id, visit_id=visit_id
             )
+
+    async def lan_chi_dinh(
+        self, *, visit_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Lần chỉ định hiện tại / lần kế tiếp của lượt (06/10/2026) — màn chỉ vẽ
+        nhãn "lần N" theo đây, không tự đếm."""
+        from clinicai.services.chi_dinh_service import lan_cua_luot
+
+        async with self._pool.acquire() as conn:
+            await self._kiem_quyen(conn, identity, "doc_ket_qua_cls")
+            return await lan_cua_luot(conn, identity.clinic_id, visit_id)
 
     async def tep_chua_gan(
         self, *, visit_id: str, identity: StaffIdentity

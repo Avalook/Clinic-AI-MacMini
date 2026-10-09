@@ -69,6 +69,12 @@ class ManTrangChuService:
         week_roster: date,
     ) -> dict[str, Any]:
         clinic_id = identity.clinic_id
+        # CƠ SỞ ĐANG ĐỨNG (X-Location-ID; hai cơ sở, 08/10/2026 — "sang cơ sở
+        # khác là của cơ sở đó hết"). Rỗng (danh tính dựng tay) = mọi cơ sở.
+        # Mẫu `coalesce(LOC, $n) IS NOT DISTINCT FROM coalesce($n, LOC)`: không
+        # chọn cơ sở ($n rỗng) → không lọc; KHÔNG BIẾT cơ sở (việc không gắn
+        # lượt, vị trí không gắn phòng) → giữ, không rơi.
+        co_so = identity.location_id or None
         hom_nay = datetime.now(_VN).date()
         dau_ngay = datetime.combine(hom_nay, time.min, tzinfo=_VN)
         cuoi_ngay = dau_ngay + timedelta(days=1)
@@ -77,21 +83,31 @@ class ManTrangChuService:
         async with self._pool.acquire() as conn:
             so_viec = await conn.fetchval(
                 """
-                SELECT count(*) FROM work_item
-                 WHERE clinic_id = $1::uuid
-                   AND status IN ('PENDING', 'IN_PROGRESS')
+                SELECT count(*) FROM work_item w
+                 -- Việc theo cơ sở của LƯỢT nó gắn; việc không gắn lượt giữ.
+                 CROSS JOIN LATERAL (
+                     SELECT public.co_so_cua_luot(w.clinic_id, w.visit_id) AS co_so
+                 ) cs
+                 WHERE w.clinic_id = $1::uuid
+                   AND w.status IN ('PENDING', 'IN_PROGRESS')
+                   AND coalesce(cs.co_so, $2::uuid)
+                       IS NOT DISTINCT FROM coalesce($2::uuid, cs.co_so)
                 """,
                 clinic_id,
+                co_so,
             )
             so_khach_moi = await conn.fetchval(
                 """
                 SELECT count(*) FROM patient
                  WHERE clinic_id = $1::uuid
                    AND created_at >= $2 AND created_at < $3
+                   AND coalesce(location_id, $4::uuid)
+                       IS NOT DISTINCT FROM coalesce($4::uuid, location_id)
                 """,
                 clinic_id,
                 dau_ngay,
                 cuoi_ngay,
+                co_so,
             )
             # LỊCH CẦN XỬ LÝ (Tuyền chốt 16/09/2026) — thay "Lịch chờ xác nhận"
             # (đếm status SCHEDULED, luôn 0 từ khi đặt xong là CONFIRMED). Đếm
@@ -103,10 +119,15 @@ class ManTrangChuService:
                 SELECT count(DISTINCT x.pid) FROM (
                     SELECT v.clinic_patient_id AS pid
                       FROM v_viec_cskh v
+                      -- Việc gắn lịch → theo cơ sở của lịch; không gắn lịch giữ.
+                      LEFT JOIN appointment av
+                        ON av.id = v.appointment_id AND av.clinic_id = v.clinic_id
                      WHERE v.clinic_id = $1::uuid
                        AND (v.trang_thai IN ('VUOT_SUC_CHUA', 'CHO_XAC_NHAN',
                                              'NHAC_HEN_MAI', 'KQ_CHUA_GUI')
                             OR (v.trang_thai = 'CHO_KQ_XN' AND v.qua_han))
+                       AND coalesce(av.location_id, $3::uuid)
+                           IS NOT DISTINCT FROM coalesce($3::uuid, av.location_id)
                     UNION
                     SELECT a.clinic_patient_id
                       FROM appointment a
@@ -114,10 +135,13 @@ class ManTrangChuService:
                        AND a.bac_si_da_go_id IS NOT NULL
                        AND a.slot_start >= $2
                        AND a.status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+                       AND coalesce(a.location_id, $3::uuid)
+                           IS NOT DISTINCT FROM coalesce($3::uuid, a.location_id)
                 ) x
                 """,
                 clinic_id,
                 dau_ngay,
+                co_so,
             )
             # XU HƯỚNG 7 NGÀY cho ô số (Tuyền chốt kiểu "bảng A + thống kê B",
             # 27/09/2026). Chỉ hai ô có lịch sử dựng lại được từ dữ liệu:
@@ -140,11 +164,14 @@ class ManTrangChuService:
                   LEFT JOIN patient p
                          ON p.clinic_id = $1::uuid
                         AND p.created_at >= n.dau AND p.created_at < n.het
+                        AND coalesce(p.location_id, $4::uuid)
+                            IS NOT DISTINCT FROM coalesce($4::uuid, p.location_id)
                  GROUP BY n.ngay ORDER BY n.ngay
                 """,
                 clinic_id,
                 hom_nay - timedelta(days=6),
                 hom_nay,
+                co_so,
             )
             xu_huong_viec = await conn.fetch(
                 """
@@ -156,7 +183,19 @@ class ManTrangChuService:
                                  AT TIME ZONE 'Asia/Ho_Chi_Minh' AS het
                           FROM generate_series($2::date, $3::date,
                                                interval '1 day') d) n
-                  LEFT JOIN work_item w
+                  -- Cùng luật cơ sở với `so_viec` ở trên (điểm cuối trùng).
+                  LEFT JOIN (
+                      SELECT w0.id, w0.clinic_id, w0.created_at, w0.status,
+                             w0.finished_at, w0.updated_at
+                        FROM work_item w0
+                       CROSS JOIN LATERAL (
+                           SELECT public.co_so_cua_luot(w0.clinic_id, w0.visit_id)
+                                  AS co_so
+                       ) cs
+                       WHERE w0.clinic_id = $1::uuid
+                         AND coalesce(cs.co_so, $4::uuid)
+                             IS NOT DISTINCT FROM coalesce($4::uuid, cs.co_so)
+                  ) w
                          ON w.clinic_id = $1::uuid
                         AND w.created_at < n.het
                         AND (w.status IN ('PENDING', 'IN_PROGRESS')
@@ -166,6 +205,7 @@ class ManTrangChuService:
                 clinic_id,
                 hom_nay - timedelta(days=6),
                 hom_nay,
+                co_so,
             )
             # TẢI BÁC SĨ HÔM NAY — số lịch còn sống của từng bác sĩ, kèm số đã
             # đến. Lịch chưa xếp ai gom một dòng (`doctor_id` rỗng).
@@ -180,6 +220,8 @@ class ManTrangChuService:
                  WHERE a.clinic_id = $1::uuid
                    AND a.slot_start >= $2 AND a.slot_start < $3
                    AND a.status <> ALL($4::text[])
+                   AND coalesce(a.location_id, $5::uuid)
+                       IS NOT DISTINCT FROM coalesce($5::uuid, a.location_id)
                  GROUP BY a.doctor_id, s.full_name
                  ORDER BY (a.doctor_id IS NULL), count(*) DESC, s.full_name
                 """,
@@ -187,6 +229,7 @@ class ManTrangChuService:
                 dau_ngay,
                 cuoi_ngay,
                 list(_TRANG_THAI_CHET),
+                co_so,
             )
             # CẦN XỬ LÝ — việc tồn của ca, mỗi dòng một câu hỏi "ai phải làm
             # gì ngay". Không lặp "Lịch cần xử lý" (việc CSKH) đã có ở ô số.
@@ -197,10 +240,13 @@ class ManTrangChuService:
                    AND slot_start >= $2
                    AND slot_start < now() - make_interval(mins => $3)
                    AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+                   AND coalesce(location_id, $4::uuid)
+                       IS NOT DISTINCT FROM coalesce($4::uuid, location_id)
                 """,
                 clinic_id,
                 dau_ngay,
                 _PHUT_TRE,
+                co_so,
             )
             so_chua_xep_bac_si = await conn.fetchval(
                 """
@@ -209,17 +255,26 @@ class ManTrangChuService:
                    AND doctor_id IS NULL
                    AND slot_start >= now()
                    AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')
+                   AND coalesce(location_id, $2::uuid)
+                       IS NOT DISTINCT FROM coalesce($2::uuid, location_id)
                 """,
                 clinic_id,
+                co_so,
             )
             so_viec_qua_han = await conn.fetchval(
                 """
-                SELECT count(*) FROM work_item
-                 WHERE clinic_id = $1::uuid
-                   AND status IN ('PENDING', 'IN_PROGRESS')
-                   AND due_at < now()
+                SELECT count(*) FROM work_item w
+                 CROSS JOIN LATERAL (
+                     SELECT public.co_so_cua_luot(w.clinic_id, w.visit_id) AS co_so
+                 ) cs
+                 WHERE w.clinic_id = $1::uuid
+                   AND w.status IN ('PENDING', 'IN_PROGRESS')
+                   AND w.due_at < now()
+                   AND coalesce(cs.co_so, $2::uuid)
+                       IS NOT DISTINCT FROM coalesce($2::uuid, cs.co_so)
                 """,
                 clinic_id,
+                co_so,
             )
             # DỊCH VỤ ĐANG BÁN CHƯA CÓ PHÒNG (01/10/2026): đếm bằng cùng hàm với
             # màn Bảng giá dịch vụ & phòng (trừ phí khám, việc đối tác làm trọn).
@@ -240,40 +295,64 @@ class ManTrangChuService:
                          ORDER BY m.created_at, m.id LIMIT 1) AS vai_ma
                   FROM work_roster w
                   LEFT JOIN staff s ON s.id = w.staff_id
+                  -- Vị trí theo cơ sở của PHÒNG gắn vị trí; không gắn phòng
+                  -- (vị trí dùng chung) giữ. (clinic_id, code) duy nhất → không
+                  -- nhân dòng.
+                  LEFT JOIN vi_tri_lam_viec vt
+                         ON vt.clinic_id = w.clinic_id AND vt.code = w.station
+                  LEFT JOIN clinic_room cr
+                         ON cr.id = vt.room_id AND cr.clinic_id = w.clinic_id
                  WHERE w.clinic_id = $1::uuid
                    AND w.week_start = $2::date
                    AND w.status = 'APPROVED'
+                   AND coalesce(cr.location_id, $3::uuid)
+                       IS NOT DISTINCT FROM coalesce($3::uuid, cr.location_id)
                  ORDER BY w.sort, w.id
                 """,
                 clinic_id,
                 week_roster,
+                co_so,
             )
             # Khối NGHỈ của tuần lịch — bảng lịch trang chủ vẽ y hệt file Excel
             # (Tuyền 16/09/2026). Ô ĐEN (DONG) thôi trả từ 28/09/2026 (Tuyền:
             # "xoá ô đen, mở lại quyền đặt ca, đừng block nữa").
             dong_ca = await conn.fetch(
                 """
-                SELECT work_date, shift, station, ly_do
-                  FROM vi_tri_dong_ca
-                 WHERE clinic_id = $1::uuid AND ly_do = 'NGHI'
-                   AND work_date >= $2::date
-                   AND work_date < $2::date + 7
+                SELECT d.work_date, d.shift, d.station, d.ly_do
+                  FROM vi_tri_dong_ca d
+                  LEFT JOIN vi_tri_lam_viec vt
+                         ON vt.clinic_id = d.clinic_id AND vt.code = d.station
+                  LEFT JOIN clinic_room cr
+                         ON cr.id = vt.room_id AND cr.clinic_id = d.clinic_id
+                 WHERE d.clinic_id = $1::uuid AND d.ly_do = 'NGHI'
+                   AND d.work_date >= $2::date
+                   AND d.work_date < $2::date + 7
+                   AND coalesce(cr.location_id, $3::uuid)
+                       IS NOT DISTINCT FROM coalesce($3::uuid, cr.location_id)
                 """,
                 clinic_id,
                 week_roster,
+                co_so,
             )
             # Bác sĩ trực ca từng ngày của TUẦN LỊCH HẸN (khác tuần roster!).
             truc_ca = await conn.fetch(
                 """
-                SELECT work_date, staff_id, staff_name FROM work_roster
-                 WHERE clinic_id = $1::uuid
-                   AND work_date = ANY($2::date[])
-                   AND public.la_ca_kham_bac_si(clinic_id, station)
-                   AND status = 'APPROVED'
-                   AND staff_id IS NOT NULL
+                SELECT w.work_date, w.staff_id, w.staff_name FROM work_roster w
+                  LEFT JOIN vi_tri_lam_viec vt
+                         ON vt.clinic_id = w.clinic_id AND vt.code = w.station
+                  LEFT JOIN clinic_room cr
+                         ON cr.id = vt.room_id AND cr.clinic_id = w.clinic_id
+                 WHERE w.clinic_id = $1::uuid
+                   AND w.work_date = ANY($2::date[])
+                   AND public.la_ca_kham_bac_si(w.clinic_id, w.station)
+                   AND w.status = 'APPROVED'
+                   AND w.staff_id IS NOT NULL
+                   AND coalesce(cr.location_id, $3::uuid)
+                       IS NOT DISTINCT FROM coalesce($3::uuid, cr.location_id)
                 """,
                 clinic_id,
                 ngay_tuan_hen,
+                co_so,
             )
             trang_thai_kham: list[dict[str, Any]] = []
             hanh_trinh_gon: dict[str, Any] = {}
@@ -299,6 +378,9 @@ class ManTrangChuService:
                      WHERE v.clinic_id = $1::uuid
                        AND v.created_at >= $2 AND v.created_at < $3
                        AND NOT v.ban_le  -- V8: bán lẻ không phải lượt khám
+                       AND coalesce(v.location_id, a.location_id, $5::uuid)
+                           IS NOT DISTINCT FROM
+                           coalesce($5::uuid, v.location_id, a.location_id)
                      ORDER BY v.created_at
                      LIMIT $4
                     """,
@@ -306,6 +388,7 @@ class ManTrangChuService:
                     dau_ngay,
                     cuoi_ngay,
                     _TRAN_TRANG_THAI,
+                    co_so,
                 )
                 trang_thai_kham = [_luot_kham(r) for r in rows]
                 # HÀNH TRÌNH KHÁCH dạng gọn (Tuyền chốt 29/09/2026) — thay thanh
@@ -326,12 +409,13 @@ class ManTrangChuService:
         # Ba service sẵn có, gọi trong tiến trình — mỗi service tự acquire kết
         # nối NGẮN từ pool (tuần tự, không giữ chồng lên nhau).
         tuan_hen = await WeekAppointmentsService(self._pool).week(
-            clinic_id=clinic_id, week_start=week_appt
+            clinic_id=clinic_id, week_start=week_appt, location_id=co_so
         )
         tien_trinh = await VisitProgressService(self._pool).for_range(
             date_from=ngay_tuan_hen[0],
             date_to=ngay_tuan_hen[-1],
             clinic_id=clinic_id,
+            location_id=co_so,
         )
 
         # NHÃN TRẠNG THÁI của bảng "Trạng thái BN buổi khám" (30/09/2026) —
@@ -359,7 +443,9 @@ class ManTrangChuService:
         can_no: list[dict[str, Any]] = []
         async with self._pool.acquire() as conn:
             if await can(conn, identity, "report.view"):
-                no = await doc_khach_con_no(conn, clinic_id, kem_ds=False)
+                no = await doc_khach_con_no(
+                    conn, clinic_id, kem_ds=False, location_id=co_so
+                )
                 can_no.append(
                     {"ma": "khach_con_no", "so": no["so_khach"], "tien": no["so_tien"]}
                 )

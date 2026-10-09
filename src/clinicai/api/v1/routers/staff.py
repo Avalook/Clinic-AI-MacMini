@@ -1,6 +1,6 @@
 """FastAPI endpoints for Staff management."""
 
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 import asyncpg
@@ -34,6 +34,7 @@ from clinicai.services.audit import record_event
 from clinicai.services.staff_service import (
     StaffService,
 )
+from clinicai.services.tai_khoan_service import TaiKhoanService
 
 router = APIRouter()
 # Lego 19 "Nhân sự & phân quyền" (Tuyền 25/09/2026): hỏi QUYỀN, không hỏi vai —
@@ -194,7 +195,9 @@ async def delete_staff(
 
 
 class NhatKyTaiKhoanRequest(BaseModel):
-    hanh_dong: Literal["tao", "doi_mat_khau", "doi_ten_dang_nhap", "thu_hoi"]
+    # "tao" / "thu_hoi" ghi trong giao dịch của `TaiKhoanService` — nhận ở đây
+    # nữa là ghi hai lần.
+    hanh_dong: Literal["doi_mat_khau", "doi_ten_dang_nhap"]
 
 
 @router.post("/staff/{id}/nhat-ky-tai-khoan", status_code=201)
@@ -206,9 +209,9 @@ async def ghi_nhat_ky_tai_khoan(
 ) -> dict[str, object]:
     """Ghi nhật ký thao tác TÀI KHOẢN ĐĂNG NHẬP của nhân sự (15/09/2026).
 
-    Tạo/đổi mật khẩu/đổi tên đăng nhập/thu hồi chạy ở route Next bằng khoá quản
-    trị GoTrue (backend chưa giữ khoá ấy) và trước đây KHÔNG để lại dấu vết nào.
-    Route gọi đây sau mỗi thao tác thành công. Không bao giờ nhận mật khẩu.
+    Đổi mật khẩu / đổi tên đăng nhập chạy ở route Next bằng khoá quản trị GoTrue
+    (backend không giữ khoá ấy); route gọi đây sau khi GoTrue nhận. Không bao
+    giờ nhận mật khẩu.
     """
 
     async with pool.acquire() as conn, conn.transaction():
@@ -231,6 +234,49 @@ async def ghi_nhat_ky_tai_khoan(
             payload={"staff_id": str(id), "hanh_dong": body.hanh_dong},
         )
     return {"ok": True}
+
+
+# ── Tài khoản đăng nhập: phần dữ liệu (06/10/2026) ──────────────────────────
+# Route Next `/api/admin/users` chỉ còn giữ lời gọi GoTrue (khoá quản trị nằm ở
+# đó); nối / gỡ / khoá app_credential / nhật ký ở `TaiKhoanService`.
+
+
+class NoiTaiKhoanRequest(BaseModel):
+    auth_user_id: UUID
+
+
+@router.get("/staff/{id}/tai-khoan")
+async def doc_tai_khoan(
+    id: UUID,
+    identity: StaffIdentity = Depends(_TAI_KHOAN_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tên + auth_user_id của một nhân viên cùng phòng khám (404 nếu khác)."""
+    return await TaiKhoanService(pool, identity).doc(str(id))
+
+
+@router.post("/staff/{id}/tai-khoan/noi")
+async def noi_tai_khoan(
+    id: UUID,
+    body: NoiTaiKhoanRequest,
+    identity: StaffIdentity = Depends(_TAI_KHOAN_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Nối người dùng GoTrue vừa tạo; mở lại app_credential đã thu hồi."""
+    return await TaiKhoanService(pool, identity).noi(str(id), str(body.auth_user_id))
+
+
+@router.post("/staff/{id}/tai-khoan/thu-hoi")
+async def thu_hoi_tai_khoan(
+    id: UUID,
+    body: NoiTaiKhoanRequest,
+    identity: StaffIdentity = Depends(_TAI_KHOAN_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gỡ nối + khoá app_credential + nhật ký, một giao dịch. GoTrue xoá SAU."""
+    return await TaiKhoanService(pool, identity).thu_hoi(
+        str(id), str(body.auth_user_id)
+    )
 
 
 # ── Quyền kiểu cũ (`staff_capability`) — ĐÃ NGHỈ 23/09/2026 ──────────────────

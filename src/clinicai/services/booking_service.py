@@ -86,9 +86,12 @@ from clinicai.services.clinic_policy import ClinicPolicy, load_effective_policy
 from clinicai.services.doi_dich_vu_kham import (
     CAU_BAC_SI_NGHI,
     QUYEN_DOI_DICH_VU_KHAM,
+    QUYEN_DOI_TRONG_HO_SO,
     doc_trang_thai,
 )
 from clinicai.services.lenh_kham_core import ma_uuid
+from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
+from clinicai.services.lich_truc_phien_ban_service import giao_dich_lich_truc
 from clinicai.services.slot_hold_service import release_on_booking
 
 logger = structlog.get_logger()
@@ -622,7 +625,7 @@ class BookingService:
                         raise ConflictError(busy)
 
                     off_duty = await self._roster_warning(
-                        conn, doctor_id, slot_start, identity
+                        conn, doctor_id, slot_start, identity, location_id=location_id
                     )
                     if off_duty:
                         if await self._roster_is_required(conn, identity):
@@ -848,6 +851,8 @@ class BookingService:
         booking_channel: str | None = None,
         booking_channel_provided: bool = False,
         nguoi_gioi_thieu: str | None = None,
+        ghi_chu: str | None = None,
+        ghi_chu_provided: bool = False,
     ) -> dict[str, Any]:
         """Run one lifecycle action. Returns the resulting status.
 
@@ -885,6 +890,8 @@ class BookingService:
                     booking_channel=booking_channel,
                     booking_channel_provided=booking_channel_provided,
                     nguoi_gioi_thieu=nguoi_gioi_thieu,
+                    ghi_chu=ghi_chu,
+                    ghi_chu_provided=ghi_chu_provided,
                 )
         new_status = kq.new_status
         visit_vua_mo = kq.visit_id
@@ -925,6 +932,8 @@ class BookingService:
         booking_channel: str | None = None,
         booking_channel_provided: bool = False,
         nguoi_gioi_thieu: str | None = None,
+        ghi_chu: str | None = None,
+        ghi_chu_provided: bool = False,
         cho_ngoai_ca: bool = False,
         xoa_so_thu_tu: bool = False,
         quyen_da_kiem: bool = False,
@@ -947,7 +956,7 @@ class BookingService:
             SELECT
                 a.id, a.doctor_id, a.status, a.clinic_patient_id,
                 a.slot_start, a.slot_end, a.queue_number,
-                a.booking_channel,
+                a.booking_channel, a.notes,
                 -- Cần cho luật bắt buộc bác sĩ lúc gán người.
                 a.service_type_id,
                 EXISTS (
@@ -1060,6 +1069,14 @@ class BookingService:
                 # Số khám cấp theo NGÀY của slot_start: lịch dời ngày thì số cũ
                 # (nếu còn sót từ một lần hoàn tác check-in) không còn nghĩa.
                 patch["queue_number"] = None
+            ghi_chu_moi = (ghi_chu or "").strip() or None
+            if (
+                action == "reschedule"
+                and ghi_chu_provided
+                and ghi_chu_moi != appt["notes"]
+            ):
+                # Chữ cũ không mất: nhật ký đổi lịch bên dưới mang cả hai bản.
+                patch["notes"] = ghi_chu_moi
             updated = await self._update(
                 conn,
                 appointment_id,
@@ -1098,6 +1115,11 @@ class BookingService:
                 "doctor_id": effective_doctor_id,
                 "clinic_patient_id": str(appt["clinic_patient_id"]),
                 **({"xac_minh_cach": cach_xac_minh} if cach_xac_minh else {}),
+                **(
+                    {"ghi_chu_cu": appt["notes"], "ghi_chu_moi": patch["notes"]}
+                    if "notes" in patch
+                    else {}
+                ),
             },
             identity=identity,
             origin=f"api:appointment-{action}",
@@ -1233,7 +1255,11 @@ class BookingService:
                     except ValidationError:
                         ngoai_ca = True
                     if not ngoai_ca and await self._roster_warning(
-                        conn, doctor_id, slot_start, identity
+                        conn,
+                        doctor_id,
+                        slot_start,
+                        identity,
+                        location_id=await _co_so_lich(conn, appointment_id, identity),
                     ):
                         ngoai_ca = True
                 ghi = (
@@ -1294,8 +1320,14 @@ class BookingService:
         appointment_id: str,
         service_type_id: str,
         identity: StaffIdentity,
+        trong_ho_so: bool = False,
     ) -> dict[str, Any]:
         """ĐỔI DỊCH VỤ KHÁM (V5, Tuyền chốt 30/09/2026) — menu ⋯ dòng lịch hẹn.
+
+        ``trong_ho_so`` (T5, 07/10/2026): đổi ngay trong hồ sơ khám — quyền khối
+        y khoa / trưởng ca (`QUYEN_DOI_TRONG_HO_SO`), đã có phiếu / đã thu / đã
+        tick vẫn đổi (`ly_do_khong_doi(trong_ho_so=True)`); luật bác sĩ bắt buộc
+        chỉ còn là lời nhắc. Phiếu cũ, tick dịch vụ con giữ nguyên.
 
         Trước check-in: đổi lịch. Sau check-in: đổi cả lượt khám, chỉ khi chưa
         vướng gì (`doi_dich_vu_kham.ly_do_khong_doi`); khối Hành trình nghe sự
@@ -1312,9 +1344,12 @@ class BookingService:
                 await doi_mot_quyen(
                     conn,
                     identity,
-                    QUYEN_DOI_DICH_VU_KHAM,
+                    QUYEN_DOI_TRONG_HO_SO if trong_ho_so else QUYEN_DOI_DICH_VU_KHAM,
                     cau=(
-                        "Bạn không có quyền đổi dịch vụ khám (cần “Quản lý lịch "
+                        "Bạn không có quyền đổi dịch vụ khám trong hồ sơ (cần khối"
+                        " khám / ghi bệnh án hoặc điều phối khách)."
+                        if trong_ho_so
+                        else "Bạn không có quyền đổi dịch vụ khám (cần “Quản lý lịch "
                         "hẹn” hoặc “Check-in khách”)."
                     ),
                 )
@@ -1350,10 +1385,10 @@ class BookingService:
                         "dich_vu": moi["name"],
                         "canh_bao": [],
                     }
-                ly_do = tt.ly_do_khong_doi()
+                ly_do = tt.ly_do_khong_doi(trong_ho_so=trong_ho_so)
                 if ly_do:
                     raise ConflictError(ly_do)
-                if not tt.bac_si_con_kham:
+                if not tt.bac_si_con_kham and not trong_ho_so:
                     raise ConflictError(CAU_BAC_SI_NGHI)
                 loi_bs = await self._luat_bac_si_bat_buoc(
                     conn,
@@ -1364,7 +1399,7 @@ class BookingService:
                 )
                 if loi_bs:
                     cau, chan = loi_bs
-                    if chan:
+                    if chan and not trong_ho_so:
                         raise ConflictError(
                             f"{cau} Đổi bác sĩ (Đổi lịch) trước rồi mới đổi dịch vụ."
                         )
@@ -1378,7 +1413,7 @@ class BookingService:
                     aid,
                     moi["id"],
                 )
-                visit_id = tt.visit_id if tt.sau_check_in else None
+                visit_id = tt.visit_id if (tt.sau_check_in or trong_ho_so) else None
                 if visit_id:
                     await conn.execute(
                         "UPDATE visit SET service_type_id = $3::uuid,"
@@ -1395,6 +1430,7 @@ class BookingService:
                     "den_dich_vu_id": moi["id"],
                     "tu_ten": tt.ten_dich_vu,
                     "den_ten": moi["name"],
+                    "trong_ho_so": trong_ho_so,
                 }
                 await record_event(
                     conn,
@@ -1581,20 +1617,22 @@ class BookingService:
         # `week_start` là thứ Hai của tuần chứa ngày ấy — cùng công thức mà
         # `roster_week` và màn Lịch làm việc dùng.
         tuan = ngay - timedelta(days=ngay.isoweekday() - 1)
-        await conn.execute(
-            """
-            INSERT INTO public.work_roster
-                (clinic_id, week_start, work_date, shift, station,
-                 staff_id, staff_name, status)
-            VALUES ($1::uuid, $2, $3, $4, 'LICH_KHAM', $5::uuid, $6, 'APPROVED')
-            """,
-            identity.clinic_id,
-            tuan,
-            ngay,
-            ca,
-            doctor_id,
-            ten,
-        )
+        # Người bấm cho sổ lịch sử lịch trực (trigger, Khối 3 06/10/2026).
+        async with giao_dich_lich_truc(conn, identity.staff_id):
+            await conn.execute(
+                """
+                INSERT INTO public.work_roster
+                    (clinic_id, week_start, work_date, shift, station,
+                     staff_id, staff_name, status)
+                VALUES ($1::uuid, $2, $3, $4, 'LICH_KHAM', $5::uuid, $6, 'APPROVED')
+                """,
+                identity.clinic_id,
+                tuan,
+                ngay,
+                ca,
+                doctor_id,
+                ten,
+            )
         await _log(
             conn,
             event_type="roster.tu_xep_theo_lich_hen",
@@ -1947,7 +1985,12 @@ class BookingService:
             # Khách đến sớm ngoài giờ ca (đổi lịch nhanh): bác sĩ vẫn phải CÓ ca
             # trong ngày, chỉ bỏ câu "không có mặt lúc HH:MM".
             off_duty = await self._roster_warning(
-                conn, doctor_id, slot_start, identity, chi_can_co_ca=cho_ngoai_ca
+                conn,
+                doctor_id,
+                slot_start,
+                identity,
+                chi_can_co_ca=cho_ngoai_ca,
+                location_id=await _co_so_lich(conn, exclude_id, identity),
             )
             if off_duty and await self._roster_is_required(conn, identity):
                 raise ConflictError(off_duty)
@@ -2260,8 +2303,13 @@ class BookingService:
         slot_start: datetime,
         identity: StaffIdentity,
         chi_can_co_ca: bool = False,
+        location_id: str | None = None,
     ) -> str | None:
         """Câu cảnh báo nếu bác sĩ không có ca trực hôm đó; None nếu ổn.
+
+        ``location_id`` = cơ sở của LỊCH HẸN: ca ở cơ sở khác không tính (Hào
+        Nam 08/10 — bác sĩ trực Kim Ngưu không phải đang trực Hào Nam). None =
+        mọi cơ sở.
 
         CHỈ CẢNH BÁO KHI ĐÃ CÓ LỊCH TRỰC CHO NGÀY ĐÓ. Đây là điểm mấu chốt:
         CSKH đặt lịch trước cả tháng, lúc đó lịch trực chưa xếp. Cảnh báo mọi
@@ -2305,6 +2353,9 @@ class BookingService:
                       WHERE rw.clinic_id = work_roster.clinic_id
                         AND rw.week_start = work_roster.week_start
                    )
+                   AND """
+            + ca_thuoc_co_so("work_roster", "$4")
+            + """
               ), ARRAY[]::text[]) AS shifts,
               (SELECT open_minute FROM clinic_hours_for_date($1::uuid, $2))
                 AS open_minute,
@@ -2317,6 +2368,7 @@ class BookingService:
             identity.clinic_id,
             work_date,
             doctor_id,
+            location_id or None,
         )
         if row is None or not row["roster_exists"]:
             return None
@@ -2922,3 +2974,17 @@ async def _log(
         ),
         origin,
     )
+
+
+async def _co_so_lich(
+    conn: asyncpg.Connection, appointment_id: str, identity: StaffIdentity
+) -> str | None:
+    """Cơ sở của lịch hẹn đang sửa — ca trực phải ở ĐÚNG cơ sở ấy, không phải
+    cơ sở người bấm đang đứng. Lịch chưa có cơ sở thì lấy của người bấm."""
+    loc = await conn.fetchval(
+        "SELECT location_id::text FROM appointment"
+        " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+        appointment_id,
+        identity.clinic_id,
+    )
+    return loc or identity.location_id or None

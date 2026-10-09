@@ -44,7 +44,11 @@ import asyncpg
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.events.catalogue import LamTruocThuSauDaBat, LamTruocThuSauDaBo
+from clinicai.events.catalogue import (
+    KhachDaChonDichVu,
+    LamTruocThuSauDaBat,
+    LamTruocThuSauDaBo,
+)
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
@@ -63,6 +67,7 @@ from clinicai.services.service_selection_service import (
     OrderFacts,
     SelectionInput,
     ap_lua_chon,
+    dang_nhan_tai_phong,
     decision_ids,
     validate_input,
 )
@@ -307,7 +312,7 @@ async def _chot_cho_quyet(
         for r in rows
     ]
     theo_id = {f.id: f for f in facts}
-    con_quyet = sorted(decision_ids(facts))
+    con_quyet = sorted(decision_ids(facts, await dang_nhan_tai_phong(conn, cid)))
     cho_quyet = [
         i
         for i in con_quyet
@@ -339,6 +344,149 @@ def _vua_chon(kq: Mapping[str, Any]) -> list[str]:
     """Chỉ định vừa chuyển sang "khách làm" trong một lần áp lựa chọn."""
     chon = set(kq["selected_order_ids"])
     return [i for i in kq["changed_order_ids"] if i in chon]
+
+
+async def _ghi_mot_lua_chon(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    visit_id: str,
+    order_id: str,
+    moi: str,
+) -> int:
+    """Đổi lựa chọn của MỘT chỉ định + tăng revision lựa chọn của lượt (màn
+    đang cầm số cũ thì lệnh xác nhận của nó bị từ chối, không đè). Trả revision."""
+    cid = identity.clinic_id
+    await conn.execute(
+        "UPDATE service_order SET selection_status = $3, version = version + 1,"
+        " updated_at = now() WHERE clinic_id = $1::uuid AND id = $2::uuid",
+        cid,
+        order_id,
+        moi,
+    )
+    rev = await conn.fetchval(
+        """
+        INSERT INTO service_selection_state
+            (clinic_id, visit_id, revision, confirmed_by, confirmed_at)
+        VALUES ($1::uuid, $2::uuid, 1, $3::uuid, now())
+        ON CONFLICT (clinic_id, visit_id) DO UPDATE
+           SET revision = service_selection_state.revision + 1,
+               confirmed_by = EXCLUDED.confirmed_by,
+               confirmed_at = EXCLUDED.confirmed_at,
+               updated_at = now()
+        RETURNING revision
+        """,
+        cid,
+        visit_id,
+        identity.staff_id,
+    )
+    return int(rev)
+
+
+async def chot_mot_chi_dinh(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    visit_id: str,
+    order_id: str,
+) -> tuple[str, int] | None:
+    """Bác sĩ LÀM chỉ định này ngay tại bàn khám = khách đồng ý ĐÚNG chỉ định
+    này (Tuyền chốt 07/10/2026) — chốt "khách làm" cho nó, KHÔNG đụng chỉ định
+    khác đang chờ khách quyết (CLS khách chưa đồng ý không thành nợ ở quầy).
+
+    Người gọi đã khoá lượt. Cùng luật khoá với quầy (``decision_ids``). Trả
+    (lựa chọn trước, revision sau khi chốt) để lần làm ghi lại và hoàn tác trả
+    về đúng như cũ; None = không chốt gì (đã quyết / bị khoá)."""
+    cid = identity.clinic_id
+    await conn.execute(
+        "SELECT 1 FROM service_selection_state"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid FOR UPDATE",
+        cid,
+        visit_id,
+    )
+    rows = await conn.fetch(_ORDERS_SQL, cid, visit_id)
+    facts = [
+        OrderFacts(
+            id=r["id"],
+            exec_status=r["exec_status"],
+            selection_status=r["selection_status"],
+            routing_status=r["routing_status"],
+            execution_status=r["execution_status"],
+            version=int(r["version"]),
+            financially_committed=bool(r["financially_committed"]),
+            bat_buoc=bool(r["bat_buoc"]),
+        )
+        for r in rows
+    ]
+    f = next((x for x in facts if x.id == order_id), None)
+    if (
+        f is None
+        or f.selection_status in (SELECTED, NOT_SELECTED)
+        or order_id not in decision_ids(facts, await dang_nhan_tai_phong(conn, cid))
+    ):
+        return None
+    truoc = f.selection_status or "PENDING"
+    rev = await _ghi_mot_lua_chon(conn, identity, visit_id, order_id, SELECTED)
+    payload = {
+        "selection_revision": rev,
+        "selected_order_ids": [order_id],
+        "not_selected_order_ids": [],
+        "changed_order_ids": [order_id],
+        "nguon": "lam_tai_ban_kham",
+    }
+    await record_event(
+        conn,
+        event_type="service_selection.confirmed",
+        aggregate_type="visit",
+        aggregate_id=visit_id,
+        identity=identity,
+        origin="api:lam-tai-ban-kham",
+        payload=payload,
+    )
+    await emit_event(
+        conn,
+        ten="service_selection.confirmed",
+        clinic_id=cid,
+        aggregate_id=visit_id,
+        payload=KhachDaChonDichVu(
+            visit_id=visit_id,
+            selection_revision=rev,
+            selected_order_ids=[order_id],
+            not_selected_order_ids=[],
+        ),
+        boi=nguoi(identity),
+        correlation_id=visit_id,
+    )
+    return truoc, rev
+
+
+async def tra_lua_chon_chot_ho(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    visit_id: str,
+    order_id: str,
+    *,
+    ve: str,
+    rev_sau_chot: int,
+) -> bool:
+    """Hoàn tác [Làm tại bàn khám] đã chốt hộ: chỉ định về lựa chọn ``ve``.
+
+    CHỈ khi không ai chốt lại lượt sau lần chốt hộ (revision lựa chọn vẫn bằng
+    ``rev_sau_chot``) và chỉ định chưa có lần thu — không đè quyết định / tiền
+    của người sau. Người gọi đã khoá lượt và ghi sự kiện. Trả đã trả lại chưa."""
+    cid = identity.clinic_id
+    rev = await conn.fetchval(
+        "SELECT revision FROM service_selection_state"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid FOR UPDATE",
+        cid,
+        visit_id,
+    )
+    if rev is None or int(rev) != rev_sau_chot:
+        return False
+    dong = await conn.fetch(_ORDERS_SQL, cid, visit_id)
+    r = next((x for x in dong if x["id"] == order_id), None)
+    if r is None or r["selection_status"] != SELECTED or r["financially_committed"]:
+        return False
+    await _ghi_mot_lua_chon(conn, identity, visit_id, order_id, ve)
+    return True
 
 
 class LamTruocThuSauService:
@@ -465,9 +613,11 @@ __all__ = [
     "CAU_KHONG_QUYEN",
     "LamTruocThuSauService",
     "QUYEN_TICK",
+    "chot_mot_chi_dinh",
     "co_tick",
     "da_lam_xong_het",
     "dich_vu_lam_truoc",
     "trang_thai_dich_vu_lam_truoc",
     "trang_thai_lam_truoc",
+    "tra_lua_chon_chot_ho",
 ]

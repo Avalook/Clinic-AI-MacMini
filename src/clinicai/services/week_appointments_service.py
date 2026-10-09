@@ -42,6 +42,7 @@ from clinicai.core.trang_thai_lich import (
     trang_thai_hien_thi,
 )
 from clinicai.services.hanh_trinh_khach_service import dang_o_cac_luot
+from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 from clinicai.services.queue_order import QueueDecision
 from clinicai.services.queue_rows import thu_tu_goi_theo_ngay
 
@@ -61,12 +62,15 @@ WITH tuan AS (
     SELECT a.id, a.slot_start, a.status, a.queue_number, a.doctor_id,
            a.so_booking, a.so_tiep_don,
            a.booking_channel, a.clinic_patient_id, a.service_type_id,
-           a.created_at, a.bac_si_da_go_id
+           a.created_at, a.bac_si_da_go_id, a.notes, a.location_id
       FROM appointment a
      WHERE a.clinic_id  = $1::uuid
        AND a.slot_start >= $2
        AND a.slot_start <  $3
        AND a.status <> ALL($4::text[])
+       -- Chỉ lịch của cơ sở đang đứng (hai cơ sở, 08/10/2026); NULL = mọi cơ sở.
+       AND coalesce(a.location_id, $5::uuid)
+           IS NOT DISTINCT FROM coalesce($5::uuid, a.location_id)
      -- THỨ TỰ PHẢI XÁC ĐỊNH, và bản cũ thì không.
      --
      -- Prod đang có BA lịch hẹn cùng mốc 10:15 ngày 15/07. Với `ORDER BY
@@ -104,7 +108,7 @@ som_nhat AS (
 )
 SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        t.so_booking, t.so_tiep_don,
-       t.booking_channel,
+       t.booking_channel, t.notes,
        -- LỊCH NÀY VỪA MẤT BÁC SĨ: có người phụ trách, nhưng người ấy không còn
        -- ca KHÁM vào đúng ngày khám.
        --
@@ -134,6 +138,10 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
               AND public.la_ca_kham_bac_si(w.clinic_id, w.station)
               AND w.work_date =
                   (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+              -- Ca ở cơ sở khác không giữ được lịch ở cơ sở này.
+              AND """
+    + ca_thuoc_co_so("w", "(t.location_id)")
+    + """
          )
        ) AS mat_bac_si,
        -- BÁC SĨ ĐÃ BỊ GỠ khỏi lịch này khi ca trực của họ bị xoá.
@@ -158,6 +166,9 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
               AND public.la_ca_kham_bac_si(wg.clinic_id, wg.station)
               AND wg.work_date =
                   (t.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+              AND """
+    + ca_thuoc_co_so("wg", "(t.location_id)")
+    + """
          )
        ) AS bs_go_co_ca_lai,
        -- Lịch VƯỢT SỨC CHỨA sau khi công bố lịch trực (20260915000014) — trang
@@ -218,8 +229,7 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
   ) cap ON TRUE
  ORDER BY t.slot_start, t.created_at, t.id
 """
-    % MAX_ROWS
-)
+) % MAX_ROWS
 
 
 class WeekAppointmentsService:
@@ -228,13 +238,29 @@ class WeekAppointmentsService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def week(self, *, clinic_id: str, week_start: date) -> list[dict[str, Any]]:
-        """Bảy ngày kể từ ``week_start`` (giờ Việt Nam)."""
+    async def week(
+        self,
+        *,
+        clinic_id: str,
+        week_start: date,
+        location_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Bảy ngày kể từ ``week_start`` (giờ Việt Nam).
+
+        ``location_id``: chỉ lịch của cơ sở ấy; ``None`` = mọi cơ sở.
+        """
         start = _vn_midnight(week_start)
         end = _vn_midnight(week_start + timedelta(days=7))
 
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(_SQL, clinic_id, start, end, list(HIDDEN_STATUSES))
+            rows = await conn.fetch(
+                _SQL,
+                clinic_id,
+                start,
+                end,
+                list(HIDDEN_STATUSES),
+                location_id or None,
+            )
             # Khách đang ở / đang chờ ở đâu — cùng hàm với Hành trình khách,
             # chỉ cho lượt CÒN MỞ (thường chỉ hôm nay, vài chục lượt).
             dang_o = await dang_o_cac_luot(
@@ -341,6 +367,8 @@ def _row_to_dict(
         "so_tiep_don": r.get("so_tiep_don"),
         "doctor_id": str(r["doctor_id"]) if r["doctor_id"] else None,
         "booking_channel": r["booking_channel"],
+        # Ghi chú CSKH lúc đặt (lịch "Khác" khuyến khích ghi) — lễ tân đọc ở dòng.
+        "notes": r.get("notes"),
         "phan_loai": r["phan_loai"],
         "mat_bac_si": bool(r["mat_bac_si"]),
         "bac_si_da_go": r["bac_si_da_go"],

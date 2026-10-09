@@ -233,6 +233,8 @@ interface PatchBody {
   service_type_id?: string;
   booking_channel?: string;
   nguoi_gioi_thieu?: string;
+  // Ghi chú của lịch (đổi lịch, 07/10/2026). Vắng mặt = giữ nguyên.
+  notes?: string;
 }
 
 // "complete" = bác sĩ chốt KHÁM XONG (lịch → COMPLETED). KHÔNG đụng visit
@@ -303,5 +305,6 @@ export async function PATCH(request: Request) {
       ? { booking_channel: body.booking_channel || null }
       : {}),
     ...(body.nguoi_gioi_thieu ? { nguoi_gioi_thieu: body.nguoi_gioi_thieu } : {}),
+    ...(typeof body.notes === "string" ? { notes: body.notes } : {}),
   });
 }

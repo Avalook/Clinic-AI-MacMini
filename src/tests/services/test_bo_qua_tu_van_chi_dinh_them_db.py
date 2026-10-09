@@ -187,6 +187,10 @@ async def test_chi_dinh_them_mang_lan_theo_vong(
         service_codes=[ca.ma_dv],
         identity=ca.bac_si,
         idempotency_key=_khoa(),
+        # Lần chỉ định chỉ tăng khi bấm "Chỉ định thêm (lần N)" — sang vòng mới
+        # không tự nhảy lần (20261006200001).
+        lan_moi=True,
+        lan_dang_thay=1,
     )
     lan_2 = str(kq["order_ids"][0])
     async with pool.acquire() as conn:

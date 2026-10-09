@@ -40,6 +40,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.ma_vi_tri import ma_mau
 from clinicai.core.shifts import (
     CAC_CA,
     ca_tu_settings,
@@ -49,6 +50,11 @@ from clinicai.core.shifts import (
 )
 from clinicai.permissions import cache
 from clinicai.permissions.can import can
+from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
+from clinicai.services.lich_truc_phien_ban_service import (
+    dat_nguoi_bam,
+    giao_dich_lich_truc,
+)
 from clinicai.services.nhan_vai import gan_nhan_vai
 
 logger = structlog.get_logger()
@@ -70,6 +76,11 @@ MA_CA_KHAM_BAC_SI: frozenset[str] = frozenset(
         "T4_SAN_BS",
     }
 )
+
+
+def la_ca_kham_bac_si(station: str) -> bool:
+    """Vị trí là ca khám bác sĩ — kể cả vị trí cơ sở khác (`HN__T1_SA_BS`)."""
+    return ma_mau(station) in MA_CA_KHAM_BAC_SI
 
 
 ROSTER_ADMIN_ROLES: frozenset[ClinicRole] = frozenset({ClinicRole.MANAGEMENT})
@@ -204,25 +215,29 @@ class RosterService:
                 ten=target_name,
             )
 
-            row_id = await conn.fetchval(
-                """
-                INSERT INTO work_roster (
-                    clinic_id, week_start, work_date, shift, station,
-                    staff_id, staff_name, sort, status
+            # Người bấm vào sổ lịch sử lịch trực (trigger, Khối 3 06/10/2026).
+            # Giao dịch chỉ bọc câu ghi: tin báo CSKH bên dưới là việc phụ, tự
+            # nuốt lỗi — lỗi SQL của nó trong cùng giao dịch sẽ kéo đổ cú xếp ca.
+            async with giao_dich_lich_truc(conn, identity.staff_id):
+                row_id = await conn.fetchval(
+                    """
+                    INSERT INTO work_roster (
+                        clinic_id, week_start, work_date, shift, station,
+                        staff_id, staff_name, sort, status
+                    )
+                    VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7, $8, $9)
+                    RETURNING id
+                    """,
+                    identity.clinic_id,
+                    week_start_of(work_date),
+                    work_date,
+                    shift if shift in CAC_CA else "FULL",
+                    station,
+                    target_id,
+                    target_name,
+                    sort,
+                    "APPROVED" if is_admin else "PENDING",
                 )
-                VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid, $7, $8, $9)
-                RETURNING id
-                """,
-                identity.clinic_id,
-                week_start_of(work_date),
-                work_date,
-                shift if shift in CAC_CA else "FULL",
-                station,
-                target_id,
-                target_name,
-                sort,
-                "APPROVED" if is_admin else "PENDING",
-            )
 
             # CA MỚI VÀO MÀ CÓ LỊCH ĐANG CHỜ XẾP BÁC SĨ → BÁO CSKH (câu hỏi
             # của Đặng Dương 17/08/2026: "có cơ chế thông báo tự động cho CSKH
@@ -230,7 +245,7 @@ class RosterService:
             # tự tươi qua realtime, nhưng màn chỉ nói với người ĐANG NHÌN —
             # tin Telegram mới gọi được người đang làm việc khác quay lại xếp.
             # Chỉ ca ĐÃ DUYỆT: đăng ký PENDING chưa phải ca trực.
-            if station in MA_CA_KHAM_BAC_SI and is_admin:
+            if la_ca_kham_bac_si(station) and is_admin:
                 await self._bao_lich_cho_xep(
                     conn,
                     roster_id=str(row_id),
@@ -511,7 +526,10 @@ class RosterService:
         # changed their mind about a shift they had turned down.
         reject_reason = (reason or "").strip() or None if status == "REJECTED" else None
 
-        async with self._pool.acquire() as conn:
+        async with (
+            self._pool.acquire() as conn,
+            giao_dich_lich_truc(conn, identity.staff_id),
+        ):
             updated = await conn.fetchval(
                 """
                 UPDATE work_roster
@@ -582,6 +600,7 @@ class RosterService:
                     raise SafetyGateError("Chỉ được xoá ca của chính mình")
 
                 if not dry_run:
+                    await dat_nguoi_bam(conn, identity.staff_id)
                     await conn.execute(
                         "DELETE FROM work_roster "
                         "WHERE id = $1::uuid AND clinic_id = $2::uuid",
@@ -622,7 +641,7 @@ class RosterService:
                 if not dry_run:
                     # Người bị gỡ mất quyền theo lịch ngay (xem `thay_nguoi`).
                     cache.quen(identity.clinic_id)
-                if row["station"] not in MA_CA_KHAM_BAC_SI or row["staff_id"] is None:
+                if not la_ca_kham_bac_si(row["station"]) or row["staff_id"] is None:
                     return {"so_lich_cho_xep": 0, "gio": []}
 
                 return await self._go_lich_ngoai_ca(
@@ -891,6 +910,7 @@ class RosterService:
                     raise ConflictError(
                         f"{nv['full_name']} đã có trong ca này ở cùng vị trí."
                     )
+                await dat_nguoi_bam(conn, identity.staff_id)
                 await conn.execute(
                     """
                     UPDATE work_roster
@@ -958,7 +978,7 @@ class RosterService:
                         }
                     ),
                 )
-                if row["station"] in MA_CA_KHAM_BAC_SI:
+                if la_ca_kham_bac_si(row["station"]):
                     if row["staff_id"] is not None:
                         lich = await self._go_lich_ngoai_ca(
                             conn,
@@ -971,7 +991,7 @@ class RosterService:
                         )
             # Tin "ca bác sĩ mới có → lịch chờ xếp" là việc phụ, tự nuốt lỗi —
             # chạy SAU khi giao dịch đã chốt để lỗi của nó không làm hỏng cú đổi.
-            if row["station"] in MA_CA_KHAM_BAC_SI:
+            if la_ca_kham_bac_si(row["station"]):
                 await self._bao_lich_cho_xep(
                     conn,
                     roster_id=roster_id,
@@ -1022,6 +1042,8 @@ class RosterService:
                         "Tuần này chưa xếp ca nào. Xếp lịch trước rồi mới áp dụng."
                     )
 
+                # Trigger chụp ảnh tuần (lịch gốc / áp dụng lại) đọc người bấm.
+                await dat_nguoi_bam(conn, identity.staff_id)
                 await conn.execute(
                     """
                     INSERT INTO roster_week
@@ -1107,7 +1129,11 @@ class RosterService:
                       WHERE w.clinic_id = a.clinic_id
                         AND w.staff_id = a.doctor_id
                         AND w.work_date =
-                            (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
+                            (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                        -- Ca ở cơ sở khác không giữ lịch ở cơ sở này.
+                        AND """
+            + ca_thuoc_co_so("w", "(a.location_id)")
+            + """)
              ORDER BY a.slot_start
             """,
             identity.clinic_id,
@@ -1471,17 +1497,28 @@ class RosterService:
             )
             rows = await conn.fetch(
                 """
-                SELECT DISTINCT ON (staff_id) staff_id::text AS id,
-                       coalesce(staff_name, '') AS name
-                  FROM work_roster
-                 WHERE clinic_id = $1::uuid AND work_date = $2
-                   AND station = ANY($3::text[]) AND status = 'APPROVED'
-                   AND staff_id IS NOT NULL
-                 ORDER BY staff_id, created_at
+                SELECT DISTINCT ON (w.staff_id) w.staff_id::text AS id,
+                       coalesce(w.staff_name, '') AS name
+                  FROM work_roster w
+                  LEFT JOIN vi_tri_lam_viec v
+                    ON v.clinic_id = w.clinic_id AND v.code = w.station
+                  LEFT JOIN clinic_room r ON r.id = v.room_id
+                 WHERE w.clinic_id = $1::uuid AND w.work_date = $2
+                   -- Mã mẫu: vị trí cơ sở khác (HN__T1_SA_BS) cũng là ca khám.
+                   AND regexp_replace(regexp_replace(w.station, '^[A-Z0-9]+__', ''),
+                                      '__[0-9]+$', '') = ANY($3::text[])
+                   AND w.status = 'APPROVED'
+                   AND w.staff_id IS NOT NULL
+                   -- Chỉ bác sĩ trực ở cơ sở đang đứng; vị trí không gắn phòng
+                   -- (mẫu cũ LICH_KHAM) thì thuộc mọi cơ sở.
+                   AND (r.location_id IS NULL OR $4::uuid IS NULL
+                        OR r.location_id = $4::uuid)
+                 ORDER BY w.staff_id, w.created_at
                 """,
                 identity.clinic_id,
                 ngay,
                 sorted(MA_CA_KHAM_BAC_SI),
+                identity.location_id or None,
             )
         return {"doctors": [dict(r) for r in rows], "du_kien": not da_ap_dung}
 

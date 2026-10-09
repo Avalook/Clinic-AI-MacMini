@@ -66,20 +66,6 @@ _LAB_TRIAGE_ACK_BLOCKED = (
 )
 
 
-def _clinic_id_of(state: OrchestratorState) -> UUID:
-    """clinic_id của cuộc hội thoại.
-
-    OrchestratorState là total=False nên kiểu coi khoá này có thể thiếu, dù lối
-    vào duy nhất (OrchestratorService.chat) luôn đặt nó. Thiếu thì ném KeyError
-    y như `state["clinic_id"]` — không có mặc định an toàn khi không biết phòng
-    khám nào.
-    """
-    clinic_id = state.get("clinic_id")
-    if clinic_id is None:
-        raise KeyError("clinic_id")
-    return clinic_id
-
-
 def route_by_intent(state: OrchestratorState) -> str:
     """Map classify route → conditional edge target. Fallback 'general'."""
     route = state.get("route", "general")
@@ -116,7 +102,7 @@ def _make_lab_triage_wrapper_node(
         sub_state = LabTriageState(
             lab_result_id=lab_result_id,
             clinic_patient_id=state.get("patient_id"),
-            clinic_id=_clinic_id_of(state),
+            clinic_id=state["clinic_id"],
         )
         result_dict = await sub_graph.ainvoke(sub_state)
 
@@ -164,7 +150,7 @@ def _make_task_manager_wrapper_node(
     async def task_manager_wrapper(
         state: OrchestratorState,
     ) -> dict[str, Any]:
-        sub_state = TaskManagerState(clinic_id=_clinic_id_of(state))
+        sub_state = TaskManagerState(clinic_id=state["clinic_id"])
         result_dict = await sub_graph.ainvoke(sub_state)
 
         sla_results = result_dict.get("sla_results", []) or []

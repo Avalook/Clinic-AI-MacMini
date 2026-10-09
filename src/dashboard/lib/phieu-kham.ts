@@ -95,6 +95,32 @@ export interface KetQuaMotChiDinh {
   du_lieu?: Record<string, ONhap> | null;
 }
 
+/** LẦN CHỈ ĐỊNH của lượt (06/10/2026) — MÁY CHỦ quyết, màn chỉ vẽ nhãn.
+ *  Mặc định chỉ định vào `hien_tai`; chỉ nút "Chỉ định thêm (lần `ke_tiep`)"
+ *  mới mở lần mới (`mo_moi_duoc` = lần hiện tại còn chỉ định sống). */
+export interface LanChiDinh {
+  hien_tai: number | null;
+  ke_tiep: number;
+  mo_moi_duoc: boolean;
+}
+
+/** Lệnh "mở lần mới" gửi kèm chỉ định: `lan_dang_thay` = lần hiện tại màn thấy. */
+export interface LenhLanChiDinh {
+  lan_moi: boolean;
+  lan_dang_thay: number | null;
+}
+
+export type KetQuaDatChiDinh =
+  | { ok: true; order_ids?: string[]; lan?: number | null }
+  | { ok: false; loi: string };
+
+export type DatChiDinh = (
+  codes: string[],
+  /** Mã tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được. */
+  batBuoc: string[],
+  lan?: LenhLanChiDinh,
+) => Promise<KetQuaDatChiDinh>;
+
 export interface ChiDinhVaKetQua {
   service_order_id: string;
   service_code: string;
@@ -133,6 +159,27 @@ export interface ChiDinhVaKetQua {
   bat_buoc?: boolean;
   /** Làm ở đối tác: trạng thái bàn đối tác. null = làm tại phòng khám. */
   doi_tac?: TrangThaiDoiTac | null;
+  /** Chỉ định ĐIỀU TRỊ (nhóm DIEU_TRI — máy chủ suy theo dữ liệu, 07/10/2026):
+   *  bản in lượt xếp vào mục "Điều trị" (phiếu 2 ô), không vào CLS. */
+  dieu_tri?: boolean;
+  /** Buổi của liệu trình đang gắn (08/10/2026) — bản in "Liệu trình: buổi k/N".
+   *  null / thiếu = buổi lẻ. */
+  lieu_trinh?: { buoi_so: number; so_buoi: number; tra_truoc: boolean } | null;
+}
+
+/** Ô đã ghi của PHIẾU ĐIỀU TRỊ một chỉ định (mỗi ô một nhãn — tên ô, không lặp
+ *  tên mục) — bản in lượt. Phiếu điều trị không có bước Hoàn tất nên máy chủ trả
+ *  nội dung cả khi phiếu còn DRAFT. Rác / thiếu → mảng rỗng, không ném. */
+export function oPhieuDieuTri(c: ChiDinhVaKetQua): { ma: string; ten: string; gia: string }[] {
+  const k = c.ket_qua.find((x) => x.loai === "PHIEU" && x.form_id === "KQ_PHIEU_DIEU_TRI" && x.khung);
+  if (!k || !Array.isArray(k.khung)) return [];
+  const duLieu = (k.du_lieu ?? {}) as Record<string, { gia_tri?: unknown } | undefined>;
+  return (k.khung as { block?: { ma?: string; ten?: string }[] }[])
+    .flatMap((m) => m.block ?? [])
+    .flatMap((o) => {
+      const g = o.ma ? duLieu[o.ma]?.gia_tri : null;
+      return o.ma && typeof g === "string" && g.trim() ? [{ ma: o.ma, ten: o.ten ?? o.ma, gia: g }] : [];
+    });
 }
 
 export type TrangThaiDoiTac = "CHO_LAY_MAU" | "DA_LAY_MAU" | "DA_NHAN_MAU" | "DA_GUI_KET_QUA";
@@ -800,15 +847,37 @@ export function locMauThuoc(ds: readonly MauThuoc[], tu: string): MauThuoc[] {
 // ---------------------------------------------------------------------------
 // Hiển thị
 // ---------------------------------------------------------------------------
-/** Ô trống in "—" (DESIGN.md §6.5), không bỏ trắng. */
-/** BA KHỐI của phiếu bác sĩ chính (Tuyền chốt 25/09/2026 — bản giao diện mẫu):
- *  gom các mục SẴN CÓ, không đổi `ma` ô nào — phiếu đã lưu vẫn đọc đúng. Mục
- *  hành chính luôn nằm trên, ngoài các khối. Màn khám và bản in dùng chung. */
-export const KHOI_PHIEU: { so: 1 | 2 | 3; ten: string; muc: string[] }[] = [
+/** BỐN KHỐI của phiếu bác sĩ chính: gom các mục SẴN CÓ của mẫu JSON, không đổi
+ *  `ma` ô nào — phiếu đã lưu vẫn đọc đúng. Mục hành chính luôn nằm trên, ngoài
+ *  các khối. Thứ tự theo luồng lâm sàng: CLS → kết quả → CHẨN ĐOÁN (mục D, cuối
+ *  khối 2 — mọi phiếu, HMVS/NT có tới 16/9 ô nên không bỏ được) → điều trị. Khối
+ *  3 còn có thẻ CHỈ ĐỊNH ĐIỀU TRỊ (không thuộc mẫu JSON — shell vẽ qua `oDieuTri`,
+ *  đứng đầu khối). */
+export type SoKhoi = 1 | 2 | 3 | 4;
+export const KHOI_PHIEU: { so: SoKhoi; ten: string; muc: string[] }[] = [
   { so: 1, ten: "Thông tin cơ bản", muc: ["A", "B"] },
-  { so: 2, ten: "Chỉ định cận lâm sàng", muc: ["C"] },
-  { so: 3, ten: "Chỉ định điều trị", muc: ["D", "E", "F", "G"] },
+  { so: 2, ten: "Chỉ định cận lâm sàng", muc: ["C", "D"] },
+  { so: 3, ten: "Chỉ định điều trị", muc: ["F", "G"] },
+  { so: 4, ten: "Đơn thuốc", muc: ["E"] },
 ];
+
+/** Chia chỉ định của lượt theo chỗ hiện trên hồ sơ khám. ĐIỀU TRỊ theo MỘT định
+ *  nghĩa — cờ `dieu_tri` máy chủ trả (dịch vụ mà loại khám nhóm DIEU_TRI trỏ tới)
+ *  — và xét TRƯỚC: Ghế điện nằm cả trong danh mục thủ thuật vẫn chỉ ra một thẻ
+ *  điều trị; Laser tiền đình không ở danh mục thủ thuật cũng không rơi vào CLS.
+ *  Phần còn lại: mã trong danh mục thủ thuật → thủ thuật, khác → CLS. */
+export function phanChiDinh(
+  ds: readonly ChiDinhVaKetQua[],
+  maThuThuat?: ReadonlySet<string>,
+): { dieuTri: ChiDinhVaKetQua[]; thuThuat: ChiDinhVaKetQua[]; cls: ChiDinhVaKetQua[] } {
+  const ra = { dieuTri: [] as ChiDinhVaKetQua[], thuThuat: [] as ChiDinhVaKetQua[], cls: [] as ChiDinhVaKetQua[] };
+  for (const c of ds) {
+    if (c.dieu_tri) ra.dieuTri.push(c);
+    else if (maThuThuat?.has(c.service_code)) ra.thuThuat.push(c);
+    else ra.cls.push(c);
+  }
+  return ra;
+}
 
 /** Ô đã có dữ liệu? (rỗng · mảng rỗng · bảng mọi cột rỗng = chưa) — bản in ẩn ô trống. */
 export function coNhap(nhap: ONhap | undefined): boolean {

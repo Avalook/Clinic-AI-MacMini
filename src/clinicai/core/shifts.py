@@ -332,6 +332,24 @@ def ca_cua_phut(minute: int, ca: Mapping[str, Window] | None = None) -> str:
     return truoc[-1] if truoc else co_mat[0][2]
 
 
+def khung_chot_ca(ca: str, bang: Mapping[str, Window] | None = None) -> Window | None:
+    """Khoảng phút trong ngày mà tiền thu được CHỐT vào ca này — cho báo cáo cuối ca.
+
+    Khác ``shift_windows``: các ca phải KHÍT NHAU và phủ trọn 0:00–24:00, nếu
+    không khoản thu lúc 13:30 (nghỉ trưa) rơi khỏi mọi ca và ba ca cộng lại hụt
+    so với cả ngày. Cùng luật với ``ca_cua_phut``: khe trống thuộc ca TRƯỚC nó,
+    trước ca đầu thuộc ca đầu. Ca không có / nhãn lạ → ``None``.
+    """
+    bang = dict(bang) if bang else dict(CA_MAC_DINH)
+    co_mat = sorted((bang[m][0], m) for m in CAC_CA if m in bang)
+    for i, (_lo, ma) in enumerate(co_mat):
+        if ma == ca:
+            lo = 0 if i == 0 else _lo
+            hi = co_mat[i + 1][0] if i + 1 < len(co_mat) else 24 * 60
+            return (lo, hi)
+    return None
+
+
 def merge_windows(windows: list[Window]) -> list[Window]:
     """Gộp các khoảng chồng/kề nhau thành danh sách rời nhau, đã sắp xếp.
 

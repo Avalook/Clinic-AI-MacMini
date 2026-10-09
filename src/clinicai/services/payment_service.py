@@ -56,7 +56,12 @@ from clinicai.services.bill_service import (
     hoa_don_theo_anh_chup,
     tinh_hoa_don,
 )
+from clinicai.services.chot_0d import ghi_chot_0d
 from clinicai.services.lenh_kham_core import bien_nhan_doc, bien_nhan_ghi, khoa_luot
+from clinicai.services.lieu_trinh_tien import (
+    CAU_HUY_TRA_TRUOC_DA_DUNG,
+    loi_tien_lieu_trinh,
+)
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import (
     PhanLo,
@@ -759,6 +764,17 @@ class PaymentService:
                     "Hoá đơn vừa thay đổi (chỉ định, lựa chọn của khách hoặc giá) —"
                     " tải lại rồi thu theo hoá đơn mới."
                 )
+            await ghi_chot_0d(conn, identity, visit_id, hoa_don)
+            return {"payment_cycle_id": None, "status": KHONG_CON_KHOAN}
+        if hoa_don.tong <= 0 and hoa_don.dong:
+            # Còn dòng phòng khám thu nhưng tất cả 0đ (khám không tính tiền):
+            # chốt để ghi nhận, khách đi tiếp như đã thu.
+            if bill_revision is not None and bill_revision != hoa_don.revision:
+                raise BillChangedError(
+                    "Hoá đơn vừa thay đổi (chỉ định, lựa chọn của khách hoặc giá) —"
+                    " tải lại rồi thu theo hoá đơn mới."
+                )
+            await ghi_chot_0d(conn, identity, visit_id, hoa_don)
             return {"payment_cycle_id": None, "status": KHONG_CON_KHOAN}
         if hoa_don.tong <= 0:
             if hoa_don.chi_doi_tac_thu:
@@ -1308,17 +1324,24 @@ class PaymentService:
                             "không huỷ được từ đây."
                         )
                 payment_id = str(payment["id"])
-                await conn.execute(
-                    """
-                    UPDATE payment_cycle
-                       SET status = 'VOIDED', closed_at = now(),
-                           closed_by = $2::uuid, close_reason = $3
-                     WHERE payment_cycle_id = $1::uuid AND status = 'PAID'
-                    """,
-                    payment_cycle_id,
-                    identity.staff_id,
-                    normalized_reason,
-                )
+                try:
+                    await conn.execute(
+                        """
+                        UPDATE payment_cycle
+                           SET status = 'VOIDED', closed_at = now(),
+                               closed_by = $2::uuid, close_reason = $3
+                         WHERE payment_cycle_id = $1::uuid AND status = 'PAID'
+                        """,
+                        payment_cycle_id,
+                        identity.staff_id,
+                        normalized_reason,
+                    )
+                except asyncpg.CheckViolationError as e:
+                    # Lần thu có tiền TRẢ TRƯỚC liệu trình mà buổi đã làm bằng
+                    # tiền ấy (08/10/2026, #16) — Postgres từ chối.
+                    raise loi_tien_lieu_trinh(
+                        e, cau_phu_vuot=CAU_HUY_TRA_TRUOC_DA_DUNG
+                    ) from None
                 if phan_lo:
                     # CP3: dòng chưa giao gì → đảo bán đúng một lần; dòng đã
                     # giao → không tự nhập lại kho, ghi cần xử lý trả thuốc (CP5).
@@ -1558,6 +1581,13 @@ async def _khoa_luot_thu(
                  WHERE so.clinic_id = v.clinic_id AND so.visit_id = v.visit_id
                    AND so.selection_status IS NOT NULL
                    AND so.exec_status NOT IN ('draft', 'cancelled')
+            )
+            -- Quầy đặt "trả trước k buổi" liệu trình (08/10/2026) cũng là một
+            -- khoản dịch vụ thu được ngay.
+            OR EXISTS (
+                SELECT 1 FROM lieu_trinh_tra_truoc t
+                 WHERE t.clinic_id = v.clinic_id AND t.visit_id = v.visit_id
+                   AND t.bo_luc IS NULL
             ) AS co_chi_dinh,
             EXISTS (
                 SELECT 1 FROM prescription rx

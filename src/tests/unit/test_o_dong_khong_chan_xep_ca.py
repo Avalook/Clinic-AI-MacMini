@@ -20,7 +20,9 @@ def test_may_chu_chi_tra_khoi_nghi() -> None:
     for mod in (config_service, man_trang_chu_service):
         src = inspect.getsource(mod)
         i = src.index("FROM vi_tri_dong_ca")
-        assert "ly_do = 'NGHI'" in src[i : i + 200], mod.__name__
+        # 600 ký tự: trang chủ nối thêm vị trí → phòng để lọc theo cơ sở
+        # (08/10/2026) nên điều kiện NGHI nằm xa hơn sau FROM.
+        assert "ly_do = 'NGHI'" in src[i : i + 600], mod.__name__
 
 
 def test_luoi_lich_khong_con_nhanh_o_den() -> None:

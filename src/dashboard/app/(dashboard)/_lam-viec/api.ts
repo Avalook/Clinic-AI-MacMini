@@ -75,6 +75,79 @@ export interface DongHangCho {
   /** Nội dung kết quả đã ghi — chỉ vai đọc lâm sàng nhận được. */
   ket_qua_ghi?: string | null;
   ly_do_khong_lam?: string | null;
+  /** Khách đang chờ / làm ở phòng dịch vụ KHÁC (máy chủ tính, 07/10/2026). */
+  dang_o_phong?: DangOPhong | null;
+  /** Nhận chéo: khách đã sang phòng khác khi lần làm ở đây còn mở. */
+  da_sang_phong?: { phong: string | null; luc: string } | null;
+  /** Bác sĩ đang làm chỉ định này NGAY TẠI BÀN KHÁM — không phải việc của
+   *  phòng (không Xong / Gián đoạn hộ). `noi` = câu máy chủ viết. */
+  lam_o_ban_kham?: LamOBanKham | null;
+}
+
+/** Chỉ định đang làm tại bàn khám (07/10/2026) — máy chủ trả, màn chỉ vẽ. */
+export interface LamOBanKham {
+  bac_si: string | null;
+  luc: string | null;
+  noi: string;
+}
+
+/** Nơi khách đang ở (phòng dịch vụ): 'cho' = đã nhận, đang chờ · 'lam' = đang làm. */
+export interface DangOPhong {
+  phong_id: string;
+  phong: string | null;
+  trang_thai: "cho" | "lam";
+  luc: string | null;
+}
+
+/** Câu "đang chờ / đang làm ở phòng X" — chỉ ghép chữ từ dữ liệu máy chủ. */
+export function cauDangOPhong(d: DangOPhong): string {
+  return `Đang ${d.trang_thai === "lam" ? "làm" : "chờ"} ở ${d.phong ?? "phòng khác"}`;
+}
+
+/** Một chỉ định NHÌN TỪ một phòng (07/10/2026 — mỗi khách một ô, nhận theo
+ *  chỉ định). Máy chủ quyết trạng thái và nhận được không; ★ / hướng dẫn chỉ
+ *  là nhãn (không quyết gì khi Nhận). */
+export interface ChiDinhPhong {
+  id: string;
+  ten: string | null;
+  trang_thai: "sap_den" | "cho" | "lam" | "xong" | "o_phong_khac";
+  /** Phòng khác đang giữ / đã làm chỉ định này. */
+  phong: string | null;
+  o_trang_thai: "cho" | "lam" | null;
+  huong_dan_id: string | null;
+  /** Tên phòng quầy / bác sĩ hướng dẫn. */
+  huong_dan: string | null;
+  huong_dan_day: boolean;
+  /** Phòng này là phòng chuyên ★ của chỉ định. */
+  chuyen: boolean;
+  chua_chot: boolean;
+  nhan_duoc: boolean;
+  /** Đang chờ ở phòng khác mà tiền đang hoàn / sổ lệch — vì sao không Nhận. */
+  ly_do_khong_nhan?: string | null;
+}
+
+/** Nhãn trạng thái của một chỉ định trong ô khách — chỉ ghép chữ từ máy chủ. */
+export function cauChiDinhPhong(c: ChiDinhPhong): string {
+  switch (c.trang_thai) {
+    case "sap_den":
+      return c.huong_dan && !c.huong_dan_day ? `sắp đến · hướng dẫn: ${c.huong_dan}` : "sắp đến";
+    case "cho":
+      return "chờ ở đây";
+    case "lam":
+      return "đang làm";
+    case "xong":
+      return c.phong ? `xong ở ${c.phong}` : "xong";
+    default:
+      return `đang ${c.o_trang_thai === "lam" ? "làm" : "chờ"} ở ${c.phong ?? "phòng khác"}`;
+  }
+}
+
+/** Ba số của một phòng (07/10/2026): sắp đến (dây Nhận tại phòng bật) · đang
+ *  chờ · đang làm — số khách hôm nay, máy chủ đếm. */
+export interface DemPhong {
+  sap_den: number | null;
+  dang_cho: number;
+  dang_lam: number;
 }
 
 export interface Phong {
@@ -86,9 +159,12 @@ export interface Phong {
   vi_tri?: string[];
   /** Máy chủ quyết: phòng có làm dịch vụ (hiện ở danh sách Phòng dịch vụ). */
   la_phong_dich_vu?: boolean;
+  dem?: DemPhong;
 }
 
 export interface PhongHomNay {
+  /** Dây "Nhận khách tại phòng" đang bật. */
+  nhan_tai_phong?: boolean;
   phong_cua_toi: Phong[];
   tat_ca_phong: Phong[];
 }
@@ -226,6 +302,8 @@ export interface ThucHien {
   phieu_chua_hoan_tat?: boolean;
   /** Hiện nút "Huỷ bắt đầu nhầm" (V4, 30/09/2026) — máy chủ quyết. */
   huy_bat_dau_duoc?: boolean;
+  /** Lần làm đang chạy do BÀN KHÁM mở — `lan_dang_chay` khi ấy là null. */
+  lam_o_ban_kham?: LamOBanKham | null;
   ly_do_khong_lam: string[];
   ly_do_gian_doan: string[];
 }

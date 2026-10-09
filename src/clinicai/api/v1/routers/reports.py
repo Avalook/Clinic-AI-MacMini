@@ -22,6 +22,7 @@ from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.bao_cao_cuoi_ngay_service import (
     BaoCaoCuoiNgayService,
     csv_bao_cao,
+    csv_hang_hoa,
 )
 from clinicai.services.reports_service import (
     ReportsService,
@@ -38,19 +39,28 @@ _READ_GUARD = cua_quyen("report.view")
 # Toàn cảnh: tab của Vận hành (/ops) và báo cáo.
 _TONG_QUAN_GUARD = cua_quyen("report.view", "ops.view")
 
+# Lọc theo cơ sở (08/10/2026 — mở cơ sở Hào Nam). Rỗng = tất cả cơ sở; mã rác
+# KHÔNG 422/500 mà ra số 0 (`co_so_bao_cao.doc_co_so`), cùng lối "rác không làm
+# sập báo cáo" với ngày rác ở dưới.
+_CO_SO = Query(None, max_length=64, description="uuid cơ sở; rỗng = tất cả; rác = số 0")
+
 
 @router.get("/reports/booking-channels")
 async def booking_channels(
     days: int = Query(30, ge=1, le=365),
+    co_so: str | None = _CO_SO,
     identity: StaffIdentity = Depends(_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Lịch hẹn theo nguồn đặt — MỘT truy vấn thay cho 8 lượt đếm rời."""
-    return await ReportsService(pool).booking_channels(identity=identity, days=days)
+    return await ReportsService(pool).booking_channels(
+        identity=identity, days=days, location_id=co_so
+    )
 
 
 @router.get("/reports/kpi-dat-lich")
 async def kpi_dat_lich(
+    co_so: str | None = _CO_SO,
     identity: StaffIdentity = Depends(_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
@@ -61,25 +71,29 @@ async def kpi_dat_lich(
     định về quản trị con người, không phải một quyết định kỹ thuật, nên nó phải
     được nói ra chứ không rơi vào mặc định.
     """
-    return await ReportsService(pool).kpi_dat_lich_theo_nhan_vien(identity=identity)
+    return await ReportsService(pool).kpi_dat_lich_theo_nhan_vien(
+        identity=identity, location_id=co_so
+    )
 
 
 @router.get("/reports/tong-quan")
 async def bao_cao_tong_quan(
+    co_so: str | None = _CO_SO,
     identity: StaffIdentity = Depends(_TONG_QUAN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Ô số trang /reports: hôm nay · ngày mai · theo bác sĩ · 30 ngày · 7 ngày."""
-    return await tong_quan(pool, identity=identity)
+    return await tong_quan(pool, identity=identity, location_id=co_so)
 
 
 @router.get("/reports/toan-canh")
 async def bao_cao_toan_canh(
+    co_so: str | None = _CO_SO,
     identity: StaffIdentity = Depends(_TONG_QUAN_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Tab "Toàn cảnh" của /ops: nhân sự · bốn con số hôm nay · 10 sự kiện."""
-    return await toan_canh(pool, identity=identity)
+    return await toan_canh(pool, identity=identity, location_id=co_so)
 
 
 # ── Báo cáo cuối ngày (29/09/2026) — tài chính kiểu KiotViet, CHỈ ĐỌC ──────
@@ -100,12 +114,21 @@ async def bao_cao_cuoi_ngay(
         max_length=20,
         description="dich_vu | thuoc — xem riêng một loại tiền; rỗng/rác = cả hai",
     ),
+    co_so: str | None = _CO_SO,
+    ca: str | None = Query(
+        None,
+        max_length=10,
+        description="SANG | CHIEU | TOI — cuối ca (một ngày); rác = cả ngày",
+    ),
     identity: StaffIdentity = Depends(_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Thu gốc · huỷ · hoàn · thực thu; theo hình thức / loại / người thu / ngày."""
+    """Thu gốc · huỷ · hoàn · thực thu; theo hình thức / loại / người thu / ngày;
+    thuốc kê vs thực bán theo khách. ``ca`` → chỉ khung giờ một ca (cuối ca).
+
+    Không chọn cơ sở → thêm ``theo_co_so`` (từng cơ sở, tiền cộng lại = tổng)."""
     return await BaoCaoCuoiNgayService(pool).bao_cao(
-        identity=identity, tu=tu, den=den, loai=loai
+        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so, ca=ca
     )
 
 
@@ -114,16 +137,28 @@ async def bao_cao_cuoi_ngay_csv(
     tu: str | None = Query(None, max_length=40),
     den: str | None = Query(None, max_length=40),
     loai: str | None = Query(None, max_length=20),
+    co_so: str | None = _CO_SO,
+    ca: str | None = Query(None, max_length=10),
+    mau: str | None = Query(
+        None, max_length=20, description="hang_hoa = khuôn KiotViet hàng hoá"
+    ),
     identity: StaffIdentity = Depends(_READ_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
-    """[Xuất Excel]: CSV UTF-8 có BOM."""
+    """[Xuất Excel]: CSV UTF-8 có BOM. ``mau=hang_hoa`` → "Báo cáo cuối ngày về
+    hàng hóa" (khuôn KiotViet) của loại đang xem (rỗng = thuốc)."""
     bc = await BaoCaoCuoiNgayService(pool).bao_cao(
-        identity=identity, tu=tu, den=den, loai=loai
+        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so, ca=ca
     )
-    ten = f"bao-cao-cuoi-ngay-{bc['tu']}_{bc['den']}.csv"
+    hang_hoa = mau == "hang_hoa"
+    ten = (
+        f"bao-cao-hang-hoa-{bc['tu']}_{bc['den']}.csv"
+        if hang_hoa
+        else f"bao-cao-cuoi-ngay-{bc['tu']}_{bc['den']}.csv"
+    )
+    noi_dung = csv_hang_hoa(bc, loai) if hang_hoa else csv_bao_cao(bc)
     return Response(
-        content=csv_bao_cao(bc).encode("utf-8"),
+        content=noi_dung.encode("utf-8"),
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": f'attachment; filename="{ten}"',

@@ -12,6 +12,9 @@ export interface ConfigRoom {
   primary_node: string | null;
   /** Mọi bước phòng này phục vụ. "Phòng siêu âm" = có DICHVU-SIEUAM ở đây. */
   serves: string[];
+  /** Nhóm việc phòng này là PHÒNG CHUYÊN ★ (07/10/2026): tick sẵn khi phòng
+   *  Nhận chỉ định chưa hướng dẫn, quầy gợi ý hướng dẫn. Không thu hẹp gì. */
+  chuyen?: string[];
   /** Dịch vụ gắn RIÊNG cho phòng (30/09/2026). Dịch vụ có ở đây thì chỉ các
    *  phòng được gắn làm được — máy chủ quyết khi xếp phòng. */
   dich_vu: DichVuPhong[];
@@ -66,6 +69,12 @@ export interface ConfigMissing {
   code: string;
   name: string;
   loi: "CONFIG_MISSING";
+}
+
+/** Nhóm dịch vụ có phòng làm được mà CHƯA phòng nào đánh ★ (chỉ nhắc). */
+export interface ChuaPhongChuyen {
+  code: string;
+  name: string;
 }
 
 export interface ConfigStaff {

@@ -134,6 +134,7 @@ async def test_no_pool_stub_fallback() -> None:
     """build_scheduling_subgraph(pool=None) keeps backward-compat stub."""
     graph = build_scheduling_subgraph(pool=None)
     initial: SchedulingState = {
+        "clinic_id": uuid4(),
         "step": "find_doctor",
         "user_message": "",
         "turn_count": 2,

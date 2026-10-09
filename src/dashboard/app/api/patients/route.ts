@@ -17,6 +17,7 @@ import {
   dobErrorIso,
   homNayVn,
 } from "../../../lib/validation";
+import { ganCoSo } from "../../../lib/co-so";
 
 interface Body {
   full_name?: string;
@@ -137,6 +138,7 @@ export async function POST(request: Request) {
   };
   const apiKey = process.env.BACKEND_API_KEY;
   if (apiKey) headers["X-API-Key"] = apiKey;
+  await ganCoSo(headers); // cơ sở đang đứng — lib/co-so.ts
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);

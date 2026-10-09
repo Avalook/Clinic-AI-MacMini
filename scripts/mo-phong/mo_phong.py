@@ -516,6 +516,11 @@ def kiem_cuoi(bat_dau: dt.datetime, khach: list[Khach]) -> dict[str, Any]:
             " left join prescription_allocation a on a.prescription_id=p.id"
             f" where p.visit_id in ({ds}) and p.purchased_qty is not null"
             " group by 1,2 having coalesce(sum(a.quantity),0) > p.purchased_qty"),
+        # Khối 2 (06/10/2026): thu − hoàn = chỉ định còn hiệu lực + tiền thừa.
+        "tien_chi_dinh": sql(
+            "select b.visit_id, b.loai, b.chi_tiet from clinic c,"
+            f" bat_bien_tien_chi_dinh(c.id, '{moc}') b"
+            f" where b.visit_id in ({ds})"),
     }
     log = REPO / ".dev-logs" / "api.log"
     loi: list[str] = []

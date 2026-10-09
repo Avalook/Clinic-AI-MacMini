@@ -44,6 +44,7 @@ from clinicai.services.clinic_policy import (
     load_clinic_policy,
     load_effective_policy,
 )
+from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 from clinicai.services.slot_hold_service import SlotHoldService
 
 router = APIRouter()
@@ -120,6 +121,8 @@ class ActionRequest(BaseModel):
     service_type_id: UUID | None = None
     booking_channel: str | None = Field(default=None, max_length=32)
     nguoi_gioi_thieu: str | None = Field(default=None, max_length=200)
+    #: Ghi chú của lịch (đổi lịch). Vắng mặt = giữ nguyên; chuỗi rỗng = xoá.
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 # ── ĐỌC lịch hẹn cho màn đặt lịch (24/09/2026) ─────────────────────────────
@@ -286,6 +289,9 @@ async def cho_xep_bac_si(
              WHERE a.clinic_id = $1::uuid
                AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'DOCTOR_DECLINED',
                                     'COMPLETED')
+               -- Chỉ lịch của cơ sở đang đứng (08/10/2026); NULL = mọi cơ sở.
+               AND coalesce(a.location_id, $2::uuid)
+                   IS NOT DISTINCT FROM coalesce($2::uuid, a.location_id)
                AND (
                      a.doctor_id IS NULL
                   OR (
@@ -311,6 +317,10 @@ async def cho_xep_bac_si(
                             AND w.work_date =
                                 (a.slot_start AT TIME ZONE 'Asia/Ho_Chi_Minh')
                                 ::date
+                            -- …và CƠ SỞ: ca ở cơ sở khác không giữ lịch ở đây.
+                            AND """
+            + ca_thuoc_co_so("w", "(a.location_id)")
+            + """
                        )
                      )
                )
@@ -318,6 +328,7 @@ async def cho_xep_bac_si(
              LIMIT 500
             """,
             identity.clinic_id,
+            identity.location_id or None,
         )
         # LÝ DO THỨ BA (15/09/2026): LỊCH VƯỢT SỨC CHỨA sau khi công bố lịch trực.
         # Tuyền: không xoá, không tự huỷ lịch của khách — báo rồi xử lý. Đây là
@@ -348,10 +359,13 @@ async def cho_xep_bac_si(
               LEFT JOIN service_type st ON st.id = a.service_type_id
               LEFT JOIN staff bs ON bs.id = a.doctor_id
              WHERE o.clinic_id = $1::uuid
+               AND coalesce(a.location_id, $2::uuid)
+                   IS NOT DISTINCT FROM coalesce($2::uuid, a.location_id)
              ORDER BY a.slot_start
              LIMIT 500
             """,
             identity.clinic_id,
+            identity.location_id or None,
         )
     da_co = {r["id"] for r in rows}
     # HAI câu, mỗi câu trần 500. Chạm trần ở câu nào cũng là "còn lịch mất bác
@@ -518,6 +532,7 @@ async def luoi_ngay_dat_cho(
         date=date,
         doctor_ids=[x for x in doctor_ids.split(",") if x.strip()],
         bo_qua_lich_id=bo_qua_lich_id,
+        location_id=identity.location_id,
     )
 
 
@@ -568,7 +583,9 @@ async def week_appointments(
     )
 
     items = await WeekAppointmentsService(pool).week(
-        clinic_id=identity.clinic_id, week_start=week_start
+        clinic_id=identity.clinic_id,
+        week_start=week_start,
+        location_id=identity.location_id or None,
     )
     return {"ok": True, "items": items}
 
@@ -609,6 +626,7 @@ async def doctor_board(
         statuses=loc,
         # Thư ký chỉ thấy lịch của bác sĩ mình được phân (Tuyền chốt 15/09/2026).
         chi_bac_si=await bac_si_cua_thu_ky(pool, identity),
+        location_id=identity.location_id or None,
     )
     return {"ok": True, "items": items}
 
@@ -720,6 +738,8 @@ async def apply_appointment_action(
         booking_channel=body.booking_channel,
         booking_channel_provided="booking_channel" in body.model_fields_set,
         nguoi_gioi_thieu=body.nguoi_gioi_thieu,
+        ghi_chu=body.notes,
+        ghi_chu_provided="notes" in body.model_fields_set,
     )
     return {"ok": True, **result}
 

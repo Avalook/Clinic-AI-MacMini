@@ -17,6 +17,7 @@
 // /api/clinical-record còn chặn độc lập.
 
 import { fetchFromBackend } from "../../../lib/backend-proxy";
+import type { NhanLuot } from "../../../lib/nhan-luot";
 import { coMotQuyen, docDuocYKhoa } from "../../../lib/quyen-cua-toi";
 import { Activity, CalendarClock, RotateCcw, UserPlus, UsersRound } from "lucide-react";
 import {
@@ -48,6 +49,11 @@ interface LuotApi {
   service_name: string | null;
   doctor_name: string | null;
   closed_at: string | null;
+  /** Lượt khám thật + loại dữ liệu (v5 | notion | cu | trong) — 07/10/2026. */
+  visit_id?: string | null;
+  loai_du_lieu?: string | null;
+  /** Nhãn đếm lượt máy chủ tính (08/10/2026). */
+  nhan_luot?: NhanLuot | null;
 }
 
 interface DongApi {
@@ -89,6 +95,9 @@ function thanhDong(d: DongApi): ExaminedRow {
       status: l.status,
       service_name: l.service_name,
       doctor_name: l.doctor_name,
+      visit_id: l.visit_id ?? null,
+      loai_du_lieu: l.loai_du_lieu ?? null,
+      nhan_luot: l.nhan_luot ?? null,
     })),
     latest: ganNhat?.slot_start ?? null,
     phan_loai: d.phan_loai,

@@ -156,18 +156,12 @@ def make_find_doctor_node(pool: "asyncpg.Pool", location_id: UUID) -> Scheduling
             }
 
         try:
-            # SchedulingState là total=False nên kiểu coi clinic_id có thể
-            # thiếu; thực tế OrchestratorService.chat luôn đặt nó. Thiếu thì ném
-            # KeyError như state["clinic_id"] cũ, VẪN trong try này.
-            clinic_id = state.get("clinic_id")
-            if clinic_id is None:
-                raise KeyError("clinic_id")
             result = await find_work_sessions(
                 FindWorkSessionsInput(
                     location_id=location_id,
                     session_date=preferred_date,
                     session_type=session_type,
-                    clinic_id=clinic_id,
+                    clinic_id=state["clinic_id"],
                 ),
                 pool,
             )

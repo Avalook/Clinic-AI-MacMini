@@ -101,6 +101,9 @@ async def hub_dat_lich(
               FROM appointment
              WHERE clinic_id = $1::uuid AND slot_start >= $2 AND slot_start < $3
                AND status <> ALL($4::text[])
+               -- Thẻ "Lịch hôm nay / Đã xác nhận" là của cơ sở đang đứng.
+               AND coalesce(location_id, $5::uuid)
+                   IS NOT DISTINCT FROM coalesce($5::uuid, location_id)
              LIMIT 1000
             """,
             cid,
@@ -108,6 +111,7 @@ async def hub_dat_lich(
             cuoi,
             # Trạng thái không giữ chỗ — một danh sách, ở core/trang_thai_lich.
             sorted(DEAD_STATUSES),
+            identity.location_id or None,
         )
         ma_khach = [r["clinic_patient_id"] for r in khach]
         lich_su = (

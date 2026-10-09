@@ -198,12 +198,15 @@ _SQL_LICH = """
 WITH hom_nay AS (
     SELECT a.id, a.clinic_id, a.clinic_patient_id, a.doctor_id,
            a.service_type_id, a.status, a.booking_channel, a.slot_start,
-           a.so_booking, a.so_tiep_don, a.created_at
+           a.so_booking, a.so_tiep_don, a.created_at, a.notes
       FROM appointment a
      WHERE a.clinic_id = $1::uuid
        AND a.slot_start >= $2
        AND a.slot_start <  $3
        AND a.status <> ALL($4::text[])
+       -- Chỉ lịch của cơ sở đang đứng (hai cơ sở, 08/10/2026); NULL = mọi cơ sở.
+       AND coalesce(a.location_id, $7::uuid)
+           IS NOT DISTINCT FROM coalesce($7::uuid, a.location_id)
      ORDER BY a.slot_start, a.created_at, a.id
      LIMIT $5
 ),
@@ -218,7 +221,7 @@ som_nhat AS (
      GROUP BY a.clinic_patient_id
 )
 SELECT h.id::text AS appointment_id, h.status, h.booking_channel, h.slot_start,
-       h.so_booking, h.so_tiep_don,
+       h.so_booking, h.so_tiep_don, h.notes,
        p.clinic_patient_id::text AS clinic_patient_id, p.full_name,
        p.patient_code, p.phone_primary, p.uu_tien, p.uu_tien_ly_do,
        st.name AS loai_kham, d.full_name AS bac_si,
@@ -310,6 +313,8 @@ def dung_dong(
         "so_tiep_don": r.get("so_tiep_don"),
         "gio_hen": _gio(r.get("slot_start")),
         "loai_kham": r.get("loai_kham"),
+        # Ghi chú CSKH lúc đặt (lịch "Khác" khuyến khích ghi, 07/10/2026).
+        "ghi_chu": r.get("notes"),
         "bac_si": r.get("bac_si"),
         "loai_khach": loai_khach(r.get("booking_channel"), r.get("phan_loai")),
         "uu_tien": bool(r.get("uu_tien")),
@@ -414,6 +419,7 @@ class TiepDonService:
                     list(AN_KHOI_DANH_SACH),
                     _TRAN,
                     ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"],
+                    identity.location_id or None,
                 )
             ]
             ids = [r["visit_id"] for r in rows if r["visit_id"]]

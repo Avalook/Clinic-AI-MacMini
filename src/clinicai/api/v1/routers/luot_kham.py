@@ -24,6 +24,7 @@ from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.chi_dinh_service import ChiDinhService
 from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.luot_kham_service import LuotKhamService
+from clinicai.services.nhan_tai_phong import NhanTaiPhongService
 from clinicai.services.service_execution_service import ServiceExecutionService
 from clinicai.services.service_routing_service import KHONG_DOI, ServiceRoutingService
 from clinicai.services.service_selection_service import ServiceSelectionService
@@ -612,6 +613,10 @@ class ChiDinhBody(BaseModel):
     service_codes: list[str] = Field(min_length=1, max_length=30)
     #: Dịch vụ bác sĩ tick "Bắt buộc" (25/09/2026) — quầy thu không bỏ được.
     bat_buoc_codes: list[str] = Field(default_factory=list, max_length=30)
+    #: Nút "Chỉ định thêm (lần N)" (06/10/2026): mở lần mới. Mặc định vào lần
+    #: hiện tại. `lan_dang_thay` = lần hiện tại màn đang thấy.
+    lan_moi: bool = False
+    lan_dang_thay: int | None = None
 
 
 class BatBuocBody(BaseModel):
@@ -633,6 +638,8 @@ async def dat_chi_dinh(
         identity=identity,
         idempotency_key=idempotency_key,
         bat_buoc_codes=body.bat_buoc_codes,
+        lan_moi=body.lan_moi,
+        lan_dang_thay=body.lan_dang_thay,
     )
 
 
@@ -861,6 +868,55 @@ async def transfer_in_progress_service(
     )
 
 
+class NhanTaiPhongBody(BaseModel):
+    # Any: kiểm UUID ở service để trả mã lỗi ổn định.
+    room_id: Any = None
+    #: Nhận chéo: khách đang ở phòng khác — bấm xác nhận (không bắt lý do).
+    xac_nhan: bool = False
+    #: Phòng nhiều bác sĩ: như lệnh xếp phòng (không gửi = giữ / tự gán).
+    bac_si_lam_id: Any = None
+    #: Các chỉ định được tick (07/10/2026 — nhận theo từng chỉ định). Không
+    #: gửi = các chỉ định máy chủ tick sẵn (Nhận) / mọi chỉ định đang chờ ở
+    #: phòng (hoàn tác Nhận).
+    chi_dinh_ids: list[Any] | None = None
+
+
+# Nhận khách tại phòng (dây `nhan_tai_phong`, 07/10/2026) — id là LƯỢT KHÁM.
+# Cửa thật (quyền điều phối, khoá lượt, dây) ở NhanTaiPhongService.
+@router.post("/luot-kham/visits/{visit_id}/nhan-vao-phong")
+async def receive_at_room(
+    visit_id: UUID,
+    body: NhanTaiPhongBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await NhanTaiPhongService(pool).nhan(
+        visit_id=str(visit_id),
+        room_id=body.room_id,
+        identity=identity,
+        xac_nhan=body.xac_nhan,
+        bac_si_lam_id=_bac_si_gui(body),
+        chi_dinh_ids=body.chi_dinh_ids,
+        idempotency_key=idempotency_key,
+    )
+
+
+@router.post("/luot-kham/visits/{visit_id}/hoan-tac-nhan")
+async def undo_receive_at_room(
+    visit_id: UUID,
+    body: NhanTaiPhongBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await NhanTaiPhongService(pool).hoan_tac_nhan(
+        visit_id=str(visit_id),
+        room_id=body.room_id,
+        identity=identity,
+        chi_dinh_ids=body.chi_dinh_ids,
+    )
+
+
 @router.post("/luot-kham/orders/{order_id}/routing/invalidate")
 async def invalidate_service_routing(
     order_id: UUID,
@@ -955,6 +1011,9 @@ class BatDauBody(BaseModel):
     #: V4 (30/09/2026): khách đang làm ở phòng khác → người bấm đã đồng ý
     #: "chuyển sang đây" (dừng lần làm ở phòng kia trong cùng giao dịch).
     giai_phong: bool = False
+    #: 07/10/2026: dịch vụ khác đang làm ở CHÍNH phòng này → người bấm đã đồng ý
+    #: "Xong <DV1> & bắt đầu <DV2>" (một lệnh, cùng giao dịch).
+    xong_truoc: bool = False
 
 
 class HuyBatDauBody(BaseModel):
@@ -1015,6 +1074,7 @@ async def execution_bat_dau(
         identity=identity,
         idempotency_key=idempotency_key,
         giai_phong=body.giai_phong,
+        xong_truoc=body.xong_truoc,
     )
 
 

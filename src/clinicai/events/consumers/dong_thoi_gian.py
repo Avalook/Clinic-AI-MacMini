@@ -25,6 +25,7 @@ import asyncpg
 from clinicai.events.catalogue import DANH_MUC, DONG_THOI_GIAN_LUOT
 from clinicai.events.phat_lai import Projection, dang_ky_projection
 from clinicai.events.worker import SuKienDaNhan, dang_ky
+from clinicai.services.audit_labels import NHAN_NHAN_VAO_PHONG
 
 # Trường nào của payload được đưa lên màn. Whitelist, không phải blacklist: thêm
 # một trường vào payload không tự động làm nó hiện trên màn — và không vô tình
@@ -54,7 +55,21 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service.patient_moved": ["attempt_no", "from_room_id", "to_room_id"],
     "service.start_cancelled": ["attempt_no", "room_id"],
     "service.routing_invalidated": ["ly_do"],
-    "service.routed": ["room_id", "ly_do", "tu_dong", "nguon"],
+    "service.routed": [
+        "room_id",
+        "ly_do",
+        "tu_dong",
+        "nguon",
+        "huong_dan_room_id",
+        "dung_huong_dan",
+        "nhan_cheo_tu_room_id",
+    ],
+    # Nhận khách tại phòng (07/10/2026): chỉ mã phòng + mã lý do.
+    "service.room_released": ["room_id", "ly_do", "trang_thai_truoc", "sang_room_id"],
+    "service.room_receive_undone": ["room_id", "tra_ve_room_id"],
+    "service.room_release_undone": ["room_id", "trang_thai", "ghi_chu"],
+    "service.room_guided": ["room_id", "tu_room_id", "nguon"],
+    "consultation.resumed": ["loai", "lan"],
     # Trưởng ca chuyển phòng khi đang làm (29/09/2026): lý do là chữ vận hành
     # trưởng ca gõ, Tuyền cần nó hiện ở lịch sử lượt.
     "service.room_transferred": ["from_room_id", "room_id", "ly_do", "nguon"],
@@ -125,6 +140,8 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
         "tien_thua",
         "ly_do",
     ],
+    # Khối 2 (06/10/2026): hoàn tác bỏ chỉ định — tên dịch vụ + lý do.
+    "service_order.restored": ["service_code", "service_name", "ly_do"],
     "service.completion_undone": ["attempt_no", "mo_lai_kham_xong", "ly_do"],
     "visit.reopened": ["tu_ve_giua_chung", "ly_do"],
     "result.approval_revoked": ["tep_da_gui", "ly_do"],
@@ -160,6 +177,9 @@ def _nhan_rieng(event_type: str, payload: dict[str, Any]) -> str | None:
         if cu is None:
             return f"Quầy thu thuốc điền số lượng thuốc (bác sĩ để trống): {moi}"
         return f"Quầy thu thuốc sửa số lượng thuốc đã điền: {cu} → {moi}"
+    if event_type == "service.routed" and payload.get("nguon") == "tai_phong":
+        # Phòng tự bấm Nhận (07/10/2026) — không phải "Đã xếp phòng".
+        return NHAN_NHAN_VAO_PHONG
     if event_type == "visit.exam_service_changed":
 
         def _ds(x: Any) -> str:

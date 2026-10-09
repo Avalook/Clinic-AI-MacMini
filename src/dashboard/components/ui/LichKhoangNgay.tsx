@@ -38,6 +38,7 @@ export default function LichKhoangNgay({
   onChon,
   nhan = "Khoảng ngày",
   dangTai = false,
+  ngayCham,
 }: {
   /** null = tất cả. */
   khoang: Khoang | null;
@@ -45,6 +46,8 @@ export default function LichKhoangNgay({
   onChon: (k: Khoang | null) => void;
   nhan?: string;
   dangTai?: boolean;
+  /** Ngày (yyyy-mm-dd) được chấm xanh dưới số — vd ngày khách có khám. */
+  ngayCham?: ReadonlySet<string>;
 }) {
   const [mo, setMo] = useState(false);
   const [dau, setDau] = useState<string | null>(null);
@@ -187,7 +190,15 @@ export default function LichKhoangNgay({
                           : "text-ink hover:bg-brand-50"
                   }`}
                 >
-                  {i + 1}
+                  <span className="relative">
+                    {i + 1}
+                    {ngayCham?.has(ngay) ? (
+                      <span
+                        aria-label="có khám"
+                        className="absolute -bottom-1.5 left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-success"
+                      />
+                    ) : null}
+                  </span>
                 </button>
               );
             })}

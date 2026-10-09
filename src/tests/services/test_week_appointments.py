@@ -154,7 +154,9 @@ async def test_the_range_sent_down_is_exactly_seven_local_days() -> None:
     await WeekAppointmentsService(_Pool(conn)).week(
         clinic_id=CLINIC, week_start=datetime.date(2026, 8, 3)
     )
-    _clinic, start, end, hidden = conn.args
+    _clinic, start, end, hidden, co_so = conn.args
+    # Không truyền cơ sở → None = mọi cơ sở (08/10/2026).
+    assert co_so is None
     assert isinstance(start, datetime.datetime)
     assert isinstance(end, datetime.datetime)
     assert end - start == datetime.timedelta(days=7)
@@ -203,7 +205,7 @@ def test_lich_mat_bac_si_duoc_danh_dau_trong_bang_check_dat_lich() -> None:
 
     assert "AS mat_bac_si" in _SQL, "truy vấn phải trả cờ mất bác sĩ"
     dau = _SQL.index("AS mat_bac_si")
-    khoi = _SQL[max(0, dau - 900) : dau]
+    khoi = _SQL[max(0, dau - 1400) : dau]
     assert "la_ca_kham_bac_si" in khoi, (
         "phải hỏi ca KHÁM, không phải mọi trạm: một bác sĩ còn ca thủ thuật "
         "ngoài giờ vẫn là mất bác sĩ đối với lịch hẹn khám"
@@ -215,6 +217,9 @@ def test_lich_mat_bac_si_duoc_danh_dau_trong_bang_check_dat_lich() -> None:
     assert "w.clinic_id = $1::uuid" in khoi, (
         "thiếu clinic_id thì một bác sĩ trực ở cơ sở KHÁC vẫn được đọc là "
         "'có đi làm' — đúng thứ cờ này sinh ra để phát hiện"
+    )
+    assert "r_cs.location_id <> (t.location_id)" in khoi, (
+        "ca ở cơ sở khác (Kim Ngưu) không giữ được lịch ở Hào Nam (08/10/2026)"
     )
 
 

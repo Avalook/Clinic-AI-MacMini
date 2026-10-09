@@ -180,6 +180,7 @@ async def man_nha_thuoc(
 ) -> dict[str, Any]:
     hom_nay = now_vn().date()
     dau_ngay = datetime.combine(hom_nay, time.min, tzinfo=CLINIC_TZ)
+    co_so = identity.location_id or None
     async with pool.acquire() as conn:
         # Nút ghi hiện theo QUYỀN "Nhà thuốc" (24/09), cùng câu hỏi với router.
         co_quyen_ghi = await can(conn, identity, "pharmacy.dispense")
@@ -194,7 +195,8 @@ async def man_nha_thuoc(
                    ap.so_booking, ap.so_tiep_don,
                    {kham_xong_sql("v")} AS kham_xong,
                    r.removed_at, r.removal_reason,
-                   r.superseded_by_id::text AS thay_boi_id, v.ban_le
+                   r.superseded_by_id::text AS thay_boi_id, v.ban_le,
+                   coalesce(v.location_id, ap.location_id)::text AS co_so_id
               FROM public.prescription r
               JOIN public.visit v
                 ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
@@ -239,11 +241,16 @@ async def man_nha_thuoc(
                                     AND a.prescription_id = r.id
                                     AND a.released_at IS NULL
                                     AND c.status = 'PENDING_VERIFICATION'))))
+               -- Chỉ đơn của cơ sở đang đứng ($3 NULL = không lọc).
+               AND coalesce(v.location_id, ap.location_id, $3::uuid)
+                   IS NOT DISTINCT FROM
+                   coalesce($3::uuid, v.location_id, ap.location_id)
              ORDER BY r.created_at DESC, r.id
              LIMIT 300
             """,
             identity.clinic_id,
             dau_ngay,
+            co_so,
         )
         # Trần 300 đơn/ngày. Chạm trần là quầy thuốc đang nhìn một bảng THIẾU
         # đơn — phải nói ra, không để im.
@@ -296,19 +303,24 @@ async def man_nha_thuoc(
             rx_ids,
         )
         thuoc_ids = sorted({r["drug_catalog_id"] for r in dong if r["drug_catalog_id"]})
+        # Kho riêng từng cơ sở (08/10/2026): lô gợi ý của một dòng = lô thuộc
+        # cơ sở của LƯỢT (`_co_so`). Đọc lô của mọi cơ sở có trên màn, lọc
+        # theo dòng ở `_dong`.
+        co_so_ids = sorted({_co_so(r, identity) for r in dong})
         lo_rows = await conn.fetch(
             """
             SELECT id::text, drug_catalog_id::text, batch_code, expiry_date, unit,
-                   quantity_on_hand,
+                   quantity_on_hand, location_id::text AS co_so_id,
                    public.drug_batch_kha_dung($1::uuid, id) AS co_the_phan_lo
               FROM public.drug_batch
              WHERE clinic_id = $1::uuid AND drug_catalog_id = ANY($2::uuid[])
-               AND expiry_date >= $3
+               AND expiry_date >= $3 AND location_id = ANY($4::uuid[])
              ORDER BY expiry_date, batch_code
             """,
             identity.clinic_id,
             thuoc_ids,
             hom_nay,
+            co_so_ids,
         )
         # Lượt thu trước CP3 mà dòng đơn chưa từng được xác định thuốc kho:
         # luồng cũ gợi ý lô theo TÊN (đúng như màn cũ) — dược sĩ vẫn là người
@@ -320,17 +332,19 @@ async def man_nha_thuoc(
                 SELECT b.id::text, b.drug_catalog_id::text, b.batch_code,
                        b.expiry_date, b.unit, b.quantity_on_hand,
                        b.quantity_on_hand AS co_the_phan_lo,
+                       b.location_id::text AS co_so_id,
                        lower(coalesce(c.name_base, '')) AS ten_a,
                        lower(coalesce(c.name_raw, '')) AS ten_b
                   FROM public.drug_batch b
                   JOIN public.drug_catalog c
                     ON c.id = b.drug_catalog_id AND c.clinic_id = b.clinic_id
                  WHERE b.clinic_id = $1::uuid AND b.quantity_on_hand > 0
-                   AND b.expiry_date >= $2
+                   AND b.expiry_date >= $2 AND b.location_id = ANY($3::uuid[])
                  ORDER BY b.expiry_date, b.batch_code
                 """,
                 identity.clinic_id,
                 hom_nay,
+                co_so_ids,
             )
         # CP5: các lần GIAO (DISPENSE) của từng dòng — khách trả thuốc phải
         # chọn đúng lần giao gốc — kèm số đã trả; phần đã bán chưa giao; phần
@@ -379,11 +393,15 @@ async def man_nha_thuoc(
                AND p.clinic_id = v.clinic_id
              WHERE v.clinic_id = $1::uuid AND v.ban_le
                AND (v.created_at >= $2 OR v.updated_at >= $2)
+               AND coalesce(public.co_so_cua_luot(v.clinic_id, v.visit_id), $3::uuid)
+                   IS NOT DISTINCT FROM
+                   coalesce($3::uuid, public.co_so_cua_luot(v.clinic_id, v.visit_id))
              ORDER BY v.created_at DESC
              LIMIT 100
             """,
             identity.clinic_id,
             dau_ngay,
+            co_so,
         )
         duoc_mo_ban_le = await co_quyen_mo(conn, identity)
         duoc_thu_thuoc = await can(conn, identity, QUYEN_THU_THUOC)
@@ -488,7 +506,17 @@ async def man_nha_thuoc(
                 ),
             }
             g["dong"].append(
-                _dong(r, gd, lt, pl_theo_dong, lo_theo_thuoc, lo_cu, co_quyen_ghi, them)
+                _dong(
+                    r,
+                    gd,
+                    lt,
+                    pl_theo_dong,
+                    lo_theo_thuoc,
+                    lo_cu,
+                    co_quyen_ghi,
+                    them,
+                    co_so=_co_so(r, identity),
+                )
             )
     # Lượt bán lẻ chưa có dòng đơn: vẫn hiện (giai đoạn "chờ thu"), lên đầu.
     ban_le_trong = [
@@ -521,6 +549,11 @@ async def man_nha_thuoc(
     }
 
 
+def _co_so(r: Any, identity: StaffIdentity) -> str:
+    """Cơ sở của lượt chứa dòng đơn; lượt không rõ cơ sở → cơ sở đang làm."""
+    return str(r["co_so_id"] or identity.location_id)
+
+
 def _dong(
     r: asyncpg.Record,
     gd: str,
@@ -530,6 +563,8 @@ def _dong(
     lo_cu: list[asyncpg.Record],
     co_quyen_ghi: bool,
     them: dict[str, Any],
+    *,
+    co_so: str,
 ) -> dict[str, Any]:
     ke = r["quantity_num"]
     ban = r["purchased_qty"] if r["purchased_qty"] is not None else ke
@@ -588,6 +623,9 @@ def _dong(
     if ung_vien and not lich_su:
         dv = _don_vi(r["unit"])
         for b in ung_vien:
+            # Kho riêng từng cơ sở: chỉ lô của cơ sở của lượt.
+            if b["co_so_id"] != co_so:
+                continue
             # Luồng mới: chỉ lô cùng đơn vị kê. Luồng cũ (legacy) giữ luật cũ:
             # đơn thiếu đơn vị thì hiểu theo đơn vị lô.
             if dv and _don_vi(b["unit"]) != dv:

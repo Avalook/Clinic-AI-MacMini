@@ -302,10 +302,14 @@ def test_nhat_ky_tai_khoan_nhan_su(db: list[SqlConn]) -> None:
     c = TestClient(app)
     url = f"/api/v1/staff/{BS1}/nhat-ky-tai-khoan"
     _as(ClinicRole.RECEPTION)
-    assert c.post(url, json={"hanh_dong": "tao"}).status_code == 403
+    assert c.post(url, json={"hanh_dong": "doi_mat_khau"}).status_code == 403
     _as(ClinicRole.MANAGEMENT)
     db[0] = pool()
-    assert c.post(url, json={"hanh_dong": "tao"}).status_code == 404
+    assert c.post(url, json={"hanh_dong": "doi_mat_khau"}).status_code == 404
+    # Tạo / thu hồi ghi trong giao dịch của TaiKhoanService (06/10/2026) — nhận
+    # ở đây nữa là ghi hai lần.
+    for da_chuyen in ("tao", "thu_hoi"):
+        assert c.post(url, json={"hanh_dong": da_chuyen}).status_code == 422
     db[0] = pool(("SELECT s.full_name FROM staff s", "BS B"))
-    ok = c.post(url, json={"hanh_dong": "tao"})
+    ok = c.post(url, json={"hanh_dong": "doi_mat_khau"})
     assert ok.status_code in (200, 201) and db[0].events()

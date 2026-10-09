@@ -40,10 +40,11 @@ VALUES ('ee000000-0000-4000-8000-0000000000e1',
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.drug_batch
-    (id, clinic_id, drug_catalog_id, batch_code, expiry_date,
+    (id, clinic_id, location_id, drug_catalog_id, batch_code, expiry_date,
      quantity_on_hand, unit)
 VALUES ('ff000000-0000-4000-8000-0000000000f1',
         'aa000000-0000-4000-8000-0000000000a1',
+        'cc000000-0000-4000-8000-0000000000c1',
         'ee000000-0000-4000-8000-0000000000e1', 'LO-1',
         DATE '2030-01-01', 30, 'viên')
 ON CONFLICT (id) DO NOTHING;

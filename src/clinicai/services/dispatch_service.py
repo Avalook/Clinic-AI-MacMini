@@ -25,7 +25,7 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services import finance_gate
-from clinicai.services.audit_labels import action_label
+from clinicai.services.audit_labels import action_label_theo_nguon
 from clinicai.services.gate_rule_service import enforce as gate_enforce
 from clinicai.services.luot_kham_rules import doi_phong_duoc
 from clinicai.services.nhan_trang_thai_dieu_phoi import (
@@ -194,6 +194,10 @@ SELECT v.visit_id,
    AND coalesce(v.checked_in_at, v.created_at) >=
        (date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
         AT TIME ZONE 'Asia/Ho_Chi_Minh')
+   -- CHỈ LƯỢT CỦA CƠ SỞ ĐANG ĐỨNG (08/10/2026). Không biết cơ sở của lượt hoặc
+   -- không truyền cơ sở ($3 rỗng) → giữ.
+   AND coalesce(v.location_id, a.location_id, $3::uuid)
+       IS NOT DISTINCT FROM coalesce($3::uuid, v.location_id, a.location_id)
  ORDER BY v.current_node_since NULLS LAST, v.checked_in_at
  LIMIT 400
 """
@@ -278,10 +282,20 @@ class DispatchService:
 
     # ── Đọc ────────────────────────────────────────────────────────────
 
-    async def overview(self, *, clinic_id: str) -> list[dict[str, Any]]:
-        """Mỗi bệnh nhân đang trong phòng khám là một dòng."""
+    async def overview(
+        self, *, clinic_id: str, location_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Mỗi bệnh nhân đang trong phòng khám là một dòng.
+
+        `location_id` = cơ sở người đang xem; None = mọi cơ sở.
+        """
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(_OVERVIEW_SQL, clinic_id, list(LIVE_VISIT_STATUSES))
+            rows = await conn.fetch(
+                _OVERVIEW_SQL,
+                clinic_id,
+                list(LIVE_VISIT_STATUSES),
+                location_id or None,
+            )
         # Mỗi dòng là một người đang ở trong phòng khám. Cắt im lặng ở đây nghĩa
         # là có người đứng đó mà bảng điều phối không thấy.
         canh_bao_neu_day("dieu_phoi.tong_quan", len(rows), 400, clinic_id=clinic_id)
@@ -389,16 +403,23 @@ class DispatchService:
             for r in rows
         ]
 
-    async def alerts(self, *, clinic_id: str) -> list[dict[str, Any]]:
+    async def alerts(
+        self, *, clinic_id: str, location_id: str | None = None
+    ) -> list[dict[str, Any]]:
         """Cảnh báo vận hành, xếp theo mức độ.
 
         Tính từ chính hai truy vấn trên chứ không từ một bảng cảnh báo riêng:
         một bảng cảnh báo là một bản sao của sự thật, và nó sẽ cũ đúng vào lúc
         Trưởng ca cần tin nó nhất.
+
+        Chỉ cơ sở ĐANG ĐỨNG (`location_id`; Tuyền 08/10/2026: "sang cơ sở khác
+        là của cơ sở đó hết") — người ở Hào Nam không xử lý được phòng Kim Ngưu
+        đang tắc. None = mọi cơ sở.
         """
-        patients = await self.overview(clinic_id=clinic_id)
-        # Cảnh báo tính trên MỌI cơ sở: quản lý cần thấy cả hai nơi đang tắc.
-        rooms = await self.stations(clinic_id=clinic_id)
+        patients = await self.overview(clinic_id=clinic_id, location_id=location_id)
+        rooms = await self.stations(
+            clinic_id=clinic_id, location_id=location_id or None
+        )
         return build_alerts(patients, rooms)
 
     # ── Ghi ────────────────────────────────────────────────────────────
@@ -618,7 +639,7 @@ class DispatchService:
         ]
 
     async def history(
-        self, *, clinic_id: str, limit: int = 200
+        self, *, clinic_id: str, limit: int = 200, location_id: str | None = None
     ) -> list[dict[str, Any]]:
         """Lịch sử điều phối: sổ `dispatch.*` cũ (theo lượt) GỘP với xếp / đổi
         phòng TỪNG CHỈ ĐỊNH của luồng mới (`service.routed` — Bàn khám, quầy thu,
@@ -676,17 +697,25 @@ class DispatchService:
                   ON nf.clinic_id = $1::uuid AND nf.code = x.from_node
                 LEFT JOIN public.node_definition nt
                   ON nt.clinic_id = $1::uuid AND nt.code = x.to_node
+                CROSS JOIN LATERAL (
+                    SELECT public.co_so_cua_luot(
+                               $1::uuid, NULLIF(x.visit_id, '')::uuid) AS co_so
+                ) cs
+                -- Chỉ lượt của cơ sở đang đứng (08/10/2026); không biết → giữ.
+                WHERE coalesce(cs.co_so, $3::uuid)
+                      IS NOT DISTINCT FROM coalesce($3::uuid, cs.co_so)
                 ORDER BY x.created_at DESC LIMIT $2
                 """,
                 clinic_id,
                 limit,
+                location_id or None,
             )
         return [
             {
                 "at": r["created_at"].isoformat(),
                 "event_type": r["event_type"],
                 # Nhãn tiếng Việt + tên bước do máy chủ quyết — màn không in mã thô.
-                "event_label": action_label(r["event_type"]),
+                "event_label": action_label_theo_nguon(r["event_type"], r.get("nguon")),
                 "visit_id": r["visit_id"],
                 "from_node": r["from_node"],
                 "to_node": r["to_node"],
@@ -1022,6 +1051,11 @@ SELECT o.id::text,
                  ON d3.room_id IS NULL AND d3.clinic_id = r3.clinic_id
          WHERE r3.clinic_id = o.clinic_id AND r3.is_active AND r3.accepting
            AND NOT r3.la_doi_tac
+           -- Chỉ phòng ở cơ sở của lượt (08/10/2026) — không thì chọn được
+           -- phòng cơ sở kia rồi mới bị chặn khi xếp.
+           AND coalesce(r3.location_id, public.co_so_cua_luot(v.clinic_id, v.visit_id))
+               IS NOT DISTINCT FROM
+               coalesce(public.co_so_cua_luot(v.clinic_id, v.visit_id), r3.location_id)
            -- Dịch vụ gắn phòng riêng thì chỉ các phòng ấy (30/09/2026).
            AND public.phong_lam_duoc(r3.clinic_id, r3.id, o.node_code,
                                      o.service_code)

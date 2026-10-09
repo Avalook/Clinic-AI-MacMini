@@ -5,6 +5,7 @@
 // bắt đầu / xong. Ở đây chỉ còn: đổi thời điểm thành "chờ 12′", "làm 6′" theo
 // đồng hồ trình duyệt, và ghép câu hiển thị. Hàm thuần — test bằng node.
 
+import type { SoSua } from "./so-sua-chi-dinh.ts";
 import { fmtTime } from "./datetime.ts";
 
 /** Trạng thái một bước / một đoạn thanh. `khong` = lúc về vẫn chưa làm. */
@@ -89,6 +90,9 @@ export interface BuocHanhTrinh {
   dich_vu: TheDichVu[] | null;
   /** Bước CHƯA xảy ra (chữ giữ chỗ) — xám "dự kiến", không giờ. */
   du_kien?: boolean;
+  /** Bước Khám của lượt Điều trị / Khác chưa qua bàn khám (07/10/2026) — mờ
+   *  "tuỳ chọn", không phải việc còn thiếu. Máy chủ cũ chưa trả → không có. */
+  tuy_chon?: boolean;
   /** Chỗ là chữ giữ chỗ ("Bàn khám", chưa biết phòng thật). */
   noi_du_kien?: boolean;
   /** Sinh hiệu: giờ các lần đo lại + mọi lần đo kèm người đo. */
@@ -124,6 +128,8 @@ export interface HanhTrinhKhach {
   buoc: BuocHanhTrinh[];
   /** Lịch sử xếp / đổi phòng theo mã chỉ định (29/09/2026) — câu máy chủ viết. */
   lich_su_phong?: Record<string, DongLichSuPhong[]>;
+  /** Sổ thêm / bỏ / hoàn tác chỉ định (Khối 2, 06/10/2026) — dạng `SoSua`. */
+  so_sua_chi_dinh?: SoSua;
 }
 
 export interface DongLichSuPhong {

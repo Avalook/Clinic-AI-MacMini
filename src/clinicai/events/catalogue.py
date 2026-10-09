@@ -58,6 +58,10 @@ HANH_TRINH = "hanh_trinh_luot_kham"
 #: Khối CHUÔNG: sự kiện nào báo cho ai — người nhận là DỮ LIỆU
 #: (`day_nhan_thong_bao`), quản lý chỉnh trên màn.
 CHUONG = "chuong_thong_bao"
+#: Chuông NHẬN CHÉO (07/10/2026): phòng khác nhận khách lúc phòng A còn ĐANG
+#: LÀM (quên Xong) → réo A; lần làm ấy Xong / Gián đoạn / huỷ Bắt đầu → tự đóng
+#: (`events/consumers/chuong_nhan_cheo.py`).
+CHUONG_NHAN_CHEO = "chuong_nhan_cheo"
 #: Khối VÒNG ĐỌC: kết quả/dịch vụ vừa xong → mở vòng đọc cho bác sĩ chính và
 #: khép lượt khi không còn gì phải chờ (phát `visit.exam_completed`).
 VONG_DOC = "vong_doc_luot_kham"
@@ -69,6 +73,12 @@ DOI_TAC_NHAN_VIEC = "doi_tac_nhan_viec"
 #: Khối CÔNG NỢ (01/10/2026): nghe "đã thu tiền" → lượt có khoản ghi nợ mà nay
 #: hết nợ thì khoản ấy chuyển ĐÃ THU (`events/consumers/cong_no.py`).
 CONG_NO = "cong_no"
+#: Lịch ĐIỀU TRỊ (07/10/2026): khách đã vào hàng → sinh sẵn chỉ định đúng dịch vụ
+#: đã đặt (`events/consumers/dieu_tri.py`). Không xếp phòng, không thu tiền khám.
+DIEU_TRI_SINH_CHI_DINH = "dieu_tri_sinh_chi_dinh"
+#: Liệu trình SẮP HẾT (08/10/2026): một buổi của liệu trình làm xong mà liệu trình
+#: chạm ngưỡng → chuông cho CSKH (`events/consumers/lieu_trinh_sap_het.py`).
+LIEU_TRINH_SAP_HET = "lieu_trinh_sap_het"
 
 
 @dataclass(frozen=True)
@@ -153,6 +163,56 @@ class VatTuDaDoi(PayloadSuKien):
     don_gia: int
     #: Hàng phải có quản lý duyệt (vòng Mirena thứ 2…).
     can_ql_duyet: bool = False
+
+
+class LieuTrinhDaTao(PayloadSuKien):
+    """`lieu_trinh.created` — bác sĩ / ĐD / TKYK đề xuất một liệu trình điều trị
+    nhiều buổi (08/10/2026). Có `service_order_id` = chỉ định hôm nay là buổi 1;
+    rỗng = "chỉ đề xuất, không làm hôm nay". Không có tên khách."""
+
+    lieu_trinh_id: str
+    clinic_patient_id: str
+    service_code: str
+    so_buoi: int
+    visit_id: str | None = None
+    service_order_id: str | None = None
+
+
+class LieuTrinhDaSua(PayloadSuKien):
+    """`lieu_trinh.revised` — kế hoạch liệu trình đổi do NGƯỜI bấm: `hanh_dong` =
+    DIEU_CHINH | DANG_KY | DUNG | MO_LAI | HOAN_TAC. Đổi tự động (tự thêm buổi,
+    tự sang Xong) chỉ nằm ở lịch sử liệu trình, không phát sự kiện."""
+
+    lieu_trinh_id: str
+    clinic_patient_id: str
+    hanh_dong: str
+    revision: int
+    trang_thai: str
+    so_buoi: int
+
+
+class LieuTrinhBuoiDaDoi(PayloadSuKien):
+    """`lieu_trinh.session_relinked` — người gắn (`GAN`) hoặc gỡ (`GO`) một chỉ
+    định khỏi liệu trình bằng tay. Gắn / gỡ tự động theo trạng thái chỉ định là
+    hệ quả của sự kiện chỉ định, không phát lại."""
+
+    lieu_trinh_id: str
+    service_order_id: str
+    hanh_dong: str
+    buoi_so: int | None = None
+
+
+class LieuTrinhTraTruocDaDat(PayloadSuKien):
+    """`lieu_trinh.prepay_set` — quầy thu dịch vụ đặt (`dat`) hoặc bỏ (`bo`) dòng
+    "trả trước k buổi" liệu trình trong hoá đơn đang thu (08/10/2026). Chưa phải
+    tiền đã thu — tiền là lần thu dịch vụ của lượt."""
+
+    visit_id: str
+    lieu_trinh_id: str
+    tra_truoc_id: str
+    so_buoi: int
+    don_gia: int
+    hanh_dong: str
 
 
 class DichVuKhamDaDoi(PayloadSuKien):
@@ -390,6 +450,9 @@ class LichDaDoiDichVu(PayloadSuKien):
     den_dich_vu_id: str
     tu_ten: str | None = None
     den_ten: str | None = None
+    #: Đổi ngay TRONG HỒ SƠ KHÁM (bác sĩ / ĐD / thư ký / trưởng ca / QL, 07/10/2026)
+    #: — đã có phiếu / đã thu / đã tick vẫn đổi được; phiếu cũ giữ nguyên.
+    trong_ho_so: bool = False
 
 
 class KhachKhongDen(PayloadSuKien):
@@ -627,6 +690,20 @@ class PhienKhamBatDau(PayloadSuKien):
     loai: str
 
 
+class PhienKhamTiepTuc(PayloadSuKien):
+    """`consultation.resumed` — khách quay lại, bác sĩ bấm "Bắt đầu khám" lần
+    nữa (07/10/2026). Cột `serving_at` của chỗ chờ là giá trị HIỆN TẠI; mốc lần
+    trước nằm ở đây để không mất. `lan` = lần bắt đầu thứ mấy (lần đầu là
+    `consultation.started`)."""
+
+    visit_id: str
+    consultation_id: str
+    loai: str
+    lan: int
+    quay_ve_hang_luc: str | None = None
+    bat_dau_lan_truoc_luc: str | None = None
+
+
 class TuVanXong(PayloadSuKien):
     """`consultation.handed_over` — bác sĩ tư vấn xong, chuyển bác sĩ chính."""
 
@@ -683,6 +760,11 @@ class DichVuDaBatDau(PayloadSuKien):
     attempt_no: int
     room_id: str | None = None
     execution_revision: int
+    #: Nơi làm khi KHÔNG phải phòng của chỉ định: "BAN_KHAM" (07/10/2026).
+    noi_lam: str | None = None
+    #: Làm tại bàn khám đã CHỐT HỘ lựa chọn của khách cho đúng chỉ định này
+    #: (bác sĩ làm = khách đồng ý) — hoàn tác Bắt đầu trả lại (07/10/2026).
+    chot_lua_chon: bool = False
 
 
 class ThuocQuayDaChinh(PayloadSuKien):
@@ -766,6 +848,7 @@ class DichVuDaXong(PayloadSuKien):
     attempt_id: str
     attempt_no: int
     execution_revision: int
+    noi_lam: str | None = None
 
 
 class DichVuKhongLam(PayloadSuKien):
@@ -810,6 +893,85 @@ class DaXepPhong(PayloadSuKien):
     #: Dây H4 xếp đúng PHÒNG DỰ KIẾN ai đặt trước (quay_thu · truong_ca) — lịch
     #: sử nói "tự động theo phòng trưởng ca chọn trước" (29/09/2026).
     du_kien_nguon: str | None = None
+    #: NHẬN TẠI PHÒNG (nguon='tai_phong', 07/10/2026) — đối chiếu hướng dẫn ↔
+    #: thực tế: phòng quầy hướng dẫn, có đúng không, thứ tự trên phiếu hướng dẫn
+    #: và thứ tự phòng khách thật sự đi; phòng khách vừa rời nếu là nhận chéo.
+    huong_dan_room_id: str | None = None
+    dung_huong_dan: bool | None = None
+    thu_tu_huong_dan: int | None = None
+    thu_tu_thuc_te: int | None = None
+    nhan_cheo_tu_room_id: str | None = None
+    #: Mã MỘT lần bấm Nhận tại phòng (cùng mã ở `service.room_released` của
+    #: lần ấy) — để hoàn tác dựng lại đúng chỗ ở phòng cũ.
+    lan_nhan_id: str | None = None
+
+
+class KhachRoiPhong(PayloadSuKien):
+    """`service.room_released` — khách rời hàng một phòng mà chỉ định chưa làm
+    xong, CHỈ do thao tác thật của người bấm (Tuyền 07/10/2026 — không có nút
+    Nhả, không tự nhả). `ly_do`: NHAN_CHEO (phòng khác bấm Nhận) · BO_DICH_VU
+    (quầy bỏ dịch vụ). Bấm Xong đóng đúng chỉ định ấy — mốc là `service.completed`.
+    `trang_thai_truoc` = 'cho' / 'lam': khách đang làm thì lần làm GIỮ mở
+    (`attempt_id`), phòng tự bấm Xong / Gián đoạn."""
+
+    visit_id: str
+    service_order_id: str
+    room_id: str
+    ly_do: str
+    trang_thai_truoc: str
+    sang_room_id: str | None = None
+    attempt_id: str | None = None
+    routing_revision: int | None = None
+    huong_dan_room_id: str | None = None
+    #: Mã MỘT lần bấm Nhận (cùng mã ở `service.routed` của lần ấy) — hoàn tác
+    #: Nhận biết chỗ nào ở phòng cũ do chính lần ấy đóng để dựng lại.
+    lan_nhan_id: str | None = None
+
+
+class NhanVaoPhongDaHoanTac(PayloadSuKien):
+    """`service.room_receive_undone` — hoàn tác Nhận: chỉ định về "Sắp đến"
+    (không như huỷ xếp phòng — không đẻ việc cho trưởng ca). Lần Nhận ấy là
+    NHẬN CHÉO (chỉ định đang chờ ở phòng khác) → chỉ định về lại đúng hàng phòng
+    cũ (`tra_ve_room_id`), giờ vào hàng cũ — không về "Sắp đến"."""
+
+    visit_id: str
+    service_order_id: str
+    room_id: str
+    hoan_tac_event_id: str | None = None
+    routing_revision: int
+    tra_ve_room_id: str | None = None
+
+
+class NhaPhongDaHoanTac(PayloadSuKien):
+    """`service.room_release_undone` — hoàn tác lần Nhận chéo dựng lại chỗ của
+    khách ở phòng cũ (chỗ ấy đóng vì phòng khác Nhận). `trang_thai` = trạng thái
+    chỗ chờ được dựng lại ('waiting' / 'serving'); không dựng lại được nguyên
+    trạng (khách đang được làm ở chỗ khác) thì 'waiting' kèm `ghi_chu`."""
+
+    visit_id: str
+    service_order_id: str
+    room_id: str
+    trang_thai: str
+    hoan_tac_event_id: str | None = None
+    routing_revision: int | None = None
+    ghi_chu: str | None = None
+    #: Lần làm ở phòng cũ còn mở (khách đang LÀM lúc bị nhận chéo) — chuông
+    #: nhận chéo của lần ấy tự đóng.
+    attempt_id: str | None = None
+    #: Lựa chọn bác sĩ ở phòng cũ được dựng lại (đổi phòng đã xoá nó).
+    bac_si_id: str | None = None
+
+
+class HuongDanPhong(PayloadSuKien):
+    """`service.room_guided` — đặt / đổi / bỏ PHÒNG HƯỚNG DẪN của chỉ định
+    (`phong_du_kien_id`). Mỗi lần đổi một sự kiện — người đặt sau không xoá dấu
+    người đặt trước. `room_id` None = bỏ chọn."""
+
+    visit_id: str
+    service_order_id: str
+    room_id: str | None = None
+    tu_room_id: str | None = None
+    nguon: str | None = None
 
 
 class DichVuDaChuyenPhong(PayloadSuKien):
@@ -902,6 +1064,11 @@ class DichVuDaHuyBatDau(PayloadSuKien):
     attempt_no: int
     room_id: str | None = None
     execution_revision: int
+    noi_lam: str | None = None
+    #: Lần làm đã chốt hộ lựa chọn của khách → hoàn tác trả lựa chọn về giá trị
+    #: này (vd "PENDING"). None = không trả (không chốt hộ, hoặc quầy đã chốt
+    #: lại lượt sau đó — lựa chọn người sau giữ nguyên).
+    tra_lua_chon_ve: str | None = None
 
 
 # ── cong_no ─────────────────────────────────────────────────────────────────
@@ -967,6 +1134,19 @@ class ChiDinhDaHuy(PayloadSuKien):
     ly_do: str | None = None
 
 
+class ChiDinhDatLai(PayloadSuKien):
+    """`service_order.restored` — HOÀN TÁC một lần bỏ chỉ định (Khối 2,
+    06/10/2026): chỉ định quay lại "chưa xếp phòng", khoản đã thu (nếu có) thôi
+    là tiền thừa. Thường do bác sĩ chính bấm ở thông báo "chỉ định bị bỏ"."""
+
+    visit_id: str
+    service_order_id: str
+    service_code: str
+    service_name: str
+    so_sua_id: str
+    ly_do: str | None = None
+
+
 class DichVuHoanTacXong(PayloadSuKien):
     """`service.completion_undone` — hoàn tác "Xong" của một dịch vụ: lần làm
     về lại đang làm, khách về lại phòng (kết quả đã gõ giữ nguyên)."""
@@ -978,6 +1158,7 @@ class DichVuHoanTacXong(PayloadSuKien):
     execution_revision: int
     mo_lai_kham_xong: bool = False
     ly_do: str | None = None
+    noi_lam: str | None = None
 
 
 class KetQuaThuHoiDuyet(PayloadSuKien):
@@ -1032,6 +1213,42 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(
+            ten="lieu_trinh.created",
+            version=1,
+            aggregate_type="lieu_trinh",
+            source_module="lieu_trinh",
+            payload=LieuTrinhDaTao,
+            nhan="Đề xuất liệu trình",
+            is_public=False,
+        ),
+        SuKien(
+            ten="lieu_trinh.revised",
+            version=1,
+            aggregate_type="lieu_trinh",
+            source_module="lieu_trinh",
+            payload=LieuTrinhDaSua,
+            nhan="Sửa liệu trình",
+            is_public=False,
+        ),
+        SuKien(
+            ten="lieu_trinh.session_relinked",
+            version=1,
+            aggregate_type="lieu_trinh",
+            source_module="lieu_trinh",
+            payload=LieuTrinhBuoiDaDoi,
+            nhan="Gắn / gỡ buổi liệu trình",
+            is_public=False,
+        ),
+        SuKien(
+            ten="lieu_trinh.prepay_set",
+            version=1,
+            aggregate_type="lieu_trinh",
+            source_module="lieu_trinh",
+            payload=LieuTrinhTraTruocDaDat,
+            nhan="Trả trước liệu trình",
+            is_public=False,
+        ),
+        SuKien(
             ten="visit.supply_changed",
             version=1,
             aggregate_type="visit",
@@ -1080,7 +1297,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="hanh_trinh",
             payload=DaXepDuongDi,
             nhan="Xếp khách vào hàng",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, DIEU_TRI_SINH_CHI_DINH],
         ),
         SuKien(
             ten="visit.exam_completed",
@@ -1098,6 +1315,15 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="consultation",
             payload=PhienKhamBatDau,
             nhan="Bắt đầu khám",
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="consultation.resumed",
+            version=1,
+            aggregate_type="consultation",
+            source_module="consultation",
+            payload=PhienKhamTiepTuc,
+            nhan="Khách quay lại — tiếp tục khám",
             consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(
@@ -1220,7 +1446,14 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuDaXong,
             nhan="Đã làm xong dịch vụ",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, VONG_DOC, DOI_TAC_NHAN_VIEC],
+            consumers=[
+                DONG_THOI_GIAN_LUOT,
+                HANH_TRINH,
+                VONG_DOC,
+                DOI_TAC_NHAN_VIEC,
+                CHUONG_NHAN_CHEO,
+                LIEU_TRINH_SAP_HET,
+            ],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -1242,7 +1475,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuGianDoan,
             nhan="Dừng giữa chừng",
-            consumers=[DONG_THOI_GIAN_LUOT, TRACH_NHIEM_DICH_VU],
+            consumers=[DONG_THOI_GIAN_LUOT, TRACH_NHIEM_DICH_VU, CHUONG_NHAN_CHEO],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -1274,7 +1507,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuDaHuyBatDau,
             nhan="Huỷ bắt đầu nhầm",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG_NHAN_CHEO],
             theo_thu_tu=True,
         ),
         # ── Hoàn tác (01/10/2026) — chỉ lên dòng thời gian: mỗi lệnh hoàn tác
@@ -1308,6 +1541,17 @@ DANH_MUC: dict[str, SuKien] = {
             payload=ChiDinhDaHuy,
             nhan="Bỏ chỉ định",
             consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="service_order.restored",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_order",
+            payload=ChiDinhDatLai,
+            nhan="Hoàn tác bỏ chỉ định",
+            # HÀNH TRÌNH: chỉ định vừa quay lại đi đúng cửa làm như lúc khách
+            # vừa chốt (đã thu → xếp phòng ngay).
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
         ),
         SuKien(
             ten="consultation.reopened",
@@ -1370,6 +1614,48 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="service_routing",
             payload=DaChonBacSiLam,
             nhan="Chọn bác sĩ làm trong phòng",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        # Nhận khách tại phòng (07/10/2026) — Nhận = `service.routed` nguồn
+        # 'tai_phong'; ba sự kiện dưới là rời phòng, hoàn tác Nhận, hướng dẫn.
+        SuKien(
+            ten="service.room_released",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_routing",
+            payload=KhachRoiPhong,
+            nhan="Khách rời phòng (nhả)",
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG_NHAN_CHEO],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service.room_receive_undone",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_routing",
+            payload=NhanVaoPhongDaHoanTac,
+            nhan="Hoàn tác nhận khách vào phòng",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service.room_release_undone",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_routing",
+            payload=NhaPhongDaHoanTac,
+            nhan="Hoàn tác khách rời phòng (về lại phòng cũ)",
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG_NHAN_CHEO],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="service.room_guided",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_routing",
+            payload=HuongDanPhong,
+            nhan="Hướng dẫn phòng làm dịch vụ",
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
@@ -1824,12 +2110,15 @@ def moi_consumer() -> frozenset[str]:
 
 __all__ = [
     "CONG_NO",
+    "DIEU_TRI_SINH_CHI_DINH",
+    "LIEU_TRINH_SAP_HET",
     "CongNoDaGhi",
     "CongNoDaHuy",
     "CongNoDaThu",
     "DANH_MUC",
     "HANH_TRINH",
     "ChiDinhDaHuy",
+    "ChiDinhDatLai",
     "DichVuHoanTacXong",
     "KetQuaThuHoiDuyet",
     "LuotMoLai",
@@ -1839,9 +2128,15 @@ __all__ = [
     "DaChonBacSiLam",
     "DaXepPhong",
     "DichVuDaChuyenPhong",
+    "HuongDanPhong",
+    "KhachRoiPhong",
+    "NhaPhongDaHoanTac",
+    "NhanVaoPhongDaHoanTac",
+    "PhienKhamTiepTuc",
     "TienDichVuDaThu",
     "TienThuocDaThu",
     "CHUONG",
+    "CHUONG_NHAN_CHEO",
     "TepKetQuaDaVe",
     "TepKetQuaDaXacNhan",
     "TepKetQuaDaXem",

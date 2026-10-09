@@ -99,6 +99,8 @@ MODULE: dict[str, Module] = {
                 "service_order.desk_added",
                 "service_order.desk_removed",
                 "service_order.cancelled",
+                # Hoàn tác bỏ chỉ định (Khối 2, 06/10/2026).
+                "service_order.restored",
             ],
             bang=["service_order", "lam_them_tai_quay"],
             quyen=["clinical.order.place"],
@@ -111,6 +113,40 @@ MODULE: dict[str, Module] = {
             lenh=["AddSupplyToBill", "SetSupplyQuantity", "RemoveSupply"],
             phat=["visit.supply_changed"],
             bang=["luot_vat_tu", "vat_tu_goi_y"],
+        ),
+        Module(
+            ma="lieu_trinh",
+            ten="Liệu trình điều trị nhiều buổi",
+            # 08/10/2026: kế hoạch số buổi + đơn giá chốt; mỗi buổi vẫn là một
+            # chỉ định thường — gắn / gỡ buổi bằng trigger Postgres trên
+            # service_order (một chỗ cho mọi đường tạo chỉ định).
+            lenh=[
+                "ProposeTreatmentPlan",
+                "AdjustTreatmentPlan",
+                "RegisterTreatmentPlan",
+                "StopTreatmentPlan",
+                "ReopenTreatmentPlan",
+                "UndoTreatmentPlanChange",
+                "LinkPlanSession",
+                "UnlinkPlanSession",
+                "SetPlanPrepayment",
+                "RemovePlanPrepayment",
+            ],
+            phat=[
+                "lieu_trinh.created",
+                "lieu_trinh.revised",
+                "lieu_trinh.session_relinked",
+                "lieu_trinh.prepay_set",
+            ],
+            # Buổi làm xong mà liệu trình sắp hết → chuông CSKH (08/10/2026).
+            nghe=["service.completed"],
+            ben_nhan=["lieu_trinh_sap_het"],
+            bang=[
+                "lieu_trinh",
+                "lieu_trinh_lich_su",
+                "lieu_trinh_buoi",
+                "lieu_trinh_tra_truoc",
+            ],
         ),
         Module(
             ma="phi_kham",
@@ -151,6 +187,9 @@ MODULE: dict[str, Module] = {
                 "PlanServiceRoom",
                 # Trưởng ca chuyển phòng khi dịch vụ đang làm (29/09/2026).
                 "TransferInProgressService",
+                # Nhận khách tại phòng (07/10/2026): Nhận + hoàn tác Nhận.
+                "ReceiveAtRoom",
+                "UndoReceiveAtRoom",
             ],
             # Huỷ xếp phòng là sự thật nghiệp vụ, không chỉ là dòng nhật ký:
             # phòng mất thì phải có người xếp lại, và người ấy nhận việc qua
@@ -160,6 +199,10 @@ MODULE: dict[str, Module] = {
                 "service.routing_invalidated",
                 "service.room_transferred",
                 "service.doctor_chosen",
+                "service.room_released",
+                "service.room_receive_undone",
+                "service.room_release_undone",
+                "service.room_guided",
             ],
             bang=["queue_entry"],
             quyen=[
@@ -184,6 +227,12 @@ MODULE: dict[str, Module] = {
                 "CancelMistakenStart",
                 # Hoàn tác "Xong" (01/10/2026) — lần làm về lại đang làm.
                 "UndoServiceCompletion",
+                # LÀM TẠI BÀN KHÁM (07/10/2026): bác sĩ làm chỉ định điều trị
+                # ngay ở bàn khám — lần làm `noi_lam = BAN_KHAM`, cùng cửa tiền.
+                "StartServiceAtDesk",
+                "CompleteServiceAtDesk",
+                "CancelDeskStart",
+                "UndoDeskCompletion",
             ],
             phat=[
                 "service.started",
@@ -318,6 +367,7 @@ MODULE: dict[str, Module] = {
                 # Hoàn tác (01/10/2026) — lên dòng thời gian của lượt.
                 "service.completion_undone",
                 "service_order.cancelled",
+                "service_order.restored",
                 "consultation.reopened",
                 "visit.reopened",
                 "result.approval_revoked",
@@ -333,6 +383,11 @@ MODULE: dict[str, Module] = {
                 "service.routed",
                 "service.room_transferred",
                 "service.doctor_chosen",
+                "service.room_released",
+                "service.room_receive_undone",
+                "service.room_release_undone",
+                "service.room_guided",
+                "consultation.resumed",
                 "service_order.carried_over",
                 "service_order.required_changed",
                 "payment.service_collected",
@@ -438,6 +493,7 @@ MODULE: dict[str, Module] = {
                 "payment.medicine_collected",
                 "service_selection.confirmed",
                 "service_order.desk_added",
+                "service_order.restored",
                 "visit.defer_payment_set",
                 "visit.checked_out",
                 "visit.left_early",
@@ -482,6 +538,7 @@ MODULE: dict[str, Module] = {
             ],
             phat=[
                 "consultation.started",
+                "consultation.resumed",
                 "consultation.handed_over",
                 "consultation.completed",
                 "consultation.reopened",
@@ -613,6 +670,20 @@ MODULE: dict[str, Module] = {
             bang=["day_nhan_thong_bao"],
         ),
         Module(
+            ma="chuong_nhan_cheo",
+            ten="Chuông nhận chéo (phòng quên Xong)",
+            # CHỈ NGHE (07/10/2026): khách được phòng khác nhận lúc phòng cũ
+            # còn đang làm → réo phòng cũ; lần làm đóng → chuông tự đóng.
+            nghe=[
+                "service.room_released",
+                "service.completed",
+                "service.interrupted",
+                "service.start_cancelled",
+                "service.room_release_undone",
+            ],
+            ben_nhan=["chuong_nhan_cheo"],
+        ),
+        Module(
             ma="booking",
             ten="Đặt lịch",
             lenh=[
@@ -733,6 +804,24 @@ MODULE: dict[str, Module] = {
             ben_nhan=["cong_no"],
             bang=["cong_no"],
             projection=["khach_con_no"],
+        ),
+        # Lịch ĐIỀU TRỊ (07/10/2026): khách vào hàng → chỉ định sẵn đúng dịch vụ
+        # đã đặt (một service_order bình thường).
+        Module(
+            ma="dieu_tri",
+            ten="Điều trị theo lịch đặt + đổi dịch vụ trong hồ sơ",
+            lenh=["DoiDichVuTrongHoSo"],
+            nghe=["visit.routed"],
+            ben_nhan=["dieu_tri_sinh_chi_dinh"],
+            # Ô chữ tự do của hồ sơ lượt "Khác" (mỗi lần lưu một phiên bản).
+            bang=["luot_ghi_chu"],
+            # Thẻ chỉ định điều trị ở hồ sơ khám: [Làm tại bàn khám] → [Xong].
+            goi_dong_bo=[
+                "execution.StartServiceAtDesk",
+                "execution.CompleteServiceAtDesk",
+                "execution.CancelDeskStart",
+                "execution.UndoDeskCompletion",
+            ],
         ),
         Module(
             ma="van_hanh",

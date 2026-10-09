@@ -14,7 +14,7 @@ import asyncpg
 import structlog
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import doc_ngay_xem, hom_nay_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
@@ -213,6 +213,8 @@ class DoiTacService:
                    tt.ghi_luc AS thu_luc, tn.full_name AS thu_boi
               FROM service_order o
               JOIN visit v ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
+              LEFT JOIN appointment ap
+                ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
               JOIN patient p
                 ON p.clinic_patient_id = v.clinic_patient_id
                AND p.clinic_id = v.clinic_id
@@ -251,6 +253,11 @@ class DoiTacService:
                            AND t.service_order_id = o.id
                            AND (t.tai_len_luc AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                                = $2::date))
+               -- Cơ sở ($4): nhân viên nội bộ chỉ thấy việc của cơ sở đang
+               -- đứng; tài khoản đối tác ngoài nhận mẫu mọi cơ sở → $4 NULL.
+               AND coalesce(v.location_id, ap.location_id, $4::uuid)
+                   IS NOT DISTINCT FROM
+                   coalesce($4::uuid, v.location_id, ap.location_id)
              -- Việc CHƯA gửi trước, mới nhất trước: trần 300 dòng không bao giờ
              -- được cắt mất một chỉ định vừa gửi sang chỉ vì còn tồn việc cũ.
              ORDER BY (o.ket_qua_luc IS NOT NULL
@@ -261,6 +268,9 @@ class DoiTacService:
             identity.clinic_id,
             ngay_xem,
             la_hom_nay,
+            None
+            if identity.co_vai([ClinicRole.PARTNER])
+            else (identity.location_id or None),
         )
         canh_bao_neu_day("doi_tac.viec", len(rows), 300, clinic_id=identity.clinic_id)
         # LỊCH SỬ CÁC LẦN TẢI của từng việc (29/09/2026): tên, loại, giờ, AI tải
@@ -578,7 +588,12 @@ class DoiTacService:
                               AND phong_lam_duoc(r.clinic_id, r.id,
                                                  service_order.node_code,
                                                  service_order.service_code)
-                            ORDER BY r.sort LIMIT 1)),
+                            -- Phòng đối tác (ảo) của ĐÚNG cơ sở lượt trước (hai
+                            -- cơ sở, 08/10/2026); cơ sở chưa có thì dùng chung.
+                            ORDER BY (r.location_id IS NOT DISTINCT FROM
+                                      co_so_cua_luot(service_order.visit_id)) DESC,
+                                     r.sort
+                            LIMIT 1)),
                        assigned_by = coalesce(assigned_by, $3::uuid),
                        assigned_at = coalesce(assigned_at, now()),
                        started_at = coalesce(started_at, now()), finished_at = now(),

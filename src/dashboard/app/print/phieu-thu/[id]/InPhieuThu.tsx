@@ -38,6 +38,13 @@ export interface Phieu {
     ten: string;
     so_luong: number;
     thanh_tien: number | null;
+    /** Lần chỉ định (06/10/2026) — "Lần k"; null = tiền khám / mang sang. */
+    lan?: number | null;
+    /** Chỉ định đã bỏ sau khi thu — in lại ghi "đã bỏ", không in phòng. */
+    da_bo?: boolean;
+    /** Dòng "‹dịch vụ› — trả trước k buổi" của liệu trình (08/10/2026): in kèm
+     *  "(liệu trình)"; số buổi đã nằm trong tên nên không in "× k". */
+    lieu_trinh?: boolean;
     /** Phòng làm dịch vụ — in cho khách đi theo (30/09/2026). Chỉ dòng dịch vụ.
      *  Chỉ in TÊN PHÒNG, không in tầng (Tuyền 30/09/2026). */
     phong?: {
@@ -49,6 +56,10 @@ export interface Phieu {
     } | null;
     /** Vừa thu, máy chủ chưa xếp xong phòng (chạy nền) — bản in hỏi lại sau giây lát. */
     cho_xep?: boolean;
+    /** Dây Nhận tại phòng bật, chưa hướng dẫn phòng: các phòng làm được (07/10/2026). */
+    phong_lam_duoc?: string[];
+    /** …hoặc phòng chuyên ★ khi chỉ đúng MỘT phòng chuyên (máy chủ chọn). */
+    phong_chuyen?: string | null;
     /** Xếp / đổi phòng ngay trên trang phiếu (quên chọn phòng lúc thu). */
     order_id?: string;
     room_id?: string | null;
@@ -56,6 +67,8 @@ export interface Phieu {
     doi_phong_duoc?: boolean;
   }[];
   tong: number;
+  /** Phiếu hướng dẫn khi dây Nhận tại phòng bật: phòng in ra chỉ là hướng dẫn. */
+  huong_dan_phong?: boolean;
   hinh_thuc: string | null;
   /** Từng phần theo hình thức (01/10/2026: một lần thu = Tiền mặt + Chuyển khoản).
    *  Phiếu in mỗi phần một dòng. Máy chủ cũ không gửi → rơi về `hinh_thuc`. */
@@ -225,7 +238,9 @@ export function PhieuThuGiay({ p }: { p: Phieu }) {
             <tr key={i} className="border-b border-line">
               <td className="py-1">
                 {d.ten}
-                {d.so_luong !== 1 ? ` × ${d.so_luong}` : ""}
+                {d.lieu_trinh ? " (liệu trình)" : d.so_luong !== 1 ? ` × ${d.so_luong}` : ""}
+                {d.lan ? ` · Lần ${d.lan}` : ""}
+                {d.da_bo ? " · đã bỏ" : ""}
                 {d.phong ? (
                   <span className="block font-semibold">
                     → {d.phong.ten}
@@ -339,8 +354,12 @@ function PhieuHuongDanGiay({ p }: { p: Phieu }) {
                 <span className="block font-semibold">
                   → {d.phong.ten}
                   {d.phong.bac_si ? ` · ${d.phong.bac_si}` : ""}
-                  {d.phong.du_kien ? " (dự kiến)" : ""}
+                  {d.phong.du_kien ? (p.huong_dan_phong ? " (hướng dẫn)" : " (dự kiến)") : ""}
                 </span>
+              ) : d.phong_chuyen ? (
+                <span className="block text-ink-muted">→ {d.phong_chuyen} (hướng dẫn)</span>
+              ) : d.phong_lam_duoc?.length ? (
+                <span className="block text-ink-muted">→ Các phòng làm được: {d.phong_lam_duoc.join(", ")}</span>
               ) : (
                 <span className="block text-ink-muted">→ Chờ xếp phòng — xem màn hình gọi số</span>
               )}

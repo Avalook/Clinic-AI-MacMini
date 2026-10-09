@@ -27,6 +27,7 @@ import { useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { dongDangChon, tongTheoLuaChon } from "@/lib/hoa-don-quay";
+import { lenhLT, nhanBuoi } from "@/lib/lieu-trinh";
 import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "../_lam-viec/ChonBacSiLam";
 import OLamTruocThuSau, { type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
 import type { PhanGui } from "@/lib/hinh-thuc-thu";
@@ -39,13 +40,20 @@ export interface PhongChon {
   vang_nhat?: boolean;
   /** Phòng nhiều bác sĩ (30/09/2026): bác sĩ trực hôm nay — chỉ khi ≥2. */
   bac_si?: LuaChonBacSi[];
+  /** Phòng chuyên ★ (07/10/2026); `goi_y` = phòng chuyên DUY NHẤT — máy chủ gợi ý. */
+  chuyen?: boolean;
+  goi_y?: boolean;
 }
 
 export interface DongQuay {
+  /** Dòng trả trước liệu trình: id = dòng `lieu_trinh_tra_truoc` (nút [Bỏ]). */
   id: string;
   /** Chỉ dòng phụ thu: ID dịch vụ cha do máy chủ trả. */
   order_id?: string | null;
-  loai: "kham" | "chi_dinh" | "phu_thu" | "vat_tu";
+  loai: "kham" | "chi_dinh" | "phu_thu" | "vat_tu" | "lieu_trinh";
+  /** Chỉ định là một buổi liệu trình (08/10/2026): chip "Buổi k/N · đã trả trước";
+   *  buổi đã trả trước máy chủ đã để giá 0đ. */
+  lieu_trinh?: { lieu_trinh_id: string; buoi_so: number; so_buoi: number; tra_truoc: boolean } | null;
   ten: string | null;
   gia: number | null;
   van_de: string | null;
@@ -56,6 +64,8 @@ export interface DongQuay {
   mang_sang?: boolean;
   /** Làm thêm tại quầy (01/10/2026) — câu máy chủ viết; null = bác sĩ chỉ định. */
   lam_them?: string | null;
+  /** Lần chỉ định (06/10/2026) — máy chủ trả; null = mang sang / làm thêm tại quầy. */
+  lan?: number | null;
   doi_tac_lam?: boolean;
   doi_tac_da_thu?: boolean | null;
   phong_chon_duoc?: PhongChon[];
@@ -63,6 +73,8 @@ export interface DongQuay {
   /** Bác sĩ quầy đã chọn trong phòng nhiều bác sĩ. */
   bac_si_lam_id?: string | null;
   can_xep_phong?: boolean;
+  /** Dây Nhận tại phòng bật (07/10/2026): ô phòng là hướng dẫn, không bắt buộc. */
+  huong_dan?: boolean;
 }
 
 export interface QuayThu {
@@ -188,6 +200,15 @@ export default function HoaDonMot({
     onDoiPhong();
   };
 
+  // [Bỏ] dòng "trả trước k buổi" liệu trình (chưa thu) — máy chủ từ chối khi
+  // dòng đã nằm trong lần thu.
+  const boTraTruoc = async (id: string) => {
+    setLoiPhong(null);
+    const kq = await lenhLT("bo-tra-truoc", {}, id);
+    if (!kq.ok) setLoiPhong(kq.loi);
+    onDoiPhong();
+  };
+
   const conQuyet = qt.lua_chon.order_ids_seen.length > 0;
   const luaChon = () => {
     const seen = qt.lua_chon.order_ids_seen;
@@ -227,7 +248,14 @@ export default function HoaDonMot({
 
   return (
     <div className="space-y-3 px-4 py-3">
-      <DanhSach tieuDe="Phòng khám thu" ds={qt.phong_kham} dangChon={dangChon} doiTick={doiTick} datPhong={datPhong} />
+      <DanhSach
+        tieuDe="Phòng khám thu"
+        ds={qt.phong_kham}
+        dangChon={dangChon}
+        doiTick={doiTick}
+        datPhong={datPhong}
+        boTraTruoc={boTraTruoc}
+      />
       {qt.doi_tac.length > 0 ? (
         <DanhSach
           tieuDe="Thu hộ đối tác · không cộng"
@@ -353,6 +381,7 @@ function DanhSach({
   dangChon,
   doiTick,
   datPhong,
+  boTraTruoc,
   doiTac = false,
 }: {
   tieuDe: string;
@@ -360,6 +389,7 @@ function DanhSach({
   dangChon: (d: DongQuay) => boolean;
   doiTick: (id: string) => void;
   datPhong: (orderId: string, roomId: string, bacSi?: string) => Promise<void>;
+  boTraTruoc?: (id: string) => Promise<void>;
   doiTac?: boolean;
 }) {
   if (ds.length === 0) return null;
@@ -383,9 +413,16 @@ function DanhSach({
                   {d.ten ?? "—"}
                 </span>
                 {!co ? <span className="text-meta text-ink-muted">khách không làm</span> : null}
+                {d.lan ? <Chip tone="brand">Lần {d.lan}</Chip> : null}
                 {d.bat_buoc ? <Chip tone="warning">Bắt buộc</Chip> : null}
                 {d.mang_sang ? <Chip tone="neutral">Mang sang</Chip> : null}
                 {d.lam_them ? <Chip tone="info">{d.lam_them}</Chip> : null}
+                {d.lieu_trinh ? (
+                  <Chip tone={d.lieu_trinh.tra_truoc ? "success" : "brand"}>
+                    {nhanBuoi(d.lieu_trinh.buoi_so, d.lieu_trinh.so_buoi, d.lieu_trinh.tra_truoc)}
+                  </Chip>
+                ) : null}
+                {d.loai === "lieu_trinh" ? <Chip tone="brand">Liệu trình</Chip> : null}
                 {doiTac ? (
                   <Chip tone={d.doi_tac_da_thu ? "success" : "neutral"}>
                     {d.doi_tac_da_thu ? "đã thu hộ cho đối tác" : "chưa thu hộ cho đối tác"}
@@ -395,6 +432,11 @@ function DanhSach({
               <span className={`tabular-nums text-body ${doiTac || !co ? "text-ink-muted" : "text-ink"}`}>
                 {d.gia != null ? tien(d.gia) : "chưa có giá"}
               </span>
+              {d.loai === "lieu_trinh" && boTraTruoc ? (
+                <Button type="button" size="sm" variant="ghost" onClick={() => void boTraTruoc(d.id)}>
+                  Bỏ
+                </Button>
+              ) : null}
               {co && d.can_xep_phong && d.phong_chon_duoc?.length ? (
                 <select
                   aria-label={`Phòng làm ${d.ten ?? ""}`}
@@ -402,14 +444,33 @@ function DanhSach({
                   onChange={(e) => void datPhong(d.id, e.target.value)}
                   className="w-full rounded-control border border-line bg-surface px-2 py-1 text-meta text-ink-soft"
                 >
-                  <option value="">{doiTac ? "— Lấy mẫu: vui lòng chọn phòng —" : "— Vui lòng chọn phòng —"}</option>
+                  <option value="">
+                    {d.huong_dan
+                      ? "— Hướng dẫn phòng (không bắt buộc) —"
+                      : doiTac
+                        ? "— Lấy mẫu: vui lòng chọn phòng —"
+                        : "— Vui lòng chọn phòng —"}
+                  </option>
                   {d.phong_chon_duoc.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.ten} · {p.dang_cho} đang chờ
+                      {p.ten}
+                      {p.chuyen ? " ★" : ""} · {p.dang_cho} đang chờ
                     </option>
                   ))}
                 </select>
               ) : null}
+              {/* GỢI Ý phòng chuyên ★ (07/10/2026) — chỉ gợi ý, người bấm mới lưu. */}
+              {(() => {
+                const goiY = d.huong_dan && !d.phong_du_kien_id ? d.phong_chon_duoc?.find((p) => p.goi_y) : undefined;
+                return co && d.can_xep_phong && goiY ? (
+                  <p className="flex w-full flex-wrap items-center gap-2 text-meta text-ink-muted">
+                    Gợi ý: {goiY.ten} ★ (phòng chuyên, chưa lưu)
+                    <Button type="button" size="sm" variant="soft" onClick={() => void datPhong(d.id, goiY.id)}>
+                      Hướng dẫn tới đây
+                    </Button>
+                  </p>
+                ) : null;
+              })()}
               {(() => {
                 const phongId = d.phong_du_kien_id ?? "";
                 const bs = d.phong_chon_duoc?.find((p) => p.id === phongId)?.bac_si;

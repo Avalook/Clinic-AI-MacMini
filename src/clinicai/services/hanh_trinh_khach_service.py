@@ -9,7 +9,8 @@ Hai dạng của CÙNG một dữ liệu:
 * **đầy đủ** (popup): ĐANG Ở + TIẾP THEO (phòng kế, STT, số người chờ) và dòng
   thời gian dọc Check-in → Sinh hiệu → (Tư vấn) → Khám bác sĩ chính → Làm dịch
   vụ song song (mỗi chỉ định một thẻ) → Quay lại bác sĩ → Thuốc → Check-out; mỗi
-  bước có giờ VÀO HÀNG / BẮT ĐẦU / XONG khi có dữ liệu.
+  bước có giờ VÀO HÀNG / BẮT ĐẦU / XONG khi có dữ liệu. Đó là KHUÔN; bước đã
+  xảy ra xếp theo giờ thật (`xep_theo_gio`), bước chưa xảy ra theo khuôn.
 
 CHỈ ĐỌC, KHÔNG LUẬT THỨ HAI, KHÔNG BẢNG MỚI. Mốc thời gian đọc đúng hàm của dải
 mốc phiếu khám (`phieu_kham.hanh_trinh.dung_moc` — dựng từ projection
@@ -50,6 +51,7 @@ from clinicai.phieu_kham.hanh_trinh import (
 )
 from clinicai.services.lan_bac_si import noi_lam
 from clinicai.services.lich_su_phong import lich_su_phong_cua_luot
+from clinicai.services.so_sua_chi_dinh_service import doc_so
 from clinicai.services.xem_luot_service import goi_duoc
 
 #: Trạng thái một bước / một đoạn thanh (giao diện map sang màu token).
@@ -68,6 +70,10 @@ DV_DOI_TAC = "DOI_TAC"
 TRAN_LUOT = 300
 
 _HANG_SONG = ("waiting", "called", "serving", "blocked")
+
+#: Nhóm loại khám đi thẳng phòng làm (`service_type.nhom`, 07/10/2026) — khám
+#: bác sĩ là tuỳ chọn khi bác sĩ chưa từng bắt đầu.
+_NHOM_DI_THANG = ("DIEU_TRI", "KHAC")
 
 # Mốc canh để xếp khi thiếu giờ (datetime.min có múi giờ tràn số khi so sánh).
 _SOM = datetime(1970, 1, 1, tzinfo=UTC)
@@ -194,6 +200,25 @@ def _ban_kham_bs(ten: str | None) -> str:
     )
 
 
+def xep_theo_gio(buoc: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Thứ tự dòng thời gian — HÀM THUẦN (Tuyền 07/10/2026: lượt Laser hiện
+    "Khám bác sĩ chính 15:36" TRƯỚC "Làm dịch vụ 15:35" vì xếp theo khuôn).
+
+    Check-in đầu, Check-out cuối. Giữa hai mốc: bước ĐÃ XẢY RA (có giờ bắt đầu,
+    thiếu thì giờ xong) theo giờ thật; bước chưa xảy ra (dự kiến / chờ / không
+    làm) đứng sau, theo khuôn. Trùng giờ giữ thứ tự khuôn (sắp xếp ổn định)."""
+
+    def moc(b: dict[str, Any]) -> datetime | None:
+        return _gio(b.get("bat_dau")) or _gio(b.get("xong"))
+
+    dau = [b for b in buoc if b.get("ma") == "CHECK_IN"]
+    cuoi = [b for b in buoc if b.get("ma") == "CHECK_OUT"]
+    giua = [b for b in buoc if b.get("ma") not in ("CHECK_IN", "CHECK_OUT")]
+    da_xay_ra = sorted((b for b in giua if moc(b)), key=lambda b: moc(b) or _SOM)
+    chua = [b for b in giua if not moc(b)]
+    return [*dau, *da_xay_ra, *chua, *cuoi]
+
+
 def _the_dich_vu(
     tung: dict[str, Any],
     goc: dict[str, Any],
@@ -312,7 +337,8 @@ def dung_hanh_trinh_khach(
 ) -> dict[str, Any]:
     """Hàm THUẦN — kiểm được không cần DB.
 
-    `luot`: {visit_id, status, checked_in_at, closed_at, dat_luc}.
+    `luot`: {visit_id, status, checked_in_at, closed_at, dat_luc,
+    nhom_loai_kham}.
     `su_kien`: (event_type, occurred_at, chi_tiet) — như `dung_moc`.
     `chi_dinh`: dòng của `_chi_dinh` (phiếu khám).
     `hang`: mọi chỗ chờ của lượt — {id, lane, reason, ref_id, status,
@@ -504,6 +530,10 @@ def dung_hanh_trinh_khach(
     lam = [o for o in chi_dinh if o.get("chon") and not o.get("lam_them")]
     thu = moc.get("THU_TIEN")
     bs_chinh = (p_chinh or {}).get("bac_si") or (q_chinh or {}).get("bac_si")
+    # Lượt đặt loại Điều trị / Khác mà bác sĩ CHƯA TỪNG bắt đầu khám (Tuyền
+    # 07/10/2026): khách đi thẳng phòng làm — khám bác sĩ là TUỲ CHỌN, không
+    # phải bước còn thiếu; không có bước "Quay lại bác sĩ chính" treo chờ.
+    bo_ban_kham = luot.get("nhom_loai_kham") in _NHOM_DI_THANG and bat_kham is None
     them(
         "KHAM",
         "Khám bác sĩ chính",
@@ -511,6 +541,8 @@ def dung_hanh_trinh_khach(
         if xong_kham
         else DANG
         if bat_kham
+        else CHUA
+        if bo_ban_kham
         else CHO
         if q_chinh and q_chinh.get("status") in _HANG_SONG
         else CHUA,
@@ -532,6 +564,7 @@ def dung_hanh_trinh_khach(
         thu_luc=thu["ket"] if thu else None,
         nguoi_thu=ai.get("payment.service_collected") if thu and thu["ket"] else None,
         cho_thu=int(thu.get("con_cho") or 0) if thu else 0,
+        tuy_chon=bo_ban_kham,
     )
 
     # 5. Làm dịch vụ song song — mỗi chỉ định một thẻ.
@@ -568,7 +601,7 @@ def dung_hanh_trinh_khach(
     dk = moc.get("DOC_KQ")
     p_doc = phien_cua("REVIEW")
     q_doc = hang_cua("REVIEW")
-    if the or dk or p_doc or q_doc:
+    if (the and not bo_ban_kham) or dk or p_doc or q_doc:
         bat = (dk["bat"] if dk else None) or (
             _gio(p_doc.get("started_at")) if p_doc else None
         )
@@ -634,6 +667,7 @@ def dung_hanh_trinh_khach(
         bat_dau=ve_luc,
         xong=ve_luc,
     )
+    buoc[:] = xep_theo_gio(buoc)
 
     # ── ĐANG Ở ĐÂU ─────────────────────────────────────────────────────────
     dang_phuc_vu = sorted(
@@ -735,6 +769,7 @@ def dung_hanh_trinh_khach(
                     for b in buoc
                     if b["trang_thai"] in (CHO, CHUA)
                     and b["ma"] != "CHECK_IN"
+                    and not b.get("tuy_chon")
                     and b["noi"] != o["noi"]
                 ),
                 None,
@@ -865,9 +900,14 @@ _SQL_LUOT = """
            (coalesce(v.checked_in_at, v.created_at)
                 AT TIME ZONE 'Asia/Ho_Chi_Minh')::date AS ngay,
            EXISTS (SELECT 1 FROM lich_su_notion.luot_that t
-                    WHERE t.visit_id = v.visit_id) AS ho_so_cu
+                    WHERE t.visit_id = v.visit_id) AS ho_so_cu,
+           -- Nhóm loại khám (KHAM/DIEU_TRI/THUOC/KHAC, mig 20261007600000). Đọc
+           -- qua to_jsonb: DB chưa có cột thì ra NULL = luật cũ, không vỡ câu.
+           to_jsonb(st) ->> 'nhom' AS nhom_loai_kham
       FROM visit v
       LEFT JOIN appointment a ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+      LEFT JOIN service_type st
+        ON st.id = coalesce(v.service_type_id, a.service_type_id)
      WHERE v.clinic_id = $1::uuid AND v.visit_id = ANY($2::uuid[])
 """
 
@@ -1123,6 +1163,9 @@ class HanhTrinhKhachService:
                     conn, clinic_id=identity.clinic_id, visit_id=ma[0]
                 )
             )
+            # Sổ thêm / bỏ / hoàn tác chỉ định (Khối 2, 06/10/2026) — cùng dữ
+            # liệu mục "Lịch sử sửa" của phiếu khám.
+            kq[ma[0]]["so_sua_chi_dinh"] = await doc_so(conn, identity.clinic_id, ma[0])
         return kq[ma[0]]
 
     async def gon_nhieu_luot(
@@ -1149,4 +1192,5 @@ __all__ = [
     "doc_ma_luot",
     "dung_hanh_trinh_khach",
     "noi_cua_hang",
+    "xep_theo_gio",
 ]

@@ -78,6 +78,9 @@ class RequirementView:
     #: bao giờ tự đạt, trả về bác sĩ quyết (24/09/2026, bộ mô phỏng bắt được
     #: vòng đọc treo mãi khi khách bỏ bớt chỉ định).
     selection_status: str | None = None
+    #: Lần làm gần nhất diễn ra NGAY TẠI BÀN KHÁM (`noi_lam = BAN_KHAM`): bác sĩ
+    #: tự làm nên không có gì phải "đọc kết quả" của chính dịch vụ ấy.
+    lam_tai_ban_kham: bool = False
 
 
 def requirement_met(req: RequirementView) -> bool:
@@ -124,13 +127,18 @@ def round_ready(reqs: Sequence[RequirementView]) -> bool:
 
 
 def vong_khong_can_doc(reqs: Sequence[RequirementView]) -> bool:
-    """Mọi yêu cầu đã được bác sĩ miễn hoặc chuyển theo dõi: không có gì để đọc.
+    """Mọi yêu cầu đã được bác sĩ miễn, chuyển theo dõi, hoặc là dịch vụ bác sĩ
+    TỰ LÀM tại bàn khám và đã xong: không có gì để đọc.
 
     Khi ấy vòng đóng luôn, khách không phải quay lại bác sĩ — đúng nghĩa
-    FOLLOW_UP "không giữ lượt chờ". Tập rỗng không tính.
+    FOLLOW_UP "không giữ lượt chờ". Làm tại bàn khám (Tuyền 07/10/2026): bác sĩ
+    làm ngay trước mặt, không sinh "Kết quả cần đọc" cho chính dịch vụ ấy; dịch
+    vụ khác của vòng (làm ở phòng) vẫn giữ vòng như cũ. Tập rỗng không tính.
     """
     return bool(reqs) and all(
-        requirement_state(r) in ("waived", "follow_up") for r in reqs
+        requirement_state(r) in ("waived", "follow_up")
+        or (r.lam_tai_ban_kham and requirement_state(r) == "satisfied")
+        for r in reqs
     )
 
 

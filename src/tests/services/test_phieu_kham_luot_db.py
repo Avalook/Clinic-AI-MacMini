@@ -173,7 +173,10 @@ async def test_danh_muc_c_f_gan_ma_that_va_gia(
             )
     # 27/09/2026 (đợt 3): 14 dòng theo bản giao diện mẫu (soi CTC/âm hộ sang
     # CLS, bỏ "• Laser", ghế ĐTT yếu/đau cơ sang điều trị).
-    assert len(tc["thu_thuat"]) == 14
+    # Dòng "dieu_tri:…" = dịch vụ Điều trị bổ sung ngoài phiếu giấy (08/10) — số
+    # lượng tuỳ loại khám Điều trị đang có trong DB, không đếm ở đây.
+    giay = [t for t in tc["thu_thuat"] if not str(t["ma"]).startswith("dieu_tri:")]
+    assert len(giay) == 14
     assert muc["Soi âm hộ"]["form_id_ket_qua"] == "KQ_SOI_AM_HO"
     assert "*Soi âm hộ" not in muc
     # 73 thuốc của phiếu + mặt hàng kho không có trên phiếu (mã "kho:…", 25/09).

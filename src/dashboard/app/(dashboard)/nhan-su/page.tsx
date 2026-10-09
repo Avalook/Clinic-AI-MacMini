@@ -22,7 +22,7 @@ import type { StaffRow } from "../../api/staff/route";
 export const dynamic = "force-dynamic";
 
 interface ConfigLocation {
-  id: string;
+  location_id: string;
   name: string;
 }
 

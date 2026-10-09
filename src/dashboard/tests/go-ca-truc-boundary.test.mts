@@ -97,3 +97,14 @@ test("thân lỗi rỗng / hỏng thì trả câu mặc định, không nổ", (
   }
   assert.equal(loiDocDuoc("máy chủ sập", "mặc định"), "máy chủ sập");
 });
+
+test("xếp rồi ĐỔI NGƯỜI: dòng tạm bỏ khi máy chủ đã có dòng cùng id", () => {
+  // Tuyền bấm trên staging 06/10/2026: xếp Trang, đổi sang Hà Nguyễn → ô và
+  // popup hiện CẢ HAI người, DB chỉ có một. Đổi người sửa đúng dòng ấy (giữ id)
+  // nên so người+ngày+trạm không khớp và dòng tạm "Trang" hiện lại như bóng ma.
+  assert.match(
+    ma,
+    /optimistic\.filter\([\s\S]*?rows\.some\([\s\S]*?r\.id === o\.id/,
+    "dòng tạm phải bị bỏ khi máy chủ đã có dòng cùng id",
+  );
+});
