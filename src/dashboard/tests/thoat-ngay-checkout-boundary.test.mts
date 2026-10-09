@@ -86,13 +86,9 @@ test("tab ngày: 'Cả tuần' đứng đầu, rồi T2…CN kèm ngày; số l�
 
 test("chip ngày ở Trang chủ VÀ Tiếp đón (29/09/2026: thanh tuần/ngày y hệt)", () => {
   assert.match(ma("../app/(dashboard)/home/page.tsx"), /<WeeklyAppointmentsTable[\s\S]*?chonNgay[\s\S]*?\/>/);
-  // Tiếp đón (09/10/2026): trang dựng props, `ManTiepDon` vẽ bảng + thanh tuần
-  // (để thanh lọc trên cùng lọc được bảng).
   const tiepDon = ma("../app/(dashboard)/reception/queue/page.tsx");
-  const thanTiepDon = ma("../app/(dashboard)/reception/queue/ManTiepDon.tsx");
-  assert.match(tiepDon, /bangLich=\{[\s\S]*?chonNgay: true[\s\S]*?\}/);
-  assert.match(thanTiepDon, /<WeeklyAppointmentsTable \{\.\.\.bangLich\} loc=\{loc\} \/>/);
-  assert.match(thanTiepDon, /<WeekNav gon[^>]*basePath="\/reception\/queue"/);
+  assert.match(tiepDon, /<WeeklyAppointmentsTable[\s\S]*?chonNgay[\s\S]*?\/>/);
+  assert.match(tiepDon, /<WeekNav gon[^>]*basePath="\/reception\/queue"/);
   const bang = ma("../app/(dashboard)/home/WeeklyAppointmentsTable.tsx");
   assert.match(bang, /chonNgay = false/);
   // Đọc từ URL mỗi lần vẽ, ghi lại URL không tải trang.

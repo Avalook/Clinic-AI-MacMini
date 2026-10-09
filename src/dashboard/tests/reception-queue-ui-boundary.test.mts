@@ -66,24 +66,23 @@ test("thêm khách xong về màn Tiếp đón — cửa hỏi theo lego của t
 });
 
 test("thanh lọc trên cùng lọc CẢ bảng Lịch hẹn lẫn danh sách tiếp đón", () => {
-  const than = readFileSync(
-    new URL("../app/(dashboard)/reception/queue/ManTiepDon.tsx", import.meta.url),
-    "utf8",
-  );
-  const bang = readFileSync(
-    new URL("../app/(dashboard)/home/WeeklyAppointmentsTable.tsx", import.meta.url),
-    "utf8",
-  );
-  const trangChu = readFileSync(new URL("../app/(dashboard)/home/page.tsx", import.meta.url), "utf8");
-  // Thanh đứng TRƯỚC bảng Lịch hẹn, cùng một `loc` cho hai bảng.
-  assert.ok(than.indexOf("<ThanhLocTiepDon") < than.indexOf('aria-label="Lịch hẹn"'));
-  assert.match(than, /<WeeklyAppointmentsTable \{\.\.\.bangLich\} loc=\{loc\} \/>/);
-  assert.match(than, /<QueueBoard goi=\{danhSach\} tab=\{loc\.tab\} tim=\{loc\.tim\} \/>/);
-  // Bảng dùng chung: lọc là prop TUỲ CHỌN, phép lọc ở lib (hàm thuần).
-  assert.match(bang, /loc = null,/);
-  assert.match(bang, /locLichHen\(daysHien, loc\)/);
-  // Trang chủ không truyền `loc` → hành vi như cũ.
-  assert.doesNotMatch(trangChu, /loc=\{/);
+  const doc = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
+  const trang = doc("../app/(dashboard)/reception/queue/page.tsx");
+  const than = doc("../app/(dashboard)/reception/queue/ManTiepDon.tsx");
+  const bang = doc("../app/(dashboard)/home/WeeklyAppointmentsTable.tsx");
+  const trangChu = doc("../app/(dashboard)/home/page.tsx");
+  // Trang VẪN tự vẽ hai bảng (bản đồ code đi theo import từ trang), bọc trong
+  // `ManTiepDon` — thanh lọc đứng trước, phát bộ lọc qua context.
+  const mo = trang.indexOf("<ManTiepDon");
+  assert.ok(mo > 0 && mo < trang.indexOf("<WeeklyAppointmentsTable"));
+  assert.ok(trang.indexOf("<QueueBoard goi={danhSach} />") < trang.indexOf("</ManTiepDon>"));
+  assert.match(than, /<LocTiepDonContext\.Provider value=\{loc\}>\s*<ThanhLocTiepDon/);
+  assert.match(maThucThi, /useLocTiepDon\(\) \?\? LOC_MAC_DINH/);
+  // Bảng dùng chung: lọc là prop TUỲ CHỌN / context, phép lọc ở lib (hàm thuần).
+  assert.match(bang, /const locHieuLuc = loc \?\? locChung;/);
+  assert.match(bang, /locLichHen\(daysHien, locHieuLuc\)/);
+  // Trang chủ không bọc ManTiepDon, không truyền `loc` → hành vi như cũ.
+  assert.doesNotMatch(trangChu, /loc=\{|ManTiepDon/);
 });
 
 test("hoàn tác check-in ở dòng khách: theo cờ máy chủ, cùng lệnh bảng Lịch hẹn", () => {

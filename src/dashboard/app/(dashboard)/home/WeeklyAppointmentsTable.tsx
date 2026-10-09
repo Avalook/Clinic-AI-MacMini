@@ -45,6 +45,7 @@ import { CA_TUAN, locTheoNgay, ngayDangChon, tabNgay } from "./loc-ngay";
 import type { MaXacMinh } from "@/lib/xac-minh";
 import { MA_DA_ROI, type TrangThaiHienThi } from "@/lib/trang-thai-lich";
 import { dangLoc, locLichHen, type LocTiepDon } from "@/lib/tiep-don";
+import { useLocTiepDon } from "@/lib/loc-tiep-don-context";
 
 export interface WeekApptRow {
   id: string;
@@ -551,8 +552,9 @@ export default function WeeklyAppointmentsTable({
   /** Người xem mở được màn Quản lý khách hàng (`moDuocMan("/customers")`) —
    *  bấm tên khách CHƯA check-in mở hồ sơ ở đó. */
   moHoSoKhach?: boolean;
-  /** Bộ lọc của thanh tìm trên cùng màn Tiếp đón (09/10/2026): tab chưa / đã
-   *  check-in + ô tìm. Không truyền (Trang chủ) → bảng như cũ. */
+  /** Bộ lọc tab chưa / đã check-in + ô tìm (09/10/2026). Không truyền thì đọc
+   *  bộ lọc chung của màn Tiếp đón (`LocTiepDonContext`); Trang chủ không có
+   *  bên phát → bảng như cũ. */
   loc?: LocTiepDon | null;
 }) {
   const router = useRouter();
@@ -565,8 +567,10 @@ export default function WeeklyAppointmentsTable({
     ? ngayDangChon(searchParams.get("ngay"), days.map((d) => d.date), todayVn())
     : null;
   const daysHien = chonNgay ? locTheoNgay(days, ngayChon) : days;
-  const dangLocBang = dangLoc(loc);
-  const daysLoc = dangLocBang ? locLichHen(daysHien, loc) : daysHien;
+  const locChung = useLocTiepDon();
+  const locHieuLuc = loc ?? locChung;
+  const dangLocBang = dangLoc(locHieuLuc);
+  const daysLoc = dangLocBang ? locLichHen(daysHien, locHieuLuc) : daysHien;
   /** Đổi ngày: chỉ ghi lại URL (không tải lại trang, không gọi máy chủ) — dữ
    *  liệu cả tuần đã có sẵn trên màn. */
   function chonNgayMoi(ma: string) {

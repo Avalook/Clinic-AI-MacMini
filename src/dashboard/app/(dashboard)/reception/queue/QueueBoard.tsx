@@ -16,7 +16,7 @@
 // chủ tính (`GET /api/v1/reception/danh-sach` → `services/tiep_don_service.py`).
 // Ở đây chỉ lọc tại chỗ (tab + ô tìm, `lib/tiep-don.ts`) và tô màu theo `loai`.
 // Từ 09/10/2026 tab + ô tìm nằm ở THANH TRÊN CÙNG trang (`ThanhLocTiepDon`, lọc
-// cả bảng Lịch hẹn) — bảng này nhận `tab`/`tim` qua props.
+// cả bảng Lịch hẹn) — bảng này đọc `tab`/`tim` qua `useLocTiepDon`.
 //
 // SẮP XẾP (29/09/2026, Tuyền): máy chủ xếp CŨ → MỚI theo giờ vào hàng thật
 // (giờ check-in; chưa đến thì giờ hẹn). Công tắc "Mới nhất trước" chỉ đảo lại
@@ -36,14 +36,15 @@ import {
   dongPhu,
   ghiHuongXep,
   HUONG_XEP_MAC_DINH,
+  LOC_MAC_DINH,
   locTiepDon,
   sapXepTiepDon,
   toneTrangThai,
   type DongTiepDon,
   type GoiTiepDon,
   type HuongXep,
-  type TabTiepDon,
 } from "@/lib/tiep-don";
+import { useLocTiepDon } from "@/lib/loc-tiep-don-context";
 
 import { nhanLieuTrinhLuot } from "@/lib/lieu-trinh-cskh";
 
@@ -235,16 +236,9 @@ function khongTheoDoi(): () => void {
   return () => {};
 }
 
-export default function QueueBoard({
-  goi,
-  tab,
-  tim,
-}: {
-  goi: GoiTiepDon;
-  /** Tab + ô tìm của thanh lọc trên cùng trang (`ThanhLocTiepDon`). */
-  tab: TabTiepDon;
-  tim: string;
-}) {
+export default function QueueBoard({ goi }: { goi: GoiTiepDon }) {
+  // Tab + ô tìm của thanh lọc trên cùng trang (`ManTiepDon` → context).
+  const { tab, tim } = useLocTiepDon() ?? LOC_MAC_DINH;
   // Bảng được vẽ hai bản (máy tính / điện thoại): hai nhóm ô chọn cùng `name`
   // thì trình duyệt chỉ cho MỘT ô được chọn trên cả hai — bản kia trống. Mỗi
   // bản một tên riêng.
