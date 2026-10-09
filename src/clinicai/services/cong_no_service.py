@@ -31,6 +31,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 import asyncpg
@@ -400,6 +401,76 @@ async def doc_khach_con_no(
     return out
 
 
+#: Nợ trong một khung giờ, tách ba nhóm theo MỐC của từng việc ($3–$4, nửa mở):
+#: ghi mới (``ghi_luc``), thu lại (``DA_THU`` + ``thu_luc``), huỷ (``HUY`` +
+#: ``huy_luc``). Một khoản ghi rồi thu ngay trong ca có mặt ở CẢ hai nhóm.
+_NO_TRONG_KHUNG_SQL = f"""
+SELECT x.nhom, n.id::text AS id, n.visit_id::text AS visit_id, x.luc, n.so_tien,
+       n.trang_thai, x.ly_do, s.full_name AS nguoi,
+       p.full_name AS khach, p.patient_code AS ma_bn
+  FROM public.cong_no n
+  CROSS JOIN LATERAL (VALUES
+      ('ghi_moi', n.ghi_luc, n.ly_do, n.ghi_boi),
+      ('thu_lai', CASE WHEN n.trang_thai = 'DA_THU' THEN n.thu_luc END,
+                  NULL, NULL::uuid),
+      ('huy', CASE WHEN n.trang_thai = 'HUY' THEN n.huy_luc END,
+              n.ly_do_huy, n.huy_boi)
+  ) AS x(nhom, luc, ly_do, boi)
+  LEFT JOIN public.patient p ON p.clinic_patient_id = n.clinic_patient_id
+  LEFT JOIN public.staff s ON s.id = x.boi
+  {_NO_CO_SO_JOIN}
+ WHERE n.clinic_id = $1::uuid AND {_NO_CO_SO_LOC}
+   AND x.luc >= $3 AND x.luc < $4
+ ORDER BY x.luc
+ LIMIT $5
+"""
+
+NHOM_NO = ("ghi_moi", "thu_lai", "huy")
+
+
+def gom_no_trong_khung(rows: Iterable[Any]) -> dict[str, Any]:
+    """Dòng SQL → ``{ghi_moi|thu_lai|huy: {so, so_tien, ds}}``. Thuần."""
+    ra: dict[str, Any] = {k: {"so": 0, "so_tien": 0, "ds": []} for k in NHOM_NO}
+    for r in rows:
+        o = ra.get(r["nhom"])
+        if o is None:
+            continue
+        o["so"] += 1
+        o["so_tien"] += int(r["so_tien"] or 0)
+        o["ds"].append(
+            {
+                "id": r["id"],
+                "visit_id": r["visit_id"],
+                "khach": r["khach"],
+                "ma_bn": r["ma_bn"],
+                "so_tien": int(r["so_tien"] or 0),
+                "trang_thai": r["trang_thai"],
+                "ly_do": r["ly_do"],
+                "nguoi": r["nguoi"],
+                "luc": r["luc"].isoformat() if r["luc"] is not None else None,
+            }
+        )
+    return ra
+
+
+async def doc_no_trong_khung(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    tu_luc: datetime,
+    den_luc: datetime,
+    *,
+    location_id: str | None = None,
+) -> dict[str, Any]:
+    """Nợ phát sinh / thu lại / huỷ trong ``[tu_luc, den_luc)`` — báo cáo CUỐI CA
+    (Tuyền 09/10/2026: nhân viên thấy nợ trong ca kèm tên khách). ``location_id``
+    như ``doc_khach_con_no``. Mỗi nhóm tối đa ``_TRAN_DS`` dòng."""
+    rows = await conn.fetch(
+        _NO_TRONG_KHUNG_SQL, clinic_id, location_id, tu_luc, den_luc, _TRAN_DS
+    )
+    canh_bao_neu_day("cong_no.no_trong_khung", len(rows), _TRAN_DS)
+    return gom_no_trong_khung(rows)
+
+
 async def _khoa_luot(
     conn: asyncpg.Connection, clinic_id: str, visit_id: str
 ) -> asyncpg.Record:
@@ -562,6 +633,8 @@ __all__ = [
     "DongNo",
     "NoKhiVe",
     "doc_khach_con_no",
+    "doc_no_trong_khung",
+    "gom_no_trong_khung",
     "loc_no_dich_vu",
     "loc_no_thuoc",
     "no_khi_ve",

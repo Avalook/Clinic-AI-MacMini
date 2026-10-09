@@ -23,6 +23,8 @@ import { fmtDayTime } from "@/lib/datetime";
 import { todayVn } from "@/lib/roster";
 import { congNgay, nhanKhoang, type Khoang } from "@/lib/thanh-ngay";
 
+import NoTrongCa, { type NoTrongCaData } from "./NoTrongCa";
+import TabCaCuaToi, { type CaDangXem, type CaDuocXem } from "./TabCaCuaToi";
 import ThuocTheoKhach, { type ThuocTheoKhachData } from "./ThuocTheoKhach";
 
 interface OTien {
@@ -45,7 +47,12 @@ interface BaoCao {
   };
   theo_hinh_thuc: (OTien & { ma: string; ten: string })[];
   theo_loai: (OTien & { ma: string; ten: string })[];
-  theo_nguoi_thu: (OTien & { ten: string; so_phieu: number })[];
+  /** Báo cáo ca của tôi (09/10/2026): máy chủ BỎ khối này — không có thì không vẽ. */
+  theo_nguoi_thu?: (OTien & { ten: string; so_phieu: number })[];
+  /** Nợ trong khung ca (09/10/2026) — chỉ khi xem một ca; null = cả ngày. */
+  no_trong_ca?: NoTrongCaData | null;
+  /** Các ca người gọi trực hôm nay — chỉ có ở /bao-cao-ca. */
+  ca_duoc_xem?: CaDuocXem[];
   hoan_huy: {
     loai: "hoan" | "huy";
     id: string;
