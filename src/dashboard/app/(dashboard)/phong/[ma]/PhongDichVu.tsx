@@ -72,6 +72,7 @@ import { type LuaChonBacSi } from "../../_lam-viec/ChonBacSiLam";
 import HangChoCot from "../../_lam-viec/HangChoCot";
 import KhungTep from "../../_lam-viec/KhungTep";
 import PhieuKetQua from "../../_lam-viec/PhieuKetQua";
+import LieuTrinhChiDinh from "../../_lam-viec/phieu-kham/LieuTrinhChiDinh";
 import XemLuot from "../../_lam-viec/XemLuot";
 import ChuaXepPhong, { type KhachChuaXep } from "./ChuaXepPhong";
 import HangChoKhachPhong, { dongChinh, gomTheoKhach } from "./HangChoKhachPhong";
@@ -957,6 +958,11 @@ function KhachTrongPhong({
           }}
         />
       ) : null}
+
+      {/* Lộ trình điều trị (09/10/2026): bác sĩ trực ở phòng lập / chọn lộ trình
+          ngay đây — cùng dải với bàn khám; chỉ định không phải điều trị thì
+          không vẽ gì. */}
+      {th ? <LieuTrinhChiDinh visitId={dong.visit_id} orderId={dong.ref_id} /> : null}
 
       {/* HÀNG PHỤ: ba ngoại lệ. Không nút chính nào ở đây — nút chính là
           [Bắt đầu] trên đầu và [Hoàn tất] trong phiếu. */}

@@ -125,6 +125,7 @@ async def test_the_lieu_trinh_nut_hoan_tac_dich_vu_noi_lam(pool: asyncpg.Pool) -
     assert c["nut"]["tao"] and not c["nut"]["go"]
     assert t["lieu_trinh"] == []
     assert ca.ma in {d["service_code"] for d in t["dich_vu_de_xuat"]}
+    assert t["ghi_duoc"] is True
 
     lt = await tao(ca, v, 10, order=o)
     t = await _the(ca, v)

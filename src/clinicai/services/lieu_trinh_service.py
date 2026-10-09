@@ -367,6 +367,8 @@ def _lt(r: asyncpg.Record | dict[str, Any]) -> dict[str, Any]:
     d["dang_cho"] = bool(d.get("dang_cho"))
     d.update(con_lai(d))
     d["tien_con_lai"] = d["chua_tra"] * d["don_gia"]
+    # Ô còn trống của kế hoạch (chưa có chỉ định) — dải vẽ "Buổi k · chưa làm".
+    d["chua_gan"] = max(d["so_buoi"] - d["so_gan"], 0)
     d["sap_het_ly_do"] = ly_do_sap_het(d)
     return d
 
@@ -559,6 +561,8 @@ class LieuTrinhService:
             )
             if pid is None:
                 raise NotFoundError("Không tìm thấy lượt khám này.")
+            # Dải dùng chung bàn khám + phòng dịch vụ: không có quyền sửa → chỉ đọc.
+            ghi_duoc = await self._co_mot(conn, identity, QUYEN_SUA)
             chi_dinh = [
                 dict(r) for r in await conn.fetch(_CHI_DINH_LUOT_SQL, cid, [vid])
             ]
@@ -634,6 +638,7 @@ class LieuTrinhService:
                     "so_buoi": u["so_buoi"],
                     "da_lam": u["da_lam"],
                     "tao_luc": u["tao_luc"],
+                    "revision": u["revision"],
                 }
                 for u in uv
             ]
@@ -661,6 +666,7 @@ class LieuTrinhService:
             "lieu_trinh": ds,
             "chi_dinh": chi_dinh,
             "dich_vu_de_xuat": dich_vu,
+            "ghi_duoc": ghi_duoc,
         }
 
     async def chip(self, *, identity: StaffIdentity, visit_ids: Any) -> dict[str, Any]:

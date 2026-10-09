@@ -157,18 +157,25 @@ export default function KhoiDieuTri({
   }, [visitId, khoaDs]);
   // Buổi tự gắn / gỡ (trigger), quầy trả trước, người khác điều chỉnh → dải đổi.
   useNgheBang(["lieu_trinh", "lieu_trinh_buoi", "lieu_trinh_lich_su", "lieu_trinh_tra_truoc"], napLT);
+  // Máy chủ nói người xem có được sửa liệu trình không (`ghi_duoc`).
+  const ghiLT = choGhi && lt?.ghi_duoc !== false;
   const ltCua = useMemo(() => new Map((lt?.chi_dinh ?? []).map((c) => [c.order_id, c] as const)), [lt]);
-  // Liệu trình của lượt KHÔNG gắn với chỉ định nào đang hiện (chỉ đề xuất, hoặc
-  // buổi hôm nay đã gỡ) — vẽ riêng dưới thẻ.
+  // Liệu trình của lượt KHÔNG gắn với chỉ định nào đang hiện (chỉ đề xuất không
+  // làm hôm nay, hoặc buổi hôm nay đã gỡ) — vẽ riêng dưới thẻ. Đề xuất lập TỪ
+  // một chỉ định đang hiện thì nằm trong thẻ của chỉ định ấy (`DaiLieuTrinh`).
+  const dangHien = (orderId: string | null | undefined) =>
+    Boolean(orderId) && chiDinh.some((d) => d.service_order_id === orderId);
   const ltRieng = (lt?.lieu_trinh ?? []).filter(
-    (x) => !(lt?.chi_dinh ?? []).some((c) => c.lieu_trinh_id === x.id && chiDinh.some((d) => d.service_order_id === c.order_id)),
+    (x) =>
+      !(lt?.chi_dinh ?? []).some((c) => c.lieu_trinh_id === x.id && dangHien(c.order_id)) &&
+      !(x.trang_thai === "DE_XUAT" && dangHien(x.nguon_order_id)),
   );
   const phanLT = (
     <>
       {ltRieng.map((x) => (
-        <KhungLieuTrinh key={x.id} lt={x} choGhi={choGhi} onDoi={napLT} />
+        <KhungLieuTrinh key={x.id} lt={x} choGhi={ghiLT} onDoi={napLT} />
       ))}
-      {choGhi && lt ? (
+      {ghiLT && lt ? (
         <DeXuatLieuTrinh visitId={visitId} dichVu={lt.dich_vu_de_xuat ?? []} onDoi={napLT} />
       ) : null}
     </>
@@ -283,7 +290,7 @@ export default function KhoiDieuTri({
           // Dịch vụ điều trị mà quản lý gắn mẫu khác: phiếu kết quả chung.
           <PhieuKetQua serviceOrderId={t.order_id} mau={t.mau} mauMacDinh={t.mau_chon_san} onHoanTat={nap} />
         )}
-        {lt && cdLT ? <DaiLieuTrinh visitId={visitId} cd={cdLT} luot={lt} choGhi={choGhi} onDoi={napLT} /> : null}
+        {lt && cdLT ? <DaiLieuTrinh visitId={visitId} cd={cdLT} luot={lt} choGhi={ghiLT} onDoi={napLT} /> : null}
       </div>
     );
   };

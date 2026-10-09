@@ -70,6 +70,10 @@ export interface ChipLieuTrinh {
       lieu_trinh_id: string;
       buoi_so: number;
       so_buoi: number;
+      /** Buổi đã làm xong chưa — số đánh theo thứ tự làm xong (09/10/2026). */
+      da_lam?: boolean;
+      /** "Buổi k/N · đã làm / chưa làm" máy chủ ghép. */
+      chu?: string;
       tra_truoc: boolean;
       service_name: string;
       trang_thai: TrangThaiLieuTrinh;
@@ -142,12 +146,20 @@ export function khoaLuot(ids: readonly (string | null | undefined)[]): string {
     .join(",");
 }
 
-/** "Buổi 3/10 · đã trả trước" — chip trên dòng chỉ định. */
-export function nhanBuoi(c: { buoi_so: number; so_buoi: number; tra_truoc: boolean }): string {
-  return `Buổi ${c.buoi_so}/${c.so_buoi}${c.tra_truoc ? " · đã trả trước" : ""}`;
+/** "Buổi 3/10 · chưa làm · đã trả trước" — chip trên dòng chỉ định. Chữ máy
+ *  chủ ghép (`chu`) đi trước; thiếu thì ghép từ số + `da_lam`. */
+export function nhanBuoi(c: {
+  buoi_so: number;
+  so_buoi: number;
+  tra_truoc: boolean;
+  da_lam?: boolean;
+  chu?: string;
+}): string {
+  const lam = c.da_lam === true ? " · đã làm" : c.da_lam === false ? " · chưa làm" : "";
+  return `${c.chu || `Buổi ${c.buoi_so}/${c.so_buoi}${lam}`}${c.tra_truoc ? " · đã trả trước" : ""}`;
 }
 
-/** Dòng KHÁCH ở phòng dịch vụ (một khách một dòng): "Buổi k/N · đã trả trước"
+/** Dòng KHÁCH ở phòng dịch vụ (một khách một dòng): "Buổi k/N · chưa làm"
  *  của chỉ định đầu tiên (trong các chỉ định / dòng hàng chờ phòng đang thấy)
  *  thuộc liệu trình. Không có → null (dòng giữ nguyên). */
 export function nhanBuoiCuaLuot(

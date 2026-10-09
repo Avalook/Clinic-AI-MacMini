@@ -362,7 +362,7 @@ async def test_1_bac_si_de_xuat_chi_dinh_hom_nay_van_la_buoi_le(
     assert c["chu_buoi"] == "Buổi 1/10 · chưa làm"
     await lam_xong(ca, o)
     d = await doc(ca, lt["id"])
-    assert (d["da_lam"], d["con_lai"]) == (1, 9)
+    assert (d["da_lam"], d["con_lai"], d["chua_gan"]) == (1, 9, 9)
     the = await ca.svc.theo_luot(identity=ca.bac_si, visit_id=v)
     (c,) = the["chi_dinh"]
     assert c["chu_buoi"] == "Buổi 1/10 · đã làm"
