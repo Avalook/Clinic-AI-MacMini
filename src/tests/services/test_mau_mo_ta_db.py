@@ -1,8 +1,9 @@
-"""Phiếu kết quả chỉ một ô "Mô tả" — nước tiểu, monitor, đo mật độ xương.
+"""Phiếu kết quả chỉ một ô "Mô tả" — nước tiểu, monitor thai; monitor thành
+nút làm thêm tại quầy (lễ tân / bàn sinh hiệu chỉ định).
 
-Checklist phòng khám mục 4.1 (Tuyền 09/10/2026): một ô Mô tả, tuỳ chọn; bỏ Kết
-luận và Đề nghị; đo mật độ xương GIỮ ô tích Bình thường / Tiền loãng xương /
-Loãng xương. Migration 20261009700000 (hàm `mau_mo_ta_nuoc_tieu_monitor_dxa`).
+Checklist phòng khám mục 1 + 4.1 (Tuyền 09/10/2026): một ô Mô tả, tuỳ chọn; bỏ
+Kết luận và Đề nghị. Đo mật độ xương KHÔNG đổi (Tuyền đính chính cùng ngày).
+Migration 20261009700000 (hàm `mau_mo_ta_nuoc_tieu_monitor`).
 
 Bài nào gọi lại hàm của migration thì chạy TRONG MỘT GIAO DỊCH RỒI HUỶ: hàm
 xuất bản bản mới cho mẫu của cả DB — để lại thì đổi số bản dưới chân các bài
@@ -99,103 +100,32 @@ async def test_nuoc_tieu_va_monitor_chon_mau_mo_ta(
     assert dv["chon_san"] == "MO_TA" and [m["ma"] for m in dv["mau"]] == ["MO_TA"]
 
 
-async def test_dxa_ban_moi_chi_mo_ta_va_o_tich(pool: asyncpg.Pool) -> None:  # noqa: F811
+async def test_monitor_thanh_nut_lam_them_va_dxa_khong_doi(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
     async with pool.acquire() as conn:
-        d = await _ban_dang_dung(conn, "KQ_DO_MAT_DO_XUONG")
-        khung = json.loads(d["khung"])
-        cu = json.loads(
-            await conn.fetchval(
-                "SELECT khung FROM form_definition WHERE clinic_id = $1::uuid"
-                " AND form_id = 'KQ_DO_MAT_DO_XUONG' AND version = $2",
+        nut = {
+            r["service_code"]: r
+            for r in await conn.fetch(
+                "SELECT service_code, nhan, bat, o_tiep_don, o_sinh_hieu"
+                " FROM lam_them_tai_quay WHERE clinic_id = $1::uuid"
+                "   AND service_code IN ('CLS_CHAY_MONITORING', 'KV_SP000081')",
                 CLINIC,
-                d["version"] - 1,
             )
-        )
-        cu_trang_thai = await conn.fetchval(
-            "SELECT trang_thai FROM form_definition WHERE clinic_id = $1::uuid"
-            " AND form_id = 'KQ_DO_MAT_DO_XUONG' AND version = $2",
-            CLINIC,
-            d["version"] - 1,
-        )
-    [muc] = khung
-    assert muc["ten"] == "Mô tả"
-    noi_dung, tich = muc["block"]
-    assert noi_dung == {
-        "ma": "noi_dung",
-        "ten": "Mô tả",
-        "kieu": "doan_van",
-        "tuy_chon": True,
-    }
-    assert tich["ma"] == "ket_luan_nhanh" and tich["hien_thi"] == "o_tick"
-    assert tich["chon"] == ["Bình thường", "Tiền loãng xương", "Loãng xương"]
-    assert kiem_khung_mau(khung) == khung
-    # Bản trước về hưu, vẫn đủ Kết luận / Đề nghị cho phiếu đã điền ghim nó.
-    assert cu_trang_thai == "RETIRED"
-    assert [m["ma"] for m in cu] == ["ket_qua", "ket_luan", "de_nghi"]
-
-
-async def test_dxa_quan_ly_da_sua_giu_o_rieng(pool: asyncpg.Pool) -> None:  # noqa: F811
-    """Khung quản lý tự thêm mục / ô: chỉ đổi đúng Mô tả, ô tích, Kết luận, Đề
-    nghị; mục khác giữ nguyên thứ tự; mục hết ô thì bỏ. Không có ô Mô tả → nguyên."""
-    khung: list[dict[str, Any]] = [
-        {
-            "ma": "ket_qua",
-            "ten": "Mô tả / kết quả",
-            "block": [
-                {"ma": "noi_dung", "ten": "Mô tả / kết quả", "kieu": "doan_van"},
-                {"ma": "t_score", "ten": "T-score", "kieu": "text"},
-            ],
-        },
-        {
-            "ma": "anh",
-            "ten": "Hình ảnh",
-            "block": [{"ma": "anh", "ten": "Ảnh", "kieu": "text"}],
-        },
-        {
-            "ma": "ket_luan",
-            "ten": "Kết luận",
-            "block": [
-                {
-                    "ma": "ket_luan_nhanh",
-                    "ten": "Kết luận nhanh",
-                    "kieu": "chon",
-                    "chon": ["Bình thường", "Loãng xương"],
-                    "hien_thi": "o_tick",
-                },
-                {"ma": "ket_luan", "ten": "Kết luận", "kieu": "doan_van"},
-            ],
-        },
-        {
-            "ma": "de_nghi",
-            "ten": "Đề nghị",
-            "block": [{"ma": "de_nghi", "ten": "Đề nghị", "kieu": "doan_van"}],
-        },
+        }
+        co = await _dv_co(conn)
+        d = await _ban_dang_dung(conn, "KQ_DO_MAT_DO_XUONG")
+    for ma in {"CLS_CHAY_MONITORING", "KV_SP000081"} & set(co):
+        r = nut[ma]
+        assert r["bat"] and r["o_tiep_don"] and r["o_sinh_hieu"], ma
+    assert "CLS_CHAY_MONITORING" in nut
+    assert nut["CLS_CHAY_MONITORING"]["nhan"] == "Monitor đơn thai"
+    # Đo mật độ xương giữ nguyên ba mục: Mô tả / kết quả · Kết luận · Đề nghị.
+    assert [m["ma"] for m in json.loads(d["khung"])] == [
+        "ket_qua",
+        "ket_luan",
+        "de_nghi",
     ]
-    async with pool.acquire() as conn:
-        moi = json.loads(
-            await conn.fetchval(
-                "SELECT public.khung_dxa_mo_ta($1::jsonb)::text",
-                json.dumps(khung, ensure_ascii=False),
-            )
-        )
-        khong_mo_ta = [khung[1]]
-        nguyen = json.loads(
-            await conn.fetchval(
-                "SELECT public.khung_dxa_mo_ta($1::jsonb)::text",
-                json.dumps(khong_mo_ta, ensure_ascii=False),
-            )
-        )
-    assert [m["ma"] for m in moi] == ["ket_qua", "anh"]
-    assert moi[0]["ten"] == "Mô tả"
-    assert [o["ma"] for o in moi[0]["block"]] == [
-        "noi_dung",
-        "ket_luan_nhanh",
-        "t_score",
-    ]
-    assert moi[0]["block"][1] == khung[2]["block"][0]  # ô tích quản lý sửa giữ nguyên
-    assert moi[1] == khung[1]
-    assert kiem_khung_mau(moi) == moi
-    assert nguyen == khong_mo_ta
 
 
 async def test_hoan_tat_mo_ta_de_trong_khong_nhac_o_nao(
@@ -225,14 +155,11 @@ async def test_chay_lai_khong_doi_gi_va_khong_de_mau_gan_tay(
         try:
             # Lần đầu có thể còn việc (bài khác dựng thêm phòng khám trong cùng
             # DB); lần kế tiếp thì không còn gì.
-            await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor_dxa()")
-            truoc = await _ban_dang_dung(conn, "KQ_DO_MAT_DO_XUONG")
+            await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor()")
             assert (
-                await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor_dxa()")
+                await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor()")
                 == 0
             )
-            sau = await _ban_dang_dung(conn, "KQ_DO_MAT_DO_XUONG")
-            assert sau["version"] == truoc["version"]
             assert (
                 await conn.fetchval(
                     "SELECT count(*) FROM form_definition WHERE clinic_id = $1::uuid"
@@ -257,7 +184,7 @@ async def test_chay_lai_khong_doi_gi_va_khong_de_mau_gan_tay(
                 ql.staff_id,
             )
             assert (
-                await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor_dxa()")
+                await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor()")
                 == 0
             )
             assert [
@@ -272,12 +199,11 @@ async def test_chay_lai_khong_doi_gi_va_khong_de_mau_gan_tay(
             await tr.rollback()
 
 
-async def test_staging_mau_tay_va_dxa_da_dung_thi_khong_dung(
+async def test_staging_mau_tay_thi_khong_gan_chong(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
     """Staging 09/10: Tuyền đã tạo tay mẫu KET_QUA_MO_TA gắn cho nước tiểu /
-    monitor, và đã ra bản DXA không còn Kết luận / Đề nghị. Migration không gắn
-    chồng MO_TA, không ra thêm bản DXA."""
+    monitor. Migration không gắn chồng MO_TA."""
     async with pool.acquire() as conn:
         tr = conn.transaction()
         await tr.start()
@@ -304,44 +230,7 @@ async def test_staging_mau_tay_va_dxa_da_dung_thi_khong_dung(
                 ql.staff_id,
                 co,
             )
-            tay = [
-                {
-                    "ma": "ket_qua",
-                    "ten": "Kết quả",
-                    "block": [
-                        {"ma": "noi_dung", "ten": "Mô tả", "kieu": "doan_van"},
-                        {
-                            "ma": "ket_luan_nhanh",
-                            "ten": "Kết luận nhanh",
-                            "kieu": "chon",
-                            "chon": ["Bình thường", "Tiền loãng xương", "Loãng xương"],
-                            "hien_thi": "o_tick",
-                        },
-                    ],
-                }
-            ]
-            await conn.execute(
-                "UPDATE form_definition SET trang_thai = 'RETIRED'"
-                " WHERE clinic_id = $1::uuid AND form_id = 'KQ_DO_MAT_DO_XUONG'"
-                "   AND trang_thai = 'PUBLISHED'",
-                CLINIC,
-            )
-            ban_tay = await conn.fetchval(
-                "INSERT INTO form_definition (clinic_id, form_id, version, ten,"
-                " nhom, khung, trang_thai, xuat_ban_boi, xuat_ban_luc)"
-                " SELECT $1::uuid, 'KQ_DO_MAT_DO_XUONG', max(version) + 1, 'DXA',"
-                "        'X', $2::jsonb, 'PUBLISHED', $3::uuid, now()"
-                "   FROM form_definition WHERE clinic_id = $1::uuid"
-                "    AND form_id = 'KQ_DO_MAT_DO_XUONG' RETURNING version",
-                CLINIC,
-                json.dumps(tay, ensure_ascii=False),
-                ql.staff_id,
-            )
-
-            await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor_dxa()")
-            d = await _ban_dang_dung(conn, "KQ_DO_MAT_DO_XUONG")
-            assert d["version"] == ban_tay
-            assert json.loads(d["khung"]) == tay
+            await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor()")
             gan = await conn.fetch(
                 "SELECT service_code, mau FROM dich_vu_mau_ket_qua"
                 " WHERE clinic_id = $1::uuid AND service_code = ANY($2::text[])",

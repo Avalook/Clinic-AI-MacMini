@@ -1,13 +1,15 @@
--- PHIẾU KẾT QUẢ CHỈ MỘT Ô "MÔ TẢ" — nước tiểu, monitor, đo mật độ xương
--- (checklist phòng khám mục 4.1, Tuyền 09/10/2026).
+-- PHIẾU KẾT QUẢ CHỈ MỘT Ô "MÔ TẢ" + LỄ TÂN CHỈ ĐỊNH — nước tiểu, monitor thai
+-- (checklist phòng khám mục 1 + 4.1, Tuyền 09/10/2026).
 --
--- "Nước tiểu, monitor và đo mật độ xương: chỉ cần một ô Mô tả, ô đó tuỳ chọn;
--- bỏ Kết luận và Đề nghị. Riêng đo mật độ xương GIỮ ô tích Bình thường / Tiền
--- loãng xương / Loãng xương."
+-- "Đưa đo monitoring thai về cùng đo sinh hiệu và cho lễ tân chỉ định. Phiếu
+-- kết quả nước tiểu, monitor: chỉ cần một ô Mô tả (tuỳ chọn); bỏ Kết luận và Đề
+-- nghị. Monitoring thai gồm: Monitor sản khoa đơn thai, Monitor Sản khoa song
+-- thai - đa thai." ĐO MẬT ĐỘ XƯƠNG KHÔNG ĐỔI (Tuyền đính chính 09/10 — mẫu DXA
+-- giữ Mô tả / kết quả · Kết luận (ô tích + chữ) · Đề nghị).
 --
 -- HIỆN TRẠNG. Nước tiểu và monitor chưa gắn mẫu nên rơi về mẫu CHUNG (Mô tả /
 -- kết quả · Kết luận · Đề nghị). KHÔNG sửa CHUNG: Laser, Biofeedback, thủ thuật…
--- cũng dùng nó. Đo mật độ xương có mẫu riêng (20260929000010) ba mục.
+-- cũng dùng nó.
 --
 --   1. Mẫu MỚI `MO_TA` "Kết quả (mô tả)" — form `KQ_MO_TA` bản 1: đúng một mục
 --      "Mô tả", một ô `noi_dung` (đoạn văn) tuỳ chọn. Mọi phòng khám; đã có bản
@@ -18,119 +20,20 @@
 --      quản lý đã gắn tay (kể cả CHUNG) là quyết định của họ, không chồng lên.
 --      result_mode mặc định INLINE = đúng như lúc chưa gắn
 --      (`FormEngineService._result_mode`), nên dây báo kết quả không đổi.
---   3. `KQ_DO_MAT_DO_XUONG`: ra phiên bản mới DỰNG TỪ BẢN ĐANG DÙNG TRONG DB
---      (quản lý có thể đã sửa trên màn — dựng từ seed là đè mất), qua
---      `khung_dxa_mo_ta`:
---        - ô `noi_dung` → tên "Mô tả", tuỳ chọn; mục chứa nó tên "Mô tả";
---        - ô tích `ket_luan_nhanh` chuyển vào CÙNG mục, ngay dưới ô Mô tả;
---        - bỏ ô `ket_luan`, ô `de_nghi` và cả mục `de_nghi`; mục nào hết ô thì bỏ;
---        - mọi mục / ô khác quản lý đã thêm: giữ nguyên, giữ thứ tự.
---      Khung không có ô `noi_dung`, hoặc đã không còn ô Kết luận / Đề nghị
---      (quản lý đã sửa tay) → không đụng, không ra bản mới. Bản cũ
---      → RETIRED như `FormEngineService.xuat_ban` (cùng khoá tư vấn theo mẫu).
---      `xuat_ban_boi` CHÉP từ bản trước như 20261009300000.
---
--- PHIẾU CŨ KHÔNG HỎNG: phiếu đã điền ghim đúng phiên bản cũ (khoá ngoại 3 cột) —
--- mở lại / in lại vẫn đủ Kết luận, Đề nghị như lúc điền. Dữ liệu `ket_luan` cũ
--- không mất, chỉ phiếu MỚI không còn ô ấy.
---
--- BẢN IN không phải sửa: in theo khung của chính phiếu, chỉ in ô đã điền; mục
--- "Mô tả" có hai ô thì in dạng nhãn — giá trị ("Kết luận nhanh — Loãng xương").
+--   3. Monitor đơn thai / song thai thành NÚT LÀM THÊM TẠI QUẦY (bảng
+--      `lam_them_tai_quay`, 20261002200000) ở cả Tiếp đón lẫn Đo sinh hiệu — lễ
+--      tân / người đo tick là chỉ định, làm ngay ở bàn sinh hiệu, giống nút
+--      "Nước tiểu". Đã có dòng (quản lý đã chỉnh) thì không đè.
 --
 -- Cùng tệp (cuối tệp): mục 4.4 siêu âm tử cung chỉ còn mẫu phần phụ
 -- (`sa_tc_chi_con_phan_phu`), mục 3 Trưởng ca → "Quản lý ca khám"
 -- (`truong_ca_quan_ly_ca_kham`).
 --
 -- HÀM để seed.sql gọi lại: trên DB dựng mới migration chạy TRƯỚC khi bảng giá
--- có dịch vụ (seed nạp sau), bước 2 chỉ ăn khi bảng giá đã có. Chạy lại được:
--- mẫu có rồi thì thôi, gắn rồi thì thôi, khung DXA đã đúng thì không ra bản mới.
+-- có dịch vụ (seed nạp sau), bước 2–3 chỉ ăn khi bảng giá đã có. Chạy lại được:
+-- mẫu có rồi thì thôi, gắn rồi thì thôi, nút có rồi thì thôi.
 
-CREATE OR REPLACE FUNCTION public.khung_dxa_mo_ta(khung jsonb)
-RETURNS jsonb
-LANGUAGE plpgsql
-IMMUTABLE
-SET search_path = public
-AS $fn$
-DECLARE
-  o_nhanh jsonb;
-  muc jsonb;
-  o jsonb;
-  block_moi jsonb;
-  co_mo_ta boolean;
-  ra jsonb := '[]'::jsonb;
-BEGIN
-  IF jsonb_typeof(khung) IS DISTINCT FROM 'array' THEN
-    RETURN khung;
-  END IF;
-  -- Đã không còn Kết luận chữ / Đề nghị (vd quản lý đã tự sửa trên màn — staging
-  -- 09/10 có bản 3 dựng tay) → coi như đã đúng, KHÔNG ra thêm bản mới.
-  IF NOT EXISTS (
-    SELECT 1 FROM jsonb_array_elements(khung) m
-     WHERE m ->> 'ma' = 'de_nghi'
-        OR (jsonb_typeof(m -> 'block') = 'array'
-            AND EXISTS (SELECT 1 FROM jsonb_array_elements(m -> 'block') b
-                         WHERE b ->> 'ma' IN ('ket_luan', 'de_nghi')))) THEN
-    RETURN khung;
-  END IF;
-  -- Không có ô Mô tả thì không biết đặt ô tích vào đâu — để nguyên.
-  IF NOT EXISTS (
-    SELECT 1 FROM jsonb_array_elements(khung) m
-     WHERE jsonb_typeof(m -> 'block') = 'array'
-       AND EXISTS (SELECT 1 FROM jsonb_array_elements(m -> 'block') b
-                    WHERE b ->> 'ma' = 'noi_dung')) THEN
-    RETURN khung;
-  END IF;
-
-  SELECT b INTO o_nhanh
-    FROM jsonb_array_elements(khung) WITH ORDINALITY AS x(m, mi),
-         jsonb_array_elements(CASE WHEN jsonb_typeof(m -> 'block') = 'array'
-                                   THEN m -> 'block' ELSE '[]'::jsonb END)
-           WITH ORDINALITY AS y(b, bi)
-   WHERE b ->> 'ma' = 'ket_luan_nhanh'
-   ORDER BY mi, bi
-   LIMIT 1;
-
-  FOR muc IN
-    SELECT m FROM jsonb_array_elements(khung) WITH ORDINALITY AS x(m, mi) ORDER BY mi
-  LOOP
-    CONTINUE WHEN muc ->> 'ma' = 'de_nghi';
-    IF jsonb_typeof(muc -> 'block') IS DISTINCT FROM 'array' THEN
-      ra := ra || jsonb_build_array(muc);
-      CONTINUE;
-    END IF;
-    block_moi := '[]'::jsonb;
-    co_mo_ta := false;
-    FOR o IN
-      SELECT b FROM jsonb_array_elements(muc -> 'block') WITH ORDINALITY AS y(b, bi)
-       ORDER BY bi
-    LOOP
-      CONTINUE WHEN o ->> 'ma' IN ('ket_luan', 'de_nghi', 'ket_luan_nhanh');
-      IF o ->> 'ma' = 'noi_dung' THEN
-        block_moi := block_moi
-          || jsonb_build_array(o || '{"ten": "Mô tả", "tuy_chon": true}'::jsonb);
-        IF o_nhanh IS NOT NULL THEN
-          block_moi := block_moi || jsonb_build_array(o_nhanh);
-        END IF;
-        co_mo_ta := true;
-      ELSE
-        block_moi := block_moi || jsonb_build_array(o);
-      END IF;
-    END LOOP;
-    CONTINUE WHEN jsonb_array_length(block_moi) = 0;
-    muc := jsonb_set(muc, '{block}', block_moi);
-    IF co_mo_ta THEN
-      muc := muc || '{"ten": "Mô tả"}'::jsonb;
-    END IF;
-    ra := ra || jsonb_build_array(muc);
-  END LOOP;
-  RETURN ra;
-END;
-$fn$;
-
-COMMENT ON FUNCTION public.khung_dxa_mo_ta(jsonb) IS
-'Khung mẫu đo mật độ xương → Mô tả (tuỳ chọn) + ô tích Kết luận nhanh ngay dưới, bỏ Kết luận / Đề nghị; giữ mọi ô khác. Không có ô noi_dung thì trả nguyên (09/10/2026).';
-
-CREATE OR REPLACE FUNCTION public.mau_mo_ta_nuoc_tieu_monitor_dxa()
+CREATE OR REPLACE FUNCTION public.mau_mo_ta_nuoc_tieu_monitor()
 RETURNS integer
 LANGUAGE plpgsql
 SET search_path = public
@@ -141,9 +44,6 @@ DECLARE
      "block": [{"ma": "noi_dung", "ten": "Mô tả", "kieu": "doan_van",
                 "tuy_chon": true}]}
   ]$k$::jsonb;
-  r record;
-  hien record;
-  khung_moi jsonb;
   so integer;
   n integer := 0;
 BEGIN
@@ -181,51 +81,27 @@ BEGIN
   GET DIAGNOSTICS so = ROW_COUNT;
   n := n + so;
 
-  -- 3. Mẫu đo mật độ xương: Mô tả + ô tích, dựng từ bản đang dùng.
-  FOR r IN
-    SELECT d.clinic_id
-      FROM form_definition d
-     WHERE d.form_id = 'KQ_DO_MAT_DO_XUONG' AND d.trang_thai = 'PUBLISHED'
-       AND public.khung_dxa_mo_ta(d.khung) IS DISTINCT FROM d.khung
-     ORDER BY d.clinic_id
-  LOOP
-    -- Cùng khoá với `FormEngineService.xuat_ban`, rồi ĐỌC LẠI bản đang dùng.
-    PERFORM pg_advisory_xact_lock(
-      hashtext('bieu_mau:' || r.clinic_id::text || ':KQ_DO_MAT_DO_XUONG'));
-    SELECT d.version, d.ten, d.nhom, d.khung, d.xuat_ban_boi INTO hien
-      FROM form_definition d
-     WHERE d.clinic_id = r.clinic_id AND d.form_id = 'KQ_DO_MAT_DO_XUONG'
-       AND d.trang_thai = 'PUBLISHED'
-     FOR UPDATE;
-    IF NOT FOUND THEN
-      CONTINUE;
-    END IF;
-    khung_moi := public.khung_dxa_mo_ta(hien.khung);
-    IF khung_moi IS NOT DISTINCT FROM hien.khung THEN
-      CONTINUE;
-    END IF;
-
-    UPDATE form_definition SET trang_thai = 'RETIRED'
-     WHERE clinic_id = r.clinic_id AND form_id = 'KQ_DO_MAT_DO_XUONG'
-       AND trang_thai = 'PUBLISHED';
-    INSERT INTO form_definition
-        (clinic_id, form_id, version, ten, nhom, khung, trang_thai,
-         xuat_ban_boi, xuat_ban_luc)
-    SELECT r.clinic_id, 'KQ_DO_MAT_DO_XUONG', max(x.version) + 1, hien.ten,
-           hien.nhom, khung_moi, 'PUBLISHED', hien.xuat_ban_boi, now()
-      FROM form_definition x
-     WHERE x.clinic_id = r.clinic_id AND x.form_id = 'KQ_DO_MAT_DO_XUONG';
-    n := n + 1;
-  END LOOP;
+  -- 3. Monitor thai: nút làm thêm tại quầy ở Tiếp đón + Đo sinh hiệu.
+  INSERT INTO lam_them_tai_quay
+      (clinic_id, service_code, nhan, bat, thu_tu, o_tiep_don, o_sinh_hieu)
+  SELECT DISTINCT sp.clinic_id, sp.service_code, x.nhan, true, x.thu_tu, true, true
+    FROM service_price sp
+    JOIN (VALUES ('CLS_CHAY_MONITORING', 'Monitor đơn thai', 30),
+                 ('KV_SP000081', 'Monitor song thai', 31)) AS x(ma, nhan, thu_tu)
+      ON x.ma = sp.service_code
+   WHERE sp."group" = 'dich_vu'
+  ON CONFLICT (clinic_id, service_code) DO NOTHING;
+  GET DIAGNOSTICS so = ROW_COUNT;
+  n := n + so;
 
   RETURN n;
 END;
 $fn$;
 
-COMMENT ON FUNCTION public.mau_mo_ta_nuoc_tieu_monitor_dxa() IS
-'Mẫu MO_TA (một ô Mô tả tuỳ chọn) gắn cho nước tiểu / monitor chưa gắn mẫu; mẫu đo mật độ xương ra bản Mô tả + ô tích. Chạy lại được; seed.sql gọi lại sau khi nạp bảng giá (09/10/2026).';
+COMMENT ON FUNCTION public.mau_mo_ta_nuoc_tieu_monitor() IS
+'Mẫu MO_TA (một ô Mô tả tuỳ chọn) gắn cho nước tiểu / monitor chưa gắn mẫu; monitor đơn / song thai thành nút làm thêm tại quầy (Tiếp đón + Đo sinh hiệu). Không đụng mẫu đo mật độ xương. Chạy lại được; seed.sql gọi lại sau khi nạp bảng giá (09/10/2026).';
 
-SELECT public.mau_mo_ta_nuoc_tieu_monitor_dxa();
+SELECT public.mau_mo_ta_nuoc_tieu_monitor();
 
 -- 4.4 SIÊU ÂM TỬ CUNG: CHỈ CÒN MẪU PHẦN PHỤ (checklist mục 4.4, 09/10/2026).
 -- Ba dịch vụ siêu âm tử cung (2D, 4D, KV_SP000080) đang gắn CẢ SA_TC_BT (buồng

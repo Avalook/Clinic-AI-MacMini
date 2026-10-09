@@ -45,21 +45,20 @@ def _o(khung: list[dict[str, Any]], ma: str) -> dict[str, Any] | None:
     return next((o for m in khung for o in m["block"] if o["ma"] == ma), None)
 
 
-async def test_mau_dxa_co_o_ket_luan_nhanh_ngay_duoi_mo_ta(
+async def test_mau_dxa_co_o_ket_luan_nhanh_dau_muc_ket_luan(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
-    # Từ 09/10/2026 (20261009700000): một mục "Mô tả" = ô Mô tả (tuỳ chọn) + ô
-    # tích ngay dưới; không còn Kết luận chữ / Đề nghị.
     khung = await _khung(pool)
-    [mo_ta] = khung
-    assert mo_ta["ten"] == "Mô tả"
-    assert [x["ma"] for x in mo_ta["block"]] == ["noi_dung", "ket_luan_nhanh"]
-    o = mo_ta["block"][1]
+    ket_luan = next(m for m in khung if m["ma"] == "ket_luan")
+    o = ket_luan["block"][0]
     assert o["ma"] == "ket_luan_nhanh" and o["ten"] == "Kết luận nhanh"
     # CHỌN MỘT (một chuỗi), vẽ thành ô tích nhanh.
     assert o["kieu"] == "chon" and o["chon"] == LUA_CHON
     assert o["hien_thi"] == "o_tick"
     assert "mac_dinh" not in o  # kết luận lâm sàng không bao giờ điền sẵn
+    # Ô Kết luận chữ vẫn ngay sau; ba mục như mẫu CHUNG, giữ mã ô.
+    assert [x["ma"] for x in ket_luan["block"]] == ["ket_luan_nhanh", "ket_luan"]
+    assert [m["ma"] for m in khung] == ["ket_qua", "ket_luan", "de_nghi"]
     # Khung qua được đúng luật xuất bản — sửa mẫu ở Cài đặt không bị chặn.
     assert kiem_khung_mau(khung) == khung
 
@@ -101,7 +100,7 @@ async def test_tich_luu_mo_lai_hoan_tat_va_in(pool: asyncpg.Pool) -> None:  # no
         phieu_id=p["id"],
         du_lieu={
             "ket_luan_nhanh": {"gia_tri": "Tiền loãng xương", "nguon": "USER"},
-            "noi_dung": {"gia_tri": "T-score cột sống -1,8.", "nguon": "USER"},
+            "ket_luan": {"gia_tri": "T-score cột sống -1,8.", "nguon": "USER"},
         },
         expected_revision=p["revision"],
         identity=bs,
@@ -114,7 +113,7 @@ async def test_tich_luu_mo_lai_hoan_tat_va_in(pool: asyncpg.Pool) -> None:  # no
         phieu_id=p["id"],
         du_lieu={
             "ket_luan_nhanh": {"gia_tri": "", "nguon": "USER"},
-            "noi_dung": {"gia_tri": "T-score cột sống -1,8.", "nguon": "USER"},
+            "ket_luan": {"gia_tri": "T-score cột sống -1,8.", "nguon": "USER"},
         },
         expected_revision=lai["revision"],
         identity=bs,
@@ -126,7 +125,7 @@ async def test_tich_luu_mo_lai_hoan_tat_va_in(pool: asyncpg.Pool) -> None:  # no
         phieu_id=p["id"],
         du_lieu={
             "ket_luan_nhanh": {"gia_tri": "Loãng xương", "nguon": "USER"},
-            "noi_dung": {"gia_tri": "T-score cột sống -2,7.", "nguon": "USER"},
+            "ket_luan": {"gia_tri": "T-score cột sống -2,7.", "nguon": "USER"},
         },
         expected_revision=lai["revision"],
         identity=bs,
@@ -143,10 +142,9 @@ async def test_tich_luu_mo_lai_hoan_tat_va_in(pool: asyncpg.Pool) -> None:  # no
     [to] = ban["phieu"]
     assert to["form_id"] == FORM and to["ban_nhap"] is False
     assert to["du_lieu"]["ket_luan_nhanh"]["gia_tri"] == "Loãng xương"
-    # Bản in vẽ theo khung của chính phiếu: ô tích nằm trong mục Mô tả, ngay
-    # dưới ô Mô tả (chuyển mục 09/10/2026 — bản in vẫn thấy nó).
-    [mo_ta] = to["khung"]
-    assert [o["ma"] for o in mo_ta["block"]] == ["noi_dung", "ket_luan_nhanh"]
+    # Bản in vẽ theo khung của chính phiếu: ô có mặt trong mục Kết luận.
+    ket_luan = next(m for m in to["khung"] if m["ma"] == "ket_luan")
+    assert ket_luan["block"][0]["ma"] == "ket_luan_nhanh"
 
 
 async def test_mau_dxa_phong_kham_tu_sua_chi_duoc_them_o(
