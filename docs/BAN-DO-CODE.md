@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-09 10:38. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-09 10:50. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -206,11 +206,11 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/ops` — Vận hành hệ thống
 - page: `src/dashboard/app/(dashboard)/ops/page.tsx` · quyền: lego `van_hanh` (Vận hành hệ thống · mặc định: Quản lý)
-- thành phần: LoiCanhBao.tsx, LuuLuongOps.tsx, NhatKyVanHanh.tsx, OpsCenter.tsx, SucKhoeApi.tsx, ToanCanh.tsx, PortalBoard.tsx
-- gọi API Next: `/api/ops/theo-doi`, `/api/ops/summary`, `/api/ops/traffic`
+- thành phần: AgentGiamSat.tsx, LoiCanhBao.tsx, LuuLuongOps.tsx, NhatKyVanHanh.tsx, OpsCenter.tsx, SucKhoeApi.tsx, ToanCanh.tsx, PortalBoard.tsx
+- gọi API Next: `/api/ops/agent`, `/api/ops/theo-doi`, `/api/ops/summary`, `/api/ops/traffic`
 - gọi thẳng backend (server): `/api/v1/reports/toan-canh`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`, `/api/v1/ops/telemetry`
-- service: day_tep.so_lieu · canh_gac.danh_sach · nhat_ky_van_hanh.doc_nhat_ky · kho_loi.doi_trang_thai · can · OpsStatusService.collect (+2 service)
-- test: test_theo_doi_pha_1_db.py, test_traffic_service.py, test_day_tep_db.py, test_bao_cao_theo_co_so_db.py, test_bao_cao_va_danh_sach_khach_db.py (+4)
+- service: agent_giam_sat.{danh_gia, dat_che_do} · day_tep.so_lieu · canh_gac.danh_sach · nhat_ky_van_hanh.doc_nhat_ky · kho_loi.doi_trang_thai · can (+3 service)
+- test: test_theo_doi_pha_1_db.py, test_traffic_service.py, test_agent_giam_sat_db.py, test_day_tep_db.py, test_bao_cao_theo_co_so_db.py (+5)
 
 ### `/ops/telemetry`
 - page: `src/dashboard/app/(dashboard)/ops/telemetry/page.tsx` · quyền: lego `van_hanh` (Vận hành hệ thống · mặc định: Quản lý)
@@ -533,7 +533,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: TepKetQuaService.{cho_xac_nhan, xac_nhan_tep, mo_de_doc} · media_service · tep_ket_qua_service
 - test: test_xac_nhan_tep_ket_qua_db.py, test_tep_ket_qua.py, test_cho_xac_nhan_queue_va_doc_tep_db.py, test_full_chi_dinh_slice_ab_db.py, test_slice1_rail_db.py (+1)
 
-## 2. API Next → backend (117)
+## 2. API Next → backend (118)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -1050,6 +1050,14 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_day_noi_nhac_db.py
 - màn dùng: /ban-kham, /ban-kham/[phong], /customers, /do-sinh-hieu, /pharmacy, /phong/[ma] (+1)
 
+#### `/api/ops/agent` · `src/dashboard/app/api/ops/agent/route.ts`
+- [1] GET `/api/v1/ops/agent` → `src/clinicai/api/v1/routers/ops.py:agent_nhan_dinh` → agent_giam_sat.danh_sach
+- [true] GET `/api/v1/ops/agent` → `src/clinicai/api/v1/routers/ops.py:agent_nhan_dinh` → agent_giam_sat.danh_sach
+- POST `/api/v1/ops/agent/{nhan_dinh_id}/danh-gia` → `src/clinicai/api/v1/routers/ops.py:danh_gia_nhan_dinh` → agent_giam_sat.danh_gia
+- POST `/api/v1/ops/agent/che-do` → `src/clinicai/api/v1/routers/ops.py:dat_che_do_agent` → agent_giam_sat.dat_che_do
+- test: src/tests/services/test_agent_giam_sat_db.py
+- màn dùng: /ops
+
 #### `/api/ops/summary` · `src/dashboard/app/api/ops/summary/route.ts`
 - GET `/api/v1/phan-quyen/toi` → `src/clinicai/api/v1/routers/phan_quyen.py:quyen_cua_toi` → quyen_hieu_luc
 - GET `/api/v1/ops/status` → `src/clinicai/api/v1/routers/ops.py:get_ops_status` → OpsStatusService.collect
@@ -1401,7 +1409,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
-| `agent_giam_sat` | `src/clinicai/services/agent_giam_sat.py` | — (chỉ API/worker) |
+| `agent_giam_sat` | `src/clinicai/services/agent_giam_sat.py` | /ops |
 | `AndrologyReviewService` | `src/clinicai/services/andrology_review_service.py` | /ban-kham, /ban-kham/[phong], /tu-van |
 | `AnhChuyenKhoanService` | `src/clinicai/services/anh_chuyen_khoan_service.py` | /pharmacy, /thu-ngan/dich-vu, /thu-ngan/thuoc |
 | `append` | `src/clinicai/tools/event_log/append.py` | — (chỉ API/worker) |

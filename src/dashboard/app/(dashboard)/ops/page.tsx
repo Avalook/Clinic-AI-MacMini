@@ -13,6 +13,7 @@ import LoiCanhBao from "./LoiCanhBao";
 import NhatKyVanHanh from "./NhatKyVanHanh";
 import ToanCanh from "./ToanCanh";
 import LuuLuongOps from "./LuuLuongOps";
+import AgentGiamSat from "./AgentGiamSat";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ const TAB = [
   { ma: "api", ten: "Sức khoẻ API" },
   { ma: "toan-canh", ten: "Toàn cảnh" },
   { ma: "loi", ten: "Lỗi & cảnh báo" },
+  { ma: "agent", ten: "Agent giám sát" },
   { ma: "nhat-ky", ten: "Nhật ký vận hành" },
   { ma: "traffic", ten: "Lưu lượng & Thiết bị" },
 ] as const;
@@ -55,6 +57,8 @@ export default async function OpsPage({
         <ToanCanh coSo={co_so} />
       ) : dangMo === "loi" ? (
         <LoiCanhBao />
+      ) : dangMo === "agent" ? (
+        <AgentGiamSat />
       ) : dangMo === "nhat-ky" ? (
         <NhatKyVanHanh />
       ) : dangMo === "traffic" ? (
