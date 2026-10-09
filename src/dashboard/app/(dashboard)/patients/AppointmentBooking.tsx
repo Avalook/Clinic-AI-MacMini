@@ -8,6 +8,7 @@
 
 import { useState, useMemo, useEffect, type ReactNode } from "react";
 import { vnLocalToUtcISO, nowMs } from "../../../lib/datetime";
+import { khungDaQua } from "../../../lib/khung-da-qua";
 import { todayVn, clinicHoursForDate, clinicHoursError } from "../../../lib/roster";
 import { INPUT, LABEL, BTN, CHANNELS_CHON, KENH_GIOI_THIEU } from "../form-ui";
 import { unaccentVi } from "../../../lib/validation";
@@ -273,7 +274,7 @@ export default function AppointmentBooking({
     const start = new Date(vnLocalToUtcISO(apptDate, apptTime));
     // KHÔNG đặt vào khung ĐÃ QUA — đo bằng GIỜ KẾT THÚC như máy chủ
     // (`_chan_dat_vao_qua_khu`, 29/09/2026): khung đang chạy vẫn đặt / đổi được.
-    if (start.getTime() + duration * 60_000 <= nowMs()) {
+    if (khungDaQua(start.getTime(), duration, nowMs())) {
       setError("Khung giờ này đã qua — chọn một khung còn ở phía trước.");
       return;
     }
