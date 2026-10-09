@@ -120,6 +120,14 @@ vấn / đi thẳng phòng · chuông sự kiện báo ai**
   `BookingOverrideService` (luật số chỗ, "luật mới cắt luật cũ"). Test:
   `T/services/test_booking_policy_dau_vao_rac_db.py`, FT `booking-policy-boundary.test.mts`.
 
+**Khung giờ "đã qua" ở màn đặt / đổi lịch** (09/10/2026) — đã qua = khung đã KẾT
+THÚC (khung đang chạy vẫn đặt được), cùng luật máy chủ `_chan_dat_vao_qua_khu`.
+MỘT hàm `src/dashboard/lib/khung-da-qua.ts` (`khungDaQua`, `khungDaQuaTheoPhut`,
+`khungDaQuaVn`) dùng ở `patients/new/NewPatientForm.tsx`, `patients/CinemaSlotPicker.tsx`,
+`patients/AppointmentBooking.tsx` (→ `DatLichModal`, `AppointmentEditModal`,
+`DatLichBuoiKe`), `appointments/BangBacSiTuan.tsx` (→ `BookingHub`). Test FT
+`lib/khung-da-qua.test.mts`. Ngoài ca / giờ mở cửa: máy chủ, không đổi.
+
 **Hành vi đặt / đổi / huỷ lịch, chặn trùng, ngoài khung ca**
 - Màn: `/appointments` (`D/appointments/BookingHub.tsx`), popover đổi lịch
   `D/_lam-viec/DoiLichTaiCho.tsx`, huỷ `D/_lam-viec/ThaoTacLichTaiCho.tsx`.

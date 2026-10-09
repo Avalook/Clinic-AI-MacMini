@@ -25,6 +25,7 @@ import {
   type TrangThaiNgay,
 } from "./cho-trong";
 import { khoaGiuCho, useGiuCho } from "./dung-giu-cho";
+import { khungDaQuaTheoPhut } from "@/lib/khung-da-qua";
 import { unaccentVi } from "@/lib/validation";
 
 const THU = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
@@ -420,7 +421,10 @@ export default function BangBacSiTuan({
             ) : (
               <ul className="max-h-72 space-y-1 overflow-y-auto pr-1">
                 {quote.slots.map((k) => {
-                  const daQua = popup.date === homNay && k.minute_of_day + k.slot_minutes <= bayGioPhut;
+                  // Đã qua = khung đã KẾT THÚC (khung đang chạy vẫn đặt được).
+                  const daQua =
+                    popup.date === homNay &&
+                    khungDaQuaTheoPhut(k.minute_of_day, k.slot_minutes, bayGioPhut);
                   const c = chuKhung(
                     k,
                     quote.dat_tu_do,

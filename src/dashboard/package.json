@@ -13,7 +13,7 @@
     "test:luu-nhap": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/luu-nhap.test.mts",
     "test:roster": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/roster.test.mts",
     "e2e:intake": "node e2e/intake-day-simulation.mjs",
-    "test:khung": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/khung-nhan-lich.test.mts",
+    "test:khung": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/khung-nhan-lich.test.mts lib/khung-da-qua.test.mts",
     "test:gio-ca": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/soat-gio-ca.test.mts",
     "test:nhip": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/nhip-lam-moi.test.mts lib/nhip-khi-hien.test.mts",
     "test:clinical-sync": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/clinical-sync.test.mts lib/clinical-completion.test.mts",
