@@ -3,6 +3,7 @@
 
 from typing import Any
 
+import asyncpg
 import pytest
 
 from clinicai.core import database
@@ -16,7 +17,7 @@ async def test_be_ket_noi_tat_jit(monkeypatch: pytest.MonkeyPatch) -> None:
         return object()
 
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:p@h:5432/d")
-    monkeypatch.setattr(database.asyncpg, "create_pool", gia_create_pool)
+    monkeypatch.setattr(asyncpg, "create_pool", gia_create_pool)
 
     await database.create_pool()
 
