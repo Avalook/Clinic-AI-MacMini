@@ -183,3 +183,54 @@ async def test_luot_khong_don_khach_la_va_khong_quyen(pool: asyncpg.Pool) -> Non
             pid,
             ca.le_tan.staff_id,
         )
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_bam_lai_cung_khoa_mot_dong_va_ban_kham_thay_luot_khong_phieu(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    import json
+
+    from clinicai.api.idempotency import IdempotencyGuard
+    from clinicai.api.v1.routers.clinical_forms import read_exam_history
+    from clinicai.api.v1.routers.cskh import PhanHoiThuocBody, ghi_phan_hoi_thuoc
+
+    ca = await _dung(pool)
+    pid = await _benh_nhan(pool, ca)
+    # Lượt có đơn nhưng KHÔNG có phiếu khám nào.
+    v = await _check_in(pool, ca, pid, ca.loai_kham)
+    await _ke_don(pool, v, "Duphaston 10mg")
+    than = PhanHoiThuocBody(noi_dung="Đỡ đau")
+    khoa = f"phht-{uuid.uuid4().hex}"
+
+    async def bam() -> object:
+        return await ghi_phan_hoi_thuoc(
+            clinic_patient_id=uuid.UUID(pid),
+            body=than,
+            identity=ca.le_tan,
+            pool=pool,
+            idem=IdempotencyGuard(
+                key=khoa, endpoint="POST /cskh/khach/{id}/phan-hoi-thuoc"
+            ),
+        )
+
+    lan1 = await bam()
+    lan2 = await bam()  # rớt mạng, bấm lại CÙNG khoá
+    assert isinstance(lan1, dict)
+    assert json.loads(lan2.body)["id"] == lan1["id"]  # type: ignore[attr-defined]
+    so_dong = await pool.fetchval(
+        "SELECT count(*) FROM tuong_tac_cskh WHERE clinic_patient_id = $1::uuid"
+        " AND loai = 'PHAN_HOI_THUOC'",
+        pid,
+    )
+    assert so_dong == 1
+
+    # Bàn khám: lượt không phiếu nên `items` rỗng — phản hồi vẫn về theo khách.
+    ls = await read_exam_history(
+        clinic_patient_id=uuid.UUID(pid), identity=ca.bac_si, pool=pool
+    )
+    assert ls["items"] == []
+    assert [(p["visit_id"], p["noi_dung"]) for p in ls["phan_hoi_thuoc"]] == [
+        (v, "Đỡ đau")
+    ]

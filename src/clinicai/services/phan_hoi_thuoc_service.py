@@ -76,14 +76,23 @@ def _dong(r: asyncpg.Record, staff_id: str | None) -> dict[str, Any]:
     }
 
 
+async def doc_theo_khach(
+    conn: asyncpg.Connection, clinic_id: str, clinic_patient_id: str
+) -> list[dict[str, Any]]:
+    """Mọi phản hồi còn hiệu lực của khách, mới nhất trước — màn bác sĩ (chỉ
+    đọc). Theo KHÁCH, không theo danh sách lượt có phiếu: lượt có đơn mà chưa
+    ghi phiếu vẫn phải hiện ("bác sĩ mở hồ sơ là thấy")."""
+    rows = await conn.fetch(_PHAN_HOI_SQL, clinic_id, clinic_patient_id, _TRAN_PHAN_HOI)
+    return [_dong(r, None) for r in rows]
+
+
 async def doc_theo_luot(
     conn: asyncpg.Connection, clinic_id: str, clinic_patient_id: str
 ) -> dict[str, list[dict[str, Any]]]:
-    """{visit_id: [phản hồi mới nhất trước]} — cho màn bác sĩ (chỉ đọc)."""
-    rows = await conn.fetch(_PHAN_HOI_SQL, clinic_id, clinic_patient_id, _TRAN_PHAN_HOI)
+    """{visit_id: [phản hồi mới nhất trước]} — popup Lịch sử khám (chỉ đọc)."""
     ra: dict[str, list[dict[str, Any]]] = {}
-    for r in rows:
-        ra.setdefault(r["visit_id"], []).append(_dong(r, None))
+    for p in await doc_theo_khach(conn, clinic_id, clinic_patient_id):
+        ra.setdefault(p["visit_id"], []).append(p)
     return ra
 
 
@@ -244,4 +253,4 @@ class PhanHoiThuocService:
         return {"ok": True}
 
 
-__all__ = ["KENH", "LOAI", "PhanHoiThuocService", "doc_theo_luot"]
+__all__ = ["KENH", "LOAI", "PhanHoiThuocService", "doc_theo_khach", "doc_theo_luot"]

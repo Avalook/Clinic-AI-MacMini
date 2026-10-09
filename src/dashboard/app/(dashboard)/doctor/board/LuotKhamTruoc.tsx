@@ -17,7 +17,9 @@
 //
 // PHẢN HỒI SAU DÙNG THUỐC (10/10/2026): CSKH ghi ở khung khách, gắn lượt có đơn
 // → hiện NGAY dưới hàng lượt (không cần rê chuột), chỉ đọc; tự cập nhật khi sổ
-// chăm sóc đổi (NOTIFY `tuong_tac_cskh`).
+// chăm sóc đổi (NOTIFY `tuong_tac_cskh`). Máy chủ trả theo KHÁCH
+// (`phan_hoi_thuoc` cạnh `items`), không theo lượt có phiếu — lượt có đơn mà
+// chưa ghi phiếu vẫn hiện.
 
 import { useEffect, useState } from "react";
 import { History, RotateCcw } from "lucide-react";
@@ -41,8 +43,6 @@ export interface LuotTruoc {
   chan_doan?: string | null;
   /** Nhãn đếm lượt máy chủ tính ("Lượt khám 3", "Buổi 2/10"…). */
   nhan_luot?: NhanLuot | null;
-  /** Phản hồi sau dùng thuốc CSKH ghi cho lượt này (máy chủ gắn). */
-  phan_hoi_thuoc?: PhanHoiThuoc[];
 }
 
 /** Vài dòng đầu của phiếu, đủ để nhớ ra hôm đó khám gì. */
@@ -75,6 +75,7 @@ export default function LuotKhamTruoc({
   onXem: (luot: LuotTruoc | null) => void;
 }) {
   const [items, setItems] = useState<LuotTruoc[]>([]);
+  const [phanHoiKhach, setPhanHoiKhach] = useState<PhanHoiThuoc[]>([]);
   const [hien, setHien] = useState<string | null>(null);
   const [lan, setLan] = useState(0);
   useNgheBang(["tuong_tac_cskh"], () => setLan((n) => n + 1));
@@ -86,7 +87,10 @@ export default function LuotKhamTruoc({
     let bo = false;
     if (!clinicPatientId) {
       const t = setTimeout(() => {
-        if (!bo) setItems([]);
+        if (!bo) {
+          setItems([]);
+          setPhanHoiKhach([]);
+        }
       }, 0);
       return () => {
         bo = true;
@@ -95,10 +99,11 @@ export default function LuotKhamTruoc({
     }
     fetch(`/api/clinical-forms/history?clinic_patient_id=${clinicPatientId}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { items?: LuotTruoc[] } | null) => {
+      .then((d: { items?: LuotTruoc[]; phan_hoi_thuoc?: PhanHoiThuoc[] } | null) => {
         if (bo || !d) return;
         // Lượt ĐANG khám không phải "lượt trước".
         setItems((d.items ?? []).filter((x) => x.visit_id !== visitIdHienTai));
+        setPhanHoiKhach(d.phan_hoi_thuoc ?? []);
       })
       .catch(() => {});
     return () => {
@@ -106,15 +111,13 @@ export default function LuotKhamTruoc({
     };
   }, [clinicPatientId, visitIdHienTai, lan]);
 
-  // Chưa khám lần nào thì thôi.
-  if (items.length === 0 && !dangXem) return null;
+  // Chưa khám lần nào (và không có phản hồi thuốc nào) thì thôi.
+  if (items.length === 0 && !dangXem && phanHoiKhach.length === 0) return null;
 
-  // Đang xem lại một lượt → chỉ phản hồi của lượt ấy; còn lại → mọi lượt trước.
+  // Đang xem lại một lượt → chỉ phản hồi của lượt ấy; còn lại → mọi phản hồi.
   const phanHoi = dangXem
-    ? (items.find((x) => x.visit_id === dangXem.visit_id)?.phan_hoi_thuoc ??
-      dangXem.phan_hoi_thuoc ??
-      [])
-    : items.flatMap((x) => x.phan_hoi_thuoc ?? []);
+    ? phanHoiKhach.filter((p) => p.visit_id === dangXem.visit_id)
+    : phanHoiKhach;
 
   return (
     <div className="relative mt-2">
@@ -136,7 +139,7 @@ export default function LuotKhamTruoc({
             Quay lại khám tiếp
           </button>
         </div>
-      ) : (
+      ) : items.length === 0 ? null : (
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className="text-ink-muted">Lượt khám trước:</span>
           {items.map((l) => (

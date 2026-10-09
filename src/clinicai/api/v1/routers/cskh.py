@@ -180,14 +180,23 @@ async def ghi_phan_hoi_thuoc(
     body: PhanHoiThuocBody,
     identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
 ) -> dict[str, Any]:
-    return await PhanHoiThuocService(pool).ghi(
-        identity=identity,
-        clinic_patient_id=str(clinic_patient_id),
-        noi_dung=body.noi_dung,
-        visit_id=str(body.visit_id) if body.visit_id else None,
-        kenh=body.kenh,
-    )
+    """Chống ghi trùng như `/cskh/tuong-tac`: rớt mạng sau khi bấm rồi bấm lại
+    cùng `Idempotency-Key` → trả lại kết quả cũ, không thêm dòng thứ hai."""
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        dong_moi = await PhanHoiThuocService(pool).ghi(
+            identity=identity,
+            clinic_patient_id=str(clinic_patient_id),
+            noi_dung=body.noi_dung,
+            visit_id=str(body.visit_id) if body.visit_id else None,
+            kenh=body.kenh,
+        )
+        await idem.save(pool, dong_moi, status_code=201)
+    return dong_moi
 
 
 @router.post("/cskh/phan-hoi-thuoc/{phan_hoi_id}/go")

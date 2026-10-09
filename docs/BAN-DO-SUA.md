@@ -461,9 +461,10 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   → `/api/cskh/khach/[id]` (`?xem=phan-hoi-thuoc`, `thao_tac: phan-hoi-thuoc |
   go-phan-hoi-thuoc`) → `S/phan_hoi_thuoc_service.py` (`doc`, `ghi`, `go`). Lưu ở
   `tuong_tac_cskh` loại `PHAN_HOI_THUOC` + cột `visit_id` (mig `20261010200000`); chỉ
-  người ghi gỡ được (cả `tuong_tac_cskh_service.hoan_tac`). Bác sĩ đọc: `doc_theo_luot`
-  gắn vào `clinical_form_service.lich_su_kham` (Bàn khám `LuotKhamTruoc`) và
-  `S/lich_su_luot.py` (popup `LichSuKham`). Test: `T/services/test_phan_hoi_thuoc_db.py`.
+  người ghi gỡ được (cả `tuong_tac_cskh_service.hoan_tac`); POST nhận `Idempotency-Key`.
+  Bác sĩ đọc: `doc_theo_khach` → `phan_hoi_thuoc` của `GET /clinical-forms/history`
+  (Bàn khám `LuotKhamTruoc`, theo KHÁCH — cả lượt có đơn chưa có phiếu) và
+  `doc_theo_luot` → `S/lich_su_luot.py` (popup `LichSuKham`). Test: `T/services/test_phan_hoi_thuoc_db.py`.
 - **Nhãn đếm lượt "Lượt khám n" / "Buổi k/N" (08/10, mọi màn):** máy chủ đếm ở
   `S/nhan_luot.py` (`gan_nhan` thuần + `doc_nhan_luot` một câu SQL), gắn `nhan_luot` vào
   dữ liệu của `S/man_khach_hang_service.py` (`/customers` — kèm giờ thật `den_luc` /

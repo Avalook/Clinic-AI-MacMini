@@ -70,11 +70,13 @@ export async function POST(
     return proxyJsonToBackend("POST", `/api/v1/cskh/ghi-chu/${than.ghi_chu_id}/go`, {});
   }
   if (than?.thao_tac === "phan-hoi-thuoc") {
-    return proxyJsonToBackend("POST", `/api/v1/cskh/khach/${id}/phan-hoi-thuoc`, {
-      noi_dung: than.noi_dung,
-      visit_id: than.visit_id ?? null,
-      kenh: than.kenh ?? "GOI",
-    });
+    // Chuyển tiếp Idempotency-Key (chống ghi trùng khi rớt mạng rồi bấm lại).
+    return proxyJsonToBackend(
+      "POST",
+      `/api/v1/cskh/khach/${id}/phan-hoi-thuoc`,
+      { noi_dung: than.noi_dung, visit_id: than.visit_id ?? null, kenh: than.kenh ?? "GOI" },
+      request.headers.get("Idempotency-Key") ?? undefined,
+    );
   }
   if (
     than?.thao_tac === "go-phan-hoi-thuoc" &&

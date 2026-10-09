@@ -9,7 +9,7 @@
 // dấu vết). [Đặt lịch khám] mở bộ đặt lịch SẴN CÓ của màn cha. Luật (lượt nào
 // có đơn, ai gỡ được) ở `phan_hoi_thuoc_service.py`; ở đây chỉ vẽ.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import ChipChon from "@/components/ui/ChipChon";
@@ -47,6 +47,14 @@ const NHAN_KENH: Record<string, string> = {
 };
 const KENH_CHON = ["GOI", "ZALO", "TRUC_TIEP"] as const;
 
+/** Khoá chống ghi trùng. `randomUUID` chỉ có trong ngữ cảnh an toàn — http nội
+ *  bộ thì lùi về chuỗi ngẫu nhiên (cùng cách `customers/khoa-mot-lan.ts`). */
+function taoKhoa(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 /** Một dòng phản hồi — dùng chung với màn bác sĩ (chỉ đọc). */
 export function DongPhanHoiThuoc({ p }: { p: PhanHoiThuoc }) {
   return (
@@ -79,6 +87,9 @@ export default function PhanHoiThuocKhach({
   const [dang, setDang] = useState(false);
   const [loiGhi, setLoiGhi] = useState<string | null>(null);
   const [goDangHoi, setGoDangHoi] = useState<string | null>(null);
+  // MỘT khoá cho mỗi lần mở form: rớt mạng rồi bấm lại gửi CÙNG khoá → máy chủ
+  // trả lại kết quả cũ, không ra dòng thứ hai. Lưu thành công → khoá mới.
+  const khoaGhi = useRef<string | null>(null);
 
   const duong = `/api/cskh/khach/${clinicPatientId}`;
 
@@ -111,13 +122,16 @@ export default function PhanHoiThuocKhach({
     };
   }, [duong, lan]);
 
-  const gui = async (than: unknown): Promise<boolean> => {
+  const gui = async (than: unknown, khoa?: string): Promise<boolean> => {
     setDang(true);
     setLoiGhi(null);
     try {
       const r = await fetch(duong, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(khoa ? { "Idempotency-Key": khoa } : {}),
+        },
         body: JSON.stringify(than),
       });
       const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
@@ -194,16 +208,22 @@ export default function PhanHoiThuocKhach({
               size="lg"
               variant="soft"
               disabled={dang || noiDung.trim() === ""}
-              onClick={() =>
-                void gui({
-                  thao_tac: "phan-hoi-thuoc",
-                  visit_id: luotChon || null,
-                  kenh,
-                  noi_dung: noiDung.trim(),
-                }).then((ok) => {
-                  if (ok) setNoiDung("");
-                })
-              }
+              onClick={() => {
+                khoaGhi.current ??= taoKhoa();
+                void gui(
+                  {
+                    thao_tac: "phan-hoi-thuoc",
+                    visit_id: luotChon || null,
+                    kenh,
+                    noi_dung: noiDung.trim(),
+                  },
+                  khoaGhi.current,
+                ).then((ok) => {
+                  if (!ok) return;
+                  khoaGhi.current = null;
+                  setNoiDung("");
+                });
+              }}
             >
               Lưu phản hồi
             </Button>
