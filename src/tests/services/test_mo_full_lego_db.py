@@ -22,7 +22,7 @@ import pytest
 
 from clinicai.api.identity import ClinicRole, StaffIdentity, doc_vai_theo_lego
 from clinicai.permissions.can import can
-from clinicai.permissions.catalogue import KHOI_CHI_QUAN_LY, QUYEN
+from clinicai.permissions.catalogue import KHOI_CHI_QUAN_LY, KHOI_NOI_BO, QUYEN
 from clinicai.services.form_engine_service import FormEngineService
 from clinicai.services.xem_luot_service import XemLuotService
 from tests.services.test_form_engine_db import _don_tron
@@ -171,11 +171,14 @@ async def test_migration_cap_bu_nguoi_cu_va_tat_quyen_theo_lich(kb: KichBan) -> 
                 ai.staff_id,
             )
             raise _RollbackError
-    so_khoi_mo = {q.khoi for q in QUYEN.values()} - KHOI_CHI_QUAN_LY
+    # Khối NỘI BỘ đội vận hành (09/10/2026): trigger DB bỏ qua, không lọt.
+    so_khoi_mo = {q.khoi for q in QUYEN.values()} - KHOI_CHI_QUAN_LY - KHOI_NOI_BO
     assert ket_qua["khoi"] == so_khoi_mo
     assert ket_qua["day"] in (False, "false")
     assert ket_qua["so_dong"] == sum(
-        1 for q in QUYEN.values() if q.khoi not in KHOI_CHI_QUAN_LY
+        1
+        for q in QUYEN.values()
+        if q.khoi not in KHOI_CHI_QUAN_LY and q.khoi not in KHOI_NOI_BO
     )
 
 

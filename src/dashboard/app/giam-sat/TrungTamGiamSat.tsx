@@ -1,6 +1,7 @@
 "use client";
 
-// TRUNG TÂM GIÁM SÁT — tab "Agent giám sát" ở /ops (09/10/2026).
+// TRUNG TÂM GIÁM SÁT — trang /giam-sat ở tên miền riêng giamsat.dr4women.io.vn
+// (09/10/2026; trước là tab "Agent giám sát" trong /ops).
 //
 // Tuyền: "cần một cái nhìn tổng quan mọi thứ… đẹp, chỉn chu" — phong cách theo
 // mẫu Kravio (kravio-dashboard.vercel.app): khay xám vân chéo bọc thẻ trắng viền

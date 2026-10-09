@@ -529,7 +529,12 @@ def _json_dong(r: asyncpg.Record) -> dict[str, Any]:
 
 
 async def danh_sach(
-    pool: asyncpg.Pool, *, clinic_id: str, chi_dang_mo: bool, gioi_han: int = 200
+    pool: asyncpg.Pool,
+    *,
+    clinic_id: str,
+    chi_dang_mo: bool,
+    gioi_han: int = 200,
+    location_id: str | None = None,
 ) -> dict[str, Any]:
     """Nhận định (đang mở trước), thống kê độ đúng 14 ngày theo loại, công tắc."""
     gioi_han = max(1, min(int(gioi_han), 500))
@@ -541,6 +546,9 @@ async def danh_sach(
                danh_gia_luc
           FROM agent_nhan_dinh
          WHERE clinic_id = $1::uuid AND ($2::boolean IS FALSE OR dong_luc IS NULL)
+           -- Cơ sở đang xem; nhận định không gắn cơ sở (việc quá hạn của lượt
+           -- không rõ cơ sở…) hiện ở mọi nơi để không ai bỏ sót.
+           AND (location_id IS NULL OR $4::uuid IS NULL OR location_id = $4::uuid)
          ORDER BY (dong_luc IS NULL) DESC,
                   CASE muc WHEN 'critical' THEN 0 ELSE 1 END, lan_cuoi DESC
          LIMIT $3
@@ -548,6 +556,7 @@ async def danh_sach(
         clinic_id,
         chi_dang_mo,
         gioi_han,
+        location_id,
     )
     bi_cat = canh_bao_neu_day(
         "agent.nhan_dinh", len(rows), gioi_han, clinic_id=clinic_id

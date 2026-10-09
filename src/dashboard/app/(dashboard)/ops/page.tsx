@@ -13,7 +13,6 @@ import LoiCanhBao from "./LoiCanhBao";
 import NhatKyVanHanh from "./NhatKyVanHanh";
 import ToanCanh from "./ToanCanh";
 import LuuLuongOps from "./LuuLuongOps";
-import TrungTamGiamSat from "./TrungTamGiamSat";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +21,6 @@ const TAB = [
   { ma: "api", ten: "Sức khoẻ API" },
   { ma: "toan-canh", ten: "Toàn cảnh" },
   { ma: "loi", ten: "Lỗi & cảnh báo" },
-  { ma: "agent", ten: "Agent giám sát" },
   { ma: "nhat-ky", ten: "Nhật ký vận hành" },
   { ma: "traffic", ten: "Lưu lượng & Thiết bị" },
 ] as const;
@@ -31,10 +29,10 @@ type MaTab = (typeof TAB)[number]["ma"];
 export default async function OpsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; co_so?: string; demo?: string }>;
+  searchParams: Promise<{ tab?: string; co_so?: string }>;
 }) {
   await requireNavAccess("/ops");
-  const { tab, co_so, demo } = await searchParams;
+  const { tab, co_so } = await searchParams;
   // Tham số lạ (gõ tay, link hỏng) thì về tab đầu, không ném.
   const dangMo: MaTab = TAB.some((t) => t.ma === tab) ? (tab as MaTab) : "he-thong";
   return (
@@ -57,8 +55,6 @@ export default async function OpsPage({
         <ToanCanh coSo={co_so} />
       ) : dangMo === "loi" ? (
         <LoiCanhBao />
-      ) : dangMo === "agent" ? (
-        <TrungTamGiamSat demo={demo === "1"} />
       ) : dangMo === "nhat-ky" ? (
         <NhatKyVanHanh />
       ) : dangMo === "traffic" ? (

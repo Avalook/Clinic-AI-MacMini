@@ -262,8 +262,22 @@ KHOI: dict[str, KhoiCongViec] = {
             "partner",
             "Khách được phân cho mình, điền thông tin, gửi tài liệu",
         ),
+        # NỘI BỘ (09/10/2026): trung tâm giám sát AI ở giamsat.dr4women.io.vn —
+        # chỉ đội vận hành ClinicAI. KHÔNG nằm trong preset nào, không bày trên
+        # màn Phân quyền, API cấp/thu/nhóm từ chối, trigger DB chặn cấp lậu.
+        # Cấp bằng SQL có cờ phiên (xem migration 20261009880000).
+        KhoiCongViec(
+            "noi_bo_giam_sat",
+            "Giám sát AI (nội bộ)",
+            "ops",
+            "Trung tâm giám sát agent — chỉ đội vận hành ClinicAI",
+        ),
     )
 }
+
+#: Khối nội bộ của đội vận hành ClinicAI — quản lý phòng khám (kể cả có
+#: `permission.manage`) KHÔNG cấp / thu / gom vào nhóm được.
+KHOI_NOI_BO: frozenset[str] = frozenset({"noi_bo_giam_sat"})
 
 
 # ── Quyền ───────────────────────────────────────────────────────────────────
@@ -610,6 +624,13 @@ QUYEN: dict[str, Quyen] = {
             MucRuiRo.QUAN_TRI,
         ),
         Quyen(
+            "giamsat.view",
+            "Xem trung tâm giám sát AI (nội bộ đội vận hành)",
+            "noi_bo_giam_sat",
+            "ops",
+            MucRuiRo.QUAN_TRI,
+        ),
+        Quyen(
             "audit.view",
             "Xem lịch sử thao tác",
             "lich_su_thao_tac",
@@ -786,7 +807,9 @@ PRESET["PARTNER"] = ["doi_tac"]
 # chốt 24/09/2026: "quản lý quyền cao nhất — có module đó thì mọi quyền của nó
 # có cả". Khối mới thêm sau này tự vào (migration thêm khối phải thêm cả vào
 # nhóm này — `test_danh_muc_quyen_db` so hai bên).
-PRESET["MANAGEMENT"] = list(KHOI)
+# Trừ khối NỘI BỘ của đội vận hành ClinicAI (09/10/2026) — đó không phải quyền
+# của phòng khám.
+PRESET["MANAGEMENT"] = [k for k in KHOI if k not in KHOI_NOI_BO]
 # `doi_tac` là việc của người ngoài; quản lý vẫn có (xem hộ đối tác) như trước.
 
 
@@ -814,7 +837,9 @@ KHOI_CHI_QUAN_LY: frozenset[str] = frozenset(
 )
 
 #: Khối mở cho MỌI nhân sự nội bộ.
-KHOI_MO_FULL: list[str] = [k for k in KHOI if k not in KHOI_CHI_QUAN_LY]
+KHOI_MO_FULL: list[str] = [
+    k for k in KHOI if k not in KHOI_CHI_QUAN_LY and k not in KHOI_NOI_BO
+]
 
 for _vai in PRESET:
     if _vai not in ("PARTNER", "MANAGEMENT"):
@@ -1045,7 +1070,7 @@ MAN_THEO_VAI: list[tuple[str, str]] = []
 
 #: Khối KHÔNG bày trên màn Phân quyền (Tuyền 25/09): Duyệt kết quả, Xác nhận tệp
 #: (OFF 23–24/09, giữ code sau cờ). Ghi bệnh án đi kèm lego có ô ghi (3, 4, 5).
-KHOI_AN: frozenset[str] = frozenset({"duyet_ket_qua", "xac_nhan_ket_qua"})
+KHOI_AN: frozenset[str] = frozenset({"duyet_ket_qua", "xac_nhan_ket_qua", *KHOI_NOI_BO})
 
 
 def man_dang_bat(khoi: Sequence[str]) -> list[str]:

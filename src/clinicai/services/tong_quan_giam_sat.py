@@ -59,39 +59,57 @@ def van_hanh_tu_dieu_phoi(patients: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-async def doc(pool: asyncpg.Pool, *, clinic_id: str) -> dict[str, Any]:
+#: Lượt thuộc cơ sở đang xem — cùng luật màn Trưởng ca (`co_so_cua_luot`):
+#: không rõ cơ sở thì vẫn hiện (khỏi giấu khách), $2 NULL = mọi cơ sở.
+_CUNG_CO_SO = (
+    "coalesce(v.location_id, a.location_id) IS NOT DISTINCT FROM"
+    " coalesce($2::uuid, v.location_id, a.location_id)"
+)
+
+
+async def doc(
+    pool: asyncpg.Pool, *, clinic_id: str, location_id: str | None = None
+) -> dict[str, Any]:
+    """`location_id` = cơ sở đang chọn (Hào Nam / Kim Ngưu nhân bản cùng tên
+    phòng — gộp lại là bản đồ có hai "Siêu âm tầng 2"). None = mọi cơ sở."""
     dv = DispatchService(pool)
-    patients = await dv.overview(clinic_id=clinic_id, location_id=None)
-    rooms = await dv.stations(clinic_id=clinic_id, location_id=None)
+    patients = await dv.overview(clinic_id=clinic_id, location_id=location_id)
+    rooms = await dv.stations(clinic_id=clinic_id, location_id=location_id)
 
     async with pool.acquire() as conn:
         ngay = await conn.fetchrow(
             f"""
-            SELECT count(*) FILTER (WHERE checked_in_at >= {_DAU_NGAY}) AS check_in,
-                   count(*) FILTER (WHERE checked_in_at >= {_DAU_NGAY}
-                                      AND closed_at IS NOT NULL) AS da_ve,
+            SELECT count(*) FILTER (WHERE v.checked_in_at >= {_DAU_NGAY}) AS check_in,
+                   count(*) FILTER (WHERE v.checked_in_at >= {_DAU_NGAY}
+                                      AND v.closed_at IS NOT NULL) AS da_ve,
                    -- Hôm qua TỚI CÙNG GIỜ — so 10h sáng nay với cả ngày hôm qua
                    -- là so sai.
-                   count(*) FILTER (WHERE checked_in_at
+                   count(*) FILTER (WHERE v.checked_in_at
                                           >= {_DAU_NGAY} - interval '1 day'
-                                      AND checked_in_at < now() - interval '1 day')
+                                      AND v.checked_in_at < now() - interval '1 day')
                        AS check_in_hom_qua
-              FROM visit
-             WHERE clinic_id = $1::uuid
-               AND checked_in_at >= {_DAU_NGAY} - interval '1 day'
+              FROM visit v
+              LEFT JOIN appointment a ON a.id = v.appointment_id
+             WHERE v.clinic_id = $1::uuid
+               AND v.checked_in_at >= {_DAU_NGAY} - interval '1 day'
+               AND {_CUNG_CO_SO}
             """,
             clinic_id,
+            location_id,
         )
         theo_gio = await conn.fetch(
             f"""
-            SELECT extract(hour FROM checked_in_at AT TIME ZONE
+            SELECT extract(hour FROM v.checked_in_at AT TIME ZONE
                            'Asia/Ho_Chi_Minh')::int AS gio,
                    count(*) AS so
-              FROM visit
-             WHERE clinic_id = $1::uuid AND checked_in_at >= {_DAU_NGAY}
+              FROM visit v
+              LEFT JOIN appointment a ON a.id = v.appointment_id
+             WHERE v.clinic_id = $1::uuid AND v.checked_in_at >= {_DAU_NGAY}
+               AND {_CUNG_CO_SO}
              GROUP BY 1
             """,
             clinic_id,
+            location_id,
         )
         su_kien = await do_su_kien(conn)
         loi = await conn.fetchrow(
@@ -113,9 +131,12 @@ async def doc(pool: asyncpg.Pool, *, clinic_id: str) -> dict[str, Any]:
                    count(*) FILTER (WHERE dong_luc IS NULL AND muc = 'warning')
                        AS warning,
                    max(lan_cuoi) AS vong_cuoi
-              FROM agent_nhan_dinh WHERE clinic_id = $1::uuid
+              FROM agent_nhan_dinh
+             WHERE clinic_id = $1::uuid
+               AND (location_id IS NULL OR $2::uuid IS NULL OR location_id = $2::uuid)
             """,
             clinic_id,
+            location_id,
         )
 
     gio = {int(r["gio"]): int(r["so"]) for r in theo_gio}
