@@ -25,6 +25,7 @@ from clinicai.services import (
     day_tep,
     kho_loi,
     nhat_ky_van_hanh,
+    tong_quan_giam_sat,
     traffic_service,
 )
 from clinicai.services.ops_status import OpsStatusService
@@ -256,6 +257,18 @@ async def dat_che_do_agent(
 def _ngay_hoac_hom_nay(ngay: str | None) -> date:
     """Ngày người gửi lên; rác / trống → hôm nay (luật repo: không ném)."""
     return doc_ngay_xem(ngay) or hom_nay_vn()
+
+
+@router.get("/ops/agent/tong-quan")
+async def tong_quan_agent(
+    response: Response,
+    identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Dashboard giám sát: vận hành hôm nay, tải từng phòng, đèn hệ thống,
+    nhận định đang mở — một lượt gọi."""
+    response.headers["Cache-Control"] = "no-store"
+    return await tong_quan_giam_sat.doc(pool, clinic_id=identity.clinic_id)
 
 
 @router.get("/ops/agent/tom-tat")

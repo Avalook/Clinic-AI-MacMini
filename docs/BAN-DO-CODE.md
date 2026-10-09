@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-09 12:18. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-09 12:41. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -206,11 +206,11 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/ops` — Vận hành hệ thống
 - page: `src/dashboard/app/(dashboard)/ops/page.tsx` · quyền: lego `van_hanh` (Vận hành hệ thống · mặc định: Quản lý)
-- thành phần: AgentGiamSat.tsx, LoiCanhBao.tsx, LuuLuongOps.tsx, NhatKyVanHanh.tsx, OpsCenter.tsx, SucKhoeApi.tsx, ToanCanh.tsx, AgentAiChiPhi.tsx (+1)
-- gọi API Next: `/api/ops/agent`, `/api/ops/theo-doi`, `/api/ops/summary`, `/api/ops/traffic`
+- thành phần: LoiCanhBao.tsx, LuuLuongOps.tsx, NhatKyVanHanh.tsx, OpsCenter.tsx, SucKhoeApi.tsx, ToanCanh.tsx, TrungTamGiamSat.tsx, PortalBoard.tsx (+1)
+- gọi API Next: `/api/ops/theo-doi`, `/api/ops/summary`, `/api/ops/agent`, `/api/ops/traffic`
 - gọi thẳng backend (server): `/api/v1/reports/toan-canh`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`, `/api/v1/ops/telemetry`
-- service: agent_tom_tat.{doc, tao} · chi_phi.so_lieu · agent_giam_sat.{danh_gia, dat_che_do} · day_tep.so_lieu · canh_gac.danh_sach · nhat_ky_van_hanh.doc_nhat_ky (+5 service)
-- test: test_llm_chi_phi_db.py, test_theo_doi_pha_1_db.py, test_traffic_service.py, test_agent_giam_sat_db.py, test_day_tep_db.py (+6)
+- service: kho_loi.{danh_sach, doi_trang_thai} · day_tep.so_lieu · canh_gac.danh_sach · nhat_ky_van_hanh.doc_nhat_ky · can · OpsStatusService.collect (+6 service)
+- test: test_theo_doi_pha_1_db.py, test_agent_giam_sat_db.py, test_llm_chi_phi_db.py, test_traffic_service.py, test_day_tep_db.py (+6)
 
 ### `/ops/telemetry`
 - page: `src/dashboard/app/(dashboard)/ops/telemetry/page.tsx` · quyền: lego `van_hanh` (Vận hành hệ thống · mặc định: Quản lý)
@@ -1052,6 +1052,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 
 #### `/api/ops/agent` · `src/dashboard/app/api/ops/agent/route.ts`
 - GET `/api/v1/ops/agent/tom-tat` → `src/clinicai/api/v1/routers/ops.py:doc_tom_tat` → agent_tom_tat.doc
+- GET `/api/v1/ops/agent/tong-quan` → `src/clinicai/api/v1/routers/ops.py:tong_quan_agent` → tong_quan_giam_sat.doc
 - GET `/api/v1/ops/llm/chi-phi` → `src/clinicai/api/v1/routers/ops.py:chi_phi_llm` → chi_phi.so_lieu
 - [1] GET `/api/v1/ops/agent` → `src/clinicai/api/v1/routers/ops.py:agent_nhan_dinh` → agent_giam_sat.danh_sach
 - [true] GET `/api/v1/ops/agent` → `src/clinicai/api/v1/routers/ops.py:agent_nhan_dinh` → agent_giam_sat.danh_sach
@@ -1408,7 +1409,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/api/test_visit_work_items_read.py, src/tests/test_work_item_service.py
 - màn dùng: /viec-can-xu-ly
 
-## 3. Service → màn (169)
+## 3. Service → màn (170)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1568,6 +1569,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `ThuTuKhamService` | `src/clinicai/services/thu_tu_kham_service.py` | /customers |
 | `TienThuaService` | `src/clinicai/services/tien_thua_service.py` | /hanh-trinh, /reception/checkout, /reception/queue |
 | `TiepDonService` | `src/clinicai/services/tiep_don_service.py` | /reception/queue |
+| `tong_quan_giam_sat` | `src/clinicai/services/tong_quan_giam_sat.py` | /ops |
 | `traffic_service` | `src/clinicai/services/traffic_service.py` | /ops, /traffic |
 | `TuongTacCskhService` | `src/clinicai/services/tuong_tac_cskh_service.py` | /appointments/cho-xep-bac-si, /customers, /home, /nhac-tai-kham, /reception/queue |
 | `ultrasound_board_service` | `src/clinicai/services/ultrasound_board_service.py` | — (chỉ API/worker) |

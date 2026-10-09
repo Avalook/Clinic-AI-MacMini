@@ -6,6 +6,7 @@
 import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
 
 //   GET ?xem=tom-tat[&ngay=YYYY-MM-DD]               → /api/v1/ops/agent/tom-tat
+//   GET ?xem=tong-quan                               → /api/v1/ops/agent/tong-quan
 //   GET ?xem=chi-phi[&so_ngay=N]                     → /api/v1/ops/llm/chi-phi
 //   POST {hanh_dong:"tom-tat", ngay?}                → /api/v1/ops/agent/tom-tat
 export async function GET(request: Request) {
@@ -18,6 +19,9 @@ export async function GET(request: Request) {
       ngay ? `/api/v1/ops/agent/tom-tat?ngay=${encodeURIComponent(ngay)}` : "/api/v1/ops/agent/tom-tat",
       undefined,
     );
+  }
+  if (xem === "tong-quan") {
+    return proxyJsonToBackend("GET", "/api/v1/ops/agent/tong-quan", undefined);
   }
   if (xem === "chi-phi") {
     const n = Number(u.searchParams.get("so_ngay"));

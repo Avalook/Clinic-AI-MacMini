@@ -13,7 +13,7 @@ import LoiCanhBao from "./LoiCanhBao";
 import NhatKyVanHanh from "./NhatKyVanHanh";
 import ToanCanh from "./ToanCanh";
 import LuuLuongOps from "./LuuLuongOps";
-import AgentGiamSat from "./AgentGiamSat";
+import TrungTamGiamSat from "./TrungTamGiamSat";
 
 export const dynamic = "force-dynamic";
 
@@ -31,10 +31,10 @@ type MaTab = (typeof TAB)[number]["ma"];
 export default async function OpsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; co_so?: string }>;
+  searchParams: Promise<{ tab?: string; co_so?: string; demo?: string }>;
 }) {
   await requireNavAccess("/ops");
-  const { tab, co_so } = await searchParams;
+  const { tab, co_so, demo } = await searchParams;
   // Tham số lạ (gõ tay, link hỏng) thì về tab đầu, không ném.
   const dangMo: MaTab = TAB.some((t) => t.ma === tab) ? (tab as MaTab) : "he-thong";
   return (
@@ -58,7 +58,7 @@ export default async function OpsPage({
       ) : dangMo === "loi" ? (
         <LoiCanhBao />
       ) : dangMo === "agent" ? (
-        <AgentGiamSat />
+        <TrungTamGiamSat demo={demo === "1"} />
       ) : dangMo === "nhat-ky" ? (
         <NhatKyVanHanh />
       ) : dangMo === "traffic" ? (
