@@ -16,6 +16,14 @@ COMMAND_TIMEOUT = 15  # seconds — per-query timeout to prevent runaway queries
 STARTUP_RETRIES = 3
 STARTUP_BACKOFF = 2.0  # seconds between retries
 
+#: JIT TẮT cho mọi kết nối của ứng dụng. Ở quy mô này (bảng vài chục nghìn dòng,
+#: truy vấn chạy vài chục ms) JIT không bao giờ nhanh hơn — nó chỉ tốn thêm: đo
+#: 09/10/2026, câu bảng thu ngân chạy thật ~80ms nhưng LLVM biên dịch ~3,1s mỗi
+#: lần (prod trung bình 4,8s, đỉnh 14s), và ba lần biên dịch song song đẩy DB
+#: staging (trần 384MiB) tới OOM. Đặt ở đây, không ở `command:` của Postgres, để
+#: prod, staging, CI và máy dev cùng một hành vi.
+SERVER_SETTINGS = {"jit": "off"}
+
 
 def normalize_dsn(dsn: str) -> str:
     """Strip SQLAlchemy-style '+asyncpg' driver suffix; asyncpg needs bare scheme.
@@ -50,6 +58,7 @@ async def create_pool() -> asyncpg.Pool:
                 min_size=POOL_MIN_SIZE,
                 max_size=POOL_MAX_SIZE,
                 command_timeout=COMMAND_TIMEOUT,
+                server_settings=SERVER_SETTINGS,
             )
             logger.info(
                 "DB pool ready",
