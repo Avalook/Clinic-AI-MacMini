@@ -25,7 +25,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.phieu_kham.khung import FORM_IDS
-from clinicai.phieu_kham.mau_dieu_tri import MAU_KHONG_HOAN_TAT
+from clinicai.phieu_kham.mau_dieu_tri import MAU_KHONG_HOAN_TAT, phieu_co_ket_qua
 from clinicai.phieu_kham.mau_goi_y import mau_cho_cac_dich_vu
 from clinicai.services.doi_tac_service import (
     LA_VIEC_DOI_TAC_SQL,
@@ -45,6 +45,17 @@ def _tom_tat_phieu(r: asyncpg.Record) -> dict[str, Any]:
     # nội dung đọc được (bản in lượt, hồ sơ) dù chưa ai bấm chốt.
     doc_duoc = san_sang or r["form_id"] in MAU_KHONG_HOAN_TAT
     return {
+        # ĐÃ LÀ KẾT QUẢ (một luật — `phieu_co_ket_qua`): READY, hoặc phiếu điều
+        # trị đã lưu có chữ (09/10/2026). Màn vẽ khối kết quả theo cờ này.
+        "co_ket_qua": phieu_co_ket_qua(
+            form_id=r["form_id"],
+            trang_thai=r["trang_thai"],
+            revision=r["revision"],
+            du_lieu=r["du_lieu"],
+        ),
+        # Người ghi + giờ (thẻ điều trị: "người ghi · giờ · nơi làm").
+        "nguoi_ghi": r["nguoi_ghi"],
+        "ghi_luc": r["sua_luc"].isoformat() if r["sua_luc"] else None,
         "loai": "PHIEU",
         "phieu_id": str(r["id"]),
         "form_id": r["form_id"],
@@ -121,8 +132,28 @@ async def doc_ket_qua_theo_chi_dinh(
         "         AS doi_tac_da_thu,"
         # Buổi của liệu trình (08/10/2026) — bản in "Liệu trình: buổi k/N".
         "       ltb.buoi_so AS lt_buoi_so, ltb.so_buoi AS lt_so_buoi,"
-        "       ltb.tra_truoc AS lt_tra_truoc"
+        "       ltb.tra_truoc AS lt_tra_truoc,"
+        # ĐÃ CHUYỂN SANG lượt khác (09/10/2026 — lượt Điều trị dùng chỉ định
+        # bác sĩ kê ở đây): lượt này vẫn thấy thẻ, chỉ đọc, kèm kết quả.
+        "       (o.visit_id <> $2::uuid) AS da_chuyen,"
+        "       o.visit_id::text AS sang_visit_id, o.mang_sang_luc,"
+        "       sang.ten_luot, sang.lan_goc"
         "  FROM service_order o"
+        "  LEFT JOIN LATERAL ("
+        "       SELECT CASE WHEN st.nhom = 'DIEU_TRI' THEN 'Điều trị'"
+        "                   ELSE coalesce(st.name, 'khám') END AS ten_luot,"
+        "              (SELECT (e.payload ->> 'lan_chi_dinh')::smallint"
+        "                 FROM domain_event e"
+        "                WHERE e.aggregate_id = o.id"
+        "                  AND e.event_type = 'service_order.carried_over'"
+        "                ORDER BY e.seq DESC LIMIT 1) AS lan_goc"
+        "         FROM visit nv"
+        "         LEFT JOIN appointment na"
+        "           ON na.id = nv.appointment_id AND na.clinic_id = nv.clinic_id"
+        "         LEFT JOIN service_type st"
+        "           ON st.id = coalesce(nv.service_type_id, na.service_type_id)"
+        "        WHERE nv.clinic_id = o.clinic_id AND nv.visit_id = o.visit_id"
+        "          AND o.visit_id <> $2::uuid) sang ON true"
         "  LEFT JOIN LATERAL ("
         "       SELECT b.buoi_so, b.tra_truoc, l.so_buoi"
         "         FROM lieu_trinh_buoi b"
@@ -137,7 +168,8 @@ async def doc_ket_qua_theo_chi_dinh(
         "         FROM service_price s"
         "        WHERE s.clinic_id = o.clinic_id AND s.service_code = o.service_code"
         "        ORDER BY s.active DESC LIMIT 1) sp ON true"
-        " WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid"
+        " WHERE o.clinic_id = $1::uuid"
+        "   AND (o.visit_id = $2::uuid OR o.mang_tu_visit_id = $2::uuid)"
         "   AND o.exec_status <> 'cancelled'"
         "   AND coalesce(o.execution_status, '') <> 'CANCELLED'"
         " ORDER BY o.created_at, o.id",
@@ -151,6 +183,7 @@ async def doc_ket_qua_theo_chi_dinh(
     phieu = await conn.fetch(
         "SELECT i.id, i.service_order_id, i.form_id, i.version, i.trang_thai,"
         "       i.dang_sua, i.du_lieu, i.hoan_tat_luc, d.ten, d.khung,"
+        "       i.revision, i.sua_luc, s.full_name AS nguoi_ghi,"
         "       (SELECT count(*) FROM result_correction c"
         "         WHERE c.clinic_id = i.clinic_id AND c.form_instance_id = i.id)"
         "         AS so_lan_sua"
@@ -158,6 +191,7 @@ async def doc_ket_qua_theo_chi_dinh(
         "  JOIN form_definition d"
         "    ON d.clinic_id = i.clinic_id AND d.form_id = i.form_id"
         "   AND d.version = i.version"
+        "  LEFT JOIN staff s ON s.id = i.nhap_boi"
         " WHERE i.clinic_id = $1::uuid AND i.service_order_id = ANY($2::uuid[])"
         "   AND NOT (i.form_id = ANY($3::text[]))"
         " ORDER BY i.hoan_tat_luc DESC NULLS LAST, i.tao_luc DESC",
@@ -198,12 +232,13 @@ async def doc_ket_qua_theo_chi_dinh(
     for r in don:
         cua_no = theo_don[r["id"]]
         co = any(
-            (k["loai"] == "PHIEU" and k["trang_thai"] == "READY") or k["loai"] == "TEP"
+            (k["loai"] == "PHIEU" and k["co_ket_qua"]) or k["loai"] == "TEP"
             for k in cua_no
         )
         dang_nhap = any(
             k["loai"] == "PHIEU" and k["trang_thai"] == "DRAFT" for k in cua_no
         )
+        chuyen = bool(r["da_chuyen"])
         kq.append(
             {
                 "service_order_id": str(r["id"]),
@@ -225,11 +260,26 @@ async def doc_ket_qua_theo_chi_dinh(
                 "mau_chon_duoc": chon_mau_dv[r["service_code"]]["mau"],
                 "mau_chon_san": chon_mau_dv[r["service_code"]]["chon_san"],
                 "mau_mac_dinh": chon_mau_dv[r["service_code"]]["mac_dinh"],
-                "lan": r["lan_chi_dinh"],
+                # Đã chuyển đi: lần ở lượt NÀY (ghi lúc mang sang); None = không rõ.
+                "lan": r["lan_goc"] if chuyen else r["lan_chi_dinh"],
                 "chi_dinh_luc": (
                     r["created_at"].isoformat() if r["created_at"] else None
                 ),
-                "mang_sang": r["mang_tu_visit_id"] is not None,
+                "mang_sang": not chuyen and r["mang_tu_visit_id"] is not None,
+                # Đã chuyển sang lượt khác — thẻ ở đây CHỈ ĐỌC (máy chủ nói).
+                "chuyen_sang": (
+                    {
+                        "visit_id": r["sang_visit_id"],
+                        "ten_luot": r["ten_luot"],
+                        "luc": (
+                            r["mang_sang_luc"].isoformat()
+                            if r["mang_sang_luc"]
+                            else None
+                        ),
+                    }
+                    if chuyen
+                    else None
+                ),
                 # Làm thêm tại quầy (01/10/2026) — lễ tân / người đo tick.
                 "lam_them": nhan_lam_them(r["nguon_lam_them"]),
                 # Chỉ định ĐIỀU TRỊ (phiếu điều trị 2 ô) — bản in mục riêng.

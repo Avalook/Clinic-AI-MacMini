@@ -28,6 +28,7 @@ import {
   laDicom,
   laONgayTaiKham,
   ngayHenTaiKham,
+  nhanChuyenSang,
   nhomThuThuat,
   NHOM_THU_THUAT_MAC_DINH,
   soLuongTuChu,
@@ -582,4 +583,21 @@ test("danhSachThuThuatBanKham: mỗi thủ thuật một lần, bỏ dòng khoá
   );
   assert.deepEqual(danhSachThuThuatBanKham(ds, "không có"), []);
   assert.deepEqual(danhSachThuThuatBanKham([], "que"), []);
+});
+
+test("nhanChuyenSang: thẻ đã chuyển sang lượt khác — tên lượt + giờ; thiếu thì bỏ phần ấy", () => {
+  assert.equal(nhanChuyenSang({ chuyen_sang: null }), null);
+  assert.equal(nhanChuyenSang({}), null);
+  const co = nhanChuyenSang({
+    chuyen_sang: { visit_id: "v", ten_luot: "Điều trị", luc: "2026-10-09T07:05:00+00:00" },
+  });
+  assert.equal(co, "Đã chuyển sang lượt Điều trị · 14:05 09/10");
+  assert.equal(
+    nhanChuyenSang({ chuyen_sang: { visit_id: "v", ten_luot: "Sản khoa", luc: "rác" } }),
+    "Đã chuyển sang lượt Sản khoa",
+  );
+  assert.equal(
+    nhanChuyenSang({ chuyen_sang: { visit_id: "v", ten_luot: "  ", luc: null } }),
+    "Đã chuyển sang lượt khác",
+  );
 });

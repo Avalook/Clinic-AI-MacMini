@@ -20,6 +20,7 @@ import asyncpg
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.phieu_kham.mau_dieu_tri import phieu_co_ket_qua_sql
 from clinicai.services import finance_gate
 from clinicai.services.xem_luot_service import goi_duoc
 
@@ -267,7 +268,10 @@ class BangHanhTrinhService:
                       JOIN form_instance f
                         ON f.service_order_id = o.id AND f.clinic_id = o.clinic_id
                      WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
-                       AND f.trang_thai = 'READY' AND o.da_xem_ket_qua_luc IS NULL
+                       AND o.da_xem_ket_qua_luc IS NULL
+                       AND """
+                    + phieu_co_ket_qua_sql("f")
+                    + """
                      GROUP BY o.visit_id
                     """,
                     cid,

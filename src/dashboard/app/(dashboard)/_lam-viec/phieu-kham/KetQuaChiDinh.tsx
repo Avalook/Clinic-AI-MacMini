@@ -11,7 +11,10 @@
 // hệ thống thật dùng "Lần n" vì "lượt" ở đây là lượt khám (check-in → check-out).
 //
 // Gắn bằng `service_order_id` (máy chủ đã nối). Tên dịch vụ chỉ để đọc. Nháp kết
-// quả không hiện nội dung — chưa ai chịu trách nhiệm về chữ trong đó.
+// quả không hiện nội dung — chưa ai chịu trách nhiệm về chữ trong đó; trừ phiếu
+// điều trị (không có bước Hoàn tất): có chữ là kết quả — máy chủ nói qua
+// `co_ket_qua`. Chỉ định đã chuyển sang lượt khác (`chuyen_sang`, 09/10/2026):
+// thẻ chỉ đọc + chip "Đã chuyển sang lượt … hh:mm dd/mm" + kết quả.
 //
 // ĐÃ XEM: tóm tắt tự hiện ⇒ mở khối 2 là XEM (bản mẫu tự đánh dấu khi mở khối 2).
 // Màn gọi máy chủ ghi một lần cho mỗi kết quả chưa xem; máy chủ tự quyết vai nào
@@ -42,6 +45,7 @@ import {
   NHAN_DOI_TAC,
   NHAN_KET_QUA,
   dongKetQua,
+  nhanChuyenSang,
   tienVn,
   type ChiDinhVaKetQua,
   type KetQuaMotChiDinh,
@@ -67,6 +71,13 @@ function tepXemTu(ds: KetQuaMotChiDinh[]) {
         phu: k.tai_len_luc ? fmtTime(k.tai_len_luc) : undefined,
       }),
     );
+}
+
+/** Thẻ đi cùng LẦN ĐANG MỞ: làm thêm tại quầy (không phải lần của bác sĩ), và
+ *  chỉ định đã chuyển sang lượt khác mà không rõ lần (chuyển trước 09/10/2026)
+ *  — không thành nhóm "Mang sang" sai nghĩa. */
+function theoLanMo(d: ChiDinhVaKetQua): boolean {
+  return Boolean(d.lam_them || (d.chuyen_sang && d.lan == null));
 }
 
 function ghiDaXem(orderId: string) {
@@ -116,9 +127,25 @@ function HopKetLuan({ chu }: { chu: string }) {
   );
 }
 
-/** Tóm tắt kết quả (≤ `gioiHan` dòng; 0 = đủ hết, dùng trong hộp xem). */
+/** Các dòng "nhãn: giá trị" của một kết quả — cùng kiểu cho thẻ CLS và khung kết
+ *  quả thẻ điều trị (`KhoiDieuTri`). */
+export function DongKetQuaDl({ dong, haiCot = false }: { dong: { nhan: string; gia: string }[]; haiCot?: boolean }) {
+  return (
+    <dl className={`grid gap-x-6 gap-y-1 ${haiCot ? "sm:grid-cols-2" : ""}`}>
+      {dong.map((x, i) => (
+        <div key={`${x.nhan}-${i}`} className="flex gap-2 py-0.5">
+          <dt className="max-w-[55%] shrink-0 text-ink-muted">{x.nhan}</dt>
+          <dd className="whitespace-pre-wrap font-medium text-ink">{x.gia}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** Tóm tắt kết quả (≤ `gioiHan` dòng; 0 = đủ hết, dùng trong hộp xem). Phiếu nào
+ *  là kết quả do MÁY CHỦ nói (`co_ket_qua`: READY, hoặc phiếu điều trị có chữ). */
 function NoiDungKetQua({ d, gioiHan }: { d: ChiDinhVaKetQua; gioiHan: number }) {
-  const phieu = d.ket_qua.filter((k) => k.loai === "PHIEU" && k.trang_thai === "READY" && k.khung);
+  const phieu = d.ket_qua.filter((k) => k.loai === "PHIEU" && k.co_ket_qua && k.khung);
   if (phieu.length === 0) {
     return <p className="text-body text-ink-faint">Phòng chưa ghi phiếu — kết quả là tệp bên dưới.</p>;
   }
@@ -133,14 +160,7 @@ function NoiDungKetQua({ d, gioiHan }: { d: ChiDinhVaKetQua; gioiHan: number }) 
               {k.ten}
               {k.ban_thu && k.ban_thu > 1 ? ` · bản ${k.ban_thu}` : ""}
             </p>
-            <dl className={`grid gap-x-6 gap-y-1 ${gioiHan ? "sm:grid-cols-2" : ""}`}>
-              {dong.slice(0, n).map((x, i) => (
-                <div key={`${x.nhan}-${i}`} className="flex gap-2 py-0.5">
-                  <dt className="max-w-[55%] shrink-0 text-ink-muted">{x.nhan}</dt>
-                  <dd className="whitespace-pre-wrap font-medium text-ink">{x.gia}</dd>
-                </div>
-              ))}
-            </dl>
+            <DongKetQuaDl dong={dong.slice(0, n)} haiCot={Boolean(gioiHan)} />
             {dong.length > n ? (
               <p className="text-meta text-ink-muted">+ {dong.length - n} dòng nữa — bấm ⤢ để xem đủ</p>
             ) : null}
@@ -253,13 +273,13 @@ export default function KetQuaChiDinh({
   // Các lần — lần mới nhất lên đầu; chỉ định mang sang (lần 0) để cuối.
   // Làm thêm tại quầy (01/10/2026, lễ tân / người đo tick) không phải một "lần"
   // của bác sĩ: luôn hiện cùng lần đang mở để bác sĩ thấy kết quả ngay.
-  const cacLanBs = [...new Set(ds.filter((d) => !d.lam_them).map((d) => d.lan ?? 0))].sort(
+  const cacLanBs = [...new Set(ds.filter((d) => !theoLanMo(d)).map((d) => d.lan ?? 0))].sort(
     (a, b) => (b || -1) - (a || -1),
   );
   const cacLan = cacLanBs.length > 0 ? cacLanBs : [0];
   const nhieuLan = !dieuTri && cacLan.length > 1;
   const lanHienTai = cacLan.find((l) => l > 0) ?? cacLan[0] ?? 0;
-  const lanCua = (d: ChiDinhVaKetQua) => (d.lam_them ? lanHienTai : (d.lan ?? 0));
+  const lanCua = (d: ChiDinhVaKetQua) => (theoLanMo(d) ? lanHienTai : (d.lan ?? 0));
   const lanXem = xemLan !== null && cacLan.includes(xemLan) ? xemLan : lanHienTai;
   const chiXem = nhieuLan && lanXem !== lanHienTai;
   const dsHien = nhieuLan ? ds.filter((d) => lanCua(d) === lanXem) : ds;
@@ -269,7 +289,7 @@ export default function KetQuaChiDinh({
   // — chỉ những chỉ định đang HIỆN (lần cũ chưa bấm xem thì chưa tính là xem).
   useEffect(() => {
     for (const d of ds) {
-      if (nhieuLan && (d.lam_them ? lanHienTai : (d.lan ?? 0)) !== lanXem) continue;
+      if (nhieuLan && (theoLanMo(d) ? lanHienTai : (d.lan ?? 0)) !== lanXem) continue;
       if (d.ket_qua_trang_thai !== "CO_KET_QUA" || d.da_xem_luc) continue;
       if (daGhi.current.has(d.service_order_id)) continue;
       daGhi.current.add(d.service_order_id);
@@ -298,12 +318,17 @@ export default function KetQuaChiDinh({
     const giay = nhanGiay[d.service_code];
     const cacTep = tepCua(d);
     const coKq = d.ket_qua_trang_thai === "CO_KET_QUA";
+    // Đã chuyển sang lượt khác (máy chủ nói): thẻ ở đây CHỈ ĐỌC — kết quả hiện,
+    // không nút sửa / bỏ / tải tệp; việc làm ở lượt nhận.
+    const chuyen = nhanChuyenSang(d);
     // Phiếu 2 ô trong thẻ điều trị tự có [In phiếu] — không vẽ nút In thứ hai.
     const coPhieu = d.ket_qua.some(
-      (k) => k.loai === "PHIEU" && !(dieuTri && k.form_id === "KQ_PHIEU_DIEU_TRI"),
+      (k) => k.loai === "PHIEU" && !(dieuTri && !chuyen && k.form_id === "KQ_PHIEU_DIEU_TRI"),
     );
-    const chipDieuTri = dieuTri?.chip(d) ?? null;
-    const thanDieuTri = dieuTri?.than(d) ?? null;
+    const chipDieuTri = chuyen ? null : (dieuTri?.chip(d) ?? null);
+    const thanDieuTri = chuyen ? null : (dieuTri?.than(d) ?? null);
+    // Thẻ điều trị tự vẽ khung kết quả trong phần thân; thẻ đã chuyển thì không.
+    const veKq = coKq && (!dieuTri || Boolean(chuyen));
     return (
       <li key={d.service_order_id} className="rounded-card border border-hairline bg-surface">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5">
@@ -314,6 +339,7 @@ export default function KetQuaChiDinh({
               <div className="text-meta text-ink-muted">Trên phiếu giấy: {giay}</div>
             ) : null}
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {chuyen ? <Chip tone="info">{chuyen}</Chip> : null}
               {chipDieuTri ?? <Chip tone={tt.tone}>{tt.nhan}</Chip>}
               {d.lam_them ? <Chip tone="info">{d.lam_them}</Chip> : null}
               {mau ? <Chip tone={mau.tone}>{mau.nhan}</Chip> : null}
@@ -322,7 +348,7 @@ export default function KetQuaChiDinh({
               ) : null}
               {/* Chưa thu tiền: bác sĩ bật/tắt được (máy chủ chặn khi đã thu —
                   SERVICE_ALREADY_PAID). Đã thu: chỉ còn chip. */}
-              {onDoiBatBuoc && !d.da_thu ? (
+              {onDoiBatBuoc && !d.da_thu && !chuyen ? (
                 <label className="inline-flex min-h-8 items-center gap-1 text-meta text-ink">
                   <input
                     type="checkbox"
@@ -344,7 +370,7 @@ export default function KetQuaChiDinh({
             ) : null}
           </div>
           <div className="flex flex-wrap justify-end gap-1">
-            {onBoChiDinh && !chiXem ? (
+            {onBoChiDinh && !chiXem && !chuyen ? (
               <NutHoanTac
                 nhan="Hoàn tác chỉ định"
                 variant="ghost"
@@ -354,7 +380,7 @@ export default function KetQuaChiDinh({
                 onXong={onDoi}
               />
             ) : null}
-            {choSua && !dieuTri ? (
+            {choSua && !dieuTri && !chuyen ? (
               <Button
                 type="button"
                 size="sm"
@@ -375,7 +401,7 @@ export default function KetQuaChiDinh({
                 In
               </a>
             ) : null}
-            {clinicPatientId ? (
+            {clinicPatientId && !chuyen ? (
               <Button
                 type="button"
                 size="sm"
@@ -390,7 +416,7 @@ export default function KetQuaChiDinh({
         </div>
 
         {thanDieuTri ? <div className="border-t border-hairline p-3">{thanDieuTri}</div> : null}
-        {dieuTri && cacTep.length > 0 && tep !== d.service_order_id ? (
+        {dieuTri && !veKq && cacTep.length > 0 && tep !== d.service_order_id ? (
           <div className="border-t border-hairline p-3">
             <AnhKetQua
               dau
@@ -399,7 +425,7 @@ export default function KetQuaChiDinh({
             />
           </div>
         ) : null}
-        {coKq && !dieuTri ? (
+        {veKq ? (
           <div className="relative rounded-b-card border-t border-hairline bg-surface-muted/50 p-3">
             <button
               type="button"

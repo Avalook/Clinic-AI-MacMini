@@ -25,6 +25,7 @@ from clinicai.permissions.doc_bang import (
 )
 from clinicai.permissions.lich import bac_si_cung_phong_hom_nay, khach_cua_toi
 from clinicai.permissions.y_khoa import doc_duoc_y_khoa
+from clinicai.phieu_kham.mau_dieu_tri import phieu_co_ket_qua_sql
 from clinicai.services import luot_kham_rules as rules
 from clinicai.services.bac_si_ky import sql_join_bac_si_ky_luot
 from clinicai.services.bac_si_phu_trach import (
@@ -204,10 +205,13 @@ class BangLuotKham:
                            lam.phong AS lam_phong,
                            -- Có phiếu kết quả đã hoàn tất để bác sĩ mở đọc
                            -- (nhóm 3 nợ, 24/09) + đã có ai chuyên môn xem chưa.
+                           -- Phiếu điều trị có chữ cũng là kết quả (09/10).
                            EXISTS (SELECT 1 FROM form_instance f
                                     WHERE f.clinic_id = o.clinic_id
                                       AND f.service_order_id = o.id
-                                      AND f.trang_thai = 'READY') AS co_phieu,
+                                      AND """
+                    + phieu_co_ket_qua_sql("f")
+                    + """) AS co_phieu,
                            o.da_xem_ket_qua_luc,
                            -- Khách trả TRỰC TIẾP cho đối tác (27/09/2026): đối
                            -- tác đã ghi nhận thu chưa — sổ của khối Đối tác.

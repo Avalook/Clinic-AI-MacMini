@@ -30,7 +30,12 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.events.catalogue import ChiDinhDaDat, ChiDinhDoiBatBuoc, ChiDinhMangSang
+from clinicai.events.catalogue import (
+    ChiDinhDaDat,
+    ChiDinhDoiBatBuoc,
+    ChiDinhMangSang,
+    ChiDinhTraVe,
+)
 from clinicai.events.emit import HE_THONG, emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
 from clinicai.services import finance_gate
@@ -385,21 +390,32 @@ class ChiDinhService:
             trước khách không làm — ngoài đời "hẹn hôm khác làm" và "không làm"
             là cùng một cú bỏ tick ở quầy. Cái khách không làm được HỎI LẠI
             (về "chờ quyết"); lễ tân thu rồi H4 xếp phòng.
+          * lịch ĐIỀU TRỊ dịch vụ X (Tuyền chốt 09/10/2026) → DÙNG LUÔN chỉ định
+            X bác sĩ đã kê mà chưa làm, chưa thu — kể cả lượt khám ấy còn mở
+            hôm nay. Không đẻ chỉ định thứ hai (`sinh_chi_dinh_dieu_tri` thấy có
+            sẵn thì thôi), không thu hai lần; kết quả phòng điền về đúng thẻ.
 
         Chỉ định ĐI THEO KHÁCH, không đi theo lượt: dời `visit_id` sang lượt mới,
         giữ nguyên mã — dấu vết tiền (payment_bill_line) trỏ theo mã chỉ định nên
-        FinanceGate vẫn thấy "đã trả". Nguồn cũ ghi ở `mang_tu_visit_id` + sự kiện
-        `service_order.carried_over`. Phòng cũ (nếu có) bỏ: lượt mới xếp lại.
+        FinanceGate vẫn thấy "đã trả"; buổi liệu trình gắn theo mã nên đi theo.
+        Món kèm (phụ thu) CHƯA THU đi theo chỉ định — để lại thì quầy lượt cũ thu
+        món kèm của một dịch vụ không còn ở đó. Nguồn cũ ở `mang_tu_visit_id`
+        (lượt cũ đọc được "đã chuyển sang") + sự kiện `service_order
+        .carried_over`. Phòng cũ (nếu có) bỏ: lượt mới xếp lại.
 
-        Không mang: đã làm/đang làm/kết thúc, chưa trả mà lượt mới là lượt
-        khám thường, còn chỗ chờ sống ở lượt cũ, cũ quá 180 ngày, của chính
-        lượt đang mở hôm nay. Chạy lại được: chỉ định đã ở lượt mới thì không
-        còn là "của lượt trước". Người gọi (khối Hành trình) đã khoá lượt mới.
+        Không mang: đã làm/đang làm/kết thúc, chưa trả mà lượt mới là lượt khám
+        thường, còn chỗ chờ sống ở lượt cũ, cũ quá 180 ngày, tiền đang dở (chờ
+        xác minh, đang hoàn, thiếu dấu vết — ngoài `_CHUA_THU_MANG_DUOC`), việc
+        khác của lượt đang mở hôm nay. Chạy lại được: chỉ định đã ở lượt mới thì
+        không còn là "của lượt trước". Người gọi đã khoá lượt mới.
         """
         moi = await conn.fetchrow(
             """
             SELECT v.clinic_patient_id::text AS pid, v.created_at,
-                   coalesce(st.di_thang_phong, false) AS di_thang_phong
+                   coalesce(st.di_thang_phong, false) AS di_thang_phong,
+                   (SELECT sp.service_code FROM service_price sp
+                     WHERE st.nhom = 'DIEU_TRI' AND sp.id = st.service_price_id
+                       AND sp.clinic_id = v.clinic_id) AS ma_dieu_tri
               FROM visit v
               LEFT JOIN appointment a
                 ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
@@ -415,7 +431,7 @@ class ChiDinhService:
         cu = await conn.fetch(
             """
             SELECT o.id::text AS id, o.visit_id::text AS tu_visit_id,
-                   o.service_code, o.selection_status
+                   o.service_code, o.selection_status, o.lan_chi_dinh
               FROM service_order o
               JOIN visit v ON v.clinic_id = o.clinic_id AND v.visit_id = o.visit_id
              WHERE o.clinic_id = $1::uuid
@@ -423,11 +439,14 @@ class ChiDinhService:
                AND o.visit_id <> $2::uuid
                AND v.created_at < $4
                -- Lượt cũ đã đóng, hoặc từ hôm trước (lượt hôm nay còn mở là
-               -- chính khách đang ở đây — không kéo việc của nó đi).
+               -- chính khách đang ở đây — không kéo việc của nó đi). Riêng dịch
+               -- vụ của lượt Điều trị thì lượt khám hôm nay còn mở cũng mang:
+               -- khách sang làm đúng việc bác sĩ vừa kê.
                AND (v.closed_at IS NOT NULL
                     OR v.created_at < date_trunc('day', $4 AT TIME ZONE
                                                   'Asia/Ho_Chi_Minh')
-                                      AT TIME ZONE 'Asia/Ho_Chi_Minh')
+                                      AT TIME ZONE 'Asia/Ho_Chi_Minh'
+                    OR o.service_code = $5::text)
                AND o.created_at >= $4 - interval '180 days'
                AND o.exec_status IN ('authorized', 'assigned')
                AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
@@ -444,23 +463,26 @@ class ChiDinhService:
             visit_id,
             moi["pid"],
             moi["created_at"],
+            moi["ma_dieu_tri"],
         )
         if not cu:
             return []
         tai_chinh = await finance_gate.states_for_orders(
             conn, clinic_id, [o["id"] for o in cu]
         )
+        chon = chon_mang_sang(
+            [
+                (o["id"], o["service_code"], _tien_cua(tai_chinh.get(o["id"])))
+                for o in cu
+            ],
+            di_thang_phong=bool(moi["di_thang_phong"]),
+            ma_dieu_tri=moi["ma_dieu_tri"],
+        )
         mang: list[dict[str, Any]] = []
         for o in cu:
-            quyet = tai_chinh.get(o["id"])
-            da_thu = quyet is not None and quyet.finance_state == finance_gate.PAID
-            chua_thu_duoc_mang = (
-                moi["di_thang_phong"]
-                and quyet is not None
-                and quyet.finance_state in _CHUA_THU_MANG_DUOC
-            )
-            if not (da_thu or chua_thu_duoc_mang):
+            if o["id"] not in chon:
                 continue
+            da_thu = chon[o["id"]]
             await conn.execute(
                 """
                 UPDATE service_order
@@ -482,6 +504,9 @@ class ChiDinhService:
                 o["id"],
                 visit_id,
             )
+            await _doi_luot_mon_kem(
+                conn, clinic_id, o["id"], tu=o["tu_visit_id"], sang=visit_id
+            )
             await emit_event(
                 conn,
                 ten="service_order.carried_over",
@@ -494,6 +519,7 @@ class ChiDinhService:
                     tu_visit_id=o["tu_visit_id"],
                     service_code=o["service_code"],
                     da_thu_tien=da_thu,
+                    lan_chi_dinh=o["lan_chi_dinh"],
                 ),
                 boi=HE_THONG,
                 correlation_id=visit_id,
@@ -502,5 +528,147 @@ class ChiDinhService:
             mang.append({"id": o["id"], "da_thu_tien": da_thu})
         return mang
 
+    @staticmethod
+    async def tra_ve_luot_cu(
+        conn: asyncpg.Connection,
+        *,
+        clinic_id: str,
+        visit_id: str,
+        identity: StaffIdentity,
+    ) -> list[str]:
+        """Lệnh `ReturnCarriedOrders` — HOÀN TÁC của mang sang (09/10/2026).
 
-__all__ = ["ACTION", "QUYEN_CHI_DINH", "ChiDinhService", "LuotKhamConflictError"]
+        Lượt nhận chỉ định mang sang bị hoàn tác check-in / huỷ lịch: chỉ định
+        CHƯA ĐỘNG TỚI (chưa làm) quay về đúng lượt nó từ đó tới, đúng lần chỉ
+        định cũ — thẻ bác sĩ ở lượt cũ hết "đã chuyển sang", quầy lượt cũ thấy
+        lại khoản chưa thu (khoản đã thu đi theo mã chỉ định, không thu lại).
+        Check-in lại thì H2 mang sang lần nữa. Người gọi đã khoá lượt.
+        """
+        rows = await conn.fetch(
+            """
+            SELECT o.id::text AS id, o.mang_tu_visit_id::text AS ve,
+                   o.service_code,
+                   (SELECT (e.payload ->> 'lan_chi_dinh')::smallint
+                      FROM domain_event e
+                     WHERE e.aggregate_id = o.id
+                       AND e.event_type = 'service_order.carried_over'
+                     ORDER BY e.seq DESC LIMIT 1) AS lan
+              FROM service_order o
+             WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
+               AND o.mang_tu_visit_id IS NOT NULL
+               AND o.exec_status IN ('authorized', 'assigned')
+               AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
+             ORDER BY o.created_at, o.id
+               FOR UPDATE OF o
+            """,
+            clinic_id,
+            visit_id,
+        )
+        for o in rows:
+            await conn.execute(
+                """
+                UPDATE service_order
+                   SET visit_id = mang_tu_visit_id, mang_tu_visit_id = NULL,
+                       mang_sang_luc = NULL, lan_chi_dinh = $3,
+                       routing_status = CASE WHEN routing_status IS NULL
+                                             THEN NULL ELSE 'UNASSIGNED' END,
+                       routing_revision = routing_revision + 1,
+                       room_id = NULL, assigned_by = NULL, assigned_at = NULL,
+                       exec_status = 'authorized',
+                       version = version + 1, updated_at = now()
+                 WHERE clinic_id = $1::uuid AND id = $2::uuid
+                """,
+                clinic_id,
+                o["id"],
+                o["lan"],
+            )
+            await _doi_luot_mon_kem(conn, clinic_id, o["id"], tu=visit_id, sang=o["ve"])
+            await emit_event(
+                conn,
+                ten="service_order.carry_returned",
+                clinic_id=clinic_id,
+                aggregate_id=o["id"],
+                so_ke_tiep=True,
+                payload=ChiDinhTraVe(
+                    visit_id=o["ve"],
+                    service_order_id=o["id"],
+                    tu_visit_id=visit_id,
+                    service_code=o["service_code"],
+                ),
+                boi=nguoi(identity),
+                correlation_id=o["ve"],
+            )
+        return [o["id"] for o in rows]
+
+
+def _tien_cua(q: finance_gate.FinanceDecision | None) -> str | None:
+    return q.finance_state if q is not None else None
+
+
+def chon_mang_sang(
+    cu: list[tuple[str, str, str | None]],
+    *,
+    di_thang_phong: bool,
+    ma_dieu_tri: str | None,
+) -> dict[str, bool]:
+    """Chỉ định nào của lượt trước mang sang lượt mới — hàm THUẦN.
+
+    ``cu``: (mã chỉ định, mã dịch vụ, trạng thái tiền FinanceGate) theo thứ tự
+    kê (cũ trước). Trả {mã chỉ định: đã thu?}.
+
+    * Đã thu → mang (mọi loại lịch).
+    * Lịch đi thẳng phòng → mang cả cái chưa thu (tiền không dở).
+    * Lịch ĐIỀU TRỊ dịch vụ ``ma_dieu_tri`` → MỘT chỉ định chưa thu đúng dịch
+      vụ ấy (cái kê gần nhất) — một buổi là một chỉ định; đã có cái đúng dịch
+      vụ ấy đi theo thì thôi (không thành hai dòng).
+    """
+    chon: dict[str, bool] = {}
+    for oid, _ma, tien in cu:
+        if tien == finance_gate.PAID:
+            chon[oid] = True
+        elif di_thang_phong and tien in _CHUA_THU_MANG_DUOC:
+            chon[oid] = False
+    if ma_dieu_tri and not any(ma == ma_dieu_tri and oid in chon for oid, ma, _ in cu):
+        chua_thu = [
+            oid
+            for oid, ma, tien in cu
+            if ma == ma_dieu_tri and tien in _CHUA_THU_MANG_DUOC
+        ]
+        if chua_thu:
+            chon[chua_thu[-1]] = False
+    return chon
+
+
+async def _doi_luot_mon_kem(
+    conn: asyncpg.Connection, clinic_id: str, order_id: str, *, tu: str, sang: str
+) -> None:
+    """Món kèm CHƯA THU của chỉ định đi theo nó sang lượt khác (hoá đơn đọc món
+    kèm theo lượt). Món đã thu ở lượt cũ ở yên — dấu vết tiền của lượt ấy."""
+    await conn.execute(
+        """
+        UPDATE luot_phu_thu p SET visit_id = $4::uuid
+         WHERE p.clinic_id = $1::uuid AND p.service_order_id = $2::uuid
+           AND p.visit_id = $3::uuid AND p.bo_luc IS NULL
+           AND NOT EXISTS (
+               SELECT 1 FROM payment_bill_line bl
+                 JOIN payment_cycle c
+                   ON c.clinic_id = bl.clinic_id
+                  AND c.payment_cycle_id = bl.payment_cycle_id
+                WHERE bl.clinic_id = p.clinic_id AND bl.source_type = 'phu_thu'
+                  AND bl.source_id = p.id::text
+                  AND c.status IN ('PENDING_VERIFICATION', 'PAID'))
+        """,
+        clinic_id,
+        order_id,
+        tu,
+        sang,
+    )
+
+
+__all__ = [
+    "ACTION",
+    "QUYEN_CHI_DINH",
+    "ChiDinhService",
+    "LuotKhamConflictError",
+    "chon_mang_sang",
+]

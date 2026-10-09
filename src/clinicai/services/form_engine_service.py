@@ -53,7 +53,7 @@ from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.y_khoa import doc_duoc_in_phieu
 from clinicai.phieu_kham.kiem_khung_mau import kiem_khung_mau
 from clinicai.phieu_kham.mang_sang import dia_chi_benh_nhan, doc_chan_doan
-from clinicai.phieu_kham.mau_dieu_tri import MAU_KHONG_HOAN_TAT
+from clinicai.phieu_kham.mau_dieu_tri import MAU_KHONG_HOAN_TAT, phieu_co_ket_qua_sql
 from clinicai.services.bac_si_ky import bac_si_chi_dinh_hien_thi, bac_si_ky_in
 from clinicai.services.bac_si_phu_trach import bac_si_thuc_hien_mac_dinh
 
@@ -232,10 +232,13 @@ class FormEngineService:
             raise SafetyGateError("Vai của bạn không đọc phiếu kết quả.")
         cid = identity.clinic_id
         async with self._pool.acquire() as conn, conn.transaction():
+            # Phiếu điều trị đã lưu có chữ cũng là kết quả (09/10/2026) — CÙNG
+            # luật thẻ chỉ định (`phieu_co_ket_qua_sql`): mở thẻ là "đã xem".
             rows = await conn.fetch(
-                "SELECT * FROM form_instance WHERE clinic_id = $1::uuid"
-                "   AND service_order_id = $2::uuid AND trang_thai = 'READY'"
-                " ORDER BY form_id",
+                "SELECT * FROM form_instance f WHERE f.clinic_id = $1::uuid"
+                "   AND f.service_order_id = $2::uuid"
+                f"  AND {phieu_co_ket_qua_sql('f')}"
+                " ORDER BY f.form_id",
                 cid,
                 service_order_id,
             )

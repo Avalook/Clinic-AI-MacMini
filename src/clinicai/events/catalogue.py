@@ -237,6 +237,19 @@ class ChiDinhMangSang(PayloadSuKien):
     tu_visit_id: str
     service_code: str
     da_thu_tien: bool
+    #: Lần chỉ định ở lượt cũ (mang sang thì lượt mới không có lần) — giữ để
+    #: hoàn tác check-in trả chỉ định về đúng lần của nó.
+    lan_chi_dinh: int | None = None
+
+
+class ChiDinhTraVe(PayloadSuKien):
+    """`service_order.carry_returned` — lượt nhận chỉ định mang sang bị hoàn
+    tác check-in / huỷ lịch: chỉ định CHƯA ĐỘNG TỚI quay về lượt nó từ đó tới."""
+
+    visit_id: str
+    service_order_id: str
+    tu_visit_id: str
+    service_code: str
 
 
 # ── payment ─────────────────────────────────────────────────────────────────
@@ -1670,6 +1683,16 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
+        SuKien(
+            ten="service_order.carry_returned",
+            version=1,
+            aggregate_type="service_order",
+            source_module="service_order",
+            payload=ChiDinhTraVe,
+            nhan="Trả chỉ định mang sang về lượt cũ (hoàn tác check-in)",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
         # ── nhóm 3: kết quả ──
         SuKien(
             ten="result_file.uploaded",
@@ -2125,6 +2148,7 @@ __all__ = [
     "LuotMoLai",
     "PhienKhamMoLai",
     "ChiDinhMangSang",
+    "ChiDinhTraVe",
     "DaXepDuongDi",
     "DaChonBacSiLam",
     "DaXepPhong",

@@ -76,8 +76,10 @@ test("thẻ điều trị = khung thẻ chỉ định + phần điều trị (m�
   assert.match(KHOI, /<KetQuaChiDinh ds=\{chiDinh\} \{\.\.\.ketQua\} dieuTri=\{\{ chip, than \}\} \/>/);
   // Khung thẻ: Hoàn tác chỉ định, Ảnh · tệp, tiền giữ nguyên; không [Mở phiếu kết
   // quả] và không tóm tắt (phiếu 2 ô đã nằm trong thẻ); mọi lần hiện cùng nhau.
-  assert.match(KQC, /choSua && !dieuTri \?/);
-  assert.match(KQC, /coKq && !dieuTri \?/);
+  assert.match(KQC, /choSua && !dieuTri && !chuyen \?/);
+  // Thẻ điều trị tự vẽ khung kết quả; thẻ ĐÃ CHUYỂN sang lượt khác (09/10/2026)
+  // thì khung thẻ vẽ kết quả chỉ đọc.
+  assert.match(KQC, /const veKq = coKq && \(!dieuTri \|\| Boolean\(chuyen\)\)/);
   assert.match(KQC, /const nhieuLan = !dieuTri && cacLan\.length > 1/);
   assert.match(KQC, /chipDieuTri \?\? <Chip tone=\{tt\.tone\}>/);
   assert.match(KQC, /nhan="Hoàn tác chỉ định"/);
@@ -85,6 +87,21 @@ test("thẻ điều trị = khung thẻ chỉ định + phần điều trị (m�
   assert.match(LUOT, /oDieuTri=\{chiMuc \|\| khoi1 \? undefined : theDieuTri\}/);
   assert.match(LUOT, /<KhoiDieuTri visitId=\{visitId\} choGhi=\{choGhi\} chiDinh=\{dsDieuTri\} ketQua=\{propsKetQua\} \/>/);
   assert.match(LUOT, /ketQua=\{propsKetQua\}/);
+});
+
+test("phiếu điều trị có kết quả (cờ máy chủ) → khung kết quả như CLS, [Sửa] mới mở ô nhập", () => {
+  // Một luật ở máy chủ (`phieu_co_ket_qua`) — màn chỉ đọc cờ, không tự xét chữ.
+  assert.match(KHOI, /t\.phieu\?\.co_ket_qua \? <Chip tone="success">Có kết quả<\/Chip>/);
+  assert.match(KHOI, /<KhungKetQuaDieuTri\s+t=\{t\}/);
+  assert.match(KHOI, /<DongKetQuaDl dong=/);
+  assert.match(KHOI, /Xong sửa/);
+  assert.doesNotMatch(KHOI, /trang_thai === "READY"/);
+  // Khối kết quả CLS cũng theo cờ máy chủ, không theo READY.
+  assert.match(KQC, /k\.loai === "PHIEU" && k\.co_ket_qua && k\.khung/);
+  // Thẻ đã chuyển sang lượt khác: chip + không nút sửa / bỏ / tải tệp.
+  assert.match(KQC, /const chuyen = nhanChuyenSang\(d\)/);
+  assert.match(KQC, /onBoChiDinh && !chiXem && !chuyen \?/);
+  assert.match(KQC, /clinicPatientId && !chuyen \?/);
 });
 
 test("hồ sơ tối giản: thẻ điều trị → đã chỉ định (không lặp điều trị) → kê chỉ định", () => {

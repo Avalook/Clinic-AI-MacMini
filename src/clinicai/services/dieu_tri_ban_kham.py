@@ -30,7 +30,7 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import ValidationError
 from clinicai.permissions.doc_bang import doi_mot_quyen
 from clinicai.phieu_kham.che_do import KHOI1_THU_THUAT, che_do_khoi1
-from clinicai.phieu_kham.mau_dieu_tri import MAU_PHIEU_DIEU_TRI
+from clinicai.phieu_kham.mau_dieu_tri import MAU_PHIEU_DIEU_TRI, phieu_co_ket_qua
 from clinicai.phieu_kham.mau_goi_y import mau_cho_cac_dich_vu
 from clinicai.services.finance_gate import READY_STATES, states_for_orders
 from clinicai.services.lenh_kham_core import ma_uuid
@@ -201,6 +201,13 @@ def _iso(v: Any) -> str | None:
     return v.isoformat() if v is not None else None
 
 
+def nhan_noi_lam(noi_lam: str | None, phong: str | None) -> str | None:
+    """Chữ "nơi làm" của một lần làm — hàm thuần."""
+    if noi_lam == NOI_BAN_KHAM:
+        return "Tại bàn khám"
+    return phong or None
+
+
 def trang_thai_the(execution_status: str | None, noi_lam: str | None) -> str:
     """Trạng thái của thẻ chỉ định điều trị — hàm thuần."""
     ex = execution_status or "PENDING"
@@ -252,6 +259,14 @@ async def doc_the(
                     "sua_luc": _iso(p["sua_luc"]),
                     "nguoi_sua": p["nguoi_sua"],
                     "o": o_phieu(p["khung"], p["du_lieu"]),
+                    # Đã là KẾT QUẢ (cùng luật thẻ CLS — `phieu_co_ket_qua`):
+                    # thẻ bàn khám vẽ khung kết quả, [Sửa] mới mở ô nhập.
+                    "co_ket_qua": phieu_co_ket_qua(
+                        form_id=p["form_id"],
+                        trang_thai=p["trang_thai"],
+                        revision=p["revision"],
+                        du_lieu=p["du_lieu"],
+                    ),
                 },
             )
     the = []
@@ -282,6 +297,11 @@ async def doc_the(
                 "phong": r["phong_lam"] if tt == "DANG_LAM_PHONG" else r["phong"],
                 "noi_lam": r["noi_lam"]
                 if tt in ("XONG", "DANG_LAM_BAN_KHAM")
+                else None,
+                # Nơi làm để ĐỌC ở khung kết quả: "tại bàn khám" / phòng của lần
+                # làm; chưa làm → None.
+                "noi_lam_nhan": nhan_noi_lam(r["noi_lam"], r["phong_lam"])
+                if tt != "CHUA_LAM"
                 else None,
                 "nguoi_lam": r["nguoi_lam"] if tt != "CHUA_LAM" else None,
                 "bat_dau_luc": _iso(r["started_at"]) if tt != "CHUA_LAM" else None,

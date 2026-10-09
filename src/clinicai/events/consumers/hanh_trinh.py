@@ -56,6 +56,7 @@ from clinicai.events.catalogue import HANH_TRINH
 from clinicai.events.consumers.chuong import ghi_chuong_vai
 from clinicai.events.hen_gio import HenDenHan, dang_ky_loai, hen, huy_hen
 from clinicai.events.worker import SuKienDaNhan, dang_ky
+from clinicai.phieu_kham.mau_dieu_tri import phieu_co_ket_qua_sql
 from clinicai.services.chi_dinh_service import ChiDinhService
 from clinicai.services.day_noi import doc_day
 from clinicai.services.luot_kham_service import LuotKhamService
@@ -296,7 +297,9 @@ async def _bao_ve_con_viec(
                JOIN form_instance f
                  ON f.service_order_id = o.id AND f.clinic_id = o.clinic_id
               WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid
-                AND f.trang_thai = 'READY' AND o.da_xem_ket_qua_luc IS NULL)
+                AND o.da_xem_ket_qua_luc IS NULL AND """
+        + phieu_co_ket_qua_sql("f")
+        + """)
             AS chua_xem,
           (SELECT count(*) FROM service_order o
             WHERE o.clinic_id = $1::uuid AND o.visit_id = $2::uuid

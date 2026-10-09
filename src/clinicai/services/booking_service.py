@@ -2810,7 +2810,7 @@ class BookingService:
         #
         # CHỈ đụng lượt còn mở: FINALIZED/AMENDED là hồ sơ đã ký — huỷ một lịch
         # hẹn không được phép viết lại kết luận của bác sĩ.
-        await conn.execute(
+        dong_luot = await conn.execute(
             """
             UPDATE public.visit
                SET status = 'INCOMPLETE',
@@ -2861,6 +2861,18 @@ class BookingService:
             identity.clinic_id,
             visit_id,
         )
+        # HOÀN TÁC CẢ VIỆC MANG SANG (09/10/2026): chỉ định chưa làm mà lượt này
+        # nhận từ lượt trước (vd lượt Điều trị dùng chỉ định bác sĩ đã kê) về lại
+        # lượt cũ — không treo trên một lượt "khách về giữa chừng".
+        if dong_luot.endswith(" 1"):
+            from clinicai.services.chi_dinh_service import ChiDinhService  # vòng nhập
+
+            await ChiDinhService.tra_ve_luot_cu(
+                conn,
+                clinic_id=identity.clinic_id,
+                visit_id=str(visit_id),
+                identity=identity,
+            )
 
     def _is_today(self, moment: datetime) -> bool:
         local = moment.astimezone(CLINIC_TZ).date()

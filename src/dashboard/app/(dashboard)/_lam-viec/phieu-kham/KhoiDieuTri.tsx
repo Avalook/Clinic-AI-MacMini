@@ -13,6 +13,9 @@
 //     `form_instance` mà phòng dịch vụ mở: bàn khám ghi dở thì phòng ghi tiếp,
 //     không điền lại. Gọn (sau bấm thử staging 07/10): không tiêu đề "Phiếu kết
 //     quả · …", mỗi ô một nhãn, không "Hoàn tất phiếu", không gập/mở.
+//     CÓ KẾT QUẢ (máy chủ `phieu.co_ket_qua`, 09/10/2026 — đã lưu, có chữ): KHUNG
+//     KẾT QUẢ xám như CLS ("Cảm nhận: …", người ghi · giờ · nơi làm) + chip "Có kết
+//     quả"; [Sửa] mới mở lại hai ô. Phòng dịch vụ vẫn hai ô nhập như cũ.
 //   · trạng thái (chưa làm / đang làm ở P. X / đang làm tại bàn khám / xong) +
 //     nhãn "Khách đã đặt" (lượt đặt lịch Điều trị);
 //   · [Làm tại bàn khám] → [Xong] (giờ thật), hoàn tác từng bước. Điền phiếu KHÔNG
@@ -23,9 +26,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import Button from "@/components/ui/Button";
+import Button, { buttonClass } from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
-import { fmtTime } from "@/lib/datetime";
+import { fmtDayTime, fmtTime } from "@/lib/datetime";
 import { docLT, type LieuTrinhLuot } from "@/lib/lieu-trinh";
 import { nhanLoi, type ThanLoi } from "@/lib/loi-api";
 import type { ChiDinhVaKetQua } from "@/lib/phieu-kham";
@@ -34,7 +37,7 @@ import { useNgheBang } from "../../dung-nghe-bang";
 import { OTickTaiCho } from "../OLamTruocThuSau";
 import PhieuDieuTri, { type BanDieuTri } from "../PhieuDieuTri";
 import PhieuKetQua, { type MauKetQua } from "../PhieuKetQua";
-import KetQuaChiDinh, { type PhanKetQua } from "./KetQuaChiDinh";
+import KetQuaChiDinh, { DongKetQuaDl, type PhanKetQua } from "./KetQuaChiDinh";
 import { DaiLieuTrinh, DeXuatLieuTrinh, KhungLieuTrinh } from "./LieuTrinhThe";
 
 export interface TheDieuTri {
@@ -55,9 +58,44 @@ export interface TheDieuTri {
   xong_duoc: boolean;
   huy_lam_duoc: boolean;
   hoan_tac_xong_duoc: boolean;
+  /** "Tại bàn khám" / phòng của lần làm (máy chủ); chưa làm → null. */
+  noi_lam_nhan?: string | null;
   mau: MauKetQua[];
   mau_chon_san: string | null;
-  phieu: (BanDieuTri & { phieu_id: string; form_id: string }) | null;
+  /** `co_ket_qua` (máy chủ, 09/10/2026): phiếu đã lưu có chữ = KẾT QUẢ như CLS. */
+  phieu: (BanDieuTri & { phieu_id: string; form_id: string; co_ket_qua?: boolean }) | null;
+}
+
+/** KHUNG KẾT QUẢ của thẻ điều trị — cùng kiểu khối xám kết quả CLS
+ *  (`KetQuaChiDinh`): mỗi ô có chữ một dòng, chân "người ghi · giờ · nơi làm".
+ *  [Sửa] mở lại hai ô nhập (lịch sử sửa giữ ở máy chủ). */
+function KhungKetQuaDieuTri({ t, onSua }: { t: TheDieuTri; onSua: (() => void) | null }) {
+  const p = t.phieu;
+  if (!p) return null;
+  const chan = [p.nguoi_sua, p.sua_luc ? fmtDayTime(p.sua_luc) : null, t.noi_lam_nhan].filter(Boolean);
+  return (
+    <section aria-label="Kết quả buổi điều trị" className="space-y-2 rounded-control bg-surface-muted/50 p-3">
+      <DongKetQuaDl dong={p.o.filter((o) => o.gia_tri.trim()).map((o) => ({ nhan: o.ten, gia: o.gia_tri }))} />
+      <div className="flex flex-wrap items-center justify-between gap-2 text-meta text-ink-muted">
+        <span>{chan.join(" · ")}</span>
+        <span className="flex flex-wrap items-center gap-2">
+          {onSua ? (
+            <Button type="button" size="sm" variant="ghost" onClick={onSua}>
+              Sửa
+            </Button>
+          ) : null}
+          <a
+            href={`/print/ket-qua/${t.order_id}`}
+            target="_blank"
+            rel="noopener"
+            className={buttonClass("ghost", "sm")}
+          >
+            In phiếu
+          </a>
+        </span>
+      </div>
+    </section>
+  );
 }
 
 const TONE: Record<TheDieuTri["trang_thai"], ChipTone> = {
@@ -103,6 +141,10 @@ export default function KhoiDieuTri({
   const [nhacTick, setNhacTick] = useState(false);
   const [dang, setDang] = useState<string | null>(null);
   const [loi, setLoi] = useState<Record<string, string>>({});
+  // Thẻ đang mở HAI Ô NHẬP dù phiếu đã là kết quả: bấm [Sửa], hoặc đang gõ lần
+  // đầu (lưu chữ đầu tiên làm phiếu thành kết quả — không giật sang khung xem
+  // giữa lúc gõ). [Xong sửa] đóng lại.
+  const [dangSua, setDangSua] = useState<Record<string, boolean>>({});
 
   const doc = useCallback(async (): Promise<GoiThe | null> => {
     const r = await fetch(`/api/ho-so-kham?visit_id=${visitId}&xem=dieu-tri`, { cache: "no-store" }).catch(
@@ -112,6 +154,12 @@ export default function KhoiDieuTri({
   }, [visitId]);
   const dat = useCallback((d: GoiThe) => {
     setThe(d.the);
+    // Thẻ chưa có kết quả mở ô nhập; giữ mở cả khi chữ vừa lưu biến nó thành kết quả.
+    setDangSua((cu) => {
+      const moi = { ...cu };
+      for (const t of d.the) if (!t.phieu?.co_ket_qua && !(t.order_id in moi)) moi[t.order_id] = true;
+      return moi;
+    });
     setChiDoc(Boolean(d.chi_doc));
     setNhacTick(Boolean(d.nhac_tick));
   }, []);
@@ -228,6 +276,7 @@ export default function KhoiDieuTri({
           {t.phong && t.trang_thai !== "DANG_LAM_BAN_KHAM" ? ` · ${t.phong}` : ""}
         </Chip>
         <Chip tone={t.da_thu ? "success" : "warning"}>{t.da_thu ? "Đã thu" : "Chưa thu"}</Chip>
+        {t.phieu?.co_ket_qua ? <Chip tone="success">Có kết quả</Chip> : null}
       </>
     );
   };
@@ -277,8 +326,29 @@ export default function KhoiDieuTri({
             {moi}
           </p>
         ) : null}
-        {t.mau_chon_san === MAU_PHIEU_DIEU_TRI || !ghiPhieu ? (
-          <PhieuDieuTri serviceOrderId={t.order_id} choGhi={ghiPhieu} banDoc={t.phieu} />
+        {(t.mau_chon_san === MAU_PHIEU_DIEU_TRI || !ghiPhieu) && t.phieu?.co_ket_qua && !(ghiPhieu && dangSua[t.order_id]) ? (
+          // CÓ KẾT QUẢ (máy chủ nói): khung kết quả như CLS; [Sửa] mở ô nhập.
+          <KhungKetQuaDieuTri
+            t={t}
+            onSua={ghiPhieu ? () => setDangSua((x) => ({ ...x, [t.order_id]: true })) : null}
+          />
+        ) : t.mau_chon_san === MAU_PHIEU_DIEU_TRI || !ghiPhieu ? (
+          <div className="space-y-2">
+            <PhieuDieuTri serviceOrderId={t.order_id} choGhi={ghiPhieu} banDoc={t.phieu} />
+            {ghiPhieu && t.phieu?.co_ket_qua ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  setDangSua((x) => ({ ...x, [t.order_id]: false }));
+                  nap();
+                }}
+              >
+                Xong sửa
+              </Button>
+            ) : null}
+          </div>
         ) : (
           // Dịch vụ điều trị mà quản lý gắn mẫu khác: phiếu kết quả chung.
           <PhieuKetQua serviceOrderId={t.order_id} mau={t.mau} mauMacDinh={t.mau_chon_san} onHoanTat={nap} />

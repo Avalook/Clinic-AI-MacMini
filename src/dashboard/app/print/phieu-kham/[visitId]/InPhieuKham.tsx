@@ -170,7 +170,8 @@ function KetQuaCls({ ds, coTrangAnh }: { ds: ChiDinhVaKetQua[]; coTrangAnh: bool
   return (
     <ol className="space-y-3">
       {ds.map((c, i) => {
-        const phieu = c.ket_qua.filter((k) => k.loai === "PHIEU" && k.trang_thai === "READY" && k.khung);
+        // Phiếu nào là kết quả: cờ máy chủ `co_ket_qua` (cùng luật màn khám).
+        const phieu = c.ket_qua.filter((k) => k.loai === "PHIEU" && k.co_ket_qua && k.khung);
         const soAnh = anhInDuoc(c).length;
         return (
           <li key={c.service_order_id} className="in-giu space-y-1">

@@ -81,6 +81,9 @@ MODULE: dict[str, Module] = {
             lenh=[
                 "PlaceServiceOrders",
                 "CarryOverUnfinishedOrders",
+                # Hoàn tác check-in / huỷ lịch của lượt nhận chỉ định mang sang
+                # (09/10/2026): chỉ định chưa động tới quay về lượt cũ.
+                "ReturnCarriedOrders",
                 "SetServiceOrderRequired",
                 # Làm thêm tại quầy (01/10/2026): lễ tân / người đo sinh hiệu
                 # tick "+ dịch vụ" theo danh sách quản lý quản.
@@ -94,6 +97,7 @@ MODULE: dict[str, Module] = {
             phat=[
                 "service_order.placed",
                 "service_order.carried_over",
+                "service_order.carry_returned",
                 "service_order.required_changed",
                 "service_order.required_changed",
                 "service_order.desk_added",
@@ -389,6 +393,7 @@ MODULE: dict[str, Module] = {
                 "service.room_guided",
                 "consultation.resumed",
                 "service_order.carried_over",
+                "service_order.carry_returned",
                 "service_order.required_changed",
                 "payment.service_collected",
                 "payment.medicine_collected",
@@ -462,6 +467,8 @@ MODULE: dict[str, Module] = {
                 "visit.reopened",
             ],
             quyen=["reception.checkin.perform"],
+            # Hoàn tác check-in: chỉ định mang sang về lại lượt cũ.
+            goi_dong_bo=["service_order.ReturnCarriedOrders"],
         ),
         Module(
             ma="vitals",
@@ -817,6 +824,8 @@ MODULE: dict[str, Module] = {
             bang=["luot_ghi_chu"],
             # Thẻ chỉ định điều trị ở hồ sơ khám: [Làm tại bàn khám] → [Xong].
             goi_dong_bo=[
+                # Lượt Điều trị dùng luôn chỉ định bác sĩ đã kê (09/10/2026).
+                "service_order.CarryOverUnfinishedOrders",
                 "execution.StartServiceAtDesk",
                 "execution.CompleteServiceAtDesk",
                 "execution.CancelDeskStart",

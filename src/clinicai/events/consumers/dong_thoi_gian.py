@@ -77,6 +77,7 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service.doctor_chosen": ["room_id", "bac_si_id", "lan", "tu_dong", "nguon"],
     "service_order.required_changed": ["bat_buoc"],
     "service_order.carried_over": ["service_code", "da_thu_tien"],
+    "service_order.carry_returned": ["service_code"],
     # Số tiền là thông tin vận hành của quầy, không phải chữ lâm sàng.
     "payment.service_collected": ["so_tien", "phuong_thuc"],
     "payment.medicine_collected": ["so_tien", "phuong_thuc"],

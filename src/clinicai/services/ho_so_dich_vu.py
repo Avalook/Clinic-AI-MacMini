@@ -65,6 +65,40 @@ SELECT p.form_id, p.sua_luc,
 """
 
 
+#: Chỉ định cùng dịch vụ còn sống (chưa làm xong, chưa huỷ) ở MỘT LƯỢT KHÁC của
+#: cùng khách mà lượt ấy chưa check-out.
+_CON_O_LUOT_KHAC_SQL = """
+SELECT EXISTS (
+    SELECT 1
+      FROM public.visit v
+      JOIN public.visit x
+        ON x.clinic_id = v.clinic_id AND x.clinic_patient_id = v.clinic_patient_id
+       AND x.visit_id <> v.visit_id
+       AND x.status IN ('OPEN', 'IN_PROGRESS') AND x.closed_at IS NULL
+      JOIN public.service_order o
+        ON o.clinic_id = x.clinic_id AND o.visit_id = x.visit_id
+     WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+       AND o.service_code = $3
+       AND o.exec_status IN ('authorized', 'assigned', 'in_progress')
+       AND coalesce(o.execution_status, 'PENDING') IN ('PENDING', 'IN_PROGRESS'))
+"""
+
+
+async def _da_co_chi_dinh(
+    conn: asyncpg.Connection, clinic_id: str, visit_id: str, service_code: str
+) -> bool:
+    return bool(
+        await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM public.service_order"
+            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+            " AND service_code = $3 AND exec_status <> 'cancelled')",
+            clinic_id,
+            visit_id,
+            service_code,
+        )
+    )
+
+
 def _ten_phieu(form_id: str) -> str:
     try:
         return str(dinh_nghia(form_id)["ten"])
@@ -223,14 +257,29 @@ async def sinh_chi_dinh_dieu_tri(
         or r["closed_at"] is not None
     ):
         return None
+    if await _da_co_chi_dinh(conn, clinic_id, visit_id, r["service_code"]):
+        return None
+    # Bác sĩ đã kê đúng dịch vụ ấy mà khách chưa làm, chưa thu → DÙNG LUÔN chỉ
+    # định ấy (Tuyền 09/10/2026), không đẻ cái thứ hai. Check-in đã mang sang
+    # (H2, chạy trước tin này); gọi lại ở đây cho lối đến KHÔNG qua check-in
+    # (đổi dịch vụ sau check-in, tự chữa đường đi) — lệnh chạy lại được.
+    from clinicai.services.chi_dinh_service import ChiDinhService  # vòng nhập
+
+    await ChiDinhService.mang_sang_luot_moi(
+        conn, clinic_id=clinic_id, visit_id=visit_id, causation_id=causation_id
+    )
+    if await _da_co_chi_dinh(conn, clinic_id, visit_id, r["service_code"]):
+        return None
+    # Chỉ định ấy còn sống ở lượt khác đang mở nhưng KHÔNG mang được (đã xếp
+    # phòng / tiền đang chờ xác minh): khách làm ở đó — đẻ thêm là thu hai lần.
     if await conn.fetchval(
-        "SELECT EXISTS (SELECT 1 FROM public.service_order"
-        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid AND service_code = $3"
-        " AND exec_status <> 'cancelled')",
-        clinic_id,
-        visit_id,
-        r["service_code"],
+        _CON_O_LUOT_KHAC_SQL, clinic_id, visit_id, r["service_code"]
     ):
+        logger.warning(
+            "dieu_tri_dung_chi_dinh_luot_khac",
+            visit_id=visit_id,
+            service_code=r["service_code"],
+        )
         return None
     # Phiên khám của lượt: bác sĩ chính trước, rồi phiên mới nhất còn sống.
     phien = await conn.fetchval(

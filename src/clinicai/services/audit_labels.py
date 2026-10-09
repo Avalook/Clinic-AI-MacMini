@@ -245,6 +245,7 @@ EVENT_LABELS: dict[str, str] = {
     "consult.reopened": "Hoàn tác khám xong — mở lại phiên khám",
     "service_order.cancelled": "Bỏ chỉ định",
     "service_order.restored": "Hoàn tác bỏ chỉ định",
+    "service_order.carry_returned": "Trả chỉ định mang sang về lượt cũ",
     "service.completion_undone": "Hoàn tác “Xong” của dịch vụ",
     "visit.reopened": "Hoàn tác check-out — mở lại lượt khám",
     "result.approval_revoked": "Thu hồi duyệt kết quả — về chờ bác sĩ duyệt",

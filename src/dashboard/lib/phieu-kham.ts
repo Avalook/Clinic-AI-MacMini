@@ -13,6 +13,7 @@
 // Định danh luôn là KHOÁ (`ma`). Nhãn (`ten`) chỉ để hiển thị, không bao giờ
 // đem đi so khớp.
 
+import { fmtTime, ngayVN } from "./datetime.ts";
 import { giaKemDonVi } from "./phieu-ket-qua.ts";
 
 export type KieuO ="text" | "so" | "ngay" | "doan_van" | "chon" | "nhieu_chon";
@@ -95,6 +96,21 @@ export interface KetQuaMotChiDinh {
   xac_nhan_trang_thai?: string | null;
   khung?: MucPhieu[] | null;
   du_lieu?: Record<string, ONhap> | null;
+  /** Phiếu ĐÃ LÀ KẾT QUẢ (máy chủ, 09/10/2026): READY, hoặc phiếu điều trị đã
+   *  lưu có chữ. Màn vẽ khối kết quả theo cờ này, không tự xét trạng thái. */
+  co_ket_qua?: boolean;
+  /** Người ghi phiếu + giờ ghi gần nhất. */
+  nguoi_ghi?: string | null;
+  ghi_luc?: string | null;
+}
+
+/** Chỉ định đã CHUYỂN SANG lượt khác (09/10/2026 — lượt Điều trị dùng chỉ định
+ *  bác sĩ kê ở đây): thẻ ở lượt này chỉ đọc. */
+export interface ChuyenSangLuot {
+  visit_id: string;
+  /** "Điều trị" hoặc tên loại khám của lượt nhận. */
+  ten_luot: string | null;
+  luc: string | null;
 }
 
 /** LẦN CHỈ ĐỊNH của lượt (06/10/2026) — MÁY CHỦ quyết, màn chỉ vẽ nhãn.
@@ -144,6 +160,8 @@ export interface ChiDinhVaKetQua {
   chi_dinh_luc?: string | null;
   /** Chỉ định mang sang từ lượt trước. */
   mang_sang?: boolean;
+  /** Đã chuyển sang lượt khác — thẻ chỉ đọc (null / thiếu = ở lượt này). */
+  chuyen_sang?: ChuyenSangLuot | null;
   /** Làm thêm tại quầy (01/10/2026): "Làm thêm tại quầy tiếp đón"; null = bác sĩ. */
   lam_them?: string | null;
   /** Mã sản phẩm KiotViet (mã phòng khám) — hiện cạnh tên (27/09/2026). */
@@ -1035,6 +1053,19 @@ export function anhInDuoc(d: ChiDinhVaKetQua): KetQuaMotChiDinh[] {
         (k.xac_nhan_trang_thai ?? "HOP_LE") === "HOP_LE",
     )
     .sort((a, b) => (a.tai_len_luc ?? "").localeCompare(b.tai_len_luc ?? ""));
+}
+
+/** Nhãn thẻ chỉ định đã chuyển sang lượt khác: "Đã chuyển sang lượt Điều trị ·
+ *  14:05 09/10". Không chuyển → null. Thiếu tên / giờ → bỏ phần ấy, không ném. */
+export function nhanChuyenSang(c: Pick<ChiDinhVaKetQua, "chuyen_sang">): string | null {
+  const cs = c.chuyen_sang;
+  if (!cs) return null;
+  const ten = cs.ten_luot?.trim() ? ` ${cs.ten_luot.trim()}` : " khác";
+  // "hh:mm dd/mm" ghép tay — `toLocaleString` vi-VN ra "dd-mm" ở Node, "d/m" ở
+  // vài trình duyệt; giờ rác thì bỏ phần giờ.
+  const [, thang, ngay] = cs.luc ? ngayVN(cs.luc).split("-") : [];
+  const luc = ngay && thang && cs.luc ? ` · ${fmtTime(cs.luc)} ${ngay}/${thang}` : "";
+  return `Đã chuyển sang lượt${ten}${luc}`;
 }
 
 export const NHAN_KET_QUA: Record<ChiDinhVaKetQua["ket_qua_trang_thai"], string> = {
