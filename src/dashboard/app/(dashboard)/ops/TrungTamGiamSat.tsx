@@ -406,6 +406,24 @@ function PhanDoan<T extends string>({ gia_tri, chon, doi }: { gia_tri: readonly 
 
 // ── Tóm tắt AI (markdown nhẹ) ────────────────────────────────────────────────
 
+/** `**đậm**` → <strong>; còn lại để nguyên chữ (không chèn HTML lạ). */
+function Dam({ chu }: { chu: string }) {
+  const phan = chu.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+  return (
+    <>
+      {phan.map((x, i) =>
+        x.startsWith("**") && x.endsWith("**") ? (
+          <strong key={i} className="font-semibold">
+            {x.slice(2, -2)}
+          </strong>
+        ) : (
+          <span key={i}>{x}</span>
+        ),
+      )}
+    </>
+  );
+}
+
 function VanBanTomTat({ chu }: { chu: string }) {
   const khoi: ReactNode[] = [];
   let ds: string[] = [];
@@ -416,7 +434,9 @@ function VanBanTomTat({ chu }: { chu: string }) {
         {ds.map((x, i) => (
           <li key={i} className="flex gap-2">
             <span className="mt-[7px] size-1 shrink-0 rounded-full bg-[#a1a1aa]" aria-hidden />
-            <span>{x}</span>
+            <span>
+              <Dam chu={x} />
+            </span>
           </li>
         ))}
       </ul>,
@@ -430,7 +450,7 @@ function VanBanTomTat({ chu }: { chu: string }) {
       dongDs();
       khoi.push(
         <h4 key={`h${khoi.length}`} className={`pt-3 text-xs font-medium first:pt-0 ${CHU_PHU}`}>
-          {t.slice(3)}
+          {t.slice(3).replace(/\*\*/g, "")}
         </h4>,
       );
     } else if (t.startsWith("- ")) ds.push(t.slice(2));
@@ -438,7 +458,7 @@ function VanBanTomTat({ chu }: { chu: string }) {
       dongDs();
       khoi.push(
         <p key={`p${khoi.length}`} className={`text-[13px] leading-relaxed ${CHU}`}>
-          {t}
+          <Dam chu={t} />
         </p>,
       );
     }
