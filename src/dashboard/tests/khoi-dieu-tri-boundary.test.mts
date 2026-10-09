@@ -192,6 +192,22 @@ test("ô Làm trước – thu sau ở khối 1: chỉ khi máy chủ mời, c�
   assert.match(LUOT, /oTick\s*\n\s*goiYTrong=/);
 });
 
+test("bản in lượt Điều trị: tiêu đề theo khung trung tính 'Hồ sơ điều trị', không 'Phiếu thủ thuật'", () => {
+  // Máy chủ mở khung HO_SO_DIEU_TRI cho lượt Điều trị; bản in lấy tiêu đề từ `ten`.
+  assert.match(IN, /tieuDe=\{TIEU_DE_PHAN\[phan\] \?\? phieu\?\.ten \?\? "Hồ sơ lượt khám"\}/);
+  const hs = JSON.parse(doc("../../clinicai/phieu_kham/dinh_nghia/HO_SO_DIEU_TRI.json")) as {
+    ten: string;
+    khung: { ma: string }[];
+  };
+  assert.equal(hs.ten, "Hồ sơ điều trị");
+  assert.deepEqual(
+    hs.khung.map((m) => m.ma),
+    ["HANH_CHINH", "C", "D", "E", "F", "G"],
+  );
+  // Màn không tự chọn phiếu cho lượt Điều trị (máy chủ quyết khung).
+  assert.doesNotMatch(LUOT, /napPhieu\("THU_THUAT"\)|"HO_SO_DIEU_TRI"/);
+});
+
 test("chọn thủ thuật: một lệnh máy chủ, lọc ở lib, ô bấm ≥40px", () => {
   const CHON = doc("../app/(dashboard)/_lam-viec/phieu-kham/ChonThuThuatBanKham.tsx");
   assert.match(CHON, /thao_tac: "chon-thu-thuat", visit_id: visitId, service_code: m\.service_code/);
