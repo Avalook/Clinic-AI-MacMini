@@ -5,6 +5,7 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { quyetDinhCong } from "./lib/cong-giam-sat";
 import { ganKiemPhienTaiCho } from "./lib/kiem-phien-tai-cho";
 import {
   cookiePhienCanXoa,
@@ -28,6 +29,20 @@ export async function proxy(request: NextRequest) {
       { error: "ENDPOINT_RETIRED", message: "Đường cũ đã tắt — màn hiện tại không dùng nữa." },
       { status: 410 },
     );
+  }
+
+  // CỔNG TÊN MIỀN GIÁM SÁT (09/10/2026) — trước mọi kiểm phiên: tên miền giám
+  // sát chỉ mở trang giám sát + đăng nhập; tên miền chính không thấy lối vào
+  // giám sát. Xem lib/cong-giam-sat.ts. Quyền `giamsat.view` vẫn gác ở trang/API.
+  const cong = quyetDinhCong(request.headers.get("host"), request.nextUrl.pathname);
+  if (cong === "khong_thay") {
+    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
+  if (cong === "ve_giam_sat") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/giam-sat";
+    url.search = "";
+    return NextResponse.redirect(url);
   }
 
   let response = NextResponse.next({ request });

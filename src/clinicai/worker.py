@@ -270,7 +270,7 @@ async def _run_su_kien() -> None:
     # BỘ CANH GÁC (27/09/2026) ghép vào vòng này, mỗi phút một lượt — xem
     # services/canh_gac.py. Chỉ tiến trình giao MỌI bên nhận mới canh (chạy tay
     # một bên nhận để gỡ lỗi thì không mở cảnh báo trùng).
-    from clinicai.services import agent_giam_sat, canh_gac
+    from clinicai.services import agent_giam_sat, agent_tom_tat, canh_gac
 
     canh = not chi_dinh
     lan_canh = 0.0
@@ -303,6 +303,8 @@ async def _run_su_kien() -> None:
                 if canh and time.monotonic() - lan_agent >= agent_giam_sat.NHIP_GIAY:
                     lan_agent = time.monotonic()
                     await agent_giam_sat.mot_vong(pool)
+                    # Tóm tắt cuối ngày bằng LLM (chỉ khi có khoá; tự bỏ qua).
+                    await agent_tom_tat.tu_dong(pool)
                 _beat()
             except Exception:
                 # Một bên nhận hỏng không được làm chết vòng giao tin.

@@ -160,6 +160,51 @@ http://localhost, http://127.0.0.1 {
 	}
 }
 
+# TRUNG TÂM GIÁM SÁT AI (09/10/2026) — tên miền riêng của đội vận hành ClinicAI.
+#
+# Cùng một dashboard; KHỐI RIÊNG để (1) Caddy tự xin chứng chỉ cho tên miền này,
+# (2) Host tới dashboard là tên miền giám sát → `proxy.ts` (lib/cong-giam-sat.ts)
+# chỉ mở trang /giam-sat + đăng nhập, còn tên miền chính không thấy lối vào.
+# Quyền nội bộ `giamsat.view` vẫn gác ở trang và API. Bản ghi DNS A
+# `giamsat` → IP VPS đã tạo ở P.A Việt Nam (09/10/2026).
+#
+# Không có các đường Supabase (/auth /rest /realtime): trang này không gọi thẳng
+# Supabase từ trình duyệt — đăng nhập là server action.
+{$GIAMSAT_ADDRESS:giamsat.dr4women.io.vn} {
+	encode zstd gzip
+
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp \?.*$ ?…
+				request>headers>Referer regexp \?.*$ ?…
+			}
+		}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		# Trang nội bộ — không cho máy tìm kiếm lập chỉ mục.
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	handle /health {
+		log_skip
+		respond "ok" 200
+	}
+
+	handle {
+		reverse_proxy dashboard:3000
+	}
+}
+
 # SITE PHỤ (01/10/2026): mọi `*.caddy` trong caddy/them/ — hiện chỉ có site
 # staging do scripts/staging-dung-lan-dau.sh viết ra (không vào git). Thư mục
 # rỗng thì mẫu glob không khớp gì và Caddy chạy y như trước. Xem

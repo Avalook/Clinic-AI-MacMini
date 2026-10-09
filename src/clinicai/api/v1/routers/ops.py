@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
 import asyncpg
@@ -10,17 +11,21 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity, get_current_identity
+from clinicai.core.clock import doc_ngay_xem, hom_nay_vn
 from clinicai.core.database import get_db_pool
 from clinicai.core.telemetry import SLOW_REQUEST_MS, telemetry
+from clinicai.llm import chi_phi
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.schemas.ops import OpsStatusResponse
 from clinicai.services import (
     agent_giam_sat,
+    agent_tom_tat,
     canh_gac,
     canh_gac_kho_tep,
     day_tep,
     kho_loi,
     nhat_ky_van_hanh,
+    tong_quan_giam_sat,
     traffic_service,
 )
 from clinicai.services.ops_status import OpsStatusService
@@ -28,6 +33,10 @@ from clinicai.services.ops_status import OpsStatusService
 router = APIRouter()
 # Lego 20 "Vận hành hệ thống" (25/09/2026): hỏi quyền, không hỏi vai.
 _MANAGEMENT_GUARD = cua_quyen("ops.view")
+# Trung tâm giám sát AI (09/10/2026): quyền NỘI BỘ của đội vận hành ClinicAI —
+# quản lý phòng khám có `ops.view` cũng không vào được (xem migration
+# 20261009880000).
+_GIAM_SAT_GUARD = cua_quyen("giamsat.view")
 
 
 @router.get("/ops/status", response_model=OpsStatusResponse)
@@ -182,14 +191,17 @@ async def nhat_ky(
 async def agent_nhan_dinh(
     response: Response,
     chi_mo: bool = Query(default=False),
-    identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    identity: StaffIdentity = Depends(_GIAM_SAT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Nhận định của agent (đang mở trước), độ đúng 14 ngày theo loại, công tắc.
     Shadow: chỉ quản lý thấy ở đây — chưa réo chuông ai."""
     response.headers["Cache-Control"] = "no-store"
     return await agent_giam_sat.danh_sach(
-        pool, clinic_id=identity.clinic_id, chi_dang_mo=chi_mo
+        pool,
+        clinic_id=identity.clinic_id,
+        chi_dang_mo=chi_mo,
+        location_id=identity.location_id,
     )
 
 
@@ -203,7 +215,7 @@ class DanhGiaNhanDinh(BaseModel):
 async def danh_gia_nhan_dinh(
     nhan_dinh_id: UUID,
     body: DanhGiaNhanDinh,
-    identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    identity: StaffIdentity = Depends(_GIAM_SAT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Quản lý chấm ĐÚNG / SAI / KHÔNG RÕ — số đo để quyết lên giai đoạn sau."""
@@ -230,7 +242,7 @@ class CheDoAgent(BaseModel):
 @router.post("/ops/agent/che-do")
 async def dat_che_do_agent(
     body: CheDoAgent,
-    identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    identity: StaffIdentity = Depends(_GIAM_SAT_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Bật/tắt một loại nhận định, hoặc `loai='*'` = mọi loại (công tắc khẩn).
@@ -247,6 +259,78 @@ async def dat_che_do_agent(
         staff_id=identity.staff_id,
     )
     return {"ok": True}
+
+
+def _ngay_hoac_hom_nay(ngay: str | None) -> date:
+    """Ngày người gửi lên; rác / trống → hôm nay (luật repo: không ném)."""
+    return doc_ngay_xem(ngay) or hom_nay_vn()
+
+
+@router.get("/ops/agent/tong-quan")
+async def tong_quan_agent(
+    response: Response,
+    identity: StaffIdentity = Depends(_GIAM_SAT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Dashboard giám sát: vận hành hôm nay, tải từng phòng, đèn hệ thống,
+    nhận định đang mở — một lượt gọi."""
+    response.headers["Cache-Control"] = "no-store"
+    return await tong_quan_giam_sat.doc(
+        pool, clinic_id=identity.clinic_id, location_id=identity.location_id
+    )
+
+
+@router.get("/ops/agent/tom-tat")
+async def doc_tom_tat(
+    response: Response,
+    ngay: str | None = None,
+    identity: StaffIdentity = Depends(_GIAM_SAT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Bản tóm tắt LLM mới nhất của ngày + LLM đang bật hay tắt."""
+    response.headers["Cache-Control"] = "no-store"
+    return await agent_tom_tat.doc(
+        pool, clinic_id=identity.clinic_id, ngay=_ngay_hoac_hom_nay(ngay)
+    )
+
+
+class TaoTomTat(BaseModel):
+    ngay: str | None = None
+
+
+@router.post("/ops/agent/tom-tat")
+async def tao_tom_tat(
+    body: TaoTomTat,
+    identity: StaffIdentity = Depends(_GIAM_SAT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Bấm "Tóm tắt ngay": gọi LLM một lần (tính tiền, có trần ngày)."""
+    try:
+        return await agent_tom_tat.tao(
+            pool,
+            clinic_id=identity.clinic_id,
+            ngay=_ngay_hoac_hom_nay(body.ngay),
+            staff_id=identity.staff_id,
+        )
+    except agent_tom_tat.LlmTatError as e:
+        raise ValidationError(str(e)) from e
+    except chi_phi.VuotTranChiPhiError as e:
+        raise ValidationError(str(e)) from e
+    except agent_tom_tat.TomTatHongError as e:
+        raise ValidationError(str(e)) from e
+
+
+@router.get("/ops/llm/chi-phi")
+async def chi_phi_llm(
+    response: Response,
+    so_ngay: int = Query(default=7, ge=1, le=31),
+    _identity: StaffIdentity = Depends(_GIAM_SAT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Đồng hồ tiền LLM: hôm nay / trần, theo model, theo ngày, 20 lần gần nhất.
+    Số dư tài khoản KHÔNG có ở đây — chỉ Console → Billing mới có."""
+    response.headers["Cache-Control"] = "no-store"
+    return await chi_phi.so_lieu(pool, so_ngay=so_ngay)
 
 
 class LoiTrinhDuyet(BaseModel):

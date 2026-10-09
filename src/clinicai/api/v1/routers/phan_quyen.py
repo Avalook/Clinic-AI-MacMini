@@ -21,7 +21,13 @@ from pydantic import BaseModel, Field
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.can import quyen_hieu_luc
-from clinicai.permissions.catalogue import KHOI, PRESET, QUYEN, quyen_cua_khoi
+from clinicai.permissions.catalogue import (
+    KHOI,
+    KHOI_NOI_BO,
+    PRESET,
+    QUYEN,
+    quyen_cua_khoi,
+)
 from clinicai.services.permission_service import PermissionService
 
 router = APIRouter()
@@ -85,6 +91,8 @@ async def danh_muc() -> dict[str, Any]:
                 ],
             }
             for k in KHOI.values()
+            # Khối nội bộ đội vận hành không bày cho phòng khám.
+            if k.ma not in KHOI_NOI_BO
         ],
         # Preset chỉ là gợi ý để cấp cho nhanh, không phải trần quyền.
         "preset": {vai: list(khoi) for vai, khoi in PRESET.items()},
