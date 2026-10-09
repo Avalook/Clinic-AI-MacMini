@@ -274,6 +274,13 @@ class LieuTrinhTienService:
                     "goi_y_tra_them": lt["con_tra_truoc"] == 0
                     and toi_da > 0
                     and lt["trang_thai"] == "DANG_LAM",
+                    # Câu đúng ngữ cảnh (staging 09/10): khách chưa từng trả
+                    # trước thì không có gì để "hết".
+                    "cau_goi_y": (
+                        "Hết buổi đã trả trước — gợi ý khách trả thêm."
+                        if int(lt["da_tra"] or 0) > 0
+                        else "Khách chưa trả trước buổi nào — có thể gợi ý trả trước."
+                    ),
                     # Q5: buổi đã trả chưa dùng còn hoàn được (min với từng dòng).
                     "hoan_duoc_toi_da": lt["con_tra_truoc"],
                     "dong_hoan_duoc": dong_hoan,

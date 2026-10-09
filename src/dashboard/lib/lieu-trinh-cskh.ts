@@ -29,6 +29,8 @@ export interface LieuTrinh {
   ly_do_dung: string | null;
   revision: number;
   da_tra: number;
+  /** Buổi đã thu lẻ (không bằng tiền trả trước). */
+  tra_le?: number;
   da_lam: number;
   con_lai: number;
   con_tra_truoc: number;

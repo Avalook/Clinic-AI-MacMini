@@ -38,6 +38,7 @@ from clinicai.services.lenh_kham_core import ma_uuid
 # Lượt đã check-out / đã đóng: thẻ chỉ đọc, lệnh bị từ chối — `CAU_LUOT_DA_DONG`
 # cùng câu với lệnh của module Thực hiện (kiểm lại TRONG giao dịch).
 from clinicai.services.service_execution_service import (
+    CAU_CHUA_BIET_PHONG_BAN_KHAM,
     CAU_KHONG_QUYEN_BAN_KHAM,
     CAU_LUOT_DA_DONG,
     NOI_BAN_KHAM,
@@ -45,6 +46,7 @@ from clinicai.services.service_execution_service import (
     ServiceExecutionService,
     chan_vi_chua_thu,
     cua_tien_chot_ho,
+    phong_ban_kham,
 )
 
 #: Mã dịch vụ ĐIỀU TRỊ của phòng khám — dịch vụ mà một loại khám nhóm DIEU_TRI
@@ -240,6 +242,14 @@ async def doc_the(
         mau = await mau_cho_cac_dich_vu(
             conn, clinic_id=cid, service_codes=[r["service_code"] for r in rows]
         )
+        # Phòng bàn khám (cùng câu với lệnh): chỉ định chưa có phòng mà bàn
+        # khám cũng chưa biết phòng → ẩn [Làm tại bàn khám] từ đầu, ghi câu xám
+        # (trước: bấm rồi mới hiện lỗi đỏ dài — staging 09/10/2026).
+        phong_bk = (
+            await phong_ban_kham(conn, cid, vid, identity.staff_id)
+            if any(r["room_id"] is None for r in rows)
+            else None
+        )
         phieu: dict[str, dict[str, Any]] = {}
         for p in await conn.fetch(_PHIEU_SQL, cid, ids):
             phieu.setdefault(
@@ -260,6 +270,8 @@ async def doc_the(
         tt = trang_thai_the(r["execution_status"], r["noi_lam"])
         t = tien.get(oid)
         lam_duoc, cau, _ = cua_tien_chot_ho(t, selection_status=r["selection_status"])
+        if lam_duoc and r["room_id"] is None and phong_bk is None:
+            lam_duoc, cau = False, CAU_CHUA_BIET_PHONG_BAN_KHAM
         # Mời tick tại chỗ: chỉ thẻ CHƯA LÀM bị chặn vì chưa thu + chưa tick.
         moi_tick = (
             not chi_doc
