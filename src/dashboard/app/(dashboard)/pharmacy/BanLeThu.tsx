@@ -21,7 +21,7 @@ import { taiAnhChuyenKhoan } from "../thu-ngan/AnhChuyenKhoan";
 import type { KetQuaChia } from "../thu-ngan/ChiaHinhThuc";
 import NutHoanTac from "../thu-ngan/NutHoanTac";
 import { NhomThu, type ChoXacMinh, type HoaDon } from "../thu-ngan/QuayThuNgan";
-import DonGanNhat, { type DonGoc } from "./DonGanNhat";
+import LichSuDonThuoc from "./LichSuDonThuoc";
 
 interface DocBanLe {
   visit_id: string;
@@ -34,8 +34,6 @@ interface DocBanLe {
   cho_xac_minh: ChoXacMinh | null;
   hoa_don: HoaDon;
   duoc_thu: boolean;
-  /** Đơn gần nhất / đơn đã nối của khách cũ (09/10/2026); khách chưa từng có đơn → null. */
-  don_goc?: DonGoc | null;
 }
 
 const tien = (n: number) => n.toLocaleString("vi-VN") + "đ";
@@ -48,6 +46,8 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
   const [dangThu, setDangThu] = useState(false);
   // Nối đơn thêm dòng ở máy chủ → nạp lại khối "Lấy thêm thuốc" (nó tự giữ dữ liệu).
   const [lanNoi, setLanNoi] = useState(0);
+  // Mỗi lần nạp lại lượt → lịch sử đơn (đã mua / đang bán / đã nối) nạp lại theo.
+  const [lanTai, setLanTai] = useState(0);
 
   const tai = useCallback(async () => {
     try {
@@ -62,6 +62,7 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
         return;
       }
       setDoc(d);
+      setLanTai((n) => n + 1);
     } catch {
       setLoi("Mất kết nối tới máy chủ.");
     }
@@ -155,11 +156,12 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
         </p>
       ) : null}
       {xong ? <p className="bg-success-bg px-4 py-2 text-meta text-success">{xong}</p> : null}
-      {doc.don_goc ? (
-        <DonGanNhat
+      {doc.clinic_patient_id ? (
+        <LichSuDonThuoc
           visitId={visitId}
-          don={doc.don_goc}
+          clinicPatientId={doc.clinic_patient_id}
           choSua={choSua}
+          lanTai={lanTai}
           onDoi={async (cau, loiMoi) => {
             setXong(cau);
             setLoi(loiMoi);

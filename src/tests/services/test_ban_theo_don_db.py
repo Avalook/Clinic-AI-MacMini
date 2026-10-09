@@ -72,8 +72,16 @@ async def _don_kho(q: Quay, so: int = 10) -> tuple[str, str]:
 
 
 async def _doc(q: Quay, vid: str) -> Any:
-    doc = await BanLeService(q.pool).doc(visit_id=vid, identity=q.thu_ngan)
-    return doc["don_goc"]
+    """Đơn đang nối của lượt (không nối → đơn mới nhất) trong lịch sử đơn."""
+    pid = await q.pool.fetchval(
+        "SELECT clinic_patient_id::text FROM visit WHERE visit_id = $1::uuid", vid
+    )
+    ls = await BanLeService(q.pool).lich_su_don(
+        clinic_patient_id=pid, trang=0, identity=q.thu_ngan
+    )
+    return next(
+        (d for d in ls["don"] if d["da_noi"]), ls["don"][0] if ls["don"] else None
+    )
 
 
 async def _so_dong(q: Quay, vid: str) -> int:
@@ -184,10 +192,12 @@ async def test_ban_theo_don_tu_dau_den_cuoi(q: Quay) -> None:
     assert kq["so_dong_them"] == 0 and "đã mua đủ" in kq["bo_qua"][0]
 
 
-async def test_don_gan_nhat_va_nhac_qua_2_thang(q: Quay) -> None:
+async def test_lich_su_don_moi_den_cu_theo_trang_va_nhac(
+    q: Quay, monkeypatch: pytest.MonkeyPatch
+) -> None:
     await _don_kho(q, so=3)
     pid = await _pid(q)
-    # Lượt khám CŨ hơn cũng có đơn → vẫn chọn lượt mới nhất.
+    # Lượt khám CŨ hơn cũng có đơn → lịch sử có cả hai, mới → cũ.
     cu = await q.pool.fetchval(
         "INSERT INTO visit (clinic_id, clinic_patient_id, status, checked_in_at,"
         " created_at) VALUES ($1::uuid, $2::uuid, 'OPEN', now() - interval '40 days',"
@@ -207,15 +217,32 @@ async def test_don_gan_nhat_va_nhac_qua_2_thang(q: Quay) -> None:
     vid = (
         await BanLeService(q.pool).mo_luot(identity=q.thu_ngan, clinic_patient_id=pid)
     )["visit_id"]
-    assert (await _doc(q, vid))["visit_id"] == q.visit_id
+    svc = BanLeService(q.pool)
+    ls = await svc.lich_su_don(clinic_patient_id=pid, trang=0, identity=q.duoc_si)
+    assert [d["visit_id"] for d in ls["don"]] == [q.visit_id, cu]
+    assert (ls["co_them"], ls["luot_mo"], ls["nhac_chung"]) == (False, vid, [])
+    assert [d["ban_duoc"] for d in ls["don"]] == [True, True]
+    # Theo trang (1 đơn/trang); trang rác → trang đầu.
+    monkeypatch.setattr(btd, "DON_MOI_TRANG", 1)
+    t0 = await svc.lich_su_don(clinic_patient_id=pid, trang="rác", identity=q.duoc_si)
+    t1 = await svc.lich_su_don(clinic_patient_id=pid, trang="1", identity=q.duoc_si)
+    assert ([d["visit_id"] for d in t0["don"]], t0["co_them"]) == ([q.visit_id], True)
+    assert ([d["visit_id"] for d in t1["don"]], t1["co_them"]) == ([cu], False)
+    monkeypatch.undo()
+    # Nhắc 2 tháng là của KHÁCH — tính theo lần khám gần nhất (hôm nay).
     sau = btd.cong_thang(hom_nay_vn(), 2) + timedelta(days=1)
     async with q.pool.acquire() as conn:
-        don = await btd.doc_don(conn, q.thu_ngan, ban_le_visit_id=vid, hom_nay=sau)
-    assert don is not None and any("quá 2 tháng" in c for c in don["nhac"])
+        ls = await btd.lich_su_don(conn, q.thu_ngan, clinic_patient_id=pid, hom_nay=sau)
+    assert any("quá 2 tháng" in c for c in ls["nhac_chung"])
     # Đơn không xác định thuốc kho → không thêm được, báo thêm tay.
     kq = await btd.noi_don(q.pool, q.thu_ngan, visit_id=vid, don_goc_visit_id=cu)
     assert kq["so_dong_them"] == 0 and "chưa xác định thuốc kho" in kq["bo_qua"][0]
     assert (await _doc(q, vid))["visit_id"] == cu  # đã nối → hiện đúng đơn đã nối
+    ls = await svc.lich_su_don(clinic_patient_id=pid, trang=0, identity=q.duoc_si)
+    assert [(d["da_noi"], d["ban_duoc"]) for d in ls["don"]] == [
+        (False, False),
+        (True, True),
+    ]
     # Đang nối đơn khác → phải gỡ trước.
     with pytest.raises(ConflictError):
         await btd.noi_don(q.pool, q.thu_ngan, visit_id=vid, don_goc_visit_id=q.visit_id)
@@ -269,7 +296,9 @@ async def test_chon_khach_thay_don_ngay_va_mo_theo_don_mot_giao_dich(q: Quay) ->
         )
 
     # Chọn khách → đơn gần nhất hiện ngay, CHƯA mở lượt nào.
-    don = (await svc.don_gan_nhat(clinic_patient_id=pid, identity=q.duoc_si))["don"]
+    don = (await svc.lich_su_don(clinic_patient_id=pid, trang=0, identity=q.duoc_si))[
+        "don"
+    ][0]
     assert (don["visit_id"], don["da_noi"]) == (q.visit_id, False)
     assert (don["dong"][0]["con_lai"], don["dong"][0]["dang_ban"]) == ("10", "0")
     assert await so_luot_mo() == 0
@@ -301,7 +330,9 @@ async def test_chon_khach_thay_don_ngay_va_mo_theo_don_mot_giao_dich(q: Quay) ->
     assert (lai["visit_id"], lai["so_dong_them"]) == (vid, 0)
     assert await _so_dong(q, vid) == 1
     # Chọn lại khách khi đang có lượt mở → đọc theo lượt ấy (đã nối, đang bán).
-    don = (await svc.don_gan_nhat(clinic_patient_id=pid, identity=q.duoc_si))["don"]
+    don = (await svc.lich_su_don(clinic_patient_id=pid, trang=0, identity=q.duoc_si))[
+        "don"
+    ][0]
     assert don["da_noi"] is True
     assert (don["dong"][0]["drug_catalog_id"], don["dong"][0]["dang_ban"]) == (
         drug,

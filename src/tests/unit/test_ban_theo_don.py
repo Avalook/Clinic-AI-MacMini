@@ -16,6 +16,7 @@ from clinicai.services.ban_theo_don_service import (
     gom_dong,
     loi_nhac,
     qua_han_kham,
+    so_trang,
 )
 
 D = Decimal
@@ -138,3 +139,16 @@ def test_chuoi_so() -> None:
         "2.5",
         None,
     ]
+
+
+def test_so_trang_rac_ve_trang_dau_va_co_tran() -> None:
+    assert [so_trang(x) for x in (None, "", "abc", "-3", True, 2.7, "2")] == [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        2,
+    ]
+    assert so_trang("100000") == 19  # trần 200 đơn / 10 đơn mỗi trang

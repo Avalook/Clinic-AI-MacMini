@@ -68,11 +68,14 @@ const DOC: Record<string, (q: URLSearchParams) => string | null> = {
     const id = q.get("id") ?? "";
     return UUID_RE.test(id) ? `/api/v1/pharmacy/ban-le/${id}` : null;
   },
-  // 09/10: chọn khách cũ → đơn gần nhất (chưa mở lượt).
-  "don-gan-nhat": (q) => {
+  // 09/10: chọn khách cũ → lịch sử đơn thuốc theo trang (chưa mở lượt).
+  "lich-su-don": (q) => {
     const id = q.get("clinic_patient_id") ?? "";
     return UUID_RE.test(id)
-      ? `/api/v1/pharmacy/ban-le/don-gan-nhat?${new URLSearchParams({ clinic_patient_id: id })}`
+      ? `/api/v1/pharmacy/ban-le/lich-su-don?${new URLSearchParams({
+          clinic_patient_id: id,
+          trang: q.get("trang") ?? "0",
+        })}`
       : null;
   },
 };

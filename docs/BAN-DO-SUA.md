@@ -328,11 +328,12 @@ lần thu (mig 20261002800000). Màn: `D/thu-ngan/QuayThuNgan.tsx` (`quayThu`), 
 `quay-thu-tach-thuoc-dich-vu-boundary.test.mts`. (Dịch vụ "XN thu hộ" của đối tác vẫn là tiền DỊCH VỤ,
 thu ở quầy dịch vụ.)
 Lượt Bán lẻ ở quầy thuốc: `D/pharmacy/BanLeThu.tsx` → `S/ban_le_service.py`.
-Bán theo đơn khám cũ (đơn gần nhất, kê / đã mua / còn lại, nhắc quá 2 tháng / vượt số kê,
-nối – gỡ đơn gốc `visit.don_goc_visit_id`, mig `20261010100000`): `D/pharmacy/DonGanNhat.tsx`
-(dùng ở khung chọn khách `KhachMuaThuoc.tsx` — chưa mở lượt — và ở `BanLeThu.tsx`) →
-`S/ban_theo_don_service.py` (`doc_don`, `doc_don_khach`, `noi_don`, `go_noi_don`) +
-`S/ban_le_service.py` (`don_gan_nhat`, `mo_theo_don` — mở lượt + nối + thêm dòng một giao dịch). Test:
+Bán theo đơn khám cũ (lịch sử đơn thuốc, kê / đã mua / còn lại, nhắc quá 2 tháng / vượt số kê,
+nối – gỡ đơn gốc `visit.don_goc_visit_id`, mig `20261010100000`): khung "Lịch sử đơn thuốc"
+`D/pharmacy/LichSuDonThuoc.tsx` (khung chọn khách `KhachMuaThuoc.tsx` — chưa mở lượt — và
+`BanLeThu.tsx`; nút "Lịch sử khám" = popup chung `D/_lam-viec/LichSuKham.tsx`) →
+`S/ban_theo_don_service.py` (`lich_su_don` — mới → cũ theo trang, `noi_don`, `go_noi_don`) +
+`S/ban_le_service.py` (`lich_su_don`, `mo_theo_don` — mở lượt + nối + thêm dòng một giao dịch). Test:
 `T/unit/test_ban_theo_don.py`, `T/services/test_ban_theo_don_db.py`.
 
 **Thu trước – làm trước (tick "Làm trước – thu sau")** — công tắc: `/settings/day-noi`

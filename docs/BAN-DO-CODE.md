@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-09 14:34. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-09 14:41. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1167,7 +1167,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [phieu-kho] GET `/api/v1/pharmacy/phieu-kho` → `src/clinicai/api/v1/routers/pharmacy.py:danh_sach_phieu` → kho_thuoc_service.danh_sach_phieu
 - [tim-khach] GET `/api/v1/pharmacy/ban-le/tim-khach` → `src/clinicai/api/v1/routers/pharmacy.py:ban_le_tim_khach` → BanLeService.tim_khach
 - GET `/api/v1/pharmacy/ban-le/{visit_id}` → `src/clinicai/api/v1/routers/pharmacy.py:doc_ban_le` → BanLeService.doc
-- GET `/api/v1/pharmacy/ban-le/don-gan-nhat` → `src/clinicai/api/v1/routers/pharmacy.py:ban_le_don_gan_nhat` → BanLeService.don_gan_nhat
+- GET `/api/v1/pharmacy/ban-le/lich-su-don` → `src/clinicai/api/v1/routers/pharmacy.py:ban_le_lich_su_don` → BanLeService.lich_su_don
 - test: src/tests/services/test_kho_kiotviet_db.py, src/tests/services/test_ban_theo_don_db.py, src/tests/services/test_kho_theo_co_so_db.py (+11)
 - màn dùng: /pharmacy, /pharmacy/inventory
 

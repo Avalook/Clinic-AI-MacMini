@@ -32,11 +32,7 @@ from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import can
 from clinicai.schemas.patient import PatientCreateDTO
 from clinicai.services.audit import record_event
-from clinicai.services.ban_theo_don_service import (
-    doc_don,
-    doc_don_khach,
-    noi_don_conn,
-)
+from clinicai.services.ban_theo_don_service import lich_su_don, noi_don_conn
 from clinicai.services.bill_service import tinh_hoa_don
 from clinicai.services.phan_thu import doc_phan_db
 
@@ -145,16 +141,15 @@ class BanLeService:
         async with self._pool.acquire() as conn, conn.transaction():
             return await _mo_hoac_lay(conn, identity, str(pid))
 
-    async def don_gan_nhat(
-        self, *, clinic_patient_id: str, identity: StaffIdentity
+    async def lich_su_don(
+        self, *, clinic_patient_id: str, trang: Any, identity: StaffIdentity
     ) -> dict[str, Any]:
-        """Vừa CHỌN khách ở quầy (chưa mở lượt) → đơn gần nhất để xem."""
+        """Lịch sử đơn thuốc của khách — đọc ngay khi CHỌN khách (chưa mở lượt)."""
         async with self._pool.acquire() as conn:
             await _doi_quyen_mo(conn, identity)
-            don = await doc_don_khach(
-                conn, identity, clinic_patient_id=clinic_patient_id
+            return await lich_su_don(
+                conn, identity, clinic_patient_id=clinic_patient_id, trang=trang
             )
-        return {"don": don}
 
     async def mo_theo_don(
         self, *, clinic_patient_id: str, don_goc_visit_id: str, identity: StaffIdentity
@@ -248,8 +243,6 @@ class BanLeService:
                 conn, clinic_id=identity.clinic_id, visit_id=visit_id, kind="thuoc"
             )
             duoc_thu = await can(conn, identity, QUYEN_THU_THUOC)
-            # Đơn gần nhất / đơn đã nối — "Bán theo đơn này" (09/10/2026).
-            don = await doc_don(conn, identity, ban_le_visit_id=visit_id)
         cho = None
         if lan is not None and lan["status"] == "PENDING_VERIFICATION":
             cho = {
@@ -279,7 +272,6 @@ class BanLeService:
             "hoa_don": hd.cho_api(),
             # Kê thêm + thu = quyền "Thu tiền thuốc" (đúng hai lệnh dùng lại).
             "duoc_thu": duoc_thu,
-            "don_goc": don,
         }
 
 

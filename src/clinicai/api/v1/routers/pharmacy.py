@@ -13,7 +13,7 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
@@ -134,16 +134,18 @@ async def ban_le_theo_don(
     )
 
 
-@router.get("/pharmacy/ban-le/don-gan-nhat")
-async def ban_le_don_gan_nhat(
+@router.get("/pharmacy/ban-le/lich-su-don")
+async def ban_le_lich_su_don(
     clinic_patient_id: UUID,
+    trang: str | None = Query(default=None, max_length=10),
     identity: StaffIdentity = Depends(_BAN_LE),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Vừa chọn khách cũ ở quầy (chưa mở lượt) → đơn gần nhất để xem."""
+    """Vừa chọn khách ở quầy (chưa mở lượt) → lịch sử đơn thuốc, mới → cũ, theo
+    trang. Trang rác → trang đầu (không 422)."""
     kq: dict[str, Any] = jsonable_encoder(
-        await BanLeService(pool).don_gan_nhat(
-            clinic_patient_id=str(clinic_patient_id), identity=identity
+        await BanLeService(pool).lich_su_don(
+            clinic_patient_id=str(clinic_patient_id), trang=trang, identity=identity
         )
     )
     return kq

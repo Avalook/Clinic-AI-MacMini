@@ -1,10 +1,10 @@
 """Quầy thuốc BÁN THEO ĐƠN CŨ (09/10/2026).
 
-Lượt bán lẻ của khách cũ hiện **đơn gần nhất** (lượt KHÁM gần nhất có thuốc bác
-sĩ kê): ngày khám, bác sĩ, hẹn tái khám, từng thuốc kê / đã mua / còn lại. "Bán
-theo đơn này" nối lượt bán lẻ về lượt gốc (``visit.don_goc_visit_id``, mig
-20261010100000) rồi thêm dòng QUAY bằng đúng ``QuayThuocService.luu_dong_them``,
-số điền sẵn = còn lại.
+Chọn khách cũ ở quầy (chưa mở lượt) là thấy **lịch sử đơn thuốc**: mỗi lượt KHÁM
+có thuốc bác sĩ kê là một đơn, mới → cũ, theo trang — ngày khám, bác sĩ, hẹn tái
+khám, từng thuốc kê / đã mua / còn lại. "Bán theo đơn này" (đơn nào cũng được)
+nối lượt bán lẻ về lượt gốc ấy (``visit.don_goc_visit_id``, mig 20261010100000)
+rồi thêm dòng QUAY bằng đúng ``QuayThuocService.luu_dong_them``, số = còn lại.
 
 Đếm theo THUỐC KHO, không cộng theo ``prescription`` (dòng QUAY lượt sau và dòng
 đơn gốc là hai dòng của cùng một thuốc — cộng dòng là đếm đôi):
@@ -31,6 +31,7 @@ import asyncpg
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import hom_nay_vn
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
 from clinicai.services.hen_tai_kham_service import doc_hen_luot
@@ -200,12 +201,7 @@ SELECT (coalesce(v.checked_in_at, v.created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh')
            SELECT s.full_name FROM consultation c
              JOIN staff s ON s.id = c.doctor_staff_id
             WHERE c.clinic_id = v.clinic_id AND c.visit_id = v.visit_id
-              AND c.kind = 'PRIMARY' ORDER BY c.round_no LIMIT 1)) AS bac_si,
-       (SELECT max((coalesce(k.checked_in_at, k.created_at)
-                      AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
-          FROM visit k WHERE k.clinic_id = v.clinic_id
-           AND k.clinic_patient_id = v.clinic_patient_id AND NOT k.ban_le)
-           AS kham_moi_nhat
+              AND c.kind = 'PRIMARY' ORDER BY c.round_no LIMIT 1)) AS bac_si
   FROM visit v LEFT JOIN staff d ON d.id = v.attending_doctor_id
  WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
 """
@@ -258,25 +254,51 @@ SELECT r.drug_catalog_id::text AS thuoc,
 """
 
 
+#: Các lượt KHÁM có thuốc bác sĩ kê, mới → cũ, theo trang ($3 dòng từ $4).
+_CAC_GOC = """
+SELECT v.visit_id::text AS id FROM visit v
+ WHERE v.clinic_id = $1::uuid AND v.clinic_patient_id = $2::uuid AND NOT v.ban_le
+   AND EXISTS (SELECT 1 FROM prescription r
+                WHERE r.clinic_id = v.clinic_id AND r.visit_id = v.visit_id
+                  AND r.nguon = 'BAC_SI' AND r.removed_at IS NULL)
+ ORDER BY coalesce(v.checked_in_at, v.created_at) DESC, v.visit_id DESC
+ LIMIT $3 OFFSET $4
+"""
+
+#: Mỗi trang lịch sử đơn bao nhiêu đơn; quá ``TRAN_DON`` đơn thì dừng (log kêu).
+DON_MOI_TRANG = 10
+TRAN_DON = 200
+
+
+def so_trang(v: Any) -> int:
+    """Trang người dùng gửi: số 0…(trần), rác → 0. Không ném."""
+    try:
+        n = int(str(v).strip()) if not isinstance(v, bool) else 0
+    except (TypeError, ValueError):
+        return 0
+    return min(max(n, 0), TRAN_DON // DON_MOI_TRANG - 1)
+
+
+async def _theo_thuoc(
+    conn: asyncpg.Connection, sql: str, cid: str, luot: str
+) -> dict[str, Decimal]:
+    rows = await conn.fetch(sql, cid, luot)
+    return {r["thuoc"]: Decimal(str(r["so"])) for r in rows if r["so"] is not None}
+
+
 async def _doc_goc(
     conn: asyncpg.Connection,
     cid: str,
     *,
-    ban_le_id: str | None,
     goc: str,
-    hom_nay: date | None = None,
+    dang_ban: Mapping[str, Decimal],
 ) -> dict[str, Any]:
-    """``ban_le_id`` None = khách chưa có lượt bán lẻ đang mở → không có số đang bán."""
+    """Một đơn: đầu đơn + dòng kê / đã mua / còn lại + nhắc vượt CỦA ĐƠN NÀY."""
     v = await conn.fetchrow(_DAU_DON, cid, goc)
-
-    async def theo_thuoc(sql: str, luot: str | None) -> dict[str, Decimal]:
-        rows = await conn.fetch(sql, cid, luot) if luot else []
-        return {r["thuoc"]: Decimal(str(r["so"])) for r in rows if r["so"] is not None}
-
     dong = gom_dong(
         [dict(r) for r in await conn.fetch(_DONG_KE, cid, goc)],
-        await theo_thuoc(_DA_MUA, goc),
-        await theo_thuoc(_DANG_BAN, ban_le_id),
+        await _theo_thuoc(conn, _DA_MUA, cid, goc),
+        dang_ban,
     )
     hen = (await doc_hen_luot(conn, cid, goc))["ngay_hen"]
     return {
@@ -285,62 +307,66 @@ async def _doc_goc(
         "bac_si": v["bac_si"] if v else None,
         "ngay_hen": hen.isoformat() if hen else None,
         "dong": dong,
-        "nhac": loi_nhac(v and v["kham_moi_nhat"], hom_nay or hom_nay_vn(), dong),
+        "nhac": loi_nhac(None, None, dong),
     }
 
 
-async def doc_don(
-    conn: asyncpg.Connection,
-    identity: StaffIdentity,
-    *,
-    ban_le_visit_id: str,
-    hom_nay: date | None = None,
-) -> dict[str, Any] | None:
-    """Đơn của lượt bán lẻ: đơn ĐÃ NỐI nếu có, không thì đơn gần nhất. Khách
-    chưa từng được kê thuốc → None."""
-    cid = identity.clinic_id
-    luot = await conn.fetchrow(
-        "SELECT clinic_patient_id::text AS pid, don_goc_visit_id::text AS goc"
-        "  FROM visit WHERE clinic_id = $1::uuid AND visit_id = $2::uuid AND ban_le",
-        cid,
-        ban_le_visit_id,
-    )
-    goc = luot and (luot["goc"] or await _goc(conn, cid, luot["pid"]))
-    if not goc:
-        return None
-    don = await _doc_goc(conn, cid, ban_le_id=ban_le_visit_id, goc=goc, hom_nay=hom_nay)
-    return _cho_api(don, da_noi=luot["goc"] == goc)
-
-
-def _cho_api(don: dict[str, Any], *, da_noi: bool) -> dict[str, Any]:
-    so = ("so_ke", "da_mua", "dang_ban", "con_lai")
-    don["dong"] = [{**d, **{k: chuoi_so(d[k]) for k in so}} for d in don["dong"]]
-    return {**don, "da_noi": da_noi}
-
-
-async def doc_don_khach(
+async def lich_su_don(
     conn: asyncpg.Connection,
     identity: StaffIdentity,
     *,
     clinic_patient_id: str,
+    trang: Any = 0,
     hom_nay: date | None = None,
-) -> dict[str, Any] | None:
-    """Đơn gần nhất khi vừa CHỌN khách ở quầy, chưa mở lượt. Khách đang có lượt
-    bán lẻ mở → đọc theo lượt ấy (đơn đã nối, số đang bán). Chưa từng kê → None."""
-    cid = identity.clinic_id
-    dang_mo = await conn.fetchval(
-        "SELECT visit_id::text FROM visit WHERE clinic_id = $1::uuid"
-        " AND clinic_patient_id = $2::uuid AND ban_le AND closed_at IS NULL",
+) -> dict[str, Any]:
+    """LỊCH SỬ ĐƠN THUỐC của khách, mới → cũ, theo trang — hiện ngay khi chọn
+    khách ở quầy (chưa mở lượt) và trong lượt bán lẻ.
+
+    Số đang bán (dòng của lượt bán lẻ đang mở, chưa thu) tính vào ĐÚNG đơn lượt
+    ấy đã nối; lượt chưa nối đơn nào thì tính vào mọi đơn ("nếu bán theo đơn
+    này thì…"). Nhắc 2 tháng là của KHÁCH (lần khám gần nhất), không của đơn.
+    ``ban_duoc``: lượt đang mở chưa nối, hoặc nối đúng đơn này."""
+    cid, pid, trang = identity.clinic_id, clinic_patient_id, so_trang(trang)
+    mo = await conn.fetchrow(
+        "SELECT visit_id::text AS id, don_goc_visit_id::text AS goc FROM visit"
+        " WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid"
+        "   AND ban_le AND closed_at IS NULL",
         cid,
-        clinic_patient_id,
+        pid,
     )
-    if dang_mo:
-        return await doc_don(conn, identity, ban_le_visit_id=dang_mo, hom_nay=hom_nay)
-    goc = await _goc(conn, cid, clinic_patient_id)
-    if not goc:
-        return None
-    don = await _doc_goc(conn, cid, ban_le_id=None, goc=goc, hom_nay=hom_nay)
-    return _cho_api(don, da_noi=False)
+    noi = mo["goc"] if mo else None
+    dang_ban = await _theo_thuoc(conn, _DANG_BAN, cid, mo["id"]) if mo else {}
+    ids = [
+        r["id"]
+        for r in await conn.fetch(
+            _CAC_GOC, cid, pid, DON_MOI_TRANG + 1, trang * DON_MOI_TRANG
+        )
+    ]
+    canh_bao_neu_day(
+        "ban_theo_don.lich_su_don", trang * DON_MOI_TRANG + len(ids), TRAN_DON
+    )
+    don = []
+    for goc in ids[:DON_MOI_TRANG]:
+        ban = dang_ban if noi in (None, goc) else {}
+        d = await _doc_goc(conn, cid, goc=goc, dang_ban=ban)
+        so = ("so_ke", "da_mua", "dang_ban", "con_lai")
+        d["dong"] = [{**x, **{k: chuoi_so(x[k]) for k in so}} for x in d["dong"]]
+        don.append({**d, "da_noi": noi == goc, "ban_duoc": noi in (None, goc)})
+    kham = await conn.fetchval(
+        "SELECT max((coalesce(checked_in_at, created_at)"
+        "            AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)"
+        "  FROM visit WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid"
+        "   AND NOT ban_le",
+        cid,
+        pid,
+    )
+    return {
+        "don": don,
+        "nhac_chung": loi_nhac(kham, hom_nay or hom_nay_vn(), []),
+        "trang": trang,
+        "co_them": len(ids) > DON_MOI_TRANG and (trang + 1) * DON_MOI_TRANG < TRAN_DON,
+        "luot_mo": mo["id"] if mo else None,
+    }
 
 
 # ── Ghi ────────────────────────────────────────────────────────────────────
@@ -424,7 +450,7 @@ async def noi_don_conn(
             payload={"don_goc_visit_id": goc},
             **vet,
         )
-    don = await _doc_goc(conn, cid, ban_le_id=visit_id, goc=goc)
+    don = await _doc_goc(conn, cid, goc=goc, dang_ban={})
     co_san = await conn.fetch(
         "SELECT drug_catalog_id::text AS t FROM prescription"
         " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"

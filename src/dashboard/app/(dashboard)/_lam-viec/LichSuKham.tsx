@@ -1,7 +1,8 @@
 "use client";
 
 // "LỊCH SỬ KHÁM" — nút + popup dùng chung (Tuyền chốt 07/10/2026, T7): Bàn khám
-// (phía trên bộ 4 khối), `/patient-list`, `/customers`.
+// (phía trên bộ 4 khối), `/patient-list`, `/customers`, quầy thuốc `/pharmacy`
+// (khung "Lịch sử đơn thuốc", 09/10/2026).
 //
 // Liệt kê MỌI lượt của khách (cả lượt không phiếu, lượt chuyển từ Notion) —
 // `GET /api/ho-so-kham?xem=lich-su` → `services/lich_su_luot.py`. Tìm theo ngày

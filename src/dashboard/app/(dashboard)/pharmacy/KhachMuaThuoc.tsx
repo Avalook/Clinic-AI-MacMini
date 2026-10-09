@@ -7,9 +7,9 @@
 // (`ban_le_service`): ai được mở, chống trùng SĐT, mỗi khách một lượt đang mở.
 // Màn chỉ gửi và vẽ lại câu máy chủ trả.
 //
-// Chọn khách cũ (bấm tên) → hiện ngay ĐƠN GẦN NHẤT, chưa mở lượt; "Bán theo đơn
-// này" ở đó mở lượt + nối đơn + thêm dòng một lần (09/10/2026). "Mở lượt mua
-// thuốc" vẫn là mua lẻ không theo đơn.
+// Chọn khách cũ (bấm tên) → hiện ngay LỊCH SỬ ĐƠN THUỐC, chưa mở lượt; "Bán theo
+// đơn này" ở từng đơn mở lượt + nối đơn + thêm dòng một lần (09/10/2026). "Mở
+// lượt mua thuốc" vẫn là mua lẻ không theo đơn.
 //
 // Ở /pharmacy: mở xong chọn luôn lượt vừa mở. Ở /pharmacy/inventory: chuyển
 // sang /pharmacy?luot=<id> để kê và thu.
@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 
 import { INPUT } from "../form-ui";
-import DonGanNhat, { type DonGoc } from "./DonGanNhat";
+import LichSuDonThuoc from "./LichSuDonThuoc";
 import { CHAM } from "./DongThuoc";
 
 interface KhachTim {
@@ -76,32 +76,10 @@ export default function KhachMuaThuoc({
   const [trung, setTrung] = useState<KetQuaMo["matches"] | null>(null);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
-  // Khách cũ đang chọn + đơn gần nhất của họ (undefined = đang tải, null = chưa có đơn).
+  // Khách cũ đang chọn — khung lịch sử đơn thuốc của họ hiện bên dưới.
   const [chon, setChon] = useState<string | null>(null);
-  const [don, setDon] = useState<DonGoc | null | undefined>(undefined);
 
-  useEffect(() => {
-    if (!chon) return;
-    let bo = false;
-    fetch(`/api/pharmacy/don-gan-nhat?${new URLSearchParams({ clinic_patient_id: chon })}`, {
-      cache: "no-store",
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { don?: DonGoc | null } | null) => {
-        if (!bo) setDon(d?.don ?? null);
-      })
-      .catch(() => {
-        if (!bo) setDon(null);
-      });
-    return () => {
-      bo = true;
-    };
-  }, [chon]);
-
-  const chonKhach = (id: string | null) => {
-    setDon(undefined);
-    setChon(id);
-  };
+  const chonKhach = (id: string | null) => setChon(id);
 
   // Tìm khách: gõ ≥ 2 ký tự, chờ 300ms sau lần gõ cuối.
   useEffect(() => {
@@ -183,8 +161,8 @@ export default function KhachMuaThuoc({
       </div>
       <p className="text-meta text-ink-muted">
         Mở lượt bán lẻ: không tiền khám, không vào hàng chờ bác sĩ. Kê thuốc và thu tiền ngay
-        tại quầy; thu xong lượt tự đóng. Khách cũ: bấm tên để xem đơn gần nhất và bán theo
-        đơn.
+        tại quầy; thu xong lượt tự đóng. Khách cũ: bấm tên để xem lịch sử đơn thuốc và bán
+        theo đơn.
       </p>
       {loi ? (
         <p role="alert" className="rounded-control bg-danger-bg px-3 py-2 text-meta text-danger">
@@ -244,23 +222,15 @@ export default function KhachMuaThuoc({
           )
         ) : null}
         {chon ? (
-          don === undefined ? (
-            <p className="text-meta text-ink-muted">Đang tải đơn gần nhất…</p>
-          ) : don === null ? (
-            <p className="text-meta text-ink-muted">
-              Khách chưa có đơn thuốc nào — bấm “Mở lượt mua thuốc” để bán lẻ.
-            </p>
-          ) : (
-            <div className="overflow-hidden rounded-control border border-line">
-              <DonGanNhat
-                clinicPatientId={chon}
-                don={don}
-                choSua
-                onDoi={(_cau, loiMoi) => setLoi(loiMoi)}
-                onMo={xong}
-              />
-            </div>
-          )
+          <div className="overflow-hidden rounded-control border border-line">
+            <LichSuDonThuoc
+              key={chon}
+              clinicPatientId={chon}
+              choSua
+              onDoi={(_cau, loiMoi) => setLoi(loiMoi)}
+              onMo={xong}
+            />
+          </div>
         ) : null}
       </div>
 
