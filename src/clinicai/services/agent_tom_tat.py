@@ -243,7 +243,6 @@ async def tao(
             # Thinking luôn bật ở Opus 5.5 — chừa chỗ cho cả nghĩ lẫn chữ.
             max_tokens=8000,
             tinh_nang=TINH_NANG,
-            clinic_id=clinic_id,
             # Bị từ chối thì API tự chạy lại trên model dự phòng cùng lượt gọi.
             extra_headers={"anthropic-beta": "server-side-fallback-2026-07-01"},
             extra_body={"fallbacks": "default", "output_config": {"effort": "medium"}},

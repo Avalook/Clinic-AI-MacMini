@@ -5,7 +5,8 @@
 -- gọi (`clinicai/llm/chi_phi.py`). Đây là "đồng hồ điện" của mình: không cần
 -- vào Console vẫn biết đã đốt bao nhiêu, theo model, theo tính năng, theo ngày;
 -- và là chỗ trần chi phí theo ngày đọc để TỰ DỪNG gọi khi vượt.
--- Không lưu nội dung gửi/nhận — chỉ số.
+-- Không lưu nội dung gửi/nhận — chỉ số. Không có clinic_id: tiền tính theo TÀI
+-- KHOẢN Anthropic (một hoá đơn), không theo phòng khám — như canh_bao / loi_nhom.
 --
 -- `agent_tom_tat`: bản tóm tắt cuối ngày LLM viết từ nhận định của agent (đã
 -- không tên khách). Giữ mọi lần tạo (tự động hoặc bấm tay) để so được; màn đọc
@@ -14,7 +15,6 @@
 CREATE TABLE IF NOT EXISTS public.llm_lan_goi (
     id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     luc               timestamptz NOT NULL DEFAULT now(),
-    clinic_id         uuid REFERENCES public.clinic(id) ON DELETE SET NULL,
     tinh_nang         text NOT NULL CHECK (tinh_nang ~ '^[a-z_]+$'),
     model             text NOT NULL,
     input_tokens      integer NOT NULL DEFAULT 0 CHECK (input_tokens >= 0),

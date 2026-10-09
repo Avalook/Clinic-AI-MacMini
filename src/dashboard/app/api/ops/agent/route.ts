@@ -20,9 +20,9 @@ export async function GET(request: Request) {
     );
   }
   if (xem === "chi-phi") {
-    const soNgay = Number(u.searchParams.get("so_ngay"));
-    const q = Number.isInteger(soNgay) && soNgay >= 1 && soNgay <= 31 ? `?so_ngay=${soNgay}` : "";
-    return proxyJsonToBackend("GET", `/api/v1/ops/llm/chi-phi${q}`, undefined);
+    const n = Number(u.searchParams.get("so_ngay"));
+    const soNgay = Number.isInteger(n) && n >= 1 && n <= 31 ? n : 7;
+    return proxyJsonToBackend("GET", `/api/v1/ops/llm/chi-phi?so_ngay=${soNgay}`, undefined);
   }
   return proxyJsonToBackend(
     "GET",

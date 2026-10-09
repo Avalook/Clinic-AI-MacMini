@@ -93,7 +93,6 @@ class AnthropicClient:
         *,
         model: Optional[str] = None,
         tinh_nang: str = "khac",
-        clinic_id: Optional[str] = None,
         extra_headers: Optional[dict[str, str]] = None,
         extra_body: Optional[dict[str, Any]] = None,
     ) -> LLMResponse:
@@ -126,7 +125,6 @@ class AnthropicClient:
                     self._pool,
                     tinh_nang=tinh_nang,
                     model=model,
-                    clinic_id=clinic_id,
                     thanh_cong=False,
                     loi=f"{type(e).__name__}: {e}",
                     thoi_gian_ms=int((time.perf_counter() - start) * 1000),
@@ -150,7 +148,6 @@ class AnthropicClient:
                 ra=output_tokens,
                 doc_cache=cache_read,
                 ghi_cache=cache_creation,
-                clinic_id=clinic_id,
                 thanh_cong=stop_reason != "refusal",
                 loi="refusal" if stop_reason == "refusal" else None,
                 ma_yeu_cau=getattr(resp, "_request_id", None),

@@ -136,7 +136,6 @@ async def ghi_lan_goi(
     ra: int = 0,
     doc_cache: int = 0,
     ghi_cache: int = 0,
-    clinic_id: str | None = None,
     thanh_cong: bool = True,
     loi: str | None = None,
     ma_yeu_cau: str | None = None,
@@ -150,9 +149,9 @@ async def ghi_lan_goi(
                 """
                 INSERT INTO llm_lan_goi
                     (tinh_nang, model, input_tokens, output_tokens,
-                     cache_doc_tokens, cache_ghi_tokens, chi_phi_usd, clinic_id,
+                     cache_doc_tokens, cache_ghi_tokens, chi_phi_usd,
                      thanh_cong, loi, ma_yeu_cau, thoi_gian_ms)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid, $9, $10, $11, $12)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 RETURNING id
                 """,
                 tinh_nang,
@@ -164,7 +163,6 @@ async def ghi_lan_goi(
                 tinh_usd(
                     model, vao=vao, ra=ra, doc_cache=doc_cache, ghi_cache=ghi_cache
                 ),
-                clinic_id,
                 thanh_cong,
                 (loi or None) and str(loi)[:500],
                 ma_yeu_cau,
