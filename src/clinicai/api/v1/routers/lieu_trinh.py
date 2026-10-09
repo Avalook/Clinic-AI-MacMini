@@ -109,6 +109,8 @@ class TaoBody(BaseModel):
     service_code: str | None = Field(default=None, max_length=64)
     ghi_chu: str | None = Field(default=None, max_length=1000)
     tach_khoi_lieu_trinh_cu: bool = False
+    #: Khách nhận lộ trình ngay (tick ở ô đề xuất) — mặc định chỉ đề xuất.
+    khach_chon: bool = False
     idempotency_key: str = _KHOA
 
 
@@ -118,7 +120,8 @@ async def tao(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Đề xuất liệu trình — kèm chỉ định hôm nay (buổi 1) hoặc chỉ đề xuất."""
+    """Đề xuất liệu trình (chỉ định hôm nay vẫn là buổi lẻ); ``khach_chon`` =
+    khách nhận luôn, chỉ định hôm nay vào liệu trình."""
     return await LieuTrinhService(pool).tao(
         identity=identity,
         visit_id=body.visit_id,
@@ -127,6 +130,7 @@ async def tao(
         service_code=body.service_code,
         ghi_chu=body.ghi_chu,
         tach_khoi_lieu_trinh_cu=body.tach_khoi_lieu_trinh_cu,
+        khach_chon=body.khach_chon,
         idempotency_key=body.idempotency_key,
     )
 

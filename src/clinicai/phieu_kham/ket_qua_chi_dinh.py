@@ -119,13 +119,14 @@ async def doc_ket_qua_theo_chi_dinh(
         "                WHERE tt.clinic_id = o.clinic_id"
         "                  AND tt.service_order_id = o.id AND tt.huy_luc IS NULL)"
         "         AS doi_tac_da_thu,"
-        # Buổi của liệu trình (08/10/2026) — bản in "Liệu trình: buổi k/N".
+        # Buổi của liệu trình — bản in "Liệu trình: buổi k/N"; số = thứ tự làm
+        # xong (`v_lieu_trinh_buoi`), kèm đã làm / chưa làm.
         "       ltb.buoi_so AS lt_buoi_so, ltb.so_buoi AS lt_so_buoi,"
-        "       ltb.tra_truoc AS lt_tra_truoc"
+        "       ltb.tra_truoc AS lt_tra_truoc, ltb.da_lam AS lt_da_lam"
         "  FROM service_order o"
         "  LEFT JOIN LATERAL ("
-        "       SELECT b.buoi_so, b.tra_truoc, l.so_buoi"
-        "         FROM lieu_trinh_buoi b"
+        "       SELECT b.buoi_so, b.tra_truoc, b.da_lam, l.so_buoi"
+        "         FROM v_lieu_trinh_buoi b"
         "         JOIN lieu_trinh l"
         "           ON l.clinic_id = b.clinic_id AND l.id = b.lieu_trinh_id"
         "        WHERE b.clinic_id = o.clinic_id AND b.service_order_id = o.id"
@@ -243,6 +244,7 @@ async def doc_ket_qua_theo_chi_dinh(
                         "buoi_so": int(r["lt_buoi_so"]),
                         "so_buoi": int(r["lt_so_buoi"]),
                         "tra_truoc": bool(r["lt_tra_truoc"]),
+                        "da_lam": bool(r["lt_da_lam"]),
                     }
                     if r["lt_buoi_so"] is not None
                     else None

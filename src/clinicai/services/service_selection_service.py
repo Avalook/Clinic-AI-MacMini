@@ -327,8 +327,9 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name,
              WHERE pr.clinic_id = o.clinic_id AND pr.service_code = o.service_code
                AND pr.active AND pr."group" = 'dich_vu')) AS gia,
        (SELECT jsonb_build_object('lieu_trinh_id', lt.id, 'buoi_so', lb.buoi_so,
-                                  'so_buoi', lt.so_buoi, 'tra_truoc', lb.tra_truoc)
-          FROM lieu_trinh_buoi lb
+                                  'so_buoi', lt.so_buoi, 'tra_truoc', lb.tra_truoc,
+                                  'da_lam', lb.da_lam)
+          FROM v_lieu_trinh_buoi lb
           JOIN lieu_trinh lt
             ON lt.clinic_id = lb.clinic_id AND lt.id = lb.lieu_trinh_id
          WHERE lb.clinic_id = o.clinic_id AND lb.service_order_id = o.id

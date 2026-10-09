@@ -33,13 +33,16 @@ from clinicai.events.catalogue import LieuTrinhBuoiDaDoi, LieuTrinhDaSua, LieuTr
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
 from clinicai.permissions.y_khoa import QUYEN_Y_KHOA
+from clinicai.phieu_kham.mau_dieu_tri import MAU_PHIEU_DIEU_TRI
 from clinicai.services.bill_service import CLINIC, giai_gia
+from clinicai.services.dieu_tri_ban_kham import o_phieu
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
     bien_nhan_doc,
     bien_nhan_ghi,
 )
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
+from clinicai.services.nhan_luot import chu_buoi
 from clinicai.services.service_execution_service import NOI_BAN_KHAM
 
 #: Đề xuất / điều chỉnh / dừng / mở lại / gắn-gỡ buổi: khối y khoa (bác sĩ, ĐD,
@@ -295,17 +298,21 @@ SELECT lt.id::text AS id, lt.clinic_patient_id::text AS khach_id,
  ORDER BY {thu_tu}
 """
 
-_BUOI_SQL = """
+#: Số buổi đọc qua ``v_lieu_trinh_buoi`` (số HIỆN = thứ tự làm xong, 09/10/2026).
+_BUOI_SQL = f"""
 SELECT b.id::text AS id, b.lieu_trinh_id::text AS lieu_trinh_id,
-       b.service_order_id::text AS order_id, b.buoi_so, b.tra_truoc,
+       b.service_order_id::text AS order_id, b.buoi_so, b.da_lam, b.tra_truoc,
        b.gan_luc, b.gan_cach, sg.full_name AS gan_boi,
        b.go_luc, b.go_cach, so.full_name AS go_boi,
        o.visit_id::text AS visit_id, o.selection_status, o.execution_status,
        o.exec_status, coalesce(v.checked_in_at, v.created_at) AS ngay,
+       b.xong_luc,
        -- Nơi làm buổi (thẻ liệu trình ở hồ sơ khám): lần làm mới nhất — bàn
        -- khám hay phòng nào; chưa làm thì phòng đang xếp.
-       a.noi_lam, ra.name AS phong
-  FROM public.lieu_trinh_buoi b
+       a.noi_lam, ra.name AS phong,
+       -- Phiếu điều trị của buổi (2 ô chữ) — dải liệu trình tóm tắt diễn tiến.
+       ph.khung AS phieu_khung, ph.du_lieu AS phieu_du_lieu
+  FROM public.v_lieu_trinh_buoi b
   JOIN public.service_order o
     ON o.clinic_id = b.clinic_id AND o.id = b.service_order_id
   JOIN public.visit v ON v.clinic_id = o.clinic_id AND v.visit_id = o.visit_id
@@ -316,6 +323,15 @@ SELECT b.id::text AS id, b.lieu_trinh_id::text AS lieu_trinh_id,
         ORDER BY x.attempt_no DESC LIMIT 1) a ON true
   LEFT JOIN public.clinic_room ra
     ON ra.clinic_id = o.clinic_id AND ra.id = coalesce(a.room_id_snapshot, o.room_id)
+  LEFT JOIN LATERAL (
+       SELECT d.khung, i.du_lieu
+         FROM public.form_instance i
+         JOIN public.form_definition d
+           ON d.clinic_id = i.clinic_id AND d.form_id = i.form_id
+          AND d.version = i.version
+        WHERE i.clinic_id = o.clinic_id AND i.service_order_id = o.id
+          AND i.form_id = 'KQ_{MAU_PHIEU_DIEU_TRI}'
+        ORDER BY i.sua_luc DESC LIMIT 1) ph ON true
   LEFT JOIN public.staff sg ON sg.id = b.gan_boi
   LEFT JOIN public.staff so ON so.id = b.go_boi
  WHERE b.clinic_id = $1::uuid AND b.lieu_trinh_id = ANY($2::uuid[])
@@ -328,9 +344,10 @@ SELECT o.id::text AS order_id, o.service_code, o.service_name,
        o.selection_status, o.execution_status, o.exec_status,
        public.lieu_trinh_chi_dinh_song(o.exec_status, o.execution_status,
                                        o.selection_status) AS song,
-       b.lieu_trinh_id::text AS lieu_trinh_id, b.buoi_so, b.tra_truoc
+       b.lieu_trinh_id::text AS lieu_trinh_id, b.buoi_so, b.da_lam AS buoi_da_lam,
+       b.tra_truoc
   FROM public.service_order o
-  LEFT JOIN public.lieu_trinh_buoi b
+  LEFT JOIN public.v_lieu_trinh_buoi b
     ON b.clinic_id = o.clinic_id AND b.service_order_id = o.id AND b.go_luc IS NULL
  WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
    AND o.service_code IN (
@@ -350,6 +367,8 @@ def _lt(r: asyncpg.Record | dict[str, Any]) -> dict[str, Any]:
     d["dang_cho"] = bool(d.get("dang_cho"))
     d.update(con_lai(d))
     d["tien_con_lai"] = d["chua_tra"] * d["don_gia"]
+    # Ô còn trống của kế hoạch (chưa có chỉ định) — dải vẽ "Buổi k · chưa làm".
+    d["chua_gan"] = max(d["so_buoi"] - d["so_gan"], 0)
     d["sap_het_ly_do"] = ly_do_sap_het(d)
     return d
 
@@ -357,10 +376,14 @@ def _lt(r: asyncpg.Record | dict[str, Any]) -> dict[str, Any]:
 def _buoi(r: asyncpg.Record) -> dict[str, Any]:
     d = {k: _iso(v) for k, v in dict(r).items()}
     d["song"] = d["go_luc"] is None
-    d["da_lam"] = d["execution_status"] == "COMPLETED" or (
-        d["execution_status"] is None and d["exec_status"] == "performed"
-    )
+    d["da_lam"] = bool(d["da_lam"])
     d["noi_lam"] = "Bàn khám" if d.pop("noi_lam", None) == NOI_BAN_KHAM else d["phong"]
+    # Ô phiếu điều trị có chữ — dải liệu trình kể diễn tiến từng buổi.
+    d["ket_qua"] = [
+        o
+        for o in o_phieu(d.pop("phieu_khung", None), d.pop("phieu_du_lieu", None))
+        if o["gia_tri"].strip()
+    ]
     return d
 
 
@@ -376,10 +399,13 @@ def nut_lieu_trinh(lt: dict[str, Any]) -> dict[str, bool]:
 def nut_chi_dinh(c: dict[str, Any]) -> dict[str, bool]:
     """Nút liệu trình trên thẻ một chỉ định điều trị. Thuần.
 
-    ``tao``: chỉ định còn sống chưa thuộc liệu trình nào → ô "Lộ trình N buổi".
+    ``tao``: chỉ định còn sống chưa thuộc liệu trình nào → ô "Lộ trình N buổi"
+    (bác sĩ ĐỀ XUẤT — chỉ định vẫn là buổi lẻ; kèm tick "khách chọn luôn").
     ``go``: đang là buổi của một liệu trình → gỡ thành buổi lẻ. ``tach``: đang là
     buổi của liệu trình cũ → lập liệu trình MỚI (xác nhận tách, #14).
-    ``chon``: có liệu trình cùng dịch vụ để gắn / chuyển sang (#15)."""
+    ``chon``: có liệu trình cùng dịch vụ để gắn / chuyển sang (#15).
+    ``khach_chon``: buổi lẻ + có liệu trình ĐỀ XUẤT cùng dịch vụ → [Khách chọn
+    lộ trình] (gắn = khách nhận lộ trình, Tuyền 09/10/2026)."""
     song = bool(c.get("song"))
     co = bool(c.get("lieu_trinh_id"))
     khac = [u for u in c.get("ung_vien") or [] if u.get("id") != c.get("lieu_trinh_id")]
@@ -388,6 +414,9 @@ def nut_chi_dinh(c: dict[str, Any]) -> dict[str, bool]:
         "go": song and co,
         "tach": song and co,
         "chon": song and bool(khac),
+        "khach_chon": song
+        and not co
+        and any(u.get("trang_thai") == "DE_XUAT" for u in khac),
     }
 
 
@@ -532,6 +561,8 @@ class LieuTrinhService:
             )
             if pid is None:
                 raise NotFoundError("Không tìm thấy lượt khám này.")
+            # Dải dùng chung bàn khám + phòng dịch vụ: không có quyền sửa → chỉ đọc.
+            ghi_duoc = await self._co_mot(conn, identity, QUYEN_SUA)
             chi_dinh = [
                 dict(r) for r in await conn.fetch(_CHI_DINH_LUOT_SQL, cid, [vid])
             ]
@@ -607,15 +638,27 @@ class LieuTrinhService:
                     "so_buoi": u["so_buoi"],
                     "da_lam": u["da_lam"],
                     "tao_luc": u["tao_luc"],
+                    "revision": u["revision"],
                 }
                 for u in uv
             ]
-            # Cùng bậc với trigger tự gắn (`lieu_trinh_ung_vien_duy_nhat`):
-            # DANG_LAM trước, không có thì DE_XUAT; ≥ 2 cùng bậc = phải chọn.
-            bac = [u for u in uv if u["trang_thai"] == "DANG_LAM"] or [
-                u for u in uv if u["trang_thai"] == "DE_XUAT"
-            ]
+            # Cùng luật trigger tự gắn (`lieu_trinh_ung_vien_duy_nhat`): chỉ liệu
+            # trình khách đã chọn (DANG_LAM); ≥ 2 = phải chọn. Đề xuất không tự gắn.
+            bac = [u for u in uv if u["trang_thai"] == "DANG_LAM"]
             c["can_chon"] = bool(c["song"]) and not c["lieu_trinh_id"] and len(bac) > 1
+            c["buoi_da_lam"] = bool(c.get("buoi_da_lam"))
+            c["chu_buoi"] = (
+                chu_buoi(
+                    c["buoi_so"],
+                    next(
+                        (d["so_buoi"] for d in ds if d["id"] == c["lieu_trinh_id"]),
+                        None,
+                    ),
+                    c["buoi_da_lam"],
+                )
+                if c["lieu_trinh_id"]
+                else ""
+            )
             c["nut"] = nut_chi_dinh(c)
         return {
             "visit_id": vid,
@@ -623,6 +666,7 @@ class LieuTrinhService:
             "lieu_trinh": ds,
             "chi_dinh": chi_dinh,
             "dich_vu_de_xuat": dich_vu,
+            "ghi_duoc": ghi_duoc,
         }
 
     async def chip(self, *, identity: StaffIdentity, visit_ids: Any) -> dict[str, Any]:
@@ -637,10 +681,10 @@ class LieuTrinhService:
             rows = await conn.fetch(
                 """
                 SELECT o.id::text AS order_id, o.visit_id::text AS visit_id,
-                       b.lieu_trinh_id::text AS lieu_trinh_id, b.buoi_so, b.tra_truoc,
-                       lt.so_buoi, lt.service_name, lt.trang_thai
+                       b.lieu_trinh_id::text AS lieu_trinh_id, b.buoi_so, b.da_lam,
+                       b.tra_truoc, lt.so_buoi, lt.service_name, lt.trang_thai
                   FROM public.service_order o
-                  JOIN public.lieu_trinh_buoi b
+                  JOIN public.v_lieu_trinh_buoi b
                     ON b.clinic_id = o.clinic_id AND b.service_order_id = o.id
                    AND b.go_luc IS NULL
                   JOIN public.lieu_trinh lt
@@ -690,6 +734,8 @@ class LieuTrinhService:
                     "lieu_trinh_id": r["lieu_trinh_id"],
                     "buoi_so": int(r["buoi_so"]),
                     "so_buoi": int(r["so_buoi"]),
+                    "da_lam": bool(r["da_lam"]),
+                    "chu": chu_buoi(r["buoi_so"], r["so_buoi"], r["da_lam"]),
                     "tra_truoc": bool(r["tra_truoc"]),
                     "service_name": r["service_name"],
                     "trang_thai": r["trang_thai"],
@@ -1024,15 +1070,18 @@ class LieuTrinhService:
         service_code: Any = None,
         ghi_chu: Any = None,
         tach_khoi_lieu_trinh_cu: bool = False,
+        khach_chon: bool = False,
         idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Đề xuất liệu trình (DE_XUAT) từ thẻ chỉ định điều trị ở hồ sơ khám.
 
-        Có ``service_order_id``: chỉ định hôm nay thành buổi 1. Chỉ định ấy đang
-        thuộc liệu trình khác (tự gắn vì khách đang làm dở) → 409
-        ``DA_GAN_LIEU_TRINH`` kèm mã liệu trình; bác sĩ bấm rõ "liệu trình mới"
-        (``tach_khoi_lieu_trinh_cu``) thì chuyển sang. Không có chỉ định = "Chỉ
-        đề xuất, không làm hôm nay" (cần ``service_code``).
+        Mặc định (Tuyền 09/10/2026): bác sĩ CHỈ ĐỀ XUẤT — chỉ định hôm nay vẫn là
+        BUỔI LẺ (``service_order_id`` chỉ ghi nguồn), không đếm buổi nào.
+        ``khach_chon``: khách nhận lộ trình ngay → đăng ký (lịch sử DANG_KY, hoàn
+        tác được) + chỉ định hôm nay vào liệu trình. Chỉ định ấy đang thuộc liệu
+        trình khác → 409 ``DA_GAN_LIEU_TRINH`` kèm mã liệu trình; bác sĩ bấm rõ
+        "liệu trình mới" (``tach_khoi_lieu_trinh_cu``) thì chuyển sang. Không có
+        chỉ định = "Chỉ đề xuất, không làm hôm nay" (cần ``service_code``).
         """
         vid = _uuid(visit_id, "Mã lượt khám không hợp lệ.")
         oid = (
@@ -1055,6 +1104,7 @@ class LieuTrinhService:
             "so_buoi": n,
             "ghi_chu": gc,
             "tach": bool(tach_khoi_lieu_trinh_cu),
+            "khach_chon": bool(khach_chon),
         }
 
         async def lam(conn: asyncpg.Connection) -> tuple[dict[str, Any], str]:
@@ -1094,7 +1144,7 @@ class LieuTrinhService:
                     cid,
                     oid,
                 )
-                if cu is not None and not tach_khoi_lieu_trinh_cu:
+                if cu is not None and khach_chon and not tach_khoi_lieu_trinh_cu:
                     raise LuotKhamConflictError(
                         "DA_GAN_LIEU_TRINH",
                         "Chỉ định này đang là một buổi của liệu trình khách đang làm."
@@ -1126,21 +1176,8 @@ class LieuTrinhService:
                     identity.staff_id,
                 )
             )
-            if oid is not None:
-                if cu is not None:
-                    await conn.execute(
-                        _GO_CHUYEN,
-                        cid,
-                        oid,
-                        identity.staff_id,
-                    )
-                await conn.execute(
-                    _GAN_TAY,
-                    cid,
-                    lt_id,
-                    oid,
-                    identity.staff_id,
-                )
+            if khach_chon:
+                await self._khach_chon(conn, identity, lt_id, oid, cu)
             await emit_event(
                 conn,
                 ten="lieu_trinh.created",
@@ -1169,6 +1206,33 @@ class LieuTrinhService:
             cau_quyen="Chỉ khối y khoa / trưởng ca đề xuất được liệu trình.",
             lam=lam,
         )
+
+    async def _khach_chon(
+        self,
+        conn: asyncpg.Connection,
+        identity: StaffIdentity,
+        lt_id: str,
+        oid: str | None,
+        cu: str | None,
+    ) -> None:
+        """Khách NHẬN lộ trình: đề xuất → đăng ký (dòng lịch sử DANG_KY — nút
+        Hoàn tác trả cả hai bước), rồi chỉ định ``oid`` (nếu có) vào liệu trình;
+        đang thuộc liệu trình ``cu`` thì chuyển. Người gọi đã khoá chỉ định."""
+        cid = identity.clinic_id
+        await self._khoa(conn, cid, lt_id)
+        await self._sua(
+            conn,
+            identity,
+            lt_id,
+            "DANG_KY",
+            "dang_ky_luc = coalesce(dang_ky_luc, now()),"
+            " dang_ky_boi = coalesce(dang_ky_boi, $4::uuid)",
+        )
+        if oid is None:
+            return
+        if cu is not None:
+            await conn.execute(_GO_CHUYEN, cid, oid, identity.staff_id)
+        await conn.execute(_GAN_TAY, cid, lt_id, oid, identity.staff_id)
 
     async def dieu_chinh(
         self,
@@ -1438,7 +1502,7 @@ class LieuTrinhService:
             row = await self._khoa(conn, cid, lt)
             self._dung_ban(row, expected_revision)
             h = await conn.fetchrow(
-                "SELECT revision, hanh_dong, ban_cu FROM lieu_trinh_lich_su"
+                "SELECT revision, hanh_dong, ban_cu, luc FROM lieu_trinh_lich_su"
                 " WHERE clinic_id = $1::uuid AND lieu_trinh_id = $2::uuid"
                 " AND id = $3::uuid",
                 cid,
@@ -1456,6 +1520,18 @@ class LieuTrinhService:
                     "Chỉ hoàn tác được lần sửa mới nhất do người bấm — sau đó đã có"
                     " thay đổi khác.",
                 )
+            if h["hanh_dong"] == "DANG_KY":
+                # [Khách chọn lộ trình] gắn buổi hôm nay CÙNG lệnh với đăng ký
+                # (cùng giao dịch → gan_luc = luc) — hoàn tác trả buổi về buổi lẻ.
+                for oid in await conn.fetch(
+                    "SELECT service_order_id::text FROM lieu_trinh_buoi"
+                    " WHERE clinic_id = $1::uuid AND lieu_trinh_id = $2::uuid"
+                    "   AND go_luc IS NULL AND gan_cach = 'TAY' AND gan_luc = $3",
+                    cid,
+                    lt,
+                    h["luc"],
+                ):
+                    await conn.execute(_GO_TAY, cid, oid[0], identity.staff_id)
             cu = _json(h["ban_cu"])
             kq = await self._sua(
                 conn,
@@ -1521,20 +1597,21 @@ class LieuTrinhService:
                     "STALE_LIEU_TRINH",
                     "Buổi này vừa được gắn / gỡ ở màn khác — đã tải lại, bấm lại.",
                 )
-            if hien is not None:
-                await conn.execute(
-                    _GO_CHUYEN,
-                    cid,
-                    oid,
-                    identity.staff_id,
-                )
-            await conn.execute(
-                _GAN_TAY,
+            dich = await conn.fetchval(
+                "SELECT trang_thai FROM lieu_trinh"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
                 cid,
                 lt,
-                oid,
-                identity.staff_id,
             )
+            if dich is None:
+                raise NotFoundError("Không tìm thấy liệu trình này.")
+            if dich == "DE_XUAT":
+                # Đưa buổi vào lộ trình bác sĩ mới ĐỀ XUẤT = khách nhận lộ trình.
+                await self._khach_chon(conn, identity, lt, oid, hien)
+            else:
+                if hien is not None:
+                    await conn.execute(_GO_CHUYEN, cid, oid, identity.staff_id)
+                await conn.execute(_GAN_TAY, cid, lt, oid, identity.staff_id)
             moi = await self._mot(conn, cid, lt)
             so = next(
                 (

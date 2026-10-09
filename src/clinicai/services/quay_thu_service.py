@@ -315,7 +315,7 @@ def dung_hoa_don_quay(
             "can_xep_phong": bool(c.get("phong_chon_duoc")),
             # Dây Nhận tại phòng BẬT: ô phòng là hướng dẫn (không bắt buộc).
             "huong_dan": bool(c.get("huong_dan")),
-            # Buổi liệu trình: {lieu_trinh_id, buoi_so, so_buoi, tra_truoc}.
+            # Buổi liệu trình: {lieu_trinh_id, buoi_so, so_buoi, tra_truoc, da_lam}.
             "lieu_trinh": c.get("lieu_trinh"),
         }
         if la_doi_tac:

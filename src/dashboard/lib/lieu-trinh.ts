@@ -15,7 +15,15 @@ export const NHAN_TRANG_THAI_LT: Record<TrangThaiLieuTrinh, string> = {
   DUNG: "Dừng",
 };
 
-/** Một buổi (chỉ định) của liệu trình — `_BUOI_SQL`. */
+/** Một ô của phiếu điều trị đã có chữ (tóm tắt diễn tiến buổi). */
+export interface OKetQuaBuoi {
+  ma: string;
+  ten: string;
+  gia_tri: string;
+}
+
+/** Một buổi (chỉ định) của liệu trình — `_BUOI_SQL`. `buoi_so` = số HIỆN theo
+ *  thứ tự làm xong (máy chủ, `v_lieu_trinh_buoi`); buổi chưa làm đứng sau. */
 export interface BuoiLieuTrinh {
   id: string;
   order_id: string;
@@ -27,6 +35,9 @@ export interface BuoiLieuTrinh {
   ngay: string | null;
   /** "Bàn khám" / tên phòng / null (chưa làm, chưa xếp phòng). */
   noi_lam: string | null;
+  xong_luc?: string | null;
+  /** Ô phiếu điều trị có chữ ("Cảm nhận", "Vấn đề sau điều trị"…). */
+  ket_qua?: OKetQuaBuoi[];
 }
 
 export interface LieuTrinh {
@@ -45,9 +56,14 @@ export interface LieuTrinh {
   con_tra_truoc: number;
   chua_tra: number;
   tien_con_lai: number;
+  /** Buổi của kế hoạch chưa có chỉ định nào (máy chủ tính). */
+  chua_gan?: number;
   de_xuat_boi: string | null;
   ly_do_dung: string | null;
   nguon_visit_id: string | null;
+  /** Chỉ định bác sĩ đề xuất lộ trình từ đó (đề xuất vẫn để nó là buổi lẻ). */
+  nguon_order_id?: string | null;
+  tao_luc?: string | null;
   buoi?: BuoiLieuTrinh[];
   /** Nút trên dải — máy chủ quyết theo trạng thái. */
   nut?: { dieu_chinh: boolean; dung: boolean; mo_lai: boolean };
@@ -61,6 +77,8 @@ export interface UngVien {
   so_buoi: number;
   da_lam: number;
   tao_luc: string | null;
+  /** Cho [Khách chọn lộ trình] bỏ tick "tính buổi hôm nay" (lệnh đăng ký). */
+  revision: number;
 }
 
 /** Một chỉ định điều trị của lượt + buổi đang gắn. */
@@ -71,10 +89,15 @@ export interface ChiDinhLieuTrinh {
   song: boolean;
   lieu_trinh_id: string | null;
   buoi_so: number | null;
+  /** Buổi đang gắn đã làm xong chưa (số hiện theo thứ tự làm xong). */
+  buoi_da_lam?: boolean;
+  /** "Buổi k/N · đã làm" / "· chưa làm" — máy chủ ghép; rỗng = buổi lẻ. */
+  chu_buoi?: string;
   tra_truoc: boolean | null;
   ung_vien: UngVien[];
   can_chon: boolean;
-  nut?: { tao: boolean; go: boolean; tach: boolean; chon: boolean };
+  /** `khach_chon`: buổi lẻ + có lộ trình bác sĩ đề xuất → [Khách chọn lộ trình]. */
+  nut?: { tao: boolean; go: boolean; tach: boolean; chon: boolean; khach_chon?: boolean };
 }
 
 export interface LieuTrinhLuot {
@@ -83,6 +106,8 @@ export interface LieuTrinhLuot {
   lieu_trinh: LieuTrinh[];
   chi_dinh: ChiDinhLieuTrinh[];
   dich_vu_de_xuat?: { service_code: string; ten: string }[];
+  /** Người xem có quyền sửa liệu trình (không → dải chỉ đọc, kể cả ở phòng). */
+  ghi_duoc?: boolean;
 }
 
 /** Dòng lịch sử sửa (kế hoạch + gắn/gỡ buổi). */
@@ -136,9 +161,16 @@ export function tienLT(n: number): string {
   return `${n.toLocaleString("vi-VN")}đ`;
 }
 
-/** Chip của một buổi: "Buổi 3/10 · đã trả trước". */
-export function nhanBuoi(buoiSo: number, soBuoi: number, traTruoc: boolean | null | undefined): string {
-  return `Buổi ${buoiSo}/${soBuoi}${traTruoc ? " · đã trả trước" : ""}`;
+/** Chip của một buổi: "Buổi 3/10 · chưa làm · đã trả trước" — số máy chủ đánh
+ *  theo thứ tự làm xong; `daLam` không rõ (dữ liệu cũ) thì không ghi. */
+export function nhanBuoi(
+  buoiSo: number,
+  soBuoi: number,
+  traTruoc: boolean | null | undefined,
+  daLam?: boolean | null,
+): string {
+  const lam = daLam === true ? " · đã làm" : daLam === false ? " · chưa làm" : "";
+  return `Buổi ${buoiSo}/${soBuoi}${lam}${traTruoc ? " · đã trả trước" : ""}`;
 }
 
 /** Khoá gửi lại cho MỘT lần bấm (máy chủ cần 8–200 ký tự). */

@@ -44,14 +44,14 @@ def test_gan_nhan_thuan_dem_theo_thoi_gian_toan_khach() -> None:
         [
             # Thứ tự đưa vào lộn xộn — đếm theo mốc, không theo thứ tự danh sách.
             _m("kham-chieu", 7),
-            _m("dieu-tri", 3, nhom="DIEU_TRI", buoi=(2, 10)),
+            _m("dieu-tri", 3, nhom="DIEU_TRI", buoi=(2, 10, True)),
             _m("kham-sang", 1),
             _m("huy", 2, da_check_in=False, trang_thai_lich="CANCELLED"),
             _m("khong-den", 2, da_check_in=False, trang_thai_lich="NO_SHOW"),
             _m("bs-tu-choi", 2, da_check_in=False, trang_thai_lich="DOCTOR_DECLINED"),
             _m("le", 4, nhom="DIEU_TRI"),
             _m("khac", 5, nhom="KHAC"),
-            _m("chua-ro", 6, nhom=None, buoi=(1, 5)),
+            _m("chua-ro", 6, nhom=None, buoi=(1, 5, False)),
             _m("thuoc", 6, nhom="THUOC"),
             _m("sap-toi", 48, da_check_in=False, trang_thai_lich="CONFIRMED"),
         ]
@@ -59,14 +59,14 @@ def test_gan_nhan_thuan_dem_theo_thoi_gian_toan_khach() -> None:
     assert nhan["kham-sang"]["nhan"] == "Lượt khám 1"
     assert nhan["khac"]["nhan"] == "Lượt khám 2"
     assert nhan["chua-ro"]["nhan"] == "Lượt khám 3"
-    assert nhan["chua-ro"]["buoi"] == "Buổi 1/5"  # lượt khám làm buổi 1 → chip phụ
+    assert nhan["chua-ro"]["buoi"] == "Buổi 1/5 · chưa làm"  # lượt khám: chip phụ
     assert nhan["kham-chieu"]["nhan"] == "Lượt khám 4"
     assert nhan["kham-chieu"]["so"] == 4
     assert nhan["dieu-tri"] == {
-        "nhan": "Buổi 2/10",
+        "nhan": "Buổi 2/10 · đã làm",
         "loai": "DIEU_TRI",
         "so": None,
-        "buoi": "Buổi 2/10",
+        "buoi": "Buổi 2/10 · đã làm",
     }
     assert nhan["le"]["nhan"] == "Điều trị · buổi lẻ"
     assert nhan["thuoc"]["nhan"] == "Mua thuốc"
@@ -203,7 +203,7 @@ async def test_hai_luot_cung_ngay_dieu_tri_xen_giua_lich_huy(
         return str(n["nhan"])
 
     assert chu(appointment_id=a1) == chu(visit_id=v1) == "Lượt khám 1"
-    assert chu(visit_id=vdt) == "Buổi 1/10"
+    assert chu(visit_id=vdt) == "Buổi 1/10 · chưa làm"
     assert chu(appointment_id=a3) == "Lượt khám 2"
     assert chu(visit_id=v4) == "Lượt khám 3"
     assert chu(appointment_id=a5) == "Đã huỷ"
@@ -226,4 +226,4 @@ async def test_hai_luot_cung_ngay_dieu_tri_xen_giua_lich_huy(
         ls = await lich_su_luot.doc(conn, clinic_id=CLINIC, clinic_patient_id=ca.khach)
     theo_luot = {x["visit_id"]: x for x in ls["luot"]}
     assert theo_luot[v3]["nhan_luot"]["nhan"] == "Lượt khám 2"
-    assert theo_luot[vdt]["nhan_luot"]["nhan"] == "Buổi 1/10"
+    assert theo_luot[vdt]["nhan_luot"]["nhan"] == "Buổi 1/10 · chưa làm"

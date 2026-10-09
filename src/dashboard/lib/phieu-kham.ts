@@ -169,7 +169,7 @@ export interface ChiDinhVaKetQua {
   ban_kham?: boolean;
   /** Buổi của liệu trình đang gắn (08/10/2026) — bản in "Liệu trình: buổi k/N".
    *  null / thiếu = buổi lẻ. */
-  lieu_trinh?: { buoi_so: number; so_buoi: number; tra_truoc: boolean } | null;
+  lieu_trinh?: { buoi_so: number; so_buoi: number; tra_truoc: boolean; da_lam?: boolean } | null;
 }
 
 /** Ô đã ghi của PHIẾU ĐIỀU TRỊ một chỉ định (mỗi ô một nhãn — tên ô, không lặp

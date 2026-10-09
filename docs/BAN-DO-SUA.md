@@ -286,6 +286,19 @@ tick tại chỗ `D/_lam-viec/OLamTruocThuSau.tsx` `OTickTaiCho` (khối 1 qua `
 `oTick`; khung phải `D/phong/[ma]/KhungChiDinhKhach.tsx`), link `D/phong/[ma]/SapDenPhong.tsx`.
 FT `khoi-dieu-tri-boundary.test.mts`, `nhan-tai-phong-boundary.test.mts`, `lib/phieu-kham.test.mts`.
 
+**Liệu trình MINH BẠCH (09/10/2026, Tuyền chốt):** mặc định mỗi chỉ định điều trị là
+BUỔI LẺ; bác sĩ đề xuất lộ trình KHÔNG biến chỉ định hôm nay thành buổi 1 (`tao`
+mặc định chỉ đề xuất; `khach_chon` = khách nhận luôn). Khách nhận = [Khách chọn lộ trình]
+(lệnh `gan` vào liệu trình DE_XUAT → máy chủ ghi đăng ký; bỏ tick "tính buổi hôm nay" =
+`dang-ky`) — `S/lieu_trinh_service.py` `_khach_chon`; hoàn tác đăng ký gỡ buổi gắn cùng lệnh.
+Trigger tự gắn chỉ nhắm liệu trình ĐANG LÀM (mig `20261009145151_lieu_trinh_minh_bach.sql`).
+SỐ BUỔI HIỆN = thứ tự làm xong, đọc qua view `v_lieu_trinh_buoi` (`buoi_so`, `da_lam`);
+chữ "Buổi k/N · đã làm / chưa làm" = `S/nhan_luot.py` `chu_buoi` (nhãn lượt, chip, thẻ) và
+`nhanBuoi` ở `D/lib/lieu-trinh*.ts` (quầy, phòng, in). Dải ở PHÒNG DỊCH VỤ: `D/_lam-viec/
+phieu-kham/LieuTrinhChiDinh.tsx` (vẽ trong `D/phong/[ma]/PhongDichVu.tsx`, cùng `DaiLieuTrinh`),
+quyền sửa theo cờ máy chủ `ghi_duoc`. Test: `T/services/test_lieu_trinh_db.py`
+(`test_staging_0910_*`, `test_so_buoi_theo_thu_tu_lam_xong`), FT `lieu-trinh-boundary.test.mts`.
+
 **Liệu trình điều trị nhiều buổi — dải trong thẻ điều trị (08/10/2026, C1)** — đặc tả
 `docs/KE-HOACH-LIEU-TRINH.md`. Dải "Buổi k/N · đã làm · đã trả · còn nợ", [Tạo liệu trình]
 (ô "Lộ trình N buổi"), [Điều chỉnh] · [Dừng]/[Mở lại] · [Lịch sử sửa] · [Hoàn tác] · [Gỡ khỏi
