@@ -105,6 +105,11 @@ async def test_khach_moi_ve_bac_si_chinh_tinh_tien_kham_dung_dong_gia(
     )
     async with pool.acquire() as conn:
         hd = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=moi)
+    if code == "THU_THUAT":
+        # Tuyền chốt 09/10/2026: Thủ thuật KHÔNG tự cộng phí khám — chỉ khi tick
+        # dịch vụ khám con (`bill_service.khong_tu_cong_phi_kham`).
+        assert [d for d in hd.dong if d.source_type == "exam"] == []
+        return
     [kham] = [d for d in hd.dong if d.source_type == "exam"]
     assert kham.ten == f"Tiền khám {ten}"
     assert kham.don_gia is not None and kham.don_gia >= Decimal(0)
