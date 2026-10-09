@@ -137,10 +137,9 @@ async def bao_cao_cuoi_ngay(
 async def bao_cao_ca_cua_toi(
     ca: str | None = Query(
         None,
-        max_length=10,
         description="SANG | CHIEU | TOI; rỗng = ca hiện tại (nếu trực); rác = 403",
     ),
-    co_so: str | None = _CO_SO,
+    co_so: str | None = Query(None, description="Cơ sở trong lịch trực hôm nay"),
     loai: str | None = Query(None, max_length=20, description="dich_vu | thuoc"),
     identity: StaffIdentity = Depends(cua_noi_bo),
     pool: asyncpg.Pool = Depends(get_db_pool),

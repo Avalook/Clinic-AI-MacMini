@@ -422,7 +422,6 @@ SELECT x.nhom, n.id::text AS id, n.visit_id::text AS visit_id, x.luc, n.so_tien,
  WHERE n.clinic_id = $1::uuid AND {_NO_CO_SO_LOC}
    AND x.luc >= $3 AND x.luc < $4
  ORDER BY x.luc
- LIMIT $5
 """
 
 NHOM_NO = ("ghi_moi", "thu_lai", "huy")
@@ -463,11 +462,11 @@ async def doc_no_trong_khung(
 ) -> dict[str, Any]:
     """Nợ phát sinh / thu lại / huỷ trong ``[tu_luc, den_luc)`` — báo cáo CUỐI CA
     (Tuyền 09/10/2026: nhân viên thấy nợ trong ca kèm tên khách). ``location_id``
-    như ``doc_khach_con_no``. Mỗi nhóm tối đa ``_TRAN_DS`` dòng."""
+    như ``doc_khach_con_no``. Đọc toàn bộ một ca để tổng tiền không bị cắt
+    theo trần danh sách (một khoản có thể nằm trong nhiều nhóm)."""
     rows = await conn.fetch(
-        _NO_TRONG_KHUNG_SQL, clinic_id, location_id, tu_luc, den_luc, _TRAN_DS
+        _NO_TRONG_KHUNG_SQL, clinic_id, location_id, tu_luc, den_luc
     )
-    canh_bao_neu_day("cong_no.no_trong_khung", len(rows), _TRAN_DS)
     return gom_no_trong_khung(rows)
 
 

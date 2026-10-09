@@ -13,7 +13,11 @@ from typing import Any
 import pytest
 
 from clinicai.core.shifts import ca_xem_duoc
-from clinicai.permissions.catalogue import KHOI_CHI_QUAN_LY_TRUONG_CA, PRESET
+from clinicai.permissions.catalogue import (
+    KHOI_CHI_QUAN_LY_TRUONG_CA,
+    KHOI_MO_FULL,
+    PRESET,
+)
 from clinicai.services.bao_cao_ca_cua_toi_service import (
     AN_VOI_NHAN_VIEN,
     ca_cua_luc,
@@ -178,5 +182,6 @@ def test_gom_no_rong() -> None:
 
 
 def test_goi_mau_bao_cao_chi_quan_ly_va_truong_ca() -> None:
+    assert "bao_cao" not in KHOI_MO_FULL
     co = sorted(v for v, ks in PRESET.items() if KHOI_CHI_QUAN_LY_TRUONG_CA & set(ks))
     assert co == ["MANAGEMENT", "TRUONG_CA"]

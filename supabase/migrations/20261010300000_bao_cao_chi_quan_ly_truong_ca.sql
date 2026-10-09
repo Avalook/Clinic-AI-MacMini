@@ -6,15 +6,10 @@
 -- MÌNH TRỰC hôm nay ở /bao-cao-ca — quyền ấy suy từ lịch trực, không qua lego,
 -- nên migration này KHÔNG cấp gì thêm.
 --
--- 1. THU dòng cấp quyền của khối `bao_cao` mà HỆ THỐNG tạo (`granted_by IS
---    NULL`: migration mở full — ly_do 'Mở full lego (Tuyền 30/09/2026)' — và
---    preset chép khi thêm nhân sự — 'Cấp theo preset khi thêm nhân sự'), của
---    người KHÔNG đang giữ vai Quản lý / Trưởng ca ở phòng khám ấy.
---    KHÔNG đụng dòng có người cấp (`granted_by` có người: Quản lý bật lego
---    Báo cáo / thêm nhanh preset trên /phan-quyen) — đó là quyết định có chủ ý.
---    Thu = đóng dòng (`revoked_at`), không xoá. Ràng buộc `capability_grant_thu_hoi`
---    đòi người thu: migration không có người bấm nên ghi chính người bị thu,
---    `ly_do` nối thêm câu nói rõ là migration này thu.
+-- 1. CHỈ thu dòng do migration mở full tạo: không người cấp, đúng lý do
+--    và đúng khối bao_cao. Dòng cấp tay, preset hoặc nguồn khác giữ nguyên,
+--    kể cả khi granted_by NULL. Thu = đóng dòng, không xoá.
+--    Người thu kỹ thuật là người bị thu; lý do ghi rõ migration thực hiện.
 -- 2. `quyen_preset` (nhóm dựng sẵn) của mọi vai trừ Quản lý / Trưởng ca bỏ
 --    `bao_cao` → tài khoản tạo mới không có. Khớp `PRESET` ở
 --    `permissions/catalogue.py` (`test_nhom_dung_san_khop_voi_hang_so_trong_ma`).
@@ -31,6 +26,8 @@ UPDATE public.capability_grant g
                || ' (migration 20261010300000)'
  WHERE g.revoked_at IS NULL
    AND g.granted_by IS NULL
+   AND g.ly_do = 'Mở full lego (Tuyền 30/09/2026)'
+   AND g.tu_khoi = 'bao_cao'
    AND g.capability IN (SELECT c.ma FROM public.capability c
                          WHERE c.work_pack = 'bao_cao')
    AND NOT EXISTS (

@@ -239,6 +239,8 @@ async def test_ca_khac_co_so_khac_ca_rac_la_403(
         ("SANG", "khong-phai-uuid"),
         ("ĐÊM", None),
         ("2026-01-01", "' OR 1=1 --"),
+        ("x" * 500, loc),
+        ("SANG", "y" * 500),
     ):
         with pytest.raises(SafetyGateError):
             await svc.bao_cao(identity=nv, ca=ca, co_so=co_so)
@@ -257,6 +259,43 @@ async def test_khong_co_ca_hoac_ca_bi_tu_choi_la_403(pool: asyncpg.Pool) -> None
     await _xep_ca(pool, bi_tu_choi, "FULL", loc, status="REJECTED")
     with pytest.raises(SafetyGateError):
         await svc.bao_cao(identity=bi_tu_choi)
+
+
+async def test_no_co_so_khac_khong_lo_trong_ca(pool: asyncpg.Pool) -> None:
+    q = await tao_quay(pool)
+    loc = await _loc(q)
+    nv = await _nguoi_vai(q, "RECEPTION")
+    await _xep_ca(pool, nv, "FULL", loc)
+    code = f"T-BCC-{uuid.uuid4().hex[:6]}"
+    khac = await pool.fetchval(
+        "INSERT INTO clinic_location (clinic_id, code, name)"
+        " VALUES ($1::uuid, $2, $2) RETURNING id::text",
+        CLINIC,
+        code,
+    )
+    await pool.execute(
+        "UPDATE visit SET location_id = $2::uuid WHERE visit_id = $1::uuid",
+        q.visit_id,
+        khac,
+    )
+    thu, huy = await _no(q, q.thu_ngan.staff_id)
+    bc = await BaoCaoCaCuaToiService(pool).bao_cao(identity=nv)
+    for nhom in bc["no_trong_ca"].values():
+        assert not {thu, huy} & {d["id"] for d in nhom["ds"]}
+
+
+async def test_lich_truc_ngay_khac_khong_mo_bao_cao(pool: asyncpg.Pool) -> None:
+    q = await tao_quay(pool)
+    nv = await _nguoi_vai(q, "RECEPTION")
+    await _xep_ca(pool, nv, "FULL", await _loc(q))
+    await pool.execute(
+        "UPDATE work_roster SET work_date = work_date - 7, week_start = week_start - 7"
+        " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid",
+        CLINIC,
+        nv.staff_id,
+    )
+    with pytest.raises(SafetyGateError, match="không có tên trong lịch trực"):
+        await BaoCaoCaCuaToiService(pool).bao_cao(identity=nv)
 
 
 async def test_ca_full_xem_du_ba_ca(pool: asyncpg.Pool) -> None:
@@ -326,6 +365,7 @@ async def test_migration_thu_report_view_giu_quan_ly_truong_ca_va_cap_tay(
     q = await tao_quay(pool)
     nv = await _nguoi_vai(q, "RECEPTION")
     tay = await _nguoi_vai(q, "CSKH")
+    khac = await _nguoi_vai(q, "NURSE_ULTRASOUND")
     tc = await _nguoi_vai(q, "TRUONG_CA")
     ql = await _nguoi_vai(q, "MANAGEMENT")
     sql = MIGRATION.read_text(encoding="utf-8")
@@ -343,6 +383,14 @@ async def test_migration_thu_report_view_giu_quan_ly_truong_ca_va_cap_tay(
                 tay.staff_id,
                 ql.staff_id,
             )
+            # Cấp theo preset không có người cấp: không phải nguồn mở full.
+            await conn.execute(
+                "INSERT INTO capability_grant (clinic_id, staff_id, capability,"
+                " tu_khoi, ly_do) VALUES ($1::uuid, $2::uuid, 'report.view',"
+                " 'bao_cao', 'Cấp theo preset khi thêm nhân sự')",
+                CLINIC,
+                khac.staff_id,
+            )
             await conn.execute(
                 "UPDATE quyen_preset SET khoi = array_append(khoi, 'bao_cao')"
                 " WHERE clinic_id = $1::uuid AND ma = 'RECEPTION'"
@@ -353,6 +401,7 @@ async def test_migration_thu_report_view_giu_quan_ly_truong_ca_va_cap_tay(
             await conn.execute(sql)
             ket["nv"] = await _co_report_view(conn, nv)
             ket["tay"] = await _co_report_view(conn, tay)
+            ket["khac"] = await _co_report_view(conn, khac)
             ket["tc"] = await _co_report_view(conn, tc)
             ket["ql"] = await _co_report_view(conn, ql)
             ket["ly_do"] = await conn.fetchval(
@@ -374,6 +423,7 @@ async def test_migration_thu_report_view_giu_quan_ly_truong_ca_va_cap_tay(
             raise _RollbackError
     assert ket["nv"] is False, "nhân viên thường mất report.view"
     assert ket["tay"] is True, "dòng Quản lý cấp tay còn nguyên"
+    assert ket["khac"] is True, "nguồn preset không người cấp còn nguyên"
     assert ket["tc"] is True and ket["ql"] is True
     assert "Mở full lego" in ket["ly_do"] and "20261010300000" in ket["ly_do"]
     co = sorted(m for m, c in ket["preset"].items() if c)

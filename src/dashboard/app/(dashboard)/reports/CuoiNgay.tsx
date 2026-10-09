@@ -13,7 +13,9 @@
 // Cuối ca (08/10/2026): xem MỘT ngày thì chọn được ca Sáng / Chiều / Tối — máy
 // chủ cắt mọi số theo khung giờ ca. Khối "Thuốc theo khách": kê vs thực bán.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { useNgheBang } from "../dung-nghe-bang";
 
 import Button, { buttonClass } from "@/components/ui/Button";
 import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
@@ -274,7 +276,9 @@ function BangCoSo({ bc }: { bc: BaoCao }) {
   );
 }
 
-export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
+export default function CuoiNgay({ coSo = [], khoaCa = false }: { coSo?: CoSo[]; khoaCa?: boolean }) {
+  const [caCuaToi, setCaCuaToi] = useState<CaDangXem | null>(null);
+  const api = khoaCa ? "/api/reports/ca-cua-toi" : "/api/reports/cuoi-ngay";
   const [homNay] = useState(todayVn);
   const [khoang, setKhoang] = useState<Khoang>({ tu: homNay, den: homNay });
   const [bc, setBc] = useState<BaoCao | null>(null);
@@ -290,24 +294,38 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
   const motNgay = khoang.tu === khoang.den;
 
   const chuoi = new URLSearchParams({
-    tu: khoang.tu,
-    den: khoang.den,
+    ...(!khoaCa ? { tu: khoang.tu, den: khoang.den } : {}),
+    ...(khoaCa && caCuaToi ? { ca: caCuaToi.ca, co_so: caCuaToi.coSo } : {}),
     ...(loai ? { loai } : {}),
-    ...(coSoChon ? { co_so: coSoChon } : {}),
-    ...(ca && motNgay ? { ca } : {}),
+    ...(!khoaCa && coSoChon ? { co_so: coSoChon } : {}),
+    ...(!khoaCa && ca && motNgay ? { ca } : {}),
   }).toString();
 
+  const luotTai = useRef(0);
   const tai = useCallback(async () => {
+    const luot = ++luotTai.current;
     setDangTai(true);
+    setBc(null);
     setLoi(null);
-    const r = await fetch(`/api/reports/cuoi-ngay?${chuoi}`, { cache: "no-store" });
-    const d = (await r.json().catch(() => null)) as
-      | (BaoCao & { message?: string; error?: string })
-      | null;
-    if (!r.ok || !d || !d.tong) setLoi(d?.message ?? d?.error ?? "Không đọc được báo cáo cuối ngày.");
-    else setBc(d);
-    setDangTai(false);
-  }, [chuoi]);
+    try {
+      const r = await fetch(`${api}?${chuoi}`, { cache: "no-store" });
+      const d = (await r.json().catch(() => null)) as
+        | (BaoCao & { message?: string; error?: string })
+        | null;
+      if (luot !== luotTai.current) return;
+      if (!r.ok || !d || !d.tong) { setBc(null); setLoi(d?.message ?? d?.error ?? "Không đọc được báo cáo cuối ngày."); }
+      else setBc(d);
+    } catch {
+      if (luot === luotTai.current) {
+        setBc(null);
+        setLoi("Không kết nối được máy chủ. Vui lòng thử lại.");
+      }
+    } finally {
+      if (luot === luotTai.current) setDangTai(false);
+    }
+  }, [api, chuoi]);
+
+  useNgheBang(["payment_cycle", "payment_refund", "payment_cycle_doi_hinh_thuc", "cong_no", "work_roster"], tai);
 
   useEffect(() => {
     const h = setTimeout(() => void tai(), 0);
@@ -319,7 +337,7 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2 print:hidden">
-        <ThanhNgay
+        {!khoaCa ? <ThanhNgay
           nhan="Khoảng ngày báo cáo"
           khoang={khoang}
           homNay={homNay}
@@ -328,7 +346,7 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
           // "Tất cả" → tối đa 92 ngày gần nhất (máy chủ cũng chặn ở 92).
           onChon={(k) => setKhoang(k ?? { tu: congNgay(homNay, -92), den: homNay })}
           className="min-w-0 flex-1"
-        />
+        /> : null}
         <div role="tablist" aria-label="Loại tiền" className="flex gap-1">
           {(
             [
@@ -351,7 +369,7 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
             </button>
           ))}
         </div>
-        {motNgay ? (
+        {!khoaCa && motNgay ? (
           <div role="tablist" aria-label="Ca" className="flex gap-1">
             {(
               [
@@ -376,22 +394,23 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
             ))}
           </div>
         ) : null}
-        <ChonCoSoO coSo={coSo} dangChon={coSoChon} onChon={setCoSoChon} />
+        {!khoaCa ? <ChonCoSoO coSo={coSo} dangChon={coSoChon} onChon={setCoSoChon} /> : null}
+        {khoaCa ? <TabCaCuaToi ds={bc?.ca_duoc_xem ?? []} dangXem={caCuaToi ?? (bc?.ca && bc?.co_so ? { ca: bc.ca.ma, coSo: bc.co_so } : null)} onChon={setCaCuaToi} /> : null}
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={() => window.print()} disabled={!bc}>
             In
           </Button>
-          <a href={`/api/reports/cuoi-ngay?xuat=csv&${chuoi}`} className={buttonClass("secondary", "sm")}>
+          {!khoaCa ? <a href={`/api/reports/cuoi-ngay?xuat=csv&${chuoi}`} className={buttonClass("secondary", "sm")}>
             Xuất Excel (tổng hợp)
-          </a>
+          </a> : null}
         </div>
       </div>
 
       <p className="text-meta text-ink-muted">
-        Báo cáo cuối ngày · {bc?.co_so ? `${bc.ten_co_so ?? "Không có cơ sở này"} · ` : ""}
+        {khoaCa ? "Báo cáo ca của tôi" : "Báo cáo cuối ngày"} · {bc?.co_so ? `${bc.ten_co_so ?? "Không có cơ sở này"} · ` : ""}
         {bc ? nhanKhoang({ tu: bc.tu, den: bc.den }) : nhanKhoang(khoang)}
         {bc?.ca ? ` · ${bc.ca.ten} ${bc.ca.tu}–${bc.ca.den}` : ""} · giờ Việt Nam · chỉ đọc
-        {bc?.ca ? " · tiền thừa và khách còn nợ vẫn tính cả ngày" : ""}
+        {!khoaCa && bc?.ca ? " · tiền thừa và khách còn nợ vẫn tính cả ngày" : ""}
       </p>
 
       {loi ? (
@@ -472,9 +491,10 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
             </Khoi>
           </div>
 
-          <Khoi title="Theo người thu">
+          {bc.theo_nguoi_thu ? <Khoi title="Theo người thu">
             <BangTien tieuDe="Người thu" dong={bc.theo_nguoi_thu} />
-          </Khoi>
+          </Khoi> : null}
+          {bc.no_trong_ca ? <Khoi title="Nợ trong ca"><NoTrongCa no={bc.no_trong_ca} /></Khoi> : null}
 
           {bc.theo_ngay.length > 0 ? (
             <Khoi title="Theo ngày">
@@ -487,7 +507,7 @@ export default function CuoiNgay({ coSo = [] }: { coSo?: CoSo[] }) {
 
           <p className="text-meta text-ink-muted print:hidden">
             Bảng mặt hàng đã bán theo mẫu KiotViet:{" "}
-            <a href="/reports?tab=hang-hoa" className="font-medium text-brand-700 underline">
+            <a href={khoaCa ? "/bao-cao-ca?tab=hang-hoa" : "/reports?tab=hang-hoa"} className="font-medium text-brand-700 underline">
               tab Hàng hoá
             </a>
             .

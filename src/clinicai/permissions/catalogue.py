@@ -814,16 +814,18 @@ KHOI_CHI_QUAN_LY: frozenset[str] = frozenset(
 )
 
 #: Khối mở cho MỌI nhân sự nội bộ.
-KHOI_MO_FULL: list[str] = [k for k in KHOI if k not in KHOI_CHI_QUAN_LY]
+KHOI_MO_FULL: list[str] = [
+    k for k in KHOI if k not in KHOI_CHI_QUAN_LY and k != "bao_cao"
+]
 
 for _vai in PRESET:
     if _vai not in ("PARTNER", "MANAGEMENT"):
-        PRESET[_vai] = list(KHOI_MO_FULL)
+        PRESET[_vai] = [*KHOI_MO_FULL, *(["bao_cao"] if _vai == "TRUONG_CA" else [])]
 
 #: Khối THU LẠI khỏi "mở full" — chỉ Quản lý + Trưởng ca giữ (Tuyền 09/10/2026:
 #: ai cũng xem được /reports mọi ngày mọi ca). Nhân viên khác xem báo cáo CA
 #: MÌNH TRỰC ở /bao-cao-ca (quyền suy từ lịch trực, không lego). Migration
-#: 20261010300000 thu dòng cấp của hệ thống + sửa `quyen_preset` y hệt.
+#: 20261010300000 thu đúng dòng mở full + sửa `quyen_preset` y hệt.
 KHOI_CHI_QUAN_LY_TRUONG_CA: frozenset[str] = frozenset({"bao_cao"})
 
 for _vai in PRESET:

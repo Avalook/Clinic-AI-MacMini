@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-08 17:41. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-09 16:01. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -12,7 +12,7 @@ tệp mà hơn 25% số màn cùng import (dùng chung): `lib/backend-proxy.ts`,
 
 Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. Sự kiện (consumer) · 5. Bảng → migration
 
-## 1. Màn (82)
+## 1. Màn (83)
 ### `/`
 - page: `src/dashboard/app/page.tsx` · quyền: ?
 - gọi API: (không thấy — màn tĩnh, hoặc gọi qua lối không suy được ?)
@@ -52,6 +52,13 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/thai-ky`, `/api/clinical-forms/history`, `/api/clinical-form/andrology-review`, `/api/clinical-record`, `/api/catalog`, `/api/clinical/[visit_id]/[action]`, `/api/clinical-form`, `/api/ultrasound`, `/api/visits/[id]/theo-doi-thu-thuat`, `/api/lieu-trinh/chip` (+12)
 - service: ThaiKyService.{doc, cap_nhat, tao} · ClinicalFormService.{lich_su_kham, get_form, save_form} · AndrologyReviewService.review · ho_so_lam_sang_doc · y_khoa · ClinicalRecordService.save (+35 service)
 - test: test_hoan_tac_moi_thao_tac_db.py, test_phieu_kham_db.py, test_tep_ket_qua.py, test_danh_muc_dich_vu_chuan_db.py, test_loc_co_so_nhom_c_db.py (+86)
+
+### `/bao-cao-ca` — Báo cáo ca của tôi
+- page: `src/dashboard/app/(dashboard)/bao-cao-ca/page.tsx` · quyền: ?
+- thành phần: app/(dashboard)/reports/BaoCaoHangHoa.tsx, app/(dashboard)/reports/CuoiNgay.tsx, app/(dashboard)/dung-nghe-bang.ts, app/(dashboard)/reports/BangHangHoa.tsx, app/(dashboard)/reports/NoTrongCa.tsx, app/(dashboard)/reports/TabCaCuaToi.tsx, app/(dashboard)/reports/ThuocTheoKhach.tsx
+- gọi API Next: `/api/reports/ca-cua-toi`, `/api/reports/cuoi-ngay`
+- service: BaoCaoCaCuaToiService.bao_cao · BaoCaoCuoiNgayService.bao_cao · bao_cao_cuoi_ngay_service
+- test: test_bao_cao_ca_cua_toi_db.py, test_bao_cao_cuoi_ca_db.py, test_bao_cao_theo_co_so_db.py, test_bao_cao_thuoc.py, test_doi_hinh_thuc.py (+1)
 
 ### `/cashier`
 - page: `src/dashboard/app/(dashboard)/cashier/page.tsx` · quyền: ?
@@ -362,11 +369,11 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/reports` — Báo cáo
 - page: `src/dashboard/app/(dashboard)/reports/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
-- thành phần: app/(dashboard)/StatCard.tsx, BaoCaoHangHoa.tsx, CuoiNgay.tsx, PrintReportButton.tsx, BangHangHoa.tsx, ThuocTheoKhach.tsx
-- gọi API Next: `/api/reports/cuoi-ngay`
+- thành phần: app/(dashboard)/StatCard.tsx, BaoCaoHangHoa.tsx, CuoiNgay.tsx, PrintReportButton.tsx, app/(dashboard)/dung-nghe-bang.ts, BangHangHoa.tsx, NoTrongCa.tsx, TabCaCuaToi.tsx (+1)
+- gọi API Next: `/api/reports/ca-cua-toi`, `/api/reports/cuoi-ngay`
 - gọi thẳng backend (server): `/api/v1/reports/tong-quan${locCoSo`, `/api/v1/reports/booking-channels`, `/api/v1/reports/kpi-dat-lich${locCoSo`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
-- service: BaoCaoCuoiNgayService.bao_cao · bao_cao_cuoi_ngay_service · reports_service · ReportsService.{booking_channels, kpi_dat_lich_theo_nhan_vien}
-- test: test_bao_cao_theo_co_so_db.py, test_bao_cao_cuoi_ca_db.py, test_bao_cao_thuoc.py, test_bao_cao_va_danh_sach_khach_db.py, test_doi_hinh_thuc.py (+1)
+- service: BaoCaoCaCuaToiService.bao_cao · BaoCaoCuoiNgayService.bao_cao · bao_cao_cuoi_ngay_service · reports_service · ReportsService.{booking_channels, kpi_dat_lich_theo_nhan_vien}
+- test: test_bao_cao_theo_co_so_db.py, test_bao_cao_ca_cua_toi_db.py, test_bao_cao_cuoi_ca_db.py, test_bao_cao_thuoc.py, test_bao_cao_va_danh_sach_khach_db.py (+2)
 
 ### `/reset-password`
 - page: `src/dashboard/app/(auth)/reset-password/page.tsx` · quyền: ?
@@ -533,7 +540,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: TepKetQuaService.{cho_xac_nhan, xac_nhan_tep, mo_de_doc} · media_service · tep_ket_qua_service
 - test: test_xac_nhan_tep_ket_qua_db.py, test_tep_ket_qua.py, test_cho_xac_nhan_queue_va_doc_tep_db.py, test_full_chi_dinh_slice_ab_db.py, test_slice1_rail_db.py (+1)
 
-## 2. API Next → backend (117)
+## 2. API Next → backend (118)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -1234,11 +1241,16 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_tien_thua_phan_e_db.py, src/tests/services/test_cong_no_check_out_db.py, src/tests/services/test_loc_co_so_nhom_b_db.py (+9)
 - màn dùng: /hanh-trinh, /pharmacy, /reception/checkout, /reception/queue, /thu-ngan/dich-vu, /thu-ngan/thuoc
 
+#### `/api/reports/ca-cua-toi` · `src/dashboard/app/api/reports/ca-cua-toi/route.ts`
+- GET `/api/v1/reports/ca-cua-toi` → `src/clinicai/api/v1/routers/reports.py:bao_cao_ca_cua_toi` → BaoCaoCaCuaToiService.bao_cao
+- test: src/tests/services/test_bao_cao_ca_cua_toi_db.py
+- màn dùng: /bao-cao-ca, /reports
+
 #### `/api/reports/cuoi-ngay` · `src/dashboard/app/api/reports/cuoi-ngay/route.ts`
 - GET `/api/v1/reports/cuoi-ngay` → `src/clinicai/api/v1/routers/reports.py:bao_cao_cuoi_ngay` → BaoCaoCuoiNgayService.bao_cao
 - GET `/api/v1/reports/cuoi-ngay.csv` → `src/clinicai/api/v1/routers/reports.py:bao_cao_cuoi_ngay_csv` → BaoCaoCuoiNgayService.bao_cao, csv_hang_hoa, csv_bao_cao
-- test: src/tests/services/test_bao_cao_cuoi_ca_db.py, src/tests/services/test_tach_thu_thuoc_dich_vu_db.py, src/tests/services/test_bao_cao_theo_co_so_db.py (+2)
-- màn dùng: /reports
+- test: src/tests/services/test_bao_cao_ca_cua_toi_db.py, src/tests/services/test_tach_thu_thuoc_dich_vu_db.py, src/tests/services/test_bao_cao_cuoi_ca_db.py (+3)
+- màn dùng: /bao-cao-ca, /reports
 
 #### `/api/roster` · `src/dashboard/app/api/roster/route.ts`
 - GET `/api/v1/roster/ca-cua-toi` → `src/clinicai/api/v1/routers/config.py:ca_cua_toi` → (SQL ngay trong router, không qua service)
@@ -1397,7 +1409,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/api/test_visit_work_items_read.py, src/tests/test_work_item_service.py
 - màn dùng: /viec-can-xu-ly
 
-## 3. Service → màn (166)
+## 3. Service → màn (167)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1412,8 +1424,9 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `BangHanhTrinhService` | `src/clinicai/services/bang_hanh_trinh_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+9) |
 | `BangLuotKham` | `src/clinicai/services/luot_kham_doc.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+9) |
 | `BanLeService` | `src/clinicai/services/ban_le_service.py` | /pharmacy, /pharmacy/inventory |
-| `bao_cao_cuoi_ngay_service` | `src/clinicai/services/bao_cao_cuoi_ngay_service.py` | /reports |
-| `BaoCaoCuoiNgayService` | `src/clinicai/services/bao_cao_cuoi_ngay_service.py` | /reports |
+| `bao_cao_cuoi_ngay_service` | `src/clinicai/services/bao_cao_cuoi_ngay_service.py` | /bao-cao-ca, /reports |
+| `BaoCaoCaCuaToiService` | `src/clinicai/services/bao_cao_ca_cua_toi_service.py` | /bao-cao-ca, /reports |
+| `BaoCaoCuoiNgayService` | `src/clinicai/services/bao_cao_cuoi_ngay_service.py` | /bao-cao-ca, /reports |
 | `BookingOverrideService` | `src/clinicai/services/booking_override_service.py` | /settings/booking-policy |
 | `BookingService` | `src/clinicai/services/booking_service.py` | /appointments, /appointments/cho-xep-bac-si, /ban-kham, /ban-kham/[phong], /customers, /home, /nhac-tai-kham, /patient-list (+3) |
 | `can` | `src/clinicai/permissions/can.py` | /ops, /settings/new-user, /settings/tai-khoan, /viec-can-xu-ly |
