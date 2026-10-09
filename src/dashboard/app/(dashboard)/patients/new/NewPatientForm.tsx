@@ -31,6 +31,7 @@ import { phutVn, thuHaiCua } from "../../appointments/cho-trong";
 import { hangCua, khungDay, phutCua } from "../../../../lib/suc-chua-luoi";
 import { useBookingPolicy } from "../../BookingPolicyContext";
 import { vnLocalToUtcISO, nowMs, slotRange } from "../../../../lib/datetime";
+import { khungDaQuaVn } from "../../../../lib/khung-da-qua";
 import {
   todayVn,
   clinicHoursError,
@@ -970,11 +971,12 @@ export default function NewPatientForm({
         return;
       }
     }
-    // Lịch khám (không phải vãng lai): KHÔNG cho đặt vào quá khứ — thời gian thực.
+    // Lịch khám (không phải vãng lai): KHÔNG cho đặt vào khung ĐÃ KẾT THÚC.
+    // Khung đang chạy (17:15–17:30 lúc 17:25) vẫn đặt được — 09/10/2026, cùng
+    // luật máy chủ. Ngoài ca / ngoài giờ mở cửa vẫn bị chặn như cũ.
     if (!walkin && wantsAppointment) {
-      const startTs = new Date(vnLocalToUtcISO(apptDate, apptTime)).getTime();
-      if (startTs < nowMs()) {
-        setError("Không thể đặt lịch khám trong quá khứ. Chọn ngày/giờ từ hiện tại trở đi.");
+      if (khungDaQuaVn(apptDate, apptTime, duration, nowMs())) {
+        setError("Khung giờ này đã qua — chọn một khung còn ở phía trước.");
         return;
       }
       const chErr = policy
