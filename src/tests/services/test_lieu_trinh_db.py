@@ -215,14 +215,23 @@ async def lam_xong(ca: LT, order: str) -> None:
 
 
 async def tao(
-    ca: LT, visit: str, so_buoi: int = 10, order: str | None = None, **kw: Any
+    ca: LT,
+    visit: str,
+    so_buoi: int = 10,
+    order: str | None = None,
+    khach_chon: bool | None = None,
+    **kw: Any,
 ) -> dict[str, Any]:
+    """Lập liệu trình. Có ``order`` thì mặc định KHÁCH CHỌN luôn (chỉ định hôm
+    nay vào liệu trình) — kịch bản tiền / buổi của các bài; ``khach_chon=False``
+    = bác sĩ chỉ đề xuất, chỉ định vẫn là buổi lẻ (Tuyền 09/10/2026)."""
     kq = await ca.svc.tao(
         identity=ca.bac_si,
         visit_id=visit,
         so_buoi=so_buoi,
         service_order_id=order,
         service_code=None if order else ca.ma,
+        khach_chon=order is not None if khach_chon is None else khach_chon,
         idempotency_key=_khoa(),
         **kw,
     )
@@ -317,28 +326,116 @@ def test_staging_che_cot_chu_cua_lieu_trinh() -> None:
 
 @pytest.mark.db
 @pytest.mark.asyncio
-async def test_1_de_xuat_tu_chi_dinh_hom_nay_la_buoi_1(pool: asyncpg.Pool) -> None:
-    """#1 (phần kế hoạch): bác sĩ đề xuất 10 buổi từ chỉ định hôm nay → buổi 1;
-    khách chốt làm (SELECTED) → DANG_LAM, còn 9 sau khi làm xong buổi 1."""
+async def test_1_bac_si_de_xuat_chi_dinh_hom_nay_van_la_buoi_le(
+    pool: asyncpg.Pool,
+) -> None:
+    """Tuyền 09/10: bác sĩ đề xuất 10 buổi từ chỉ định hôm nay → CHỈ đề xuất,
+    chỉ định vẫn là buổi lẻ (không "Buổi 1"), khách tick làm hôm nay cũng không
+    tự vào lộ trình. [Khách chọn lộ trình] (gắn) → đăng ký + buổi 1 "chưa làm";
+    làm xong → "đã làm"; Hoàn tác lần chọn → về buổi lẻ, lộ trình về đề xuất."""
     ca = await dung_ca(pool)
     v = await luot(ca)
     o = await chi_dinh(ca, v, chon="PENDING")
-    lt = await tao(ca, v, 10, order=o, ghi_chu="2 buổi/tuần")
+    lt = await tao(ca, v, 10, order=o, khach_chon=False, ghi_chu="2 buổi/tuần")
     assert lt["trang_thai"] == "DE_XUAT" and lt["don_gia"] == GIA
-    assert lt["ghi_chu_lo_trinh"] == "2 buổi/tuần"
-    b = await buoi_song(ca, o)
-    assert b is not None and b["lt"] == lt["id"] and b["buoi_so"] == 1
-    assert not b["tra_truoc"]
+    assert lt["ghi_chu_lo_trinh"] == "2 buổi/tuần" and lt["nguon_order_id"] == o
+    assert await buoi_song(ca, o) is None
     await dat_trang_thai(ca, o, selection_status="SELECTED")
-    assert (await doc(ca, lt["id"]))["trang_thai"] == "DANG_LAM"
-    await lam_xong(ca, o)
-    d = await doc(ca, lt["id"])
-    assert (d["da_lam"], d["con_lai"]) == (1, 9)
-    # Thẻ của lượt: liệu trình + chỉ định điều trị kèm buổi.
+    assert await buoi_song(ca, o) is None
+    assert (await doc(ca, lt["id"]))["trang_thai"] == "DE_XUAT"
     the = await ca.svc.theo_luot(identity=ca.bac_si, visit_id=v)
     assert [x["id"] for x in the["lieu_trinh"]] == [lt["id"]]
     (c,) = the["chi_dinh"]
-    assert c["order_id"] == o and c["buoi_so"] == 1 and c["can_chon"] is False
+    assert c["lieu_trinh_id"] is None and c["chu_buoi"] == ""
+    assert c["nut"]["khach_chon"] is True and c["can_chon"] is False
+
+    # Khách chọn lộ trình (tính luôn buổi hôm nay).
+    kq = await ca.svc.gan(
+        identity=ca.bac_si,
+        service_order_id=o,
+        lieu_trinh_id=lt["id"],
+        idempotency_key=_khoa(),
+    )
+    assert kq["lieu_trinh"]["trang_thai"] == "DANG_LAM"
+    (c,) = (await ca.svc.theo_luot(identity=ca.bac_si, visit_id=v))["chi_dinh"]
+    assert (c["lieu_trinh_id"], c["buoi_so"]) == (lt["id"], 1)
+    assert c["chu_buoi"] == "Buổi 1/10 · chưa làm"
+    await lam_xong(ca, o)
+    d = await doc(ca, lt["id"])
+    assert (d["da_lam"], d["con_lai"]) == (1, 9)
+    the = await ca.svc.theo_luot(identity=ca.bac_si, visit_id=v)
+    (c,) = the["chi_dinh"]
+    assert c["chu_buoi"] == "Buổi 1/10 · đã làm"
+    (x,) = the["lieu_trinh"]
+    assert x["hoan_tac"] is not None and x["hoan_tac"]["hanh_dong"] == "DANG_KY"
+
+    # Hoàn tác lần khách chọn: buổi hôm nay về buổi lẻ, lộ trình về đề xuất.
+    await ca.svc.hoan_tac(
+        identity=ca.bac_si,
+        lieu_trinh_id=lt["id"],
+        lich_su_id=x["hoan_tac"]["lich_su_id"],
+        expected_revision=x["revision"],
+        idempotency_key=_khoa(),
+    )
+    assert await buoi_song(ca, o) is None
+    d = await doc(ca, lt["id"])
+    assert (d["trang_thai"], d["da_lam"]) == ("DE_XUAT", 0)
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_staging_0910_de_xuat_chua_lam_luot_dieu_tri_la_buoi_le(
+    pool: asyncpg.Pool,
+) -> None:
+    """Ca staging 09/10 (khách ec698aca): lượt khám, bác sĩ đề xuất 4 buổi từ
+    chỉ định Ghế điện CHƯA làm; khách đặt lượt Điều trị cùng dịch vụ → chỉ định
+    ở lượt ấy là BUỔI LẺ (trước: tự thành "Buổi 2/4"). Khách chọn lộ trình ở
+    lượt Điều trị, làm xong → "Buổi 1/4 · đã làm"."""
+    ca = await dung_ca(pool)
+    v1 = await luot(ca, ngay_truoc=1)
+    o1 = await chi_dinh(ca, v1)
+    lt = await tao(ca, v1, 4, order=o1, khach_chon=False)
+    v2 = await luot(ca, dieu_tri=True)
+    async with pool.acquire() as conn, conn.transaction():
+        o2 = await sinh_chi_dinh_dieu_tri(
+            conn, clinic_id=CLINIC, visit_id=v2, nguoi_bam=None
+        )
+    assert o2 is not None and await buoi_song(ca, o2) is None
+    chip = await ca.svc.chip(identity=ca.le_tan, visit_ids=v2)
+    assert chip["chi_dinh"] == {}
+    await ca.svc.gan(
+        identity=ca.bac_si,
+        service_order_id=o2,
+        lieu_trinh_id=lt["id"],
+        idempotency_key=_khoa(),
+    )
+    await lam_xong(ca, o2)
+    chip = await ca.svc.chip(identity=ca.le_tan, visit_ids=v2)
+    assert chip["chi_dinh"][o2]["chu"] == "Buổi 1/4 · đã làm"
+    d = await doc(ca, lt["id"])
+    assert (d["trang_thai"], d["da_lam"], d["con_lai"]) == ("DANG_LAM", 1, 3)
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_so_buoi_theo_thu_tu_lam_xong(pool: asyncpg.Pool) -> None:
+    """Số buổi HIỆN = thứ tự làm xong: buổi gắn trước mà chưa làm đứng SAU buổi
+    gắn sau đã làm; hoàn tác Xong → số lùi lại."""
+    ca = await dung_ca(pool)
+    v1 = await luot(ca, ngay_truoc=2)
+    o1 = await chi_dinh(ca, v1)
+    lt = await tao(ca, v1, 4, order=o1)  # khách chọn — o1 gắn trước, chưa làm
+    v2 = await luot(ca)
+    o2 = await chi_dinh(ca, v2)  # tự gắn (liệu trình đang làm)
+    assert (await buoi_song(ca, o2))["lt"] == lt["id"]  # type: ignore[index]
+    await lam_xong(ca, o2)
+    buoi = {b["order_id"]: b for b in (await doc(ca, lt["id"]))["buoi"]}
+    assert (buoi[o2]["buoi_so"], buoi[o2]["da_lam"]) == (1, True)
+    assert (buoi[o1]["buoi_so"], buoi[o1]["da_lam"]) == (2, False)
+    await dat_trang_thai(ca, o2, execution_status="PENDING")
+    buoi = {b["order_id"]: b for b in (await doc(ca, lt["id"]))["buoi"]}
+    assert {buoi[o1]["buoi_so"], buoi[o2]["buoi_so"]} == {1, 2}
+    assert not buoi[o1]["da_lam"] and not buoi[o2]["da_lam"]
 
 
 @pytest.mark.db
@@ -362,21 +459,29 @@ async def test_chi_de_xuat_khong_lam_hom_nay(pool: asyncpg.Pool) -> None:
 async def test_4_khach_tu_choi_hom_nay_buoi_go_lt_ve_de_xuat_hien_cskh(
     pool: asyncpg.Pool,
 ) -> None:
-    """#4: chỉ định NOT_SELECTED → buổi gỡ, LT ở DE_XUAT → danh sách CSKH."""
+    """#4: bác sĩ chỉ đề xuất, khách không làm hôm nay (NOT_SELECTED) → LT ở
+    DE_XUAT → danh sách CSKH. Khách đã chọn lộ trình mà bỏ buổi hôm nay → buổi
+    gỡ (không đếm), chọn lại → gắn lại đúng liệu trình."""
     ca = await dung_ca(pool)
     v = await luot(ca)
     o = await chi_dinh(ca, v, chon="PENDING")
-    lt = await tao(ca, v, 10, order=o)
+    lt = await tao(ca, v, 10, order=o, khach_chon=False)
     await dat_trang_thai(ca, o, selection_status="NOT_SELECTED")
-    assert await buoi_song(ca, o) is None
     d = await doc(ca, lt["id"])
     assert d["trang_thai"] == "DE_XUAT" and d["so_gan"] == 0
     ds = await ca.svc.cskh(identity=ca.cskh, loai="de_xuat")
     assert lt["id"] in [x["id"] for x in ds["lieu_trinh"]]
-    # Khách đổi ý chọn lại → gắn lại đúng liệu trình (lần gỡ là tự động).
-    await dat_trang_thai(ca, o, selection_status="SELECTED")
-    b = await buoi_song(ca, o)
-    assert b is not None and b["lt"] == lt["id"]
+
+    ca2 = await dung_ca(pool)
+    v2 = await luot(ca2)
+    o2 = await chi_dinh(ca2, v2, chon="PENDING")
+    lt2 = await tao(ca2, v2, 10, order=o2)
+    await dat_trang_thai(ca2, o2, selection_status="NOT_SELECTED")
+    assert await buoi_song(ca2, o2) is None
+    assert (await doc(ca2, lt2["id"]))["so_gan"] == 0
+    await dat_trang_thai(ca2, o2, selection_status="SELECTED")
+    b = await buoi_song(ca2, o2)
+    assert b is not None and b["lt"] == lt2["id"]
 
 
 @pytest.mark.db
@@ -440,12 +545,12 @@ async def test_6_19_dat_lich_dieu_tri_check_in_tu_gan_buoi_ke(
 
 @pytest.mark.db
 @pytest.mark.asyncio
-async def test_de_xuat_tu_buoi_sau_lan_sau_den_tu_gan_buoi_1(
+async def test_de_xuat_tu_buoi_sau_lan_sau_den_khach_chon_moi_vao(
     pool: asyncpg.Pool,
 ) -> None:
-    """Lộ trình "tính từ buổi sau" (staging 08/10): hôm nay bác sĩ chỉ đề xuất
-    (DE_XUAT, chưa ai đăng ký) → lần sau đặt lịch Điều trị đến → chỉ định tự là
-    buổi 1; khách chốt làm → DANG_LAM."""
+    """Lộ trình "tính từ buổi sau": hôm nay bác sĩ chỉ đề xuất → lần sau đặt lịch
+    Điều trị đến, chỉ định là BUỔI LẺ (đề xuất không tự gắn — Tuyền 09/10); thẻ
+    mời [Khách chọn lộ trình]; chọn → buổi 1, DANG_LAM."""
     ca = await dung_ca(pool)
     v1 = await luot(ca, ngay_truoc=3)
     lt = await tao(ca, v1, 5)
@@ -455,11 +560,19 @@ async def test_de_xuat_tu_buoi_sau_lan_sau_den_tu_gan_buoi_1(
         o = await sinh_chi_dinh_dieu_tri(
             conn, clinic_id=CLINIC, visit_id=v2, nguoi_bam=None
         )
-    assert o is not None
+    assert o is not None and await buoi_song(ca, o) is None
+    await dat_trang_thai(ca, o, selection_status="SELECTED")
+    assert await buoi_song(ca, o) is None
+    (c,) = (await ca.svc.theo_luot(identity=ca.bac_si, visit_id=v2))["chi_dinh"]
+    assert c["nut"]["khach_chon"] is True
+    await ca.svc.gan(
+        identity=ca.bac_si,
+        service_order_id=o,
+        lieu_trinh_id=lt["id"],
+        idempotency_key=_khoa(),
+    )
     b = await buoi_song(ca, o)
     assert b is not None and (b["lt"], b["buoi_so"]) == (lt["id"], 1)
-    assert (await doc(ca, lt["id"]))["trang_thai"] == "DE_XUAT"  # còn chờ khách
-    await dat_trang_thai(ca, o, selection_status="SELECTED")
     assert (await doc(ca, lt["id"]))["trang_thai"] == "DANG_LAM"
 
 
@@ -468,8 +581,8 @@ async def test_de_xuat_tu_buoi_sau_lan_sau_den_tu_gan_buoi_1(
 async def test_tu_gan_dang_lam_truoc_de_xuat_hai_de_xuat_bat_chon(
     pool: asyncpg.Pool,
 ) -> None:
-    """Bậc ứng viên: 1 DANG_LAM + 1 DE_XUAT → vào DANG_LAM; 2 DE_XUAT (không
-    DANG_LAM) → không tự gắn, thẻ bắt chọn."""
+    """Ứng viên tự gắn: 1 DANG_LAM + 1 DE_XUAT → vào DANG_LAM; chỉ có đề xuất
+    → không tự gắn, không bắt chọn — thẻ mời [Khách chọn lộ trình]."""
     ca = await dung_ca(pool)
     v = await luot(ca, ngay_truoc=5)
     dang = await tao(ca, v, 10)
@@ -487,7 +600,7 @@ async def test_tu_gan_dang_lam_truoc_de_xuat_hai_de_xuat_bat_chon(
     assert await buoi_song(ca2, o2) is None
     the = await ca2.svc.theo_luot(identity=ca2.bac_si, visit_id=v2)
     (c,) = the["chi_dinh"]
-    assert c["can_chon"] is True
+    assert c["can_chon"] is False and c["nut"]["khach_chon"] is True
     assert {u["id"] for u in c["ung_vien"]} == {a["id"], b["id"]}
 
 
@@ -763,7 +876,7 @@ async def test_15_hai_lt_cung_dich_vu_khong_tu_gan_the_bat_chon(
     assert await buoi_song(ca, o) is None
     the = await ca.svc.theo_luot(identity=ca.bac_si, visit_id=v2)
     (c,) = the["chi_dinh"]
-    assert c["can_chon"] is True
+    assert c["can_chon"] is True and c["nut"]["khach_chon"] is False
     assert {u["id"] for u in c["ung_vien"]} == {a["id"], b["id"]}
     kq = await ca.svc.gan(
         identity=ca.bac_si,
