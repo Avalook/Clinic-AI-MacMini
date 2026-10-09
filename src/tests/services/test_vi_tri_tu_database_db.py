@@ -120,9 +120,11 @@ async def test_danh_muc_tra_theo_thu_tu_excel_kem_nhan_hang(
     )
     assert theo["T1_TT_BS"]["phong"] == ten_phong
     assert theo["T1_TT_BS"]["ma_phong"] == "KN-THUTHUAT"
-    # Vị trí không tầng, không phòng (Trưởng ca) VẪN có trong danh mục — bảng
-    # lịch có hàng cho nó (27/09 đợt 3: bản cũ lọc bỏ vị trí không tầng).
-    assert theo["DIEU_PHOI"]["tang"] == ""
+    # Vị trí không gắn phòng thật (Trưởng ca) VẪN có trong danh mục — bảng lịch
+    # có hàng cho nó (27/09 đợt 3: bản cũ lọc bỏ vị trí không tầng). Tầng/Phòng
+    # là chữ hiển thị của vị trí (Tuyền 09/10: "Quản lý ca khám"), không phải phòng.
+    assert theo["DIEU_PHOI"]["tang"] == "Quản lý ca khám"
+    assert theo["DIEU_PHOI"]["phong"] == "Quản lý ca khám"
     assert theo["DIEU_PHOI"]["ma_phong"] == ""
 
 
