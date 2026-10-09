@@ -25,6 +25,7 @@ from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.events.catalogue import CskhDaLienHe
 from clinicai.events.emit import emit_event, nguoi
+from clinicai.services.audit import record_event
 from clinicai.services.ghi_chu_khach_service import (
     kiem_quyen_khung_khach,
     lam_sach_noi_dung,
@@ -231,21 +232,14 @@ class PhanHoiThuocService:
             )
             if khach is None:
                 raise NotFoundError("Không tìm thấy phản hồi của bạn (hoặc đã gỡ).")
-            await conn.execute(
-                """
-                INSERT INTO event_log
-                    (clinic_id, event_type, aggregate_type, aggregate_id,
-                     payload, source, occurred_at)
-                VALUES ($1::uuid, 'cskh.tuong_tac_hoan_tac', 'patient', $2::uuid,
-                        jsonb_build_object('tuong_tac_id', $3::text,
-                                           'loai', 'PHAN_HOI_THUOC',
-                                           'by_staff_id', $4::text),
-                        'cskh.customers', now())
-                """,
-                identity.clinic_id,
-                khach,
-                phan_hoi_id,
-                identity.staff_id,
+            await record_event(
+                conn,
+                event_type="cskh.tuong_tac_hoan_tac",
+                aggregate_type="patient",
+                aggregate_id=khach,
+                identity=identity,
+                origin="cskh.customers",
+                payload={"tuong_tac_id": phan_hoi_id, "loai": LOAI},
             )
         return {"ok": True}
 
