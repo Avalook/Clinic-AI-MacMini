@@ -18,6 +18,7 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 
 import LichSuKham from "../_lam-viec/LichSuKham";
+import { useNgheBang } from "../dung-nghe-bang";
 import { fmtNgay } from "./ban-thuoc";
 import { CHAM } from "./DongThuoc";
 
@@ -247,6 +248,13 @@ export default function LichSuDonThuoc({
   const [goi, setGoi] = useState<GoiLichSu | null | undefined>(undefined);
   const [bat, setBat] = useState<Record<string, boolean>>({});
   const [dangThem, setDangThem] = useState(false);
+  const [lanSuKien, setLanSuKien] = useState(0);
+
+  // Khung chọn khách chưa có màn cha nạp lại: nghe cả hoàn tiền và đổi hẹn.
+  useNgheBang(
+    ["visit", "prescription", "payment_cycle", "payment_refund", "payment_refund_line", "phieu_kham_luot"],
+    () => setLanSuKien((n) => n + 1),
+  );
 
   useEffect(() => {
     let bo = false;
@@ -256,7 +264,7 @@ export default function LichSuDonThuoc({
     return () => {
       bo = true;
     };
-  }, [clinicPatientId, lanTai]);
+  }, [clinicPatientId, lanTai, lanSuKien]);
 
   const xemThem = async () => {
     if (!goi) return;

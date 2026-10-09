@@ -19,7 +19,11 @@ import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ConflictError, ValidationError
+from clinicai.api.v1.routers.ho_so_kham import lich_su as doc_lich_su_kham
 from clinicai.core.clock import hom_nay_vn
+from clinicai.core.exceptions import SafetyGateError
+from clinicai.permissions import cache as quyen_cache
+from clinicai.permissions.y_khoa import doc_duoc_in_phieu, doc_duoc_y_khoa
 from clinicai.services import ban_theo_don_service as btd
 from clinicai.services.ban_le_service import BanLeService
 from clinicai.services.bill_service import tinh_hoa_don
@@ -338,3 +342,84 @@ async def test_chon_khach_thay_don_ngay_va_mo_theo_don_mot_giao_dich(q: Quay) ->
         drug,
         "10",
     )
+
+
+async def test_chi_lego_nha_thuoc_doc_duoc_lich_su_kham_khong_mo_quyen(q: Quay) -> None:
+    await _don_kho(q)
+    pid = await _pid(q)
+    # Chỉ quyền giao thuốc, không còn bất kỳ quyền lâm sàng/thu tiền nào.
+    await q.pool.execute(
+        "DELETE FROM capability_grant WHERE clinic_id = $1::uuid"
+        " AND staff_id = $2::uuid"
+        " AND capability <> 'pharmacy.dispense'",
+        CLINIC,
+        q.duoc_si.staff_id,
+    )
+    quyen_cache.quen(CLINIC, q.duoc_si.staff_id)
+    async with q.pool.acquire() as conn:
+        assert await doc_duoc_y_khoa(conn, q.duoc_si) is False
+        assert await doc_duoc_in_phieu(conn, q.duoc_si) is True
+    ls = await doc_lich_su_kham(
+        clinic_patient_id=uuid.UUID(pid),
+        tu=None,
+        den=None,
+        dich_vu_id=None,
+        identity=q.duoc_si,
+        pool=q.pool,
+    )
+    assert q.visit_id in [d["visit_id"] for d in ls["luot"]]
+    svc = BanLeService(q.pool)
+    assert (await svc.lich_su_don(clinic_patient_id=pid, trang=0, identity=q.duoc_si))[
+        "don"
+    ]
+    with pytest.raises(SafetyGateError):
+        await svc.mo_theo_don(
+            clinic_patient_id=pid, don_goc_visit_id=q.visit_id, identity=q.duoc_si
+        )
+    assert (
+        await q.pool.fetchval(
+            "SELECT count(*) FROM visit WHERE clinic_patient_id = $1::uuid AND ban_le",
+            pid,
+        )
+        == 0
+    )  # Thiếu quyền thu: cả giao dịch mở lượt được hoàn lại.
+
+
+async def test_mo_theo_don_cu_da_xac_dinh_thuoc_va_phan_trang(q: Quay) -> None:
+    drug, _rx = await _don_kho(q, so=7)
+    pid = await _pid(q)
+    await q.pool.execute(
+        "UPDATE visit SET checked_in_at = now() - interval '90 days'"
+        " WHERE visit_id = $1::uuid",
+        q.visit_id,
+    )
+    moi = await q.pool.fetchval(
+        "INSERT INTO visit (clinic_id, clinic_patient_id, status, checked_in_at)"
+        " VALUES ($1::uuid, $2::uuid, 'OPEN', now()) RETURNING visit_id::text",
+        CLINIC,
+        pid,
+    )
+    await q.pool.execute(
+        "INSERT INTO prescription (clinic_id, source_ref, visit_id,"
+        " clinic_patient_id, drug_name_raw)"
+        " VALUES ($1::uuid, $2, $3::uuid, $4::uuid, 'Đơn mới')",
+        CLINIC,
+        f"test-rx-{uuid.uuid4().hex}",
+        moi,
+        pid,
+    )
+    svc = BanLeService(q.pool)
+    assert [
+        d["visit_id"]
+        for d in (
+            await svc.lich_su_don(clinic_patient_id=pid, trang=0, identity=q.thu_ngan)
+        )["don"]
+    ] == [moi, q.visit_id]
+    kq = await svc.mo_theo_don(
+        clinic_patient_id=pid, don_goc_visit_id=q.visit_id, identity=q.thu_ngan
+    )
+    assert kq["so_dong_them"] == 1
+    dong = await QuayThuocService(q.pool).doc(
+        visit_id=kq["visit_id"], identity=q.thu_ngan
+    )
+    assert [(d["drug_catalog_id"], d["so_ke"]) for d in dong["dong"]] == [(drug, "7")]
