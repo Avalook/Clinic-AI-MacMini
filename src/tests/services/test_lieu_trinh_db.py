@@ -728,6 +728,38 @@ async def test_7_huy_chi_dinh_buoi_tra_ve(pool: asyncpg.Pool) -> None:
 
 @pytest.mark.db
 @pytest.mark.asyncio
+async def test_xong_buoi_bao_tin_lieu_trinh_cho_man(pool: asyncpg.Pool) -> None:
+    """Bấm thử staging 09/10: [Xong] một buổi mà kế hoạch không đổi → hàm tính
+    lại bỏ UPDATE vô ích → trước đây KHÔNG có tin `lieu_trinh`, dải lộ trình
+    đứng "Đã làm 0/6" tới khi tải lại. Giờ luôn có tin."""
+    import json
+
+    ca = await dung_ca(pool)
+    v = await luot(ca)
+    o = await chi_dinh(ca, v)
+    await tao(ca, v, 6, order=o)
+    tin: list[str] = []
+    nghe = await pool.acquire()
+    try:
+
+        def bat(*a: Any) -> None:
+            tin.append(json.loads(a[3])["t"])
+
+        await nghe.add_listener("clinicai_changes", bat)
+        await lam_xong(ca, o)
+        for _ in range(20):
+            if "lieu_trinh" in tin:
+                break
+            await asyncio.sleep(0.05)
+    finally:
+        await nghe.remove_listener("clinicai_changes", bat)
+        await pool.release(nghe)
+    assert "lieu_trinh" in tin, tin
+    assert (await doc(ca, (await buoi_song(ca, o))["lt"]))["da_lam"] == 1  # type: ignore[index]
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
 async def test_8_hoan_tac_xong_buoi_dem_da_lam_giam(pool: asyncpg.Pool) -> None:
     """#8: Xong buổi cuối → XONG; hoàn tác Xong → đếm giảm, về DANG_LAM."""
     ca = await dung_ca(pool)

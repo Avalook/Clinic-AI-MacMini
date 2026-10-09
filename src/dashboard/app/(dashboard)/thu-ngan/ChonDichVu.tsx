@@ -79,13 +79,17 @@ export default function ChonDichVu({
   visitId,
   cho,
   onXong,
+  moSan = false,
 }: {
   visitId: string;
   cho: ChoKhachQuyet;
   onXong: (cau: string | null, loi: string | null) => Promise<void>;
+  /** Mở sẵn ô tick (khối "Khách đã bỏ dịch vụ" — câu "đã chốt, đi làm được
+   *  ngay" sai với khách vừa bỏ hết). */
+  moSan?: boolean;
 }) {
   const conCho = cho.chi_dinh.some((c) => c.selection_status === "PENDING");
-  const [mo, setMo] = useState(conCho);
+  const [mo, setMo] = useState(conCho || moSan);
   // Mặc định: khách làm mọi chỉ định chưa từ chối — lễ tân bỏ tick cái khách
   // không làm. Chỉ định khách đã từ chối lần trước giữ nguyên là không làm.
   const [chon, setChon] = useState<Set<string>>(

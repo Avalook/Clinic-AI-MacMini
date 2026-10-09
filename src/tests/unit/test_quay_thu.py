@@ -466,3 +466,21 @@ def test_phieu_huong_dan_co_phong_khong_co_tien() -> None:
     assert a["order_id"] == "o1" and a["doi_phong_duoc"] is True
     assert b["phong"] is None and b["cho_xep"] is True
     assert dong_huong_dan([], phong) == []
+
+
+def test_con_khoan_quay_bo_buoi_da_tra_truoc() -> None:
+    """Buổi liệu trình đã phủ bằng tiền trả trước không phải khoản còn ở quầy
+    (staging 09/10: lượt kẹt mãi ở chờ thu); dòng thường / dòng trả trước k
+    buổi vẫn tính; đã chốt 0đ đúng bản thì xong."""
+    from clinicai.services.cashier_board_service import con_khoan_quay
+
+    phu = {"chon": True, "gia": 0, "lieu_trinh": {"tra_truoc": True}}
+    le = {"chon": True, "gia": 3_000_000, "lieu_trinh": {"tra_truoc": False}}
+    bo = {"chon": False, "gia": 900_000}
+    tra_truoc_k = {"chon": True, "gia": 6_000_000, "loai": "lieu_trinh"}
+    assert con_khoan_quay({"phong_kham": [phu]}) is False
+    assert con_khoan_quay({"phong_kham": [phu, bo]}) is False
+    assert con_khoan_quay({"phong_kham": [phu, le]}) is True
+    assert con_khoan_quay({"phong_kham": [phu, tra_truoc_k]}) is True
+    assert con_khoan_quay({"phong_kham": [le]}, da_chot_0d=True) is False
+    assert con_khoan_quay({}) is False

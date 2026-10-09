@@ -280,6 +280,39 @@ async def test_6_19_20_luot_dieu_tri_buoi_phu_quay_0d_lam_ngay(
 
 @pytest.mark.db
 @pytest.mark.asyncio
+async def test_buoi_phu_da_chot_khong_ket_cho_thu(pool: asyncpg.Pool) -> None:
+    """Bấm thử staging 09/10: buổi đã trả trước (0đ) — quầy [Chốt dịch vụ] xong
+    thì lượt RỜI chờ thu và tính là xong tiền. Trước: dòng tick 0đ bị coi là
+    còn khoản, "chốt 0đ" không ghi được (hoá đơn không dòng) → kẹt mãi."""
+    from clinicai.services.cashier_board_service import CashierBoardService
+
+    ca = await dung_ca(pool)
+    await lt_da_tra_truoc(ca, 6, 6)
+    v = await luot(ca, dieu_tri=True)
+    async with pool.acquire() as conn, conn.transaction():
+        o = await sinh_chi_dinh_dieu_tri(
+            conn, clinic_id=CLINIC, visit_id=v, nguoi_bam=None
+        )
+    assert o is not None
+    bang = CashierBoardService(pool)
+
+    async def mot() -> dict[str, Any]:
+        b = await bang.board(identity=ca.thu_ngan, modes=["dich_vu"])
+        (i,) = [i for i in b["items"] if i["visit_id"] == v]
+        da_thu = (v, "dich_vu") in {(p["visit_id"], p["kind"]) for p in b["paid"]}
+        return {**i, "da_thu": da_thu}
+
+    # Còn chờ khách chốt (PENDING) → vẫn ở chờ thu, 0đ.
+    i = await mot()
+    assert i["cho_thu"] is True and i["quay_thu"]["tong"] == 0
+    # Quầy chốt → SELECTED, buổi vẫn phủ → xong.
+    await dat_trang_thai(ca, o, selection_status="SELECTED")
+    i = await mot()
+    assert (i["cho_thu"], i["da_thu"]) == (False, True)
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
 async def test_7_17_buoi_phu_huy_tra_ve_hoan_tac_gan_lai(pool: asyncpg.Pool) -> None:
     """#7: buổi phủ, khách về không làm → huỷ chỉ định → buổi trả về, số đã trả
     giữ, không thành tiền thừa. #17: hoàn tác bỏ → gắn lại + phủ lại (còn buổi
