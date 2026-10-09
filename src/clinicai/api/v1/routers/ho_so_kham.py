@@ -11,7 +11,7 @@ from uuid import UUID
 
 import asyncpg
 from fastapi import APIRouter, Depends, Header, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
@@ -108,6 +108,29 @@ async def doc_dieu_tri(
     """Thẻ chỉ định điều trị của lượt: phiếu điều trị, trạng thái, nút."""
     return await dieu_tri_ban_kham.doc_the(
         pool, identity=identity, visit_id=str(visit_id)
+    )
+
+
+class ChonThuThuatBody(BaseModel):
+    service_code: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/ho-so-kham/{visit_id}/dieu-tri/chon-thu-thuat")
+async def chon_thu_thuat(
+    visit_id: UUID,
+    body: ChonThuThuatBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    """Khối 1 lượt Thủ thuật: chọn thủ thuật đã làm = chỉ định + Bắt đầu tại
+    bàn khám (luật + cửa tiền ở service)."""
+    return await dieu_tri_ban_kham.chon_thu_thuat(
+        pool,
+        identity=identity,
+        visit_id=str(visit_id),
+        service_code=body.service_code,
+        idempotency_key=idempotency_key,
     )
 
 

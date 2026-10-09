@@ -37,7 +37,11 @@ from clinicai.permissions.ca_truc import kiem_dung_ca
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.y_khoa import QUYEN_IN_PHIEU
 from clinicai.phieu_kham import anh_xa_danh_muc as ax
-from clinicai.phieu_kham.che_do import doi_ghi_duoc
+from clinicai.phieu_kham.che_do import (
+    KHOI1_DIEU_TRI,
+    che_do_khoi1,
+    doi_ghi_duoc,
+)
 from clinicai.phieu_kham.hanh_trinh import doc_hanh_trinh
 from clinicai.phieu_kham.ket_qua_chi_dinh import (
     doc_ket_qua_theo_chi_dinh,
@@ -46,6 +50,7 @@ from clinicai.phieu_kham.ket_qua_chi_dinh import (
 )
 from clinicai.phieu_kham.khung import (
     FORM_IDS,
+    HO_SO_DIEU_TRI,
     cac_o,
     dinh_nghia,
     kiem_du_lieu,
@@ -270,7 +275,7 @@ class PhieuKhamService:
         async with self._pool.acquire() as conn:
             await self._kiem_quyen(conn, identity, "doc_phieu")
             luot = await conn.fetchrow(
-                "SELECT st.form_code FROM visit v"
+                "SELECT st.form_code, st.nhom FROM visit v"
                 " LEFT JOIN service_type st ON st.id = v.service_type_id"
                 " WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid",
                 cid,
@@ -278,6 +283,7 @@ class PhieuKhamService:
             )
             if luot is None:
                 raise ValidationError("Không tìm thấy lượt khám.")
+            khoi1 = che_do_khoi1(luot["nhom"], luot["form_code"])
             # PHIẾU THEO DỊCH VỤ HIỆN TẠI (T5, 07/10/2026): đổi dịch vụ khám thì
             # mở phiếu của dịch vụ mới; phiếu cũ GIỮ NGUYÊN dòng của nó, đổi
             # ngược về là mở lại đúng phiếu cũ đủ dữ liệu. Dịch vụ không gắn
@@ -297,9 +303,15 @@ class PhieuKhamService:
         chon = form_id or (dong["form_id"] if dong else None)
         if chon is None and luot["form_code"] in FORM_IDS:
             chon = luot["form_code"]
+        # Lượt Điều trị: đủ bốn khối, không bắt chọn phiếu (09/10/2026) — khung
+        # TRUNG TÍNH "Hồ sơ điều trị", không phải phiếu của bảy loại khám.
+        # Chỉ ĐỌC khung; dòng `phieu_kham_luot` chỉ sinh khi bác sĩ ghi.
+        if chon is None and khoi1 == KHOI1_DIEU_TRI:
+            chon = HO_SO_DIEU_TRI
         if chon is None:
             return {
                 "form_id": None,
+                "khoi1": khoi1,
                 "chon_duoc": [
                     {"form_id": f, "ten": dinh_nghia(f)["ten"]} for f in FORM_IDS
                 ],
@@ -322,6 +334,8 @@ class PhieuKhamService:
             "sua_luc": dong["sua_luc"].isoformat() if dong else None,
             "che_do": CHE_DO_MO,
             "mac_dinh_theo_loai_kham": luot["form_code"] in FORM_IDS,
+            # Khối 1 vẽ gì theo loại lượt — màn chỉ đọc (`che_do_khoi1`).
+            "khoi1": khoi1,
         }
 
     async def _dien_nguoc_thai_ky(
