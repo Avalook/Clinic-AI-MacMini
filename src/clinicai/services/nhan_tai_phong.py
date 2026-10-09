@@ -51,7 +51,6 @@ from clinicai.services.hang_cho import (
     mo_cho_bi_chan,
     ve_lai_hang_phong,
 )
-from clinicai.services.lam_truoc_thu_sau import nhac_tick
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
     bien_nhan_doc,
@@ -258,7 +257,7 @@ def trang_thai_chi_dinh(
     chỉ định này tại bàn khám (không phải việc của phòng nào). ``chuyen`` (★) /
     ``huong_dan_day``: chỉ để gắn nhãn và xếp trước. ``moi_tick`` → cờ
     ``nhac_tick`` (chỉ dòng sắp đến / chờ ở đây): khung phải hiện ô "Làm trước
-    – thu sau" — luật `lam_truoc_thu_sau.nhac_tick`."""
+    – thu sau" — luật `service_execution_service.chan_vi_chua_thu`."""
     ex = r["execution_status"]
     o_dau: str | None = None
     o_trang: str | None = None
@@ -335,17 +334,28 @@ async def _chi_dinh(
         cid,
         [r["id"] for r in rows if r["execution_status"] == "IN_PROGRESS"],
     )
-    # Ô "Làm trước – thu sau" ở khung phải (09/10/2026): lượt nào được làm khi
-    # chưa thu (dây tắt / đã tick). Đếm toàn phòng khám không cần.
-    chua_thu: dict[str, bool] = {}
-    if not chi_sap_den and rows:
-        from clinicai.services.service_execution_service import (
-            duoc_lam_khi_chua_thu,
-        )
+    # Ô "Làm trước – thu sau" ở khung phải (09/10/2026): cửa tiền "nếu chốt
+    # hộ" — CÙNG luật với lệnh Bắt đầu (`chan_vi_chua_thu`, E1). Đếm toàn phòng
+    # khám không cần.
+    from clinicai.services.service_execution_service import chan_vi_chua_thu
 
-        chua_thu = await duoc_lam_khi_chua_thu(
-            conn, cid, list({r["visit_id"] for r in rows})
+    tien_chot = (
+        await finance_gate.states_for_orders(
+            conn,
+            cid,
+            list(
+                {
+                    r["id"]
+                    for r in rows
+                    if (r["chua_vao"] or r["q_id"] is not None)
+                    and (r["execution_status"] or "PENDING") == "PENDING"
+                }
+            ),
+            gia_su_chon=True,
         )
+        if not chi_sap_den
+        else {}
+    )
     out: list[tuple[asyncpg.Record, dict[str, Any]]] = []
     for r in rows:
         q = tien.get(r["id"])
@@ -356,12 +366,9 @@ async def _chi_dinh(
             tien_chan=chan,
             cau_tien=finance_gate.cau_chan_lam(q) if chan else None,
             ban_kham=(bk.get(r["id"]) or {}).get("noi"),
-            moi_tick=not chi_sap_den
-            and nhac_tick(
-                q.finance_state if q is not None else None,
-                selection_status=r["selection_status"],
-                execution_status=r["execution_status"],
-                duoc_chua_thu=chua_thu.get(r["visit_id"], True),
+            moi_tick=r["id"] in tien_chot
+            and chan_vi_chua_thu(
+                tien_chot[r["id"]], selection_status=r["selection_status"]
             ),
         )
         if c is not None:

@@ -259,8 +259,9 @@ Bắt đầu tại bàn khám; `/api/ho-so-kham` `thao_tac=chon-thu-thuat` →
 `R/ho_so_kham.py` `/ho-so-kham/{visit}/dieu-tri/chon-thu-thuat`); cờ `ban_kham` mỗi chỉ
 định ở `src/clinicai/phieu_kham/ket_qua_chi_dinh.py` (`dieu_tri` giữ cho bản in). Ô
 "Làm trước – thu sau" tại chỗ CHỈ khi FinanceGate chặn vì chưa thu + chưa tick:
-`S/lam_truoc_thu_sau.py` `nhac_tick` (thuần, dùng ở `doc_the` và `S/nhan_tai_phong.py`
-`_chi_dinh` → cờ `nhac_tick` của chỉ định ở khung phải phòng). Link "Mở bàn khám" ở
+cờ `nhac_tick` = `S/service_execution_service.py` `chan_vi_chua_thu` (E1; cửa tiền
+`cua_tien_chot_ho` trên `states_for_orders(gia_su_chon=True)`) ở `doc_the` và
+`S/nhan_tai_phong.py` `_chi_dinh` (chỉ định ở khung phải phòng). Link "Mở bàn khám" ở
 Sắp đến: `S/nhan_tai_phong.py` `mo_ban_kham`. Test: `T/unit/test_khoi1_theo_loai_luot.py`,
 `T/services/test_khoi1_ban_kham_db.py`, `T/services/test_nhac_tick_phong_db.py`.
 

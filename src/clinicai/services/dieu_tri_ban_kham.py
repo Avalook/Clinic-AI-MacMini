@@ -11,7 +11,7 @@ khám nhóm DIEU_TRI — `service_type.service_price_id`), mỗi chỉ định m
   · xong (ở đâu, ai, lúc nào) · không làm / dừng.
 * LÀM TẠI BÀN KHÁM: [Làm tại bàn khám] → [Xong], hoàn tác từng bước — lệnh của
   module Thực hiện (`ServiceExecutionService.*_tai_ban_kham`); cửa tiền CÙNG
-  FinanceGate với phòng (`cua_tien_ban_kham`). Điền phiếu KHÔNG tính là đã làm.
+  FinanceGate với phòng (`cua_tien_chot_ho`). Điền phiếu KHÔNG tính là đã làm.
 * "Khách đã đặt": chỉ định trùng dịch vụ lượt Điều trị đã đặt (T1) → cờ `da_dat`.
 
 Chỉ định điều trị (tự sinh hay bác sĩ kê) là `service_order` bình thường: quầy
@@ -33,7 +33,6 @@ from clinicai.phieu_kham.che_do import KHOI1_THU_THUAT, che_do_khoi1
 from clinicai.phieu_kham.mau_dieu_tri import MAU_PHIEU_DIEU_TRI
 from clinicai.phieu_kham.mau_goi_y import mau_cho_cac_dich_vu
 from clinicai.services.finance_gate import READY_STATES, states_for_orders
-from clinicai.services.lam_truoc_thu_sau import nhac_tick
 from clinicai.services.lenh_kham_core import ma_uuid
 
 # Lượt đã check-out / đã đóng: thẻ chỉ đọc, lệnh bị từ chối — `CAU_LUOT_DA_DONG`
@@ -44,8 +43,8 @@ from clinicai.services.service_execution_service import (
     NOI_BAN_KHAM,
     QUYEN_LAM_TAI_BAN_KHAM,
     ServiceExecutionService,
-    cua_tien_ban_kham,
-    duoc_lam_khi_chua_thu,
+    chan_vi_chua_thu,
+    cua_tien_chot_ho,
 )
 
 #: Mã dịch vụ ĐIỀU TRỊ của phòng khám — dịch vụ mà một loại khám nhóm DIEU_TRI
@@ -235,8 +234,9 @@ async def doc_the(
         chi_doc = luot_da_dong(luot["status"], luot["closed_at"])
         rows = await conn.fetch(_THE_SQL, cid, vid)
         ids = [r["order_id"] for r in rows]
-        tien = await states_for_orders(conn, cid, ids)
-        chua_thu = (await duoc_lam_khi_chua_thu(conn, cid, [vid])).get(vid, False)
+        # Cửa tiền "nếu chốt hộ" — CÙNG luật với lệnh Bắt đầu tại bàn khám /
+        # ở phòng (`cua_tien_chot_ho`, E1 09/10): nút trên thẻ không lệch lệnh.
+        tien = await states_for_orders(conn, cid, ids, gia_su_chon=True)
         mau = await mau_cho_cac_dich_vu(
             conn, clinic_id=cid, service_codes=[r["service_code"] for r in rows]
         )
@@ -259,14 +259,12 @@ async def doc_the(
         oid = r["order_id"]
         tt = trang_thai_the(r["execution_status"], r["noi_lam"])
         t = tien.get(oid)
-        lam_duoc, cau, _ = cua_tien_ban_kham(
-            t, selection_status=r["selection_status"], duoc_chua_thu=chua_thu
-        )
-        moi_tick = not chi_doc and nhac_tick(
-            t.finance_state if t is not None else None,
-            selection_status=r["selection_status"],
-            execution_status=r["execution_status"],
-            duoc_chua_thu=chua_thu,
+        lam_duoc, cau, _ = cua_tien_chot_ho(t, selection_status=r["selection_status"])
+        # Mời tick tại chỗ: chỉ thẻ CHƯA LÀM bị chặn vì chưa thu + chưa tick.
+        moi_tick = (
+            not chi_doc
+            and tt == "CHUA_LAM"
+            and chan_vi_chua_thu(t, selection_status=r["selection_status"])
         )
         dang_ban_kham = tt == "DANG_LAM_BAN_KHAM"
         xong_ban_kham = tt == "XONG" and r["noi_lam"] == NOI_BAN_KHAM
