@@ -112,6 +112,34 @@ test("dongKetQua: bỏ ô trống, tách Kết luận, gắn đơn vị cho số
   assert.equal(ketLuan, "Bình thường");
 });
 
+test("dongKetQua: đơn vị theo don_vi (09/10/2026); goi_y là gợi ý cách gõ thì không nối", () => {
+  const k = {
+    loai: "PHIEU",
+    ten: "Siêu âm thai",
+    khung: [
+      {
+        ma: "do",
+        ten: "Số đo",
+        block: [
+          { ma: "bpp", ten: "BPP", kieu: "text", goi_y: "điểm", don_vi: "điểm" },
+          { ma: "ga", ten: "GA", kieu: "text", goi_y: "tuần + ngày" },
+          { ma: "so_thai", ten: "Số thai", kieu: "text", don_vi: "thai" },
+        ],
+      },
+    ],
+    du_lieu: {
+      bpp: { gia_tri: "8" },
+      ga: { gia_tri: "34" },
+      so_thai: { gia_tri: "01" },
+    },
+  } as unknown as KetQuaMotChiDinh;
+  assert.deepEqual(dongKetQua(k).dong, [
+    { nhan: "BPP", gia: "8 điểm" },
+    { nhan: "GA", gia: "34" },
+    { nhan: "Số thai", gia: "01 thai" },
+  ]);
+});
+
 test("tachDanhMucKhac: nhóm phiếu giấy giữ nguyên, nhóm bảng giá gom một danh sách", () => {
   const m = (nhan: string) => ({ nhan, cach_tra_ket_qua: "", form_id_ket_qua: null, service_code: nhan });
   const ds: NhomCls[] = [

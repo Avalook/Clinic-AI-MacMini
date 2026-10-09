@@ -13,7 +13,9 @@
 // Định danh luôn là KHOÁ (`ma`). Nhãn (`ten`) chỉ để hiển thị, không bao giờ
 // đem đi so khớp.
 
-export type KieuO = "text" | "so" | "ngay" | "doan_van" | "chon" | "nhieu_chon";
+import { giaKemDonVi } from "./phieu-ket-qua.ts";
+
+export type KieuO ="text" | "so" | "ngay" | "doan_van" | "chon" | "nhieu_chon";
 
 export interface LuaChon {
   ma: string;
@@ -945,7 +947,9 @@ export function dongKetQua(k: KetQuaMotChiDinh): {
       const nhap = k.du_lieu?.[o.ma];
       if (!coNhap(nhap)) continue;
       const g: unknown = nhap?.gia_tri;
-      const donVi = (gia: string) => (o.goi_y && /\d$/.test(gia) ? `${gia} ${o.goi_y}` : gia);
+      // Cùng luật đơn vị với bản in / màn xem (`giaKemDonVi`): `don_vi` của ô,
+      // khung cũ thì `goi_y` khi nó là đơn vị thuần — không gắn "tuần + ngày".
+      const donVi = (gia: string) => giaKemDonVi(gia, o);
       if (m.cot && g && typeof g === "object" && !Array.isArray(g)) {
         for (const c of m.cot) {
           const v = (g as Record<string, unknown>)[c.ma];

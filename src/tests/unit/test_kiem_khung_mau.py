@@ -92,6 +92,38 @@ def test_o_chon_hien_dang_o_tick_duoc_giu() -> None:
     assert "hien_thi" not in kiem_khung_mau(MAU)[1]["block"][0]
 
 
+def test_o_tuy_chon_va_don_vi_duoc_giu_va_chuan_hoa() -> None:
+    """09/10/2026: `tuy_chon` (không nhắc còn trống) + `don_vi` (in sau giá trị)."""
+    k = _sua(**{"0__1__don_vi": "  mm ", "2__0__tuy_chon": True})
+    ra = kiem_khung_mau(k)
+    assert ra[0]["block"][1]["don_vi"] == "mm"
+    assert ra[2]["block"][0]["tuy_chon"] is True
+    # false / rỗng = như không khai: không mang khoá thừa vào khung.
+    ra = kiem_khung_mau(_sua(**{"0__1__don_vi": " ", "2__0__tuy_chon": False}))
+    assert "don_vi" not in ra[0]["block"][1]
+    assert "tuy_chon" not in ra[2]["block"][0]
+    # Ô chữ ngắn có đơn vị được (mẫu siêu âm gõ "12 x 8").
+    assert kiem_khung_mau(_sua(**{"0__0__don_vi": "mm"}))[0]["block"][0]["don_vi"]
+
+
+@pytest.mark.parametrize(
+    ("thay", "cau"),
+    [
+        ({"2__0__tuy_chon": "có"}, "tuỳ chọn"),
+        ({"2__0__tuy_chon": 1}, "tuỳ chọn"),
+        ({"0__1__don_vi": 5}, "phải là chữ"),
+        ({"0__1__don_vi": ["mm"]}, "phải là chữ"),
+        ({"0__1__don_vi": "m" * 21}, "dài quá 20"),
+        ({"2__0__don_vi": "mm"}, "chỉ ô chữ ngắn hoặc ô số"),
+        ({"1__0__don_vi": "mm"}, "chỉ ô chữ ngắn hoặc ô số"),
+    ],
+)
+def test_tuy_chon_don_vi_rac_bi_chan_gon(thay: dict[str, Any], cau: str) -> None:
+    """Đầu vào rác → ValidationError (400 có câu), không bao giờ 500."""
+    with pytest.raises(ValidationError, match=cau):
+        kiem_khung_mau(_sua(**thay))
+
+
 def test_trung_ma_o_giua_hai_muc_cung_bi_chan() -> None:
     """Dữ liệu điền khoá theo `ma` ô trên CẢ phiếu — trùng ở hai mục vẫn ghi đè."""
     k = copy.deepcopy(MAU)

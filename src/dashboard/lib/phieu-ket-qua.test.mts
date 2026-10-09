@@ -1,7 +1,47 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { cauHoanTatPhieu, ghepConTrong, gopGiaTri, laMauDieuTri, tachGiaTri } from "./phieu-ket-qua.ts";
+import {
+  cauHoanTatPhieu,
+  donViCuaO,
+  ghepConTrong,
+  giaKemDonVi,
+  gopGiaTri,
+  laMauDieuTri,
+  tachGiaTri,
+} from "./phieu-ket-qua.ts";
+
+test("donViCuaO: don_vi trước; khung cũ thì goi_y khi là đơn vị thuần; rác → null", () => {
+  assert.equal(donViCuaO({ kieu: "text", don_vi: " mm " }), "mm");
+  assert.equal(donViCuaO({ kieu: "text", goi_y: "mm" }), "mm"); // phiếu ghim bản cũ
+  assert.equal(donViCuaO({ kieu: "text", goi_y: "chu kỳ/phút" }), "chu kỳ/phút");
+  for (const goiY of ["tuần + ngày", "PSV cm/s | EDV cm/s | RI", "__x__ mm", "± grams", "ngày", "Độ"]) {
+    assert.equal(donViCuaO({ kieu: "text", goi_y: goiY }), null, goiY);
+  }
+  assert.equal(donViCuaO({ kieu: "doan_van", goi_y: "mm" }), null);
+  assert.equal(donViCuaO({ kieu: "text", goi_y: "mm", don_vi: 5 }), null);
+  assert.equal(donViCuaO(null), null);
+  assert.equal(donViCuaO(undefined), null);
+  assert.equal(donViCuaO("mm" as never), null);
+});
+
+test("giaKemDonVi: chỉ nối khi có giá trị và giá trị tận cùng là số", () => {
+  const o = { kieu: "text", don_vi: "mm" };
+  assert.equal(giaKemDonVi("89.6", o), "89.6 mm");
+  assert.equal(giaKemDonVi("12 x 8 ", o), "12 x 8 mm");
+  assert.equal(giaKemDonVi("12 mm", o), "12 mm"); // đã gõ đơn vị
+  assert.equal(giaKemDonVi("bình thường", o), "bình thường");
+  assert.equal(giaKemDonVi("", o), "");
+  assert.equal(giaKemDonVi(null, o), "");
+  assert.equal(giaKemDonVi(2206, { kieu: "text", don_vi: "grams" }), "2206 grams");
+  assert.equal(giaKemDonVi("34 tuần 0 ngày", { kieu: "text", goi_y: "tuần + ngày" }), "34 tuần 0 ngày");
+  assert.equal(giaKemDonVi("45", null), "45");
+});
+
+test("ghepConTrong: bỏ qua ô tuỳ chọn (máy chủ không đếm)", () => {
+  const k = [{ block: [{ ma: "dn", ten: "Đề nghị", tuy_chon: true }, { ma: "x", ten: "Đề nghị" }] }];
+  assert.deepEqual(ghepConTrong(k, ["Đề nghị"]), [{ ma: "x", ten: "Đề nghị" }]);
+});
 
 const khung = [
   { block: [{ ma: "a", ten: "Tử cung" }, { ma: "b", ten: "Buồng trứng" }] },

@@ -88,7 +88,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -176,7 +177,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -270,7 +272,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -370,7 +373,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -387,13 +391,15 @@
        "ma": "trai_goc_psv",
        "ten": "Động mạch thận trái — Đoạn gốc — PSV",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "trai_goc_edv",
        "ten": "Động mạch thận trái — Đoạn gốc — EDV",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "trai_goc_ri",
@@ -405,13 +411,15 @@
        "ma": "trai_ron_psv",
        "ten": "Động mạch thận trái — Đoạn rốn thận — PSV",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "trai_ron_edv",
        "ten": "Động mạch thận trái — Đoạn rốn thận — EDV",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "trai_ron_ri",
@@ -423,13 +431,15 @@
        "ma": "trai_nhu_mo_psv",
        "ten": "Động mạch thận trái — Đoạn nhu mô — PSV",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "trai_nhu_mo_edv",
        "ten": "Động mạch thận trái — Đoạn nhu mô — EDV",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "trai_nhu_mo_ri",
@@ -453,13 +463,15 @@
        "ma": "phai_goc_psv",
        "ten": "Động mạch thận phải — Đoạn gốc — PSV",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "phai_goc_edv",
        "ten": "Động mạch thận phải — Đoạn gốc — EDV",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "phai_goc_ri",
@@ -471,13 +483,15 @@
        "ma": "phai_ron_psv",
        "ten": "Động mạch thận phải — Đoạn rốn thận — PSV",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "phai_ron_edv",
        "ten": "Động mạch thận phải — Đoạn rốn thận — EDV",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "phai_ron_ri",
@@ -489,13 +503,15 @@
        "ma": "phai_nhu_mo_psv",
        "ten": "Động mạch thận phải — Đoạn nhu mô — PSV",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "phai_nhu_mo_edv",
        "ten": "Động mạch thận phải — Đoạn nhu mô — EDV",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "phai_nhu_mo_ri",
@@ -542,7 +558,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -601,7 +618,8 @@
        "ma": "phai_vmax",
        "ten": "Bên phải — Vmax",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "phai_ri",
@@ -619,7 +637,8 @@
        "ma": "trai_vmax",
        "ten": "Bên trái — Vmax",
        "kieu": "text",
-       "goi_y": "cm/s"
+       "goi_y": "cm/s",
+       "don_vi": "cm/s"
       },
       {
        "ma": "trai_ri",
@@ -666,7 +685,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -701,13 +721,15 @@
        "ma": "trai_tm_truoc",
        "ten": "Tinh hoàn trái — TM thừng tinh trước Valsalva",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "trai_tm_sau",
        "ten": "Tinh hoàn trái — TM thừng tinh sau Valsalva",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "trai_trao_nguoc",
@@ -743,13 +765,15 @@
        "ma": "phai_tm_truoc",
        "ten": "Tinh hoàn phải — TM thừng tinh trước Valsalva",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "phai_tm_sau",
        "ten": "Tinh hoàn phải — TM thừng tinh sau Valsalva",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "phai_trao_nguoc",
@@ -790,7 +814,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -842,7 +867,8 @@
        "ma": "niem_mac",
        "ten": "Niêm mạc tử cung",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "douglas",
@@ -883,7 +909,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -923,7 +950,8 @@
        "ma": "niem_mac",
        "ten": "Niêm mạc tử cung",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "buong_trung_phai",
@@ -970,7 +998,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -993,7 +1022,8 @@
        "ma": "crl",
        "ten": "Chiều dài đầu mông (CRL)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "ga",
@@ -1046,7 +1076,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -1069,7 +1100,8 @@
        "ma": "crl",
        "ten": "Chiều dài đầu mông (CRL)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "ga",
@@ -1093,31 +1125,36 @@
        "ma": "nt",
        "ten": "Độ mờ da gáy (NT)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "bpd",
        "ten": "Đường kính lưỡng đỉnh (BPD)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "hc",
        "ten": "Chu vi vòng đầu (HC)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "ac",
        "ten": "Chu vi vòng bụng (AC)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "fl",
        "ten": "Chiều dài xương đùi (FL)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "efw",
@@ -1129,7 +1166,8 @@
        "ma": "nbl",
        "ten": "Độ dài xương mũi (NBL)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       }
      ]
     },
@@ -1182,7 +1220,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -1228,25 +1267,29 @@
        "ma": "bpd",
        "ten": "Đường kính lưỡng đỉnh (BPD)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "hc",
        "ten": "Chu vi vòng đầu (HC)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "ac",
        "ten": "Chu vi vòng bụng (AC)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "fl",
        "ten": "Chiều dài xương đùi (FL)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "efw",
@@ -1377,7 +1420,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -1416,7 +1460,8 @@
        "ma": "a_crl",
        "ten": "Thai A — Chiều dài đầu mông (CRL)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "a_ga",
@@ -1440,31 +1485,36 @@
        "ma": "a_nt",
        "ten": "Thai A — Độ mờ da gáy (NT)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "a_bpd",
        "ten": "Thai A — Đường kính lưỡng đỉnh (BPD)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "a_hc",
        "ten": "Thai A — Chu vi vòng đầu (HC)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "a_ac",
        "ten": "Thai A — Chu vi vòng bụng (AC)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "a_fl",
        "ten": "Thai A — Chiều dài xương đùi (FL)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "a_efw",
@@ -1494,7 +1544,8 @@
        "ma": "b_crl",
        "ten": "Thai B — Chiều dài đầu mông (CRL)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "b_ga",
@@ -1518,31 +1569,36 @@
        "ma": "b_nt",
        "ten": "Thai B — Độ mờ da gáy (NT)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "b_bpd",
        "ten": "Thai B — Đường kính lưỡng đỉnh (BPD)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "b_hc",
        "ten": "Thai B — Chu vi vòng đầu (HC)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "b_ac",
        "ten": "Thai B — Chu vi vòng bụng (AC)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "b_fl",
        "ten": "Thai B — Chiều dài xương đùi (FL)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "b_efw",
@@ -1595,7 +1651,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -1653,25 +1710,29 @@
        "ma": "a_bpd",
        "ten": "Thai A — Đường kính lưỡng đỉnh (BPD)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "a_hc",
        "ten": "Thai A — Chu vi vòng đầu (HC)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "a_ac",
        "ten": "Thai A — Chu vi vòng bụng (AC)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "a_fl",
        "ten": "Thai A — Chiều dài xương đùi (FL)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "a_efw",
@@ -1760,25 +1821,29 @@
        "ma": "b_bpd",
        "ten": "Thai B — Đường kính lưỡng đỉnh (BPD)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "b_hc",
        "ten": "Thai B — Chu vi vòng đầu (HC)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "b_ac",
        "ten": "Thai B — Chu vi vòng bụng (AC)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "b_fl",
        "ten": "Thai B — Chiều dài xương đùi (FL)",
        "kieu": "text",
-       "goi_y": "mm"
+       "goi_y": "mm",
+       "don_vi": "mm"
       },
       {
        "ma": "b_efw",
@@ -1920,7 +1985,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -1984,7 +2050,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -2071,7 +2138,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -2110,7 +2178,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }
@@ -2149,7 +2218,8 @@
       {
        "ma": "de_nghi",
        "ten": "Đề nghị / lời dặn",
-       "kieu": "doan_van"
+       "kieu": "doan_van",
+       "tuy_chon": true
       }
      ]
     }

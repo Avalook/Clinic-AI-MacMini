@@ -7,12 +7,16 @@
 
 import { useEffect, useState } from "react";
 
+import { giaKemDonVi } from "@/lib/phieu-ket-qua";
 import { tenMucHien } from "@/lib/sua-mau";
 
 interface O {
   ma: string;
   ten: string;
   kieu: string;
+  goi_y?: string;
+  /** Đơn vị (09/10/2026) — "89.6 mm"; luật ở `giaKemDonVi`. */
+  don_vi?: string;
 }
 interface Muc {
   ma: string;
@@ -89,13 +93,13 @@ export default function XemPhieuKetQua({ serviceOrderId }: { serviceOrderId: str
                       ? (m.cot ?? [])
                           .map((c) => {
                             const x = (g as Record<string, unknown>)[c.ma];
-                            return x === "" || x == null ? "" : `${c.ten}: ${String(x)}`;
+                            return x === "" || x == null ? "" : `${c.ten}: ${giaKemDonVi(x, o)}`;
                           })
                           .filter(Boolean)
                           .join(" · ")
                       : Array.isArray(g)
                         ? g.join(", ")
-                        : String(g);
+                        : giaKemDonVi(g, o);
                   return (
                     <div key={o.ma} className="flex gap-2 text-meta">
                       <dt className="text-ink-muted">{o.ten}:</dt>
