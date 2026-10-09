@@ -279,6 +279,12 @@ cờ `nhac_tick` = `S/service_execution_service.py` `chan_vi_chua_thu` (E1; cử
 `S/nhan_tai_phong.py` `_chi_dinh` (chỉ định ở khung phải phòng). Link "Mở bàn khám" ở
 Sắp đến: `S/nhan_tai_phong.py` `mo_ban_kham`. Test: `T/unit/test_khoi1_theo_loai_luot.py`,
 `T/services/test_khoi1_ban_kham_db.py`, `T/services/test_nhac_tick_phong_db.py`.
+Giao diện: `PhieuKham.tsx` prop `oKhoi1` + `khoi1` (ẩn A/B lượt Điều trị — `mucAnKhoi1`),
+`PhieuKhamLuot.tsx` dựng `oKhoi1` (thẻ `ban_kham` theo `phanChiDinh(…, khoi1).banKham`),
+nút chọn `D/_lam-viec/phieu-kham/ChonThuThuatBanKham.tsx` (lọc `danhSachThuThuatBanKham`), ô
+tick tại chỗ `D/_lam-viec/OLamTruocThuSau.tsx` `OTickTaiCho` (khối 1 qua `KhoiDieuTri` prop
+`oTick`; khung phải `D/phong/[ma]/KhungChiDinhKhach.tsx`), link `D/phong/[ma]/SapDenPhong.tsx`.
+FT `khoi-dieu-tri-boundary.test.mts`, `nhan-tai-phong-boundary.test.mts`, `lib/phieu-kham.test.mts`.
 
 **Liệu trình điều trị nhiều buổi — dải trong thẻ điều trị (08/10/2026, C1)** — đặc tả
 `docs/KE-HOACH-LIEU-TRINH.md`. Dải "Buổi k/N · đã làm · đã trả · còn nợ", [Tạo liệu trình]

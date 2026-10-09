@@ -441,6 +441,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
               khach={sdKhach?.khach ?? dongKhach[0]?.ten ?? null}
               maKhach={sdKhach?.ma_khach ?? dongKhach[0]?.ma_bn ?? null}
               dangO={sdKhach?.dang_o ?? null}
+              moBanKham={sdKhach?.mo_ban_kham ?? null}
               chiDinh={sdKhach?.chi_dinh ?? chiDinhKhach[khachMo] ?? []}
               dong={dongKhach}
               chon={chon?.id ?? null}

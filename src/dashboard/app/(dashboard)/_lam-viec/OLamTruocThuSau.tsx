@@ -3,8 +3,10 @@
 // Ô tick "Làm trước – thu sau" của MỘT lượt (Tuyền 30/09/2026 tối).
 //
 // Dây nối `thu_truoc_khi_lam` (mặc định BẬT): chưa thu thì chỉ lượt được tick
-// mới xếp phòng / bắt đầu làm. Dùng CHUNG ở Bàn khám (khối Chỉ định & kết quả)
-// và quầy thu dịch vụ (`thu-ngan/HoaDonMot`) — một bản, không hai bản lệch.
+// mới xếp phòng / bắt đầu làm. Dùng CHUNG ở Bàn khám (cột phải lượt khám
+// thường; khối 1 lượt Điều trị / Thủ thuật qua `OTickTaiCho`), khung phải mọi
+// phòng dịch vụ (`OTickTaiCho`) và quầy thu dịch vụ (`thu-ngan/HoaDonMot`) —
+// một bản, không hai bản lệch.
 //
 // Màn KHÔNG tự quyết: hiện hay không, tick / bỏ tick được hay không, câu vì sao
 // không bỏ được, câu "bỏ tick thì chuyện gì xảy ra" — đều là cờ máy chủ trả
@@ -53,6 +55,18 @@ export function gio(iso: string | null): string {
 export function nhanLamTruocThuSau(lt: Pick<LamTruoc, "lam_truoc_thu_sau" | "bat_boi" | "bat_luc"> | null | undefined): string | null {
   if (!lt?.lam_truoc_thu_sau) return null;
   return ["Làm trước – thu sau", lt.bat_boi, gio(lt.bat_luc)].filter(Boolean).join(" · ");
+}
+
+/** Ô tick TẠI CHỖ — khung phải phòng dịch vụ, khối 1 Bàn khám (Tuyền 09/10/2026).
+ *  Mặc định KHÔNG hiện (hiện sẵn rất phiền): chỉ khi máy chủ mời (`moi` = cờ
+ *  `nhac_tick` — FinanceGate đang chặn vì chưa thu và lượt chưa tick). Đã hiện
+ *  thì giữ tới khi đổi khách, để vừa tick xong vẫn bỏ tick (hoàn tác) ngay tại
+ *  chỗ dù máy chủ đã thôi mời. */
+export function OTickTaiCho({ visitId, moi, onDoi }: { visitId: string; moi: boolean; onDoi?: () => void }) {
+  const [giu, setGiu] = useState<string | null>(null);
+  if (moi && giu !== visitId) setGiu(visitId);
+  if (!moi && giu !== visitId) return null;
+  return <OLamTruocThuSau visitId={visitId} onDoi={onDoi} />;
 }
 
 export default function OLamTruocThuSau({

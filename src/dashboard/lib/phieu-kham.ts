@@ -164,6 +164,9 @@ export interface ChiDinhVaKetQua {
   /** Chỉ định ĐIỀU TRỊ (nhóm DIEU_TRI — máy chủ suy theo dữ liệu, 07/10/2026):
    *  bản in lượt xếp vào mục "Điều trị" (phiếu 2 ô), không vào CLS. */
   dieu_tri?: boolean;
+  /** Làm được TẠI BÀN KHÁM (09/10/2026, máy chủ): điều trị, và thủ thuật của lượt
+   *  Thủ thuật — lượt có khối 1 riêng vẽ thẻ ở khối 1 (`phanChiDinh`). */
+  ban_kham?: boolean;
   /** Buổi của liệu trình đang gắn (08/10/2026) — bản in "Liệu trình: buổi k/N".
    *  null / thiếu = buổi lẻ. */
   lieu_trinh?: { buoi_so: number; so_buoi: number; tra_truoc: boolean } | null;
@@ -871,12 +874,57 @@ export const KHOI_PHIEU: { so: SoKhoi; ten: string; muc: string[] }[] = [
 export function phanChiDinh(
   ds: readonly ChiDinhVaKetQua[],
   maThuThuat?: ReadonlySet<string>,
-): { dieuTri: ChiDinhVaKetQua[]; thuThuat: ChiDinhVaKetQua[]; cls: ChiDinhVaKetQua[] } {
-  const ra = { dieuTri: [] as ChiDinhVaKetQua[], thuThuat: [] as ChiDinhVaKetQua[], cls: [] as ChiDinhVaKetQua[] };
+  khoi1: Khoi1 = null,
+): {
+  dieuTri: ChiDinhVaKetQua[];
+  thuThuat: ChiDinhVaKetQua[];
+  cls: ChiDinhVaKetQua[];
+  /** Lượt có khối 1 riêng (Điều trị / Thủ thuật — 09/10/2026): chỉ định LÀM TẠI
+   *  BÀN KHÁM được (cờ `ban_kham` máy chủ) — thẻ ở khối 1, không rơi vào khối 3. */
+  banKham: ChiDinhVaKetQua[];
+} {
+  const ra = {
+    dieuTri: [] as ChiDinhVaKetQua[],
+    thuThuat: [] as ChiDinhVaKetQua[],
+    cls: [] as ChiDinhVaKetQua[],
+    banKham: [] as ChiDinhVaKetQua[],
+  };
   for (const c of ds) {
-    if (c.dieu_tri) ra.dieuTri.push(c);
+    if (khoi1 && c.ban_kham) ra.banKham.push(c);
+    else if (c.dieu_tri) ra.dieuTri.push(c);
     else if (maThuThuat?.has(c.service_code)) ra.thuThuat.push(c);
     else ra.cls.push(c);
+  }
+  return ra;
+}
+
+/** Khối 1 theo loại lượt — máy chủ quyết (`che_do_khoi1`, trả ở `doc_luot`). */
+export type Khoi1 = "DIEU_TRI" | "THU_THUAT" | null;
+
+/** Đọc `khoi1` máy chủ trả; giá trị lạ / thiếu → null (như cũ). */
+export function docKhoi1(v: unknown): Khoi1 {
+  return v === "DIEU_TRI" || v === "THU_THUAT" ? v : null;
+}
+
+/** Mục của mẫu phiếu bị ẨN ở khối 1 (dữ liệu cũ vẫn giữ): lượt Điều trị thay
+ *  A/B bằng phần điều trị; lượt Thủ thuật GIỮ mục B (ô chữ tự do) dưới nút chọn. */
+export function mucAnKhoi1(khoi1: Khoi1): string[] {
+  return khoi1 === "DIEU_TRI" ? ["A", "B"] : [];
+}
+
+/** Danh sách chọn "＋ Thủ thuật đã làm" (khối 1 lượt Thủ thuật): mỗi thủ thuật
+ *  chỉ định được (có mã, không khoá) đúng một lần; có chữ tìm thì lọc như ô tìm
+ *  danh mục (`timDanhMucChiDinh`). Hàm thuần — máy chủ vẫn kiểm mã. */
+export function danhSachThuThuatBanKham(ds: readonly NhomCls[], tu: string): MucCls[] {
+  const nguon = tu.trim() ? timDanhMucChiDinh(ds, tu) : ds;
+  const da = new Set<string>();
+  const ra: MucCls[] = [];
+  for (const n of nguon ?? []) {
+    for (const m of n?.muc ?? []) {
+      if (!m.service_code || m.khoa || da.has(m.service_code)) continue;
+      da.add(m.service_code);
+      ra.push(m);
+    }
   }
   return ra;
 }

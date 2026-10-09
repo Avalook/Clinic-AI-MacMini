@@ -1,7 +1,9 @@
 "use client";
 
 // THẺ CHỈ ĐỊNH ĐIỀU TRỊ — đầu khối 3 "Chỉ định điều trị" của hồ sơ khám (và hồ
-// sơ tối giản). MỘT thẻ mỗi chỉ định: khung thẻ là `KetQuaChiDinh` (tên, mã, tiền,
+// sơ tối giản); lượt Điều trị / Thủ thuật (09/10/2026): ở KHỐI 1, gồm cả thủ
+// thuật đã chọn làm tại bàn khám (cờ `ban_kham`), kèm ô tick khi máy chủ mời.
+// Không bao giờ vẽ hai nơi cùng lúc (shell chọn chỗ). MỘT thẻ mỗi chỉ định: khung thẻ là `KetQuaChiDinh` (tên, mã, tiền,
 // bắt buộc, Hoàn tác chỉ định, Ảnh · tệp — như mọi chỉ định), phần điều trị vẽ ở
 // đây qua `dieuTri={{ chip, than }}`. Danh sách lấy theo cờ `dieu_tri` máy chủ
 // (`phanChiDinh`) — một định nghĩa, không dò theo danh mục thủ thuật, nên một chỉ
@@ -29,6 +31,7 @@ import { nhanLoi, type ThanLoi } from "@/lib/loi-api";
 import type { ChiDinhVaKetQua } from "@/lib/phieu-kham";
 import { MAU_PHIEU_DIEU_TRI } from "@/lib/phieu-ket-qua";
 import { useNgheBang } from "../../dung-nghe-bang";
+import { OTickTaiCho } from "../OLamTruocThuSau";
 import PhieuDieuTri, { type BanDieuTri } from "../PhieuDieuTri";
 import PhieuKetQua, { type MauKetQua } from "../PhieuKetQua";
 import KetQuaChiDinh, { type PhanKetQua } from "./KetQuaChiDinh";
@@ -72,39 +75,51 @@ function khoaGui(): string {
   return `ban-kham-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+type GoiThe = { the: TheDieuTri[]; chi_doc?: boolean; nhac_tick?: boolean };
+
 export default function KhoiDieuTri({
   visitId,
   choGhi,
   chiDinh,
   ketQua,
+  oTick = false,
+  goiYTrong = "Chưa có chỉ định điều trị — chọn dịch vụ điều trị ở danh mục bên dưới.",
 }: {
   visitId: string;
   choGhi: boolean;
-  /** Chỉ định ĐIỀU TRỊ của lượt (`phanChiDinh(...).dieuTri`) — quyết thẻ nào hiện. */
+  /** Chỉ định ĐIỀU TRỊ của lượt (`phanChiDinh(...).dieuTri`; khối 1 lượt Điều trị /
+   *  Thủ thuật: `.banKham`) — quyết thẻ nào hiện. */
   chiDinh: ChiDinhVaKetQua[];
   /** Thuộc tính khung thẻ chỉ định (Hoàn tác, bắt buộc, tệp…) — shell dựng. */
   ketQua: PhanKetQua;
+  /** Khối 1 (09/10/2026): ô "Làm trước – thu sau" ĐẦU khối, chỉ khi máy chủ mời
+   *  (`nhac_tick` — chưa thu + chưa tick). Lượt khám thường: ô ở cột phải. */
+  oTick?: boolean;
+  /** Câu khi chưa có thẻ nào (null = không vẽ). */
+  goiYTrong?: string | null;
 }) {
   const [the, setThe] = useState<TheDieuTri[] | null>(null);
   const [chiDoc, setChiDoc] = useState(false);
+  const [nhacTick, setNhacTick] = useState(false);
   const [dang, setDang] = useState<string | null>(null);
   const [loi, setLoi] = useState<Record<string, string>>({});
 
-  const doc = useCallback(async (): Promise<{ the: TheDieuTri[]; chi_doc?: boolean } | null> => {
+  const doc = useCallback(async (): Promise<GoiThe | null> => {
     const r = await fetch(`/api/ho-so-kham?visit_id=${visitId}&xem=dieu-tri`, { cache: "no-store" }).catch(
       () => null,
     );
-    return r && r.ok
-      ? ((await r.json().catch(() => null)) as { the: TheDieuTri[]; chi_doc?: boolean } | null)
-      : null;
+    return r && r.ok ? ((await r.json().catch(() => null)) as GoiThe | null) : null;
   }, [visitId]);
+  const dat = useCallback((d: GoiThe) => {
+    setThe(d.the);
+    setChiDoc(Boolean(d.chi_doc));
+    setNhacTick(Boolean(d.nhac_tick));
+  }, []);
   const nap = useCallback(() => {
     void doc().then((d) => {
-      if (!d) return;
-      setThe(d.the);
-      setChiDoc(Boolean(d.chi_doc));
+      if (d) dat(d);
     });
-  }, [doc]);
+  }, [doc, dat]);
 
   // Nạp lại khi danh sách chỉ định điều trị đổi (vừa kê / vừa hoàn tác); không
   // có chỉ định điều trị thì khỏi gọi.
@@ -113,14 +128,12 @@ export default function KhoiDieuTri({
     if (!khoaDs) return;
     let huy = false;
     void doc().then((d) => {
-      if (huy || !d) return;
-      setThe(d.the);
-      setChiDoc(Boolean(d.chi_doc));
+      if (!huy && d) dat(d);
     });
     return () => {
       huy = true;
     };
-  }, [doc, khoaDs]);
+  }, [doc, dat, khoaDs]);
   const theo = useMemo(() => new Map((the ?? []).map((t) => [t.order_id, t] as const)), [the]);
   // Phòng bấm Bắt đầu / Xong, quầy thu tiền, lễ tân check-out → thẻ tự đổi.
   useNgheBang(["service_order", "form_instance", "visit"], nap);
@@ -193,11 +206,7 @@ export default function KhoiDieuTri({
   if (chiDinh.length === 0) {
     return (
       <div className="space-y-2">
-        {choGhi ? (
-          <p className="text-meta text-ink-muted">
-            Chưa có chỉ định điều trị — chọn dịch vụ điều trị ở danh mục bên dưới.
-          </p>
-        ) : null}
+        {choGhi && goiYTrong ? <p className="text-meta text-ink-muted">{goiYTrong}</p> : null}
         {phanLT}
       </div>
     );
@@ -281,6 +290,8 @@ export default function KhoiDieuTri({
 
   return (
     <section aria-label="Chỉ định điều trị đã kê" className="space-y-2">
+      {/* Câu "chưa thu" của thẻ đi kèm ô tick NGAY ĐÂY — tick xong bấm làm. */}
+      {oTick && choGhi && !chiDoc ? <OTickTaiCho visitId={visitId} moi={nhacTick} onDoi={nap} /> : null}
       <KetQuaChiDinh ds={chiDinh} {...ketQua} dieuTri={{ chip, than }} />
       {phanLT}
     </section>

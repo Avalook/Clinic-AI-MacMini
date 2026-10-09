@@ -42,7 +42,9 @@ import {
   giaTriBanDau,
   gomNhom,
   KHOI_PHIEU,
+  mucAnKhoi1,
   phanChiDinh,
+  type Khoi1,
   type SoKhoi,
   soODaDien,
   type CheDoPhieu,
@@ -117,6 +119,8 @@ export default function PhieuKham({
   baoLoiDon,
   oDichVuKham,
   oDieuTri,
+  oKhoi1,
+  khoi1 = null,
 }: {
   /** Khung của ĐÚNG phiên bản phiếu đang ghim. */
   dinhNghia: DinhNghiaPhieu;
@@ -142,6 +146,13 @@ export default function PhieuKham({
   oDichVuKham?: ReactNode;
   /** Thẻ chỉ định điều trị — đầu khối 3, shell vẽ (không thuộc mẫu phiếu JSON). */
   oDieuTri?: ReactNode;
+  /** Phần riêng của khối 1 theo loại lượt (09/10/2026) — ĐẦU khối 1, shell vẽ:
+   *  lượt Điều trị (phiếu cảm nhận + liệu trình + làm tại bàn khám), lượt Thủ
+   *  thuật (chọn thủ thuật đã làm). */
+  oKhoi1?: ReactNode;
+  /** Loại khối 1 máy chủ trả (`khoi1`) — lượt Điều trị ẩn mục A/B (`mucAnKhoi1`,
+   *  dữ liệu cũ giữ nguyên); chỉ định `ban_kham` không rơi vào khối 3. */
+  khoi1?: Khoi1;
   /** Lỗi lưu đơn thuốc (kèm ô lý do) — vẽ NGAY trong mục E (góp ý B8). */
   baoLoiDon?: ReactNode;
   /** Mục E: đơn thuốc thật của lượt. */
@@ -310,7 +321,7 @@ export default function PhieuKham({
     dieuTri: ketQuaDT,
     thuThuat: ketQuaTT,
     cls: ketQuaCls,
-  } = useMemo(() => phanChiDinh(ketQuaChiDinh, maThuThuat), [ketQuaChiDinh, maThuThuat]);
+  } = useMemo(() => phanChiDinh(ketQuaChiDinh, maThuThuat, khoi1), [ketQuaChiDinh, maThuThuat, khoi1]);
   const coKq = ketQuaCls.filter((c) => c.ket_qua_trang_thai === "CO_KET_QUA").length;
   // Chip "N mới" trên nút khối 2: kết quả đã về mà chưa ai xem.
   const coKqMoi = ketQuaCls.filter(
@@ -470,7 +481,10 @@ export default function PhieuKham({
   }
 
   const hanhChinh = dinhNghia.khung.find((m) => m.ma === "HANH_CHINH");
-  const mucKhoi = dinhNghia.khung.filter((m) => (KHOI[khoi - 1]?.muc ?? []).includes(m.ma));
+  const an = khoi === 1 ? mucAnKhoi1(khoi1) : [];
+  const mucKhoi = dinhNghia.khung.filter(
+    (m) => (KHOI[khoi - 1]?.muc ?? []).includes(m.ma) && !an.includes(m.ma),
+  );
   // Mục GÕ đầu của khối cũng mở sẵn: khối 2 mở sẵn ô Chẩn đoán dưới danh mục CLS.
   const mucGoDau = mucKhoi.find((m) => m.lien_ket?.loai !== "mang_sang" && m.block.length > 0)?.ma;
 
@@ -539,6 +553,9 @@ export default function PhieuKham({
 
         <TieuDeKhoi so={khoi} ten={KHOI[khoi - 1]?.ten ?? ""} phu={GOI_Y_KHOI[khoi] ?? undefined} />
 
+        {/* Khối 1 lượt Điều trị / Thủ thuật: phần riêng ĐẦU khối (09/10/2026). */}
+        {khoi === 1 ? oKhoi1 : null}
+        {khoi === 1 && mucKhoi.length === 0 ? oDichVuKham : null}
         {/* Khối 3: thẻ chỉ định điều trị ĐẦU khối, trước thủ thuật và lưới chọn. */}
         {khoi === 3 ? oDieuTri : null}
         {mucKhoi.map((m, i) => (
