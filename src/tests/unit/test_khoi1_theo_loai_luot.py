@@ -8,6 +8,8 @@ dùng `service_execution_service.chan_vi_chua_thu` của E1 — unit test ở
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -16,6 +18,12 @@ from clinicai.phieu_kham.che_do import (
     KHOI1_DIEU_TRI,
     KHOI1_THU_THUAT,
     che_do_khoi1,
+)
+from clinicai.phieu_kham.khung import (
+    FORM_IDS,
+    HO_SO_DIEU_TRI,
+    dinh_nghia,
+    la_phieu_kham,
 )
 from clinicai.services import nhan_tai_phong as ntp
 
@@ -92,3 +100,32 @@ def test_khong_link_khi_da_co_chi_dinh_hoac_khong_phai_luot_thu_thuat() -> None:
     k = _khach()
     del k["phieu_kham"], k["phong_thu_thuat"]
     assert ntp.gom_sap_den([k], [], PHONG)[0]["mo_ban_kham"] is None
+
+
+# ---------------------------------------------------------------- hồ sơ điều trị
+
+GOC = Path(__file__).resolve().parents[3]
+
+
+def test_ho_so_dieu_tri_trung_tinh_khong_phai_loai_kham() -> None:
+    """Lượt Điều trị KHÔNG mở phiếu của bảy loại khám (bản in "Phiếu thủ thuật",
+    form THU_THUAT trên lượt Điều trị — sai): khung riêng, tên "Hồ sơ điều trị",
+    không A/B, ngoài danh sách chọn phiếu."""
+    assert HO_SO_DIEU_TRI not in FORM_IDS and la_phieu_kham(HO_SO_DIEU_TRI)
+    dn = dinh_nghia(HO_SO_DIEU_TRI)
+    assert dn["ten"] == "Hồ sơ điều trị"
+    assert "thủ thuật" not in dn["ten"].lower()
+    assert [m["ma"] for m in dn["khung"]] == ["HANH_CHINH", "C", "D", "E", "F", "G"]
+    o = [x["ma"] for m in dn["khung"] for x in m["block"]]
+    assert not [k for k in o if k.startswith("tt_")], "không mượn ô của phiếu thủ thuật"
+    # Ngày tái khám theo hậu tố chung `_follow_date` (nhắc tái khám đọc được).
+    assert "dt_follow_date" in o
+
+
+def test_ho_so_dieu_tri_migration_trung_json() -> None:
+    khung = dinh_nghia(HO_SO_DIEU_TRI)["khung"]
+    sql = (GOC / "supabase/migrations/20261009600000_ho_so_dieu_tri.sql").read_text(
+        encoding="utf-8"
+    )
+    assert sql.count(json.dumps(khung, ensure_ascii=False)) == 1
+    assert "'HO_SO_DIEU_TRI', 1, 'Hồ sơ điều trị', 'PHIEU_KHAM'" in sql

@@ -252,7 +252,9 @@ không đẻ dòng thứ hai: `S/chi_dinh_service.py` (`chi_dinh_dieu_tri_dang_c
 **Khối 1 theo loại lượt — lượt Điều trị / Thủ thuật (09/10/2026)** — luật thuần
 `src/clinicai/phieu_kham/che_do.py` `che_do_khoi1(nhom, form_code)` → `DIEU_TRI` /
 `THU_THUAT` / None; `S/phieu_kham_service.py` `doc_luot` trả `khoi1` (lượt Điều trị không
-phiếu → mở khung `PHIEU_KHUNG_DIEU_TRI`, không bắt chọn phiếu). Thẻ làm tại bàn khám:
+phiếu → mở khung TRUNG TÍNH "Hồ sơ điều trị" `HO_SO_DIEU_TRI` — `src/clinicai/phieu_kham/khung.py`,
+`dinh_nghia/HO_SO_DIEU_TRI.json`, mig `20261009600000`; ngoài `FORM_IDS`, không A/B; dòng phiếu chỉ sinh
+khi bác sĩ ghi — không bao giờ mở phiếu THU_THUAT cho lượt Điều trị). Thẻ làm tại bàn khám:
 `S/dieu_tri_ban_kham.py` `ma_ban_kham_sql` (điều trị ∪ thủ thuật `DICHVU-THUTHUAT` khi lượt
 Thủ thuật) — `doc_the` (`khoi1`, `nhac_tick`), `thao_tac`, `chon_thu_thuat` (chỉ định +
 Bắt đầu tại bàn khám; `/api/ho-so-kham` `thao_tac=chon-thu-thuat` →

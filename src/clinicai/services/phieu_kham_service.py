@@ -39,7 +39,6 @@ from clinicai.permissions.y_khoa import QUYEN_IN_PHIEU
 from clinicai.phieu_kham import anh_xa_danh_muc as ax
 from clinicai.phieu_kham.che_do import (
     KHOI1_DIEU_TRI,
-    PHIEU_KHUNG_DIEU_TRI,
     che_do_khoi1,
     doi_ghi_duoc,
 )
@@ -51,6 +50,7 @@ from clinicai.phieu_kham.ket_qua_chi_dinh import (
 )
 from clinicai.phieu_kham.khung import (
     FORM_IDS,
+    HO_SO_DIEU_TRI,
     cac_o,
     dinh_nghia,
     kiem_du_lieu,
@@ -303,9 +303,11 @@ class PhieuKhamService:
         chon = form_id or (dong["form_id"] if dong else None)
         if chon is None and luot["form_code"] in FORM_IDS:
             chon = luot["form_code"]
-        # Lượt Điều trị: đủ bốn khối, không bắt chọn phiếu (09/10/2026).
+        # Lượt Điều trị: đủ bốn khối, không bắt chọn phiếu (09/10/2026) — khung
+        # TRUNG TÍNH "Hồ sơ điều trị", không phải phiếu của bảy loại khám.
+        # Chỉ ĐỌC khung; dòng `phieu_kham_luot` chỉ sinh khi bác sĩ ghi.
         if chon is None and khoi1 == KHOI1_DIEU_TRI:
-            chon = PHIEU_KHUNG_DIEU_TRI
+            chon = HO_SO_DIEU_TRI
         if chon is None:
             return {
                 "form_id": None,

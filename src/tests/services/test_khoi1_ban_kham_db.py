@@ -19,7 +19,9 @@ import pytest_asyncio
 
 from clinicai.core.exceptions import ValidationError
 from clinicai.phieu_kham.ket_qua_chi_dinh import doc_ket_qua_theo_chi_dinh
+from clinicai.phieu_kham.khung import HO_SO_DIEU_TRI
 from clinicai.services import dieu_tri_ban_kham as dt
+from clinicai.services import lich_su_luot
 from clinicai.services.checkout_service import CheckoutService
 from clinicai.services.finance_gate import CAU_CHUA_THU
 from clinicai.services.lam_truoc_thu_sau import LamTruocThuSauService
@@ -262,14 +264,52 @@ async def test_luot_dieu_tri_mo_du_bon_khoi_khong_bat_chon_phieu(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
     ca = await _dung(pool)
+    await _lich_ban_kham(pool, ca)
     laser = await _laser(pool)
-    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), laser["loai"])
-    kq = await PhieuKhamService(pool, kiem_quyen=kiem_quyen_core).doc_luot(
-        visit_id=visit, form_id=None, identity=ca.bac_si
-    )
-    # Không còn "chọn phiếu": mở khung chung (A/B bị ẩn ở màn), khối 1 Điều trị.
+    pid = await _benh_nhan(pool, ca)
+    visit = await _check_in(pool, ca, pid, laser["loai"])
+    svc = PhieuKhamService(pool, kiem_quyen=kiem_quyen_core)
+    kq = await svc.doc_luot(visit_id=visit, form_id=None, identity=ca.bac_si)
+    # Không "chọn phiếu": khung TRUNG TÍNH "Hồ sơ điều trị" — KHÔNG phải phiếu
+    # của bảy loại khám (bản in lấy tiêu đề từ `ten`, không ra "Phiếu thủ thuật").
     assert "chon_duoc" not in kq
-    assert kq["khoi1"] == "DIEU_TRI" and kq["form_id"] == "THU_THUAT"
+    assert kq["khoi1"] == "DIEU_TRI" and kq["form_id"] == HO_SO_DIEU_TRI
+    assert kq["ten"] == "Hồ sơ điều trị"
     assert kq["mac_dinh_theo_loai_kham"] is False
+    assert {m["ma"] for m in kq["khung"]}.isdisjoint({"A", "B"})
     goi = await _goi(pool, ca, visit)
     assert goi["khoi1"] == "DIEU_TRI"
+
+    async def _so_phieu(form: str | None = None) -> int:
+        return int(
+            await pool.fetchval(
+                "SELECT count(*) FROM phieu_kham_luot WHERE visit_id = $1::uuid"
+                " AND ($2::text IS NULL OR form_id = $2)",
+                visit,
+                form,
+            )
+        )
+
+    # Mở hồ sơ KHÔNG tạo phiếu; phiếu chỉ sinh khi bác sĩ thực sự ghi.
+    assert await _so_phieu() == 0
+    await _vao_kham(pool, ca, visit)
+    await svc.luu_luot(
+        visit_id=visit,
+        form_id=HO_SO_DIEU_TRI,
+        du_lieu=None,
+        thay_doi={"dt_conclusion": {"gia_tri": "Đỡ đau sau buổi 2", "nguon": "USER"}},
+        expected_revision=0,
+        identity=ca.bac_si,
+    )
+    assert await _so_phieu(HO_SO_DIEU_TRI) == 1
+    assert await _so_phieu("THU_THUAT") == 0  # không gom thành lượt thủ thuật
+    lai = await svc.doc_luot(visit_id=visit, form_id=None, identity=ca.bac_si)
+    assert lai["form_id"] == HO_SO_DIEU_TRI and lai["ten"] == "Hồ sơ điều trị"
+
+    # Lịch sử khám / danh sách bệnh nhân (cùng `LOAI_DU_LIEU_SQL`): lượt mang
+    # nhóm ĐIỀU TRỊ của loại khám, không đếm là "Lượt khám n".
+    async with pool.acquire() as conn:
+        ls = await lich_su_luot.doc(conn, clinic_id=CLINIC, clinic_patient_id=pid)
+    [x] = [x for x in ls["luot"] if x["visit_id"] == visit]
+    assert x["nhom"] == "DIEU_TRI" and x["loai_du_lieu"] == "v5"
+    assert not str((x["nhan_luot"] or {}).get("nhan") or "").startswith("Lượt khám")

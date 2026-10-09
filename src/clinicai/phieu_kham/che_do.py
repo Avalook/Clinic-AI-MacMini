@@ -60,11 +60,6 @@ Khoi1 = Literal["DIEU_TRI", "THU_THUAT"]
 KHOI1_DIEU_TRI: Khoi1 = "DIEU_TRI"
 KHOI1_THU_THUAT: Khoi1 = "THU_THUAT"
 
-#: Lượt Điều trị không gắn phiếu khám nào (`form_code` rỗng) mà vẫn phải hiện
-#: đủ bốn khối, không bắt chọn phiếu: mở khung của phiếu THỦ THUẬT — mục A/B
-#: bị ẩn ở lượt Điều trị, còn C–G của bảy phiếu cùng một dạng.
-PHIEU_KHUNG_DIEU_TRI = "THU_THUAT"
-
 
 def che_do_khoi1(nhom: object, form_code: object) -> Khoi1 | None:
     """Khối 1 của hồ sơ khám theo loại khám của lượt — hàm thuần, không ném.
@@ -82,7 +77,6 @@ __all__ = [
     "CHE_DO",
     "KHOI1_DIEU_TRI",
     "KHOI1_THU_THUAT",
-    "PHIEU_KHUNG_DIEU_TRI",
     "CheDo",
     "Khoi1",
     "che_do_khoi1",

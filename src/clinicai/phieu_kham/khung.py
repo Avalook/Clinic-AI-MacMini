@@ -50,6 +50,16 @@ THU_MUC = Path(__file__).with_name("dinh_nghia")
 #: phải phiếu — không bao giờ xuất hiện ở đây.
 FORM_IDS: tuple[str, ...] = ("NT", "HMVS", "PK", "SK", "NK", "THU_THUAT", "SAN_CHAU")
 
+#: HỒ SƠ ĐIỀU TRỊ (Tuyền chốt 09/10/2026): khung TRUNG TÍNH của lượt Điều trị —
+#: hành chính + C, D, E, F, G, không A/B. KHÔNG phải một loại khám: không nằm
+#: trong `FORM_IDS` (không ở danh sách chọn phiếu, không gắn loại khám), chỉ là
+#: chỗ lưu chẩn đoán / lời dặn / tái khám khi bác sĩ ghi ở lượt Điều trị — để
+#: bản in và mọi chỗ gom theo phiếu không thấy lượt Điều trị thành "thủ thuật".
+HO_SO_DIEU_TRI = "HO_SO_DIEU_TRI"
+
+#: Mọi khung lưu được ở `phieu_kham_luot` (bảy phiếu + hồ sơ điều trị).
+PHIEU_IDS: tuple[str, ...] = (*FORM_IDS, HO_SO_DIEU_TRI)
+
 #: Nhóm trên `form_definition.nhom` — tách phiếu khám khỏi 18 mẫu kết quả.
 NHOM = "PHIEU_KHAM"
 
@@ -72,7 +82,7 @@ _TRAN = {"text": 2_000, "doan_van": 20_000}
 # ---------------------------------------------------------------------------
 @cache
 def _doc(form_id: str) -> dict[str, Any]:
-    if form_id not in FORM_IDS:
+    if form_id not in PHIEU_IDS:
         raise ValidationError(f"“{form_id}” không phải một trong bảy phiếu khám.")
     dn = json.loads((THU_MUC / f"{form_id}.json").read_text(encoding="utf-8"))
     kiem_dinh_nghia(dn)
@@ -105,7 +115,7 @@ def tham_chieu_nguon() -> dict[str, Any]:
 
 
 def la_phieu_kham(form_id: str | None) -> bool:
-    return form_id in FORM_IDS
+    return form_id in PHIEU_IDS
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +124,7 @@ def la_phieu_kham(form_id: str | None) -> bool:
 def kiem_dinh_nghia(dn: dict[str, Any]) -> None:
     """Hình của một định nghĩa phiếu. Sai thì dừng NGAY, không nạp nửa vời."""
     fid = dn.get("form_id")
-    if fid not in FORM_IDS:
+    if fid not in PHIEU_IDS:
         raise ValidationError(f"form_id lạ: {fid!r}")
     if dn.get("nhom") != NHOM:
         raise ValidationError(f"{fid}: nhóm phải là {NHOM}")
