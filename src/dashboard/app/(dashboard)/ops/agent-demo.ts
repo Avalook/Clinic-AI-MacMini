@@ -98,11 +98,11 @@ export const DEMO_CHI_PHI = {
 export const DEMO_TOM_TAT = {
   ngay: bayGio.toISOString().slice(0, 10),
   llm_bat: true,
-  model: "claude-opus-5-5",
+  model: "claude-sonnet-5-5",
   gio_tu_dong: 18,
   tom_tat: {
     id: "demo",
-    model: "claude-opus-5-5",
+    model: "claude-sonnet-5-5",
     tao_luc: luc(12, 31),
     tu_dong: false,
     noi_dung: `## Tình hình hôm nay

@@ -60,7 +60,9 @@ def doc_khoa() -> str | None:
 
 
 def model() -> str:
-    return os.environ.get("AGENT_LLM_MODEL", "").strip() or "claude-opus-5-5"
+    # Sonnet 5.5 (Tuyền chọn 09/10/2026 — rẻ bằng nửa Opus, đủ cho việc tóm
+    # tắt nhận định đã có cấu trúc). Đổi model = đặt AGENT_LLM_MODEL, không sửa code.
+    return os.environ.get("AGENT_LLM_MODEL", "").strip() or "claude-sonnet-5-5"
 
 
 def gio_tu_dong() -> int:
