@@ -10,8 +10,12 @@
 // MỖI KHÁCH ĐÚNG MỘT DÒNG GỌN (Tuyền chốt bố cục 07/10 tối): tên · mã · số ·
 // "N chỉ định" · nhãn nơi đang ở. KHÔNG liệt kê từng chỉ định ở đây (3 chỉ định
 // không được trông như 3 người, không vỡ chữ ở 375). Bấm dòng → khung bên phải
-// liệt kê chỉ định + nút Nhận.
+// liệt kê chỉ định + nút Nhận. Lượt Thủ thuật chưa có chỉ định ở phòng thủ
+// thuật: cạnh dòng có link "Mở bàn khám" (`mo_ban_kham` máy chủ trả, 09/10/2026).
 
+import Link from "next/link";
+
+import { buttonClass } from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
 import { nhanBuoiCuaLuot, type ChipLieuTrinh } from "@/lib/lieu-trinh-cskh";
@@ -32,6 +36,9 @@ export interface KhachSapDen {
   /** Câu máy chủ viết: khách đang ở đâu / "chưa có chỉ định ở phòng này". */
   dang_o: string | null;
   chi_dinh: ChiDinhPhong[];
+  /** Lượt Thủ thuật chưa có chỉ định ở phòng thủ thuật (09/10/2026, máy chủ):
+   *  link mở bàn khám của phòng — phòng không tự chọn thủ thuật. */
+  mo_ban_kham?: string | null;
 }
 
 export default function SapDenPhong({
@@ -63,12 +70,12 @@ export default function SapDenPhong({
           const dangChon = k.visit_id === chon;
           const sao = k.chi_dinh.some((c) => c.nhan_duoc && c.chuyen);
           return (
-            <li key={k.visit_id}>
+            <li key={k.visit_id} className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => onChon(k.visit_id)}
                 aria-pressed={dangChon}
-                className={`flex w-full items-center gap-2 rounded-control border px-2 py-1.5 text-left ${
+                className={`flex min-w-0 flex-1 items-center gap-2 rounded-control border px-2 py-1.5 text-left ${
                   dangChon ? "border-brand-500 bg-brand-50" : "border-line bg-surface"
                 }`}
               >
@@ -108,6 +115,11 @@ export default function SapDenPhong({
                   </Chip>
                 ) : null}
               </button>
+              {k.mo_ban_kham ? (
+                <Link href={k.mo_ban_kham} className={`${buttonClass("secondary", "sm")} shrink-0`}>
+                  Mở bàn khám
+                </Link>
+              ) : null}
             </li>
           );
         })}

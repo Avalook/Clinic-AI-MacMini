@@ -66,9 +66,10 @@ test("khối 3 xếp: thẻ điều trị → (D cũ) → thủ thuật đã ch�
 
 test("MỘT định nghĩa điều trị: cờ dieu_tri máy chủ, không dò maThuThuat", () => {
   assert.match(LIB, /if \(c\.dieu_tri\) ra\.dieuTri\.push\(c\);\s*else if \(maThuThuat\?\.has/);
-  assert.match(PHIEU, /phanChiDinh\(ketQuaChiDinh, maThuThuat\)/);
+  assert.match(PHIEU, /phanChiDinh\(ketQuaChiDinh, maThuThuat, khoi1\)/);
   assert.doesNotMatch(PHIEU, /laTT/);
-  assert.match(LUOT, /phanChiDinh\(ketQua, maThuThuat\)\.dieuTri/);
+  assert.match(LUOT, /phanChiDinh\(ketQua, maThuThuat, khoi1\)/);
+  assert.match(LUOT, /const dsDieuTri = phan\.dieuTri;/);
 });
 
 test("thẻ điều trị = khung thẻ chỉ định + phần điều trị (một thẻ mỗi chỉ định)", () => {
@@ -81,7 +82,7 @@ test("thẻ điều trị = khung thẻ chỉ định + phần điều trị (m�
   assert.match(KQC, /chipDieuTri \?\? <Chip tone=\{tt\.tone\}>/);
   assert.match(KQC, /nhan="Hoàn tác chỉ định"/);
   // Shell dựng MỘT bộ thuộc tính thẻ cho cả phiếu đầy đủ lẫn hồ sơ tối giản.
-  assert.match(LUOT, /oDieuTri=\{chiMuc \? undefined : theDieuTri\}/);
+  assert.match(LUOT, /oDieuTri=\{chiMuc \|\| khoi1 \? undefined : theDieuTri\}/);
   assert.match(LUOT, /<KhoiDieuTri visitId=\{visitId\} choGhi=\{choGhi\} chiDinh=\{dsDieuTri\} ketQua=\{propsKetQua\} \/>/);
   assert.match(LUOT, /ketQua=\{propsKetQua\}/);
 });
@@ -108,7 +109,7 @@ test("MỘT component phiếu điều trị cho bàn khám và phòng dịch v�
   assert.match(KHOI, /Chưa có chỉ định điều trị — chọn dịch vụ điều trị ở danh mục bên dưới/);
   // Chưa có chỉ định điều trị: dòng gợi ý (khi ghi được) + phần liệu trình
   // (liệu trình chỉ đề xuất, lối "Chỉ đề xuất") — 08/10/2026.
-  assert.match(KHOI, /if \(chiDinh\.length === 0\) \{\s*return \(\s*<div className="space-y-2">\s*\{choGhi \?/);
+  assert.match(KHOI, /if \(chiDinh\.length === 0\) \{\s*return \(\s*<div className="space-y-2">\s*\{choGhi && goiYTrong \?/);
 });
 
 test("phiếu điều trị GỌN: mỗi ô một nhãn, tự lưu, chân Bản n · người · giờ, không Hoàn tất", () => {
@@ -163,4 +164,42 @@ test("in gộp một lượt: không báo 'chưa có gì' khi có điều trị 
   for (const truoc of ["<DieuTriIn", 'ten="Ghi chú"', "<TrangAnh"]) {
     assert.ok(IN.lastIndexOf(truoc) < ky, `${truoc} phải trước chữ ký`);
   }
+});
+
+// KHỐI 1 THEO LOẠI LƯỢT (Tuyền chốt 09/10/2026): lượt Điều trị / Thủ thuật vẽ
+// thẻ làm tại bàn khám ở KHỐI 1 (`oKhoi1`), KHÔNG vẽ lại ở khối 3; lượt Điều trị
+// ẩn mục A/B; ô "Làm trước – thu sau" chỉ khi máy chủ mời, không hai bản.
+test("khối 1: oKhoi1 đầu khối 1, thẻ điều trị không vẽ hai lần", () => {
+  assert.match(PHIEU, /\{khoi === 1 \? oKhoi1 : null\}/);
+  assert.match(PHIEU, /const an = khoi === 1 \? mucAnKhoi1\(khoi1\) : \[\];/);
+  assert.match(LIB, /return khoi1 === "DIEU_TRI" \? \["A", "B"\] : \[\];/);
+  // Khối 1 dùng thẻ `ban_kham`; khối 3 bỏ thẻ khi lượt có khối 1 riêng.
+  assert.match(LUOT, /chiDinh=\{dsBanKham\}/);
+  assert.match(LUOT, /oKhoi1=\{oKhoi1\}/);
+  assert.match(LUOT, /khoi1=\{khoi1\}/);
+  assert.match(LIB, /if \(khoi1 && c\.ban_kham\) ra\.banKham\.push\(c\);/);
+  // Lượt Thủ thuật: nút gọn chọn thủ thuật ĐẦU khối 1, mục B vẫn hiện.
+  assert.match(LUOT, /khoi1 === "THU_THUAT" \? \(\s*<ChonThuThuatBanKham/);
+  // Hồ sơ tối giản: thẻ điều trị đứng đầu (trước ô ghi chú lượt Khác).
+  const tg = LUOT.slice(LUOT.indexOf("if (chonDuoc) {"), LUOT.indexOf("if (!phieu) {"));
+  assert.ok(tg.indexOf("{theDieuTri}") < tg.indexOf("<GhiChuLuot"), "thẻ điều trị trước ghi chú");
+});
+
+test("ô Làm trước – thu sau ở khối 1: chỉ khi máy chủ mời, cột phải chỉ lượt khám thường", () => {
+  assert.match(KHOI, /oTick && choGhi && !chiDoc \? <OTickTaiCho visitId=\{visitId\} moi=\{nhacTick\} onDoi=\{nap\} \/>/);
+  assert.match(KHOI, /setNhacTick\(Boolean\(d\.nhac_tick\)\)/);
+  assert.match(LUOT, /\{choGhi && !khoi1 \? \(\s*<div className="w-72 shrink-0 lg:w-full">\s*<OLamTruocThuSau visitId=\{visitId\} \/>/);
+  assert.match(LUOT, /oTick\s*\n\s*goiYTrong=/);
+});
+
+test("chọn thủ thuật: một lệnh máy chủ, lọc ở lib, ô bấm ≥40px", () => {
+  const CHON = doc("../app/(dashboard)/_lam-viec/phieu-kham/ChonThuThuatBanKham.tsx");
+  assert.match(CHON, /thao_tac: "chon-thu-thuat", visit_id: visitId, service_code: m\.service_code/);
+  assert.match(CHON, /danhSachThuThuatBanKham\(ds, tu\)/);
+  assert.match(CHON, /＋ Thủ thuật đã làm/);
+  assert.match(CHON, /aria-expanded=\{hienDs\}/);
+  assert.match(CHON, /min-h-10/);
+  assert.doesNotMatch(ma(CHON), /window\.confirm|style=\{\{/);
+  assert.match(ROUTE, /body\?\.thao_tac === "chon-thu-thuat"/);
+  assert.match(ROUTE, /\/api\/v1\/ho-so-kham\/\$\{vid\}\/dieu-tri\/chon-thu-thuat/);
 });

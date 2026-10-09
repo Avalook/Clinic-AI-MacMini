@@ -58,3 +58,27 @@ test("cùng phòng: hỏi tại chỗ, một nút Xong & bắt đầu, không t�
 test("chuông nhận chéo mở đúng chỉ định qua ?chi_dinh=", () => {
   assert.match(PHONG, /get\("chi_dinh"\)/);
 });
+
+// Ô "Làm trước – thu sau" TẠI CHỖ ở khung phải MỌI phòng dịch vụ (Tuyền chốt
+// 09/10/2026): mặc định KHÔNG hiện — chỉ khi máy chủ mời (`nhac_tick`: FinanceGate
+// chặn vì chưa thu và lượt chưa tick). TSX chỉ đọc cờ. Lượt Thủ thuật chưa có chỉ
+// định: link "Mở bàn khám" (phòng không tự chọn thủ thuật).
+const O_TICK = read("../app/(dashboard)/_lam-viec/OLamTruocThuSau.tsx");
+
+test("khung phải: ô tick chỉ khi máy chủ mời, một ô cho cả khách", () => {
+  assert.match(KHUNG, /import \{ OTickTaiCho \} from "\.\.\/\.\.\/_lam-viec\/OLamTruocThuSau";/);
+  assert.match(KHUNG, /<OTickTaiCho visitId=\{visitId\} moi=\{coMoiTick\(chiDinh\)\} onDoi=\{onDaNhan\} \/>/);
+  assert.match(API, /return ds\.some\(\(c\) => c\.nhac_tick === true\);/);
+  // Không mời thì không vẽ; đã hiện thì giữ tới khi đổi khách (bỏ tick tại chỗ).
+  assert.match(O_TICK, /if \(!moi && giu !== visitId\) return null;/);
+  // Không tự suy điều kiện tiền ở màn.
+  assert.doesNotMatch(KHUNG, /finance_state|da_thu|thu_truoc_khi_lam/);
+});
+
+test("Sắp đến: lượt Thủ thuật chưa có chỉ định có link Mở bàn khám (máy chủ trả)", () => {
+  assert.match(SAP_DEN, /\{k\.mo_ban_kham \? \(\s*<Link href=\{k\.mo_ban_kham\}/);
+  assert.match(KHUNG, /\{moBanKham \? \(\s*<Link href=\{moBanKham\}/);
+  assert.match(PHONG, /moBanKham=\{sdKhach\?\.mo_ban_kham \?\? null\}/);
+  // Phòng không có ô chọn thủ thuật.
+  assert.doesNotMatch(KHUNG + SAP_DEN, /ChonThuThuatBanKham|chon-thu-thuat/);
+});
