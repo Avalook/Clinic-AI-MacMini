@@ -4,7 +4,7 @@
 // (`services/lieu_trinh_service.py`, `lieu_trinh_tien.py`); ở đây chỉ có nhãn
 // để vẽ và câu ghép số cho người đọc.
 
-import { nhanLoi, type ThanLoi } from "./loi-api";
+import { nhanLoi, type ThanLoi } from "./loi-api.ts";
 
 export type TrangThaiLieuTrinh = "DE_XUAT" | "DANG_LAM" | "XONG" | "DUNG";
 
