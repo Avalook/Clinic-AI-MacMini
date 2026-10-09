@@ -32,6 +32,7 @@ import ChonDichVuKham from "../_lam-viec/ChonDichVuKham";
 import VatTuQuay from "./VatTuQuay";
 import LieuTrinhQuay from "./LieuTrinhQuay";
 import { useNgheBang } from "../dung-nghe-bang";
+import { taoMotLuot } from "@/lib/mot-luot";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
 import Button from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
@@ -268,7 +269,13 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
     [],
   );
 
-  const tai = useCallback(async () => nhan(await doc()), [doc, nhan]);
+  // Một lượt tải một lúc (lib/mot-luot): tin của một lần thu tới lệch nhau vài
+  // giây, từng làm ba lượt tải chạy chồng.
+  const [motLuot] = useState(taoMotLuot);
+  const tai = useCallback(
+    () => motLuot(async () => nhan(await doc())),
+    [motLuot, doc, nhan],
+  );
 
   // NGHE SỰ KIỆN (28/09/2026): trước đây quầy nạp MỘT lần khi mở. Hệ thống tự
   // xếp phòng (dây H4) ngay sau khi thu — màn vẫn hiện "chưa xếp phòng" với số

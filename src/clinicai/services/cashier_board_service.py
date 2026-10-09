@@ -142,14 +142,21 @@ WITH v AS (
       LEFT JOIN public.service_type st
              ON st.id = coalesce(vi.service_type_id, a.service_type_id)
      WHERE vi.clinic_id = $1::uuid
-       AND ((vi.created_at >= $2 AND vi.created_at < $3)
+       -- TẬP ỨNG VIÊN = lượt trong ngày ∪ lượt còn nợ, mỗi vế đi chỉ mục của
+       -- nó. Viết `ngày OR EXISTS(nợ)` thẳng trong WHERE thì Postgres không
+       -- dùng được chỉ mục created_at: quét mọi lượt từng có (chậm dần theo
+       -- tháng) và ước chi phí ~1 triệu — đủ bật JIT, 3s mỗi lần tải (09/10/2026).
+       AND vi.visit_id IN (
+            SELECT d.visit_id FROM public.visit d
+             WHERE d.clinic_id = $1::uuid
+               AND d.created_at >= $2 AND d.created_at < $3
+            UNION ALL
             -- THU NỢ (01/10/2026): lượt ngày trước đã GHI NỢ, còn chưa thu —
             -- khách quay lại trả ở quầy theo đúng đường thu có sẵn. Chỉ khi
             -- xem HÔM NAY ($4): xem lại một ngày cũ thì chỉ khách của ngày ấy.
-            OR ($4::boolean AND EXISTS (
-                SELECT 1 FROM public.cong_no n
-                 WHERE n.clinic_id = vi.clinic_id AND n.visit_id = vi.visit_id
-                   AND n.trang_thai = 'CHUA_THU')))
+            SELECT n.visit_id FROM public.cong_no n
+             WHERE $4::boolean AND n.clinic_id = $1::uuid
+               AND n.trang_thai = 'CHUA_THU')
        -- CƠ SỞ ĐANG ĐỨNG ($5, 08/10/2026): chỉ khách của cơ sở ấy. Lượt chưa
        -- biết cơ sở vẫn hiện; $5 NULL (danh tính không mang cơ sở) = không lọc.
        AND coalesce(vi.location_id, a.location_id, $5::uuid)
