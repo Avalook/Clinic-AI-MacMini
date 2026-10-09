@@ -72,9 +72,10 @@ async def _nguoi(conn: asyncpg.Connection, role: str) -> StaffIdentity:
 async def test_co_du_18_mau_cua_phong_kham(pool: asyncpg.Pool) -> None:
     so = await pool.fetchval(
         "SELECT count(*) FROM ket_qua_mau WHERE clinic_id = $1::uuid AND active"
-        # + mẫu siêu âm thai quý III (migration 20261009310000).
+        # + mẫu siêu âm thai quý III (migration 20261009310000), mẫu một ô Mô tả
+        # cho nước tiểu / monitor (20261009700000).
         " AND ma NOT IN ('CHUNG', 'DO_MAT_DO_XUONG', 'PHIEU_DIEU_TRI',"
-        "                'SA_THAI_QUY_3')",
+        "                'SA_THAI_QUY_3', 'MO_TA')",
         CLINIC,
     )
     assert so == 18
@@ -120,7 +121,17 @@ async def test_migration_chi_gan_theo_ma_phong_kham_cua_pdf(
         " JOIN service_price p ON p.clinic_id = g.clinic_id"
         "  AND p.service_code = g.service_code AND p.\"group\" = 'dich_vu'"
         " WHERE g.clinic_id = $1::uuid AND g.gan_boi IS NULL"
-        "   AND g.mau <> 'PHIEU_DIEU_TRI'",
+        "   AND g.mau <> 'PHIEU_DIEU_TRI'"
+        # Mẫu một ô Mô tả (20261009700000) gắn theo đúng service_code của nước
+        # tiểu / monitor — không theo mã phòng khám; kiểm riêng bên dưới.
+        "   AND g.mau <> 'MO_TA'",
+        CLINIC,
+    )
+    assert not await pool.fetchval(
+        "SELECT count(*) FROM dich_vu_mau_ket_qua"
+        " WHERE clinic_id = $1::uuid AND mau = 'MO_TA' AND gan_boi IS NULL"
+        "   AND service_code NOT IN ('CLS_NUOC_TIEU', 'CLS_NUOC_TIEU_SAU_XUAT_TINH',"
+        "                            'CLS_CHAY_MONITORING', 'KV_SP000081')",
         CLINIC,
     )
     assert all((r["mau"], r["ma_kiotviet"]) in hop_le for r in dong)
