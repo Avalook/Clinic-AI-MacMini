@@ -21,6 +21,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from clinicai.llm import chi_phi
 from clinicai.llm.models import TIER_TO_MODEL, Tier
 
 logger = structlog.get_logger(__name__)
@@ -62,41 +63,75 @@ class LLMResponse:
     # Prompt-caching observability (0 khi không có cache hit / SDK không trả về).
     cache_read_input_tokens: int = 0
     cache_creation_input_tokens: int = 0
+    #: Dòng `llm_lan_goi` của lần gọi này (chỉ có khi client mang `pool`).
+    lan_goi_id: Optional[str] = None
 
 
 class AnthropicClient:
     """Async wrapper quanh AsyncAnthropic SDK với retry + logging."""
 
-    def __init__(self, api_key: Optional[str] = None) -> None:
+    def __init__(self, api_key: Optional[str] = None, *, pool: Any = None) -> None:
+        """`pool` (asyncpg.Pool): có thì MỖI lần gọi ghi `llm_lan_goi` (token +
+        USD) và bị chặn khi tiền hôm nay chạm trần (`llm/chi_phi.py`)."""
         key = api_key or os.getenv("ANTHROPIC_API_KEY")
         if not key:
             raise RuntimeError(
                 "ANTHROPIC_API_KEY env var bắt buộc để khởi tạo AnthropicClient."
             )
         self._client = AsyncAnthropic(api_key=key)
+        self._pool = pool
 
     async def chat(
         self,
         messages: list[dict[str, Any]],
         tier: Tier = "gateway",
         max_tokens: int = DEFAULT_MAX_TOKENS,
-        temperature: float = DEFAULT_TEMPERATURE,
+        temperature: Optional[float] = DEFAULT_TEMPERATURE,
         system: Optional[str] = None,
         cache_system: bool = True,
         trace_id: Optional[UUID] = None,
+        *,
+        model: Optional[str] = None,
+        tinh_nang: str = "khac",
+        clinic_id: Optional[str] = None,
+        extra_headers: Optional[dict[str, str]] = None,
+        extra_body: Optional[dict[str, Any]] = None,
     ) -> LLMResponse:
-        model = TIER_TO_MODEL[tier]
+        """`temperature=None` = KHÔNG gửi: Opus 5.5 / Sonnet 5.5 trả 400 khi có
+        tham số lấy mẫu. `model` đè `tier`. `extra_*` chuyển nguyên cho SDK (tham
+        số mới hơn bản SDK đang ghim)."""
+        model = model or TIER_TO_MODEL[tier]
         kwargs: dict[str, Any] = {
             "model": model,
             "messages": messages,
             "max_tokens": max_tokens,
-            "temperature": temperature,
         }
+        if temperature is not None:
+            kwargs["temperature"] = temperature
         if system is not None:
             kwargs["system"] = self._build_system(system, cache_system)
+        if extra_headers:
+            kwargs["extra_headers"] = extra_headers
+        if extra_body:
+            kwargs["extra_body"] = extra_body
 
+        if self._pool is not None:
+            await chi_phi.chan_neu_vuot_tran(self._pool)
         start = time.perf_counter()
-        resp = await self._invoke_with_retry(kwargs)
+        try:
+            resp = await self._invoke_with_retry(kwargs)
+        except Exception as e:
+            if self._pool is not None:
+                await chi_phi.ghi_lan_goi(
+                    self._pool,
+                    tinh_nang=tinh_nang,
+                    model=model,
+                    clinic_id=clinic_id,
+                    thanh_cong=False,
+                    loi=f"{type(e).__name__}: {e}",
+                    thoi_gian_ms=int((time.perf_counter() - start) * 1000),
+                )
+            raise
         latency_ms = int((time.perf_counter() - start) * 1000)
 
         text = self._extract_text(resp)
@@ -105,6 +140,22 @@ class AnthropicClient:
         cache_read = self._usage_int(resp.usage, "cache_read_input_tokens")
         cache_creation = self._usage_int(resp.usage, "cache_creation_input_tokens")
         stop_reason = getattr(resp, "stop_reason", None)
+        lan_goi_id: Optional[str] = None
+        if self._pool is not None:
+            lan_goi_id = await chi_phi.ghi_lan_goi(
+                self._pool,
+                tinh_nang=tinh_nang,
+                model=str(getattr(resp, "model", None) or model),
+                vao=input_tokens,
+                ra=output_tokens,
+                doc_cache=cache_read,
+                ghi_cache=cache_creation,
+                clinic_id=clinic_id,
+                thanh_cong=stop_reason != "refusal",
+                loi="refusal" if stop_reason == "refusal" else None,
+                ma_yeu_cau=getattr(resp, "_request_id", None),
+                thoi_gian_ms=latency_ms,
+            )
 
         logger.info(
             "llm_call",
@@ -128,6 +179,7 @@ class AnthropicClient:
             stop_reason=stop_reason,
             cache_read_input_tokens=cache_read,
             cache_creation_input_tokens=cache_creation,
+            lan_goi_id=lan_goi_id,
         )
 
     async def _invoke_with_retry(self, kwargs: dict[str, Any]) -> Any:

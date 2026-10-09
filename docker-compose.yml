@@ -178,6 +178,7 @@ services:
     image: clinicai-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     mem_limit: ${API_MEMORY_LIMIT:-1g}
+    secrets: [agent_llm_api_key]
     pids_limit: 256
     env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     environment:
@@ -299,6 +300,7 @@ services:
     pids_limit: 128
     env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     command: ["python", "-m", "clinicai.worker", "--su-kien"]
+    secrets: [agent_llm_api_key]
     depends_on:
       api:
         condition: service_healthy
@@ -515,6 +517,16 @@ networks:
   supabase:
     external: true
     name: ${SUPABASE_NETWORK:-clinicai_db_supabase}
+
+# KHOÁ LLM CỦA AGENT GIÁM SÁT (09/10/2026) — tệp, không phải biến môi trường.
+# Container đọc ở /run/secrets/agent_llm_api_key. Không nằm trong .env.prod nên
+# không hiện ở `docker inspect`, và TÁCH KHỎI ANTHROPIC_API_KEY: có biến ấy là
+# main.py bật AI phân loại xét nghiệm (gửi nội dung kết quả đi) — agent không
+# được kéo theo. Prod: AGENT_LLM_KEY_FILE=/home/clinicai/bi-mat/agent_llm_api_key
+# trong .env.prod. Không đặt (staging, máy dev) → tệp rỗng trong repo → LLM tắt.
+secrets:
+  agent_llm_api_key:
+    file: ${AGENT_LLM_KEY_FILE:-./docker/khong-co-khoa-llm}
 
 volumes:
   caddy_data:

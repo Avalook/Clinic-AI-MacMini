@@ -17,6 +17,8 @@ import ONhap from "@/components/ui/ONhap";
 import { fmtTime } from "@/lib/datetime";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
+import AgentAiChiPhi from "./AgentAiChiPhi";
+
 type DanhGia = "dung" | "sai" | "khong_ro";
 
 interface NhanDinh {
@@ -166,6 +168,8 @@ export default function AgentGiamSat() {
           {duLieu ? ` Phiên bản luật: ${duLieu.phien_ban}.` : ""}
         </p>
       </section>
+
+      <AgentAiChiPhi />
 
       <section className="space-y-2">
         <h2 className="text-emph font-semibold text-ink">Từng loại nhận định · 14 ngày</h2>

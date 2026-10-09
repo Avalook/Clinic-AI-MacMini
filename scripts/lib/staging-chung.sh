@@ -98,6 +98,9 @@ kiem_env_staging() {
     done
     case "$(env_get "$f" POS_ADAPTER)" in ""|none) ;; *) dung "POS_ADAPTER phải là none ở staging." ;; esac
     case "$(env_get "$f" ANTHROPIC_API_KEY)" in sk-ant-api*) dung "ANTHROPIC_API_KEY ở staging phải là khoá giả." ;; esac
+    # Agent giám sát đọc khoá LLM từ TỆP (docker secret). Staging không trỏ tệp
+    # nào → tệp rỗng trong repo → LLM tắt (09/10/2026).
+    [ -z "$(env_get "$f" AGENT_LLM_KEY_FILE)" ] || dung "AGENT_LLM_KEY_FILE phải RỖNG ở staging."
     [ "$(env_get "$f" NOTIFICATION_RELAY_ENABLED)" != "true" ] || dung "NOTIFICATION_RELAY_ENABLED phải tắt ở staging."
 }
 

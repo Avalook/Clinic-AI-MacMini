@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
 import asyncpg
@@ -10,12 +11,15 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity, get_current_identity
+from clinicai.core.clock import doc_ngay_xem, hom_nay_vn
 from clinicai.core.database import get_db_pool
 from clinicai.core.telemetry import SLOW_REQUEST_MS, telemetry
+from clinicai.llm import chi_phi
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.schemas.ops import OpsStatusResponse
 from clinicai.services import (
     agent_giam_sat,
+    agent_tom_tat,
     canh_gac,
     canh_gac_kho_tep,
     day_tep,
@@ -247,6 +251,64 @@ async def dat_che_do_agent(
         staff_id=identity.staff_id,
     )
     return {"ok": True}
+
+
+def _ngay_hoac_hom_nay(ngay: str | None) -> date:
+    """Ngày người gửi lên; rác / trống → hôm nay (luật repo: không ném)."""
+    return doc_ngay_xem(ngay) or hom_nay_vn()
+
+
+@router.get("/ops/agent/tom-tat")
+async def doc_tom_tat(
+    response: Response,
+    ngay: str | None = None,
+    identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Bản tóm tắt LLM mới nhất của ngày + LLM đang bật hay tắt."""
+    response.headers["Cache-Control"] = "no-store"
+    return await agent_tom_tat.doc(
+        pool, clinic_id=identity.clinic_id, ngay=_ngay_hoac_hom_nay(ngay)
+    )
+
+
+class TaoTomTat(BaseModel):
+    ngay: str | None = None
+
+
+@router.post("/ops/agent/tom-tat")
+async def tao_tom_tat(
+    body: TaoTomTat,
+    identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Bấm "Tóm tắt ngay": gọi LLM một lần (tính tiền, có trần ngày)."""
+    try:
+        return await agent_tom_tat.tao(
+            pool,
+            clinic_id=identity.clinic_id,
+            ngay=_ngay_hoac_hom_nay(body.ngay),
+            staff_id=identity.staff_id,
+        )
+    except agent_tom_tat.LlmTatError as e:
+        raise ValidationError(str(e)) from e
+    except chi_phi.VuotTranChiPhiError as e:
+        raise ValidationError(str(e)) from e
+    except agent_tom_tat.TomTatHongError as e:
+        raise ValidationError(str(e)) from e
+
+
+@router.get("/ops/llm/chi-phi")
+async def chi_phi_llm(
+    response: Response,
+    so_ngay: int = Query(default=7, ge=1, le=31),
+    _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Đồng hồ tiền LLM: hôm nay / trần, theo model, theo ngày, 20 lần gần nhất.
+    Số dư tài khoản KHÔNG có ở đây — chỉ Console → Billing mới có."""
+    response.headers["Cache-Control"] = "no-store"
+    return await chi_phi.so_lieu(pool, so_ngay=so_ngay)
 
 
 class LoiTrinhDuyet(BaseModel):
