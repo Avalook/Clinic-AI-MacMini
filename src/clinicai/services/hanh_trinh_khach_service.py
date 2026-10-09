@@ -31,7 +31,7 @@ from __future__ import annotations
 import json
 import uuid
 from collections import defaultdict
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import asyncpg
@@ -138,6 +138,60 @@ def noi_la_du_kien(noi: str | None) -> bool:
     return bool(noi) and str(noi).startswith(_NOI_GIU_CHO)
 
 
+def vao_hang_that(
+    q: dict[str, Any] | None, bat: datetime | None
+) -> tuple[datetime | None, datetime | None]:
+    """(vào hàng, quay lại) của MỘT chỗ chờ — HÀM THUẦN (Tuyền 09/10/2026).
+
+    `eligible_at` là khoá xếp hàng: khách rời phòng rồi quay lại thì nó bị đặt
+    lại (`hang_cho.mo_cho_bi_chan`, cố ý — xếp sau người đang chờ). Giờ khách
+    THẬT SỰ bắt đầu chờ là `vao_hang_luc` (lần đầu vào hàng, không bao giờ ghi
+    đè; DB chưa có cột thì rơi về `eligible_at`).
+
+    * vào = lần đầu vào hàng, nếu không muộn hơn `bat` (bắt đầu) — muộn hơn thì
+      bỏ trống, không in "chờ" âm;
+    * quay lại = `eligible_at` khi nó muộn hơn lần đầu vào hàng hoặc muộn hơn
+      giờ bắt đầu (khách đi làm việc khác rồi về lại hàng này)."""
+    if not q:
+        return None, None
+    hien = _gio(q.get("eligible_at"))
+    dau = _gio(q.get("vao_hang_luc")) or hien
+    vao = dau if dau is not None and (bat is None or dau <= bat) else None
+    quay = (
+        hien
+        if hien is not None
+        and ((dau is not None and hien > dau) or (bat is not None and hien > bat))
+        else None
+    )
+    return vao, quay
+
+
+#: Dưới một phút giữa bắt đầu và xong = giao diện in "làm 0′".
+_MOT_PHUT = timedelta(minutes=1)
+
+
+def ly_do_bam_don(
+    bat_dau: Any, xong: Any, *, bat_dau_bu: str | None = None
+) -> str | None:
+    """Cờ "bấm dồn?" của một bước / thẻ ĐÃ XONG — HÀM THUẦN (Tuyền 09/10/2026).
+
+    Màu xanh chỉ nói "xong", không phân biệt bấm đúng lúc với bấm bù. Trả lý do
+    ngắn khi (a) không có mốc bắt đầu thật — thiếu hẳn, hoặc phải lấy mốc khác
+    bù vào (`bat_dau_bu` = mốc bù là gì), hoặc (b) bắt đầu và xong cách nhau
+    dưới 1 phút ("làm 0′"). Chưa xong / giờ rác → None. Không đổi dữ liệu gốc."""
+    ket = _gio(xong)
+    if ket is None:
+        return None
+    bat = _gio(bat_dau)
+    if bat is None:
+        return "không có giờ bắt đầu"
+    if bat_dau_bu:
+        return f"không bấm bắt đầu — giờ bắt đầu lấy theo {bat_dau_bu}"
+    if ket - bat < _MOT_PHUT:
+        return "bắt đầu và xong trong cùng một phút"
+    return None
+
+
 def _vao_truoc(ds_vao: list[datetime], moc: datetime | None) -> datetime | None:
     """Giờ vào hàng GẦN NHẤT mà không muộn hơn `moc` (bắt đầu). Không có → None
     — thà bỏ trống còn hơn in "chờ" âm (29/09/2026: làm lại thì chỗ chờ được
@@ -148,18 +202,44 @@ def _vao_truoc(ds_vao: list[datetime], moc: datetime | None) -> datetime | None:
     return max(truoc) if truoc else None
 
 
+def _vao_dau(
+    ds_dau: list[datetime],
+    het_truoc: datetime | None,
+    bat: datetime | None,
+    vao: datetime | None,
+) -> tuple[datetime | None, datetime | None]:
+    """(vào, quay lại) khi biết LẦN ĐẦU vào hàng (`vao_hang_luc`) — lần đầu
+    trong cùng khoảng (sau lần làm trước, không muộn hơn bắt đầu) sớm hơn giờ
+    vào gần nhất = khách đã chờ từ trước, rời đi rồi quay lại (09/10/2026)."""
+    dau = [
+        v
+        for v in ds_dau
+        if (het_truoc is None or v >= het_truoc) and (bat is None or v <= bat)
+    ]
+    if dau and (vao is None or min(dau) < vao):
+        return min(dau), vao
+    return vao, None
+
+
 def _cac_lan_lam(
-    lan_lam: list[dict[str, Any]], ds_vao: list[datetime], cho_lan_moi: bool
+    lan_lam: list[dict[str, Any]],
+    ds_vao: list[datetime],
+    cho_lan_moi: bool,
+    ds_dau: list[datetime] | None = None,
 ) -> list[dict[str, Any]]:
     """Mỗi LẦN LÀM một dòng: vào hàng / bắt đầu / xong (hoặc dừng). Vào hàng của
     lần k nằm giữa lúc lần trước kết thúc và lúc lần k bắt đầu. `cho_lan_moi`:
-    lần trước dừng, đã chuẩn bị làm lại mà chưa bắt đầu → thêm dòng đang chờ."""
+    lần trước dừng, đã chuẩn bị làm lại mà chưa bắt đầu → thêm dòng đang chờ.
+    `ds_dau`: giờ vào hàng LẦN ĐẦU của các chỗ chờ (`vao_hang_luc`)."""
     ra: list[dict[str, Any]] = []
     het_truoc: datetime | None = None
     for a in sorted(lan_lam, key=lambda x: int(x.get("attempt_no") or 0)):
         bat = _gio(a.get("started_at"))
-        vao = _vao_truoc(
-            [v for v in ds_vao if het_truoc is None or v >= het_truoc], bat
+        vao, quay = _vao_dau(
+            ds_dau or [],
+            het_truoc,
+            bat,
+            _vao_truoc([v for v in ds_vao if het_truoc is None or v >= het_truoc], bat),
         )
         dung = _gio(a.get("interrupted_at"))
         ra.append(
@@ -167,6 +247,7 @@ def _cac_lan_lam(
                 "so": int(a.get("attempt_no") or len(ra) + 1),
                 "trang_thai": a.get("status"),
                 "vao": vao,
+                "quay_lai": quay,
                 "bat_dau": bat,
                 "xong": _gio(a.get("completed_at")),
                 "dung": dung,
@@ -180,6 +261,7 @@ def _cac_lan_lam(
                 "so": ra[-1]["so"] + 1,
                 "trang_thai": "PENDING",
                 "vao": max(sau) if sau else None,
+                "quay_lai": None,
                 "bat_dau": None,
                 "xong": None,
                 "dung": None,
@@ -242,25 +324,38 @@ def _the_dich_vu(
         # Đối tác: phòng khám lấy mẫu xong → mẫu ở đối tác, chờ kết quả.
         tt = DV_DOI_TAC
         lay_mau = _gio(goc.get("lam_xong_luc"))
-    ds_vao = sorted(
-        v
-        for v in (
-            _gio(q.get("eligible_at")) for q in (cac_hang or ([hang] if hang else []))
-        )
-        if v is not None
-    )
+    cac = cac_hang or ([hang] if hang else [])
+    ds_vao = sorted(v for v in (_gio(q.get("eligible_at")) for q in cac) if v)
+    ds_dau = sorted(v for v in (_gio(q.get("vao_hang_luc")) for q in cac) if v)
     lan = _cac_lan_lam(
         lan_lam or [],
         ds_vao,
         cho_lan_moi=goc.get("execution_status") == "PENDING"
         and bool(lan_lam)
         and all((a.get("status") == "INTERRUPTED") for a in (lan_lam or [])[-1:]),
+        ds_dau=ds_dau,
     )
-    bat_dau = (
-        lan[-1]["bat_dau"]
-        if lan
-        else _gio(tung.get("bat_dau"))
-        or (_gio(hang.get("serving_at")) if hang else None)
+    bat_that = lan[-1]["bat_dau"] if lan else _gio(tung.get("bat_dau"))
+    # Không có lần làm nào ghi giờ bắt đầu: giờ vào phòng (`serving_at`) bù vào.
+    bat_dau = bat_that or (_gio(hang.get("serving_at")) if hang else None)
+    if lan:
+        vao, quay_lai = lan[-1]["vao"], lan[-1]["quay_lai"]
+    else:
+        vao, quay_lai = _vao_dau(ds_dau, None, bat_dau, _vao_truoc(ds_vao, bat_dau))
+    xong = _gio(tung.get("xong"))
+    bam_don = (
+        ly_do_bam_don(
+            bat_dau,
+            xong,
+            bat_dau_bu="giờ vào phòng" if bat_that is None and bat_dau else None,
+        )
+        # Làm thêm tại quầy đóng thẳng ở quầy (Hoàn tất kết quả) và việc đối
+        # tác làm trọn (không phòng nội bộ) — vốn không có bước bắt đầu ở
+        # phòng khám, không phải bấm dồn.
+        if tt == DA_XONG
+        and not tung.get("xong_boi")
+        and not (goc.get("ngoai") and not goc.get("phong"))
+        else None
     )
     return {
         "id": tung.get("id"),
@@ -276,10 +371,14 @@ def _the_dich_vu(
         # Dịch vụ làm thêm do QUẦY đóng (Hoàn tất kết quả tại quầy): ai đóng.
         "xong_boi": tung.get("xong_boi"),
         "trang_thai": tt,
-        # Vào hàng của phòng — lần gần nhất KHÔNG muộn hơn giờ bắt đầu.
-        "vao": lan[-1]["vao"] if lan else _vao_truoc(ds_vao, bat_dau),
+        # Vào hàng của phòng — LẦN ĐẦU (không muộn hơn giờ bắt đầu); khách rời
+        # đi rồi về lại hàng thì `quay_lai` là giờ về lại.
+        "vao": vao,
+        "quay_lai": quay_lai,
         "bat_dau": bat_dau,
-        "xong": _gio(tung.get("xong")),
+        "xong": xong,
+        "bam_don": bam_don is not None,
+        "bam_don_ly_do": bam_don,
         "so_lan": len(lan) if lan else 1,
         # Chỉ trả khi LÀM LẠI (≥ 2 lần) — một lần thì giờ chính đã đủ.
         "lan": lan if len(lan) >= 2 else [],
@@ -414,6 +513,8 @@ def dung_hanh_trinh_khach(
         xong: datetime | None = None,
         ghi_chu: str | None = None,
         dich_vu: list[dict[str, Any]] | None = None,
+        quay_lai: datetime | None = None,
+        bam_don: str | None = None,
         **them_truong: Any,
     ) -> None:
         if xong_buoi and trang_thai in (CHO, CHUA):
@@ -423,7 +524,10 @@ def dung_hanh_trinh_khach(
         # KIẾN — giao diện hiện xám, KHÔNG BAO GIỜ gắn giờ.
         du_kien = trang_thai == CHUA
         if du_kien:
-            vao = bat_dau = xong = None
+            vao = bat_dau = xong = quay_lai = None
+        # "bấm dồn?" chỉ cho bước ĐÃ XONG (09/10/2026).
+        if trang_thai != XONG:
+            bam_don = None
         buoc.append(
             {
                 **them_truong,
@@ -435,10 +539,14 @@ def dung_hanh_trinh_khach(
                 "noi_du_kien": noi_la_du_kien(noi),
                 "ai": ai_lam,
                 "vao": vao,
+                # Khách rời hàng rồi về lại (eligible_at bị đặt lại) — 09/10.
+                "quay_lai": quay_lai,
                 "bat_dau": bat_dau,
                 "xong": xong,
                 "ghi_chu": ghi_chu,
                 "dich_vu": dich_vu,
+                "bam_don": bam_don is not None,
+                "bam_don_ly_do": bam_don,
             }
         )
 
@@ -502,12 +610,21 @@ def dung_hanh_trinh_khach(
         # thời gian làm.
         do_lai=list(sh.get("do_lai") or []) if sh else [],
         lan_do=lan_do,
+        bam_don=ly_do_bam_don(
+            sh["bat"],
+            sh["ket"],
+            bat_dau_bu="lúc lưu kết quả" if sh.get("bat_bu") else None,
+        )
+        if sh
+        else None,
     )
 
     # 3. Tư vấn (chỉ khi có).
     tv = moc.get("TU_VAN")
     q_tv = hang_cua("TU_VAN")
     if tv or q_tv:
+        bat_tv = tv["bat"] if tv else None
+        vao_tv, quay_tv = vao_hang_that(q_tv, bat_tv)
         them(
             "TU_VAN",
             "Tư vấn",
@@ -515,17 +632,20 @@ def dung_hanh_trinh_khach(
             if tv
             else (CHO if q_tv and q_tv.get("status") in _HANG_SONG else CHUA),
             noi=noi_q(q_tv) if q_tv else "Bàn tư vấn",
-            vao=_gio(q_tv.get("eligible_at")) if q_tv else None,
-            bat_dau=tv["bat"] if tv else None,
+            vao=vao_tv,
+            quay_lai=quay_tv,
+            bat_dau=bat_tv,
             xong=tv["ket"] if tv else None,
+            bam_don=ly_do_bam_don(bat_tv, tv["ket"]) if tv else None,
         )
 
     # 4. Khám bác sĩ chính — kèm "chỉ định N dịch vụ · thu tiền HH:MM (ai)".
-    # Chỗ chờ khám chính có mốc vào hàng SAU lúc bắt đầu khám = khách đi làm
-    # dịch vụ rồi QUAY LẠI trong cùng phiên (không phải thời gian chờ khám).
+    # Chỗ chờ khám chính có mốc vào hàng (`eligible_at`) SAU lúc bắt đầu khám =
+    # khách đi làm dịch vụ rồi QUAY LẠI trong cùng phiên. Giờ chờ khám tính từ
+    # LẦN ĐẦU vào hàng (`vao_hang_luc`, 09/10/2026 — trước đây mất hẳn "vào/chờ").
     vao_q = _gio(q_chinh.get("eligible_at")) if q_chinh else None
     quay_lai_luc = vao_q if (vao_q and bat_kham and vao_q > bat_kham) else None
-    vao_kham = None if quay_lai_luc else vao_q
+    vao_kham, quay_kham = vao_hang_that(q_chinh, bat_kham)
     # "chỉ định N dịch vụ" là của BÁC SĨ — làm thêm tại quầy không tính vào.
     lam = [o for o in chi_dinh if o.get("chon") and not o.get("lam_them")]
     thu = moc.get("THU_TIEN")
@@ -553,8 +673,10 @@ def dung_hanh_trinh_khach(
         ),
         ai_lam=bs_chinh,
         vao=vao_kham,
+        quay_lai=quay_kham,
         bat_dau=bat_kham,
         xong=xong_kham,
+        bam_don=ly_do_bam_don(bat_kham, xong_kham),
         so_chi_dinh=len(lam),
         # Đang khám lại sau khi hoàn tác "Khám xong" (giao diện hiện chữ này).
         kham_lai=kham_lai,
@@ -623,6 +745,7 @@ def dung_hanh_trinh_khach(
         if doc_trong_phien:
             bat = quay_lai_luc or bat
             ket = xong_kham
+        vao_doc, quay_doc = vao_hang_that(q_doc, bat)
         them(
             "DOC_KQ",
             "Quay lại bác sĩ chính",
@@ -635,7 +758,8 @@ def dung_hanh_trinh_khach(
             else CHUA,
             noi=noi_q(q_doc) if q_doc else _ban_kham_bs(bs_doc),
             ai_lam=bs_doc,
-            vao=_gio(q_doc.get("eligible_at")) if q_doc else None,
+            vao=vao_doc,
+            quay_lai=quay_doc,
             bat_dau=bat,
             xong=ket,
             ghi_chu="đọc kết quả ngay trong phiên khám chính"
@@ -809,6 +933,8 @@ def dung_hanh_trinh_khach(
         ],
         "xong_buoi": xong_buoi,
         "doan": doan,
+        # Song song `doan`: đoạn nào là bước / thẻ "bấm dồn?" (09/10/2026).
+        "doan_bam_don": doan_bam_don(buoc),
         # Dịch vụ làm thêm tại quầy (01/10/2026) — dòng gọn ghi riêng.
         "lam_them": [t["ten"] for t in the if t.get("lam_them")],
         "dv_xong": sum(1 for t in the if t["trang_thai"] == DA_XONG),
@@ -832,7 +958,9 @@ def _bo_gio_ho_so_cu(kq: dict[str, Any]) -> dict[str, Any]:
     lượt cũ cố ý không có dòng thu nên "chờ thu tiền" luôn sai. Trạng thái các
     bước giữ nguyên."""
     for b in kq["buoc"]:
-        b.update(vao=None, bat_dau=None, xong=None)
+        # Mọi giờ 00:00 giả = "cùng phút" — không phải bấm dồn.
+        b.update(vao=None, bat_dau=None, xong=None, quay_lai=None)
+        b.update(bam_don=False, bam_don_ly_do=None)
         if b["ma"] == "SINH_HIEU":
             b.update(do_lai=[], lan_do=[])
         if b["ma"] == "KHAM":
@@ -845,10 +973,13 @@ def _bo_gio_ho_so_cu(kq: dict[str, Any]) -> dict[str, Any]:
             )
         for t in b.get("dich_vu") or []:
             t.update(vao=None, bat_dau=None, xong=None, thu=None, lay_mau=None, lan=[])
+            t.update(quay_lai=None, bam_don=False, bam_don_ly_do=None)
     for o in (kq["gon"], kq["dang_o"]):
         o.update(tu_luc=None, ho_so_cu=True)
     kq["gon"].update(
-        do_lai=[], con_cho=[c for c in kq["gon"]["con_cho"] if c != "Thu tiền"]
+        do_lai=[],
+        con_cho=[c for c in kq["gon"]["con_cho"] if c != "Thu tiền"],
+        doan_bam_don=[False] * len(kq["gon"]["doan"]),
     )
     kq["ho_so_cu"] = True
     return kq
@@ -880,6 +1011,18 @@ def doan_tu_buoc(buoc: list[dict[str, Any]]) -> list[str]:
         else:
             doan.append(b["trang_thai"])
     return doan
+
+
+def doan_bam_don(buoc: list[dict[str, Any]]) -> list[bool]:
+    """Cờ "bấm dồn?" của từng đoạn — CÙNG thứ tự với `doan_tu_buoc` (trong
+    khung là viền khác thì thanh ngoài cũng khác)."""
+    ra: list[bool] = []
+    for b in buoc:
+        if b["ma"] == "LAM_DV" and b.get("dich_vu"):
+            ra.extend(bool(t.get("bam_don")) for t in b["dich_vu"])
+        else:
+            ra.append(bool(b.get("bam_don")))
+    return ra
 
 
 def _iso(v: Any) -> Any:
@@ -918,6 +1061,9 @@ _SQL_HANG = """
     SELECT q.id::text AS id, q.visit_id::text AS visit_id, q.lane, q.reason,
            q.ref_id::text AS ref_id, q.status, q.eligible_at, q.called_at,
            q.serving_at, q.done_at, q.created_at,
+           -- Lần ĐẦU vào hàng (mig 20261009400000). Đọc qua to_jsonb: DB chưa
+           -- có cột thì ra NULL = rơi về eligible_at, không vỡ câu.
+           (to_jsonb(q) ->> 'vao_hang_luc')::timestamptz AS vao_hang_luc,
            -- Bác sĩ của chỗ chờ, rơi về bác sĩ của PHIÊN (29/09/2026: trợ lý
            -- bấm Bắt đầu cho khách chưa gán bác sĩ — phiên có bác sĩ, chỗ chờ
            -- đời trước thì chưa) để "đang ở" ra đúng phòng bác sĩ.

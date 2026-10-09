@@ -141,6 +141,9 @@ def dung_moc(
     # tính từ lúc bắt đầu. Đo lại 10:45 sau lần 10:33 không biến thành "làm
     # 12′" — các lần đo lại trả riêng (`do_lai`, `lan_do` kèm người đo).
     bat = _dau(luc("vitals.started") + luc("vitals.recorded"))
+    # Không ai bấm "Bắt đầu đo": giờ bắt đầu là giờ LƯU kết quả — mốc bù, không
+    # phải giờ thật (cờ "bấm dồn?" của Hành trình khách, 09/10/2026).
+    bat_bu = bat is not None and not luc("vitals.started")
     lan_do = sorted(
         (
             (t, ct)
@@ -160,6 +163,7 @@ def dung_moc(
             _tt(bat, ket),
             do_lai=[t for t, _ct in lan_do[1:]],
             lan_do=[{"luc": t, "ai": ct.get(KHOA_AI)} for t, ct in lan_do],
+            bat_bu=bat_bu,
         )
     )
 

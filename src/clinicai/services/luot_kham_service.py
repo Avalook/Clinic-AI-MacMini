@@ -3280,7 +3280,7 @@ class LuotKhamService:
             if code:
                 raise LuotKhamConflictError(code, _CAU_CHAN_DIEU_PHOI[code])
             version = await self._gan_phong(
-                conn, identity, vid=vid, oid=oid, rid=rid, o=o
+                conn, identity, vid=vid, oid=oid, rid=rid, o=o, bam_tay=True
             )
             result = {"ok": True, "order_id": oid, "version": version}
             await self._receipt_put(
@@ -3297,8 +3297,12 @@ class LuotKhamService:
         oid: str,
         rid: str,
         o: asyncpg.Record,
+        bam_tay: bool = False,
     ) -> int:
-        """Đặt một chỉ định (đã qua luật chặn) vào hàng chờ của một phòng."""
+        """Đặt một chỉ định (đã qua luật chặn) vào hàng chờ của một phòng.
+
+        `bam_tay` = người bấm xếp phòng (`dispatch_order`), không phải tự xếp —
+        Lịch sử điều phối chỉ hiện dòng có dấu này (09/10/2026)."""
         from clinicai.services.service_routing_service import (
             cau_phong_khong_lam,
             phong_gan_dich_vu,
@@ -3400,7 +3404,13 @@ class LuotKhamService:
             aggregate_id=vid,
             identity=identity,
             origin=ORIGIN,
-            payload={"visit_id": vid, "order_id": oid, "room_id": rid},
+            payload={
+                "visit_id": vid,
+                "order_id": oid,
+                "room_id": rid,
+                # `to_room` cùng khoá với sổ `dispatch.*` khác → cột "Đến".
+                **({"bam_tay": True, "to_room": rid} if bam_tay else {}),
+            },
         )
         return int(version)
 

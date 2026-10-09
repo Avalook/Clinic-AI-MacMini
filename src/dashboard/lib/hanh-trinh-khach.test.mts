@@ -8,6 +8,7 @@ import {
   dongPhuGon,
   ghiChuKham,
   gio,
+  nhanBamDon,
   nhanThe,
   noiGon,
   phut,
@@ -171,4 +172,32 @@ test("mỗi lần làm đủ vào · bắt đầu · xong/dừng; chờ không �
     thoiGian({ vao: luc(70), bat_dau: luc(60), xong: null }, bay(80), true),
     "vào 11:10 · chờ 0′ · bắt đầu 11:00",
   );
+});
+
+test("vào hàng lần đầu + quay lại (09/10/2026): vào 18:13 · chờ 24′ · quay lại 18:50", () => {
+  // 18:00 giờ VN = 11:00 UTC.
+  const g = (p: number) => new Date(Date.UTC(2026, 9, 9, 11, p)).toISOString();
+  assert.equal(
+    thoiGian({ vao: g(13), bat_dau: g(37), xong: null, quay_lai: g(50) }, Date.UTC(2026, 9, 9, 11, 55), true),
+    "vào 18:13 · chờ 24′ · bắt đầu 18:37 · quay lại 18:50",
+  );
+  assert.equal(
+    dongLanLam(
+      { so: 1, trang_thai: "COMPLETED", vao: g(13), quay_lai: g(30), bat_dau: g(37), xong: g(40), dung: null },
+      Date.UTC(2026, 9, 9, 11, 55),
+    ),
+    "Lần 1 · vào 18:13 · chờ 24′ · bắt đầu 18:37 · làm 3′ · xong 18:40 · quay lại 18:30",
+  );
+  // Máy chủ cũ không trả quay_lai → như cũ; giờ rác bỏ qua.
+  assert.equal(thoiGian({ vao: g(13), bat_dau: g(37), xong: null, quay_lai: "rác" }, 0, true), "vào 18:13 · chờ 24′ · bắt đầu 18:37");
+});
+
+test("nhãn bấm dồn? chỉ khi máy chủ gắn cờ, kèm lý do", () => {
+  assert.equal(nhanBamDon({}), null);
+  assert.equal(nhanBamDon({ bam_don: false, bam_don_ly_do: null }), null);
+  assert.deepEqual(nhanBamDon({ bam_don: true, bam_don_ly_do: "bắt đầu và xong trong cùng một phút" }), {
+    nhan: "bấm dồn?",
+    ly_do: "bắt đầu và xong trong cùng một phút",
+  });
+  assert.equal(nhanBamDon({ bam_don: true })?.nhan, "bấm dồn?");
 });
