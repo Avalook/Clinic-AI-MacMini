@@ -7,7 +7,6 @@ CREATE TRIGGER trg_notify_payment_refund
 AFTER INSERT OR UPDATE OR DELETE ON public.payment_refund
 FOR EACH ROW EXECUTE FUNCTION public.notify_row_change();
 
-DROP TRIGGER IF EXISTS trg_notify_payment_refund ON public.payment_refund;
 DROP TRIGGER IF EXISTS trg_notify_payment_refund_line ON public.payment_refund_line;
 CREATE TRIGGER trg_notify_payment_refund_line
 AFTER INSERT OR UPDATE OR DELETE ON public.payment_refund_line
