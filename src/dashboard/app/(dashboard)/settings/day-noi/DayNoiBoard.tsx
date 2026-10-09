@@ -38,6 +38,8 @@ interface ViTri {
   ten: string;
   ten_ngan: string | null;
   tang: string | null;
+  /** Chữ cột Phòng của bảng lịch khi vị trí không gắn phòng thật. */
+  phong: string | null;
   nhom_nghe: string;
   room_id: string | null;
   is_active: boolean;
@@ -433,6 +435,9 @@ function DongViTri({
   gui: Gui;
 }) {
   const [ten, setTen] = useState(v.ten);
+  const [chuPhong, setChuPhong] = useState(v.phong ?? "");
+  const [chuTang, setChuTang] = useState(v.tang ?? "");
+  const doiChu = chuPhong.trim() !== (v.phong ?? "") || chuTang.trim() !== (v.tang ?? "");
   return (
     <li className="flex flex-wrap items-center gap-2 py-2">
       <input
@@ -485,6 +490,45 @@ function DongViTri({
       >
         {v.is_active ? "Tắt" : "Bật lại"}
       </Button>
+      {/* Chữ cột Phòng / Tầng trên bảng lịch (09/10/2026 — Trưởng ca: "Quản lý
+          ca khám"). Máy chủ chỉ dùng chữ này khi vị trí không gắn phòng thật;
+          gắn phòng thì bảng lịch in tên + tầng của phòng ấy. Để trống = xoá. */}
+      <div className="flex w-full min-w-0 flex-wrap items-end gap-2">
+        <label className="flex min-w-0 flex-1 flex-col gap-1 text-meta text-ink-muted">
+          Chữ cột Phòng (khi không gắn phòng)
+          <input
+            value={chuPhong}
+            onChange={(e) => setChuPhong(e.target.value)}
+            maxLength={120}
+            placeholder="vd: Quản lý ca khám"
+            className={`${O_NHAP} w-full min-w-0`}
+          />
+        </label>
+        <label className="flex min-w-0 flex-1 flex-col gap-1 text-meta text-ink-muted">
+          Chữ cột Tầng (khi không gắn phòng)
+          <input
+            value={chuTang}
+            onChange={(e) => setChuTang(e.target.value)}
+            maxLength={60}
+            placeholder="vd: Quản lý ca khám"
+            className={`${O_NHAP} w-full min-w-0`}
+          />
+        </label>
+        <Button
+          size="lg"
+          disabled={dang || !doiChu}
+          onClick={() =>
+            void gui(
+              "vi-tri",
+              { phong: chuPhong.trim(), tang: chuTang.trim() },
+              "Đã lưu chữ cột Phòng / Tầng.",
+              v.id,
+            )
+          }
+        >
+          Lưu Phòng/Tầng
+        </Button>
+      </div>
     </li>
   );
 }

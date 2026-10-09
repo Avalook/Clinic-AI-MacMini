@@ -27,6 +27,7 @@ import NganGap from "../../../components/ui/NganGap";
 import OChon from "../../../components/ui/OChon";
 import ONhap from "../../../components/ui/ONhap";
 import ApDungTuan from "./ApDungTuan";
+import ChonNhanVien from "./ChonNhanVien";
 import {
   ChuThichMau,
   DanhSachThayDoi,
@@ -105,6 +106,10 @@ export interface StaffOpt {
   name: string;
   /** `staff.primary_department` — khoá của ma trận `vai_duoc_vao_tram`. */
   vai: string;
+  /** `staff.full_name` nguyên văn — ô tìm khớp cả chữ đang lưu. */
+  hoTen?: string | null;
+  /** `staff.short_name` — tên gọi ở phòng khám, hiện kèm khi khác tên. */
+  tenNgan?: string | null;
 }
 
 // KHÔNG CÒN "CHỜ DUYỆT" (Quang 09/08/2026: *"cần gì phải duyệt với không
@@ -1110,28 +1115,17 @@ export default function RosterRegisterTable({
             ) : !xepDuoc ? null : isApprover ? (
               <div className="space-y-2">
                 <div>
-                  <label
-                    htmlFor={`${dialogTitleId}-nv`}
-                    className="mb-1 block text-xs font-medium text-ink-muted"
-                  >
-                    Nhân viên
-                  </label>
-                  <select
-                    id={`${dialogTitleId}-nv`}
-                    className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm focus:border-brand-600 focus:outline-none"
-                    value={pickedId}
-                    onChange={(e) => {
-                      setPickedId(e.target.value);
+                  {/* Ô tìm + nhóm theo vai (09/10/2026). `key` theo ô: mở ô
+                      khác là ô tìm và nhóm đang mở về trạng thái đầu. */}
+                  <ChonNhanVien
+                    key={cellKey(open.date, open.station)}
+                    nhanVien={nhanVienHopLe}
+                    daChon={pickedId}
+                    onChon={(id) => {
+                      setPickedId(id);
                       setError(null);
                     }}
-                  >
-                    <option value="">— Chọn người —</option>
-                    {nhanVienHopLe.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   {nhanVienHopLe.length === 0 && (
                     <p className="mt-1 text-xs text-ink-faint">
                       Không còn ai được xếp vào vị trí này. Phạm vi vị trí theo

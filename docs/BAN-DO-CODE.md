@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-09 10:50. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-09 10:58. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -379,7 +379,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/schedule` — Lịch làm việc
 - page: `src/dashboard/app/(dashboard)/schedule/page.tsx` · quyền: lego `lich_lam_viec` (Lịch làm việc · mặc định: Mọi người)
-- thành phần: app/(dashboard)/home/WorkRosterTable.tsx, ApDungTuan.tsx, LichTheoNguoi.tsx, NgoaiLeCaTruc.tsx, OfficialRosterTable.tsx, PhienBanLich.tsx, RosterRegisterTable.tsx, TabLichLamViec.tsx (+1)
+- thành phần: app/(dashboard)/home/WorkRosterTable.tsx, ApDungTuan.tsx, LichTheoNguoi.tsx, NgoaiLeCaTruc.tsx, OfficialRosterTable.tsx, PhienBanLich.tsx, RosterRegisterTable.tsx, TabLichLamViec.tsx (+2)
 - gọi API Next: `/api/roster/ngoai-le-ca-truc`, `/api/roster/thay-nguoi`, `/api/roster`
 - gọi thẳng backend (server): `/api/v1/roster/lich-tuan`, `/api/v1/roster/phien-ban`, `/api/v1/roster/clinical-exceptions`
 - service: NgoaiLeCaTrucService.{danh_sach, mo, huy} · RosterService.{thay_nguoi, applied_weeks, tram_cho_nhan_vien, bac_si_trong_ngay, +5} · LichTrucPhienBanService.xem
@@ -411,14 +411,14 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/clinic-config`, `/api/day-noi`, `/api/roster`
 - gọi thẳng backend (server): `/api/v1/clinic-config/overview`, `/api/v1/clinic-config/staff`, `/api/v1/clinic-config/services`
 - service: ClinicConfigService.{staff, services, overview, set_room_floor, +12} · LichPhongService.tuan · thu_ky_bac_si · DayNoiService.{doc, tao_vi_tri} · LichTrucPhienBanService.xem · RosterService.{applied_weeks, tram_cho_nhan_vien, bac_si_trong_ngay, apply_week, +3}
-- test: test_phong_la_tai_nguyen_db.py, test_clinic_config.py, test_clinical_cluster.py, test_lich_truc_phien_ban_db.py, test_pham_vi_vi_tri_lich_truc.py (+10)
+- test: test_phong_la_tai_nguyen_db.py, test_clinic_config.py, test_clinical_cluster.py, test_lich_truc_phien_ban_db.py, test_pham_vi_vi_tri_lich_truc.py (+11)
 
 ### `/settings/day-noi` — Dây nối nghiệp vụ
 - page: `src/dashboard/app/(dashboard)/settings/day-noi/page.tsx` · quyền: lego `cai_dat` (Cài đặt phòng khám · mặc định: Quản lý)
 - thành phần: DayNoiBoard.tsx, LamThemTaiQuayCauHinh.tsx, app/(dashboard)/dung-nghe-bang.ts
 - gọi API Next: `/api/day-noi`, `/api/lam-them`
 - service: DayNoiService.{doc, dat_day, dat_chuong, tao_vi_tri, +2} · LamThemTaiQuayService.{cau_hinh, nut_cho_luot, luu_muc, bo_muc, +1}
-- test: test_day_noi_nhac_db.py, test_lam_them_tai_quay_db.py, test_quay_kho_dot3_db.py, test_service_execution_db.py
+- test: test_day_noi_nhac_db.py, test_lam_them_tai_quay_db.py, test_vi_tri_chu_phong_db.py, test_quay_kho_dot3_db.py
 
 ### `/settings/don-du-lieu-thu` — Dọn dữ liệu thử
 - page: `src/dashboard/app/(dashboard)/settings/don-du-lieu-thu/page.tsx` · quyền: lego `nhan_su` (Nhân sự & phân quyền · mặc định: Quản lý)
@@ -833,7 +833,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [vi-tri-moi] POST `/api/v1/day-noi/vi-tri` → `src/clinicai/api/v1/routers/day_noi.py:tao_vi_tri` → DayNoiService.tao_vi_tri
 - [loai-kham] PATCH `/api/v1/day-noi/loai-kham/{service_type_id}` → `src/clinicai/api/v1/routers/day_noi.py:dat_loai_kham` → DayNoiService.dat_loai_kham
 - [vi-tri] PATCH `/api/v1/day-noi/vi-tri/{vi_tri_id}` → `src/clinicai/api/v1/routers/day_noi.py:sua_vi_tri` → DayNoiService.sua_vi_tri
-- test: src/tests/services/test_day_noi_nhac_db.py, src/tests/services/test_quay_kho_dot3_db.py, src/tests/services/test_service_execution_db.py
+- test: src/tests/services/test_day_noi_nhac_db.py, src/tests/services/test_vi_tri_chu_phong_db.py, src/tests/services/test_quay_kho_dot3_db.py
 - màn dùng: /settings/clinic-config, /settings/day-noi
 
 #### `/api/dispatch-read` · `src/dashboard/app/api/dispatch-read/route.ts`
