@@ -397,13 +397,29 @@ def _footprints(raw: Any) -> tuple[Footprint, ...]:
     )
 
 
+def _lua_chon(selection_status: str | None, *, gia_su_chon: bool) -> str | None:
+    """Lựa chọn đưa vào luật tiền. ``gia_su_chon``: chỉ định còn CHỜ khách quyết
+    tính như khách đã chốt làm — "nếu chốt hộ thì cửa tiền ra sao" (09/10/2026);
+    khách đã chọn KHÔNG làm thì giữ nguyên."""
+    if gia_su_chon and selection_status != "NOT_SELECTED":
+        return "SELECTED"
+    return selection_status
+
+
 async def states_for_orders(
-    conn: asyncpg.Connection, clinic_id: str, order_ids: Sequence[str]
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    order_ids: Sequence[str],
+    *,
+    gia_su_chon: bool = False,
 ) -> dict[str, FinanceDecision]:
     """Trạng thái tài chính của cả lô chỉ định — ĐÚNG MỘT truy vấn.
 
     Gọi trong ``StartService`` thì giao dịch đã khoá lượt trước. Chỉ định không
     thuộc phòng khám này không có trong kết quả.
+
+    ``gia_su_chon=True``: chỉ định chờ khách quyết tính như đã chốt (cửa
+    "chốt hộ" khi phòng / bàn khám bắt đầu làm — ``cua_tien_chot_ho``).
     """
     ids = sorted({str(i) for i in order_ids})
     if not ids:
@@ -413,7 +429,9 @@ async def states_for_orders(
         r["id"]: derive_finance_state(
             OrderFinanceFacts(
                 order_id=r["id"],
-                selection_status=r["selection_status"],
+                selection_status=_lua_chon(
+                    r["selection_status"], gia_su_chon=gia_su_chon
+                ),
                 exec_status=r["exec_status"],
                 execution_status=r["execution_status"],
                 gia=tuple(r["gia"]),
