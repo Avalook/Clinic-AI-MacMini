@@ -370,7 +370,7 @@ def ca_xem_duoc(
         if not co_so:
             continue
         nhan = str(d.get("shift") or "").strip().upper()
-        cac = CAC_CA if nhan == "FULL" else (nhan,) if nhan in CAC_CA else ()
+        cac = CAC_CA if nhan == "FULL" else tuple([nhan]) if nhan in CAC_CA else ()
         ra |= {(c, str(co_so)) for c in cac}
     return ra
 

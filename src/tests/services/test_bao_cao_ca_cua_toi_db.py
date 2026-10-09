@@ -429,3 +429,12 @@ async def test_migration_thu_report_view_giu_quan_ly_truong_ca_va_cap_tay(
     co = sorted(m for m, c in ket["preset"].items() if c)
     assert co == ["MANAGEMENT", "TRUONG_CA"], co
     assert ket["nv2"] is False
+
+
+async def test_hoan_tien_co_trigger_bao_tin_bao_cao_ca(pool: asyncpg.Pool) -> None:
+    assert await pool.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM pg_trigger t JOIN pg_class c"
+        " ON c.oid = t.tgrelid JOIN pg_proc p ON p.oid = t.tgfoid"
+        " WHERE c.relname = 'payment_refund' AND NOT t.tgisinternal"
+        " AND t.tgenabled <> 'D' AND p.proname = 'notify_row_change')"
+    )

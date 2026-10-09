@@ -658,7 +658,7 @@ export function nhomThanhBen(
   const daCo = new Set(nhom.flatMap((g) => g.muc.map((i) => i.href)));
   const dau = [
     ...homNay.filter((i) => i.href === "/home"),
-    ...theoVai.filter((i) => ["/hanh-trinh", "/bao-cao-ca"].includes(i.href) && !daCo.has(i.href)),
+    ...theoVai.filter((i) => (i.href === "/hanh-trinh" || i.href === "/bao-cao-ca") && !daCo.has(i.href)),
   ];
   for (const i of dau) daCo.add(i.href);
   daCo.add("/home");
