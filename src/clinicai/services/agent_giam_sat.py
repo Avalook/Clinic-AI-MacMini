@@ -30,6 +30,7 @@ from typing import Any
 import asyncpg
 import structlog
 
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.dispatch_service import DispatchService
 
 logger = structlog.get_logger()
@@ -43,6 +44,8 @@ NHIP_GIAY = 60
 LANG_IM_PHUT = 30
 #: Việc quá hạn chừng này giờ → critical.
 QUA_HAN_NANG_GIO = 4
+#: Trần mỗi bộ phát hiện SQL — chạm trần thì log kêu (core/tran.py), không cắt im.
+TRAN = 200
 
 #: Mọi loại nhận định và tên đọc được. Thêm loại = thêm một dòng ở đây + một
 #: bộ phát hiện bên dưới.
@@ -202,6 +205,10 @@ def che_do_hieu_luc(cau_hinh: dict[str, str], loai: str) -> str:
 
 # ── Đọc (chỉ SELECT) ─────────────────────────────────────────────────────────
 
+# Chỉ lượt OPEN / IN_PROGRESS là "đang ở phòng khám". INCOMPLETE (khách về giữa
+# chừng, `visit.left_early`, có lý do) cố ý KHÔNG xét: khách đã đi, lượt đã khép
+# có chủ đích — báo "lặng im" cho họ là báo sai. Cùng tập trạng thái với màn
+# Trưởng ca (`dispatch_service.LIVE_VISIT_STATUSES`).
 _DAU_NGAY = (
     "(date_trunc('day', $2::timestamptz AT TIME ZONE 'Asia/Ho_Chi_Minh')"
     " AT TIME ZONE 'Asia/Ho_Chi_Minh')"
@@ -235,7 +242,7 @@ SELECT v.visit_id::text                        AS visit_id,
           AND q.status IN ('blocked', 'waiting', 'called', 'serving'))
    AND coalesce(e.occurred_at, v.checked_in_at)
        < $2::timestamptz - make_interval(mins => $3)
- LIMIT 200
+ LIMIT {TRAN}
 """
 
 _KHONG_RO_CO_SO_SQL = f"""
@@ -249,10 +256,10 @@ SELECT v.visit_id::text AS visit_id, a.so_tiep_don, a.queue_number
    AND coalesce(v.location_id, a.location_id) IS NULL
    AND (SELECT count(*) FROM public.clinic_location l
          WHERE l.clinic_id = $1::uuid AND l.is_active) >= 2
- LIMIT 200
+ LIMIT {TRAN}
 """
 
-_QUA_HAN_SQL = """
+_QUA_HAN_SQL = f"""
 SELECT w.id::text AS id, w.node_code, w.due_at, w.visit_id::text AS visit_id,
        coalesce(v.location_id, a.location_id)::text AS location_id,
        n.name AS ten_viec
@@ -265,7 +272,7 @@ SELECT w.id::text AS id, w.node_code, w.due_at, w.visit_id::text AS visit_id,
    AND w.status IN ('PENDING', 'IN_PROGRESS')
    AND w.due_at IS NOT NULL
    AND w.due_at < $2::timestamptz
- LIMIT 200
+ LIMIT {TRAN}
 """
 
 
@@ -283,6 +290,7 @@ async def phat_hien_sql(
     ra: dict[str, list[NhanDinh]] = {}
 
     rows = await conn.fetch(_LANG_IM_SQL, clinic_id, luc, LANG_IM_PHUT)
+    canh_bao_neu_day("agent.khach_lang_im", len(rows), TRAN, clinic_id=clinic_id)
     ra["khach_lang_im"] = [
         NhanDinh(
             loai="khach_lang_im",
@@ -307,6 +315,7 @@ async def phat_hien_sql(
     ]
 
     rows = await conn.fetch(_KHONG_RO_CO_SO_SQL, clinic_id, luc)
+    canh_bao_neu_day("agent.luot_khong_ro_co_so", len(rows), TRAN, clinic_id=clinic_id)
     ra["luot_khong_ro_co_so"] = [
         NhanDinh(
             loai="luot_khong_ro_co_so",
@@ -324,6 +333,7 @@ async def phat_hien_sql(
     ]
 
     rows = await conn.fetch(_QUA_HAN_SQL, clinic_id, luc)
+    canh_bao_neu_day("agent.viec_qua_han", len(rows), TRAN, clinic_id=clinic_id)
     ra["viec_qua_han"] = [
         NhanDinh(
             loai="viec_qua_han",
@@ -535,6 +545,9 @@ async def danh_sach(
         chi_dang_mo,
         gioi_han,
     )
+    bi_cat = canh_bao_neu_day(
+        "agent.nhan_dinh", len(rows), gioi_han, clinic_id=clinic_id
+    )
     tk = await pool.fetch(
         """
         SELECT loai,
@@ -575,6 +588,9 @@ async def danh_sach(
         "tat_het": cau_hinh.get("*") == "tat",
         "thong_ke": thong_ke,
         "nhan_dinh": [_json_dong(r) for r in rows],
+        # Chạm trần → màn phải nói "đang hiện N cái mới nhất", không im.
+        "bi_cat": bi_cat,
+        "tran": gioi_han,
     }
 
 
