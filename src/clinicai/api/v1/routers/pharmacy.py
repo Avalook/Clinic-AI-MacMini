@@ -134,6 +134,40 @@ async def ban_le_theo_don(
     )
 
 
+@router.get("/pharmacy/ban-le/don-gan-nhat")
+async def ban_le_don_gan_nhat(
+    clinic_patient_id: UUID,
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Vừa chọn khách cũ ở quầy (chưa mở lượt) → đơn gần nhất để xem."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await BanLeService(pool).don_gan_nhat(
+            clinic_patient_id=str(clinic_patient_id), identity=identity
+        )
+    )
+    return kq
+
+
+class MoTheoDonRequest(BaseModel):
+    clinic_patient_id: UUID
+    don_goc_visit_id: UUID
+
+
+@router.post("/pharmacy/ban-le/mo-theo-don")
+async def ban_le_mo_theo_don(
+    body: MoTheoDonRequest,
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Một giao dịch: mở / lấy lại lượt bán lẻ + nối đơn gốc + thêm dòng."""
+    return await BanLeService(pool).mo_theo_don(
+        clinic_patient_id=str(body.clinic_patient_id),
+        don_goc_visit_id=str(body.don_goc_visit_id),
+        identity=identity,
+    )
+
+
 class GoDonRequest(BaseModel):
     visit_id: UUID
 

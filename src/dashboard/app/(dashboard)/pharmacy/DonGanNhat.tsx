@@ -1,6 +1,9 @@
 "use client";
 
-// Lượt bán lẻ: ĐƠN GẦN NHẤT của khách cũ + "Bán theo đơn này" (09/10/2026).
+// ĐƠN GẦN NHẤT của khách cũ + "Bán theo đơn này" (09/10/2026). Hai chỗ dùng:
+//   · khung chọn khách (`KhachMuaThuoc`, chưa có lượt): nút gửi `clinicPatientId`
+//     → máy chủ mở/lấy lại lượt + nối đơn + thêm dòng trong MỘT giao dịch;
+//   · lượt bán lẻ đang mở (`BanLeThu`): nút gửi `visitId`, có thêm "Gỡ nối đơn".
 //
 // Máy chủ chọn đơn, tính số kê / đã mua / còn lại và soạn sẵn lời nhắc
 // (`ban_theo_don_service`); ở đây chỉ vẽ và gửi hai lệnh: nối đơn (thêm dòng số
@@ -48,6 +51,7 @@ async function gui(duong: string, than: Record<string, string>) {
       message?: string;
       error?: string;
       so_dong_them?: number;
+      visit_id?: string;
       bo_qua?: string[];
     } | null;
     if (!r.ok) return { loi: d?.message ?? d?.error ?? `Không ghi được (HTTP ${r.status}).` };
@@ -59,21 +63,32 @@ async function gui(duong: string, than: Record<string, string>) {
 
 export default function DonGanNhat({
   visitId,
+  clinicPatientId,
   don,
   choSua,
   onDoi,
+  onMo,
 }: {
-  visitId: string;
+  /** Lượt bán lẻ đang mở; bỏ trống = đang chọn khách, chưa mở lượt. */
+  visitId?: string;
+  clinicPatientId?: string;
   don: DonGoc;
   /** Tiền thuốc chưa thu / chưa chờ xác minh — mới nối / gỡ được. */
   choSua: boolean;
   onDoi: (cau: string | null, loi: string | null) => void | Promise<void>;
+  /** Chưa có lượt: máy chủ vừa mở/lấy lại lượt này — màn chọn luôn nó. */
+  onMo?: (visitId: string) => void;
 }) {
   const [dang, setDang] = useState(false);
 
   const banTheoDon = async () => {
     setDang(true);
-    const kq = await gui("ban-le-theo-don", { visit_id: visitId, don_goc_visit_id: don.visit_id });
+    const kq = visitId
+      ? await gui("ban-le-theo-don", { visit_id: visitId, don_goc_visit_id: don.visit_id })
+      : await gui("ban-le-mo-theo-don", {
+          clinic_patient_id: clinicPatientId ?? "",
+          don_goc_visit_id: don.visit_id,
+        });
     setDang(false);
     if (kq.loi) return void (await onDoi(null, kq.loi));
     const so = kq.d?.so_dong_them ?? 0;
@@ -87,11 +102,12 @@ export default function DonGanNhat({
       ].join(" "),
       null,
     );
+    if (!visitId && kq.d?.visit_id) onMo?.(kq.d.visit_id);
   };
 
   const goNoi = async () => {
     setDang(true);
-    const kq = await gui("ban-le-go-don", { visit_id: visitId });
+    const kq = await gui("ban-le-go-don", { visit_id: visitId ?? "" });
     setDang(false);
     if (kq.loi) return void (await onDoi(null, kq.loi));
     await onDoi(
@@ -155,7 +171,7 @@ export default function DonGanNhat({
 
       {choSua ? (
         <div className="flex flex-wrap gap-2">
-          {don.da_noi ? (
+          {don.da_noi && visitId ? (
             <Button
               type="button"
               className={CHAM}

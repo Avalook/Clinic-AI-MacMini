@@ -262,14 +262,15 @@ async def _doc_goc(
     conn: asyncpg.Connection,
     cid: str,
     *,
-    ban_le_id: str,
+    ban_le_id: str | None,
     goc: str,
     hom_nay: date | None = None,
 ) -> dict[str, Any]:
+    """``ban_le_id`` None = khách chưa có lượt bán lẻ đang mở → không có số đang bán."""
     v = await conn.fetchrow(_DAU_DON, cid, goc)
 
-    async def theo_thuoc(sql: str, luot: str) -> dict[str, Decimal]:
-        rows = await conn.fetch(sql, cid, luot)
+    async def theo_thuoc(sql: str, luot: str | None) -> dict[str, Decimal]:
+        rows = await conn.fetch(sql, cid, luot) if luot else []
         return {r["thuoc"]: Decimal(str(r["so"])) for r in rows if r["so"] is not None}
 
     dong = gom_dong(
@@ -308,9 +309,38 @@ async def doc_don(
     if not goc:
         return None
     don = await _doc_goc(conn, cid, ban_le_id=ban_le_visit_id, goc=goc, hom_nay=hom_nay)
+    return _cho_api(don, da_noi=luot["goc"] == goc)
+
+
+def _cho_api(don: dict[str, Any], *, da_noi: bool) -> dict[str, Any]:
     so = ("so_ke", "da_mua", "dang_ban", "con_lai")
     don["dong"] = [{**d, **{k: chuoi_so(d[k]) for k in so}} for d in don["dong"]]
-    return {**don, "da_noi": luot["goc"] == goc}
+    return {**don, "da_noi": da_noi}
+
+
+async def doc_don_khach(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    *,
+    clinic_patient_id: str,
+    hom_nay: date | None = None,
+) -> dict[str, Any] | None:
+    """Đơn gần nhất khi vừa CHỌN khách ở quầy, chưa mở lượt. Khách đang có lượt
+    bán lẻ mở → đọc theo lượt ấy (đơn đã nối, số đang bán). Chưa từng kê → None."""
+    cid = identity.clinic_id
+    dang_mo = await conn.fetchval(
+        "SELECT visit_id::text FROM visit WHERE clinic_id = $1::uuid"
+        " AND clinic_patient_id = $2::uuid AND ban_le AND closed_at IS NULL",
+        cid,
+        clinic_patient_id,
+    )
+    if dang_mo:
+        return await doc_don(conn, identity, ban_le_visit_id=dang_mo, hom_nay=hom_nay)
+    goc = await _goc(conn, cid, clinic_patient_id)
+    if not goc:
+        return None
+    don = await _doc_goc(conn, cid, ban_le_id=None, goc=goc, hom_nay=hom_nay)
+    return _cho_api(don, da_noi=False)
 
 
 # ── Ghi ────────────────────────────────────────────────────────────────────
@@ -360,39 +390,53 @@ async def _doi_noi(
 async def noi_don(
     pool: asyncpg.Pool, identity: StaffIdentity, *, visit_id: str, don_goc_visit_id: str
 ) -> dict[str, Any]:
-    """ "Bán theo đơn này": nối + thêm dòng số còn lại cho thuốc chưa có trong
-    lượt. Một giao dịch giữ khoá lượt: bấm hai lần (hay hai người cùng bấm)
-    không thêm dòng hai lần."""
-    cid, goc = identity.clinic_id, don_goc_visit_id
+    """ "Bán theo đơn này" trên lượt bán lẻ đã mở."""
     async with pool.acquire() as conn, conn.transaction():
-        luot = await _khoa_luot_chua_thu(conn, identity, visit_id, "bán theo đơn")
-        if luot["goc"] not in (None, goc):
-            raise ConflictError(
-                "Lượt này đang bán theo một đơn khác — bấm “Gỡ nối đơn” trước."
-            )
-        if await _goc(conn, cid, luot["pid"], chi_luot=goc) != goc:
-            raise ValidationError("Đơn này không phải đơn khám của khách.")
-        if luot["goc"] is None:
-            vet = await _doi_noi(conn, identity, visit_id, goc)
-            await record_event(
-                conn,
-                event_type="visit.ban_le_noi_don",
-                payload={"don_goc_visit_id": goc},
-                **vet,
-            )
-        don = await _doc_goc(conn, cid, ban_le_id=visit_id, goc=goc)
-        co_san = await conn.fetch(
-            "SELECT drug_catalog_id::text AS t FROM prescription"
-            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
-            "   AND removed_at IS NULL AND drug_catalog_id IS NOT NULL",
-            cid,
-            visit_id,
+        return await noi_don_conn(
+            conn, pool, identity, visit_id=visit_id, don_goc_visit_id=don_goc_visit_id
         )
-        them, bo_qua = dong_can_them(don["dong"], {r["t"] for r in co_san})
-        if them:
-            await QuayThuocService(pool).luu_dong_them(
-                visit_id=visit_id, dong=them, identity=identity, conn=conn
-            )
+
+
+async def noi_don_conn(
+    conn: asyncpg.Connection,
+    pool: asyncpg.Pool,
+    identity: StaffIdentity,
+    *,
+    visit_id: str,
+    don_goc_visit_id: str,
+) -> dict[str, Any]:
+    """Nối + thêm dòng số còn lại cho thuốc chưa có trong lượt, trong giao dịch
+    của người gọi. Giữ khoá lượt (FOR UPDATE): bấm hai lần (hay hai người cùng
+    bấm) không thêm dòng hai lần."""
+    cid, goc = identity.clinic_id, don_goc_visit_id
+    luot = await _khoa_luot_chua_thu(conn, identity, visit_id, "bán theo đơn")
+    if luot["goc"] not in (None, goc):
+        raise ConflictError(
+            "Lượt này đang bán theo một đơn khác — bấm “Gỡ nối đơn” trước."
+        )
+    if await _goc(conn, cid, luot["pid"], chi_luot=goc) != goc:
+        raise ValidationError("Đơn này không phải đơn khám của khách.")
+    if luot["goc"] is None:
+        vet = await _doi_noi(conn, identity, visit_id, goc)
+        await record_event(
+            conn,
+            event_type="visit.ban_le_noi_don",
+            payload={"don_goc_visit_id": goc},
+            **vet,
+        )
+    don = await _doc_goc(conn, cid, ban_le_id=visit_id, goc=goc)
+    co_san = await conn.fetch(
+        "SELECT drug_catalog_id::text AS t FROM prescription"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+        "   AND removed_at IS NULL AND drug_catalog_id IS NOT NULL",
+        cid,
+        visit_id,
+    )
+    them, bo_qua = dong_can_them(don["dong"], {r["t"] for r in co_san})
+    if them:
+        await QuayThuocService(pool).luu_dong_them(
+            visit_id=visit_id, dong=them, identity=identity, conn=conn
+        )
     return {"ok": True, "so_dong_them": len(them), "bo_qua": bo_qua}
 
 

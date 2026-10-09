@@ -32,7 +32,11 @@ from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import can
 from clinicai.schemas.patient import PatientCreateDTO
 from clinicai.services.audit import record_event
-from clinicai.services.ban_theo_don_service import doc_don
+from clinicai.services.ban_theo_don_service import (
+    doc_don,
+    doc_don_khach,
+    noi_don_conn,
+)
 from clinicai.services.bill_service import tinh_hoa_don
 from clinicai.services.phan_thu import doc_phan_db
 
@@ -139,64 +143,35 @@ class BanLeService:
                 return tao
             pid = tao["clinic_patient_id"]
         async with self._pool.acquire() as conn, conn.transaction():
-            khach = await conn.fetchrow(
-                "SELECT full_name, patient_code FROM patient"
-                " WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid",
-                identity.clinic_id,
-                pid,
+            return await _mo_hoac_lay(conn, identity, str(pid))
+
+    async def don_gan_nhat(
+        self, *, clinic_patient_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Vừa CHỌN khách ở quầy (chưa mở lượt) → đơn gần nhất để xem."""
+        async with self._pool.acquire() as conn:
+            await _doi_quyen_mo(conn, identity)
+            don = await doc_don_khach(
+                conn, identity, clinic_patient_id=clinic_patient_id
             )
-            if khach is None:
-                raise NotFoundError("Không tìm thấy khách này.")
-            moi = await conn.fetchval(
-                """
-                INSERT INTO visit (clinic_patient_id, clinic_id, location_id,
-                                   status, ban_le)
-                VALUES ($2::uuid, $1::uuid, $3::uuid, 'OPEN', true)
-                ON CONFLICT (clinic_id, clinic_patient_id)
-                    WHERE ban_le AND closed_at IS NULL
-                DO NOTHING
-                RETURNING visit_id::text
-                """,
-                identity.clinic_id,
-                pid,
-                identity.location_id,
+        return {"don": don}
+
+    async def mo_theo_don(
+        self, *, clinic_patient_id: str, don_goc_visit_id: str, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """ "Bán theo đơn này" từ khung chọn khách: MỘT giao dịch mở (hoặc lấy lại)
+        lượt bán lẻ + nối đơn gốc + thêm dòng. Lỗi ở bước nào thì không còn gì."""
+        async with self._pool.acquire() as conn, conn.transaction():
+            await _doi_quyen_mo(conn, identity)
+            luot = await _mo_hoac_lay(conn, identity, clinic_patient_id)
+            kq = await noi_don_conn(
+                conn,
+                self._pool,
+                identity,
+                visit_id=luot["visit_id"],
+                don_goc_visit_id=don_goc_visit_id,
             )
-            if moi is not None:
-                visit_id = moi
-                await record_event(
-                    conn,
-                    event_type="visit.ban_le_opened",
-                    aggregate_type="visit",
-                    aggregate_id=visit_id,
-                    identity=identity,
-                    origin="api:pharmacy-ban-le",
-                    payload={"clinic_patient_id": pid},
-                    correlation_id=visit_id,
-                )
-            else:
-                # Đã có lượt đang mở: lấy lại, và chạm updated_at để màn Nhà
-                # thuốc (đọc lượt bán lẻ "trong ngày") thấy nó hôm nay.
-                visit_id = await conn.fetchval(
-                    """
-                    UPDATE visit SET updated_at = now()
-                     WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid
-                       AND ban_le AND closed_at IS NULL
-                    RETURNING visit_id::text
-                    """,
-                    identity.clinic_id,
-                    pid,
-                )
-                if visit_id is None:
-                    raise ValidationError(
-                        "Lượt vừa thay đổi — bấm lại “Khách mua thuốc”."
-                    )
-        return {
-            "visit_id": visit_id,
-            "clinic_patient_id": pid,
-            "ten_khach": khach["full_name"],
-            "patient_code": khach["patient_code"],
-            "moi": moi is not None,
-        }
+        return {**kq, "visit_id": luot["visit_id"]}
 
     async def _tao_khach(
         self, identity: StaffIdentity, khach: dict[str, Any]
@@ -306,6 +281,69 @@ class BanLeService:
             "duoc_thu": duoc_thu,
             "don_goc": don,
         }
+
+
+async def _mo_hoac_lay(
+    conn: asyncpg.Connection, identity: StaffIdentity, pid: str
+) -> dict[str, Any]:
+    """Mở (hoặc lấy lại) lượt bán lẻ đang mở của khách, trong giao dịch của người
+    gọi. Chỉ mục duy nhất ở Postgres: hai lần bấm ra cùng một lượt."""
+    khach = await conn.fetchrow(
+        "SELECT full_name, patient_code FROM patient"
+        " WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid",
+        identity.clinic_id,
+        pid,
+    )
+    if khach is None:
+        raise NotFoundError("Không tìm thấy khách này.")
+    moi = await conn.fetchval(
+        """
+        INSERT INTO visit (clinic_patient_id, clinic_id, location_id,
+                           status, ban_le)
+        VALUES ($2::uuid, $1::uuid, $3::uuid, 'OPEN', true)
+        ON CONFLICT (clinic_id, clinic_patient_id)
+            WHERE ban_le AND closed_at IS NULL
+        DO NOTHING
+        RETURNING visit_id::text
+        """,
+        identity.clinic_id,
+        pid,
+        identity.location_id,
+    )
+    if moi is not None:
+        visit_id = moi
+        await record_event(
+            conn,
+            event_type="visit.ban_le_opened",
+            aggregate_type="visit",
+            aggregate_id=visit_id,
+            identity=identity,
+            origin="api:pharmacy-ban-le",
+            payload={"clinic_patient_id": pid},
+            correlation_id=visit_id,
+        )
+    else:
+        # Đã có lượt đang mở: lấy lại, và chạm updated_at để màn Nhà
+        # thuốc (đọc lượt bán lẻ "trong ngày") thấy nó hôm nay.
+        visit_id = await conn.fetchval(
+            """
+            UPDATE visit SET updated_at = now()
+             WHERE clinic_id = $1::uuid AND clinic_patient_id = $2::uuid
+               AND ban_le AND closed_at IS NULL
+            RETURNING visit_id::text
+            """,
+            identity.clinic_id,
+            pid,
+        )
+        if visit_id is None:
+            raise ValidationError("Lượt vừa thay đổi — bấm lại “Khách mua thuốc”.")
+    return {
+        "visit_id": visit_id,
+        "clinic_patient_id": pid,
+        "ten_khach": khach["full_name"],
+        "patient_code": khach["patient_code"],
+        "moi": moi is not None,
+    }
 
 
 async def dong_luot_ban_le(

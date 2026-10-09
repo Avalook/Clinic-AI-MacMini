@@ -252,3 +252,58 @@ async def test_postgres_chan_noi_sai(q: Quay) -> None:
         )
     # Khách chưa từng được kê đơn → không có đơn gần nhất.
     assert await _doc(q, vid) is None
+
+
+async def test_chon_khach_thay_don_ngay_va_mo_theo_don_mot_giao_dich(q: Quay) -> None:
+    drug, _rx = await _don_kho(q, so=10)
+    pid = await _pid(q)
+    svc = BanLeService(q.pool)
+
+    async def so_luot_mo() -> int:
+        return int(
+            await q.pool.fetchval(
+                "SELECT count(*) FROM visit WHERE clinic_patient_id = $1::uuid"
+                " AND ban_le AND closed_at IS NULL",
+                pid,
+            )
+        )
+
+    # Chọn khách → đơn gần nhất hiện ngay, CHƯA mở lượt nào.
+    don = (await svc.don_gan_nhat(clinic_patient_id=pid, identity=q.duoc_si))["don"]
+    assert (don["visit_id"], don["da_noi"]) == (q.visit_id, False)
+    assert (don["dong"][0]["con_lai"], don["dong"][0]["dang_ban"]) == ("10", "0")
+    assert await so_luot_mo() == 0
+
+    # Đơn sai → lỗi ở bước nối, lượt vừa mở cũng huỷ theo: KHÔNG còn lượt mở nào.
+    sai = str(uuid.uuid4())
+    with pytest.raises(ValidationError):
+        await svc.mo_theo_don(
+            clinic_patient_id=pid, don_goc_visit_id=sai, identity=q.thu_ngan
+        )
+    assert await so_luot_mo() == 0
+
+    # "Bán theo đơn này" từ khung chọn khách: mở lượt + nối + thêm dòng một lần.
+    kq = await svc.mo_theo_don(
+        clinic_patient_id=pid, don_goc_visit_id=q.visit_id, identity=q.thu_ngan
+    )
+    vid = kq["visit_id"]
+    assert kq["so_dong_them"] == 1 and await so_luot_mo() == 1
+    assert (
+        await q.pool.fetchval(
+            "SELECT don_goc_visit_id::text FROM visit WHERE visit_id = $1::uuid", vid
+        )
+        == q.visit_id
+    )
+    # Bấm lại → cùng lượt, không thêm dòng trùng.
+    lai = await svc.mo_theo_don(
+        clinic_patient_id=pid, don_goc_visit_id=q.visit_id, identity=q.thu_ngan
+    )
+    assert (lai["visit_id"], lai["so_dong_them"]) == (vid, 0)
+    assert await _so_dong(q, vid) == 1
+    # Chọn lại khách khi đang có lượt mở → đọc theo lượt ấy (đã nối, đang bán).
+    don = (await svc.don_gan_nhat(clinic_patient_id=pid, identity=q.duoc_si))["don"]
+    assert don["da_noi"] is True
+    assert (don["dong"][0]["drug_catalog_id"], don["dong"][0]["dang_ban"]) == (
+        drug,
+        "10",
+    )
