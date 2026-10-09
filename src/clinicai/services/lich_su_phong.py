@@ -29,6 +29,7 @@ TEN_NGUON = {
     "truong_ca": "Trưởng ca",
     "tu_dong": "Tự động",
     "tai_phong": "Tại phòng",
+    "ban_kham": "Bàn khám",
     "khac": "Nhân viên",
 }
 
@@ -43,6 +44,10 @@ TEN_LY_DO = {
     "MANUAL_CORRECTION": None,  # đổi tay ở quầy / điều phối: không có lý do riêng
     "ASSIGNED_BY_MISTAKE": "xếp nhầm phòng",
     "OTHER": "lý do khác",
+    # [Làm tại bàn khám] chuyển chỉ định sang phòng bàn khám / hoàn tác trả phòng
+    # cũ (09/10/2026, `service_execution_service`).
+    "LAM_TAI_BAN_KHAM": "làm tại bàn khám",
+    "HUY_LAM_TAI_BAN_KHAM": "hoàn tác làm tại bàn khám",
 }
 
 

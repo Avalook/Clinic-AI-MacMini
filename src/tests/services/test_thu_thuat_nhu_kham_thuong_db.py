@@ -11,6 +11,11 @@
    (bảng trạng thái buổi khám), Quản lý khách hàng, Tiếp đón, Hành trình cùng
    nói "Đã về".
 4. Backfill 20261001230100 chỉ sửa lịch lệch; chạy lần hai không đổi thêm.
+5. QUYẾT ĐỊNH MỚI của Tuyền 09/10/2026 — migration 20261009500000: THỦ THUẬT
+   (chỉ Thủ thuật, Sàn chậu giữ nguyên) đi thẳng, KHÔNG qua tư vấn: check-in
+   không chỉ định mang sang → hàng BÁC SĨ (DOCTOR); không tự cộng phí khám,
+   tick dịch vụ khám con thì có. Các bài 1–3 vẫn dựng lại trạng thái 30/09
+   (`_nhu_prod`) để giữ lịch sử quyết định ấy.
 """
 
 from __future__ import annotations
@@ -47,6 +52,7 @@ _MIG = Path(__file__).resolve().parents[3] / "supabase/migrations"
 CU = _MIG / "20260925000006_dat_lich_thu_thuat_san_chau.sql"
 MOI = _MIG / "20261001230000_thu_thuat_san_chau_nhu_kham_thuong.sql"
 BACKFILL = _MIG / "20261001230100_lich_cua_luot_da_ve_dong_bo.sql"
+DI_THANG_0910 = _MIG / "20261009500000_thu_thuat_di_thang_phong.sql"
 
 
 async def _ap(pool: asyncpg.Pool, tep: Path) -> None:  # noqa: F811
@@ -274,3 +280,62 @@ async def test_backfill_chi_sua_lich_lech_chay_lai_khong_doi(
         )
         == 0
     )
+
+
+async def test_0910_thu_thuat_di_thang_vao_hang_bac_si_khong_phi_kham(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền chốt 09/10/2026: Thủ thuật đi thẳng, không tự cộng phí khám (khác
+    quyết định 30/09 ở các bài trên — bài này áp thêm migration mới)."""
+    from clinicai.services.bill_service import tinh_hoa_don
+    from clinicai.services.phi_kham_service import PhiKhamService
+
+    await _nhu_prod(pool)
+    await _ap(pool, DI_THANG_0910)
+    await _ap(pool, DI_THANG_0910)  # chạy lại được
+    tt = await _loai(pool, "THU_THUAT")
+    assert (tt["di_thang_phong"], tt["qua_tu_van"]) == (True, False)
+    sc = await _loai(pool, "SAN_CHAU")
+    assert (sc["di_thang_phong"], sc["qua_tu_van"]) == (False, True)
+
+    ca = await _dung(pool)
+    vid = await _check_in(pool, ca, await _benh_nhan(pool, ca), tt["id"])
+    assert (
+        await pool.fetchval(
+            "SELECT route_decision FROM encounter_flow WHERE visit_id = $1::uuid", vid
+        )
+        == "PRIMARY"
+    )
+    hang = await pool.fetch(
+        "SELECT lane FROM queue_entry WHERE visit_id = $1::uuid"
+        " AND status NOT IN ('done', 'left', 'cancelled')",
+        vid,
+    )
+    assert [q["lane"] for q in hang] == ["DOCTOR"]
+
+    async def _dong_kham() -> list[dict[str, Any]]:
+        async with pool.acquire() as conn:
+            hd = await tinh_hoa_don(
+                conn, clinic_id=CLINIC, visit_id=vid, kind="dich_vu"
+            )
+        return [dict(x) for x in hd.cho_api()["dong"] if x["source_type"] == "exam"]
+
+    assert await _dong_kham() == []
+    # Tick dịch vụ khám con → có phí khám đúng phần đã tick.
+    sp = await pool.fetchval(
+        'INSERT INTO service_price (clinic_id, service_code, name, "group",'
+        " unit_price, ma_kiotviet) VALUES ($1::uuid, $2, 'Khám trước thủ thuật"
+        " (thử 0910)', 'dich_vu', 120000, $2) RETURNING id::text",
+        CLINIC,
+        f"TT0910-{vid[:8]}",
+    )
+    await pool.execute(
+        "INSERT INTO loai_kham_phi (clinic_id, service_type_id, service_price_id)"
+        " VALUES ($1::uuid, $2::uuid, $3::uuid)",
+        CLINIC,
+        tt["id"],
+        sp,
+    )
+    await PhiKhamService(pool).chon(visit_id=vid, ids=[sp], identity=ca.bac_si)
+    [d] = await _dong_kham()
+    assert int(d["don_gia"]) == 120000

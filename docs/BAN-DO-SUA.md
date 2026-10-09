@@ -237,7 +237,8 @@ phiếu ở đúng một khối), `lib/phieu-kham.test.mts`.
 luật mở khoá `S/doi_dich_vu_kham.py` `ly_do_khong_doi(trong_ho_so=…)`, quyền
 `QUYEN_DOI_TRONG_HO_SO`). Phiếu theo dịch vụ HIỆN TẠI: `S/phieu_kham_service.py` `doc_luot`.
 Lượt Điều trị vào hàng → chỉ định sẵn: consumer `src/clinicai/events/consumers/dieu_tri.py`
-(nghe `visit.routed`) → `sinh_chi_dinh_dieu_tri`; không phí khám `S/bill_service.py` `_kham`;
+(nghe `visit.routed`) → `sinh_chi_dinh_dieu_tri`; không phí khám `S/bill_service.py` `_kham`
+(luật `khong_tu_cong_phi_kham`: Điều trị + Thủ thuật trừ lượt cũ qua TU_VAN, 09/10/2026);
 không chặn check-out `S/checkout_service.py` (`exam_open`); tick dịch vụ khám cho
 Điều trị / Khác + giữ tick khi đổi `S/phi_kham_service.py` `_doc`. Test:
 `T/services/test_ho_so_kham_db.py`, `T/unit/test_doi_dich_vu_kham.py`, FT `ho-so-dich-vu-boundary.test.mts`.
@@ -252,8 +253,9 @@ trạng thái, nút làm, phiếu `PhieuDieuTri` / `PhieuKetQua` của chỉ đ�
 `/api/ho-so-kham` (`xem=dieu-tri`, `thao_tac=ban-kham`) → `R/ho_so_kham.py` (`/ho-so-kham/{visit}/dieu-tri…`) → `S/dieu_tri_ban_kham.py`
 (`doc_the`, `thao_tac`) → lệnh `S/service_execution_service.py` `bat_dau_tai_ban_kham` /
 `xong_tai_ban_kham` / `huy_bat_dau_tai_ban_kham` / `hoan_tac_xong_tai_ban_kham` (lần làm
-`noi_lam = BAN_KHAM`; chỉ định chưa có phòng thì xếp vào phòng bàn khám; cửa tiền
-`cua_tien_ban_kham` = FinanceGate của phòng). Kê lại dịch vụ điều trị đã có trong lượt
+`noi_lam = BAN_KHAM`; chỉ định chưa có phòng thì xếp vào phòng bàn khám, đã có phòng
+khác thì CHUYỂN sang phòng bàn khám — phòng cũ ở `service_execution_attempt.phong_truoc_ban_kham`,
+hoàn tác trả về (09/10/2026); cửa tiền `cua_tien_chot_ho` = cùng cửa với phòng). Kê lại dịch vụ điều trị đã có trong lượt
 không đẻ dòng thứ hai: `S/chi_dinh_service.py` (`chi_dinh_dieu_tri_dang_co`). Test:
 `T/services/test_dieu_tri_ban_kham_db.py`, `T/unit/test_dieu_tri_ban_kham.py`, FT
 `khoi-dieu-tri-boundary.test.mts`. Lịch sử sửa MỌI phiếu kết quả: trigger
@@ -346,6 +348,12 @@ Lượt Bán lẻ ở quầy thuốc: `D/pharmacy/BanLeThu.tsx` → `S/ban_le_se
 (`thu_truoc_khi_lam`). Code: `S/lam_truoc_thu_sau.py`, cổng `S/finance_gate.py`
 (`cua_lam`, `can_start`), ô tick `D/_lam-viec/OLamTruocThuSau.tsx`. Test:
 `T/services/test_thu_truoc_lam_truoc_tick_db.py`, `T/services/test_lam_truoc_thu_sau_db.py`.
+**Cửa tiền CHUNG khi Bắt đầu làm (phòng + bàn khám, 09/10/2026)** — hàm thuần
+`S/service_execution_service.py` `cua_tien_chot_ho` (cờ hiện ô tick: `chan_vi_chua_thu`),
+đầu vào `finance_gate.states_for_orders(gia_su_chon=True)`; lệnh `_cua_tien_chot_ho` chốt hộ
+chỉ định chờ quyết (`lam_truoc_thu_sau.chot_mot_chi_dinh`, nguồn `lam_tai_phong` /
+`lam_tai_ban_kham`), Huỷ bắt đầu trả về (`_tra_lua_chon`). Test:
+`T/services/test_phong_bat_dau_chot_ho_db.py`, `T/unit/test_cua_tien_chot_ho.py`.
 
 **Phiếu thu (80mm), phiếu hoàn, phiếu hướng dẫn phòng** — trang in
 `src/dashboard/app/print/phieu-thu/[id]/InPhieuThu.tsx` (`?loai=thu|hoan|huong_dan`;

@@ -762,8 +762,9 @@ class DichVuDaBatDau(PayloadSuKien):
     execution_revision: int
     #: Nơi làm khi KHÔNG phải phòng của chỉ định: "BAN_KHAM" (07/10/2026).
     noi_lam: str | None = None
-    #: Làm tại bàn khám đã CHỐT HỘ lựa chọn của khách cho đúng chỉ định này
-    #: (bác sĩ làm = khách đồng ý) — hoàn tác Bắt đầu trả lại (07/10/2026).
+    #: Bắt đầu (bàn khám 07/10/2026, phòng 09/10/2026) đã CHỐT HỘ lựa chọn của
+    #: khách cho đúng chỉ định này (người làm = khách đồng ý) — hoàn tác Bắt đầu
+    #: trả lại.
     chot_lua_chon: bool = False
 
 
