@@ -29,7 +29,7 @@ export default async function TrangGiamSat({ searchParams }: { searchParams: Pro
   return (
     <div className="min-h-screen bg-[#f8f8f8]">
       <header className="sticky top-0 z-20 border-b border-black/10 bg-white/85 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between gap-3 px-4 lg:px-6">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-4 lg:px-6">
           <div className="flex items-center gap-2.5">
             <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-b from-[#3f3f46] to-[#18181b] text-sm font-semibold text-white" aria-hidden>
               C

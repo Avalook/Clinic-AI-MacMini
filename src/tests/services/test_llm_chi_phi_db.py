@@ -10,6 +10,7 @@ from datetime import date
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
+from uuid import uuid4
 
 import asyncpg
 import pytest
@@ -136,6 +137,22 @@ async def test_tom_tat_luu_ban_moi_nhat_va_khong_gui_ten_khach(
 ) -> None:
     ngay = date(2026, 1, 3)
     gui: dict[str, Any] = {}
+    nhan_dinh_id = uuid4()
+    ghi_chu_bi_mat = "CANARY_CHU_TU_DO: Nguyen Thi A, 0901234567, ket qua kham"
+    await pool.execute(
+        """
+        INSERT INTO agent_nhan_dinh
+            (id, clinic_id, loai, khoa, muc, noi_dung, muc_bang_chung,
+             agent_version, mo_luc, danh_gia_ghi_chu)
+        VALUES ($1, $2::uuid, 'phong_qua_tai', $3, 'warning',
+                'Phòng có 5 người chờ.', 'quan_sat', 'test',
+                '2026-01-03 08:00:00+07', $4)
+        """,
+        nhan_dinh_id,
+        CLINIC,
+        str(nhan_dinh_id),
+        ghi_chu_bi_mat,
+    )
 
     async def gia(**kwargs: Any) -> LLMResponse:
         gui.update(kwargs)
@@ -153,10 +170,14 @@ async def test_tom_tat_luu_ban_moi_nhat_va_khong_gui_ten_khach(
         assert kq["tu_dong"] is True and "Yên" in kq["noi_dung"]
         assert gui["temperature"] is None and gui["tinh_nang"] == "agent_tom_tat"
         noi_dung_gui = gui["messages"][0]["content"]
+        assert "Phòng có 5 người chờ." in noi_dung_gui
+        assert ghi_chu_bi_mat not in noi_dung_gui
+        assert "ghi_chu_cham" not in noi_dung_gui, "không gửi chữ tự do cho LLM"
         assert "visit_id" not in noi_dung_gui, "chỉ gửi nội dung nhận định, không mã"
         doc = await agent_tom_tat.doc(pool, clinic_id=CLINIC, ngay=ngay)
         assert doc["tom_tat"] is not None and doc["tom_tat"]["id"] == kq["id"]
     finally:
+        await pool.execute("DELETE FROM agent_nhan_dinh WHERE id = $1", nhan_dinh_id)
         await pool.execute(
             "DELETE FROM agent_tom_tat WHERE clinic_id = $1::uuid AND ngay = $2",
             CLINIC,

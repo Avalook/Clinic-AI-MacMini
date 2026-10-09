@@ -121,7 +121,7 @@ async def dau_vao(pool: asyncpg.Pool, *, clinic_id: str, ngay: date) -> dict[str
     rows = await pool.fetch(
         f"""
         SELECT loai, muc, muc_bang_chung, noi_dung, so_lan, danh_gia,
-               danh_gia_ghi_chu, ly_do_dong,
+               ly_do_dong,
                to_char(mo_luc AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') AS mo,
                to_char(dong_luc AT TIME ZONE 'Asia/Ho_Chi_Minh', 'HH24:MI') AS dong
           FROM agent_nhan_dinh
@@ -189,7 +189,8 @@ async def dau_vao(pool: asyncpg.Pool, *, clinic_id: str, ngay: date) -> dict[str
                 "ly_do_dong": r["ly_do_dong"],
                 "so_phut_thay": int(r["so_lan"]),
                 "cham": r["danh_gia"],
-                "ghi_chu_cham": r["danh_gia_ghi_chu"],
+                # Ghi chú chấm là chữ tự do, có thể chứa dữ liệu khách;
+                # hợp đồng B/G chỉ cho phép gửi mã đánh giá có cấu trúc.
             }
             for r in rows
         ],

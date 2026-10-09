@@ -171,7 +171,7 @@ function Khay({
 }) {
   return (
     <section
-      className={`rounded-2xl border ${VIEN} bg-[#f4f4f5] bg-[repeating-linear-gradient(135deg,transparent_0_7px,rgba(0,0,0,0.022)_7px_8px)] flex flex-col p-1.5 ${className}`}
+      className={`rounded-2xl border ${VIEN} bg-[#f4f4f5] van-cheo flex flex-col p-1.5 ${className}`}
     >
       <header className="flex min-h-10 items-center justify-between gap-2 px-2.5 pt-1 pb-2">
         <h3 className={`flex items-center gap-2 text-sm font-medium ${CHU}`}>
@@ -180,7 +180,7 @@ function Khay({
         </h3>
         {phai}
       </header>
-      <div className={`flex-1 rounded-xl border-[0.8px] ${VIEN} bg-white ${trong}`}>{children}</div>
+      <div className={`flex-1 rounded-xl border ${VIEN} bg-white ${trong}`}>{children}</div>
     </section>
   );
 }
@@ -257,7 +257,7 @@ function ChiSo({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             {muc && muc !== "ok" ? <span className={`size-2 rounded-full ${MAU[muc].cham}`} aria-hidden /> : null}
-            <span className={`text-[28px] leading-none font-normal tracking-tight tabular-nums ${CHU}`}>{gia_tri}</span>
+            <span className={`text-3xl leading-none font-normal tracking-tight tabular-nums ${CHU}`}>{gia_tri}</span>
           </div>
           <div className="mt-2.5">{duoi}</div>
         </div>
@@ -282,7 +282,7 @@ function CotDongKhach({ du_lieu, gio_nay }: { du_lieu: readonly { gio: number; s
   return (
     <div className="relative">
       <div className="flex h-60 gap-3">
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           {/* vạch ngang mờ */}
           <div className="pointer-events-none absolute inset-x-0 top-0 bottom-7 flex flex-col justify-between" aria-hidden>
             {vach.map((v) => (
@@ -310,7 +310,7 @@ function CotDongKhach({ du_lieu, gio_nay }: { du_lieu: readonly { gio: number; s
                   className="relative flex h-full flex-1 items-end focus:outline-none"
                 >
                   <span
-                    className={`w-full rounded-t-[6px] rounded-b-[2px] transition-all duration-200 ${
+                    className={`w-full rounded-t-md rounded-b-sm transition-all duration-200 ${
                       dang
                         ? "bg-gradient-to-b from-[#3f3f46] to-[#18181b]"
                         : "bg-gradient-to-b from-[#ececee] to-[#f6f6f7]"
@@ -328,7 +328,7 @@ function CotDongKhach({ du_lieu, gio_nay }: { du_lieu: readonly { gio: number; s
           </div>
           <div className="absolute inset-x-0 bottom-0 flex gap-2" aria-hidden>
             {du_lieu.map((x) => (
-              <span key={x.gio} className={`flex-1 text-center text-xs ${x.gio === gio_nay ? `font-medium ${CHU}` : CHU_PHU}`}>
+              <span key={x.gio} className={`min-w-0 flex-1 text-center text-xs ${x.gio === gio_nay ? `font-medium ${CHU}` : CHU_PHU}`}>
                 {x.gio}h
               </span>
             ))}
@@ -367,8 +367,8 @@ function DongMoc({
 }) {
   return (
     <li className="relative flex gap-3 pb-4 last:pb-0">
-      {!cuoi ? <span className="absolute top-9 bottom-0 left-[15px] border-l border-dashed border-black/15" aria-hidden /> : null}
-      <span className={`relative z-[1] flex size-8 shrink-0 items-center justify-center rounded-lg border ${VIEN} bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${mau}`} aria-hidden>
+      {!cuoi ? <span className="absolute top-9 bottom-0 left-4 border-l border-dashed border-black/15" aria-hidden /> : null}
+      <span className={`relative z-[1] flex size-8 shrink-0 items-center justify-center rounded-lg border ${VIEN} bg-white shadow-sm ${mau}`} aria-hidden>
         {icon}
       </span>
       <div className="min-w-0 flex-1 pt-0.5">
@@ -376,7 +376,7 @@ function DongMoc({
           <div className={`text-sm font-medium ${CHU}`}>{tieu_de}</div>
           {gio ? <span className={`shrink-0 text-xs ${CHU_PHU}`}>{gio}</span> : null}
         </div>
-        <div className={`mt-0.5 text-[13px] leading-relaxed ${CHU_PHU}`}>{phu}</div>
+        <div className={`mt-0.5 text-sm leading-relaxed ${CHU_PHU}`}>{phu}</div>
         {children}
       </div>
     </li>
@@ -431,10 +431,10 @@ function VanBanTomTat({ chu }: { chu: string }) {
   const dongDs = () => {
     if (!ds.length) return;
     khoi.push(
-      <ul key={`u${khoi.length}`} className={`space-y-1.5 text-[13px] leading-relaxed ${CHU}`}>
+      <ul key={`u${khoi.length}`} className={`space-y-1.5 text-sm leading-relaxed ${CHU}`}>
         {ds.map((x, i) => (
           <li key={i} className="flex gap-2">
-            <span className="mt-[7px] size-1 shrink-0 rounded-full bg-[#a1a1aa]" aria-hidden />
+            <span className="mt-2 size-1 shrink-0 rounded-full bg-[#a1a1aa]" aria-hidden />
             <span>
               <Dam chu={x} />
             </span>
@@ -458,7 +458,7 @@ function VanBanTomTat({ chu }: { chu: string }) {
     else {
       dongDs();
       khoi.push(
-        <p key={`p${khoi.length}`} className={`text-[13px] leading-relaxed ${CHU}`}>
+        <p key={`p${khoi.length}`} className={`text-sm leading-relaxed ${CHU}`}>
           <Dam chu={t} />
         </p>,
       );
@@ -603,7 +603,7 @@ export default function TrungTamGiamSat({ demo = false }: { demo?: boolean }) {
 
   return (
     <div className="min-h-full bg-[#f8f8f8]">
-      <div className="mx-auto max-w-[1400px] space-y-4 p-4 lg:p-6">
+      <div className="mx-auto max-w-7xl space-y-4 p-4 lg:p-6">
         {/* ── ĐẦU MÀN ─────────────────────────────────────────────────── */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
@@ -695,7 +695,7 @@ export default function TrungTamGiamSat({ demo = false }: { demo?: boolean }) {
                   {[vh.dang_lam, vh.dang_cho, Math.max(0, vh.dang_trong_phong_kham - vh.dang_lam - vh.dang_cho)].map((v, k) => (
                     <div
                       key={k}
-                      className={`flex-1 rounded-t-[4px] ${k === 0 ? "bg-gradient-to-b from-[#3f3f46] to-[#18181b]" : k === 1 ? "bg-amber-400" : "bg-[#ececee]"}`}
+                      className={`flex-1 rounded-t-sm ${k === 0 ? "bg-gradient-to-b from-[#3f3f46] to-[#18181b]" : k === 1 ? "bg-amber-400" : "bg-[#ececee]"}`}
                       style={{ height: `${Math.max(6, (v / vh.dang_trong_phong_kham) * 100)}%` }}
                     />
                   ))}
@@ -746,7 +746,7 @@ export default function TrungTamGiamSat({ demo = false }: { demo?: boolean }) {
             {vh ? (
               <>
                 <div className="mb-4 flex items-baseline gap-3">
-                  <span className={`text-[32px] leading-none font-normal tracking-tight tabular-nums ${CHU}`}>{so(vh.check_in_hom_nay)}</span>
+                  <span className={`text-3xl leading-none font-normal tracking-tight tabular-nums ${CHU}`}>{so(vh.check_in_hom_nay)}</span>
                   <ChenhLech nay={vh.check_in_hom_nay} truoc={vh.check_in_hom_qua_cung_gio ?? 0} nhan="so với hôm qua cùng giờ" />
                   <span className={`ml-auto text-xs ${CHU_PHU}`}>
                     {so(vh.da_ve_hom_nay)} đã về · {so(vh.dang_trong_phong_kham)} còn trong phòng khám
@@ -863,7 +863,7 @@ export default function TrungTamGiamSat({ demo = false }: { demo?: boolean }) {
                                 ) : (
                                   <EyeOff className={`size-3 shrink-0 ${CHU_MO}`} aria-label="Tạm ngưng nhận khách" />
                                 )}
-                                <span className={`min-w-0 flex-1 truncate text-[13px] font-medium ${CHU}`} title={p.ten}>
+                                <span className={`min-w-0 flex-1 truncate text-sm font-medium ${CHU}`} title={p.ten}>
                                   {p.ten}
                                 </span>
                                 <span className={`text-lg leading-none tabular-nums ${p.trang_thai === "ok" ? CHU : m.chu}`}>{p.dang_cho}</span>
@@ -1011,7 +1011,7 @@ export default function TrungTamGiamSat({ demo = false }: { demo?: boolean }) {
                     <Nhan muc="xam">{tt.tom_tat.model}</Nhan>
                     {tt.tom_tat.tu_dong ? "tự tạo" : "bấm tay"} lúc {fmtTime(tt.tom_tat.tao_luc)} · chỉ đọc nhận định đã không tên khách
                   </p>
-                  <div className="max-h-[420px] overflow-y-auto pr-1">
+                  <div className="max-h-104 overflow-y-auto pr-1">
                     <VanBanTomTat chu={tt.tom_tat.noi_dung} />
                   </div>
                 </>
@@ -1028,7 +1028,7 @@ export default function TrungTamGiamSat({ demo = false }: { demo?: boolean }) {
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className={`text-[28px] leading-none font-normal tracking-tight tabular-nums ${CHU}`}>{usd(cp.hom_nay_usd)}</span>
+                      <span className={`text-3xl leading-none font-normal tracking-tight tabular-nums ${CHU}`}>{usd(cp.hom_nay_usd)}</span>
                       <span className={`text-xs ${CHU_PHU}`}>≈ {so(cp.hom_nay_vnd)} đ hôm nay</span>
                     </div>
                     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#f1f1f2]">
@@ -1044,7 +1044,7 @@ export default function TrungTamGiamSat({ demo = false }: { demo?: boolean }) {
                         {tienNgay.map((d, k) => (
                           <div key={d.ngay} className="group relative flex h-full flex-1 items-end">
                             <div
-                              className={`w-full rounded-t-[5px] rounded-b-[2px] ${k === tienNgay.length - 1 ? "bg-gradient-to-b from-[#3f3f46] to-[#18181b]" : "bg-gradient-to-b from-[#e4e4e7] to-[#f4f4f5] group-hover:from-[#a1a1aa]"}`}
+                              className={`w-full rounded-t-md rounded-b-sm ${k === tienNgay.length - 1 ? "bg-gradient-to-b from-[#3f3f46] to-[#18181b]" : "bg-gradient-to-b from-[#e4e4e7] to-[#f4f4f5] group-hover:from-[#a1a1aa]"}`}
                               style={{ height: `${Math.max(4, (d.usd / caoTien) * 100)}%` }}
                             />
                             <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 rounded-md bg-[#18181b] px-1.5 py-0.5 text-xs whitespace-nowrap text-white group-hover:block">
@@ -1095,7 +1095,7 @@ export default function TrungTamGiamSat({ demo = false }: { demo?: boolean }) {
         {/* ── LUẬT GIÁM SÁT ───────────────────────────────────────────── */}
         <Khay tieu_de="Luật giám sát · độ đúng 14 ngày" icon={<ListChecks className="size-4" />} trong="p-1.5" phai={ag ? <Nhan muc="xam">{ag.phien_ban}</Nhan> : null}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-sm">
+            <table className="w-full min-w-170 text-sm">
               <thead>
                 <tr className={`text-left text-xs ${CHU_PHU}`}>
                   <th className="px-3 py-2.5 font-medium">Loại nhận định</th>

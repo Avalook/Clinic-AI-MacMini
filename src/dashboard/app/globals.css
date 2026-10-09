@@ -286,3 +286,8 @@ body {
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Vân chéo của khay giám sát, giữ hoa văn Kravio ngoài class kích thước. */
+.van-cheo {
+  background-image: repeating-linear-gradient(135deg, transparent 0 7px, rgba(0, 0, 0, 0.022) 7px 8px);
+}
