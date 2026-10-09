@@ -14,12 +14,20 @@
 // đang xem lại, cả màn đổi màu và nút "Lưu phiếu" biến mất.
 //
 // Chưa khám lần nào thì component này không hiện gì.
+//
+// PHẢN HỒI SAU DÙNG THUỐC (10/10/2026): CSKH ghi ở khung khách, gắn lượt có đơn
+// → hiện NGAY dưới hàng lượt (không cần rê chuột), chỉ đọc; tự cập nhật khi sổ
+// chăm sóc đổi (NOTIFY `tuong_tac_cskh`). Máy chủ trả theo KHÁCH
+// (`phan_hoi_thuoc` cạnh `items`), không theo lượt có phiếu — lượt có đơn mà
+// chưa ghi phiếu vẫn hiện.
 
 import { useEffect, useState } from "react";
 import { History, RotateCcw } from "lucide-react";
 
 import { doctorName } from "../../../../lib/doctor-name";
 import { chuNhanLuot, type NhanLuot } from "../../../../lib/nhan-luot";
+import { DongPhanHoiThuoc, type PhanHoiThuoc } from "../../_lam-viec/PhanHoiThuocKhach";
+import { useNgheBang } from "../../dung-nghe-bang";
 
 export interface LuotTruoc {
   visit_id: string;
@@ -67,7 +75,10 @@ export default function LuotKhamTruoc({
   onXem: (luot: LuotTruoc | null) => void;
 }) {
   const [items, setItems] = useState<LuotTruoc[]>([]);
+  const [phanHoiKhach, setPhanHoiKhach] = useState<PhanHoiThuoc[]>([]);
   const [hien, setHien] = useState<string | null>(null);
+  const [lan, setLan] = useState(0);
+  useNgheBang(["tuong_tac_cskh"], () => setLan((n) => n + 1));
 
   useEffect(() => {
     // `setItems([])` đồng bộ ngay trong thân effect bị React compiler chặn —
@@ -76,7 +87,10 @@ export default function LuotKhamTruoc({
     let bo = false;
     if (!clinicPatientId) {
       const t = setTimeout(() => {
-        if (!bo) setItems([]);
+        if (!bo) {
+          setItems([]);
+          setPhanHoiKhach([]);
+        }
       }, 0);
       return () => {
         bo = true;
@@ -85,19 +99,25 @@ export default function LuotKhamTruoc({
     }
     fetch(`/api/clinical-forms/history?clinic_patient_id=${clinicPatientId}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { items?: LuotTruoc[] } | null) => {
+      .then((d: { items?: LuotTruoc[]; phan_hoi_thuoc?: PhanHoiThuoc[] } | null) => {
         if (bo || !d) return;
         // Lượt ĐANG khám không phải "lượt trước".
         setItems((d.items ?? []).filter((x) => x.visit_id !== visitIdHienTai));
+        setPhanHoiKhach(d.phan_hoi_thuoc ?? []);
       })
       .catch(() => {});
     return () => {
       bo = true;
     };
-  }, [clinicPatientId, visitIdHienTai]);
+  }, [clinicPatientId, visitIdHienTai, lan]);
 
-  // Chưa khám lần nào thì thôi.
-  if (items.length === 0 && !dangXem) return null;
+  // Chưa khám lần nào (và không có phản hồi thuốc nào) thì thôi.
+  if (items.length === 0 && !dangXem && phanHoiKhach.length === 0) return null;
+
+  // Đang xem lại một lượt → chỉ phản hồi của lượt ấy; còn lại → mọi phản hồi.
+  const phanHoi = dangXem
+    ? phanHoiKhach.filter((p) => p.visit_id === dangXem.visit_id)
+    : phanHoiKhach;
 
   return (
     <div className="relative mt-2">
@@ -119,7 +139,7 @@ export default function LuotKhamTruoc({
             Quay lại khám tiếp
           </button>
         </div>
-      ) : (
+      ) : items.length === 0 ? null : (
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className="text-ink-muted">Lượt khám trước:</span>
           {items.map((l) => (
@@ -173,6 +193,21 @@ export default function LuotKhamTruoc({
             );
           })()
         : null}
+
+      {phanHoi.length ? (
+        <div className="mt-2 rounded-control bg-surface-muted px-3 py-2">
+          <p className="text-meta font-semibold text-ink">
+            Phản hồi sau dùng thuốc (CSKH ghi)
+          </p>
+          <ul className="mt-1 max-h-48 space-y-2 overflow-y-auto overscroll-contain">
+            {phanHoi.map((p) => (
+              <li key={p.id}>
+                <DongPhanHoiThuoc p={p} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

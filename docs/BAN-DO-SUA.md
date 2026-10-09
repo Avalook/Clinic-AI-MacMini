@@ -455,6 +455,16 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `src/clinicai/events/consumers/lieu_trinh_sap_het.py` (nghe `service.completed`,
   `nguon = lieu_trinh_sap_het`, một mốc một chuông). Test:
   `T/services/test_lieu_trinh_sap_het_db.py`, FT `lieu-trinh-sap-het-boundary.test.mts`.
+- **Phản hồi sau dùng thuốc (10/10):** khối "Phản hồi sau dùng thuốc" của khung khách
+  (`D/_lam-viec/KhungKhach.tsx` → `D/_lam-viec/PhanHoiThuocKhach.tsx`: chọn lượt có đơn,
+  kênh, nội dung · Gỡ · [Đặt lịch khám] = `DatLichModal` "kham-moi" của `CustomersView`)
+  → `/api/cskh/khach/[id]` (`?xem=phan-hoi-thuoc`, `thao_tac: phan-hoi-thuoc |
+  go-phan-hoi-thuoc`) → `S/phan_hoi_thuoc_service.py` (`doc`, `ghi`, `go`). Lưu ở
+  `tuong_tac_cskh` loại `PHAN_HOI_THUOC` + cột `visit_id` (mig `20261010200000`); chỉ
+  người ghi gỡ được (cả `tuong_tac_cskh_service.hoan_tac`); POST nhận `Idempotency-Key`.
+  Bác sĩ đọc: `doc_theo_khach` → `phan_hoi_thuoc` của `GET /clinical-forms/history`
+  (Bàn khám `LuotKhamTruoc`, theo KHÁCH — cả lượt có đơn chưa có phiếu) và
+  `doc_theo_luot` → `S/lich_su_luot.py` (popup `LichSuKham`). Test: `T/services/test_phan_hoi_thuoc_db.py`.
 - **Nhãn đếm lượt "Lượt khám n" / "Buổi k/N" (08/10, mọi màn):** máy chủ đếm ở
   `S/nhan_luot.py` (`gan_nhan` thuần + `doc_nhan_luot` một câu SQL), gắn `nhan_luot` vào
   dữ liệu của `S/man_khach_hang_service.py` (`/customers` — kèm giờ thật `den_luc` /

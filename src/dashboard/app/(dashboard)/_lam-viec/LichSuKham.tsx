@@ -21,6 +21,7 @@ import { todayVn } from "@/lib/roster";
 import type { Khoang } from "@/lib/thanh-ngay";
 
 import { INPUT } from "../form-ui";
+import { DongPhanHoiThuoc, type PhanHoiThuoc } from "./PhanHoiThuocKhach";
 import PhieuKhamLuot from "./phieu-kham/PhieuKhamLuot";
 import XemLuot from "./XemLuot";
 
@@ -38,6 +39,8 @@ export interface LuotLichSu {
   service_code_cu: string | null;
   /** Nhãn đếm lượt máy chủ tính (08/10/2026): "Lượt khám n" / "Buổi k/N"… */
   nhan_luot?: NhanLuot | null;
+  /** Phản hồi sau dùng thuốc CSKH ghi cho lượt này (10/10/2026, chỉ đọc). */
+  phan_hoi_thuoc?: PhanHoiThuoc[];
 }
 
 interface GoiLichSu {
@@ -187,6 +190,15 @@ export default function LichSuKham({
                     <Chip tone="neutral">{l.nhan_loai}</Chip>
                     {l.visit_id === visitIdHienTai ? <Chip tone="info">đang khám</Chip> : null}
                   </button>
+                  {l.phan_hoi_thuoc?.length ? (
+                    <ul aria-label="Phản hồi sau dùng thuốc" className="space-y-1 px-3 pb-2">
+                      {l.phan_hoi_thuoc.map((p) => (
+                        <li key={p.id} className="rounded-control bg-surface-muted px-3 py-2">
+                          <DongPhanHoiThuoc p={p} />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </li>
               ))}
               {goi && goi.luot.length === 0 ? (
