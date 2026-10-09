@@ -106,6 +106,10 @@ WITH v AS (
            a.so_tiep_don,
            st.name                 AS exam_service_name,
            bs.full_name            AS bac_si,
+           -- Đã về: check-out (`closed_at`) hoặc lượt đã đóng — FINALIZED,
+           -- AMENDED, INCOMPLETE (về giữa chừng) đều không tick lại ở quầy.
+           (vi.closed_at IS NOT NULL
+            OR vi.status IN ('FINALIZED', 'AMENDED', 'INCOMPLETE')) AS da_ve,
            -- CHỜ Ở QUẦY TỪ LÚC NÀO (27/09/2026): chỉ định còn nợ sớm nhất (lúc
            -- bác sĩ chỉ định); không có chỉ định thì lúc khám xong, rồi check-in.
            coalesce(
@@ -558,6 +562,15 @@ class CashierBoardService:
                             tinh_dv,
                             chon.get(item["visit_id"]),
                         )
+                        # Hoá đơn DỰ KIẾN còn dòng khách làm → CHƯA thu xong.
+                        # Hoá đơn thật chỉ có chỉ định đã chốt; lượt Điều trị
+                        # không phí khám, chỉ định còn chờ chọn → hoá đơn thật
+                        # rỗng → màn ghi "Đã thu" dù còn tiền (staging 08/10).
+                        # Cùng vế với `_xep_hang_cho_thu`.
+                        if any(
+                            r.get("chon") for r in item["quay_thu"]["phong_kham"]
+                        ) and not item.get("da_chot_0d"):
+                            con_no_dv.add(item["visit_id"])
             await _lam_truoc_dich_vu(
                 conn,
                 identity,
@@ -727,6 +740,18 @@ def _xep_hang_cho_thu(out: dict[str, Any], *, cho: set[str]) -> None:
         item["cho_phut"] = phut
         item["cho_lau"] = cho_thu_lau(phut)
         item["cho_thu"] = dang_cho
+        # KHÁCH BỎ HẾT, CHƯA VỀ (staging 08/10/2026): lượt Điều trị không có phí
+        # khám → bỏ tick dịch vụ duy nhất là hoá đơn rỗng, lượt rời "chờ thu" và
+        # quầy mất chỗ tick lại (thao tác không hoàn tác được). Cờ này đưa lượt
+        # vào khối "Khách đã bỏ dịch vụ" — tick lại là lượt về hàng chờ.
+        item["tick_lai"] = (
+            not dang_cho
+            and not item.get("da_ve")
+            and any(
+                r.get("loai") == "chi_dinh" and not r.get("chon") and r.get("sua_duoc")
+                for r in qt.get("phong_kham", [])
+            )
+        )
         if dang_cho:
             ds.append({"visit_id": item["visit_id"], "cho_tu": cho_tu})
     ds.sort(key=lambda x: (x["cho_tu"] is None, x["cho_tu"] or bay_gio))
@@ -873,6 +898,7 @@ def build_rows(raw: dict[str, Any], *, want_svc: bool, want_rx: bool) -> dict[st
                 "loai_kham": clean_name(v.get("exam_service_name")) or None,
                 "bac_si": v.get("bac_si"),
                 "cho_tu": v.get("cho_tu"),
+                "da_ve": bool(v.get("da_ve")),
                 "services": services,
                 # Tiền thuốc không đợi khám xong (nhóm 4, 24/09/2026).
                 "drugs": rx_by_visit.get(v["visit_id"], []) if want_rx else [],

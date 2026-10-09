@@ -610,10 +610,12 @@ class LieuTrinhService:
                 }
                 for u in uv
             ]
-            dang_lam = [u for u in uv if u["trang_thai"] == "DANG_LAM"]
-            c["can_chon"] = (
-                bool(c["song"]) and not c["lieu_trinh_id"] and len(dang_lam) > 1
-            )
+            # Cùng bậc với trigger tự gắn (`lieu_trinh_ung_vien_duy_nhat`):
+            # DANG_LAM trước, không có thì DE_XUAT; ≥ 2 cùng bậc = phải chọn.
+            bac = [u for u in uv if u["trang_thai"] == "DANG_LAM"] or [
+                u for u in uv if u["trang_thai"] == "DE_XUAT"
+            ]
+            c["can_chon"] = bool(c["song"]) and not c["lieu_trinh_id"] and len(bac) > 1
             c["nut"] = nut_chi_dinh(c)
         return {
             "visit_id": vid,

@@ -440,6 +440,160 @@ async def test_6_19_dat_lich_dieu_tri_check_in_tu_gan_buoi_ke(
 
 @pytest.mark.db
 @pytest.mark.asyncio
+async def test_de_xuat_tu_buoi_sau_lan_sau_den_tu_gan_buoi_1(
+    pool: asyncpg.Pool,
+) -> None:
+    """Lộ trình "tính từ buổi sau" (staging 08/10): hôm nay bác sĩ chỉ đề xuất
+    (DE_XUAT, chưa ai đăng ký) → lần sau đặt lịch Điều trị đến → chỉ định tự là
+    buổi 1; khách chốt làm → DANG_LAM."""
+    ca = await dung_ca(pool)
+    v1 = await luot(ca, ngay_truoc=3)
+    lt = await tao(ca, v1, 5)
+    assert lt["trang_thai"] == "DE_XUAT"
+    v2 = await luot(ca, dieu_tri=True)
+    async with pool.acquire() as conn, conn.transaction():
+        o = await sinh_chi_dinh_dieu_tri(
+            conn, clinic_id=CLINIC, visit_id=v2, nguoi_bam=None
+        )
+    assert o is not None
+    b = await buoi_song(ca, o)
+    assert b is not None and (b["lt"], b["buoi_so"]) == (lt["id"], 1)
+    assert (await doc(ca, lt["id"]))["trang_thai"] == "DE_XUAT"  # còn chờ khách
+    await dat_trang_thai(ca, o, selection_status="SELECTED")
+    assert (await doc(ca, lt["id"]))["trang_thai"] == "DANG_LAM"
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_tu_gan_dang_lam_truoc_de_xuat_hai_de_xuat_bat_chon(
+    pool: asyncpg.Pool,
+) -> None:
+    """Bậc ứng viên: 1 DANG_LAM + 1 DE_XUAT → vào DANG_LAM; 2 DE_XUAT (không
+    DANG_LAM) → không tự gắn, thẻ bắt chọn."""
+    ca = await dung_ca(pool)
+    v = await luot(ca, ngay_truoc=5)
+    dang = await tao(ca, v, 10)
+    await dang_ky(ca, dang["id"])
+    await tao(ca, v, 4)
+    o = await chi_dinh(ca, await luot(ca))
+    assert (await buoi_song(ca, o))["lt"] == dang["id"]  # type: ignore[index]
+
+    ca2 = await dung_ca(pool)
+    v0 = await luot(ca2, ngay_truoc=5)
+    a = await tao(ca2, v0, 10)
+    b = await tao(ca2, v0, 4)
+    v2 = await luot(ca2)
+    o2 = await chi_dinh(ca2, v2)
+    assert await buoi_song(ca2, o2) is None
+    the = await ca2.svc.theo_luot(identity=ca2.bac_si, visit_id=v2)
+    (c,) = the["chi_dinh"]
+    assert c["can_chon"] is True
+    assert {u["id"] for u in c["ung_vien"]} == {a["id"], b["id"]}
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_luot_dieu_tri_mot_buoi_quay_ra_hoa_don_dung_gia(
+    pool: asyncpg.Pool,
+) -> None:
+    """Đặt lịch Điều trị, làm 1 buổi lẻ (không lộ trình): khách lên quầy thu
+    dịch vụ với đúng MỘT dòng giá dịch vụ đã tick, không phí khám."""
+    from clinicai.services.cashier_board_service import CashierBoardService
+
+    ca = await dung_ca(pool, gia=1_234)
+    v = await luot(ca, dieu_tri=True)
+    async with pool.acquire() as conn, conn.transaction():
+        o = await sinh_chi_dinh_dieu_tri(
+            conn, clinic_id=CLINIC, visit_id=v, nguoi_bam=None
+        )
+    assert o is not None and await buoi_song(ca, o) is None
+    b = await CashierBoardService(pool).board(identity=ca.thu_ngan, modes=["dich_vu"])
+    (item,) = [i for i in b["items"] if i["visit_id"] == v]
+    qt = item["quay_thu"]
+    tien = [d for d in qt["phong_kham"] if d.get("gia")]
+    assert [(d["id"], d["gia"], d["chon"], d["sua_duoc"]) for d in tien] == [
+        (o, 1_234, True, True)
+    ]
+    assert qt["tong"] == 1_234 and qt["thu_duoc"] is True
+    assert item["cho_thu"] is True and item["tick_lai"] is False
+    # Chỉ định còn chờ chọn (không phí khám) KHÔNG được coi là đã thu — trước
+    # đây màn ghi "Đã thu · Không còn khoản nào phải thu" (staging 08/10).
+    assert (v, "dich_vu") not in {(p["visit_id"], p["kind"]) for p in b["paid"]}
+
+    # Bỏ tick dịch vụ duy nhất → hoá đơn rỗng, rời "chờ thu" — nhưng khối
+    # "Khách đã bỏ dịch vụ" còn tick lại được (thao tác hoàn tác được).
+    async def mot() -> dict[str, Any]:
+        b = await CashierBoardService(pool).board(
+            identity=ca.thu_ngan, modes=["dich_vu"]
+        )
+        (i,) = [i for i in b["items"] if i["visit_id"] == v]
+        return dict(i)
+
+    await dat_trang_thai(ca, o, selection_status="NOT_SELECTED")
+    i = await mot()
+    assert (i["cho_thu"], i["tick_lai"]) == (False, True)
+    await dat_trang_thai(ca, o, selection_status="SELECTED")
+    i = await mot()
+    assert (i["cho_thu"], i["tick_lai"]) == (True, False)
+    # Khách đã về: không còn gì để tick lại ở quầy.
+    await dat_trang_thai(ca, o, selection_status="NOT_SELECTED")
+    await pool.execute(
+        "UPDATE visit SET closed_at = now() WHERE visit_id = $1::uuid", v
+    )
+    i = await mot()
+    assert (i["cho_thu"], i["tick_lai"]) == (False, False)
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_luot_dieu_tri_thu_mot_hoa_don_o_quay(pool: asyncpg.Pool) -> None:
+    """Quầy một hoá đơn: lượt Điều trị chỉ có chỉ định chờ chọn → [Đã nhận đủ]
+    chốt lựa chọn + thu đúng giá trong một lệnh → lượt hết nợ, rời chờ thu."""
+    from clinicai.services.cashier_board_service import CashierBoardService
+    from clinicai.services.payment_service import PaymentService
+
+    ca = await dung_ca(pool, gia=2_345)
+    v = await luot(ca, dieu_tri=True)
+    async with pool.acquire() as conn, conn.transaction():
+        o = await sinh_chi_dinh_dieu_tri(
+            conn, clinic_id=CLINIC, visit_id=v, nguoi_bam=None
+        )
+    assert o is not None
+    bang = CashierBoardService(pool)
+    b = await bang.board(identity=ca.thu_ngan, modes=["dich_vu"])
+    (item,) = [i for i in b["items"] if i["visit_id"] == v]
+    qt = item["quay_thu"]
+    await PaymentService(pool).record_payment(
+        visit_id=v,
+        kind="dich_vu",
+        amount=qt["tong"],
+        clinic_patient_id=None,
+        identity=ca.thu_ngan,
+        bill_revision=qt["revision"],
+        method="CASH",
+        idempotency_key=_khoa(),
+        chon={
+            "order_ids_seen": qt["lua_chon"]["order_ids_seen"],
+            "selected_order_ids": [o],
+            "expected_selection_revision": qt["lua_chon"]["revision"],
+        },
+        quay="dich_vu",
+    )
+    assert (
+        await pool.fetchval(
+            "SELECT sum(line_total) FROM payment_bill_line WHERE visit_id = $1::uuid",
+            v,
+        )
+        == 2_345
+    )
+    b = await bang.board(identity=ca.thu_ngan, modes=["dich_vu"])
+    (item,) = [i for i in b["items"] if i["visit_id"] == v]
+    assert item["cho_thu"] is False
+    assert (v, "dich_vu") in {(p["visit_id"], p["kind"]) for p in b["paid"]}
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
 async def test_7_huy_chi_dinh_buoi_tra_ve(pool: asyncpg.Pool) -> None:
     """#7 (phần buổi): bỏ chỉ định bằng lệnh thật → buổi gỡ, số buổi trả về."""
     ca = await dung_ca(pool)

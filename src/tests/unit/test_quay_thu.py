@@ -121,6 +121,23 @@ def test_mot_hoa_don_moi_dich_vu_mot_dong() -> None:
     assert qt["lua_chon"] == {"revision": 3, "order_ids_seen": ["o1", "o2", "o3", "o4"]}
 
 
+def test_bat_buoc_dang_bo_tick_lai_duoc() -> None:
+    """Bác sĩ đánh dấu bắt buộc SAU khi khách đã bỏ (staging 08/10): ô tick
+    phải mở để tick lại; đang tick thì vẫn khoá (không bỏ được)."""
+    chon = {
+        "revision": 2,
+        "chi_dinh": [
+            _cd("o1", "NOT_SELECTED", 3_000_000, bat_buoc=True),
+            _cd("o2", "PENDING", 900_000, bat_buoc=True),
+        ],
+    }
+    o1, o2 = [
+        r for r in dung_hoa_don_quay(_hd(), chon)["phong_kham"] if r["id"] != "exam-v"
+    ]
+    assert not o1["chon"] and o1["sua_duoc"] and o1["bat_buoc"]
+    assert o2["chon"] and not o2["sua_duoc"]
+
+
 def test_mot_hoa_don_dong_cu_ngoai_lua_chon_khoa() -> None:
     qt = dung_hoa_don_quay(_hd(), {"revision": 0, "chi_dinh": []})
     o1 = qt["phong_kham"][1]
