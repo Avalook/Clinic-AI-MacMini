@@ -477,6 +477,10 @@ async def mot_vong_phong_kham(
         luc = luc or await conn.fetchval("SELECT now()")
         co_so = await _co_so_dang_mo(conn, clinic_id)
     tat = {loai for loai in LOAI if che_do_hieu_luc(cau_hinh, loai) == "tat"}
+    if tat == set(LOAI):
+        # TẮT HẲN: không đọc gì, không phát hiện gì — chỉ đóng phần còn mở.
+        async with pool.acquire() as conn:
+            return await ap_dung(conn, clinic_id, {}, tat)
 
     theo_loai: dict[str, list[NhanDinh]] = {}
     try:
@@ -525,7 +529,12 @@ def _json_dong(r: asyncpg.Record) -> dict[str, Any]:
 
 
 async def danh_sach(
-    pool: asyncpg.Pool, *, clinic_id: str, chi_dang_mo: bool, gioi_han: int = 200
+    pool: asyncpg.Pool,
+    *,
+    clinic_id: str,
+    chi_dang_mo: bool,
+    gioi_han: int = 200,
+    location_id: str | None = None,
 ) -> dict[str, Any]:
     """Nhận định (đang mở trước), thống kê độ đúng 14 ngày theo loại, công tắc."""
     gioi_han = max(1, min(int(gioi_han), 500))
@@ -537,6 +546,9 @@ async def danh_sach(
                danh_gia_luc
           FROM agent_nhan_dinh
          WHERE clinic_id = $1::uuid AND ($2::boolean IS FALSE OR dong_luc IS NULL)
+           -- Cơ sở đang xem; nhận định không gắn cơ sở (việc quá hạn của lượt
+           -- không rõ cơ sở…) hiện ở mọi nơi để không ai bỏ sót.
+           AND (location_id IS NULL OR $4::uuid IS NULL OR location_id = $4::uuid)
          ORDER BY (dong_luc IS NULL) DESC,
                   CASE muc WHEN 'critical' THEN 0 ELSE 1 END, lan_cuoi DESC
          LIMIT $3
@@ -544,6 +556,7 @@ async def danh_sach(
         clinic_id,
         chi_dang_mo,
         gioi_han,
+        location_id,
     )
     bi_cat = canh_bao_neu_day(
         "agent.nhan_dinh", len(rows), gioi_han, clinic_id=clinic_id
@@ -655,3 +668,20 @@ async def dat_che_do(
         che_do,
         staff_id,
     )
+    if che_do == "tat":
+        # Đóng NGAY trong lệnh bấm — chờ vòng quét sau (tới 1 phút) thì người
+        # bấm thấy như công tắc không ăn.
+        await pool.execute(
+            """
+            UPDATE agent_nhan_dinh SET dong_luc = now(), ly_do_dong = 'TAT'
+             WHERE clinic_id = $1::uuid AND dong_luc IS NULL
+               AND ($2 = '*' OR loai = $2)
+            """,
+            clinic_id,
+            loai,
+        )
+
+
+async def tat_het(conn: asyncpg.Connection, clinic_id: str) -> bool:
+    """Công tắc '*' đang tắt? Tắt hết = dừng cả tóm tắt AI (không tốn tiền)."""
+    return che_do_hieu_luc(await doc_cau_hinh(conn, clinic_id), "*") == "tat"

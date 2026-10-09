@@ -826,7 +826,7 @@ MODULE: dict[str, Module] = {
         Module(
             ma="van_hanh",
             ten="Vận hành, báo cáo, lịch sử thao tác",
-            quyen=["report.view", "ops.view", "audit.view"],
+            quyen=["report.view", "ops.view", "audit.view", "giamsat.view"],
         ),
         Module(
             ma="lich_truc",

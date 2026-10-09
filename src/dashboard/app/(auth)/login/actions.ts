@@ -4,9 +4,10 @@
 // NHẤT vào hệ thống từ 05/08/2026. Vai trò suy từ staff gắn với tài khoản
 // (auth_user_id), không cần chọn tên.
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ROLE_COOKIE, STAFF_COOKIE } from "../../../lib/clinic-session";
+import { laHostGiamSat } from "../../../lib/cong-giam-sat";
 import { LOCATION_COOKIE } from "../../../lib/co-so";
 import {
   resolveLinkedStaffAuthority,
@@ -84,7 +85,9 @@ export async function loginStaff(
   // khi phòng khám chỉ có một cơ sở.
   c.delete(LOCATION_COOKIE);
 
-  redirect(`/chon-co-so?next=${encodeURIComponent(roleLanding(role))}`);
+  // Đăng nhập ở tên miền giám sát → về thẳng trung tâm giám sát (09/10/2026).
+  const dich = laHostGiamSat((await headers()).get("host")) ? "/giam-sat" : roleLanding(role);
+  redirect(`/chon-co-so?next=${encodeURIComponent(dich)}`);
 }
 
 // Đăng xuất. Trước đây nằm ở `enter/actions.ts` cùng cổng phòng khám dùng

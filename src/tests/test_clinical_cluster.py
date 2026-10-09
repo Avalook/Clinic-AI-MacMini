@@ -19,7 +19,7 @@ from clinicai.api.v1.routers.lab import _ORDER_GUARD, _RESULT_GUARD
 from clinicai.api.v1.routers.ultrasound import _SONOGRAPHER_GUARD
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.exceptions import ValidationError as CoreValidationError
-from clinicai.permissions.catalogue import KHOI, PRESET, QUYEN
+from clinicai.permissions.catalogue import KHOI, KHOI_NOI_BO, PRESET, QUYEN
 from clinicai.permissions.y_khoa import QUYEN_GHI_Y_KHOA, cua_ghi_y_khoa
 from clinicai.services.clinical_record_service import (
     ARRIVED_APPOINTMENT_STATUSES as ARRIVED,
@@ -224,7 +224,9 @@ class TestClinicalRecordWriteRoles:
     def test_quan_ly_co_tat_ca_khoi_va_khong_con_chung_chi(self) -> None:
         # Tuyền 24/09/2026: bỏ chứng chỉ; quản lý có mọi khối, không loại trừ.
         assert not [q for q in QUYEN.values() if q.chung_chi_lam_sang]
-        assert set(PRESET["MANAGEMENT"]) == set(KHOI)
+        # Trừ khối NỘI BỘ của đội vận hành ClinicAI (09/10/2026) — không phải
+        # quyền của phòng khám.
+        assert set(PRESET["MANAGEMENT"]) == set(KHOI) - KHOI_NOI_BO
 
     def test_quyen_ghi_benh_an_nam_trong_khoi_ay(self) -> None:
         assert QUYEN["clinical.record.write"].khoi == "ghi_benh_an"

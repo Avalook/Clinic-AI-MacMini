@@ -33,6 +33,7 @@ from clinicai.permissions import cache
 from clinicai.permissions.can import doi_quyen
 from clinicai.permissions.catalogue import (
     KHOI,
+    KHOI_NOI_BO,
     LUON_BAT,
     MAN,
     MAN_THEO_VAI,
@@ -168,6 +169,10 @@ class PermissionService:
         """`GrantWorkPack` — bật một khối công việc cho một người."""
         if khoi not in KHOI:
             raise ValidationError(f"Không có khối công việc “{khoi}”.")
+        if khoi in KHOI_NOI_BO:
+            raise ValidationError(
+                "Khối nội bộ của đội vận hành ClinicAI — không cấp qua màn Phân quyền."
+            )
         if scope_type not in PHAM_VI:
             raise ValidationError("Phạm vi phải là CLINIC, ROOM hoặc SHIFT.")
         if (scope_type == "CLINIC") != (scope_id is None):
@@ -241,6 +246,10 @@ class PermissionService:
         """`RevokeWorkPack` — tắt một khối. Dòng cũ KHÔNG bị xoá, chỉ đóng lại."""
         if khoi not in KHOI:
             raise ValidationError(f"Không có khối công việc “{khoi}”.")
+        if khoi in KHOI_NOI_BO:
+            raise ValidationError(
+                "Khối nội bộ của đội vận hành ClinicAI — không thu qua màn Phân quyền."
+            )
 
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, "permission.manage")
@@ -457,6 +466,10 @@ class PermissionService:
         la = [k for k in khoi if k not in KHOI]
         if la:
             raise ValidationError(f"Khối không có thật: {', '.join(sorted(la))}")
+        # Nhóm mẫu được cấp cho cả loạt người (`cap_quyen_theo_preset`) — gom
+        # khối nội bộ vào nhóm là đường cấp lậu.
+        if KHOI_NOI_BO & set(khoi):
+            raise ValidationError("Khối nội bộ của đội vận hành không vào nhóm được.")
 
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, "permission.manage")
