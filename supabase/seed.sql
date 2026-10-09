@@ -3750,3 +3750,9 @@ SELECT * FROM public.dong_bo_vat_tu(false);
 -- Mẫu siêu âm thai quý III (20261009310000) gắn THÊM cho dịch vụ đang gắn quý
 -- II–III — SAU mọi bước gắn mẫu ở trên; quý II–III vẫn chọn sẵn (thu_tu).
 SELECT public.gan_mau_sa_thai_quy_3();
+-- Mẫu MO_TA (một ô Mô tả) gắn cho nước tiểu / monitor; mẫu đo mật độ xương ra
+-- bản Mô tả + ô tích (20261009700000) — SAU dxa_ket_luan_nhanh và mọi bước gắn
+-- mẫu ở trên: chỉ gắn khi dịch vụ chưa có mẫu gắn nào.
+SELECT public.mau_mo_ta_nuoc_tieu_monitor_dxa();
+-- Siêu âm tử cung chỉ còn mẫu phần phụ (cùng migration) — SAU gắn mẫu v3.
+SELECT public.sa_tc_chi_con_phan_phu();
