@@ -9,6 +9,7 @@ máy chủ từ chối, câu nói rõ việc gì, lịch + lượt giữ nguyên
 
 from __future__ import annotations
 
+import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ConflictError
@@ -32,7 +33,7 @@ from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
-async def _lich(pool, visit: str) -> str:  # noqa: F811
+async def _lich(pool: asyncpg.Pool, visit: str) -> str:  # noqa: F811
     return str(
         await pool.fetchval(
             "SELECT appointment_id::text FROM visit WHERE visit_id = $1::uuid", visit
@@ -40,20 +41,26 @@ async def _lich(pool, visit: str) -> str:  # noqa: F811
     )
 
 
-async def _vao(pool) -> tuple[Ca, str, str]:  # noqa: F811
+async def _vao(pool: asyncpg.Pool) -> tuple[Ca, str, str]:  # noqa: F811
     ca = await _dung(pool)
     pid = await _benh_nhan(pool, ca)
     visit = await _check_in(pool, ca, pid, ca.loai_kham)  # đã chạy Hành trình
     return ca, visit, await _lich(pool, visit)
 
 
-async def _hoan_tac(pool, ca: Ca, appt: str) -> None:  # noqa: F811
+async def _hoan_tac(pool: asyncpg.Pool, ca: Ca, appt: str) -> None:  # noqa: F811
     await BookingService(pool).apply_action(
         appointment_id=appt, action="undo_checkin", identity=ca.le_tan
     )
 
 
-async def _bi_tu_choi(pool, ca: Ca, appt: str, visit: str, chu: str) -> None:  # noqa: F811
+async def _bi_tu_choi(
+    pool: asyncpg.Pool,  # noqa: F811
+    ca: Ca,
+    appt: str,
+    visit: str,
+    chu: str,
+) -> None:
     with pytest.raises(ConflictError) as loi:
         await _hoan_tac(pool, ca, appt)
     cau = str(loi.value.detail if hasattr(loi.value, "detail") else loi.value)
@@ -68,7 +75,7 @@ async def _bi_tu_choi(pool, ca: Ca, appt: str, visit: str, chu: str) -> None:  #
     ) in ("OPEN", "IN_PROGRESS")
 
 
-async def test_chua_lam_gi_thi_hoan_tac_duoc(pool) -> None:  # noqa: F811
+async def test_chua_lam_gi_thi_hoan_tac_duoc(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca, visit, appt = await _vao(pool)
     # Hệ thống đã tự làm: mở lượt, trạm đầu, hàng chờ, quyết đường đi.
     assert await pool.fetchval(
@@ -90,7 +97,7 @@ async def test_chua_lam_gi_thi_hoan_tac_duoc(pool) -> None:  # noqa: F811
     )
 
 
-async def test_da_do_sinh_hieu_thi_tu_choi(pool) -> None:  # noqa: F811
+async def test_da_do_sinh_hieu_thi_tu_choi(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca, visit, appt = await _vao(pool)
     svc = LuotKhamService(pool)
     await svc.bat_dau_do_sinh_hieu(visit_id=visit, identity=ca.dd)
@@ -102,7 +109,7 @@ async def test_da_do_sinh_hieu_thi_tu_choi(pool) -> None:  # noqa: F811
     await _bi_tu_choi(pool, ca, appt, visit, "được đo sinh hiệu")
 
 
-async def test_dang_o_phong_bac_si_thi_tu_choi(pool) -> None:  # noqa: F811
+async def test_dang_o_phong_bac_si_thi_tu_choi(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca, visit, appt = await _vao(pool)
     con = await pool.fetchval(
         "SELECT id::text FROM consultation WHERE visit_id = $1::uuid"
@@ -115,7 +122,7 @@ async def test_dang_o_phong_bac_si_thi_tu_choi(pool) -> None:  # noqa: F811
     await _bi_tu_choi(pool, ca, appt, visit, "tư vấn/khám")
 
 
-async def test_da_nop_tien_thi_tu_choi(pool) -> None:  # noqa: F811
+async def test_da_nop_tien_thi_tu_choi(pool: asyncpg.Pool) -> None:  # noqa: F811
     """Chỉ cờ tiền: đường thu thật đòi có chỉ định trước (cờ khác cũng bật),
     nên ghi thẳng một lần thu đã nhận (dạng `legacy`, hợp lệ ở DB)."""
     ca, visit, appt = await _vao(pool)
@@ -130,7 +137,7 @@ async def test_da_nop_tien_thi_tu_choi(pool) -> None:  # noqa: F811
     await _bi_tu_choi(pool, ca, appt, visit, "nộp tiền")
 
 
-async def test_chi_dinh_roi_thu_tien_thi_tu_choi(pool) -> None:  # noqa: F811
+async def test_chi_dinh_roi_thu_tien_thi_tu_choi(pool: asyncpg.Pool) -> None:  # noqa: F811
     """Đường thật: bác sĩ chỉ định → lễ tân chọn → thu tiền dịch vụ."""
     ca, visit, appt = await _vao(pool)
     _, order = await _kham_va_chi_dinh(pool, ca, visit)
