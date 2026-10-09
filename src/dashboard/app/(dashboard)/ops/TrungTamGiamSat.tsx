@@ -611,7 +611,9 @@ export default function TrungTamGiamSat({ demo = false }: { demo?: boolean }) {
               {demo ? <Nhan muc="warning">Dữ liệu giả lập</Nhan> : null}
             </h2>
             <p className={`mt-1 text-sm ${CHU_PHU}`}>
-              Toàn cảnh phòng khám, hệ thống và AI — agent đang chạy thử ngầm, chưa báo cho ai.
+              {ag?.tat_het
+                ? "Agent đã TẮT HẲN — không quét, không gọi AI. Số vận hành bên dưới vẫn đọc trực tiếp từ hệ thống."
+                : "Toàn cảnh phòng khám, hệ thống và AI — agent đang chạy thử ngầm, chưa báo cho ai."}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -642,6 +644,22 @@ export default function TrungTamGiamSat({ demo = false }: { demo?: boolean }) {
             ) : null}
           </div>
         </div>
+
+        {ag?.tat_het ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-black/10 bg-[#27272a] px-4 py-2.5 text-sm text-white">
+            <span className="inline-flex items-center gap-2">
+              <EyeOff className="size-4" aria-hidden />
+              Agent đang tắt: không phát hiện gì mới, nhận định cũ đã đóng, tóm tắt AI tự động cũng dừng.
+            </span>
+            <button
+              type="button"
+              onClick={() => void doiCheDo("*", true)}
+              className="rounded-lg bg-white px-3 py-1 text-xs font-medium text-[#18181b] hover:bg-[#f4f4f5]"
+            >
+              Bật lại
+            </button>
+          </div>
+        ) : null}
 
         {baoLoi ? (
           <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
@@ -978,7 +996,7 @@ export default function TrungTamGiamSat({ demo = false }: { demo?: boolean }) {
                 <button
                   type="button"
                   onClick={() => void tomTatNgay()}
-                  disabled={!tt?.llm_bat || dang === "tom-tat" || demo}
+                  disabled={!tt?.llm_bat || Boolean(ag?.tat_het) || dang === "tom-tat" || demo}
                   className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-gradient-to-b from-[#3f3f46] to-[#18181b] px-3 text-xs font-medium text-white shadow-sm disabled:opacity-40"
                 >
                   <BrainCircuit className="size-3.5" aria-hidden />

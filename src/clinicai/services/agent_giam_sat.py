@@ -477,6 +477,10 @@ async def mot_vong_phong_kham(
         luc = luc or await conn.fetchval("SELECT now()")
         co_so = await _co_so_dang_mo(conn, clinic_id)
     tat = {loai for loai in LOAI if che_do_hieu_luc(cau_hinh, loai) == "tat"}
+    if tat == set(LOAI):
+        # TẮT HẲN: không đọc gì, không phát hiện gì — chỉ đóng phần còn mở.
+        async with pool.acquire() as conn:
+            return await ap_dung(conn, clinic_id, {}, tat)
 
     theo_loai: dict[str, list[NhanDinh]] = {}
     try:
@@ -655,3 +659,20 @@ async def dat_che_do(
         che_do,
         staff_id,
     )
+    if che_do == "tat":
+        # Đóng NGAY trong lệnh bấm — chờ vòng quét sau (tới 1 phút) thì người
+        # bấm thấy như công tắc không ăn.
+        await pool.execute(
+            """
+            UPDATE agent_nhan_dinh SET dong_luc = now(), ly_do_dong = 'TAT'
+             WHERE clinic_id = $1::uuid AND dong_luc IS NULL
+               AND ($2 = '*' OR loai = $2)
+            """,
+            clinic_id,
+            loai,
+        )
+
+
+async def tat_het(conn: asyncpg.Connection, clinic_id: str) -> bool:
+    """Công tắc '*' đang tắt? Tắt hết = dừng cả tóm tắt AI (không tốn tiền)."""
+    return che_do_hieu_luc(await doc_cau_hinh(conn, clinic_id), "*") == "tat"

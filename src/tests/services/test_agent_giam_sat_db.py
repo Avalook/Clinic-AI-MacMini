@@ -219,3 +219,44 @@ async def test_vong_toan_he_khong_nem_va_chay_moi_cau_sql(
         ra = await ag.phat_hien_sql(conn, CLINIC, luc + timedelta(seconds=1))
     assert set(ra) == {"khach_lang_im", "luot_khong_ro_co_so", "viec_qua_han"}
     await ag.mot_vong(pool)
+
+
+async def test_tat_het_la_dung_han(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Công tắc '*' = tắt HẲN: đóng ngay nhận định đang mở (không chờ vòng sau),
+    vòng sau không quét gì, và tóm tắt AI từ chối (không tốn tiền)."""
+    from datetime import date
+
+    from clinicai.services import agent_tom_tat
+
+    vid, sid = await _luot(pool)
+    try:
+        await pool.execute(
+            "UPDATE visit SET current_node_since = now() - interval '240 minutes'"
+            " WHERE visit_id = $1::uuid",
+            vid,
+        )
+        await ag.mot_vong_phong_kham(pool, CLINIC)
+        assert await pool.fetchrow(_MO, CLINIC, "khach_cho_qua_nguong", vid)
+
+        await ag.dat_che_do(
+            pool, clinic_id=CLINIC, loai="*", che_do="tat", staff_id=sid
+        )
+        # Đóng NGAY trong lệnh bấm.
+        assert await pool.fetchrow(_MO, CLINIC, "khach_cho_qua_nguong", vid) is None
+        # Vòng sau không mở lại dù khách vẫn chờ quá ngưỡng.
+        await ag.mot_vong_phong_kham(pool, CLINIC)
+        assert await pool.fetchrow(_MO, CLINIC, "khach_cho_qua_nguong", vid) is None
+
+        async def khong_duoc_goi(**_: object) -> object:
+            raise AssertionError("agent tắt mà vẫn gọi LLM")
+
+        with pytest.raises(agent_tom_tat.LlmTatError):
+            await agent_tom_tat.tao(
+                pool, clinic_id=CLINIC, ngay=date(2026, 1, 5), goi=khong_duoc_goi
+            )
+    finally:
+        await pool.execute(
+            "DELETE FROM agent_cau_hinh WHERE clinic_id = $1::uuid AND loai = '*'",
+            CLINIC,
+        )
+        await _don(pool, vid)

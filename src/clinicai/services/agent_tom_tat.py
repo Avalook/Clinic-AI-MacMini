@@ -33,7 +33,7 @@ import structlog
 from clinicai.core.clock import hom_nay_vn, now_vn
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.llm.anthropic_client import AnthropicClient, LLMResponse
-from clinicai.services.agent_giam_sat import LOAI, PHIEN_BAN
+from clinicai.services.agent_giam_sat import LOAI, PHIEN_BAN, tat_het
 
 logger = structlog.get_logger()
 
@@ -221,6 +221,9 @@ async def tao(
     Ném `LlmTatError` (không khoá), `VuotTranChiPhiError` (chạm trần),
     `TomTatHongError` (LLM từ chối / rỗng), hoặc lỗi API sau khi đã thử lại.
     """
+    async with pool.acquire() as conn:
+        if await tat_het(conn, clinic_id):
+            raise LlmTatError("Agent đang tắt — bật lại để tóm tắt.")
     client: AnthropicClient | None = None
     if goi is None:
         khoa = doc_khoa()
@@ -323,7 +326,10 @@ async def tu_dong(pool: asyncpg.Pool) -> None:
         clinics = await pool.fetch(
             """
             SELECT c.id::text AS id FROM clinic c
-             WHERE NOT EXISTS (SELECT 1 FROM agent_tom_tat t
+             WHERE NOT EXISTS (SELECT 1 FROM agent_cau_hinh h
+                                WHERE h.clinic_id = c.id AND h.loai = '*'
+                                  AND h.che_do = 'tat')
+               AND NOT EXISTS (SELECT 1 FROM agent_tom_tat t
                                 WHERE t.clinic_id = c.id AND t.ngay = $1
                                   AND t.tao_boi IS NULL)
                AND (EXISTS (SELECT 1 FROM agent_nhan_dinh n
