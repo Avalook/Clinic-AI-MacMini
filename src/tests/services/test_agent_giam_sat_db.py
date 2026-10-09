@@ -7,6 +7,7 @@ lượt của chính bài (tệp khác chạy song song cũng có lượt trong 
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import Never
 
 import asyncpg
 import pytest
@@ -247,7 +248,7 @@ async def test_tat_het_la_dung_han(pool: asyncpg.Pool) -> None:  # noqa: F811
         await ag.mot_vong_phong_kham(pool, CLINIC)
         assert await pool.fetchrow(_MO, CLINIC, "khach_cho_qua_nguong", vid) is None
 
-        async def khong_duoc_goi(**_: object) -> object:
+        async def khong_duoc_goi(**_: object) -> Never:
             raise AssertionError("agent tắt mà vẫn gọi LLM")
 
         with pytest.raises(agent_tom_tat.LlmTatError):
