@@ -26,6 +26,9 @@ import {
   NHAN_TRANG_THAI_LT,
   docLT,
   lenhLT,
+  nhanDaTra,
+  nhanDoiLieuTrinh,
+  nhanNutHoanTac,
   tienLT,
   type BuoiLieuTrinh,
   type ChiDinhLieuTrinh,
@@ -125,10 +128,8 @@ function LichSuLT({ ltId }: { ltId: string }) {
                     ? (NHAN_HANH_DONG_LT[d.hanh_dong ?? ""] ?? d.hanh_dong)
                     : `${d.loai === "GAN" ? "Gắn" : "Gỡ"} buổi ${d.buoi_so ?? ""}`}
                 </span>
-                {d.loai === "SUA" && d.ban_moi ? (
-                  <span>
-                    {String(d.ban_cu?.so_buoi ?? "—")} → {String(d.ban_moi.so_buoi ?? "—")} buổi
-                  </span>
+                {d.loai === "SUA" && nhanDoiLieuTrinh(d.ban_cu, d.ban_moi) ? (
+                  <span>{nhanDoiLieuTrinh(d.ban_cu, d.ban_moi)}</span>
                 ) : null}
                 <span className="text-ink-muted">
                   {[d.boi ?? (d.cach === "TU_DONG" ? "Tự động" : null), d.luc ? fmtDateTime(d.luc) : null]
@@ -282,7 +283,10 @@ export function KhungLieuTrinh({
       ) : null}
       {!deXuat ? (
         <p className="text-body text-ink-soft">
-          Đã trả {lt.da_tra} buổi
+          {(() => {
+            const c = nhanDaTra(lt.da_tra, lt.tra_le ?? 0);
+            return c.charAt(0).toUpperCase() + c.slice(1);
+          })()}
           {lt.chua_tra > 0 ? ` · còn nợ ${lt.chua_tra} buổi (${tienLT(lt.tien_con_lai)})` : " · đã trả đủ"}
         </p>
       ) : null}
@@ -351,7 +355,7 @@ export function KhungLieuTrinh({
             disabled={dang}
             onClick={() => void gui("hoan-tac", { lich_su_id: lt.hoan_tac?.lich_su_id })}
           >
-            Hoàn tác {(NHAN_HANH_DONG_LT[lt.hoan_tac.hanh_dong] ?? "").toLowerCase()}
+            {nhanNutHoanTac(lt.hoan_tac.hanh_dong)}
           </Button>
         ) : null}
         {choGhi ? them : null}

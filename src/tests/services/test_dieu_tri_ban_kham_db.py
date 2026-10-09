@@ -33,6 +33,7 @@ from clinicai.services.hoan_tac_service import HoanTacService, tien_thua_cua_luo
 from clinicai.services.lam_truoc_thu_sau import LamTruocThuSauService
 from clinicai.services.lenh_kham_core import LuotKhamConflictError
 from clinicai.services.luot_kham_service import LuotKhamService
+from clinicai.services.service_execution_service import CAU_CHUA_BIET_PHONG_BAN_KHAM
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh, chay_het
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
@@ -164,6 +165,29 @@ async def _bam(
 async def _tien(pool: asyncpg.Pool, order: str) -> str:  # noqa: F811
     async with pool.acquire() as conn:
         return (await states_for_orders(conn, CLINIC, [order]))[order].finance_state
+
+
+async def test_chua_biet_phong_ban_kham_an_nut_tu_dau_cau_xam(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Bấm thử staging 09/10: bác sĩ chưa có lịch phòng hôm nay, chỉ định chưa
+    xếp phòng → thẻ ẩn [Làm tại bàn khám] TỪ ĐẦU kèm câu xám ngắn (trước: bấm
+    rồi mới hiện lỗi đỏ dài). Có lịch phòng → làm được như thường."""
+    ca = await _dung(pool)
+    laser = await _laser(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    con = await _vao_kham(pool, ca, visit)
+    await _ke(pool, ca, con, laser["ma"])
+    await LamTruocThuSauService(pool).dat(visit_id=visit, bat=True, identity=ca.bac_si)
+    await pool.execute(
+        "UPDATE queue_entry SET room_id = NULL WHERE visit_id = $1::uuid", visit
+    )
+    t = await _the(pool, ca, visit)
+    assert t["lam_duoc"] is False
+    assert t["ly_do_khong_lam"] == CAU_CHUA_BIET_PHONG_BAN_KHAM
+    await _lich_ban_kham(pool, ca)
+    t = await _the(pool, ca, visit)
+    assert t["lam_duoc"] is True and t["ly_do_khong_lam"] is None
 
 
 async def test_lam_tai_ban_kham_qua_cua_tien_hoan_tac_khong_dung_tien_quay_thu_mot_dong(

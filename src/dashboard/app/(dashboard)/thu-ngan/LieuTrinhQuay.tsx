@@ -15,7 +15,7 @@ import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import ONhap from "@/components/ui/ONhap";
-import { NHAN_TRANG_THAI_LT, docLT, lenhLT, tienLT, type LieuTrinhQuay as LTQ } from "@/lib/lieu-trinh";
+import { NHAN_TRANG_THAI_LT, docLT, lenhLT, nhanDaTra, tienLT, type LieuTrinhQuay as LTQ } from "@/lib/lieu-trinh";
 import { useNgheBang } from "../dung-nghe-bang";
 
 export default function LieuTrinhQuay({
@@ -97,7 +97,7 @@ function DongLieuTrinh({ x, visitId, onDoi }: { x: LTQ; visitId: string; onDoi: 
         <span className="text-meta text-ink-muted">{tienLT(x.don_gia)}/buổi</span>
       </div>
       <p className="text-meta tabular-nums text-ink-soft">
-        Đã làm {x.da_lam}/{x.so_buoi} · đã trả {x.da_tra} · còn lại {x.con_lai} buổi
+        Đã làm {x.da_lam}/{x.so_buoi} · {nhanDaTra(x.da_tra, x.tra_le ?? 0)} · còn lại {x.con_lai} buổi
         {x.chua_tra > 0 ? ` · chưa trả ${x.chua_tra} buổi (${tienLT(x.tien_con_lai)})` : ""}
       </p>
       {dangChon ? (
@@ -106,7 +106,7 @@ function DongLieuTrinh({ x, visitId, onDoi }: { x: LTQ; visitId: string; onDoi: 
         </p>
       ) : null}
       {x.goi_y_tra_them ? (
-        <p className="text-meta text-warning">Hết buổi đã trả trước — gợi ý khách trả thêm.</p>
+        <p className="text-meta text-warning">{x.cau_goi_y ?? "Hết buổi đã trả trước — gợi ý khách trả thêm."}</p>
       ) : null}
       {x.trang_thai === "DUNG" && x.hoan_duoc_toi_da > 0 ? (
         <p className="text-meta text-warning">

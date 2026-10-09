@@ -40,6 +40,7 @@ import {
   type LieuTrinh,
   type TrangThaiLieuTrinh,
 } from "@/lib/lieu-trinh-cskh";
+import { nhanDaTra } from "@/lib/lieu-trinh";
 import { tienVn } from "@/lib/phieu-kham";
 
 import { useNgheBang } from "../dung-nghe-bang";
@@ -264,7 +265,7 @@ export function DongLieuTrinh({
         </p>
       ) : null}
       <p className="text-meta tabular-nums text-ink">
-        {nhanTienDo(lt)} · đã trả {lt.da_tra} · còn lại {lt.con_lai} buổi
+        {nhanTienDo(lt)} · {nhanDaTra(lt.da_tra, lt.tra_le ?? 0)} · còn lại {lt.con_lai} buổi
         {lt.tien_con_lai > 0 ? ` · còn phải trả ${tienVn(lt.tien_con_lai)}` : ""}
       </p>
       <p className="text-meta text-ink-muted">

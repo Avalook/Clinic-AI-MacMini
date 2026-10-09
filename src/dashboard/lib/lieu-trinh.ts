@@ -4,7 +4,7 @@
 // (`services/lieu_trinh_service.py`, `lieu_trinh_tien.py`); ở đây chỉ có nhãn
 // để vẽ và câu ghép số cho người đọc.
 
-import { nhanLoi, type ThanLoi } from "./loi-api";
+import { nhanLoi, type ThanLoi } from "./loi-api.ts";
 
 export type TrangThaiLieuTrinh = "DE_XUAT" | "DANG_LAM" | "XONG" | "DUNG";
 
@@ -51,6 +51,8 @@ export interface LieuTrinh {
   revision: number;
   da_lam: number;
   da_tra: number;
+  /** Buổi đã thu LẺ (không bằng tiền trả trước) — máy chủ đếm. */
+  tra_le?: number;
   so_gan: number;
   con_lai: number;
   con_tra_truoc: number;
@@ -133,6 +135,7 @@ export interface LieuTrinhQuay {
   don_gia: number;
   da_lam: number;
   da_tra: number;
+  tra_le?: number;
   con_lai: number;
   con_tra_truoc: number;
   chua_tra: number;
@@ -141,6 +144,8 @@ export interface LieuTrinhQuay {
   tra_truoc_dang_chon: { id: string; so_buoi: number; don_gia: number } | null;
   tra_truoc_toi_da: number;
   goi_y_tra_them: boolean;
+  /** Câu gợi ý của máy chủ (khách chưa từng trả trước ≠ hết buổi đã trả). */
+  cau_goi_y?: string | null;
   hoan_duoc_toi_da: number;
   dong_hoan_duoc: { payment_cycle_id: string; con_hoan_duoc: number; luc_thu: string | null }[];
 }
@@ -156,6 +161,42 @@ export const NHAN_HANH_DONG_LT: Record<string, string> = {
   TU_THEM_BUOI: "Tự thêm buổi",
   TU_DONG: "Tự đổi trạng thái",
 };
+
+/** "đã trả 3 buổi (1 lẻ + 2 trả trước)" — `da_tra` của máy chủ là số buổi
+ *  TRẢ TRƯỚC, buổi thu lẻ đếm riêng (`tra_le`); gộp lại để "còn nợ" khớp tổng. */
+export function nhanDaTra(daTraTruoc: number, traLe = 0): string {
+  const tong = daTraTruoc + traLe;
+  if (tong <= 0) return "chưa trả buổi nào";
+  if (traLe > 0 && daTraTruoc > 0) return `đã trả ${tong} buổi (${traLe} lẻ + ${daTraTruoc} trả trước)`;
+  if (daTraTruoc > 0) return `đã trả trước ${daTraTruoc} buổi`;
+  return `đã trả ${traLe} buổi (trả lẻ)`;
+}
+
+/** Nhãn nút hoàn tác thao tác gần nhất. Thao tác gần nhất CHÍNH LÀ một lần
+ *  hoàn tác → nút là "Làm lại" (trước ghi "Hoàn tác hoàn tác"). */
+export function nhanNutHoanTac(hanhDong: string | null | undefined): string {
+  if (hanhDong === "HOAN_TAC") return "Làm lại thao tác vừa hoàn tác";
+  const ten = NHAN_HANH_DONG_LT[hanhDong ?? ""];
+  return ten ? `Hoàn tác ${ten.toLowerCase()}` : "Hoàn tác";
+}
+
+/** Một dòng lịch sử sửa: chỉ ghi phần THẬT SỰ đổi (số buổi / trạng thái / ghi
+ *  chú) — trước ghi "6 → 6 buổi" cho Dừng, Hoàn tác. Rỗng = không đổi gì. */
+export function nhanDoiLieuTrinh(
+  cu: Record<string, unknown> | null | undefined,
+  moi: Record<string, unknown> | null | undefined,
+): string {
+  if (!moi) return "";
+  const ra: string[] = [];
+  const sb = (x: unknown) => (x == null ? "—" : String(x));
+  if (!cu || cu.so_buoi !== moi.so_buoi) ra.push(`${sb(cu?.so_buoi)} → ${sb(moi.so_buoi)} buổi`);
+  if (cu && cu.trang_thai !== moi.trang_thai) {
+    const tt = (x: unknown) => NHAN_TRANG_THAI_LT[x as TrangThaiLieuTrinh] ?? sb(x);
+    ra.push(`${tt(cu.trang_thai)} → ${tt(moi.trang_thai)}`);
+  }
+  if (cu && (cu.ghi_chu_lo_trinh ?? null) !== (moi.ghi_chu_lo_trinh ?? null)) ra.push("đổi ghi chú lộ trình");
+  return ra.join(" · ");
+}
 
 export function tienLT(n: number): string {
   return `${n.toLocaleString("vi-VN")}đ`;

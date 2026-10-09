@@ -156,9 +156,10 @@ LY_DO_LAM_BAN_KHAM = "LAM_TAI_BAN_KHAM"
 #: Nguồn của `service.routed` khi [Làm tại bàn khám] xếp chỉ định vào phòng bác
 #: sĩ (cột `routing_nguon` vẫn 'khac' như trước — chỉ sự kiện nói rõ nơi bấm).
 NGUON_BAN_KHAM = "ban_kham"
+#: Câu ngắn, hiện XÁM dưới thẻ trước khi bấm (thẻ tự ẩn nút — `dieu_tri_ban_kham`
+#: tính trước bằng `phong_ban_kham`); lệnh vẫn từ chối cùng câu nếu bị gọi thẳng.
 CAU_CHUA_BIET_PHONG_BAN_KHAM = (
-    "Chưa biết bàn khám ở phòng nào (bác sĩ chưa có lịch ở phòng nào hôm nay) —"
-    " xếp phòng cho dịch vụ ở quầy / trưởng ca rồi làm."
+    "Bác sĩ chưa có lịch phòng hôm nay — làm ở phòng dịch vụ."
 )
 #: Phòng của bàn khám: chỗ chờ hàng BÁC SĨ có phòng; không thì phòng theo lịch
 #: trực HÔM NAY của bác sĩ phiên khám (rồi của người bấm) — cùng cách con trỏ
@@ -191,6 +192,15 @@ SELECT coalesce(
                (SELECT v.attending_doctor_id FROM visit v
                  WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid)) AS id) bs
 """
+
+
+async def phong_ban_kham(
+    conn: asyncpg.Connection, clinic_id: str, visit_id: str, nguoi_bam: str
+) -> str | None:
+    """Phòng của bàn khám cho lượt (None = chưa biết). Một câu cho lệnh [Làm tại
+    bàn khám] và cho thẻ (ẩn nút trước, khỏi bấm rồi mới báo)."""
+    v = await conn.fetchval(_PHONG_BAN_KHAM_SQL, clinic_id, visit_id, nguoi_bam)
+    return str(v) if v is not None else None
 
 
 def phieu_da_dien(trang_thai: str | None, revision: int | None) -> bool:
@@ -1213,9 +1223,7 @@ class ServiceExecutionService:
                 cid,
                 order_id,
             )
-            phong = await conn.fetchval(
-                _PHONG_BAN_KHAM_SQL, cid, vid, identity.staff_id
-            )
+            phong = await phong_ban_kham(conn, cid, vid, identity.staff_id)
             phong_cu = str(don["room_id"]) if don["room_id"] is not None else None
             # Chỉ định CHƯA có phòng → xếp vào phòng bàn khám (nơi làm thật).
             # Cột cũ `exec_status` in_progress/performed BẮT BUỘC có phòng (CHECK
