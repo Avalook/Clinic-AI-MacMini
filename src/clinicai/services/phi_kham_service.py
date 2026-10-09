@@ -28,6 +28,7 @@ from clinicai.events.catalogue import DichVuKhamDaDoi
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
+from clinicai.services.bill_service import khong_tu_cong_phi_kham
 from clinicai.services.lenh_kham_core import khoa_luot
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.so_sua_chi_dinh_service import (
@@ -47,7 +48,7 @@ QUYEN_TICK = (
 )
 
 _LOAI_KHAM_SQL = """
-SELECT st.id::text AS st_id, st.name, st.nhom,
+SELECT st.id::text AS st_id, st.name, st.nhom, st.code, ef.route_decision,
        coalesce(st.di_thang_phong, false) AS di_thang,
        (coalesce(st.di_thang_phong, false)
         AND coalesce(ef.route_decision, 'SERVICES') = 'SERVICES') AS khong_kham
@@ -135,6 +136,13 @@ async def _doc(
         "loai_kham": loai["name"] if loai else None,
         "di_thang_phong": bool(loai["di_thang"]) if loai else False,
         "khong_kham": bool(loai["khong_kham"]) if loai else False,
+        # Chưa tick thì hoá đơn có tự cộng phí khám mặc định không — cùng luật
+        # `bill_service.khong_tu_cong_phi_kham` (lượt Điều trị / Thủ thuật:
+        # không). Màn ghi đúng câu, không suy luật trong TSX.
+        "tu_cong_mac_dinh": bool(loai)
+        and not khong_tu_cong_phi_kham(
+            loai["nhom"], loai["code"], loai["route_decision"]
+        ),
         "lua_chon": [
             {
                 "id": r["id"],

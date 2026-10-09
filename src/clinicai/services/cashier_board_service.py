@@ -574,9 +574,7 @@ class CashierBoardService:
                         # không phí khám, chỉ định còn chờ chọn → hoá đơn thật
                         # rỗng → màn ghi "Đã thu" dù còn tiền (staging 08/10).
                         # Cùng vế với `_xep_hang_cho_thu`.
-                        if any(
-                            r.get("chon") for r in item["quay_thu"]["phong_kham"]
-                        ) and not item.get("da_chot_0d"):
+                        if con_khoan_quay(item["quay_thu"], item.get("da_chot_0d")):
                             con_no_dv.add(item["visit_id"])
             await _lam_truoc_dich_vu(
                 conn,
@@ -715,6 +713,20 @@ async def _quay_thu(
     return dung_hoa_don_quay(tinh_dv.cho_api(), chon)
 
 
+def con_khoan_quay(qt: dict[str, Any], da_chot_0d: Any = False) -> bool:
+    """Hoá đơn quầy (`quay_thu`) còn khoản phải xử lý — CHƯA xong tiền. Thuần.
+
+    Còn khi có dòng khách làm (tick) mà quầy chưa chốt 0đ đúng bản. Buổi liệu
+    trình đã được tiền TRẢ TRƯỚC phủ (`lieu_trinh.tra_truoc`) KHÔNG tính: nó
+    không vào hoá đơn, "chốt 0đ" cũng không ghi được (hoá đơn không dòng) —
+    tính vào thì lượt kẹt mãi ở chờ thu (staging 09/10/2026).
+    """
+    return not da_chot_0d and any(
+        r.get("chon") and not (r.get("lieu_trinh") or {}).get("tra_truoc")
+        for r in qt.get("phong_kham", [])
+    )
+
+
 def _xep_hang_cho_thu(out: dict[str, Any], *, cho: set[str]) -> None:
     """Ai đang CHỜ THU ở quầy dịch vụ + thứ tự (chờ lâu nhất lên đầu) + phút chờ.
 
@@ -734,10 +746,7 @@ def _xep_hang_cho_thu(out: dict[str, Any], *, cho: set[str]) -> None:
         )
         dang_cho = (
             item["visit_id"] in cho
-            or (
-                any(r.get("chon") for r in qt.get("phong_kham", []))
-                and not item.get("da_chot_0d")
-            )
+            or (con_khoan_quay(qt, item.get("da_chot_0d")))
             or cho_quyet
             # Còn tiền thừa phải hoàn / trừ (hoàn tác chỉ định đã thu).
             or bool(item.get("tien_thua"))

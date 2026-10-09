@@ -888,6 +888,7 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
                   key={`${l.visit_id}:${l.chon_dich_vu.chi_dinh.map((c) => c.id).join(",")}`}
                   visitId={l.visit_id}
                   cho={l.chon_dich_vu}
+                  moSan
                   onXong={async (cau, loiMoi) => {
                     setXong(cau);
                     setLoi(loiMoi);
