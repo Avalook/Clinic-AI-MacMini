@@ -15,25 +15,22 @@
 // "Đã check-in 08:02 · chờ đo", "Đã về 10:12") và nút nào được hiện đều do máy
 // chủ tính (`GET /api/v1/reception/danh-sach` → `services/tiep_don_service.py`).
 // Ở đây chỉ lọc tại chỗ (tab + ô tìm, `lib/tiep-don.ts`) và tô màu theo `loai`.
+// Từ 09/10/2026 tab + ô tìm nằm ở THANH TRÊN CÙNG trang (`ThanhLocTiepDon`, lọc
+// cả bảng Lịch hẹn) — bảng này nhận `tab`/`tim` qua props.
 //
 // SẮP XẾP (29/09/2026, Tuyền): máy chủ xếp CŨ → MỚI theo giờ vào hàng thật
 // (giờ check-in; chưa đến thì giờ hẹn). Công tắc "Mới nhất trước" chỉ đảo lại
 // để xem — lựa chọn nhớ theo máy quầy (localStorage, bọc try/catch).
 
-import { Search } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useState, useSyncExternalStore, useTransition } from "react";
 
-import { buttonClass } from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import ChipChon from "@/components/ui/ChipChon";
 import NutCheckIn from "@/components/ui/NutCheckIn";
 import PriorityChip from "@/components/ui/PriorityChip";
 import SoLuot from "@/components/ui/SoLuot";
-import ThanhTab from "@/components/ui/ThanhTab";
 import { doctorName } from "@/lib/doctor-name";
-import { hrefThemKhach } from "@/lib/lien-ket-lich";
 import {
   docHuongXep,
   dongPhu,
@@ -54,8 +51,26 @@ import { useChipLieuTrinh } from "../../_lam-viec/dung-chip-lieu-trinh";
 import { NutLamThem, useLamThem, type GoiLamThem } from "../../_lam-viec/LamThemTaiQuay";
 import NutCheckOut from "../../_lam-viec/NutCheckOut";
 import { lenhHoanTac } from "../../_lam-viec/hoan-tac";
-import NutHoanTac from "@/components/ui/NutHoanTac";
+import NutHoanTac, { type KetQuaHoanTac } from "@/components/ui/NutHoanTac";
 import NutXemLuot from "../../_lam-viec/NutXemLuot";
+
+/** HOÀN TÁC CHECK-IN (09/10/2026) — cùng lệnh nút "Hoàn tác" của bảng Lịch hẹn
+ *  (`PATCH /api/appointments` action=undo_checkin). Máy chủ từ chối khi khách đã
+ *  có việc thật sau check-in; câu từ chối hiện nguyên văn. */
+async function hoanTacCheckIn(appointmentId: string): Promise<KetQuaHoanTac> {
+  try {
+    const res = await fetch("/api/appointments", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: appointmentId, action: "undo_checkin" }),
+    });
+    if (res.ok) return { ok: true };
+    const b = (await res.json().catch(() => null)) as { error?: string } | null;
+    return { ok: false, loi: b?.error ?? `Không hoàn tác được (HTTP ${res.status})` };
+  } catch {
+    return { ok: false, loi: "Mất kết nối — chưa hoàn tác được, bấm lại." };
+  }
+}
 
 /** Một dòng tiếp đón. Check-in đi ĐÚNG đường của bảng "Lịch hẹn hôm nay"
  *  (`PATCH /api/appointments` action=checkin) — hai đường check-in là hai luật
@@ -77,6 +92,7 @@ function DongKhach({
   const [dang, startTransition] = useTransition();
   const [gui, setGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  const [xemLyDo, setXemLyDo] = useState(false);
 
   async function checkIn() {
     if (gui) return;
@@ -160,6 +176,26 @@ function DongKhach({
             onXong={() => startTransition(() => router.refresh())}
           />
         ) : null}
+        {/* HOÀN TÁC CHECK-IN (09/10/2026): check-in nhầm → về "Chưa đến". Máy
+            chủ chỉ cho khi khách chưa có việc thật nào sau check-in; không cho
+            thì nút xám, bấm hiện vì sao (không gửi lệnh). */}
+        {d.hoan_tac_duoc ? (
+          <NutHoanTac
+            goi={() => hoanTacCheckIn(d.appointment_id)}
+            moTa="Check-in nhầm — đưa khách về Chưa đến"
+            onXong={() => startTransition(() => router.refresh())}
+          />
+        ) : d.ly_do_khong_hoan_tac ? (
+          <button
+            type="button"
+            aria-expanded={xemLyDo}
+            onClick={() => setXemLyDo((x) => !x)}
+            title={d.ly_do_khong_hoan_tac}
+            className="rounded-control px-2 py-1 text-label font-medium text-ink-faint hover:bg-surface-muted"
+          >
+            Hoàn tác
+          </button>
+        ) : null}
         {/* HOÀN TÁC check-out (01/10/2026): "Đã về" nhầm → mở lại lượt. */}
         {d.mo_lai_duoc && d.visit_id ? (
           <NutHoanTac
@@ -185,6 +221,11 @@ function DongKhach({
           {loi}
         </p>
       ) : null}
+      {xemLyDo && d.ly_do_khong_hoan_tac ? (
+        <p role="status" className="col-span-full rounded-control bg-warning-bg px-2 py-1 text-meta text-warning">
+          {d.ly_do_khong_hoan_tac}
+        </p>
+      ) : null}
     </li>
   );
 }
@@ -196,15 +237,14 @@ function khongTheoDoi(): () => void {
 
 export default function QueueBoard({
   goi,
-  themKhachDuoc,
+  tab,
+  tim,
 }: {
   goi: GoiTiepDon;
-  /** Được mở trang Thêm khách hàng không — trang gọi `moDuocMan("/patients/new")`,
-   *  cùng luật cửa của trang đích. */
-  themKhachDuoc: boolean;
+  /** Tab + ô tìm của thanh lọc trên cùng trang (`ThanhLocTiepDon`). */
+  tab: TabTiepDon;
+  tim: string;
 }) {
-  const [tab, setTab] = useState<TabTiepDon>("tat_ca");
-  const [tim, setTim] = useState("");
   // Bảng được vẽ hai bản (máy tính / điện thoại): hai nhóm ô chọn cùng `name`
   // thì trình duyệt chỉ cho MỘT ô được chọn trên cả hai — bản kia trống. Mỗi
   // bản một tên riêng.
@@ -235,28 +275,8 @@ export default function QueueBoard({
 
   return (
     <section aria-label="Danh sách tiếp đón" className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <ThanhTab
-          nhan="Lọc danh sách tiếp đón"
-          muc={[
-            { ma: "tat_ca", nhan: "Tất cả", dem: goi.dem.tat_ca },
-            { ma: "chua_den", nhan: "Chưa đến", dem: goi.dem.chua_den },
-            { ma: "da_den", nhan: "Đã check-in", dem: goi.dem.da_den },
-          ]}
-          chon={tab}
-          onChon={setTab}
-        />
-        <label className="flex min-h-10 min-w-48 flex-1 items-center gap-2 rounded-control border border-line bg-surface px-3 text-ink-muted focus-within:border-brand-500">
-          <Search size={15} aria-hidden />
-          <span className="sr-only">Tìm tên, SĐT, mã khách</span>
-          <input
-            type="search"
-            value={tim}
-            onChange={(e) => setTim(e.target.value)}
-            placeholder="Tìm tên, SĐT, mã khách"
-            className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none placeholder:text-ink-faint"
-          />
-        </label>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-emph font-semibold text-ink">Danh sách tiếp đón hôm nay</h2>
         <div role="radiogroup" aria-label="Sắp xếp theo giờ vào hàng" className="flex items-center gap-1.5">
           <span className="text-meta text-ink-muted">Sắp xếp:</span>
           <ChipChon
@@ -276,11 +296,6 @@ export default function QueueBoard({
             Mới nhất trước
           </ChipChon>
         </div>
-        {themKhachDuoc ? (
-          <Link href={hrefThemKhach()} className={buttonClass("primary", "lg")}>
-            + Thêm khách hàng
-          </Link>
-        ) : null}
       </div>
 
       <div className="overflow-hidden rounded-card border border-line bg-surface shadow-card">

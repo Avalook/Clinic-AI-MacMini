@@ -25,9 +25,15 @@ const maThucThi = board
 // một mốc giờ, "Mời <tên>") đã gỡ vì chính thiết kế ấy đã được thay.
 
 test("danh sách tiếp đón: 3 tab, chia buổi, trạng thái do MÁY CHỦ tính", () => {
-  for (const nhan of ["Tất cả", "Chưa đến", "Đã check-in"]) {
-    assert.match(board, new RegExp(`nhan: "${nhan}"`));
+  // 09/10/2026: tab + ô tìm lên THANH TRÊN CÙNG trang, lọc cả bảng Lịch hẹn.
+  const thanh = readFileSync(
+    new URL("../app/(dashboard)/reception/queue/ThanhLocTiepDon.tsx", import.meta.url),
+    "utf8",
+  );
+  for (const nhan of ["Tất cả", "Chưa check-in", "Đã check-in"]) {
+    assert.match(thanh, new RegExp(`nhan: "${nhan}"`));
   }
+  assert.match(thanh, /type="search"/);
   // Chip trạng thái chỉ đọc chữ + loại máy chủ trả — màn không tự suy ra.
   assert.match(maThucThi, /d\.trang_thai\.nhan/);
   assert.match(maThucThi, /locTiepDon\(sapXepTiepDon\(goi\.buoi, huong\), tab, tim\)/);
@@ -57,6 +63,35 @@ test("thêm khách xong về màn Tiếp đón — cửa hỏi theo lego của t
   assert.match(trang, /moDuocMan\("\/reception\/queue"\)/);
   assert.match(trang, /veTiepDon=\{veTiepDon\}/);
   assert.match(form, /if \(veTiepDon\) \{\s*router\.push\("\/reception\/queue"\);/);
+});
+
+test("thanh lọc trên cùng lọc CẢ bảng Lịch hẹn lẫn danh sách tiếp đón", () => {
+  const than = readFileSync(
+    new URL("../app/(dashboard)/reception/queue/ManTiepDon.tsx", import.meta.url),
+    "utf8",
+  );
+  const bang = readFileSync(
+    new URL("../app/(dashboard)/home/WeeklyAppointmentsTable.tsx", import.meta.url),
+    "utf8",
+  );
+  const trangChu = readFileSync(new URL("../app/(dashboard)/home/page.tsx", import.meta.url), "utf8");
+  // Thanh đứng TRƯỚC bảng Lịch hẹn, cùng một `loc` cho hai bảng.
+  assert.ok(than.indexOf("<ThanhLocTiepDon") < than.indexOf('aria-label="Lịch hẹn"'));
+  assert.match(than, /<WeeklyAppointmentsTable \{\.\.\.bangLich\} loc=\{loc\} \/>/);
+  assert.match(than, /<QueueBoard goi=\{danhSach\} tab=\{loc\.tab\} tim=\{loc\.tim\} \/>/);
+  // Bảng dùng chung: lọc là prop TUỲ CHỌN, phép lọc ở lib (hàm thuần).
+  assert.match(bang, /loc = null,/);
+  assert.match(bang, /locLichHen\(daysHien, loc\)/);
+  // Trang chủ không truyền `loc` → hành vi như cũ.
+  assert.doesNotMatch(trangChu, /loc=\{/);
+});
+
+test("hoàn tác check-in ở dòng khách: theo cờ máy chủ, cùng lệnh bảng Lịch hẹn", () => {
+  assert.match(maThucThi, /d\.hoan_tac_duoc \? \(/);
+  assert.match(maThucThi, /action: "undo_checkin"/);
+  // Không được thì chỉ hiện câu của máy chủ — màn không tự suy "đã làm gì".
+  assert.match(maThucThi, /d\.ly_do_khong_hoan_tac/);
+  assert.doesNotMatch(maThucThi, /vitals_status|has_vitals/);
 });
 
 test("không bịa dữ liệu vận hành", () => {

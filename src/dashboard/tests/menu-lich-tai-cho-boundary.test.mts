@@ -21,7 +21,8 @@ const bang = doc("../app/(dashboard)/home/WeeklyAppointmentsTable.tsx");
 const taiCho = doc("../app/(dashboard)/_lam-viec/ThaoTacLichTaiCho.tsx");
 const trangChu = doc("../app/(dashboard)/home/page.tsx");
 const tiepDon = doc("../app/(dashboard)/reception/queue/page.tsx");
-const queueBoard = doc("../app/(dashboard)/reception/queue/QueueBoard.tsx");
+// 09/10/2026: "+ Thêm khách hàng" lên thanh tìm + lọc trên cùng màn Tiếp đón.
+const thanhLoc = doc("../app/(dashboard)/reception/queue/ThanhLocTiepDon.tsx");
 const trangThemKhach = doc("../app/(dashboard)/patients/new/page.tsx");
 const danhSachBn = doc("../app/(dashboard)/patient-list/page.tsx");
 
@@ -54,9 +55,16 @@ test("dòng '＋ Thêm khách hàng' của quầy về màn Thêm khách hàng, 
   );
 });
 
-test("nút '+ Thêm khách hàng' ở thanh QueueBoard trỏ cùng màn", () => {
-  assert.match(queueBoard, /<Link href=\{hrefThemKhach\(\)\}[^>]*>\s*\+ Thêm khách hàng/);
+test("nút '+ Thêm khách hàng' ở thanh lọc trên cùng Tiếp đón trỏ cùng màn", () => {
+  assert.match(thanhLoc, /<Link href=\{hrefThemKhach\(\)\}[^>]*>\s*\+ Thêm khách hàng/);
 });
+
+/** Trang Tiếp đón truyền props bảng Lịch hẹn dạng OBJECT (`bangLich={{…}}` cho
+ *  `ManTiepDon`, 09/10/2026); Trang chủ vẫn JSX. Cùng một cờ, hai cách viết. */
+function coProp(trang: string, ten: string, giaTri = "") {
+  const gt = giaTri.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  assert.match(trang, new RegExp(`${ten}(=\\{|: )${gt}`), `thiếu ${ten}`);
+}
 
 test("Mở hồ sơ khách → Danh sách bệnh nhân chọn sẵn khách, cùng tab", () => {
   assert.equal(hrefHoSoKhach("abc-1"), "/patient-list?chon=abc-1");
@@ -70,7 +78,7 @@ test("Mở hồ sơ khách → Danh sách bệnh nhân chọn sẵn khách, cùn
   assert.match(truoc, /<Link href=\{hrefHoSoKhach\(pid\)\} className=\{MUC\}>/);
   assert.doesNotMatch(truoc, /target=/);
   for (const trang of [trangChu, tiepDon]) {
-    assert.match(trang, /duocXemHoSo=\{/);
+    coProp(trang, "duocXemHoSo");
   }
   assert.match(trangChu, /duocXemHoSo=\{vaoDuocMan\("\/patient-list"/);
   assert.match(tiepDon, /moDuocMan\("\/patient-list"\)/);
@@ -92,7 +100,7 @@ test("Gọi / Huỷ là nút mở popover tại chỗ, không link sang /custome
   // Huỷ theo booking.manage (duocDoiLich) + lịch còn sống.
   assert.match(menu, /const doiDuoc = duocDoiLich && CON_SONG\.includes\(a\.status\)/);
   for (const trang of [trangChu, tiepDon]) {
-    assert.match(trang, /duocGhiChamSoc=\{coMotQuyen\(quyen, QUYEN_GHI_CHAM_SOC\)\}/);
+    coProp(trang, "duocGhiChamSoc", "coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC)");
   }
 });
 
@@ -130,7 +138,7 @@ test("Đổi dịch vụ khám (V5): mục menu mở popover tại chỗ, máy c
   assert.match(menu, /const doiDichVuDuoc = duocDoiDichVu && CON_SONG\.includes\(a\.status\)/);
   // Quyền: booking.manage HOẶC reception.checkin.perform — trang truyền cờ.
   for (const trang of [trangChu, tiepDon]) {
-    assert.match(trang, /duocDoiDichVu=\{coMotQuyen\(quyen, QUYEN_DOI_DICH_VU_KHAM\)\}/);
+    coProp(trang, "duocDoiDichVu", "coMotQuyen(quyen, QUYEN_DOI_DICH_VU_KHAM)");
   }
   // Popover đọc/gửi qua proxy mỏng; câu "vì sao không đổi được" là của máy chủ.
   assert.match(taiCho, /fetch\(`\/api\/appointments\/doi-dich-vu-kham\?\$\{q\.toString\(\)\}`/);

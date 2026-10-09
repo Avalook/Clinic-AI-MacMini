@@ -154,11 +154,16 @@ vấn / đi thẳng phòng · chuông sự kiện báo ai**
 ## 4. Tiếp đón · check-in · sinh hiệu
 
 **Check-in / Không đến / Hoàn tác** — màn duy nhất `/reception/queue`
-(`D/reception/queue/QueueBoard.tsx`, bảng `D/home/WeeklyAppointmentsTable.tsx`,
-nút `src/dashboard/components/ui/NutCheckIn.tsx`). Code: `S/luot_kham_service.py`
-`LuotKhamService.check_in` + `xep_sau_check_in` (khách đi đâu sau check-in),
-`S/tiep_don_service.py` `TiepDonService`. Test: `T/services/test_check_in_lai_sau_hoan_tac_db.py`,
-`T/unit/test_tiep_don_service.py`.
+(`D/reception/queue/ManTiepDon.tsx` → thanh tìm + lọc `ThanhLocTiepDon.tsx`,
+`QueueBoard.tsx`, bảng `D/home/WeeklyAppointmentsTable.tsx`; lọc là hàm thuần
+`src/dashboard/lib/tiep-don.ts`; nút `src/dashboard/components/ui/NutCheckIn.tsx`).
+Code: `S/luot_kham_service.py` `LuotKhamService.check_in` + `xep_sau_check_in`
+(khách đi đâu sau check-in), `S/tiep_don_service.py` `TiepDonService`.
+**Hoàn tác check-in chỉ khi chưa làm gì** (09/10/2026): luật + câu từ chối ở
+`S/hoan_tac_check_in.py` (`ly_do_khong_hoan_tac`, `VIEC_DA_LAM_SQL`), gọi từ
+`S/booking_service.py` `_hanh_dong_trong_gd` (khoá lịch → lượt → luồng). Test:
+`T/services/test_hoan_tac_check_in_db.py`, `T/unit/test_hoan_tac_check_in.py`,
+`T/services/test_check_in_lai_sau_hoan_tac_db.py`, `T/unit/test_tiep_don_service.py`.
 
 **Đo sinh hiệu** — màn duy nhất `/do-sinh-hieu` (`D/do-sinh-hieu/BangDoSinhHieu.tsx`).
 Code: `S/sinh_hieu_service.py` `SinhHieuService` (`record_vitals`,

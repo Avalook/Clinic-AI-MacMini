@@ -1,7 +1,7 @@
 /**
  * Tiếp đón khách (trước 16/09/2026 tên "Hàng đợi tiếp nhận").
  *
- * Hai khối: trên cùng "Lịch hẹn" (bảng lịch chung, có Check-in / Không đến /
+ * Trên cùng THANH TÌM + LỌC (09/10/2026) lọc cả hai khối. Hai khối: "Lịch hẹn" (bảng lịch chung, có Check-in / Không đến /
  * Hoàn tác ở HÔM NAY; thanh tuần/ngày y hệt Trang chủ — 29/09/2026: bấm dòng
  * ngày khác mở popover Đổi lịch tại chỗ để đổi sang hôm nay + check-in); bên dưới DANH SÁCH TIẾP ĐÓN (27/09/2026, đợt 3 — bản mẫu
  * Tuyền duyệt): mỗi lịch / lượt hôm nay một dòng, chia buổi, chip trạng thái do
@@ -19,10 +19,8 @@ import {
 import { QUYEN_DOI_DICH_VU_KHAM, QUYEN_GHI_CHAM_SOC, coMotQuyen } from "@/lib/quyen-cua-toi";
 import { currentWeekStartVn, weekStartOf } from "@/lib/roster";
 import type { GoiTiepDon } from "@/lib/tiep-don";
-import QueueBoard from "./QueueBoard";
+import ManTiepDon from "./ManTiepDon";
 import LiveBoardSync from "../../LiveBoardSync";
-import WeekNav from "../../WeekNav";
-import WeeklyAppointmentsTable from "../../home/WeeklyAppointmentsTable";
 import { dungLichHenTuan, type GoiLichHen } from "../../home/lich-hen-ngay";
 
 export const metadata = { title: "Tiếp đón khách · ClinicAI" };
@@ -69,55 +67,37 @@ export default async function ReceptionQueuePage({
           nhận" và "Thứ Năm, 06/08/2026". Lặp lại lần nữa chỉ đẩy phần việc thật
           xuống dưới một màn hình. */}
 
-      {/* Check-in đứng TRÊN hàng đợi và ngoài nhánh lỗi của hàng đợi: hàng
-          đợi không tải được thì quầy vẫn phải check-in được khách. */}
-      <section aria-label="Lịch hẹn" className="rounded-card border border-line bg-surface p-3 shadow-card sm:p-4">
-        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <h2 className="text-emph font-semibold text-ink">
-            Lịch hẹn — check-in khi khách đến
-          </h2>
-          <WeekNav gon week={tuan} basePath="/reception/queue" param="weekAppt" />
-        </div>
-        {goi === null ? (
-          <p className="rounded-control bg-danger-bg px-3 py-2 text-sm text-danger">
-            Không đọc được lịch hẹn hôm nay — máy chủ không trả lời. Đừng coi
-            đây là không có ai hẹn; tải lại trang.
-          </p>
-        ) : (
-          <WeeklyAppointmentsTable
-            days={apptDays}
-            role={role}
-            dutyByDate={dutyByDate}
-            choDoSinhHieu={false}
-            choCheckIn
-            chonNgay
-            duocDoiLich={quyen === null ? undefined : quyen.includes("booking.manage")}
-            moHoSoKhach={moHoSoKhach}
-            // ⋯ "Gọi / ghi chăm sóc" làm TẠI CHỖ; "Mở hồ sơ khách" → Danh sách
-            // bệnh nhân `?chon=` — hỏi đúng luật cửa của trang đích (29/09/2026).
-            duocGhiChamSoc={coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC)}
-            // ⋯ "Đổi dịch vụ khám" tại chỗ (V5, 30/09/2026).
-            duocDoiDichVu={coMotQuyen(quyen, QUYEN_DOI_DICH_VU_KHAM)}
-            duocXemHoSo={moHoSoBenhNhan}
-            // Nút Check-in theo LEGO Tiếp đón, không theo vai (đợt 3, 27/09).
-            duocCheckIn={quyen === null ? undefined : quyen.includes("reception.checkin.perform")}
-            duocDatLich={quyen === null ? undefined : quyen.includes("booking.create")}
-          />
-        )}
-      </section>
-      {danhSach === null || !Array.isArray(danhSach.buoi) ? (
-        /* Máy chủ im không được trông như phòng chờ trống. */
-        <div className="rounded-card border border-danger bg-danger-bg p-5">
-          <p className="font-medium text-danger">Không tải được danh sách tiếp đón</p>
-          <p className="mt-1 text-sm text-danger">
-            Máy chủ không trả lời, phiên đăng nhập đã hết, hoặc tài khoản chưa có
-            lego “Tiếp đón khách”. ĐỪNG coi đây là không có khách — tải lại trang;
-            bảng Lịch hẹn hôm nay ở trên vẫn check-in được.
-          </p>
-        </div>
-      ) : (
-        <QueueBoard goi={danhSach} themKhachDuoc={themKhachDuoc} />
-      )}
+      {/* Thanh tìm + lọc TRÊN CÙNG (09/10/2026), lọc cả bảng Lịch hẹn lẫn danh
+          sách tiếp đón — thân màn là client (`ManTiepDon`) giữ bộ lọc chung. */}
+      <ManTiepDon
+        danhSach={danhSach}
+        tuan={tuan}
+        themKhachDuoc={themKhachDuoc}
+        bangLich={
+          goi === null
+            ? null
+            : {
+                days: apptDays,
+                role,
+                dutyByDate,
+                choDoSinhHieu: false,
+                choCheckIn: true,
+                chonNgay: true,
+                duocDoiLich: quyen === null ? undefined : quyen.includes("booking.manage"),
+                moHoSoKhach,
+                // ⋯ "Gọi / ghi chăm sóc" làm TẠI CHỖ; "Mở hồ sơ khách" → Danh sách
+                // bệnh nhân `?chon=` — hỏi đúng luật cửa của trang đích (29/09/2026).
+                duocGhiChamSoc: coMotQuyen(quyen, QUYEN_GHI_CHAM_SOC),
+                // ⋯ "Đổi dịch vụ khám" tại chỗ (V5, 30/09/2026).
+                duocDoiDichVu: coMotQuyen(quyen, QUYEN_DOI_DICH_VU_KHAM),
+                duocXemHoSo: moHoSoBenhNhan,
+                // Nút Check-in theo LEGO Tiếp đón, không theo vai (đợt 3, 27/09).
+                duocCheckIn:
+                  quyen === null ? undefined : quyen.includes("reception.checkin.perform"),
+                duocDatLich: quyen === null ? undefined : quyen.includes("booking.create"),
+              }
+        }
+      />
     </main>
     </>
   );
