@@ -423,3 +423,20 @@ async def test_mo_theo_don_cu_da_xac_dinh_thuoc_va_phan_trang(q: Quay) -> None:
         visit_id=kq["visit_id"], identity=q.thu_ngan
     )
     assert [(d["drug_catalog_id"], d["so_ke"]) for d in dong["dong"]] == [(drug, "7")]
+
+
+async def test_lich_su_don_cac_bang_hoan_va_hen_phat_tin(q: Quay) -> None:
+    rows = await q.pool.fetch(
+        "SELECT c.relname FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid"
+        " JOIN pg_proc p ON p.oid = t.tgfoid"
+        " JOIN pg_namespace n ON n.oid = c.relnamespace"
+        " WHERE n.nspname = 'public' AND p.proname = 'notify_row_change'"
+        " AND t.tgenabled <> 'D' AND NOT t.tgisinternal"
+        " AND c.relname = ANY($1::text[])",
+        ["payment_refund", "payment_refund_line", "phieu_kham_luot"],
+    )
+    assert {r["relname"] for r in rows} == {
+        "payment_refund",
+        "payment_refund_line",
+        "phieu_kham_luot",
+    }
