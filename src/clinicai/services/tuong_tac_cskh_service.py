@@ -321,7 +321,8 @@ class TuongTacCskhService:
         """
         row = await self._pool.fetchrow(
             "SELECT id::text, loai, appointment_id::text AS appt, huy_luc, "
-            "       clinic_patient_id::text AS bn "
+            "       clinic_patient_id::text AS bn, "
+            "       nhan_vien_staff_id::text AS nguoi_ghi "
             "  FROM public.tuong_tac_cskh "
             " WHERE id = $1::uuid AND clinic_id = $2::uuid",
             tuong_tac_id,
@@ -333,6 +334,9 @@ class TuongTacCskhService:
             # Hai người cùng bấm, hoặc bấm lại sau khi mạng lag. Không phải lỗi.
             return {"ok": True, "da_hoan_tac_truoc_do": True}
 
+        if row["loai"] == "PHAN_HOI_THUOC" and row["nguoi_ghi"] != identity.staff_id:
+            # Như ghi chú khách: chỉ NGƯỜI GHI gỡ được (phan_hoi_thuoc_service.go).
+            raise ValidationError("Chỉ người ghi mới gỡ được phản hồi thuốc này.")
         if row["loai"] == "CHECK_OUT":
             raise ValidationError(
                 "Không hoàn tác được lần đóng lượt khám. Lượt đã COMPLETED và "

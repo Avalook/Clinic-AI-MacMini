@@ -14,12 +14,18 @@
 // đang xem lại, cả màn đổi màu và nút "Lưu phiếu" biến mất.
 //
 // Chưa khám lần nào thì component này không hiện gì.
+//
+// PHẢN HỒI SAU DÙNG THUỐC (10/10/2026): CSKH ghi ở khung khách, gắn lượt có đơn
+// → hiện NGAY dưới hàng lượt (không cần rê chuột), chỉ đọc; tự cập nhật khi sổ
+// chăm sóc đổi (NOTIFY `tuong_tac_cskh`).
 
 import { useEffect, useState } from "react";
 import { History, RotateCcw } from "lucide-react";
 
 import { doctorName } from "../../../../lib/doctor-name";
 import { chuNhanLuot, type NhanLuot } from "../../../../lib/nhan-luot";
+import { DongPhanHoiThuoc, type PhanHoiThuoc } from "../../_lam-viec/PhanHoiThuocKhach";
+import { useNgheBang } from "../../dung-nghe-bang";
 
 export interface LuotTruoc {
   visit_id: string;
@@ -35,6 +41,8 @@ export interface LuotTruoc {
   chan_doan?: string | null;
   /** Nhãn đếm lượt máy chủ tính ("Lượt khám 3", "Buổi 2/10"…). */
   nhan_luot?: NhanLuot | null;
+  /** Phản hồi sau dùng thuốc CSKH ghi cho lượt này (máy chủ gắn). */
+  phan_hoi_thuoc?: PhanHoiThuoc[];
 }
 
 /** Vài dòng đầu của phiếu, đủ để nhớ ra hôm đó khám gì. */
@@ -68,6 +76,8 @@ export default function LuotKhamTruoc({
 }) {
   const [items, setItems] = useState<LuotTruoc[]>([]);
   const [hien, setHien] = useState<string | null>(null);
+  const [lan, setLan] = useState(0);
+  useNgheBang(["tuong_tac_cskh"], () => setLan((n) => n + 1));
 
   useEffect(() => {
     // `setItems([])` đồng bộ ngay trong thân effect bị React compiler chặn —
@@ -94,10 +104,17 @@ export default function LuotKhamTruoc({
     return () => {
       bo = true;
     };
-  }, [clinicPatientId, visitIdHienTai]);
+  }, [clinicPatientId, visitIdHienTai, lan]);
 
   // Chưa khám lần nào thì thôi.
   if (items.length === 0 && !dangXem) return null;
+
+  // Đang xem lại một lượt → chỉ phản hồi của lượt ấy; còn lại → mọi lượt trước.
+  const phanHoi = dangXem
+    ? (items.find((x) => x.visit_id === dangXem.visit_id)?.phan_hoi_thuoc ??
+      dangXem.phan_hoi_thuoc ??
+      [])
+    : items.flatMap((x) => x.phan_hoi_thuoc ?? []);
 
   return (
     <div className="relative mt-2">
@@ -173,6 +190,21 @@ export default function LuotKhamTruoc({
             );
           })()
         : null}
+
+      {phanHoi.length ? (
+        <div className="mt-2 rounded-control bg-surface-muted px-3 py-2">
+          <p className="text-meta font-semibold text-ink">
+            Phản hồi sau dùng thuốc (CSKH ghi)
+          </p>
+          <ul className="mt-1 max-h-48 space-y-2 overflow-y-auto overscroll-contain">
+            {phanHoi.map((p) => (
+              <li key={p.id}>
+                <DongPhanHoiThuoc p={p} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

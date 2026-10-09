@@ -33,6 +33,7 @@ from clinicai.services.ghi_chu_khach_service import (
     GhiChuKhachService,
 )
 from clinicai.services.man_khach_hang_service import ManKhachHangService
+from clinicai.services.phan_hoi_thuoc_service import PhanHoiThuocService
 from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
 from clinicai.services.tuong_tac_cskh_service import (
@@ -148,6 +149,55 @@ async def go_ghi_chu(
 ) -> dict[str, Any]:
     return await GhiChuKhachService(pool).go(
         identity=identity, ghi_chu_id=str(ghi_chu_id)
+    )
+
+
+# ── Phản hồi sau dùng thuốc (10/10/2026) — cùng cửa khung khách ─────────────
+
+
+@router.get("/cskh/khach/{clinic_patient_id}/phan-hoi-thuoc")
+async def phan_hoi_thuoc_cua_khach(
+    clinic_patient_id: UUID,
+    identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lượt có đơn thuốc (để chọn) + phản hồi sau dùng thuốc còn hiệu lực."""
+    return await PhanHoiThuocService(pool).doc(
+        identity=identity, clinic_patient_id=str(clinic_patient_id)
+    )
+
+
+class PhanHoiThuocBody(BaseModel):
+    noi_dung: str = Field(min_length=1, max_length=2000)
+    #: Bỏ trống = lượt có đơn gần nhất.
+    visit_id: UUID | None = None
+    kenh: Literal["GOI", "ZALO", "SMS", "TRUC_TIEP"] = "GOI"
+
+
+@router.post("/cskh/khach/{clinic_patient_id}/phan-hoi-thuoc", status_code=201)
+async def ghi_phan_hoi_thuoc(
+    clinic_patient_id: UUID,
+    body: PhanHoiThuocBody,
+    identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await PhanHoiThuocService(pool).ghi(
+        identity=identity,
+        clinic_patient_id=str(clinic_patient_id),
+        noi_dung=body.noi_dung,
+        visit_id=str(body.visit_id) if body.visit_id else None,
+        kenh=body.kenh,
+    )
+
+
+@router.post("/cskh/phan-hoi-thuoc/{phan_hoi_id}/go")
+async def go_phan_hoi_thuoc(
+    phan_hoi_id: UUID,
+    identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await PhanHoiThuocService(pool).go(
+        identity=identity, phan_hoi_id=str(phan_hoi_id)
     )
 
 

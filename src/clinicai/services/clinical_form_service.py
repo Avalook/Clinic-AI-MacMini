@@ -189,6 +189,11 @@ class ClinicalFormService:
             # Chip "Lượt khám n" / "Buổi k/N" (08/10/2026): đếm trên MỌI lượt
             # của khách (services/nhan_luot.py), không theo số phiếu nạp về.
             nhan = await doc_nhan_luot(conn, identity.clinic_id, [clinic_patient_id])
+            # Phản hồi sau dùng thuốc CSKH ghi (10/10/2026) — bác sĩ mở là thấy.
+            # Import muộn: phan_hoi_thuoc kéo chuỗi khung khách (tránh vòng import).
+            from clinicai.services.phan_hoi_thuoc_service import doc_theo_luot
+
+            phan_hoi = await doc_theo_luot(conn, identity.clinic_id, clinic_patient_id)
 
         def chung(r: asyncpg.Record) -> dict[str, Any]:
             return {
@@ -199,6 +204,7 @@ class ClinicalFormService:
                 "kham_luc": r["checked_in_at"] or r["updated_at"],
                 "visit_status": r["visit_status"],
                 "nhan_luot": tra_nhan(nhan, visit_id=r["visit_id"]),
+                "phan_hoi_thuoc": phan_hoi.get(r["visit_id"], []),
             }
 
         ra = [
