@@ -249,6 +249,21 @@ không đẻ dòng thứ hai: `S/chi_dinh_service.py` (`chi_dinh_dieu_tri_dang_c
 `trg_form_instance_lich_su` → bảng chỉ thêm `form_instance_lich_su` (migration
 `20261007630000`; test `T/services/test_form_instance_lich_su_db.py`).
 
+**Khối 1 theo loại lượt — lượt Điều trị / Thủ thuật (09/10/2026)** — luật thuần
+`src/clinicai/phieu_kham/che_do.py` `che_do_khoi1(nhom, form_code)` → `DIEU_TRI` /
+`THU_THUAT` / None; `S/phieu_kham_service.py` `doc_luot` trả `khoi1` (lượt Điều trị không
+phiếu → mở khung `PHIEU_KHUNG_DIEU_TRI`, không bắt chọn phiếu). Thẻ làm tại bàn khám:
+`S/dieu_tri_ban_kham.py` `ma_ban_kham_sql` (điều trị ∪ thủ thuật `DICHVU-THUTHUAT` khi lượt
+Thủ thuật) — `doc_the` (`khoi1`, `nhac_tick`), `thao_tac`, `chon_thu_thuat` (chỉ định +
+Bắt đầu tại bàn khám; `/api/ho-so-kham` `thao_tac=chon-thu-thuat` →
+`R/ho_so_kham.py` `/ho-so-kham/{visit}/dieu-tri/chon-thu-thuat`); cờ `ban_kham` mỗi chỉ
+định ở `src/clinicai/phieu_kham/ket_qua_chi_dinh.py` (`dieu_tri` giữ cho bản in). Ô
+"Làm trước – thu sau" tại chỗ CHỈ khi FinanceGate chặn vì chưa thu + chưa tick:
+`S/lam_truoc_thu_sau.py` `nhac_tick` (thuần, dùng ở `doc_the` và `S/nhan_tai_phong.py`
+`_chi_dinh` → cờ `nhac_tick` của chỉ định ở khung phải phòng). Link "Mở bàn khám" ở
+Sắp đến: `S/nhan_tai_phong.py` `mo_ban_kham`. Test: `T/unit/test_khoi1_theo_loai_luot.py`,
+`T/services/test_khoi1_ban_kham_db.py`, `T/services/test_nhac_tick_phong_db.py`.
+
 **Liệu trình điều trị nhiều buổi — dải trong thẻ điều trị (08/10/2026, C1)** — đặc tả
 `docs/KE-HOACH-LIEU-TRINH.md`. Dải "Buổi k/N · đã làm · đã trả · còn nợ", [Tạo liệu trình]
 (ô "Lộ trình N buổi"), [Điều chỉnh] · [Dừng]/[Mở lại] · [Lịch sử sửa] · [Hoàn tác] · [Gỡ khỏi

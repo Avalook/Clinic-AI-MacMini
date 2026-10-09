@@ -42,6 +42,7 @@ from clinicai.events.catalogue import (
 )
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
+from clinicai.phieu_kham.che_do import KHOI1_THU_THUAT, che_do_khoi1
 from clinicai.services import finance_gate
 from clinicai.services.day_noi import doc_day
 from clinicai.services.hang_cho import (
@@ -50,6 +51,7 @@ from clinicai.services.hang_cho import (
     mo_cho_bi_chan,
     ve_lai_hang_phong,
 )
+from clinicai.services.lam_truoc_thu_sau import nhac_tick
 from clinicai.services.lenh_kham_core import (
     LuotKhamConflictError,
     bien_nhan_doc,
@@ -244,6 +246,7 @@ def trang_thai_chi_dinh(
     tien_chan: bool,
     cau_tien: str | None = None,
     ban_kham: str | None = None,
+    moi_tick: bool = False,
 ) -> dict[str, Any] | None:
     """Một chỉ định NHÌN TỪ phòng ``room_id`` — HÀM THUẦN. None = không hiện
     (đang giữ chờ đọc kết quả, tiền đang hoàn, lượt đã đóng…).
@@ -253,7 +256,9 @@ def trang_thai_chi_dinh(
     lệch (``tien_chan``, cả khi đang chờ ở phòng khác; ``cau_tien`` = vì sao,
     trả ở ``ly_do_khong_nhan``). ``ban_kham`` = nhãn nơi làm khi bác sĩ đang làm
     chỉ định này tại bàn khám (không phải việc của phòng nào). ``chuyen`` (★) /
-    ``huong_dan_day``: chỉ để gắn nhãn và xếp trước."""
+    ``huong_dan_day``: chỉ để gắn nhãn và xếp trước. ``moi_tick`` → cờ
+    ``nhac_tick`` (chỉ dòng sắp đến / chờ ở đây): khung phải hiện ô "Làm trước
+    – thu sau" — luật `lam_truoc_thu_sau.nhac_tick`."""
     ex = r["execution_status"]
     o_dau: str | None = None
     o_trang: str | None = None
@@ -295,6 +300,7 @@ def trang_thai_chi_dinh(
         "ly_do_khong_nhan": (cau_tien or "Tiền của dịch vụ này đang cần xử lý.")
         if cho_khac and tien_chan
         else None,
+        "nhac_tick": moi_tick and tt in (SAP_DEN, CHO),
     }
 
 
@@ -329,6 +335,17 @@ async def _chi_dinh(
         cid,
         [r["id"] for r in rows if r["execution_status"] == "IN_PROGRESS"],
     )
+    # Ô "Làm trước – thu sau" ở khung phải (09/10/2026): lượt nào được làm khi
+    # chưa thu (dây tắt / đã tick). Đếm toàn phòng khám không cần.
+    chua_thu: dict[str, bool] = {}
+    if not chi_sap_den and rows:
+        from clinicai.services.service_execution_service import (
+            duoc_lam_khi_chua_thu,
+        )
+
+        chua_thu = await duoc_lam_khi_chua_thu(
+            conn, cid, list({r["visit_id"] for r in rows})
+        )
     out: list[tuple[asyncpg.Record, dict[str, Any]]] = []
     for r in rows:
         q = tien.get(r["id"])
@@ -339,6 +356,13 @@ async def _chi_dinh(
             tien_chan=chan,
             cau_tien=finance_gate.cau_chan_lam(q) if chan else None,
             ban_kham=(bk.get(r["id"]) or {}).get("noi"),
+            moi_tick=not chi_sap_den
+            and nhac_tick(
+                q.finance_state if q is not None else None,
+                selection_status=r["selection_status"],
+                execution_status=r["execution_status"],
+                duoc_chua_thu=chua_thu.get(r["visit_id"], True),
+            ),
         )
         if c is not None:
             out.append((r, c))
@@ -352,7 +376,10 @@ _KHACH_HOM_NAY_SQL = """
 SELECT v.visit_id::text AS visit_id, p.full_name, p.patient_code,
        a.so_tiep_don, a.so_booking,
        q.lane AS q_lane, q.status AS q_status, q.room_id::text AS q_room_id,
-       qr.name AS q_phong, st.nhom AS nhom_kham,
+       qr.name AS q_phong, st.nhom AS nhom_kham, st.form_code AS phieu_kham,
+       EXISTS (SELECT 1 FROM clinic_room_node rn
+                WHERE rn.clinic_id = pr.clinic_id AND rn.room_id = pr.id
+                  AND rn.node_code = 'DICHVU-THUTHUAT') AS phong_thu_thuat,
        EXISTS (SELECT 1 FROM consultation c
                 WHERE c.clinic_id = v.clinic_id AND c.visit_id = v.visit_id
                   AND c.kind = 'PRIMARY' AND c.status <> 'queued') AS da_qua_ban_kham,
@@ -406,6 +433,19 @@ def cho_thanh_toan(k: Mapping[str, Any]) -> bool:
         and not k.get("da_qua_ban_kham")
         and not k.get("con_viec")
     )
+
+
+def mo_ban_kham(k: Mapping[str, Any], co_chi_dinh: bool, room_id: str) -> str | None:
+    """Link "Mở bàn khám" ở ô Sắp đến — HÀM THUẦN (Tuyền 09/10/2026).
+
+    Lượt Thủ thuật (khối 1 THU_THUAT) chưa có chỉ định ở phòng làm thủ thuật:
+    phòng KHÔNG tự chọn thủ thuật ở khung phải — bác sĩ mở bàn khám của phòng,
+    chọn thủ thuật đã làm ở khối 1 (làm luôn tại bàn khám)."""
+    if co_chi_dinh or not k.get("phong_thu_thuat"):
+        return None
+    if che_do_khoi1(k.get("nhom_kham"), k.get("phieu_kham")) != KHOI1_THU_THUAT:
+        return None
+    return f"/ban-kham/{room_id}"
 
 
 def cau_dang_o(
@@ -509,6 +549,7 @@ def gom_sap_den(
                     else None
                 )
                 or (None if cua else CAU_CHUA_CO_CHI_DINH),
+                "mo_ban_kham": mo_ban_kham(k, bool(cua), room_id),
                 "_hang": 0
                 if any(c["chuyen"] or c["huong_dan_day"] for c in nhan)
                 else 1

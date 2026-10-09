@@ -51,6 +51,7 @@ from clinicai.events.catalogue import (
 )
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
+from clinicai.services import finance_gate
 from clinicai.services.audit import record_event
 from clinicai.services.day_noi import doc_day
 from clinicai.services.finance_gate import DAY_THU_TRUOC
@@ -148,6 +149,41 @@ def co_tick(
         "luu_y_bo": luu_y,
         "chot_thu_sau_duoc": (not cong_tac_bat) or da_tick,
     }
+
+
+def nhac_tick(
+    finance_state: str | None,
+    *,
+    selection_status: str | None,
+    execution_status: str | None,
+    duoc_chua_thu: bool,
+) -> bool:
+    """Ô "Làm trước – thu sau" có cần mời tick NGAY TẠI CHỖ cạnh chỉ định này
+    không (khung phải phòng dịch vụ, khối 1 Bàn khám — Tuyền 09/10/2026) — hàm
+    thuần, MỘT luật cho mọi nơi.
+
+    Chỉ khi FinanceGate đang chặn chỉ định CHƯA BẮT ĐẦU vì chưa thu và chưa
+    tick, mà tick thì mở được. Mặc định KHÔNG mời (hiện sẵn rất phiền):
+
+    * ``duoc_chua_thu`` (= `cua_lam` với khoản DUE của lượt): dây
+      ``thu_truoc_khi_lam`` tắt, HOẶC lượt đã tick (bác sĩ chính tick rồi —
+      tick ở mức lượt) → không mời.
+    * Đã thu / không cần thu / đối tác thu / chờ xác minh CK → cửa đã mở.
+    * Tiền đang hoàn / đã hoàn / sổ lệch → tick cũng không mở được.
+    * Khách chưa chốt ở quầy (NOT_APPLICABLE) mà không bỏ → tick là chốt luôn
+      (cùng luật `cua_tien_ban_kham`); khách đã bỏ → không mời.
+    """
+    if duoc_chua_thu or finance_state is None:
+        return False
+    if (execution_status or "PENDING") != "PENDING":
+        return False
+    if finance_state == finance_gate.NOT_APPLICABLE:
+        return selection_status != NOT_SELECTED
+    return not finance_gate.cua_lam(
+        finance_state, thu_truoc_khi_lam=True, lam_truoc_thu_sau=False
+    ) and finance_gate.cua_lam(
+        finance_state, thu_truoc_khi_lam=True, lam_truoc_thu_sau=True
+    )
 
 
 def trang_thai_dich_vu_lam_truoc(execution_status: Any, exec_status: Any) -> str:

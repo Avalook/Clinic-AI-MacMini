@@ -9,6 +9,8 @@
 //   POST { thao_tac: "doi-dich-vu", visit_id, service_type_id }
 //   POST { thao_tac: "ban-kham", visit_id, order_id, lenh, expected_execution_revision,
 //          attempt_id }   (Làm tại bàn khám / Xong / hoàn tác — khối 4 Điều trị)
+//   POST { thao_tac: "chon-thu-thuat", visit_id, service_code }   (khối 1 lượt Thủ
+//          thuật: chọn thủ thuật đã làm = chỉ định + Bắt đầu tại bàn khám)
 
 import { NextResponse } from "next/server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
@@ -69,9 +71,20 @@ export async function POST(request: Request) {
     lenh?: string;
     expected_execution_revision?: number;
     attempt_id?: string | null;
+    service_code?: string;
   } | null;
   const vid = body?.visit_id ?? "";
   if (!UUID.test(vid)) return NextResponse.json({ error: "Yêu cầu không hợp lệ." }, { status: 400 });
+  if (body?.thao_tac === "chon-thu-thuat") {
+    const ma = typeof body.service_code === "string" ? body.service_code.slice(0, 64) : "";
+    if (!ma) return NextResponse.json({ error: "Chưa chọn thủ thuật." }, { status: 400 });
+    return proxyJsonToBackend(
+      "POST",
+      `/api/v1/ho-so-kham/${vid}/dieu-tri/chon-thu-thuat`,
+      { service_code: ma },
+      request.headers.get("Idempotency-Key") ?? undefined,
+    );
+  }
   if (body?.thao_tac === "doi-dich-vu") {
     return proxyJsonToBackend("POST", `/api/v1/ho-so-kham/${vid}/doi-dich-vu`, {
       service_type_id: body.service_type_id ?? null,
