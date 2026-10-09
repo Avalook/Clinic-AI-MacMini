@@ -157,8 +157,7 @@ async def test_chay_lai_khong_doi_gi_va_khong_de_mau_gan_tay(
             # DB); lần kế tiếp thì không còn gì.
             await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor()")
             assert (
-                await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor()")
-                == 0
+                await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor()") == 0
             )
             assert (
                 await conn.fetchval(
@@ -184,8 +183,7 @@ async def test_chay_lai_khong_doi_gi_va_khong_de_mau_gan_tay(
                 ql.staff_id,
             )
             assert (
-                await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor()")
-                == 0
+                await conn.fetchval("SELECT public.mau_mo_ta_nuoc_tieu_monitor()") == 0
             )
             assert [
                 r["mau"]
