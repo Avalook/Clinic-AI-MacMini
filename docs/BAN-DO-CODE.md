@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-08 17:41. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-09 10:38. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1397,10 +1397,11 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/api/test_visit_work_items_read.py, src/tests/test_work_item_service.py
 - màn dùng: /viec-can-xu-ly
 
-## 3. Service → màn (166)
+## 3. Service → màn (167)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
+| `agent_giam_sat` | `src/clinicai/services/agent_giam_sat.py` | — (chỉ API/worker) |
 | `AndrologyReviewService` | `src/clinicai/services/andrology_review_service.py` | /ban-kham, /ban-kham/[phong], /tu-van |
 | `AnhChuyenKhoanService` | `src/clinicai/services/anh_chuyen_khoan_service.py` | /pharmacy, /thu-ngan/dich-vu, /thu-ngan/thuoc |
 | `append` | `src/clinicai/tools/event_log/append.py` | — (chỉ API/worker) |
@@ -1596,6 +1597,8 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 
 | Bảng | Tạo ở migration | Số migration sửa sau |
 |---|---|---|
+| `agent_cau_hinh` | `20261009860000_agent_giam_sat.sql` | 0 |
+| `agent_nhan_dinh` | `20261009860000_agent_giam_sat.sql` | 0 |
 | `anh_chuyen_khoan` | `20261002300000_thu_nhieu_hinh_thuc.sql` | 0 |
 | `app_credential` | `20260806000002_app_credential.sql` | 1 |
 | `appointment` | `20260714000001_baseline_schema.sql` | 9 |
