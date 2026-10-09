@@ -32,6 +32,8 @@ Thu tiền thuốc rồi thì khoá — huỷ phiếu thu trước rồi mới c
 from __future__ import annotations
 
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -376,21 +378,39 @@ class QuayThuocService:
             identity.staff_id,
         )
 
+    @asynccontextmanager
+    async def _giao_dich(
+        self, conn: asyncpg.Connection | None
+    ) -> AsyncIterator[asyncpg.Connection]:
+        """Giao dịch của người gọi (nếu có — chạy lồng, cùng khoá đã giữ) hoặc mới."""
+        if conn is not None:
+            async with conn.transaction():
+                yield conn
+            return
+        async with self._pool.acquire() as moi, moi.transaction():
+            yield moi
+
     async def luu_dong_them(
-        self, *, visit_id: str, dong: list[dict[str, Any]], identity: StaffIdentity
+        self,
+        *,
+        visit_id: str,
+        dong: list[dict[str, Any]],
+        identity: StaffIdentity,
+        conn: asyncpg.Connection | None = None,
     ) -> dict[str, Any]:
         """Lưu các dòng "lấy thêm thuốc" của quầy: dòng mới thì thêm, dòng quầy đã
         có (kèm ``id``) thì sửa. Không xoá dòng nào — bỏ thì bỏ tick (``chon``).
 
         Mỗi dòng: ``drug_catalog_id`` (bắt buộc — không có giá thì không thu được),
-        ``quantity`` ("10 viên"), ``dosage``, ``caution``.
+        ``quantity`` ("10 viên"), ``dosage``, ``caution``. ``conn``: chạy trong
+        giao dịch của người gọi ("Bán theo đơn này" — nối đơn + thêm dòng một lần).
         """
         if not isinstance(dong, list) or len(dong) > 50:
             raise ValidationError("Danh sách thuốc thêm không hợp lệ.")
         cid = identity.clinic_id
         them: list[str] = []
         sua: list[str] = []
-        async with self._pool.acquire() as conn, conn.transaction():
+        async with self._giao_dich(conn) as conn:
             await doi_quyen(conn, identity, QUYEN, cau="Bạn chưa được thu tiền thuốc.")
             luot = await conn.fetchrow(
                 "SELECT clinic_patient_id::text AS pid, status FROM visit"

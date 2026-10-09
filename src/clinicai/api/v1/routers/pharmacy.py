@@ -13,7 +13,7 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 
@@ -25,7 +25,11 @@ from clinicai.api.idempotency import (
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services import ban_thuoc_service, kho_thuoc_service
+from clinicai.services import (
+    ban_theo_don_service,
+    ban_thuoc_service,
+    kho_thuoc_service,
+)
 from clinicai.services.ban_le_service import QUYEN_MO, BanLeService
 from clinicai.services.pharmacy_service import GIU_NGUYEN, PharmacyService
 
@@ -107,6 +111,78 @@ async def mo_ban_le(
             str(body.clinic_patient_id) if body.clinic_patient_id else None
         ),
         khach_moi=body.khach_moi.model_dump() if body.khach_moi else None,
+    )
+
+
+class NoiDonRequest(BaseModel):
+    visit_id: UUID
+    don_goc_visit_id: UUID
+
+
+@router.post("/pharmacy/ban-le/theo-don")
+async def ban_le_theo_don(
+    body: NoiDonRequest,
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """ "Bán theo đơn này": nối lượt bán lẻ về đơn gốc + thêm dòng số còn lại."""
+    return await ban_theo_don_service.noi_don(
+        pool,
+        identity,
+        visit_id=str(body.visit_id),
+        don_goc_visit_id=str(body.don_goc_visit_id),
+    )
+
+
+@router.get("/pharmacy/ban-le/lich-su-don")
+async def ban_le_lich_su_don(
+    clinic_patient_id: UUID,
+    trang: str | None = Query(default=None, max_length=10),
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Vừa chọn khách ở quầy (chưa mở lượt) → lịch sử đơn thuốc, mới → cũ, theo
+    trang. Trang rác → trang đầu (không 422)."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await BanLeService(pool).lich_su_don(
+            clinic_patient_id=str(clinic_patient_id), trang=trang, identity=identity
+        )
+    )
+    return kq
+
+
+class MoTheoDonRequest(BaseModel):
+    clinic_patient_id: UUID
+    don_goc_visit_id: UUID
+
+
+@router.post("/pharmacy/ban-le/mo-theo-don")
+async def ban_le_mo_theo_don(
+    body: MoTheoDonRequest,
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Một giao dịch: mở / lấy lại lượt bán lẻ + nối đơn gốc + thêm dòng."""
+    return await BanLeService(pool).mo_theo_don(
+        clinic_patient_id=str(body.clinic_patient_id),
+        don_goc_visit_id=str(body.don_goc_visit_id),
+        identity=identity,
+    )
+
+
+class GoDonRequest(BaseModel):
+    visit_id: UUID
+
+
+@router.post("/pharmacy/ban-le/go-don")
+async def ban_le_go_don(
+    body: GoDonRequest,
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tác "Bán theo đơn này" khi tiền thuốc chưa thu."""
+    return await ban_theo_don_service.go_noi_don(
+        pool, identity, visit_id=str(body.visit_id)
     )
 
 

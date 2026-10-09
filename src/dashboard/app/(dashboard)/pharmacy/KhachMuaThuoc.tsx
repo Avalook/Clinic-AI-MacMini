@@ -7,6 +7,10 @@
 // (`ban_le_service`): ai được mở, chống trùng SĐT, mỗi khách một lượt đang mở.
 // Màn chỉ gửi và vẽ lại câu máy chủ trả.
 //
+// Chọn khách cũ (bấm tên) → hiện ngay LỊCH SỬ ĐƠN THUỐC, chưa mở lượt; "Bán theo
+// đơn này" ở từng đơn mở lượt + nối đơn + thêm dòng một lần (09/10/2026). "Mở
+// lượt mua thuốc" vẫn là mua lẻ không theo đơn.
+//
 // Ở /pharmacy: mở xong chọn luôn lượt vừa mở. Ở /pharmacy/inventory: chuyển
 // sang /pharmacy?luot=<id> để kê và thu.
 
@@ -16,6 +20,7 @@ import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 
 import { INPUT } from "../form-ui";
+import LichSuDonThuoc from "./LichSuDonThuoc";
 import { CHAM } from "./DongThuoc";
 
 interface KhachTim {
@@ -71,6 +76,10 @@ export default function KhachMuaThuoc({
   const [trung, setTrung] = useState<KetQuaMo["matches"] | null>(null);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  // Khách cũ đang chọn — khung lịch sử đơn thuốc của họ hiện bên dưới.
+  const [chon, setChon] = useState<string | null>(null);
+
+  const chonKhach = (id: string | null) => setChon(id);
 
   // Tìm khách: gõ ≥ 2 ký tự, chờ 300ms sau lần gõ cuối.
   useEffect(() => {
@@ -101,6 +110,7 @@ export default function KhachMuaThuoc({
     setSdt("");
     setNamSinh("");
     setTrung(null);
+    chonKhach(null);
     if (sangNhaThuoc) {
       router.push(`/pharmacy?${new URLSearchParams({ luot: visitId })}`);
       return;
@@ -151,7 +161,8 @@ export default function KhachMuaThuoc({
       </div>
       <p className="text-meta text-ink-muted">
         Mở lượt bán lẻ: không tiền khám, không vào hàng chờ bác sĩ. Kê thuốc và thu tiền ngay
-        tại quầy; thu xong lượt tự đóng.
+        tại quầy; thu xong lượt tự đóng. Khách cũ: bấm tên để xem lịch sử đơn thuốc và bán
+        theo đơn.
       </p>
       {loi ? (
         <p role="alert" className="rounded-control bg-danger-bg px-3 py-2 text-meta text-danger">
@@ -162,7 +173,10 @@ export default function KhachMuaThuoc({
       <div className="space-y-2">
         <input
           value={tim}
-          onChange={(e) => setTim(e.target.value)}
+          onChange={(e) => {
+            setTim(e.target.value);
+            chonKhach(null);
+          }}
           placeholder="Tìm khách: SĐT / mã khách / tên…"
           aria-label="Tìm khách có sẵn"
           className={INPUT}
@@ -173,15 +187,26 @@ export default function KhachMuaThuoc({
           ) : (
             <ul className="divide-y divide-line rounded-control border border-line">
               {ketQua.map((k) => (
-                <li key={k.clinic_patient_id} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                  <span className="min-w-0 flex-1">
+                <li
+                  key={k.clinic_patient_id}
+                  className={`flex flex-wrap items-center gap-2 px-3 py-2 ${
+                    chon === k.clinic_patient_id ? "bg-brand-50" : ""
+                  }`}
+                >
+                  <button
+                    type="button"
+                    aria-pressed={chon === k.clinic_patient_id}
+                    title="Xem đơn gần nhất"
+                    className="min-w-0 flex-1 text-left"
+                    onClick={() => chonKhach(k.clinic_patient_id)}
+                  >
                     <span className="block truncate text-body font-medium text-ink">
                       {k.full_name}
                     </span>
                     <span className="block truncate text-meta text-ink-muted">
                       {[k.patient_code, k.phone_primary, k.birth_year].filter(Boolean).join(" · ")}
                     </span>
-                  </span>
+                  </button>
                   <Button
                     className={CHAM}
                     size="sm"
@@ -195,6 +220,17 @@ export default function KhachMuaThuoc({
               ))}
             </ul>
           )
+        ) : null}
+        {chon ? (
+          <div className="overflow-hidden rounded-control border border-line">
+            <LichSuDonThuoc
+              key={chon}
+              clinicPatientId={chon}
+              choSua
+              onDoi={(_cau, loiMoi) => setLoi(loiMoi)}
+              onMo={xong}
+            />
+          </div>
         ) : null}
       </div>
 

@@ -38,6 +38,11 @@ const ACTIONS: Record<string, string> = {
   "kiem-kho": "/api/v1/pharmacy/kiem-kho",
   // 30/09 (V8): khách chỉ đến mua thuốc — mở / lấy lại lượt Bán lẻ.
   "ban-le": "/api/v1/pharmacy/ban-le",
+  // 09/10: bán theo đơn khám cũ — nối / gỡ nối đơn gốc của lượt Bán lẻ.
+  "ban-le-theo-don": "/api/v1/pharmacy/ban-le/theo-don",
+  "ban-le-go-don": "/api/v1/pharmacy/ban-le/go-don",
+  // Từ khung chọn khách: mở lượt + nối đơn + thêm dòng trong một giao dịch.
+  "ban-le-mo-theo-don": "/api/v1/pharmacy/ban-le/mo-theo-don",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -62,6 +67,16 @@ const DOC: Record<string, (q: URLSearchParams) => string | null> = {
   "ban-le": (q) => {
     const id = q.get("id") ?? "";
     return UUID_RE.test(id) ? `/api/v1/pharmacy/ban-le/${id}` : null;
+  },
+  // 09/10: chọn khách cũ → lịch sử đơn thuốc theo trang (chưa mở lượt).
+  "lich-su-don": (q) => {
+    const id = q.get("clinic_patient_id") ?? "";
+    return UUID_RE.test(id)
+      ? `/api/v1/pharmacy/ban-le/lich-su-don?${new URLSearchParams({
+          clinic_patient_id: id,
+          trang: q.get("trang") ?? "0",
+        })}`
+      : null;
   },
 };
 

@@ -87,6 +87,10 @@ const LIVE_TABLES = [
   "work_item",
   "work_item_event",
   "payment",
+  // Hoàn thuốc / đổi hẹn: cập nhật khung lịch sử đơn (20261010100001).
+  "payment_refund",
+  "payment_refund_line",
+  "phieu_kham_luot",
   "lab_result",
   "service_log",
   "prescription",
