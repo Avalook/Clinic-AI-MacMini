@@ -241,6 +241,22 @@ async def test_3_tra_5_toi_buoi_6_vao_hoa_don_gia_chot_goi_y_tra_them(
     k = await khoi(ca, v6, lt["id"])
     assert k["goi_y_tra_them"] is True and k["con_tra_truoc"] == 0
     assert k["tra_truoc_toi_da"] == 4  # 10 − 5 đã trả − buổi 6 trong hoá đơn
+    assert k["cau_goi_y"] == "Hết buổi đã trả trước — gợi ý khách trả thêm."
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_goi_y_khach_chua_tung_tra_truoc_dung_cau(pool: asyncpg.Pool) -> None:
+    """Staging 09/10: khách Đang làm mà CHƯA từng trả trước buổi nào — quầy ghi
+    "Hết buổi đã trả trước" là sai; câu phải nói chưa trả trước."""
+    ca = await dung_ca(pool)
+    v = await luot(ca)
+    o = await chi_dinh(ca, v)
+    lt = await tao(ca, v, 6, order=o)
+    assert (await doc(ca, lt["id"]))["trang_thai"] == "DANG_LAM"
+    k = await khoi(ca, v, lt["id"])
+    assert k["goi_y_tra_them"] is True and k["da_tra"] == 0
+    assert k["cau_goi_y"] == "Khách chưa trả trước buổi nào — có thể gợi ý trả trước."
 
 
 @pytest.mark.db

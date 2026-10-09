@@ -661,7 +661,7 @@ function KhachTrongPhong({
         batDau(false);
       } else if (hanh === "xong" && dangLam && lan) {
         if (coPhieuChinh) {
-          setBao("Dịch vụ này có phiếu kết quả — bấm Hoàn tất trong phiếu bên dưới là xong.");
+          setBao("Dịch vụ này có phiếu kết quả — bấm [Xong] trong phiếu bên dưới.");
         } else {
           xongThang();
         }
