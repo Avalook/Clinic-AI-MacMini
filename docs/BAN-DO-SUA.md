@@ -506,6 +506,15 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `add_shift`, `decide`); lịch phòng `S/lich_phong_service.py` `LichPhongService`.
   Nạp cả tuần từ bảng: `scripts/ap-lich-tuan-2809.py`. Test:
   `T/unit/test_lich_phong.py`, `T/services/test_doi_nguoi_trong_ca_db.py`.
+- **Ô chọn nhân viên khi xếp ca (09/10):** ô tìm + nhóm theo vai xổ ra/thu vào —
+  `D/schedule/ChonNhanVien.tsx`; lọc/chia nhóm ở `src/dashboard/lib/chon-nhan-vien.ts`
+  (test `chon-nhan-vien.test.mts`). Ai được xếp vào ô vẫn lọc theo ma trận
+  `vai_duoc_vao_tram` trong `RosterRegisterTable.tsx` (`nhanVienHopLe`).
+- **Chữ cột Phòng / Tầng của vị trí không gắn phòng** (Trưởng ca → "Quản lý ca
+  khám"): trên màn `/settings/day-noi` → Vị trí trực → "Chữ cột Phòng/Tầng".
+  Code `S/day_noi_service.py` `sua_vi_tri` (`phong`, `tang`); bảng lịch đọc ở
+  `R/identity.py` `vi_tri_hom_nay` (phòng thật trước, chữ sau). Test
+  `T/services/test_vi_tri_chu_phong_db.py`.
 - **Lịch sử thay đổi lịch trực (06/10):** khối "Lịch sử thay đổi" ở `/schedule`
   (`D/schedule/PhienBanLich.tsx`, tô màu ô trong `D/home/WorkRosterTable.tsx`
   `MAU_THAY_DOI`) → `GET /api/v1/roster/phien-ban` → `S/lich_truc_phien_ban_service.py`
