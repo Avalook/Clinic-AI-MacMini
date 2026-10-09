@@ -89,6 +89,7 @@ from clinicai.services.doi_dich_vu_kham import (
     QUYEN_DOI_TRONG_HO_SO,
     doc_trang_thai,
 )
+from clinicai.services.hoan_tac_check_in import chan_hoan_tac_neu_da_lam
 from clinicai.services.lenh_kham_core import ma_uuid
 from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 from clinicai.services.lich_truc_phien_ban_service import giao_dich_lich_truc
@@ -1036,6 +1037,13 @@ class BookingService:
             raise ConflictError(
                 f"Lịch hẹn đang ở trạng thái {appt['status']}, không thể thực hiện."
             )
+        if action == "undo_checkin":
+            # Đã làm rồi thì không hoàn tác (Tuyền 09/10/2026) — khoá rồi mới hỏi.
+            ly_do = await chan_hoan_tac_neu_da_lam(
+                conn, clinic_id=identity.clinic_id, appointment_id=appointment_id
+            )
+            if ly_do:
+                raise ConflictError(ly_do)
 
         new_status = (
             appt["status"]

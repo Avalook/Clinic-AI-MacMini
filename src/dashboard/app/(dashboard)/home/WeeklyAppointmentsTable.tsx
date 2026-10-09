@@ -44,6 +44,8 @@ import NutCheckIn from "@/components/ui/NutCheckIn";
 import { CA_TUAN, locTheoNgay, ngayDangChon, tabNgay } from "./loc-ngay";
 import type { MaXacMinh } from "@/lib/xac-minh";
 import { MA_DA_ROI, type TrangThaiHienThi } from "@/lib/trang-thai-lich";
+import { dangLoc, locLichHen, type LocTiepDon } from "@/lib/tiep-don";
+import { useLocTiepDon } from "@/lib/loc-tiep-don-context";
 
 export interface WeekApptRow {
   id: string;
@@ -508,6 +510,7 @@ export default function WeeklyAppointmentsTable({
   duocGhiChamSoc = false,
   duocXemHoSo = false,
   moHoSoKhach = true,
+  loc = null,
 }: {
   days: ApptDay[];
   role: ClinicRole | null;
@@ -549,6 +552,10 @@ export default function WeeklyAppointmentsTable({
   /** Người xem mở được màn Quản lý khách hàng (`moDuocMan("/customers")`) —
    *  bấm tên khách CHƯA check-in mở hồ sơ ở đó. */
   moHoSoKhach?: boolean;
+  /** Bộ lọc tab chưa / đã check-in + ô tìm (09/10/2026). Không truyền thì đọc
+   *  bộ lọc chung của màn Tiếp đón (`LocTiepDonContext`); Trang chủ không có
+   *  bên phát → bảng như cũ. */
+  loc?: LocTiepDon | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -560,6 +567,10 @@ export default function WeeklyAppointmentsTable({
     ? ngayDangChon(searchParams.get("ngay"), days.map((d) => d.date), todayVn())
     : null;
   const daysHien = chonNgay ? locTheoNgay(days, ngayChon) : days;
+  const locChung = useLocTiepDon();
+  const locHieuLuc = loc ?? locChung;
+  const dangLocBang = dangLoc(locHieuLuc);
+  const daysLoc = dangLocBang ? locLichHen(daysHien, locHieuLuc) : daysHien;
   /** Đổi ngày: chỉ ghi lại URL (không tải lại trang, không gọi máy chủ) — dữ
    *  liệu cả tuần đã có sẵn trên màn. */
   function chonNgayMoi(ma: string) {
@@ -779,7 +790,14 @@ export default function WeeklyAppointmentsTable({
             </tr>
           </thead>
           <tbody>
-            {daysHien.map((day) => {
+            {dangLocBang && daysLoc.every((d) => d.items.length === 0) ? (
+              <tr>
+                <td colSpan={nCols} className="px-2 py-8 text-center text-body text-ink-muted">
+                  Không có lịch hẹn nào khớp bộ lọc.
+                </td>
+              </tr>
+            ) : null}
+            {daysLoc.map((day) => {
               const rows = buildDayRows(
                 day,
                 dutyByDate[day.date] ?? [],
@@ -820,7 +838,11 @@ export default function WeeklyAppointmentsTable({
                         )}
                         {dayLabel(day.date)} · {fmtDayMonth(day.date)}
                         <span className="font-normal text-ink-faint">
-                          {day.items.length > 0 ? `${day.items.length} lịch` : "chưa có lịch hẹn"}
+                          {day.items.length > 0
+                            ? `${day.items.length} lịch`
+                            : dangLocBang
+                              ? "không có lịch khớp"
+                              : "chưa có lịch hẹn"}
                         </span>
                       </button>
                     </td>
