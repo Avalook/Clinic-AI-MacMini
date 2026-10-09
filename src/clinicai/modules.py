@@ -418,6 +418,9 @@ MODULE: dict[str, Module] = {
                 "payment.refunded",
                 "payment.method_changed",
                 "payment.collection_undone",
+                # Giảm giá ở quầy thu (09/10/2026).
+                "payment.discount_applied",
+                "payment.discount_undone",
                 "followup.scheduled",
                 "partner.sample_collected",
                 "partner.sample_received",
@@ -589,6 +592,9 @@ MODULE: dict[str, Module] = {
                 "payment.method_changed",
                 # Hoàn tác lần thu (01/10/2026) — thu nhầm, lượt về chưa thu.
                 "payment.collection_undone",
+                # Giảm giá ở quầy thu / hoàn tác giảm giá (09/10/2026).
+                "payment.discount_applied",
+                "payment.discount_undone",
                 # Bản thanh toán cuối: dòng thuốc khách bỏ / lấy bớt.
                 "medicine.declined",
             ],
@@ -598,6 +604,7 @@ MODULE: dict[str, Module] = {
                 "payment_cycle_doi_hinh_thuc",
                 "payment_cycle_phan",
                 "anh_chuyen_khoan",
+                "giam_gia",
             ],
             quyen=["payment.service.collect", "payment.medicine.collect"],
         ),

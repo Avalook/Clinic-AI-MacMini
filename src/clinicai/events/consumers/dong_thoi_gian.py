@@ -107,6 +107,17 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "payment.method_changed": ["tu", "sang", "so_tien"],
     # Hoàn tác lần thu (01/10/2026) — lý do là chữ vận hành người bấm gõ.
     "payment.collection_undone": ["kind", "so_tien", "truoc", "ly_do"],
+    # Giảm giá ở quầy thu (09/10/2026) — lý do là chữ vận hành người bấm gõ.
+    "payment.discount_applied": [
+        "kind",
+        "pham_vi",
+        "kieu",
+        "gia_tri",
+        "so_tien",
+        "ten_dong",
+        "ly_do",
+    ],
+    "payment.discount_undone": ["kind", "pham_vi", "kieu", "gia_tri", "ly_do"],
     "followup.scheduled": ["ngay"],
     "partner.sample_collected": [],
     "partner.sample_received": [],

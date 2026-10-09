@@ -208,6 +208,8 @@ EVENT_LABELS: dict[str, str] = {
     "payment.voided": "Huỷ phiếu thanh toán",
     "payment.method_changed": "Đổi hình thức thu (Tiền mặt / Chuyển khoản)",
     "payment.collection_undone": "Hoàn tác lần thu",
+    "payment.discount_applied": "Giảm giá ở quầy thu",
+    "payment.discount_undone": "Hoàn tác giảm giá",
     "payment.refunded": "Hoàn tiền cho khách",
     "payment.refund_pending": "Hoàn tiền chuyển khoản — chờ xác nhận",
     "payment.refund_failed": "Hoàn tiền không thành",

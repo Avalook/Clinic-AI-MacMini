@@ -283,6 +283,39 @@ class HinhThucThuDaDoi(PayloadSuKien):
     sang: str
 
 
+class GiamGiaDaAp(PayloadSuKien):
+    """`payment.discount_applied` — người thu tiền vừa giảm giá (09/10/2026).
+
+    ``pham_vi`` DONG (một dòng hoá đơn) | HOA_DON (cả hoá đơn của loại tiền);
+    ``kieu`` PHAN_TRAM | SO_TIEN, ``gia_tri`` là số người bấm nhập (chuỗi để
+    không mất số lẻ của %). ``so_tien`` = tiền thật sự trừ trên hoá đơn lúc ấy.
+    ``ly_do`` là chữ vận hành người bấm gõ — không chữ lâm sàng.
+    """
+
+    visit_id: str
+    giam_gia_id: str
+    kind: str
+    pham_vi: str
+    kieu: str
+    gia_tri: str
+    so_tien: int
+    ten_dong: str | None = None
+    ly_do: str
+
+
+class GiamGiaDaHoanTac(PayloadSuKien):
+    """`payment.discount_undone` — giảm giá chưa dùng được hoàn tác (09/10/2026).
+    Giảm giá đã nằm trong một lần thu thì phải hoàn tác lần thu trước."""
+
+    visit_id: str
+    giam_gia_id: str
+    kind: str
+    pham_vi: str
+    kieu: str
+    gia_tri: str
+    ly_do: str | None = None
+
+
 class LanThuDaHoanTac(PayloadSuKien):
     """`payment.collection_undone` — một LẦN THU được hoàn tác (Tuyền 01/10/2026:
     "nhân viên làm lại thao tác bị sai"): thu nhầm → trả lại ngay, lượt về CHƯA
@@ -1949,6 +1982,27 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Hoàn tác lần thu",
             consumers=[DONG_THOI_GIAN_LUOT],
             # Tiền là chuyện nội bộ (như payment.*): AI/Zalo không nghe.
+            is_public=False,
+        ),
+        SuKien(
+            ten="payment.discount_applied",
+            version=1,
+            aggregate_type="giam_gia",
+            source_module="payment",
+            payload=GiamGiaDaAp,
+            nhan="Giảm giá",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            # Tiền là chuyện nội bộ (như payment.*): AI/Zalo không nghe.
+            is_public=False,
+        ),
+        SuKien(
+            ten="payment.discount_undone",
+            version=1,
+            aggregate_type="giam_gia",
+            source_module="payment",
+            payload=GiamGiaDaHoanTac,
+            nhan="Hoàn tác giảm giá",
+            consumers=[DONG_THOI_GIAN_LUOT],
             is_public=False,
         ),
         SuKien(

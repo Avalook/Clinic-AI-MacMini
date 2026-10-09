@@ -466,6 +466,18 @@ class PaymentService:
                     raise ValidationError(
                         "Chưa thu được — " + "; ".join(hoa_don.van_de)
                     )
+                if hoa_don.tong <= 0 and hoa_don.dong and hoa_don.giam_gia:
+                    # Giảm 100% (09/10/2026): DB cấm lần thu 0đ — đi đường CHỐT
+                    # 0đ như quầy dịch vụ (ghi nhận theo dấu hoá đơn), lượt bán
+                    # lẻ đóng như vừa thu xong.
+                    if bill_revision is not None and bill_revision != hoa_don.revision:
+                        raise BillChangedError(
+                            "Hoá đơn vừa thay đổi (số lượng, giá hoặc giảm giá) — "
+                            "tải lại rồi chốt theo hoá đơn mới."
+                        )
+                    await ghi_chot_0d(conn, identity, visit_id, hoa_don)
+                    await dong_luot_ban_le(conn, identity=identity, visit_id=visit_id)
+                    return {"payment_cycle_id": None, "status": KHONG_CON_KHOAN}
                 if hoa_don.tong <= 0:
                     raise ValidationError("Lượt này không có khoản nào để thu.")
                 if bill_revision is not None and bill_revision != hoa_don.revision:
@@ -2019,16 +2031,23 @@ async def _ghi_anh_hoa_don(
     payment_cycle_id: str,
     hoa_don: HoaDon,
 ) -> None:
-    """Ảnh chụp từng dòng hoá đơn của LẦN THU này (C4) — chỉ thêm, bất biến."""
+    """Ảnh chụp từng dòng hoá đơn của LẦN THU này (C4) — chỉ thêm, bất biến.
+
+    Giảm giá (09/10/2026): mỗi dòng ghi ``giam`` (``line_total`` là số SAU
+    giảm), và — cùng giao dịch — các giảm giá đã áp được GẮN vào lần thu này.
+    Gắn lệch số cái (người khác vừa hoàn tác / vừa thu) → BILL_CHANGED, cả
+    giao dịch lùi. Postgres còn so tổng giảm dòng = tổng giảm giá đã gắn lúc
+    COMMIT (``giam_gia_tong_khop_lan_thu``).
+    """
     await conn.executemany(
         """
         INSERT INTO public.payment_bill_line (
             clinic_id, payment_id, payment_cycle_id, visit_id, kind,
             source_type, source_id, name_snapshot, quantity, unit,
-            unit_price, line_total, billing_owner, drug_catalog_id
+            unit_price, line_total, billing_owner, drug_catalog_id, giam
         )
         VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10,
-                $11, $12, $13, $14::uuid)
+                $11, $12, $13, $14::uuid, $15)
         """,
         [
             (
@@ -2047,10 +2066,63 @@ async def _ghi_anh_hoa_don(
                 d.thanh_tien,
                 d.ben_thu,
                 d.drug_catalog_id,
+                d.giam,
             )
             for d in hoa_don.dong
         ],
     )
+    await gan_giam_gia(
+        conn,
+        clinic_id=clinic_id,
+        visit_id=hoa_don.visit_id,
+        kind=hoa_don.kind,
+        payment_cycle_id=payment_cycle_id,
+        giam_gia=hoa_don.giam_gia,
+    )
+
+
+async def gan_giam_gia(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    visit_id: str,
+    kind: str,
+    payment_cycle_id: str,
+    giam_gia: Sequence[Mapping[str, Any]],
+) -> None:
+    """Gắn các giảm giá ĐÃ ÁP vào lần thu (cùng giao dịch với ảnh chụp).
+
+    Chỉ gắn cái còn CHƯA DÙNG và chưa hoàn tác — một câu UPDATE có điều kiện;
+    số dòng gắn được khác số đã áp nghĩa là hoá đơn vừa đổi dưới tay → lùi.
+    """
+    if not giam_gia:
+        return
+    ids = [str(g["id"]) for g in giam_gia]
+    so = [int(g["so_tien"]) for g in giam_gia]
+    gan = await conn.fetchval(
+        """
+        WITH u AS (
+            UPDATE public.giam_gia g
+               SET payment_cycle_id = $4::uuid, so_tien_ap = x.so
+              FROM unnest($5::uuid[], $6::bigint[]) AS x(id, so)
+             WHERE g.clinic_id = $1::uuid AND g.visit_id = $2::uuid
+               AND g.kind = $3 AND g.id = x.id
+               AND g.payment_cycle_id IS NULL AND g.huy_luc IS NULL
+            RETURNING 1)
+        SELECT count(*) FROM u
+        """,
+        clinic_id,
+        visit_id,
+        kind,
+        payment_cycle_id,
+        ids,
+        so,
+    )
+    if int(gan or 0) != len(ids):
+        raise BillChangedError(
+            "Giảm giá của hoá đơn vừa thay đổi (người khác vừa hoàn tác hoặc"
+            " vừa thu) — tải lại rồi thu theo hoá đơn mới."
+        )
 
 
 async def _phat_da_thu_dich_vu(

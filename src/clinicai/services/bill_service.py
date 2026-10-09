@@ -23,6 +23,10 @@ thuốc trùng TÊN CHUẨN của chính thuốc trong danh mục), rồi:
 
 `revision` là dấu của nội dung hoá đơn. Thu ngân gửi lại dấu đã thấy; máy chủ
 tính lại mà khác dấu → BILL_CHANGED, không thu số cũ.
+
+GIẢM GIÁ (09/10/2026) — `ap_giam_gia`, gọi ở cuối mọi hàm dựng hoá đơn:
+`thanh_tien` của dòng là số SAU giảm, `tien_goc` là đơn giá × số lượng, `giam`
+là phần giảm. Hoá đơn không có giảm giá giữ nguyên dấu cũ.
 """
 
 from __future__ import annotations
@@ -31,7 +35,8 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
-from decimal import ROUND_HALF_UP, Decimal
+from datetime import datetime
+from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 from typing import Any
 
 import asyncpg
@@ -65,6 +70,10 @@ class DongHoaDon:
     # Chỉ dòng phụ thu: chỉ định dịch vụ cha. Metadata này cho quầy nối tick
     # phụ thu với lựa chọn của cha; source_id vẫn là ID phụ thu để ghi sổ.
     order_id: str | None = None
+    # Giảm giá (09/10/2026): tiền gốc = đơn giá × số lượng; ``thanh_tien`` =
+    # tien_goc − giam (số phải thu). Không có giá thì cả hai rỗng / 0.
+    tien_goc: Decimal | None = None
+    giam: Decimal = Decimal(0)
 
 
 @dataclass
@@ -84,6 +93,30 @@ class HoaDon:
     dong_doi_tac: list[DongHoaDon] = field(default_factory=list)
     # Đối tác đã ghi nhận thu tiền cho chỉ định nào (source_id → ghi nhận).
     doi_tac_da_thu: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Giảm giá ĐÃ ÁP vào hoá đơn này (``ap_giam_gia``), mỗi cái kèm ``so_tien``
+    # thật sự trừ. Rỗng = hoá đơn không giảm giá → dấu hoá đơn như cũ.
+    giam_gia: list[dict[str, Any]] = field(default_factory=list)
+    # Giảm giá theo DÒNG mà dòng ấy không còn trong hoá đơn (đã bỏ / đã thu ở
+    # lần khác…): không trừ tiền nào, quầy hiện để hoàn tác.
+    giam_gia_treo: list[dict[str, Any]] = field(default_factory=list)
+
+    @property
+    def tong_goc(self) -> int:
+        """Tổng tiền hàng (trước giảm) của các dòng phòng khám thu."""
+        return int(
+            sum(
+                (
+                    d.tien_goc if d.tien_goc is not None else (d.thanh_tien or 0)
+                    for d in self.dong_thu
+                    if d.thanh_tien is not None
+                ),
+                Decimal(0),
+            )
+        )
+
+    @property
+    def tong_giam(self) -> int:
+        return int(sum((d.giam for d in self.dong_thu), Decimal(0)))
 
     @property
     def dong_thu(self) -> list[DongHoaDon]:
@@ -128,20 +161,29 @@ class HoaDon:
             ]
             for d in sorted(self.dong, key=lambda x: (x.source_type, x.source_id))
         ]
-        return hashlib.sha256(json.dumps([self.kind, noi_dung]).encode()).hexdigest()[
-            :16
-        ]
+        noi_dung_dau: list[Any] = [self.kind, noi_dung]
+        if self.giam_gia:
+            # CHỈ khi có giảm giá: hoá đơn không giảm giữ nguyên dấu cũ (lần chờ
+            # xác minh / biên nhận tạo trước 09/10/2026 vẫn khớp).
+            noi_dung_dau.append(
+                sorted([str(g["id"]), int(g["so_tien"])] for g in self.giam_gia)
+            )
+        return hashlib.sha256(json.dumps(noi_dung_dau).encode()).hexdigest()[:16]
 
     def cho_api(self) -> dict[str, Any]:
         return {
             "visit_id": self.visit_id,
             "kind": self.kind,
             "tong": self.tong,
+            "tong_goc": self.tong_goc,
+            "tong_giam": self.tong_giam,
             "revision": self.revision,
             "thu_duoc": self.thu_duoc,
             "van_de": self.van_de,
             "canh_bao": self.canh_bao,
             "dong": [_dong_api(d) for d in self.dong],
+            "giam_gia": self.giam_gia,
+            "giam_gia_treo": self.giam_gia_treo,
             "chi_doi_tac_thu": self.chi_doi_tac_thu,
             "dong_doi_tac": [
                 {
@@ -159,6 +201,10 @@ def _dong_api(d: DongHoaDon) -> dict[str, Any]:
         "so_luong": float(d.so_luong),
         "don_gia": float(d.don_gia) if d.don_gia is not None else None,
         "thanh_tien": (float(d.thanh_tien) if d.thanh_tien is not None else None),
+        "tien_goc": float(d.tien_goc) if d.tien_goc is not None else None,
+        "giam": float(d.giam),
+        # Quầy chỉ vẽ nút "Giảm" — máy chủ nói dòng nào giảm được.
+        "giam_duoc": giam_duoc(d),
     }
 
 
@@ -201,6 +247,7 @@ def _dong_gia(
             van_de = _gia_mau_thuan(khac_nhau)
         else:
             don_gia = khac_nhau[0]
+    tien = _tien(don_gia, so_luong) if don_gia is not None else None
     return DongHoaDon(
         source_type=source_type,
         source_id=source_id,
@@ -208,12 +255,13 @@ def _dong_gia(
         so_luong=so_luong,
         don_vi=don_vi,
         don_gia=don_gia,
-        thanh_tien=_tien(don_gia, so_luong) if don_gia is not None else None,
+        thanh_tien=tien,
         ben_thu=ben_thu,
         drug_catalog_id=drug_catalog_id,
         ma=ma,
         van_de=van_de,
         order_id=order_id,
+        tien_goc=tien,
     )
 
 
@@ -266,6 +314,235 @@ def _gia_mau_thuan(khac: Sequence[Decimal]) -> str:
         + " / ".join(f"{int(g):,}đ".replace(",", ".") for g in khac)
         + ")"
     )
+
+
+# ── Giảm giá (Tuyền chốt 09/10/2026) ───────────────────────────────────────
+
+DONG = "DONG"
+HOA_DON = "HOA_DON"
+PHAN_TRAM = "PHAN_TRAM"
+SO_TIEN = "SO_TIEN"
+#: Trả trước liệu trình không giảm giá (bản đầu, Tuyền 09/10/2026).
+NGUON_KHONG_GIAM = frozenset({"lieu_trinh"})
+
+
+@dataclass(frozen=True)
+class GiamGia:
+    """Một giảm giá còn hiệu lực (chưa hoàn tác) đọc từ bảng ``giam_gia``."""
+
+    id: str
+    pham_vi: str  # DONG | HOA_DON
+    kieu: str  # PHAN_TRAM | SO_TIEN
+    gia_tri: Decimal
+    source_type: str | None = None
+    source_id: str | None = None
+    ly_do: str = ""
+    tao_boi_ten: str | None = None
+    tao_luc: str | None = None
+
+
+def giam_duoc(d: DongHoaDon) -> bool:
+    """Dòng này giảm giá được không. Thuần.
+
+    Chỉ dòng phòng khám thu, đã có tiền, không vướng vấn đề; không giảm trả
+    trước liệu trình; dòng đối tác tự thu không bao giờ (không phải khoản của
+    phòng khám).
+    """
+    return (
+        d.ben_thu == CLINIC
+        and d.van_de is None
+        and d.tien_goc is not None
+        and d.source_type not in NGUON_KHONG_GIAM
+    )
+
+
+def so_tien_giam(co_so: Decimal, kieu: str, gia_tri: Decimal) -> Decimal:
+    """Tiền giảm của một giảm giá trên ``co_so`` đồng — làm tròn tới 1đ theo
+    ROUND_HALF_UP như ``_tien``. Thuần."""
+    if kieu == PHAN_TRAM:
+        return (co_so * gia_tri / 100).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+    return gia_tri.quantize(Decimal(1), rounding=ROUND_HALF_UP)
+
+
+def chia_theo_ti_le(
+    so_tien: Decimal, phan: Sequence[tuple[int, Decimal]]
+) -> dict[int, Decimal]:
+    """Chia ``so_tien`` vào các dòng theo tỉ lệ tiền dòng. Thuần.
+
+    Mỗi dòng lấy phần nguyên (làm tròn xuống) của tỉ lệ; phần dư dồn vào dòng
+    LỚN NHẤT (bằng nhau thì dòng đứng trước), dòng ấy hết chỗ thì sang dòng lớn
+    kế tiếp — không dòng nào giảm quá tiền của nó. Cộng lại đúng ``so_tien``
+    (nơi gọi bảo đảm ``so_tien`` ≤ tổng).
+    """
+    tong = sum((a for _, a in phan), Decimal(0))
+    out = {k: Decimal(0) for k, _ in phan}
+    if so_tien <= 0 or tong <= 0:
+        return out
+    for k, a in phan:
+        out[k] = (so_tien * a / tong).quantize(Decimal(1), rounding=ROUND_DOWN)
+    du = so_tien - sum(out.values(), Decimal(0))
+    for k, a in sorted(phan, key=lambda x: -x[1]):
+        if du <= 0:
+            break
+        them = min(du, a - out[k])
+        out[k] += them
+        du -= them
+    return out
+
+
+def _dong_tien(x: Decimal | int) -> str:
+    return f"{int(x):,}đ".replace(",", ".")
+
+
+def hien_giam(kieu: str, gia_tri: Decimal) -> str:
+    """ "10%" / "50.000đ" — cách quầy đọc một giảm giá. Thuần."""
+    if kieu == PHAN_TRAM:
+        return f"{format(gia_tri.normalize(), 'f').replace('.', ',')}%"
+    return _dong_tien(gia_tri)
+
+
+def _ap_dict(g: GiamGia, so: Decimal) -> dict[str, Any]:
+    return {
+        "id": g.id,
+        "pham_vi": g.pham_vi,
+        "kieu": g.kieu,
+        "gia_tri": float(g.gia_tri),
+        "hien": hien_giam(g.kieu, g.gia_tri),
+        "source_type": g.source_type,
+        "source_id": g.source_id,
+        "so_tien": int(so),
+        "ly_do": g.ly_do,
+        "tao_boi_ten": g.tao_boi_ten,
+        "tao_luc": g.tao_luc,
+    }
+
+
+def ap_giam_gia(hd: HoaDon, ds: Sequence[GiamGia]) -> HoaDon:
+    """Áp các giảm giá còn hiệu lực vào hoá đơn — KiotViet: giảm dòng trước,
+    giảm hoá đơn sau; % hoá đơn tính trên tổng đã trừ giảm dòng. Thuần.
+
+    Giảm hoá đơn chia vào các dòng theo tỉ lệ (``chia_theo_ti_le``) để ảnh chụp
+    từng dòng mang đúng phần giảm của nó — hoàn tiền / tiền thừa / nợ theo dòng
+    tự đúng. Bỏ qua dòng đối tác, dòng có vấn đề, trả trước liệu trình.
+
+    Giảm giá lớn hơn tiền đang có (dòng đổi giá / bớt dòng sau khi giảm) KHÔNG
+    tự cắt bớt: thành vấn đề của hoá đơn — chưa thu được tới khi hoàn tác giảm
+    giá rồi giảm lại. Không có giảm giá → trả lại ĐÚNG hoá đơn vào (dấu cũ).
+    Tính lại từ ``tien_goc``: áp lại trên hoá đơn đã áp cho cùng kết quả.
+    """
+    if not ds:
+        return hd
+    dong = list(hd.dong)
+    goc: dict[int, Decimal] = {
+        i: d.tien_goc
+        for i, d in enumerate(dong)
+        if giam_duoc(d) and d.tien_goc is not None
+    }
+    vi_tri = {(d.source_type, d.source_id): i for i, d in enumerate(dong)}
+    giam: dict[int, Decimal] = {i: Decimal(0) for i in goc}
+    van_de: list[str] = []
+    ap: list[dict[str, Any]] = []
+    treo: list[dict[str, Any]] = []
+    for g in [g for g in ds if g.pham_vi == DONG]:
+        i = vi_tri.get((g.source_type, g.source_id))
+        if i is None or i not in goc:
+            treo.append(_ap_dict(g, Decimal(0)))
+            continue
+        so = so_tien_giam(goc[i], g.kieu, g.gia_tri)
+        if so > goc[i] - giam[i]:
+            van_de.append(
+                f"giảm giá dòng “{dong[i].ten}” ({hien_giam(g.kieu, g.gia_tri)})"
+                f" lớn hơn tiền dòng {_dong_tien(goc[i])} — hoàn tác giảm giá rồi"
+                " giảm lại"
+            )
+            continue
+        giam[i] += so
+        ap.append(_ap_dict(g, so))
+    for g in [g for g in ds if g.pham_vi == HOA_DON]:
+        con = [(i, goc[i] - giam[i]) for i in sorted(goc)]
+        co_so = sum((a for _, a in con), Decimal(0))
+        so = so_tien_giam(co_so, g.kieu, g.gia_tri)
+        if so > co_so:
+            van_de.append(
+                f"giảm giá hoá đơn ({hien_giam(g.kieu, g.gia_tri)}) lớn hơn tổng"
+                f" {_dong_tien(co_so)} — hoàn tác giảm giá rồi giảm lại"
+            )
+            continue
+        for i, s in chia_theo_ti_le(so, con).items():
+            giam[i] += s
+        ap.append(_ap_dict(g, so))
+    for i, g_i in giam.items():
+        dong[i] = replace(dong[i], thanh_tien=goc[i] - g_i, giam=g_i, tien_goc=goc[i])
+    return replace(
+        hd,
+        dong=dong,
+        van_de_luot=[*hd.van_de_luot, *van_de],
+        canh_bao=list(hd.canh_bao),
+        giam_gia=ap,
+        giam_gia_treo=treo,
+    )
+
+
+#: Giảm giá còn hiệu lực của (lượt, loại). ``{dieu_kien}`` chọn nhóm: chưa dùng
+#: (hoá đơn còn nợ), đã gắn một lần thu (ảnh chụp), hay mọi cái (thuốc).
+_GIAM_GIA_SQL = """
+SELECT g.id::text AS id, g.pham_vi, g.kieu, g.gia_tri, g.source_type, g.source_id,
+       g.ly_do, g.tao_luc, s.full_name AS tao_boi_ten
+  FROM public.giam_gia g
+  LEFT JOIN public.staff s ON s.id = g.tao_boi
+ WHERE g.clinic_id = $1::uuid AND g.visit_id = $2::uuid AND g.kind = $3
+   AND g.huy_luc IS NULL
+   AND {dieu_kien}
+ ORDER BY g.tao_luc, g.id
+"""
+
+
+async def doc_giam_gia(
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    visit_id: str,
+    kind: str,
+    cycle_id: str | None = None,
+    ca_da_gan: bool = False,
+) -> list[GiamGia]:
+    """Giảm giá còn hiệu lực. Mặc định: CHƯA DÙNG (chưa gắn lần thu nào).
+    ``cycle_id``: đúng các cái đã gắn lần thu ấy. ``ca_da_gan``: mọi cái còn
+    hiệu lực — đã gắn thì lần thu ấy đang chờ / đã thu (huỷ thì trigger đã trả
+    về)."""
+    if cycle_id is not None:
+        rows = await conn.fetch(
+            _GIAM_GIA_SQL.format(dieu_kien="g.payment_cycle_id = $4::uuid"),
+            clinic_id,
+            visit_id,
+            kind,
+            cycle_id,
+        )
+    else:
+        rows = await conn.fetch(
+            _GIAM_GIA_SQL.format(
+                dieu_kien="true" if ca_da_gan else "g.payment_cycle_id IS NULL"
+            ),
+            clinic_id,
+            visit_id,
+            kind,
+        )
+    return [
+        GiamGia(
+            id=r["id"],
+            pham_vi=r["pham_vi"],
+            kieu=r["kieu"],
+            gia_tri=Decimal(str(r["gia_tri"])),
+            source_type=r["source_type"],
+            source_id=r["source_id"],
+            ly_do=r["ly_do"],
+            tao_boi_ten=r["tao_boi_ten"],
+            tao_luc=r["tao_luc"].isoformat()
+            if isinstance(r["tao_luc"], datetime)
+            else None,
+        )
+        for r in rows
+    ]
 
 
 KHAM_KHONG_HEN = "chưa xác định loại khám (lượt không có lịch hẹn)"
@@ -587,7 +864,7 @@ def ghep_thuoc(visit_id: str, don: list[dict[str, Any]]) -> HoaDon:
             van_de=van_de,
         )
         if so is None:
-            dong = replace(dong, thanh_tien=None)
+            dong = replace(dong, thanh_tien=None, tien_goc=None)
         hd.dong.append(dong)
     return hd
 
@@ -813,8 +1090,12 @@ async def hoa_don_con_no(
     clinic_id: str,
     visit_id: str,
     coi_nhu_chon: Sequence[str] = (),
+    giam_gia: bool = True,
 ) -> HoaDon:
     """OUTSTANDING BILL dịch vụ (Lifecycle v1 Slice 3).
+
+    ``giam_gia`` (09/10/2026): áp các giảm giá CHƯA DÙNG của lượt (mặc định).
+    ``False`` = hoá đơn thô — chỉ lệnh giảm giá cần để thử giảm giá mới.
 
     Chỉ những gì phòng khám CÒN phải thu của lượt:
       * tiền khám — nếu chưa có lần thu nào đang giữ phủ nó;
@@ -932,6 +1213,13 @@ async def hoa_don_con_no(
         )
     if unknown:
         hd.van_de_luot.append(THU_CU_KHONG_TRUY_DUOC)
+    if giam_gia:
+        hd = ap_giam_gia(
+            hd,
+            await doc_giam_gia(
+                conn, clinic_id=clinic_id, visit_id=visit_id, kind="dich_vu"
+            ),
+        )
     return hd
 
 
@@ -1074,20 +1362,39 @@ async def hoa_don_theo_anh_chup(
         legacy_line = _dong_kham_legacy(visit_id, kham or {})
         if legacy_line is not None:
             hd.dong.append(legacy_line)
-    return hd
+    # Giảm giá ĐÃ GẮN lần thu này (09/10/2026): áp lại đúng như lúc chụp — giảm
+    # giá không đổi thì dấu khớp, xác minh không bị đối soát oan.
+    return ap_giam_gia(
+        hd,
+        await doc_giam_gia(
+            conn,
+            clinic_id=clinic_id,
+            visit_id=visit_id,
+            kind="dich_vu",
+            cycle_id=cycle_id,
+        ),
+    )
 
 
 async def tinh_hoa_don(
-    conn: asyncpg.Connection, *, clinic_id: str, visit_id: str, kind: str
+    conn: asyncpg.Connection,
+    *,
+    clinic_id: str,
+    visit_id: str,
+    kind: str,
+    giam_gia: bool = True,
 ) -> HoaDon:
     """Đọc dữ liệu chuẩn và dựng hoá đơn. Gọi trong giao dịch của lần thu.
 
     ``dich_vu`` là OUTSTANDING BILL (``hoa_don_con_no``); ``thuoc`` giữ nguyên.
+    ``giam_gia=False``: hoá đơn thô, chưa áp giảm giá (xem ``hoa_don_con_no``).
     """
     if kind not in KINDS:
         raise ValueError(f"kind không hợp lệ: {kind!r}")
     if kind == "dich_vu":
-        return await hoa_don_con_no(conn, clinic_id=clinic_id, visit_id=visit_id)
+        return await hoa_don_con_no(
+            conn, clinic_id=clinic_id, visit_id=visit_id, giam_gia=giam_gia
+        )
 
     don = await conn.fetch(
         """
@@ -1139,4 +1446,15 @@ async def tinh_hoa_don(
                 "gia": gia,
             }
         )
-    return ghep_thuoc(visit_id, dong)
+    hd = ghep_thuoc(visit_id, dong)
+    if not giam_gia:
+        return hd
+    # Hoá đơn thuốc là CẢ đơn (không phải phần còn nợ): mọi giảm giá còn hiệu
+    # lực — chưa dùng, hay đã gắn lần thu đang chờ / đã thu (một lượt một phiếu
+    # thuốc) — để dấu khớp lúc xác minh chuyển khoản.
+    return ap_giam_gia(
+        hd,
+        await doc_giam_gia(
+            conn, clinic_id=clinic_id, visit_id=visit_id, kind="thuoc", ca_da_gan=True
+        ),
+    )
