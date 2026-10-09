@@ -27,6 +27,7 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.shifts import CAC_CA, NHAN_CA, Window, ca_tu_settings
 from clinicai.services.bang_hanh_trinh_service import noi_hang
+from clinicai.services.hoan_tac_check_in import doc_viec_da_lam, ly_do_khong_hoan_tac
 from clinicai.services.queue_order import VISIT_DA_RA_VE, moc_vao_hang_ms
 
 #: Lịch còn chờ khách tới — có nút Check-in (cùng tập với bảng Lịch hẹn hôm nay).
@@ -284,9 +285,16 @@ def _moc_xep(check_in: Any, thu_tu_tay_ms: Any, gio_hen: Any) -> Any:
 
 
 def dung_dong(
-    r: Mapping[str, Any], hang: list[dict[str, Any]], bay_gio: datetime
+    r: Mapping[str, Any],
+    hang: list[dict[str, Any]],
+    bay_gio: datetime,
+    viec: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Một hàng database → một dòng danh sách (thuần — test không cần DB)."""
+    """Một hàng database → một dòng danh sách (thuần — test không cần DB).
+
+    ``viec``: cờ "đã làm" của lượt (`hoan_tac_check_in.doc_viec_da_lam`) — quyết
+    nút Hoàn tác check-in; lệnh ghi vẫn tự khoá + kiểm lại.
+    """
     vang_lai = str(r.get("booking_channel") or "").upper() == "WALK_IN"
     check_in = r.get("checked_in_at")
     tt = trang_thai(
@@ -302,6 +310,8 @@ def dung_dong(
         hang=hang,
         bay_gio=bay_gio,
     )
+    da_check_in = r.get("status") == "CHECKED_IN" and bool(r.get("visit_id"))
+    ly_do_hoan_tac = ly_do_khong_hoan_tac(viec) if da_check_in else None
     return {
         "appointment_id": r.get("appointment_id"),
         "visit_id": r.get("visit_id"),
@@ -339,6 +349,10 @@ def dung_dong(
         # Hoàn tác check-out / về giữa chừng (01/10/2026): khách đã về → nút
         # "Hoàn tác" mở lại lượt (lệnh `HoanTacService.mo_lai_luot`).
         "mo_lai_duoc": bool(r.get("visit_id")) and tt["loai"] == "ve",
+        # Hoàn tác CHECK-IN (09/10/2026): chỉ khi khách chưa có việc thật nào
+        # sau check-in; không được thì màn hiện câu này thay cho nút.
+        "hoan_tac_duoc": da_check_in and tt["loai"] != "ve" and ly_do_hoan_tac is None,
+        "ly_do_khong_hoan_tac": ly_do_hoan_tac if tt["loai"] != "ve" else None,
     }
 
 
@@ -427,8 +441,25 @@ class TiepDonService:
             if ids:
                 for q in await conn.fetch(_SQL_HANG, cid, ids):
                     hang[q["visit_id"]].append(dict(q))
+            viec = await doc_viec_da_lam(
+                conn,
+                cid,
+                [
+                    r["visit_id"]
+                    for r in rows
+                    if r["visit_id"] and r["status"] == "CHECKED_IN"
+                ],
+            )
         ca = ca_tu_settings(settings)
-        dong = [dung_dong(r, hang.get(r["visit_id"] or "", []), bay_gio) for r in rows]
+        dong = [
+            dung_dong(
+                r,
+                hang.get(r["visit_id"] or "", []),
+                bay_gio,
+                viec.get(r["visit_id"] or ""),
+            )
+            for r in rows
+        ]
         return {
             "ngay": ngay.isoformat(),
             "buoi": gom_theo_buoi(dong, ca),

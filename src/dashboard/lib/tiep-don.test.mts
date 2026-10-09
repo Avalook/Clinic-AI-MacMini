@@ -3,10 +3,13 @@ import test from "node:test";
 
 import {
   chuanHoa,
+  dangLoc,
   docHuongXep,
   dongPhu,
   laHuongXep,
+  locLichHen,
   locTiepDon,
+  nhomLichHen,
   sapXepTiepDon,
   toneTrangThai,
   type BuoiTiepDon,
@@ -119,4 +122,56 @@ test("sắp xếp + nhớ lựa chọn: rác không ném, không có kho thì v�
   assert.equal(laHuongXep("lạ"), false);
   assert.equal(laHuongXep(null), false);
   assert.equal(docHuongXep(), "cu_truoc"); // node không có window
+});
+
+// ── Thanh lọc trên cùng màn Tiếp đón lọc CẢ bảng Lịch hẹn (09/10/2026) ──────────
+const NGAY = [
+  {
+    date: "2026-10-09",
+    items: [
+      { id: "x1", status: "CONFIRMED", so_booking: 3, patient: { full_name: "Nguyễn Thị Ngà", patient_code: "BN-01", phone_primary: "0900 001 237" } },
+      { id: "x2", status: "CHECKED_IN", so_booking: 12, patient: { full_name: "Trần Mai", patient_code: "BN-02", phone_primary: null } },
+      { id: "x3", status: "COMPLETED", so_booking: 7, patient: { full_name: "Lê Hoa", patient_code: "BN-03", phone_primary: "0911222333" } },
+      { id: "x4", status: "NO_SHOW", so_booking: 8, patient: null },
+    ],
+  },
+  { date: "2026-10-10", items: [] },
+];
+const ma = (ds: { items: { id: string }[] }[]) => ds.flatMap((d) => d.items.map((a) => a.id));
+
+test("lọc lịch hẹn: tab chưa đến / đã check-in cùng nghĩa với danh sách tiếp đón", () => {
+  assert.equal(nhomLichHen("SCHEDULED"), "chua_den");
+  assert.equal(nhomLichHen("CONFIRMED"), "chua_den");
+  assert.equal(nhomLichHen("CHECKED_IN"), "da_den");
+  assert.equal(nhomLichHen("COMPLETED"), "da_den");
+  assert.equal(nhomLichHen("NO_SHOW"), "khac");
+  assert.equal(nhomLichHen(undefined), "khac");
+  assert.deepEqual(ma(locLichHen(NGAY, { tab: "chua_den", tim: "" })), ["x1"]);
+  assert.deepEqual(ma(locLichHen(NGAY, { tab: "da_den", tim: "" })), ["x2", "x3"]);
+  assert.deepEqual(ma(locLichHen(NGAY, { tab: "tat_ca", tim: "" })), ["x1", "x2", "x3", "x4"]);
+  // Giữ mọi ngày — dải ngày không nhảy khi lọc.
+  assert.equal(locLichHen(NGAY, { tab: "da_den", tim: "" }).length, 2);
+});
+
+test("lọc lịch hẹn: ô tìm theo tên không dấu, mã, #booking, SĐT theo chữ số", () => {
+  assert.deepEqual(ma(locLichHen(NGAY, { tab: "tat_ca", tim: "nga" })), ["x1"]);
+  assert.deepEqual(ma(locLichHen(NGAY, { tab: "tat_ca", tim: "bn-02" })), ["x2"]);
+  assert.deepEqual(ma(locLichHen(NGAY, { tab: "tat_ca", tim: "#7" })), ["x3"]);
+  assert.deepEqual(ma(locLichHen(NGAY, { tab: "tat_ca", tim: "0900001" })), ["x1"]);
+  assert.deepEqual(ma(locLichHen(NGAY, { tab: "da_den", tim: "hoa" })), ["x3"]);
+  assert.deepEqual(ma(locLichHen(NGAY, { tab: "chua_den", tim: "hoa" })), []);
+});
+
+test("lọc lịch hẹn: rác không ném, không lọc thì trả nguyên", () => {
+  assert.equal(dangLoc(null), false);
+  assert.equal(dangLoc({ tab: "tat_ca", tim: "  " }), false);
+  assert.equal(dangLoc({ tab: "da_den", tim: "" }), true);
+  assert.deepEqual(locLichHen(null, { tab: "da_den", tim: "" }), []);
+  assert.deepEqual(ma(locLichHen(NGAY, null)), ["x1", "x2", "x3", "x4"]);
+  // @ts-expect-error — tab lạ coi như "Tất cả"
+  assert.deepEqual(ma(locLichHen(NGAY, { tab: "lạ", tim: "mai" })), ["x2"]);
+  // @ts-expect-error — dữ liệu hỏng từ mạng
+  assert.deepEqual(locLichHen([{ date: "d", items: null }], { tab: "da_den", tim: "" }), [
+    { date: "d", items: [] },
+  ]);
 });

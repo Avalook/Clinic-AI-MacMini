@@ -25,9 +25,15 @@ const maThucThi = board
 // một mốc giờ, "Mời <tên>") đã gỡ vì chính thiết kế ấy đã được thay.
 
 test("danh sách tiếp đón: 3 tab, chia buổi, trạng thái do MÁY CHỦ tính", () => {
-  for (const nhan of ["Tất cả", "Chưa đến", "Đã check-in"]) {
-    assert.match(board, new RegExp(`nhan: "${nhan}"`));
+  // 09/10/2026: tab + ô tìm lên THANH TRÊN CÙNG trang, lọc cả bảng Lịch hẹn.
+  const thanh = readFileSync(
+    new URL("../app/(dashboard)/reception/queue/ThanhLocTiepDon.tsx", import.meta.url),
+    "utf8",
+  );
+  for (const nhan of ["Tất cả", "Chưa check-in", "Đã check-in"]) {
+    assert.match(thanh, new RegExp(`nhan: "${nhan}"`));
   }
+  assert.match(thanh, /type="search"/);
   // Chip trạng thái chỉ đọc chữ + loại máy chủ trả — màn không tự suy ra.
   assert.match(maThucThi, /d\.trang_thai\.nhan/);
   assert.match(maThucThi, /locTiepDon\(sapXepTiepDon\(goi\.buoi, huong\), tab, tim\)/);
@@ -57,6 +63,34 @@ test("thêm khách xong về màn Tiếp đón — cửa hỏi theo lego của t
   assert.match(trang, /moDuocMan\("\/reception\/queue"\)/);
   assert.match(trang, /veTiepDon=\{veTiepDon\}/);
   assert.match(form, /if \(veTiepDon\) \{\s*router\.push\("\/reception\/queue"\);/);
+});
+
+test("thanh lọc trên cùng lọc CẢ bảng Lịch hẹn lẫn danh sách tiếp đón", () => {
+  const doc = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
+  const trang = doc("../app/(dashboard)/reception/queue/page.tsx");
+  const than = doc("../app/(dashboard)/reception/queue/ManTiepDon.tsx");
+  const bang = doc("../app/(dashboard)/home/WeeklyAppointmentsTable.tsx");
+  const trangChu = doc("../app/(dashboard)/home/page.tsx");
+  // Trang VẪN tự vẽ hai bảng (bản đồ code đi theo import từ trang), bọc trong
+  // `ManTiepDon` — thanh lọc đứng trước, phát bộ lọc qua context.
+  const mo = trang.indexOf("<ManTiepDon");
+  assert.ok(mo > 0 && mo < trang.indexOf("<WeeklyAppointmentsTable"));
+  assert.ok(trang.indexOf("<QueueBoard goi={danhSach} />") < trang.indexOf("</ManTiepDon>"));
+  assert.match(than, /<LocTiepDonContext\.Provider value=\{loc\}>\s*<ThanhLocTiepDon/);
+  assert.match(maThucThi, /useLocTiepDon\(\) \?\? LOC_MAC_DINH/);
+  // Bảng dùng chung: lọc là prop TUỲ CHỌN / context, phép lọc ở lib (hàm thuần).
+  assert.match(bang, /const locHieuLuc = loc \?\? locChung;/);
+  assert.match(bang, /locLichHen\(daysHien, locHieuLuc\)/);
+  // Trang chủ không bọc ManTiepDon, không truyền `loc` → hành vi như cũ.
+  assert.doesNotMatch(trangChu, /loc=\{|ManTiepDon/);
+});
+
+test("hoàn tác check-in ở dòng khách: theo cờ máy chủ, cùng lệnh bảng Lịch hẹn", () => {
+  assert.match(maThucThi, /d\.hoan_tac_duoc \? \(/);
+  assert.match(maThucThi, /action: "undo_checkin"/);
+  // Không được thì chỉ hiện câu của máy chủ — màn không tự suy "đã làm gì".
+  assert.match(maThucThi, /d\.ly_do_khong_hoan_tac/);
+  assert.doesNotMatch(maThucThi, /vitals_status|has_vitals/);
 });
 
 test("không bịa dữ liệu vận hành", () => {

@@ -1,7 +1,7 @@
 /**
  * Tiếp đón khách (trước 16/09/2026 tên "Hàng đợi tiếp nhận").
  *
- * Hai khối: trên cùng "Lịch hẹn" (bảng lịch chung, có Check-in / Không đến /
+ * Trên cùng THANH TÌM + LỌC (09/10/2026, `ManTiepDon`) lọc cả hai khối. Hai khối: "Lịch hẹn" (bảng lịch chung, có Check-in / Không đến /
  * Hoàn tác ở HÔM NAY; thanh tuần/ngày y hệt Trang chủ — 29/09/2026: bấm dòng
  * ngày khác mở popover Đổi lịch tại chỗ để đổi sang hôm nay + check-in); bên dưới DANH SÁCH TIẾP ĐÓN (27/09/2026, đợt 3 — bản mẫu
  * Tuyền duyệt): mỗi lịch / lượt hôm nay một dòng, chia buổi, chip trạng thái do
@@ -19,6 +19,7 @@ import {
 import { QUYEN_DOI_DICH_VU_KHAM, QUYEN_GHI_CHAM_SOC, coMotQuyen } from "@/lib/quyen-cua-toi";
 import { currentWeekStartVn, weekStartOf } from "@/lib/roster";
 import type { GoiTiepDon } from "@/lib/tiep-don";
+import ManTiepDon from "./ManTiepDon";
 import QueueBoard from "./QueueBoard";
 import LiveBoardSync from "../../LiveBoardSync";
 import WeekNav from "../../WeekNav";
@@ -69,6 +70,12 @@ export default async function ReceptionQueuePage({
           nhận" và "Thứ Năm, 06/08/2026". Lặp lại lần nữa chỉ đẩy phần việc thật
           xuống dưới một màn hình. */}
 
+      {/* Thanh tìm + lọc TRÊN CÙNG (09/10/2026): một bộ lọc cho cả bảng Lịch
+          hẹn lẫn danh sách tiếp đón (context của `ManTiepDon`). */}
+      <ManTiepDon
+        dem={danhSach !== null && Array.isArray(danhSach.buoi) ? danhSach.dem : null}
+        themKhachDuoc={themKhachDuoc}
+      >
       {/* Check-in đứng TRÊN hàng đợi và ngoài nhánh lỗi của hàng đợi: hàng
           đợi không tải được thì quầy vẫn phải check-in được khách. */}
       <section aria-label="Lịch hẹn" className="rounded-card border border-line bg-surface p-3 shadow-card sm:p-4">
@@ -116,8 +123,9 @@ export default async function ReceptionQueuePage({
           </p>
         </div>
       ) : (
-        <QueueBoard goi={danhSach} themKhachDuoc={themKhachDuoc} />
+        <QueueBoard goi={danhSach} />
       )}
+      </ManTiepDon>
     </main>
     </>
   );
