@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { donKhung, ganMaMoi, maMoi, maOTrongMau, nhacTruocXuatBan, slugMa, tenMucHien, type MucMau } from "./sua-mau.ts";
+import { coDonVi, donKhung, ganMaMoi, maMoi, maOTrongMau, nhacTruocXuatBan, slugMa, tenMucHien, type MucMau } from "./sua-mau.ts";
 
 const MAU: MucMau[] = [
   {
@@ -64,6 +64,30 @@ test("donKhung GIỮ cách vẽ ô tích nhanh của ô chọn; đổi sang ki�
   const doiKieu = structuredClone(k);
   doiKieu[0].block[0].kieu = "text";
   assert.equal(donKhung(doiKieu)[0].block[0].hien_thi, undefined);
+});
+
+test("donKhung GIỮ ô tuỳ chọn + đơn vị; đơn vị rỗng / ô đoạn văn thì bỏ (09/10/2026)", () => {
+  const k: MucMau[] = [
+    {
+      ma: "m",
+      ten: "M",
+      block: [
+        { ma: "bpd", ten: "BPD", kieu: "text", goi_y: "mm", don_vi: " mm " },
+        { ma: "crl", ten: "CRL", kieu: "so", don_vi: "  " },
+        { ma: "de_nghi", ten: "Đề nghị", kieu: "doan_van", tuy_chon: true, don_vi: "mm" },
+        { ma: "x", ten: "X", kieu: "text", tuy_chon: false },
+      ],
+    },
+  ];
+  const [bpd, crl, deNghi, x] = donKhung(k)[0].block;
+  assert.equal(bpd.don_vi, "mm");
+  assert.equal(bpd.goi_y, "mm");
+  assert.equal("don_vi" in crl, false);
+  assert.equal(deNghi.tuy_chon, true);
+  assert.equal("don_vi" in deNghi, false); // máy chủ chặn đơn vị ở đoạn văn
+  assert.equal("tuy_chon" in x, false);
+  assert.equal(coDonVi("text") && coDonVi("so"), true);
+  assert.equal(coDonVi("doan_van") || coDonVi("chon") || coDonVi("ngay"), false);
 });
 
 test("nhắc: chọn không có lựa chọn, thiếu kết luận", () => {

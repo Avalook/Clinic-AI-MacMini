@@ -102,7 +102,10 @@ async def mau_cho_cac_dich_vu(
         "  JOIN ket_qua_mau m ON m.clinic_id = d.clinic_id AND m.ma = d.mau"
         "   AND m.active"
         " WHERE d.clinic_id = $1::uuid AND d.service_code = ANY($2::text[])"
-        " ORDER BY m.ten",
+        # `thu_tu` trước tên: mẫu gắn THÊM (thu_tu > 0) không giành chỗ chọn sẵn.
+        # Theo tên thôi thì "…thai quý III" đứng trước "…thai quý II - III"
+        # (collation en_US bỏ qua " - ") và thành mặc định (09/10/2026).
+        " ORDER BY d.thu_tu, m.ten",
         clinic_id,
         ma_dv,
     ):

@@ -36,6 +36,10 @@ export interface OMau {
    *  GIỮ khi sửa mẫu, không thì xuất bản lại là mất (29/09/2026). */
   hien_thi?: "o_tick";
   goi_y?: string;
+  /** Đơn vị in sau giá trị ("mm") — chỉ ô chữ ngắn / số (09/10/2026). */
+  don_vi?: string;
+  /** Ô tuỳ chọn: để trống không bị nhắc "còn trống" lúc Hoàn tất. */
+  tuy_chon?: boolean;
   /** Chữ; hoặc theo cột ({ma_cột: chữ}) khi mục là bảng. */
   mac_dinh?: string | Record<string, string>;
 }
@@ -127,6 +131,9 @@ export function nhacTruocXuatBan(khung: readonly MucMau[]): string[] {
   return [...new Set(ra)];
 }
 
+/** Ô có chỗ ghi ĐƠN VỊ (chữ ngắn / số) — màn sửa chỉ vẽ ô nhập đơn vị cho chúng. */
+export const coDonVi = (kieu: KieuO): boolean => kieu === "text" || kieu === "so";
+
 /** Bỏ trường rỗng trước khi gửi: lựa chọn trống, gợi ý trống, mặc định trống. */
 export function donKhung(khung: readonly MucMau[]): MucMau[] {
   return khung.map((m) => ({
@@ -138,6 +145,10 @@ export function donKhung(khung: readonly MucMau[]): MucMau[] {
       if (o.kieu === "chon") ra.chon = (o.chon ?? []).map((x) => x.trim()).filter(Boolean);
       if (o.kieu === "chon" && o.hien_thi === "o_tick") ra.hien_thi = "o_tick";
       if (o.goi_y?.trim()) ra.goi_y = o.goi_y.trim();
+      if (o.tuy_chon === true) ra.tuy_chon = true;
+      // Đơn vị chỉ có ở ô chữ ngắn / số (máy chủ chặn kiểu khác) — đổi kiểu ô
+      // sang đoạn văn thì bỏ đơn vị cũ, không để xuất bản bị từ chối.
+      if (coDonVi(o.kieu) && o.don_vi?.trim()) ra.don_vi = o.don_vi.trim();
       if (typeof o.mac_dinh === "string" && o.mac_dinh.trim()) ra.mac_dinh = o.mac_dinh.trim();
       if (o.mac_dinh && typeof o.mac_dinh === "object" && m.cot?.length) {
         const cot = new Set(m.cot.map((c) => c.ma));

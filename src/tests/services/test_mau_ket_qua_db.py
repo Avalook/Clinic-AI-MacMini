@@ -72,7 +72,9 @@ async def _nguoi(conn: asyncpg.Connection, role: str) -> StaffIdentity:
 async def test_co_du_18_mau_cua_phong_kham(pool: asyncpg.Pool) -> None:
     so = await pool.fetchval(
         "SELECT count(*) FROM ket_qua_mau WHERE clinic_id = $1::uuid AND active"
-        " AND ma NOT IN ('CHUNG', 'DO_MAT_DO_XUONG', 'PHIEU_DIEU_TRI')",
+        # + mẫu siêu âm thai quý III (migration 20261009310000).
+        " AND ma NOT IN ('CHUNG', 'DO_MAT_DO_XUONG', 'PHIEU_DIEU_TRI',"
+        "                'SA_THAI_QUY_3')",
         CLINIC,
     )
     assert so == 18

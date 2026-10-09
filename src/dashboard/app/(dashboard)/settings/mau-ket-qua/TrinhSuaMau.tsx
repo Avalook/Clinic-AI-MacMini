@@ -15,6 +15,7 @@ import Chip from "@/components/ui/Chip";
 import { fmtDateTime } from "@/lib/datetime";
 import {
   NHAN_KIEU,
+  coDonVi,
   donKhung,
   ganMaMoi,
   nhacTruocXuatBan,
@@ -288,8 +289,8 @@ export default function TrinhSuaMau({
                   <input
                     value={o.goi_y ?? ""}
                     disabled={khoaSua}
-                    aria-label={`Đơn vị / gợi ý của ${o.ten}`}
-                    placeholder="Đơn vị (mm, tuần…)"
+                    aria-label={`Gợi ý cách gõ của ${o.ten}`}
+                    placeholder="Gợi ý (tuần + ngày…)"
                     onChange={(e) => suaO(i, j, (x) => ({ ...x, goi_y: e.target.value }))}
                     className={`${O_GOC} w-40`}
                   />
@@ -306,6 +307,34 @@ export default function TrinhSuaMau({
                       </Button>
                     </span>
                   ) : null}
+                </div>
+
+                {/* Đơn vị in sau giá trị ("89.6 mm") + ô tuỳ chọn (09/10/2026). */}
+                <div className="flex flex-wrap items-center gap-3">
+                  {coDonVi(o.kieu) ? (
+                    <label className="flex items-center gap-2 text-meta text-ink-muted">
+                      Đơn vị
+                      <input
+                        value={o.don_vi ?? ""}
+                        disabled={khoaSua}
+                        maxLength={20}
+                        aria-label={`Đơn vị của ${o.ten}`}
+                        placeholder="mm, cm/s…"
+                        onChange={(e) => suaO(i, j, (x) => ({ ...x, don_vi: e.target.value }))}
+                        className={`${O_GOC} w-28`}
+                      />
+                    </label>
+                  ) : null}
+                  <label className="flex min-h-10 items-center gap-2 text-meta text-ink">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-brand-600"
+                      disabled={khoaSua}
+                      checked={o.tuy_chon === true}
+                      onChange={(e) => suaO(i, j, (x) => ({ ...x, tuy_chon: e.target.checked }))}
+                    />
+                    Tuỳ chọn — để trống không bị nhắc
+                  </label>
                 </div>
 
                 {o.kieu === "chon" ? (

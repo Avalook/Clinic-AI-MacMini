@@ -3747,3 +3747,6 @@ SELECT * FROM public.dong_bo_danh_muc_dich_vu('kiot_0110');
 -- vụ 01/10 (cần bảng giá dịch vụ đã có để biết phòng khám nào được nạp; gợi ý
 -- đầu dò Bio gắn theo mã SP000145 / SP000146 của dịch vụ).
 SELECT * FROM public.dong_bo_vat_tu(false);
+-- Mẫu siêu âm thai quý III (20261009310000) gắn THÊM cho dịch vụ đang gắn quý
+-- II–III — SAU mọi bước gắn mẫu ở trên; quý II–III vẫn chọn sẵn (thu_tu).
+SELECT public.gan_mau_sa_thai_quy_3();
