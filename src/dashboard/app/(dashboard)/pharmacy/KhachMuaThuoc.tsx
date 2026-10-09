@@ -151,7 +151,8 @@ export default function KhachMuaThuoc({
       </div>
       <p className="text-meta text-ink-muted">
         Mở lượt bán lẻ: không tiền khám, không vào hàng chờ bác sĩ. Kê thuốc và thu tiền ngay
-        tại quầy; thu xong lượt tự đóng.
+        tại quầy; thu xong lượt tự đóng. Khách cũ: mở lượt xong sẽ thấy đơn gần nhất để bán
+        theo đơn.
       </p>
       {loi ? (
         <p role="alert" className="rounded-control bg-danger-bg px-3 py-2 text-meta text-danger">

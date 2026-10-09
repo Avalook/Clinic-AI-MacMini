@@ -38,6 +38,9 @@ const ACTIONS: Record<string, string> = {
   "kiem-kho": "/api/v1/pharmacy/kiem-kho",
   // 30/09 (V8): khách chỉ đến mua thuốc — mở / lấy lại lượt Bán lẻ.
   "ban-le": "/api/v1/pharmacy/ban-le",
+  // 09/10: bán theo đơn khám cũ — nối / gỡ nối đơn gốc của lượt Bán lẻ.
+  "ban-le-theo-don": "/api/v1/pharmacy/ban-le/theo-don",
+  "ban-le-go-don": "/api/v1/pharmacy/ban-le/go-don",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

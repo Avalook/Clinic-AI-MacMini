@@ -328,6 +328,10 @@ lần thu (mig 20261002800000). Màn: `D/thu-ngan/QuayThuNgan.tsx` (`quayThu`), 
 `quay-thu-tach-thuoc-dich-vu-boundary.test.mts`. (Dịch vụ "XN thu hộ" của đối tác vẫn là tiền DỊCH VỤ,
 thu ở quầy dịch vụ.)
 Lượt Bán lẻ ở quầy thuốc: `D/pharmacy/BanLeThu.tsx` → `S/ban_le_service.py`.
+Bán theo đơn khám cũ (đơn gần nhất, kê / đã mua / còn lại, nhắc quá 2 tháng / vượt số kê,
+nối – gỡ đơn gốc `visit.don_goc_visit_id`, mig `20261010100000`): `D/pharmacy/DonGanNhat.tsx` →
+`S/ban_theo_don_service.py` (`doc_don`, `noi_don`, `go_noi_don`). Test:
+`T/unit/test_ban_theo_don.py`, `T/services/test_ban_theo_don_db.py`.
 
 **Thu trước – làm trước (tick "Làm trước – thu sau")** — công tắc: `/settings/day-noi`
 (`thu_truoc_khi_lam`). Code: `S/lam_truoc_thu_sau.py`, cổng `S/finance_gate.py`

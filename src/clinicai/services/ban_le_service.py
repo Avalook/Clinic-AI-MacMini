@@ -32,6 +32,7 @@ from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import can
 from clinicai.schemas.patient import PatientCreateDTO
 from clinicai.services.audit import record_event
+from clinicai.services.ban_theo_don_service import doc_don
 from clinicai.services.bill_service import tinh_hoa_don
 from clinicai.services.phan_thu import doc_phan_db
 
@@ -272,6 +273,8 @@ class BanLeService:
                 conn, clinic_id=identity.clinic_id, visit_id=visit_id, kind="thuoc"
             )
             duoc_thu = await can(conn, identity, QUYEN_THU_THUOC)
+            # Đơn gần nhất / đơn đã nối — "Bán theo đơn này" (09/10/2026).
+            don = await doc_don(conn, identity, ban_le_visit_id=visit_id)
         cho = None
         if lan is not None and lan["status"] == "PENDING_VERIFICATION":
             cho = {
@@ -301,6 +304,7 @@ class BanLeService:
             "hoa_don": hd.cho_api(),
             # Kê thêm + thu = quyền "Thu tiền thuốc" (đúng hai lệnh dùng lại).
             "duoc_thu": duoc_thu,
+            "don_goc": don,
         }
 
 

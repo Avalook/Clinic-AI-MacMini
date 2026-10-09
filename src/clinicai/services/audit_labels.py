@@ -65,6 +65,8 @@ EVENT_LABELS: dict[str, str] = {
     "visit.ban_le_opened": "Mở lượt khách mua thuốc (bán lẻ)",
     "visit.ban_le_closed": "Đóng lượt bán lẻ — đã thu tiền thuốc",
     "visit.ban_le_reopened": "Mở lại lượt bán lẻ — hoàn tác lần thu tiền thuốc",
+    "visit.ban_le_noi_don": "Bán lẻ theo đơn khám cũ",
+    "visit.ban_le_go_don": "Gỡ nối đơn khám cũ khỏi lượt bán lẻ",
     "patient.contacted": "CSKH đã liên hệ khách",
     # Khối chỉnh dây (nhóm 5, 24/09/2026).
     "config.wiring_changed": "Đổi dây nối nghiệp vụ",
