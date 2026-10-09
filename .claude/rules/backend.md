@@ -27,3 +27,12 @@ paths:
   công bố kiểu (không `py.typed`, vd asyncpg) coi là Unknown, ĐÚNG như mypy coi là
   Any; đừng bật lại (asyncpg sẽ sinh ~970 lỗi giả `PoolConnectionProxy`). Pyright báo
   mà mypy không báo thì kiểm tay, đừng sửa mù.
+- **Hai cơ sở (08/10/2026):** danh sách vận hành lọc theo `identity.location_id`;
+  cơ sở của lượt = `coalesce(visit.location_id, appointment.location_id)` (SQL:
+  `public.co_so_cua_luot`). Mẫu lọc an toàn NULL, không `OR`:
+  `coalesce(LOC, $N::uuid) IS NOT DISTINCT FROM coalesce($N::uuid, LOC)`; tham số
+  mới đặt CUỐI, truyền `identity.location_id or None`. Chọn/ghi phòng cho lượt
+  phải cùng cơ sở lượt (DB có chốt `chan_phong_khac_co_so` — sai là lỗi cứng).
+  Không lọc: tìm khách, hồ sơ, lịch sử khám, danh mục, sức chứa đặt lịch.
+- **Test DB:** chỉ khẳng định trên dòng bài tự tạo — CI chạy song song một DB,
+  đếm tổng / "đầu tiên" vỡ ngẫu nhiên.
