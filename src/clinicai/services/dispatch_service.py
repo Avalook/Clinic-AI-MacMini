@@ -44,6 +44,9 @@ logger = structlog.get_logger()
 _LY_DO_XEP = {
     "INITIAL_ASSIGNMENT": "xếp phòng",
     "LOAD_BALANCE": "cân tải",
+    # [Làm tại bàn khám] chuyển chỉ định sang phòng bác sĩ / hoàn tác (PR #383).
+    "LAM_TAI_BAN_KHAM": "Làm tại bàn khám",
+    "HUY_LAM_TAI_BAN_KHAM": "Huỷ làm tại bàn khám — trả phòng cũ",
 }
 #: Màn gây ra lần xếp (`nguon`).
 _NGUON_XEP = {"truong_ca": "trưởng ca", "quay_thu": "quầy thu", "tu_dong": "tự động"}
