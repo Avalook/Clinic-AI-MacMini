@@ -27,6 +27,7 @@ import { LOI_MAT_KET_NOI, nenThuLai, type KetQuaGui, type TrangThaiLuu } from "@
 import { useTuLuu } from "@/lib/use-tu-luu";
 import {
   donTuDong,
+  docKhoi1,
   dongTuDon,
   gopSoLuongQuayDien,
   nhomThuThuat,
@@ -57,11 +58,14 @@ import KetQuaChiDinh, { type PhanKetQua } from "./KetQuaChiDinh";
 import GhiChuLuot from "./GhiChuLuot";
 import KhoiDichVuHoSo from "./KhoiDichVuHoSo";
 import KhoiDieuTri from "./KhoiDieuTri";
+import ChonThuThuatBanKham from "./ChonThuThuatBanKham";
 import LichSuKham from "../LichSuKham";
 
 interface PhieuLuot extends DinhNghiaPhieu {
   du_lieu: Record<string, ONhap>;
   revision: number;
+  /** Khối 1 theo loại lượt (09/10/2026) — máy chủ quyết (`che_do_khoi1`). */
+  khoi1?: string | null;
 }
 
 interface ThamChieuDu extends ThamChieu {
@@ -419,8 +423,14 @@ export default function PhieuKhamLuot({
     () => new Set((tc?.thu_thuat ?? []).flatMap((t) => (t.service_code ? [t.service_code] : []))),
     [tc],
   );
+  // KHỐI 1 theo loại lượt (09/10/2026, máy chủ trả `khoi1`): lượt Điều trị /
+  // Thủ thuật vẽ thẻ làm tại bàn khám (cờ `ban_kham`) ở khối 1, không ở khối 3.
+  const khoi1 = docKhoi1(phieu?.khoi1);
   // Chỉ định ĐIỀU TRỊ theo cờ máy chủ (`phanChiDinh`) — thẻ điều trị đầu khối 3.
-  const dsDieuTri = useMemo(() => phanChiDinh(ketQua, maThuThuat).dieuTri, [ketQua, maThuThuat]);
+  const phan = useMemo(() => phanChiDinh(ketQua, maThuThuat, khoi1), [ketQua, maThuThuat, khoi1]);
+  const dsDieuTri = phan.dieuTri;
+  const dsBanKham = phan.banKham;
+  const daChonBanKham = useMemo(() => new Set(dsBanKham.map((c) => c.service_code)), [dsBanKham]);
   const goiYMau = useMemo(() => {
     const ra: Record<string, string> = {};
     for (const n of tc?.chi_dinh_cls ?? []) {
@@ -481,6 +491,34 @@ export default function PhieuKhamLuot({
     },
   };
   const theDieuTri = <KhoiDieuTri visitId={visitId} choGhi={choGhi} chiDinh={dsDieuTri} ketQua={propsKetQua} />;
+  // Phần riêng khối 1: lượt Điều trị = thẻ điều trị (phiếu cảm nhận, liệu trình,
+  // làm tại bàn khám); lượt Thủ thuật = "＋ Thủ thuật đã làm" + thẻ đã chọn. Ô
+  // "Làm trước – thu sau" ở đầu thẻ, chỉ khi máy chủ mời (`oTick`).
+  const oKhoi1 =
+    khoi1 && !chiMuc ? (
+      <div className="space-y-3">
+        {khoi1 === "THU_THUAT" ? (
+          <ChonThuThuatBanKham
+            visitId={visitId}
+            ds={nhomThuThuat(tc?.thu_thuat)}
+            daChon={daChonBanKham}
+            choGhi={choGhi}
+            onDaChon={() => {
+              void napKetQua();
+              onDaDat();
+            }}
+          />
+        ) : null}
+        <KhoiDieuTri
+          visitId={visitId}
+          choGhi={choGhi}
+          chiDinh={dsBanKham}
+          ketQua={propsKetQua}
+          oTick
+          goiYTrong={khoi1 === "THU_THUAT" ? null : undefined}
+        />
+      </div>
+    ) : null;
   const khoiDichVu =
     xemLai || chiMuc ? null : (
       <div className="space-y-2">
@@ -521,9 +559,10 @@ export default function PhieuKhamLuot({
     return (
       <div className="space-y-3">
         {khoiDichVu}
+        {/* Thẻ điều trị ĐẦU hồ sơ tối giản (09/10/2026). */}
+        {theDieuTri}
         {/* Lượt "Khác": MỘT ô chữ to tự do (máy chủ quyết có hiện không). */}
         <GhiChuLuot visitId={visitId} choGhi={choGhi} />
-        {theDieuTri}
         {dsKhac.length > 0 ? (
           <section className="space-y-2 rounded-card border border-hairline bg-surface p-4">
             <h2 className="text-title text-ink">Đã chỉ định &amp; kết quả</h2>
@@ -611,7 +650,10 @@ export default function PhieuKhamLuot({
             </>
           )
         }
-        oDieuTri={chiMuc ? undefined : theDieuTri}
+        // Lượt có khối 1 riêng: thẻ ở khối 1 (`oKhoi1`), KHÔNG vẽ lại ở khối 3.
+        oDieuTri={chiMuc || khoi1 ? undefined : theDieuTri}
+        oKhoi1={oKhoi1}
+        khoi1={khoi1}
         // Tick dịch vụ khám (mã KiotViet) → tiền khám tính theo đó (28/09/2026).
         oDichVuKham={chiMuc || xemLai ? undefined : <ChonDichVuKham visitId={visitId} />}
         chanRay={chanRay}
@@ -672,7 +714,9 @@ export default function PhieuKhamLuot({
               ẩn khi dây tắt; cờ bấm được do máy chủ trả. Màn hẹp: cột phải là
               thanh cuộn ngang — khoá bề rộng để chữ xuống dòng (bấm thật 375
               ngày 30/09: câu dài kéo ô ra ~1000px, nút In trôi khỏi màn). */}
-          {choGhi ? (
+          {/* Lượt Điều trị / Thủ thuật: ô ở khối 1, chỉ khi máy chủ mời — không
+              vẽ hai lần (09/10/2026). */}
+          {choGhi && !khoi1 ? (
             <div className="w-72 shrink-0 lg:w-full">
               <OLamTruocThuSau visitId={visitId} />
             </div>

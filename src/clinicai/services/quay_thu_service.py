@@ -184,7 +184,8 @@ def dung_hoa_don_quay(
 
     Mỗi dịch vụ đúng MỘT dòng:
       * tiền khám — tick khoá;
-      * chỉ định còn chờ khách quyết — tick được (trừ "Bắt buộc"); bỏ tick =
+      * chỉ định còn chờ khách quyết — tick được (trừ "Bắt buộc" đang
+        tick — không bỏ được, nhưng đang bỏ thì tick lại được); bỏ tick =
         ``chon`` False (màn gạch ngang + "khách không làm");
       * dòng hoá đơn không còn ở giai đoạn khách quyết (dữ liệu cũ) — tick khoá.
     Đối tác tự thu vào nhóm riêng, không cộng. Tổng / dấu hoá đơn lấy nguyên từ
@@ -295,7 +296,10 @@ def dung_hoa_don_quay(
             "gia": gia,
             "van_de": dong.get("van_de") if dong and chon_c else None,
             "chon": chon_c,
-            "sua_duoc": not c.get("bat_buoc"),
+            # "Bắt buộc" chỉ cấm BỎ tick (máy chủ chặn `SERVICE_REQUIRED`).
+            # Bác sĩ đánh dấu bắt buộc SAU khi khách đã bỏ → phải tick lại
+            # được, không thì kẹt "không làm" (staging 08/10/2026).
+            "sua_duoc": not (c.get("bat_buoc") and chon_c),
             "trong_lua_chon": True,
             "bat_buoc": bool(c.get("bat_buoc")),
             "mang_sang": bool(c.get("mang_sang")),
@@ -311,7 +315,7 @@ def dung_hoa_don_quay(
             "can_xep_phong": bool(c.get("phong_chon_duoc")),
             # Dây Nhận tại phòng BẬT: ô phòng là hướng dẫn (không bắt buộc).
             "huong_dan": bool(c.get("huong_dan")),
-            # Buổi liệu trình: {lieu_trinh_id, buoi_so, so_buoi, tra_truoc}.
+            # Buổi liệu trình: {lieu_trinh_id, buoi_so, so_buoi, tra_truoc, da_lam}.
             "lieu_trinh": c.get("lieu_trinh"),
         }
         if la_doi_tac:

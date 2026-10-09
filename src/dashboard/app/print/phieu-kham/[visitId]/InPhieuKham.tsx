@@ -226,10 +226,11 @@ function DieuTriIn({ ds }: { ds: ChiDinhVaKetQua[] }) {
             <p className="font-semibold text-ink">
               {i + 1}. {c.ten_hien_thi}
             </p>
-            {/* Liệu trình nhiều buổi (08/10/2026) — số buổi máy chủ trả. */}
+            {/* Liệu trình nhiều buổi — số buổi máy chủ trả (thứ tự làm xong). */}
             {c.lieu_trinh ? (
               <p className="pl-4 text-ink-muted">
                 Liệu trình: buổi {c.lieu_trinh.buoi_so}/{c.lieu_trinh.so_buoi}
+                {c.lieu_trinh.da_lam === false ? " · chưa làm" : ""}
               </p>
             ) : null}
             {o.length ? (

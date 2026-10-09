@@ -65,13 +65,28 @@ def test_nut_chi_dinh() -> None:
         "go": False,
         "tach": False,
         "chon": False,
+        "khach_chon": False,
     }
+    # Buổi lẻ + bác sĩ đã ĐỀ XUẤT lộ trình cùng dịch vụ → [Khách chọn lộ trình].
+    de_xuat: dict[str, Any] = {
+        "song": True,
+        "lieu_trinh_id": None,
+        "ung_vien": [{"id": "d", "trang_thai": "DE_XUAT"}],
+    }
+    assert nut_chi_dinh(de_xuat)["khach_chon"] is True
+    assert nut_chi_dinh(de_xuat)["chon"] is True
     gan: dict[str, Any] = {
         "song": True,
         "lieu_trinh_id": "a",
         "ung_vien": [{"id": "a"}],
     }
-    assert nut_chi_dinh(gan) == {"tao": False, "go": True, "tach": True, "chon": False}
+    assert nut_chi_dinh(gan) == {
+        "tao": False,
+        "go": True,
+        "tach": True,
+        "chon": False,
+        "khach_chon": False,
+    }
     hai: dict[str, Any] = {
         "song": True,
         "lieu_trinh_id": "a",
@@ -98,7 +113,8 @@ async def _the(ca: LT, visit: str) -> dict[str, Any]:
 @pytest.mark.db
 @pytest.mark.asyncio
 async def test_the_lieu_trinh_nut_hoan_tac_dich_vu_noi_lam(pool: asyncpg.Pool) -> None:
-    """Thẻ: chỉ định chưa gắn → [Tạo]; tạo xong → buổi 1, nút gỡ/tách; điều
+    """Thẻ: chỉ định chưa gắn → [Tạo]; tạo + khách chọn → buổi 1 "chưa làm",
+    nút gỡ/tách; điều
     chỉnh → [Hoàn tác] trỏ đúng dòng lịch sử; dừng → chỉ còn Mở lại; buổi làm
     tại bàn khám ghi "Bàn khám"; dịch vụ nhóm Điều trị có trong lối đề xuất."""
     ca = await dung_ca(pool)
@@ -109,15 +125,24 @@ async def test_the_lieu_trinh_nut_hoan_tac_dich_vu_noi_lam(pool: asyncpg.Pool) -
     assert c["nut"]["tao"] and not c["nut"]["go"]
     assert t["lieu_trinh"] == []
     assert ca.ma in {d["service_code"] for d in t["dich_vu_de_xuat"]}
+    assert t["ghi_duoc"] is True
 
     lt = await tao(ca, v, 10, order=o)
     t = await _the(ca, v)
     (c,) = t["chi_dinh"]
     (x,) = t["lieu_trinh"]
     assert (c["lieu_trinh_id"], c["buoi_so"]) == (lt["id"], 1)
-    assert c["nut"] == {"tao": False, "go": True, "tach": True, "chon": False}
+    assert c["nut"] == {
+        "tao": False,
+        "go": True,
+        "tach": True,
+        "chon": False,
+        "khach_chon": False,
+    }
+    assert c["chu_buoi"] == "Buổi 1/10 · chưa làm"
     assert x["nut"] == {"dieu_chinh": True, "dung": True, "mo_lai": False}
-    assert x["hoan_tac"] is None  # tạo không phải lần sửa hoàn tác được
+    # Khách chọn luôn lúc lập = một lần đăng ký → Hoàn tác được.
+    assert x["hoan_tac"] is not None and x["hoan_tac"]["hanh_dong"] == "DANG_KY"
 
     kq = await ca.svc.dieu_chinh(
         identity=ca.bac_si,

@@ -292,6 +292,7 @@ async def test_sap_het_quyen_va_khong_sap_het(pool: asyncpg.Pool) -> None:
         visit_id=v2,
         so_buoi=2,
         service_order_id=o2,
+        khach_chon=True,
         idempotency_key=f"lt-{uuid.uuid4().hex}",
     )
     lt_id = mot["lieu_trinh"]["id"]

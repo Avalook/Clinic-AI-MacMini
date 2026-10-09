@@ -78,7 +78,8 @@ export default function BottomNav({
         const { href, icon: Icon } = item;
         const active = isActiveNav(href, pathname, allHrefs);
         return (
-          <Link key={href} href={href} className={tabClass(active)}>
+          // prefetch tắt — cùng lý do với thanh bên (Nav.tsx).
+          <Link key={href} href={href} prefetch={false} className={tabClass(active)}>
             <Icon size={20} strokeWidth={active ? 2.4 : 2} />
             {/* CÙNG MỘT TÊN VỚI THANH BÊN. Chữ dài thì xuống dòng — hai dòng
                   10px vẫn đọc được, còn một cái tên bịa ngắn hơn thì không:

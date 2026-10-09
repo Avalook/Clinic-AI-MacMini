@@ -100,3 +100,48 @@ async def test_bang_thu_theo_ngay_va_rac_la_hom_nay(pool: asyncpg.Pool) -> None:
     assert b["ngay"] == xa.isoformat() and b["hom_nay"] == hom_nay.isoformat()
     assert b["dem"]["da_thu_hom_nay"] >= 0
     assert (await co_luot(None))["co"] is False
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_luot_ngay_cu_con_no_hien_hom_nay_khong_hien_ngay_khac(
+    pool: asyncpg.Pool,
+) -> None:
+    """THU NỢ: lượt ngày cũ đã GHI NỢ, chưa thu → lên bảng HÔM NAY; xem một ngày
+    cũ khác thì không. Vế này từng nằm trong `ngày OR EXISTS(nợ)` — viết lại
+    thành tập ứng viên hai vế (09/10/2026) nên phải giữ đúng hành vi."""
+    q, _sa, _soi, _hpv = await _kich_ban(pool)
+    svc = CashierBoardService(pool)
+    xa = date(2021, 1, 1) + timedelta(days=uuid.uuid4().int % 365)
+    khac = xa + timedelta(days=1)
+    await pool.execute(
+        "UPDATE visit SET created_at = $2::timestamptz WHERE visit_id = $1::uuid",
+        q.visit_id,
+        datetime(xa.year, xa.month, xa.day, 10, tzinfo=CLINIC_TZ),
+    )
+
+    async def co(ngay: object) -> bool:
+        b = await svc.board(identity=q.thu_ngan, modes=["dich_vu"], ngay=ngay)
+        return any(i["visit_id"] == q.visit_id for i in b["items"])
+
+    assert await co(None) is False, "chưa ghi nợ thì lượt ngày cũ không lên hôm nay"
+    no_id = await pool.fetchval(
+        """
+        INSERT INTO cong_no (clinic_id, visit_id, clinic_patient_id, so_tien,
+                             ly_do, ghi_boi)
+        SELECT clinic_id, visit_id, clinic_patient_id, 100000, 'khách hẹn trả sau', $2
+          FROM visit WHERE visit_id = $1::uuid
+        RETURNING id
+        """,
+        q.visit_id,
+        q.thu_ngan.staff_id,
+    )
+    assert await co(None) is True, "còn nợ → lên quầy hôm nay"
+    assert await co(xa.isoformat()) is True, "ngày của chính lượt vẫn thấy"
+    assert await co(khac.isoformat()) is False, "ngày cũ khác: nợ không kéo sang"
+
+    await pool.execute(
+        "UPDATE cong_no SET trang_thai = 'DA_THU', thu_luc = now() WHERE id = $1",
+        no_id,
+    )
+    assert await co(None) is False, "thu xong nợ → rời quầy hôm nay"

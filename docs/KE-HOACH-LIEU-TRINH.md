@@ -101,8 +101,10 @@ hàng chờ, quầy (đúng cái bẫy "phòng nào cũng hiện" hôm qua) và 
 
 **Gắn buổi tự động — một chỗ cho cả 6 đường tạo chỉ định:** trigger AFTER INSERT trên
 `service_order`: khách có ĐÚNG MỘT liệu trình DANG_LAM cùng `service_code` → gắn buổi kế
-(`tra_truoc` nếu còn buổi đã trả). Có 2 liệu trình cùng dịch vụ → không gắn, thẻ hiện
-"chọn liệu trình". Chỉ định bị huỷ / bỏ / NOT_SELECTED / không làm → buổi tự gỡ (trả buổi về
+(`tra_truoc` nếu còn buổi đã trả); không có DANG_LAM nào mà có ĐÚNG MỘT liệu trình DE_XUAT
+(bác sĩ "chỉ đề xuất, không làm hôm nay" / khách bỏ buổi 1) → gắn vào đó — lộ trình "tính
+từ buổi sau" tự có buổi 1 khi khách quay lại (Tuyền 08/10/2026, migration
+`20261008900000`). Có 2 liệu trình cùng bậc → không gắn, thẻ hiện "chọn liệu trình". Chỉ định bị huỷ / bỏ / NOT_SELECTED / không làm → buổi tự gỡ (trả buổi về
 liệu trình); hoàn tác bỏ → gắn lại. Không sửa 6 đường tạo, không sửa `so_sua_chi_dinh`.
 
 ### Luồng theo vai
@@ -143,7 +145,7 @@ liệu trình); hoàn tác bỏ → gắn lại. Không sửa 6 đường tạo,
 | 12 | Dừng LT còn buổi đã trả | buổi dư → tiền thừa / hoàn tiền (luật E hiện có) — Q5 |
 | 13 | Làm quá số buổi kế hoạch | tự thêm buổi (so_buoi +1 có lịch sử), không chặn |
 | 14 | BS kê lại cùng dịch vụ khi LT đang chạy | gắn vào LT cũ, không đẻ LT mới; muốn LT mới thì bấm rõ |
-| 15 | 2 LT cùng dịch vụ (cũ chưa xong + mới) | không tự gắn; thẻ bắt chọn LT |
+| 15 | 2 LT cùng dịch vụ (cũ chưa xong + mới) | không tự gắn; thẻ bắt chọn LT (1 DANG_LAM + DE_XUAT → vào DANG_LAM; 2 DE_XUAT → bắt chọn) |
 | 16 | Hoàn tác lần thu trả trước sau khi đã dùng buổi | chặn như hoàn tác thu thường đã có dịch vụ đã làm (luật E5) |
 | 17 | Hoàn tác bỏ chỉ định đã phủ | gắn lại nếu còn buổi trả, không thì vào hoá đơn |
 | 18 | Check-out lượt có buổi phủ đã làm | không nợ, không chặn |

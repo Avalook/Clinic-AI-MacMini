@@ -53,7 +53,13 @@ export interface DongQuay {
   loai: "kham" | "chi_dinh" | "phu_thu" | "vat_tu" | "lieu_trinh";
   /** Chỉ định là một buổi liệu trình (08/10/2026): chip "Buổi k/N · đã trả trước";
    *  buổi đã trả trước máy chủ đã để giá 0đ. */
-  lieu_trinh?: { lieu_trinh_id: string; buoi_so: number; so_buoi: number; tra_truoc: boolean } | null;
+  lieu_trinh?: {
+    lieu_trinh_id: string;
+    buoi_so: number;
+    so_buoi: number;
+    tra_truoc: boolean;
+    da_lam?: boolean;
+  } | null;
   ten: string | null;
   gia: number | null;
   van_de: string | null;
@@ -419,7 +425,7 @@ function DanhSach({
                 {d.lam_them ? <Chip tone="info">{d.lam_them}</Chip> : null}
                 {d.lieu_trinh ? (
                   <Chip tone={d.lieu_trinh.tra_truoc ? "success" : "brand"}>
-                    {nhanBuoi(d.lieu_trinh.buoi_so, d.lieu_trinh.so_buoi, d.lieu_trinh.tra_truoc)}
+                    {nhanBuoi(d.lieu_trinh.buoi_so, d.lieu_trinh.so_buoi, d.lieu_trinh.tra_truoc, d.lieu_trinh.da_lam)}
                   </Chip>
                 ) : null}
                 {d.loai === "lieu_trinh" ? <Chip tone="brand">Liệu trình</Chip> : null}

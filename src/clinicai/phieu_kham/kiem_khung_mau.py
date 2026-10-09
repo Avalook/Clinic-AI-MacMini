@@ -29,7 +29,22 @@ KIEU_O = ("text", "doan_van", "so", "ngay", "chon")
 HIEN_THI_CHON = frozenset({"o_tick"})
 _MA = re.compile(r"^[a-z0-9_]{1,64}$")
 _KHOA_MUC = {"ma", "ten", "block", "cot"}
-_KHOA_O = {"ma", "ten", "kieu", "chon", "goi_y", "mac_dinh", "hien_thi"}
+_KHOA_O = {
+    "ma",
+    "ten",
+    "kieu",
+    "chon",
+    "goi_y",
+    "mac_dinh",
+    "hien_thi",
+    "tuy_chon",
+    "don_vi",
+}
+#: Ô có ĐƠN VỊ (09/10/2026): chỉ ô gõ một giá trị đo — chữ ngắn / số. Đoạn văn,
+#: ngày, ô chọn không có "12 mm". `goi_y` từng gánh cả đơn vị lẫn gợi ý ("tuần +
+#: ngày", "PSV cm/s | EDV cm/s | RI") nên không in thẳng được — `don_vi` tách ra.
+KIEU_CO_DON_VI = frozenset({"text", "so"})
+TRAN_DON_VI = 20
 TRAN_MUC = 40
 TRAN_O = 300
 #: Tệp kết quả gắn `ben` 0..7 (CHECK ở `tep_ket_qua`) — bảng quá 8 cột thì bên
@@ -150,6 +165,22 @@ def kiem_khung_mau(khung: Any) -> list[dict[str, Any]]:
             if goi_y:
                 moi["goi_y"] = goi_y
 
+            # Ô TUỲ CHỌN: không nằm trong "Còn N mục trống" lúc Hoàn tất (Đề nghị
+            # để trống là chuyện thường — nhắc mãi thành ra nhân viên tưởng lỗi).
+            tuy_chon = o.get("tuy_chon")
+            if tuy_chon is not None and not isinstance(tuy_chon, bool):
+                raise ValidationError(f"{nhan_o}: “tuỳ chọn” phải là có / không.")
+            if tuy_chon:
+                moi["tuy_chon"] = True
+
+            don_vi = _chu(o.get("don_vi"), nhan_o, toi_da=TRAN_DON_VI, bat_buoc=False)
+            if don_vi:
+                if kieu not in KIEU_CO_DON_VI:
+                    raise ValidationError(
+                        f"{nhan_o}: chỉ ô chữ ngắn hoặc ô số mới có đơn vị."
+                    )
+                moi["don_vi"] = don_vi
+
             md = o.get("mac_dinh")
             if isinstance(md, dict):
                 if cot_ra is None:
@@ -187,4 +218,4 @@ def kiem_khung_mau(khung: Any) -> list[dict[str, Any]]:
     return ra
 
 
-__all__ = ["HIEN_THI_CHON", "KIEU_O", "kiem_khung_mau"]
+__all__ = ["HIEN_THI_CHON", "KIEU_CO_DON_VI", "KIEU_O", "kiem_khung_mau"]

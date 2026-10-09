@@ -121,6 +121,23 @@ def test_mot_hoa_don_moi_dich_vu_mot_dong() -> None:
     assert qt["lua_chon"] == {"revision": 3, "order_ids_seen": ["o1", "o2", "o3", "o4"]}
 
 
+def test_bat_buoc_dang_bo_tick_lai_duoc() -> None:
+    """Bác sĩ đánh dấu bắt buộc SAU khi khách đã bỏ (staging 08/10): ô tick
+    phải mở để tick lại; đang tick thì vẫn khoá (không bỏ được)."""
+    chon = {
+        "revision": 2,
+        "chi_dinh": [
+            _cd("o1", "NOT_SELECTED", 3_000_000, bat_buoc=True),
+            _cd("o2", "PENDING", 900_000, bat_buoc=True),
+        ],
+    }
+    o1, o2 = [
+        r for r in dung_hoa_don_quay(_hd(), chon)["phong_kham"] if r["id"] != "exam-v"
+    ]
+    assert not o1["chon"] and o1["sua_duoc"] and o1["bat_buoc"]
+    assert o2["chon"] and not o2["sua_duoc"]
+
+
 def test_mot_hoa_don_dong_cu_ngoai_lua_chon_khoa() -> None:
     qt = dung_hoa_don_quay(_hd(), {"revision": 0, "chi_dinh": []})
     o1 = qt["phong_kham"][1]
@@ -449,3 +466,21 @@ def test_phieu_huong_dan_co_phong_khong_co_tien() -> None:
     assert a["order_id"] == "o1" and a["doi_phong_duoc"] is True
     assert b["phong"] is None and b["cho_xep"] is True
     assert dong_huong_dan([], phong) == []
+
+
+def test_con_khoan_quay_bo_buoi_da_tra_truoc() -> None:
+    """Buổi liệu trình đã phủ bằng tiền trả trước không phải khoản còn ở quầy
+    (staging 09/10: lượt kẹt mãi ở chờ thu); dòng thường / dòng trả trước k
+    buổi vẫn tính; đã chốt 0đ đúng bản thì xong."""
+    from clinicai.services.cashier_board_service import con_khoan_quay
+
+    phu = {"chon": True, "gia": 0, "lieu_trinh": {"tra_truoc": True}}
+    le = {"chon": True, "gia": 3_000_000, "lieu_trinh": {"tra_truoc": False}}
+    bo = {"chon": False, "gia": 900_000}
+    tra_truoc_k = {"chon": True, "gia": 6_000_000, "loai": "lieu_trinh"}
+    assert con_khoan_quay({"phong_kham": [phu]}) is False
+    assert con_khoan_quay({"phong_kham": [phu, bo]}) is False
+    assert con_khoan_quay({"phong_kham": [phu, le]}) is True
+    assert con_khoan_quay({"phong_kham": [phu, tra_truoc_k]}) is True
+    assert con_khoan_quay({"phong_kham": [le]}, da_chot_0d=True) is False
+    assert con_khoan_quay({}) is False

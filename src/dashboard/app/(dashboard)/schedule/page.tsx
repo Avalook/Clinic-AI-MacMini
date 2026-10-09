@@ -123,6 +123,8 @@ export default async function SchedulePage({
       id: s.id,
       name: doctorName(s.full_name) || s.short_name || s.full_name,
       vai: s.primary_department as string,
+      hoTen: s.full_name,
+      tenNgan: s.short_name,
     }));
 
   const tramTheoVai: Record<string, string[]> = {};

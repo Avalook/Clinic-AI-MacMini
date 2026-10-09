@@ -319,11 +319,31 @@ async def test_nhan_bat_dau_xong_roi_nhan_phong_hai(bat: RB) -> None:
 
 
 async def test_nhan_chua_chot_duoc_bat_dau_van_theo_luat_tien(bat: RB) -> None:
+    """Tuyền 09/10/2026: phòng Bắt đầu chỉ định CHỜ CHỐT đi cửa tiền chung —
+    chưa thu + chưa tick (dây thu trước bật) → 409 "chưa thu"; cửa mở (ở đây
+    0đ, không có gì phải thu) → chốt hộ rồi làm. Trước đây: luôn chặn
+    SELECTION_NOT_CONFIRMED."""
+    from clinicai.services.finance_gate import CAU_CHUA_THU
+    from tests.services.test_thu_truoc_lam_truoc_tick_db import day_thu_truoc
+
+    co_gia = await _cd_o(bat, bat.sa1, selection="PENDING", gia=200000)
+    assert (await _nhan(bat, bat.sa1, co_gia))["da_nhan"] == [co_gia]
+    async with day_thu_truoc(bat.pool, True):
+        with pytest.raises(LuotKhamConflictError) as e:
+            await _bat_dau(bat, co_gia)
+    assert e.value.error_code == "FINANCE_NOT_READY"
+    assert str(e.value) == CAU_CHUA_THU
+
     o1 = await _cd_o(bat, bat.sa1, selection="PENDING")
     assert (await _nhan(bat, bat.sa1, o1))["da_nhan"] == [o1]
-    with pytest.raises(LuotKhamConflictError) as e:
-        await _bat_dau(bat, o1)
-    assert e.value.error_code == "SELECTION_NOT_CONFIRMED"
+    lam = await _bat_dau(bat, o1)
+    assert lam["chot_lua_chon"] is True
+    assert (
+        await bat.pool.fetchval(
+            "SELECT selection_status FROM service_order WHERE id = $1::uuid", o1
+        )
+        == "SELECTED"
+    )
 
 
 # ── Nhận chéo ────────────────────────────────────────────────────────────────

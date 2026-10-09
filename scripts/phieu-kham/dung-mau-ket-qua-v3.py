@@ -58,6 +58,11 @@ GHEP = {
 }
 
 AM_DUONG = ["Âm tính", "Dương tính"]
+#: `goi_y` là ĐƠN VỊ THUẦN → ô mang thêm `don_vi` (bản in "89.6 mm"); cùng
+#: danh sách với migration 20261009300000_o_tuy_chon_don_vi.sql.
+DON_VI_THUAN = {
+    "mm", "cm", "cm/s", "chu kỳ/phút", "lần/phút", "điểm", "%", "ml", "gram", "grams"
+}  # fmt: skip
 
 #: Tên mục CHỖ GIỮ của bản mẫu (PDF không có tiêu đề mục) → tên hiện cho người
 #: dùng. Chỉ đổi TÊN; `ma` vẫn sinh từ tên gốc ("o") nên dữ liệu đã điền giữ
@@ -120,6 +125,8 @@ def dung_khung(m: dict, mid: str = "") -> list[dict]:
             dvi = (t.get("dvi") or "").strip()
             if dvi:
                 o["goi_y"] = dvi
+            if dvi in DON_VI_THUAN and o["kieu"] == "text":
+                o["don_vi"] = dvi
             mac = (t.get("mac") or "").strip()
             if mac and not dvi and not doi_tac and t["kieu"] != "am_duong":
                 # Ô bảng: câu bình thường điền sẵn CHO MỖI CỘT ({trai: …, phai: …})
@@ -136,7 +143,12 @@ def dung_khung(m: dict, mid: str = "") -> list[dict]:
                 "ma": duy_nhat("de_nghi", muc_dung),
                 "ten": "Đề nghị",
                 "block": [
-                    {"ma": ma_duy_nhat("de_nghi"), "ten": "Đề nghị / lời dặn", "kieu": "doan_van"}
+                    {
+                        "ma": ma_duy_nhat("de_nghi"),
+                        "ten": "Đề nghị / lời dặn",
+                        "kieu": "doan_van",
+                        "tuy_chon": True,
+                    }
                 ],
             }
         )
@@ -159,6 +171,12 @@ def main() -> None:
             "kv": kv_theo_mau.get(mid) or m.get("kv") or [],
             "khung": dung_khung(m, mid),
         }
+    # Mẫu KHÔNG đến từ data.js (SA_THAI_QUY_3 — PDF riêng, migration
+    # 20261009310000) giữ nguyên từ JSON đang có, không mất khi dựng lại.
+    cu = json.loads(
+        (REPO / "src/clinicai/phieu_kham/mau_ket_qua_v3.json").read_text("utf-8")
+    )["mau"]
+    ra.update({k: v for k, v in cu.items() if k not in ra})
     (REPO / "src/clinicai/phieu_kham/mau_ket_qua_v3.json").write_text(
         json.dumps({"mau": ra}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
     )

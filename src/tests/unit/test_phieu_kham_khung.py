@@ -554,11 +554,22 @@ def test_mau_soi_am_ho_khong_con_ten_muc_giu_cho() -> None:
         "test_ran",
         "co_luc_am_dao_theo_oxford_cai_tien",
     ]
-    # Migration mới mang ĐÚNG khung của JSON (một nguồn, hai bản chép).
+    # Migration mới mang ĐÚNG khung của JSON (một nguồn, hai bản chép) — trừ
+    # hai cờ ô thêm SAU nó (`tuy_chon`/`don_vi`, migration 20261009300000).
+    truoc_0910 = [
+        {
+            **m,
+            "block": [
+                {k: v for k, v in o.items() if k not in ("tuy_chon", "don_vi")}
+                for o in m["block"]
+            ],
+        }
+        for m in khung
+    ]
     sql = (
         GOC / "supabase/migrations/20260928000002_ten_muc_mau_soi_am_ho.sql"
     ).read_text(encoding="utf-8")
-    assert sql.count(json.dumps(khung, ensure_ascii=False)) == 2
+    assert sql.count(json.dumps(truoc_0910, ensure_ascii=False)) == 2
 
 
 def test_mau_ket_qua_nguon_tro_dung_18_mau_engine() -> None:

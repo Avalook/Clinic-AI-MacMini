@@ -33,6 +33,7 @@ from clinicai.services.hoan_tac_service import HoanTacService, tien_thua_cua_luo
 from clinicai.services.lam_truoc_thu_sau import LamTruocThuSauService
 from clinicai.services.lenh_kham_core import LuotKhamConflictError
 from clinicai.services.luot_kham_service import LuotKhamService
+from clinicai.services.service_execution_service import CAU_CHUA_BIET_PHONG_BAN_KHAM
 from tests.chay_nguoi_dua_tin import chay_hanh_trinh, chay_het
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
@@ -164,6 +165,29 @@ async def _bam(
 async def _tien(pool: asyncpg.Pool, order: str) -> str:  # noqa: F811
     async with pool.acquire() as conn:
         return (await states_for_orders(conn, CLINIC, [order]))[order].finance_state
+
+
+async def test_chua_biet_phong_ban_kham_an_nut_tu_dau_cau_xam(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Bấm thử staging 09/10: bác sĩ chưa có lịch phòng hôm nay, chỉ định chưa
+    xếp phòng → thẻ ẩn [Làm tại bàn khám] TỪ ĐẦU kèm câu xám ngắn (trước: bấm
+    rồi mới hiện lỗi đỏ dài). Có lịch phòng → làm được như thường."""
+    ca = await _dung(pool)
+    laser = await _laser(pool)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    con = await _vao_kham(pool, ca, visit)
+    await _ke(pool, ca, con, laser["ma"])
+    await LamTruocThuSauService(pool).dat(visit_id=visit, bat=True, identity=ca.bac_si)
+    await pool.execute(
+        "UPDATE queue_entry SET room_id = NULL WHERE visit_id = $1::uuid", visit
+    )
+    t = await _the(pool, ca, visit)
+    assert t["lam_duoc"] is False
+    assert t["ly_do_khong_lam"] == CAU_CHUA_BIET_PHONG_BAN_KHAM
+    await _lich_ban_kham(pool, ca)
+    t = await _the(pool, ca, visit)
+    assert t["lam_duoc"] is True and t["ly_do_khong_lam"] is None
 
 
 async def test_lam_tai_ban_kham_qua_cua_tien_hoan_tac_khong_dung_tien_quay_thu_mot_dong(
@@ -300,6 +324,122 @@ async def test_da_thu_thi_lam_tai_ban_kham_duoc_khong_can_tick(
         "SELECT count(*) FROM queue_entry WHERE ref_id = $1::uuid"
         " AND status NOT IN ('done', 'left', 'cancelled')",
         order,
+    )
+
+
+async def _xep_tay(pool: asyncpg.Pool, ca: Ca, order: str) -> str:  # noqa: F811
+    """Quầy xếp chỉ định vào một phòng thử làm đúng bước của nó."""
+    from clinicai.services.service_routing_service import ServiceRoutingService
+
+    d = await pool.fetchrow(
+        "SELECT routing_revision, node_code FROM service_order WHERE id = $1::uuid",
+        order,
+    )
+    async with pool.acquire() as conn:
+        phong = await _phong(conn, ca.loc, uuid.uuid4().hex[:8])
+        await conn.execute(
+            "DELETE FROM clinic_room_node WHERE room_id = $1::uuid", phong
+        )
+        await conn.execute(
+            "INSERT INTO clinic_room_node (clinic_id, room_id, node_code)"
+            " VALUES ($1::uuid, $2::uuid, $3) ON CONFLICT DO NOTHING",
+            CLINIC,
+            phong,
+            d["node_code"],
+        )
+    await ServiceRoutingService(pool).assign(
+        order_id=order,
+        room_id=phong,
+        expected_routing_revision=int(d["routing_revision"]),
+        reason_code="MANUAL_CORRECTION",
+        identity=ca.thu_ngan,
+        idempotency_key=_khoa(),
+    )
+    return phong
+
+
+async def _cho_song(pool: asyncpg.Pool, order: str) -> asyncpg.Record | None:  # noqa: F811
+    return await pool.fetchrow(
+        "SELECT room_id::text AS room_id, status FROM queue_entry"
+        " WHERE ref_id = $1::uuid AND reason = 'SERVICE'"
+        "   AND status NOT IN ('done', 'left', 'cancelled')",
+        order,
+    )
+
+
+async def test_lam_tai_ban_kham_khi_da_xep_phong_khac_chuyen_phong_huy_tra_ve(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """09/10/2026: chỉ định đã được xếp phòng khác mà bác sĩ làm ngay ở bàn
+    khám → chỉ định CHUYỂN sang phòng bàn khám (báo cáo theo phòng đếm đúng nơi
+    làm), có mốc `service.routed` lý do LAM_TAI_BAN_KHAM. Hoàn tác → trả đúng
+    phòng cũ, khách về lại hàng chờ phòng cũ."""
+    ca = await _dung(pool)
+    laser = await _laser(pool)
+    phong_bk = await _lich_ban_kham(pool, ca)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    con = await _vao_kham(pool, ca, visit)
+    order = (await _ke(pool, ca, con, laser["ma"]))["order_ids"][0]
+    await _chon(pool, ca, visit, [order])
+    await _thu(pool, visit, ca.thu_ngan)
+    phong_cu = await _xep_tay(pool, ca, order)
+    assert phong_cu != phong_bk
+    cho = await _cho_song(pool, order)
+    assert cho is not None and cho["room_id"] == phong_cu
+
+    t = await _the(pool, ca, visit)
+    bd = await _bam(pool, ca, visit, t, "lam")
+    d = await _don_hang(pool, order)
+    assert (d["room_id"], d["routing_status"], d["exec_status"]) == (
+        phong_bk,
+        "ASSIGNED",
+        "in_progress",
+    )
+    lan = await pool.fetchrow(
+        "SELECT phong_truoc_ban_kham::text AS cu, gan_phong_ban_kham,"
+        "       room_id_snapshot::text AS phong"
+        "  FROM service_execution_attempt WHERE id = $1::uuid",
+        bd["attempt_id"],
+    )
+    assert (lan["cu"], lan["gan_phong_ban_kham"], lan["phong"]) == (
+        phong_cu,
+        False,
+        phong_bk,
+    )
+    xep = json.loads((await _su_kien(pool, "service.routed", order))[-1]["payload"])
+    assert (xep["ly_do"], xep["nguon"], xep["room_id"], xep["from_room_id"]) == (
+        "LAM_TAI_BAN_KHAM",
+        "ban_kham",
+        phong_bk,
+        phong_cu,
+    )
+    moc = await pool.fetchrow(
+        "SELECT loai_moc, tu_phong_id::text AS tu, room_id::text AS phong"
+        "  FROM v_moc_hanh_trinh WHERE service_order_id = $1::uuid"
+        "   AND event_type = 'service.routed' ORDER BY seq DESC LIMIT 1",
+        order,
+    )
+    assert (moc["loai_moc"], moc["tu"], moc["phong"]) == (
+        "XEP_PHONG",
+        phong_cu,
+        phong_bk,
+    )
+    # Chỗ chờ ở phòng cũ: "đợi" (khách đang ở bàn khám) — như trước.
+    cho = await _cho_song(pool, order)
+    assert cho is not None and cho["status"] == "blocked"
+
+    # Hoàn tác → phòng cũ + hàng chờ phòng cũ.
+    await _bam(pool, ca, visit, await _the(pool, ca, visit), "huy-lam")
+    d = await _don_hang(pool, order)
+    assert (d["room_id"], d["routing_status"]) == (phong_cu, "ASSIGNED")
+    cho = await _cho_song(pool, order)
+    assert cho is not None and cho["room_id"] == phong_cu
+    assert cho["status"] in ("waiting", "blocked")
+    tra = json.loads((await _su_kien(pool, "service.routed", order))[-1]["payload"])
+    assert (tra["ly_do"], tra["room_id"], tra["from_room_id"]) == (
+        "HUY_LAM_TAI_BAN_KHAM",
+        phong_cu,
+        phong_bk,
     )
 
 

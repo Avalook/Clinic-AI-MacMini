@@ -387,14 +387,20 @@ async def chot_mot_chi_dinh(
     identity: StaffIdentity,
     visit_id: str,
     order_id: str,
+    *,
+    nguon: str = "lam_tai_ban_kham",
+    bo_khoa_xep_phong: bool = False,
 ) -> tuple[str, int] | None:
-    """Bác sĩ LÀM chỉ định này ngay tại bàn khám = khách đồng ý ĐÚNG chỉ định
-    này (Tuyền chốt 07/10/2026) — chốt "khách làm" cho nó, KHÔNG đụng chỉ định
-    khác đang chờ khách quyết (CLS khách chưa đồng ý không thành nợ ở quầy).
+    """Người LÀM chỉ định này (bàn khám, hay phòng bấm Bắt đầu — 09/10/2026) =
+    khách đồng ý ĐÚNG chỉ định này (Tuyền chốt 07/10/2026) — chốt "khách làm"
+    cho nó, KHÔNG đụng chỉ định khác đang chờ khách quyết (CLS khách chưa đồng
+    ý không thành nợ ở quầy).
 
-    Người gọi đã khoá lượt. Cùng luật khoá với quầy (``decision_ids``). Trả
-    (lựa chọn trước, revision sau khi chốt) để lần làm ghi lại và hoàn tác trả
-    về đúng như cũ; None = không chốt gì (đã quyết / bị khoá)."""
+    Người gọi đã khoá lượt. Cùng luật khoá với quầy (``decision_ids``);
+    ``bo_khoa_xep_phong``: chỉ định ĐÃ có phòng vẫn chốt được (người đang làm
+    nó ở phòng — như dây Nhận tại phòng). Trả (lựa chọn trước, revision sau
+    khi chốt) để lần làm ghi lại và hoàn tác trả về đúng như cũ; None = không
+    chốt gì (đã quyết / bị khoá)."""
     cid = identity.clinic_id
     await conn.execute(
         "SELECT 1 FROM service_selection_state"
@@ -420,7 +426,10 @@ async def chot_mot_chi_dinh(
     if (
         f is None
         or f.selection_status in (SELECTED, NOT_SELECTED)
-        or order_id not in decision_ids(facts, await dang_nhan_tai_phong(conn, cid))
+        or order_id
+        not in decision_ids(
+            facts, bo_khoa_xep_phong or await dang_nhan_tai_phong(conn, cid)
+        )
     ):
         return None
     truoc = f.selection_status or "PENDING"
@@ -430,7 +439,7 @@ async def chot_mot_chi_dinh(
         "selected_order_ids": [order_id],
         "not_selected_order_ids": [],
         "changed_order_ids": [order_id],
-        "nguon": "lam_tai_ban_kham",
+        "nguon": nguon,
     }
     await record_event(
         conn,
@@ -438,7 +447,7 @@ async def chot_mot_chi_dinh(
         aggregate_type="visit",
         aggregate_id=visit_id,
         identity=identity,
-        origin="api:lam-tai-ban-kham",
+        origin=f"api:{nguon.replace('_', '-')}",
         payload=payload,
     )
     await emit_event(

@@ -121,12 +121,12 @@ async def test_phong_chua_gan_mau_van_mo_duoc_mau_goi_y(pool: asyncpg.Pool) -> N
         # SA_VU, mẫu v3) — mẫu gợi ý vẫn là SA_VU, đứng đầu danh sách.
         assert goi_y == "SA_VU" and ds[0]["ma"] == "SA_VU"
         # Dịch vụ không có gợi ý: đủ mẫu, CHỌN SẴN mẫu CHUNG (nhập tự do).
-        # 21 = 18 mẫu gốc + CHUNG + Đo mật độ xương (29/09/2026) + Phiếu điều
-        # trị (07/10/2026).
+        # 23 = 18 mẫu gốc + CHUNG + Đo mật độ xương (29/09/2026) + Phiếu điều
+        # trị (07/10/2026) + siêu âm thai quý III + Kết quả (mô tả) (09/10/2026).
         ds, goi_y = await mau_cho_dich_vu(
             conn, clinic_id=CLINIC, service_code="KHONG_CO"
         )
-        assert goi_y == "CHUNG" and ds[0]["ma"] == "CHUNG" and len(ds) == 21
+        assert goi_y == "CHUNG" and ds[0]["ma"] == "CHUNG" and len(ds) == 23
         # Quản lý đã gắn mẫu → chỉ mẫu ấy.
         bs = await _nguoi(conn, "DOCTOR")
         async with conn.transaction():

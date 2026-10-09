@@ -24,6 +24,9 @@ interface PhiKham {
   loai_kham: string | null;
   di_thang_phong: boolean;
   khong_kham: boolean;
+  /** Máy chủ: chưa tick thì hoá đơn tự cộng phí khám mặc định (lượt Điều trị /
+   *  Thủ thuật: không). */
+  tu_cong_mac_dinh?: boolean;
   lua_chon: LuaChon[];
   da_chon: string[];
   khoa: boolean;
@@ -106,7 +109,9 @@ export default function ChonDichVuKham({
           {dangGui
             ? "Đang lưu…"
             : pk.da_chon.length === 0
-              ? "Chưa chọn — đang tính giá mặc định"
+              ? pk.tu_cong_mac_dinh === false
+                ? "Chưa chọn — không tính tiền khám (bác sĩ có khám thì tick)"
+                : "Chưa chọn — đang tính giá mặc định"
               : "Tiền khám tính theo dịch vụ đã chọn"}
         </span>
       </div>

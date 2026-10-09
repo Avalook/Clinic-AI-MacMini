@@ -1502,10 +1502,16 @@ def _da_doi_gi(anh_cu: dict[str, Any], anh_moi: dict[str, Any]) -> list[str]:
 
 
 def _con_trong(khung: list[dict[str, Any]], du_lieu: dict[str, Any]) -> list[str]:
-    """Đếm ô chưa điền để NHẮC, không để chặn."""
+    """Đếm ô chưa điền để NHẮC, không để chặn.
+
+    Ô `tuy_chon` (Đề nghị…) không tính: để trống là bình thường, nhắc nó ở MỌI
+    lần Hoàn tất làm nhân viên tưởng đó là lỗi chặn (09/10/2026).
+    """
     trong = []
     for muc in khung:
         for block in muc.get("block", []):
+            if block.get("tuy_chon") is True:
+                continue
             o = du_lieu.get(block["ma"])
             g = None if o is None else o.get("gia_tri")
             # Ô mục BẢNG (mẫu v3): {ma_cột: giá trị} — trống khi mọi cột trống.

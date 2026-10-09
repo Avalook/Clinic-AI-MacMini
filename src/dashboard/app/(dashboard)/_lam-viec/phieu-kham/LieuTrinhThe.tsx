@@ -20,19 +20,23 @@ import Chip, { type ChipTone } from "@/components/ui/Chip";
 import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
-import { fmtDate, fmtDateTime } from "@/lib/datetime";
+import { fmtDate, fmtDateTime, fmtTime } from "@/lib/datetime";
 import {
   NHAN_HANH_DONG_LT,
   NHAN_TRANG_THAI_LT,
   docLT,
   lenhLT,
-  nhanBuoi,
+  nhanDaTra,
+  nhanDoiLieuTrinh,
+  nhanNutHoanTac,
   tienLT,
+  type BuoiLieuTrinh,
   type ChiDinhLieuTrinh,
   type DongLichSuLT,
   type LieuTrinh,
   type LieuTrinhLuot,
   type TrangThaiLieuTrinh,
+  type UngVien,
 } from "@/lib/lieu-trinh";
 
 const TONE_LT: Record<TrangThaiLieuTrinh, ChipTone> = {
@@ -124,10 +128,8 @@ function LichSuLT({ ltId }: { ltId: string }) {
                     ? (NHAN_HANH_DONG_LT[d.hanh_dong ?? ""] ?? d.hanh_dong)
                     : `${d.loai === "GAN" ? "Gắn" : "Gỡ"} buổi ${d.buoi_so ?? ""}`}
                 </span>
-                {d.loai === "SUA" && d.ban_moi ? (
-                  <span>
-                    {String(d.ban_cu?.so_buoi ?? "—")} → {String(d.ban_moi.so_buoi ?? "—")} buổi
-                  </span>
+                {d.loai === "SUA" && nhanDoiLieuTrinh(d.ban_cu, d.ban_moi) ? (
+                  <span>{nhanDoiLieuTrinh(d.ban_cu, d.ban_moi)}</span>
                 ) : null}
                 <span className="text-ink-muted">
                   {[d.boi ?? (d.cach === "TU_DONG" ? "Tự động" : null), d.luc ? fmtDateTime(d.luc) : null]
@@ -143,19 +145,75 @@ function LichSuLT({ ltId }: { ltId: string }) {
   );
 }
 
-/** Thân một liệu trình: số liệu, nút kế hoạch, lịch sử, danh sách buổi. */
+/** Một dòng trong danh sách buổi: buổi đã gắn (có chỉ định) hoặc ô còn trống
+ *  của kế hoạch. Số buổi máy chủ đánh theo thứ tự LÀM XONG. */
+function DongBuoi({ so, b, homNay }: { so: number; b: BuoiLieuTrinh | null; homNay: boolean }) {
+  const daLam = Boolean(b?.da_lam);
+  const chiTiet = b
+    ? [
+        b.ngay ? fmtDate(b.ngay) : null,
+        b.noi_lam ?? (daLam ? null : "chưa xếp nơi làm"),
+        daLam && b.xong_luc ? `xong ${fmtTime(b.xong_luc)}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "chưa có lượt";
+  return (
+    <li className={`flex items-start gap-3 px-3 py-2.5 ${homNay ? "bg-surface-selected" : ""}`}>
+      <span
+        aria-hidden
+        className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-meta font-semibold ${
+          daLam
+            ? "bg-success text-surface"
+            : b
+              ? "bg-status-in-progress-bg text-status-in-progress"
+              : "bg-surface-sunken text-ink-faint"
+        }`}
+      >
+        {daLam ? "✓" : so}
+      </span>
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-body font-semibold text-ink">Buổi {so}</span>
+          <Chip tone={daLam ? "success" : "neutral"}>{daLam ? "ĐÃ LÀM" : "CHƯA LÀM"}</Chip>
+          {homNay ? <Chip tone="brand">Hôm nay</Chip> : null}
+          {b?.tra_truoc ? <Chip tone="info">Đã trả trước</Chip> : null}
+        </div>
+        <p className="text-meta text-ink-muted">{chiTiet}</p>
+        {(b?.ket_qua ?? []).map((o) => (
+          <p key={o.ma} className="text-meta text-ink-soft">
+            <span className="font-medium text-ink">{o.ten}:</span> {o.gia_tri}
+          </p>
+        ))}
+      </div>
+      {b ? (
+        <a
+          href={`/print/ket-qua/${b.order_id}`}
+          target="_blank"
+          rel="noopener"
+          className={`${buttonClass("ghost", "sm")} shrink-0`}
+        >
+          Phiếu
+        </a>
+      ) : null}
+    </li>
+  );
+}
+
+/** Số ô trống của kế hoạch hiện sẵn; dài hơn thì gom một dòng "còn k buổi". */
+const TRONG_HIEN_TOI_DA = 3;
+
+/** Thân một liệu trình: tiến độ, tiền, nút kế hoạch, lịch sử, MỌI buổi. */
 export function KhungLieuTrinh({
   lt,
-  buoiSo,
-  traTruoc,
+  orderHomNay,
   choGhi,
   onDoi,
   them,
 }: {
   lt: LieuTrinh;
-  /** Buổi của chỉ định đang xem (thẻ chỉ định); không có = liệu trình chỉ đề xuất. */
-  buoiSo?: number | null;
-  traTruoc?: boolean | null;
+  /** Chỉ định của thẻ đang xem — dòng buổi ấy tô "Hôm nay". */
+  orderHomNay?: string | null;
   choGhi: boolean;
   onDoi: () => void;
   /** Nút riêng của thẻ chỉ định (gỡ / tách) — vẽ cùng hàng nút. */
@@ -166,7 +224,7 @@ export function KhungLieuTrinh({
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
-  const [xemBuoi, setXemBuoi] = useState(false);
+  const [xemHet, setXemHet] = useState(false);
 
   const gui = async (thaoTac: string, duLieu: Record<string, unknown>) => {
     setDang(true);
@@ -188,22 +246,69 @@ export function KhungLieuTrinh({
     return true;
   };
 
-  const buoi = (lt.buoi ?? []).filter((b) => b.song);
+  const deXuat = lt.trang_thai === "DE_XUAT";
+  const song = (lt.buoi ?? []).filter((b) => b.song).sort((a, b) => a.buoi_so - b.buoi_so);
+  const conTrong = lt.chua_gan ?? 0;
+  const hienTrong = xemHet ? conTrong : Math.min(conTrong, soTrongHien(conTrong));
   return (
-    <div className="space-y-2 rounded-control border border-hairline bg-surface-muted/50 p-2.5">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-label font-semibold uppercase text-ink-muted">Liệu trình</span>
-        <Chip tone={TONE_LT[lt.trang_thai]}>{NHAN_TRANG_THAI_LT[lt.trang_thai]}</Chip>
-        {buoiSo ? <Chip tone="brand">{nhanBuoi(buoiSo, lt.so_buoi, traTruoc)}</Chip> : null}
-        <span className="text-meta text-ink">
-          {buoiSo ? "" : `${lt.so_buoi} buổi · `}đã làm {lt.da_lam} · đã trả {lt.da_tra}
-          {lt.chua_tra > 0 ? ` · còn nợ ${lt.chua_tra} buổi (${tienLT(lt.tien_con_lai)})` : ""}
-        </span>
+    <div className="space-y-3 rounded-card border border-line bg-surface p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 space-y-1">
+          <p className="text-label font-semibold uppercase text-ink-muted">Lộ trình điều trị</p>
+          <p className="text-emph font-semibold text-ink">
+            {lt.service_name} · {lt.so_buoi} buổi
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Chip tone={TONE_LT[lt.trang_thai]}>
+              {deXuat ? "Bác sĩ đề xuất — khách chưa chọn" : NHAN_TRANG_THAI_LT[lt.trang_thai]}
+            </Chip>
+            {lt.ghi_chu_lo_trinh ? <span className="text-meta text-ink-soft">{lt.ghi_chu_lo_trinh}</span> : null}
+          </div>
+        </div>
+        <p className="text-title font-semibold text-ink">
+          Đã làm {lt.da_lam}/{lt.so_buoi}
+        </p>
       </div>
-      {lt.ghi_chu_lo_trinh ? <p className="text-meta text-ink-soft">{lt.ghi_chu_lo_trinh}</p> : null}
+      {lt.so_buoi <= 40 ? (
+        <div className="flex gap-1" aria-hidden>
+          {Array.from({ length: lt.so_buoi }, (_, i) => (
+            <span
+              key={i}
+              className={`h-2 flex-1 rounded-full ${
+                i < lt.da_lam ? "bg-success" : i < song.length ? "bg-status-in-progress-bg" : "bg-surface-sunken"
+              }`}
+            />
+          ))}
+        </div>
+      ) : null}
+      {!deXuat ? (
+        <p className="text-body text-ink-soft">
+          {(() => {
+            const c = nhanDaTra(lt.da_tra, lt.tra_le ?? 0);
+            return c.charAt(0).toUpperCase() + c.slice(1);
+          })()}
+          {lt.chua_tra > 0 ? ` · còn nợ ${lt.chua_tra} buổi (${tienLT(lt.tien_con_lai)})` : " · đã trả đủ"}
+        </p>
+      ) : null}
       {lt.trang_thai === "DUNG" && lt.ly_do_dung ? (
         <p className="text-meta text-ink-muted">Lý do dừng: {lt.ly_do_dung}</p>
       ) : null}
+
+      <ol className="divide-y divide-hairline rounded-control border border-hairline">
+        {song.map((b) => (
+          <DongBuoi key={b.id} so={b.buoi_so} b={b} homNay={Boolean(orderHomNay) && b.order_id === orderHomNay} />
+        ))}
+        {Array.from({ length: hienTrong }, (_, i) => (
+          <DongBuoi key={`trong-${i}`} so={song.length + i + 1} b={null} homNay={false} />
+        ))}
+        {hienTrong < conTrong ? (
+          <li className="px-3 py-2">
+            <Button size="sm" variant="ghost" onClick={() => setXemHet(true)}>
+              Còn {conTrong - hienTrong} buổi chưa làm — xem hết
+            </Button>
+          </li>
+        ) : null}
+      </ol>
 
       {choGhi && sua ? (
         <OLoTrinh
@@ -250,39 +355,12 @@ export function KhungLieuTrinh({
             disabled={dang}
             onClick={() => void gui("hoan-tac", { lich_su_id: lt.hoan_tac?.lich_su_id })}
           >
-            Hoàn tác {(NHAN_HANH_DONG_LT[lt.hoan_tac.hanh_dong] ?? "").toLowerCase()}
+            {nhanNutHoanTac(lt.hoan_tac.hanh_dong)}
           </Button>
         ) : null}
         {choGhi ? them : null}
-        {buoi.length > 0 ? (
-          <Button size="sm" variant="ghost" aria-expanded={xemBuoi} onClick={() => setXemBuoi(!xemBuoi)}>
-            {xemBuoi ? "Ẩn các buổi" : `Các buổi (${buoi.length})`}
-          </Button>
-        ) : null}
       </div>
       <LichSuLT ltId={lt.id} />
-
-      {xemBuoi ? (
-        <ul className="divide-y divide-hairline rounded-control border border-hairline bg-surface text-meta">
-          {buoi.map((b) => (
-            <li key={b.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2 py-1.5">
-              <span className="font-semibold text-ink">Buổi {b.buoi_so}</span>
-              <span className="text-ink-soft">{b.ngay ? fmtDate(b.ngay) : "—"}</span>
-              <span className="text-ink-soft">{b.noi_lam ?? "chưa xếp nơi làm"}</span>
-              <Chip tone={b.da_lam ? "success" : "neutral"}>{b.da_lam ? "Đã làm" : "Chưa làm"}</Chip>
-              {b.tra_truoc ? <Chip tone="info">đã trả trước</Chip> : null}
-              <a
-                href={`/print/ket-qua/${b.order_id}`}
-                target="_blank"
-                rel="noopener"
-                className={`${buttonClass("ghost", "sm")} ml-auto`}
-              >
-                Phiếu điều trị
-              </a>
-            </li>
-          ))}
-        </ul>
-      ) : null}
       {bao ? <p className="text-meta text-warning">{bao}</p> : null}
       {loi ? (
         <p role="alert" className="text-meta text-danger">
@@ -293,7 +371,81 @@ export function KhungLieuTrinh({
   );
 }
 
-/** Dải liệu trình của MỘT chỉ định điều trị (trong thẻ của nó). */
+/** Ô trống hiện sẵn: kế hoạch ngắn hiện hết, dài thì vài ô đầu. */
+function soTrongHien(conTrong: number): number {
+  return conTrong <= TRONG_HIEN_TOI_DA + 1 ? conTrong : TRONG_HIEN_TOI_DA;
+}
+
+/** [Khách chọn lộ trình] cho một lộ trình bác sĩ đã đề xuất: tick "tính buổi
+ *  hôm nay" (mặc định) = gắn chỉ định hôm nay (máy chủ ghi đăng ký luôn); bỏ
+ *  tick = đăng ký, buổi hôm nay vẫn là buổi lẻ. Hoàn tác trên dải. */
+function KhachChonLoTrinh({
+  u,
+  orderId,
+  onDoi,
+}: {
+  u: UngVien;
+  orderId: string;
+  onDoi: () => void;
+}) {
+  const [mo, setMo] = useState(false);
+  const [tinhHomNay, setTinhHomNay] = useState(true);
+  const [dang, setDang] = useState(false);
+  const [loi, setLoi] = useState<string | null>(null);
+  const chon = async () => {
+    setDang(true);
+    setLoi(null);
+    const kq = tinhHomNay
+      ? await lenhLT("gan", { service_order_id: orderId, lieu_trinh_id: u.id, expected_lieu_trinh_id: null })
+      : await lenhLT("dang-ky", { expected_revision: u.revision }, u.id);
+    setDang(false);
+    if (!kq.ok) setLoi(kq.loi);
+    else setMo(false);
+    onDoi();
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-body text-ink">
+          Bác sĩ đề xuất lộ trình <span className="font-semibold">{u.so_buoi} buổi</span>
+          {u.tao_luc ? ` (${fmtDate(u.tao_luc)})` : ""} — khách chưa chọn.
+        </span>
+        {!mo ? (
+          <Button size="sm" variant="primary" onClick={() => setMo(true)}>
+            Khách chọn lộ trình
+          </Button>
+        ) : null}
+      </div>
+      {mo ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-control border border-line bg-surface-muted p-2.5">
+          <label className="flex min-h-9 items-center gap-2 text-body text-ink">
+            <input
+              type="checkbox"
+              className="size-4 accent-brand-600"
+              checked={tinhHomNay}
+              onChange={(e) => setTinhHomNay(e.target.checked)}
+            />
+            Tính buổi hôm nay vào lộ trình
+          </label>
+          <Button size="sm" variant="primary" disabled={dang} onClick={() => void chon()}>
+            {dang ? "Đang ghi…" : "Xác nhận khách chọn"}
+          </Button>
+          <Button size="sm" variant="ghost" disabled={dang} onClick={() => setMo(false)}>
+            Thôi
+          </Button>
+        </div>
+      ) : null}
+      {loi ? (
+        <p role="alert" className="text-meta text-danger">
+          {loi}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Dải liệu trình của MỘT chỉ định điều trị (trong thẻ của nó) — bàn khám và
+ *  phòng dịch vụ dùng chung. Chưa vào lộ trình = BUỔI LẺ (Tuyền 09/10/2026). */
 export function DaiLieuTrinh({
   visitId,
   cd,
@@ -309,12 +461,17 @@ export function DaiLieuTrinh({
 }) {
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
-  const [hoiTach, setHoiTach] = useState<{ n: number; gc: string } | null>(null);
+  const [hoiTach, setHoiTach] = useState<{ n: number; gc: string; chon: boolean } | null>(null);
   const [moTach, setMoTach] = useState(false);
   const [hoiGo, setHoiGo] = useState(false);
+  const [khachChonLuon, setKhachChonLuon] = useState(false);
   const lt = cd.lieu_trinh_id ? luot.lieu_trinh.find((x) => x.id === cd.lieu_trinh_id) : undefined;
+  // Lộ trình bác sĩ đề xuất TỪ chính chỉ định này (chỉ định vẫn là buổi lẻ).
+  const deXuatTuDay = lt
+    ? undefined
+    : luot.lieu_trinh.find((x) => x.trang_thai === "DE_XUAT" && x.nguon_order_id === cd.order_id);
 
-  const tao = async (n: number, gc: string, tach: boolean) => {
+  const tao = async (n: number, gc: string, tach: boolean, chon: boolean) => {
     setDang(true);
     setLoi(null);
     const kq = await lenhLT("tao", {
@@ -323,16 +480,18 @@ export function DaiLieuTrinh({
       service_order_id: cd.order_id,
       ghi_chu: gc || null,
       tach_khoi_lieu_trinh_cu: tach,
+      khach_chon: chon,
     });
     setDang(false);
     if (!kq.ok && kq.ma === "DA_GAN_LIEU_TRINH" && !tach) {
-      // Chỉ định vừa được tự gắn vào liệu trình khách đang làm (#14): hỏi rõ.
-      setHoiTach({ n, gc });
+      // Chỉ định đang là buổi của liệu trình khách đang làm (#14): hỏi rõ.
+      setHoiTach({ n, gc, chon });
     } else if (!kq.ok) {
       setLoi(kq.loi);
     } else {
       setHoiTach(null);
       setMoTach(false);
+      setKhachChonLuon(false);
     }
     onDoi();
   };
@@ -361,42 +520,63 @@ export function DaiLieuTrinh({
     onDoi();
   };
 
-  const nhanUngVien = (id: string) => {
-    const u = cd.ung_vien.find((x) => x.id === id);
-    return u
-      ? `${NHAN_TRANG_THAI_LT[u.trang_thai]} · ${u.da_lam}/${u.so_buoi} buổi${u.tao_luc ? ` · lập ${fmtDate(u.tao_luc)}` : ""}`
-      : id;
-  };
+  const nhanUngVien = (u: UngVien) =>
+    `${NHAN_TRANG_THAI_LT[u.trang_thai]} · đã làm ${u.da_lam}/${u.so_buoi} buổi${u.tao_luc ? ` · lập ${fmtDate(u.tao_luc)}` : ""}`;
   const khac = cd.ung_vien.filter((u) => u.id !== cd.lieu_trinh_id);
+  const deXuat = khac.filter((u) => u.trang_thai === "DE_XUAT");
+  const dangLam = khac.filter((u) => u.trang_thai !== "DE_XUAT");
 
   return (
     <div className="space-y-2">
       {lt ? (
-        <KhungLieuTrinh
-          lt={lt}
-          buoiSo={cd.buoi_so}
-          traTruoc={cd.tra_truoc}
-          choGhi={choGhi}
-          onDoi={onDoi}
-          them={
-            <>
-              {cd.nut?.go ? (
-                <Button size="sm" variant="ghost" disabled={dang} onClick={() => setHoiGo(true)}>
-                  Gỡ khỏi liệu trình
-                </Button>
-              ) : null}
-              {cd.nut?.tach && !moTach ? (
-                <Button size="sm" variant="ghost" disabled={dang} onClick={() => setMoTach(true)}>
-                  Lập liệu trình mới
-                </Button>
-              ) : null}
-            </>
-          }
-        />
+        <>
+          {cd.chu_buoi ? (
+            <p className="text-emph font-semibold text-ink">
+              Buổi này: {cd.chu_buoi}
+              {cd.tra_truoc ? " · đã trả trước" : ""}
+            </p>
+          ) : null}
+          <KhungLieuTrinh
+            lt={lt}
+            orderHomNay={cd.order_id}
+            choGhi={choGhi}
+            onDoi={onDoi}
+            them={
+              <>
+                {cd.nut?.go ? (
+                  <Button size="sm" variant="ghost" disabled={dang} onClick={() => setHoiGo(true)}>
+                    Gỡ khỏi lộ trình (thành buổi lẻ)
+                  </Button>
+                ) : null}
+                {cd.nut?.tach && !moTach ? (
+                  <Button size="sm" variant="ghost" disabled={dang} onClick={() => setMoTach(true)}>
+                    Lập lộ trình mới
+                  </Button>
+                ) : null}
+              </>
+            }
+          />
+        </>
+      ) : cd.song ? (
+        <div className="space-y-2 rounded-card border border-dashed border-line-strong p-3">
+          <p className="text-body text-ink">
+            <span className="font-semibold">Buổi lẻ</span> — làm xong trả tiền như thường, chưa vào lộ trình nào.
+          </p>
+          {deXuat.map((u) =>
+            choGhi ? (
+              <KhachChonLoTrinh key={u.id} u={u} orderId={cd.order_id} onDoi={onDoi} />
+            ) : (
+              <p key={u.id} className="text-body text-ink-soft">
+                Bác sĩ đề xuất lộ trình {u.so_buoi} buổi — khách chưa chọn.
+              </p>
+            ),
+          )}
+          {deXuatTuDay ? <KhungLieuTrinh lt={deXuatTuDay} choGhi={choGhi} onDoi={onDoi} /> : null}
+        </div>
       ) : null}
       {choGhi && hoiGo ? (
         <XacNhanTaiCho
-          cau="Gỡ chỉ định này khỏi liệu trình? Buổi hôm nay thành buổi lẻ (tính tiền như thường)."
+          cau="Gỡ chỉ định này khỏi lộ trình? Buổi hôm nay thành buổi lẻ (tính tiền như thường)."
           nhanDongY="Gỡ"
           dangGui={dang}
           onDongY={() => void go()}
@@ -404,46 +584,58 @@ export function DaiLieuTrinh({
         />
       ) : null}
       {choGhi && cd.can_chon ? (
-        <p className="text-meta text-warning">
-          Khách có {cd.ung_vien.length} liệu trình cùng dịch vụ — chọn liệu trình cho chỉ định này.
+        <p className="text-body text-warning">
+          Khách có {dangLam.length} lộ trình đang làm cùng dịch vụ — chọn lộ trình cho buổi này.
         </p>
       ) : null}
-      {choGhi && cd.nut?.chon && khac.length > 0 ? (
-        <label className="flex flex-wrap items-center gap-2 text-meta text-ink-soft">
-          {cd.lieu_trinh_id ? "Chuyển sang liệu trình" : "Gắn vào liệu trình có sẵn"}
+      {choGhi && cd.nut?.chon && dangLam.length > 0 ? (
+        <label className="flex flex-wrap items-center gap-2 text-body text-ink-soft">
+          {cd.lieu_trinh_id ? "Chuyển sang lộ trình" : "Đưa buổi này vào lộ trình đang làm"}
           <OChon
             value=""
             disabled={dang}
             onChange={(e) => e.target.value && void gan(e.target.value)}
-            aria-label="Chọn liệu trình cho chỉ định"
+            aria-label="Chọn lộ trình cho chỉ định"
             className="min-w-0 flex-1"
           >
-            <option value="">— Chọn liệu trình —</option>
-            {khac.map((u) => (
+            <option value="">— Chọn lộ trình —</option>
+            {dangLam.map((u) => (
               <option key={u.id} value={u.id}>
-                {nhanUngVien(u.id)}
+                {nhanUngVien(u)}
               </option>
             ))}
           </OChon>
         </label>
       ) : null}
-      {choGhi && (cd.nut?.tao || moTach) && !hoiTach ? (
-        <OLoTrinh
-          nhanNut="Tạo liệu trình"
-          soBuoiDau={null}
-          ghiChuDau=""
-          dang={dang}
-          onGui={(n, gc) => void tao(n, gc, moTach)}
-          onThoi={moTach ? () => setMoTach(false) : undefined}
-          truoc={<span className="text-meta text-ink-muted">Buổi hôm nay = buổi 1 ·</span>}
-        />
+      {choGhi && ((cd.nut?.tao && !deXuatTuDay) || moTach) && !hoiTach ? (
+        <div className="space-y-2">
+          <OLoTrinh
+            nhanNut={khachChonLuon ? "Lập lộ trình" : "Đề xuất lộ trình"}
+            soBuoiDau={null}
+            ghiChuDau=""
+            dang={dang}
+            onGui={(n, gc) => void tao(n, gc, moTach, khachChonLuon || moTach)}
+            onThoi={moTach ? () => setMoTach(false) : undefined}
+          />
+          {!moTach ? (
+            <label className="flex min-h-9 items-center gap-2 text-body text-ink">
+              <input
+                type="checkbox"
+                className="size-4 accent-brand-600"
+                checked={khachChonLuon}
+                onChange={(e) => setKhachChonLuon(e.target.checked)}
+              />
+              Khách chọn lộ trình luôn — tính buổi hôm nay là buổi 1
+            </label>
+          ) : null}
+        </div>
       ) : null}
       {choGhi && hoiTach ? (
         <XacNhanTaiCho
-          cau="Chỉ định này đang là một buổi của liệu trình khách đang làm. Lập liệu trình MỚI và tách buổi hôm nay sang?"
-          nhanDongY="Lập liệu trình mới"
+          cau="Chỉ định này đang là một buổi của lộ trình khách đang làm. Lập lộ trình MỚI và tách buổi hôm nay sang?"
+          nhanDongY="Lập lộ trình mới"
           dangGui={dang}
-          onDongY={() => void tao(hoiTach.n, hoiTach.gc, true)}
+          onDongY={() => void tao(hoiTach.n, hoiTach.gc, true, true)}
           onThoi={() => setHoiTach(null)}
         />
       ) : null}

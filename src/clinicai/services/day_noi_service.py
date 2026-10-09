@@ -108,8 +108,8 @@ class DayNoiService:
             vi_tri = [
                 dict(r)
                 for r in await conn.fetch(
-                    "SELECT id::text AS id, code, ten, ten_ngan, tang, nhom_nghe,"
-                    "       room_id::text AS room_id, is_active"
+                    "SELECT id::text AS id, code, ten, ten_ngan, tang, phong,"
+                    "       nhom_nghe, room_id::text AS room_id, is_active"
                     "  FROM vi_tri_lam_viec WHERE clinic_id = $1::uuid"
                     " ORDER BY is_active DESC, sort, ten",
                     cid,
@@ -329,12 +329,20 @@ class DayNoiService:
         ten: str | None = None,
         ten_ngan: str | None = None,
         tang: str | None = None,
+        phong: str | None = None,
         room_id: str | None = None,
         bo_phong: bool = False,
         is_active: bool | None = None,
     ) -> dict[str, Any]:
         if ten is not None and not 1 <= len(ten.strip()) <= 120:
             raise ValidationError("Tên vị trí phải từ 1 đến 120 ký tự.")
+        # `tang` / `phong` = CHỮ hiện ở cột Tầng / Phòng của bảng lịch khi vị trí
+        # KHÔNG gắn phòng thật (Trưởng ca: "Quản lý ca khám", 09/10/2026) — gắn
+        # phòng thật thì bảng lịch in tên/tầng của phòng ấy (`me/vi-tri-hom-nay`).
+        # None = giữ nguyên; chuỗi trắng = xoá chữ (NULL).
+        for nhan, gia_tri, tran in (("Tầng", tang, 60), ("Phòng", phong, 120)):
+            if gia_tri is not None and len(gia_tri.strip()) > tran:
+                raise ValidationError(f"Chữ cột {nhan} tối đa {tran} ký tự.")
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN)
             await self._kiem_phong(conn, identity.clinic_id, room_id)
@@ -348,9 +356,11 @@ class DayNoiService:
                                    ELSE nullif(btrim($5), '') END,
                        room_id = CASE WHEN $7 THEN NULL
                                       ELSE coalesce($6::uuid, room_id) END,
-                       is_active = coalesce($8, is_active)
+                       is_active = coalesce($8, is_active),
+                       phong = CASE WHEN $9::text IS NULL THEN phong
+                                    ELSE nullif(btrim($9), '') END
                  WHERE clinic_id = $1::uuid AND id = $2::uuid
-                RETURNING id::text, ten, is_active
+                RETURNING id::text, ten, is_active, tang, phong
                 """,
                 identity.clinic_id,
                 vi_tri_id,
@@ -360,13 +370,20 @@ class DayNoiService:
                 room_id,
                 bo_phong,
                 is_active,
+                phong,
             )
             if row is None:
                 raise NotFoundError("Không tìm thấy vị trí này.")
             await self._ghi_nhat_ky(
                 conn,
                 identity,
-                {"vi_tri": vi_tri_id, "ten": row["ten"], "bat": row["is_active"]},
+                {
+                    "vi_tri": vi_tri_id,
+                    "ten": row["ten"],
+                    "bat": row["is_active"],
+                    "tang": row["tang"],
+                    "phong": row["phong"],
+                },
             )
         # Quyền theo lịch đọc vị trí → phòng — đổi thì quên quyền đang nhớ.
         cache.quen(identity.clinic_id)

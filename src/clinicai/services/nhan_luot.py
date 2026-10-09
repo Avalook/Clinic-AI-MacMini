@@ -43,13 +43,25 @@ def _moc(v: Any) -> datetime:
     return v if v.tzinfo else v.replace(tzinfo=UTC)
 
 
+def chu_buoi(so: Any, tong: Any, da_lam: Any) -> str:
+    """ "Buổi k/N · đã làm" / "Buổi k/N · chưa làm" — MỘT câu chữ cho mọi màn
+    (Tuyền 09/10: số buổi phải nói rõ đã làm hay chưa). Số = thứ tự làm xong
+    (``v_lieu_trinh_buoi``). Rác → chuỗi rỗng, không ném. Thuần."""
+    try:
+        k, n = int(so), int(tong)
+    except (TypeError, ValueError):
+        return ""
+    return f"Buổi {k}/{n} · {'đã làm' if da_lam else 'chưa làm'}"
+
+
 def gan_nhan(cac_muc: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Nhãn cho mọi lượt / lịch của MỘT khách. Thuần.
 
     Mỗi mục: ``khoa`` (chuỗi bất kỳ, duy nhất), ``moc`` (giờ check-in, hoặc giờ
     hẹn khi chưa check-in), ``da_check_in``, ``trang_thai_lich`` (status lịch
     hẹn, None nếu lượt không có lịch), ``nhom`` (nhóm loại khám), ``buoi``
-    (``(buoi_so, so_buoi)`` của chỉ định gắn liệu trình đầu tiên, hoặc None).
+    (``(buoi_so, so_buoi, da_lam)`` của chỉ định gắn liệu trình đầu tiên, hoặc
+    None; số = thứ tự làm xong, chữ ghi rõ đã làm / chưa làm).
 
     Trả ``khoa → {nhan, loai, so, buoi}``: ``loai`` ∈ KHAM / DIEU_TRI / THUOC /
     LICH / HUY; ``so`` = thứ tự lượt khám (chỉ loại KHAM); ``buoi`` = "Buổi k/N"
@@ -61,7 +73,7 @@ def gan_nhan(cac_muc: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
         if not khoa:
             continue
         b = m.get("buoi")
-        buoi = f"Buổi {int(b[0])}/{int(b[1])}" if b else None
+        buoi = (chu_buoi(*b) or None) if b else None
         nhom = m.get("nhom")
         if not m.get("da_check_in"):
             st = m.get("trang_thai_lich")
@@ -97,16 +109,16 @@ _SQL = """
 SELECT 'v' AS kieu, v.visit_id::text AS visit_id, v.appointment_id::text AS appt_id,
        v.clinic_patient_id::text AS khach,
        coalesce(v.checked_in_at, v.created_at) AS moc, v.created_at,
-       a.status AS trang_thai_lich, st.nhom, bu.buoi_so, bu.so_buoi
+       a.status AS trang_thai_lich, st.nhom, bu.buoi_so, bu.so_buoi, bu.da_lam
   FROM public.visit v
   LEFT JOIN public.appointment a
     ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
   LEFT JOIN public.service_type st
     ON st.id = coalesce(v.service_type_id, a.service_type_id)
   LEFT JOIN LATERAL (
-       SELECT b.buoi_so, lt.so_buoi
+       SELECT b.buoi_so, lt.so_buoi, b.da_lam
          FROM public.service_order o
-         JOIN public.lieu_trinh_buoi b
+         JOIN public.v_lieu_trinh_buoi b
            ON b.clinic_id = o.clinic_id AND b.service_order_id = o.id
           AND b.go_luc IS NULL
          JOIN public.lieu_trinh lt
@@ -117,7 +129,7 @@ SELECT 'v' AS kieu, v.visit_id::text AS visit_id, v.appointment_id::text AS appt
  WHERE v.clinic_id = $1::uuid AND v.clinic_patient_id = ANY($2::uuid[])
 UNION ALL
 SELECT 'a', NULL, a.id::text, a.clinic_patient_id::text, a.slot_start, a.created_at,
-       a.status, st.nhom, NULL, NULL
+       a.status, st.nhom, NULL, NULL, NULL
   FROM public.appointment a
   LEFT JOIN public.service_type st ON st.id = a.service_type_id
  WHERE a.clinic_id = $1::uuid AND a.clinic_patient_id = ANY($2::uuid[])
@@ -129,7 +141,7 @@ SELECT 'a', NULL, a.id::text, a.clinic_patient_id::text, a.slot_start, a.created
 def _dung_muc(
     luot: Sequence[dict[str, Any]],
     lich: Sequence[dict[str, Any]],
-    buoi: dict[str, tuple[int, int]],
+    buoi: dict[str, tuple[int, int, bool]],
 ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, str]]:
     """Gom theo khách thành các mục cho ``gan_nhan``. Một lịch có nhiều lượt
     (check-in lại sau hoàn tác) → MỘT mục, lượt mới nhất; mọi khoá (``a:`` lịch,
@@ -187,7 +199,7 @@ async def doc_nhan_luot(
     luot = [r for r in rows if r.get("kieu") == "v"]
     lich = [r for r in rows if r.get("kieu") == "a"]
     buoi = {
-        str(r["visit_id"]): (int(r["buoi_so"]), int(r["so_buoi"]))
+        str(r["visit_id"]): (int(r["buoi_so"]), int(r["so_buoi"]), bool(r["da_lam"]))
         for r in luot
         if r.get("buoi_so") is not None and r.get("so_buoi") is not None
     }

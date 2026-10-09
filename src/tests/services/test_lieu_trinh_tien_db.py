@@ -241,6 +241,22 @@ async def test_3_tra_5_toi_buoi_6_vao_hoa_don_gia_chot_goi_y_tra_them(
     k = await khoi(ca, v6, lt["id"])
     assert k["goi_y_tra_them"] is True and k["con_tra_truoc"] == 0
     assert k["tra_truoc_toi_da"] == 4  # 10 − 5 đã trả − buổi 6 trong hoá đơn
+    assert k["cau_goi_y"] == "Hết buổi đã trả trước — gợi ý khách trả thêm."
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_goi_y_khach_chua_tung_tra_truoc_dung_cau(pool: asyncpg.Pool) -> None:
+    """Staging 09/10: khách Đang làm mà CHƯA từng trả trước buổi nào — quầy ghi
+    "Hết buổi đã trả trước" là sai; câu phải nói chưa trả trước."""
+    ca = await dung_ca(pool)
+    v = await luot(ca)
+    o = await chi_dinh(ca, v)
+    lt = await tao(ca, v, 6, order=o)
+    assert (await doc(ca, lt["id"]))["trang_thai"] == "DANG_LAM"
+    k = await khoi(ca, v, lt["id"])
+    assert k["goi_y_tra_them"] is True and k["da_tra"] == 0
+    assert k["cau_goi_y"] == "Khách chưa trả trước buổi nào — có thể gợi ý trả trước."
 
 
 @pytest.mark.db
@@ -276,6 +292,39 @@ async def test_6_19_20_luot_dieu_tri_buoi_phu_quay_0d_lam_ngay(
         )
     chip = await ca.svc.chip(identity=ca.le_tan, visit_ids=v)
     assert chip["chi_dinh"][o]["tra_truoc"] is True
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_buoi_phu_da_chot_khong_ket_cho_thu(pool: asyncpg.Pool) -> None:
+    """Bấm thử staging 09/10: buổi đã trả trước (0đ) — quầy [Chốt dịch vụ] xong
+    thì lượt RỜI chờ thu và tính là xong tiền. Trước: dòng tick 0đ bị coi là
+    còn khoản, "chốt 0đ" không ghi được (hoá đơn không dòng) → kẹt mãi."""
+    from clinicai.services.cashier_board_service import CashierBoardService
+
+    ca = await dung_ca(pool)
+    await lt_da_tra_truoc(ca, 6, 6)
+    v = await luot(ca, dieu_tri=True)
+    async with pool.acquire() as conn, conn.transaction():
+        o = await sinh_chi_dinh_dieu_tri(
+            conn, clinic_id=CLINIC, visit_id=v, nguoi_bam=None
+        )
+    assert o is not None
+    bang = CashierBoardService(pool)
+
+    async def mot() -> dict[str, Any]:
+        b = await bang.board(identity=ca.thu_ngan, modes=["dich_vu"])
+        (i,) = [i for i in b["items"] if i["visit_id"] == v]
+        da_thu = (v, "dich_vu") in {(p["visit_id"], p["kind"]) for p in b["paid"]}
+        return {**i, "da_thu": da_thu}
+
+    # Còn chờ khách chốt (PENDING) → vẫn ở chờ thu, 0đ.
+    i = await mot()
+    assert i["cho_thu"] is True and i["quay_thu"]["tong"] == 0
+    # Quầy chốt → SELECTED, buổi vẫn phủ → xong.
+    await dat_trang_thai(ca, o, selection_status="SELECTED")
+    i = await mot()
+    assert (i["cho_thu"], i["da_thu"]) == (False, True)
 
 
 @pytest.mark.db

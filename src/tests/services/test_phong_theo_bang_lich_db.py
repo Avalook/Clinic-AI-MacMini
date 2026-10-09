@@ -449,7 +449,8 @@ async def test_tang_tren_lich_theo_phong_that_khi_chu_cu_lech(
         kq = await vi_tri_hom_nay(identity=_ai(), pool=pool)
         dm = {d["code"]: d for d in cast(list[dict[str, Any]], kq["danh_muc"])}
         assert dm["T1_TT_BS"]["tang"] == "Tầng 5"
-        assert dm["DIEU_PHOI"]["tang"] == ""
+        # Vị trí không gắn phòng: tầng là chữ của chính vị trí, không theo phòng.
+        assert dm["DIEU_PHOI"]["tang"] == "Quản lý ca khám"
     finally:
         await pool.execute(
             "UPDATE clinic_room SET floor = $2 WHERE id = $1::uuid", rid, cu
