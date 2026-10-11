@@ -10,9 +10,9 @@ from fastapi import Request
 
 logger = structlog.get_logger()
 
-POOL_MIN_SIZE = 2
-POOL_MAX_SIZE = 10
-COMMAND_TIMEOUT = 15  # seconds — per-query timeout to prevent runaway queries
+POOL_MIN_SIZE = 2   # App giữ sẵn tối thiểu 2, tối đa 10 kết nối tới Postgres. 
+POOL_MAX_SIZE = 10   # Khi request đến, nó lấy 1 kết nối từ bể; xong thì trả lại — không phải mở/đóng mỗi lần.
+COMMAND_TIMEOUT = 15  # Mỗi câu SQL chạy quá 15 giây sẽ bị huỷ tự động — tránh câu SQL "quên" chạy mãi, khoá bảng.
 STARTUP_RETRIES = 3
 STARTUP_BACKOFF = 2.0  # seconds between retries
 
