@@ -32,13 +32,13 @@ from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.tran import canh_bao_neu_day
-from clinicai.permissions.can import can
 from clinicai.services.anh_chuyen_khoan_service import anh_cua_cac_lan_thu
 from clinicai.services.cashier_board_service import (
     doc_khoang_ngay,
     hoan_tac_cua,
     quyen_thu_theo_loai,
 )
+from clinicai.services.cashier_scope_service import visible_refunds
 from clinicai.services.day_noi import doc_day
 from clinicai.services.doi_hinh_thuc_service import gan_vao_lich_su, trang_thai_doi
 from clinicai.services.lan_bac_si import ten_bac_si
@@ -551,6 +551,7 @@ def gom_theo_khach(
                 "id": str(c["id"]),
                 "ma": ma,
                 "luc": _iso(c.get("paid_at")),
+                "tao_luc": _iso(c.get("created_at")),
                 "trang_thai": c.get("status"),
                 "hinh_thuc": ht,
                 "phan": phan,
@@ -573,6 +574,7 @@ def gom_theo_khach(
                 "loai": "thu",
                 "id": str(c["id"]),
                 "luc": _iso(c.get("paid_at")),
+                "tao_luc": _iso(c.get("created_at")),
                 "ma": ma,
                 "so_tien": so_tien,
                 "hinh_thuc": ht,
@@ -1013,6 +1015,9 @@ class QuayThuService:
         nguoi_thu: Any = None,
         kind: str = "dich_vu",
         chi_tiet: bool = False,
+        scope_starts: list[datetime] | None = None,
+        scope_ends: list[datetime] | None = None,
+        scope_actor: str | None = None,
     ) -> dict[str, Any]:
         """Sổ thu / hoàn GOM THEO KHÁCH trong khoảng ngày (giờ VN). Chỉ đọc.
 
@@ -1038,7 +1043,7 @@ class QuayThuService:
                        -- Chia TM + CK hiệu lực (01/10/2026).
                        phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
                                          pc.method, pc.amount) AS phan,
-                       pc.paid_at, pc.closed_at, pc.close_reason,
+                       pc.created_at, pc.paid_at, pc.closed_at, pc.close_reason,
                        coalesce(xn.full_name, cb.full_name) AS nguoi_thu,
                        dg.full_name AS nguoi_huy
                   FROM payment_cycle pc
@@ -1051,7 +1056,17 @@ class QuayThuService:
                     ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
                  WHERE pc.clinic_id = $1::uuid AND pc.kind = $4
                    AND pc.paid_at IS NOT NULL
-                   AND (pc.paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                   AND ($8::uuid IS NULL OR pc.created_by=$8::uuid
+                        OR pc.confirmed_by=$8::uuid)
+                   AND ($6::timestamptz[] IS NULL OR EXISTS(
+                        SELECT 1 FROM unnest($6::timestamptz[],$7::timestamptz[])
+                        AS allowed(start_at,end_at)
+                        WHERE (CASE WHEN pc.created_by=$8::uuid THEN pc.created_at
+                          ELSE pc.paid_at END)>=allowed.start_at
+                          AND (CASE WHEN pc.created_by=$8::uuid THEN pc.created_at
+                          ELSE pc.paid_at END)<allowed.end_at))
+                   AND ((CASE WHEN pc.created_by=$8::uuid THEN pc.created_at
+                        ELSE pc.paid_at END) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                        BETWEEN $2 AND $3
                    -- Chỉ sổ của cơ sở đang đứng ($5 NULL = không lọc).
                    AND coalesce(v.location_id, ah.location_id, $5::uuid)
@@ -1065,6 +1080,9 @@ class QuayThuService:
                 b,
                 loai,
                 co_so,
+                scope_starts,
+                scope_ends,
+                scope_actor,
             )
             hoan = await conn.fetch(
                 """
@@ -1086,8 +1104,44 @@ class QuayThuService:
                     ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
                  WHERE r.clinic_id = $1::uuid AND r.kind = $4
                    AND r.status IN ('PENDING', 'COMPLETED')
-                   AND (r.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                       BETWEEN $2 AND $3
+                   AND (
+                     ($8::uuid IS NOT NULL
+                       AND (r.created_by=$8::uuid OR r.completed_by=$8::uuid)
+                       AND ((CASE WHEN r.created_by=$8::uuid THEN r.created_at
+                         ELSE coalesce(r.completed_at,r.created_at) END)
+                         AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+                       AND EXISTS(SELECT 1
+                         FROM unnest($6::timestamptz[],$7::timestamptz[])
+                         AS allowed(start_at,end_at)
+                         WHERE (CASE WHEN r.created_by=$8::uuid THEN r.created_at
+                           ELSE coalesce(r.completed_at,r.created_at) END)
+                           >=allowed.start_at
+                           AND (CASE WHEN r.created_by=$8::uuid THEN r.created_at
+                           ELSE coalesce(r.completed_at,r.created_at) END)
+                           <allowed.end_at))
+                     OR ($8::uuid IS NULL AND
+                       ($6::timestamptz[] IS NULL OR EXISTS(
+                        SELECT 1 FROM unnest($6::timestamptz[],$7::timestamptz[])
+                        AS allowed(start_at,end_at)
+                        WHERE r.created_at>=allowed.start_at
+                          AND r.created_at<allowed.end_at))
+                       AND (r.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                         BETWEEN $2 AND $3)
+                     OR ($8::uuid IS NOT NULL AND EXISTS(
+                       SELECT 1 FROM payment_cycle own
+                       WHERE own.clinic_id=r.clinic_id
+                         AND own.payment_cycle_id=r.payment_cycle_id
+                         AND (own.created_by=$8::uuid OR own.confirmed_by=$8::uuid)
+                         AND ((CASE WHEN own.created_by=$8::uuid THEN own.created_at
+                           ELSE own.paid_at END)
+                           AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+                         AND EXISTS(SELECT 1
+                           FROM unnest($6::timestamptz[],$7::timestamptz[])
+                           AS allowed(start_at,end_at)
+                           WHERE (CASE WHEN own.created_by=$8::uuid THEN own.created_at
+                             ELSE own.paid_at END)>=allowed.start_at
+                             AND (CASE WHEN own.created_by=$8::uuid THEN own.created_at
+                             ELSE own.paid_at END)<allowed.end_at))))
                    AND coalesce(v.location_id, ah.location_id, $5::uuid)
                        IS NOT DISTINCT FROM
                        coalesce($5::uuid, v.location_id, ah.location_id)
@@ -1100,6 +1154,9 @@ class QuayThuService:
                 b,
                 loai,
                 co_so,
+                scope_starts,
+                scope_ends,
+                scope_actor,
             )
             canh_bao_neu_day(
                 "quay_thu.lich_su.lan_thu", len(lan_thu), 3000, tu=a, den=b
@@ -1125,6 +1182,13 @@ class QuayThuService:
             )
             if chi_tiet and loc:
                 await self._chi_tiet(conn, identity, loc, loai)
+                for group in loc:
+                    for receipt in group["phieu"]:
+                        receipt["hoan"] = visible_refunds(
+                            receipt.get("hoan"),
+                            None if scope_actor else scope_starts,
+                            None if scope_actor else scope_ends,
+                        )
             # [Đổi hình thức] từng phiếu (V7): cờ + lịch sử đổi do máy chủ quyết.
             gan_vao_lich_su(
                 loc,
@@ -1163,11 +1227,10 @@ class QuayThuService:
                             None,
                         )
             # Huỷ phiếu: cùng quyền thu đúng loại tiền (PaymentService.void_payment).
-            co_huy = await can(conn, identity, QUYEN_THU[0 if loai == "dich_vu" else 1])
+            co_huy = quyen[loai]
             # Hoàn tiền theo lego thu đúng loại tiền (Tuyền 06/10/2026, thay HOLD J4).
-            from clinicai.services.hoan_tien_service import co_quyen_hoan
 
-            quyen_hoan = await co_quyen_hoan(conn, identity, loai)
+            quyen_hoan = quyen[loai]
 
         return {
             "tu": a.isoformat(),

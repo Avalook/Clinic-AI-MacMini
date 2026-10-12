@@ -37,6 +37,7 @@ from clinicai.permissions.can import can
 from clinicai.services import media_service
 from clinicai.services.media_service import sniff_ket_qua
 from clinicai.services.nhan_tep_luong import TepDaNhan
+from clinicai.services.payment_access_service import head_money_grant
 
 logger = structlog.get_logger()
 
@@ -99,14 +100,17 @@ class AnhChuyenKhoanService:
         self, conn: asyncpg.Connection, identity: StaffIdentity, cycle_id: str
     ) -> asyncpg.Record:
         lan = await conn.fetchrow(
-            "SELECT payment_cycle_id::text AS id, kind FROM public.payment_cycle"
+            "SELECT payment_cycle_id::text AS id, visit_id::text AS visit_id, kind"
+            " FROM public.payment_cycle"
             " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid",
             identity.clinic_id,
             cycle_id,
         )
         if lan is None:
             raise NotFoundError("Không tìm thấy lần thu này.")
-        if not await can(conn, identity, QUYEN_THU[str(lan["kind"])]):
+        if not head_money_grant(
+            identity, str(lan["kind"]), str(lan["visit_id"])
+        ) and not await can(conn, identity, QUYEN_THU[str(lan["kind"])]):
             raise SafetyGateError("Bạn không có quyền thu loại tiền của lần thu này.")
         return lan
 
@@ -173,7 +177,9 @@ class AnhChuyenKhoanService:
         )
         return {"ok": True, "id": anh_id, "payment_cycle_id": payment_cycle_id}
 
-    async def doc(self, *, identity: StaffIdentity, anh_id: str) -> tuple[bytes, str]:
+    async def doc(
+        self, *, identity: StaffIdentity, anh_id: str, history_authorized: bool = False
+    ) -> tuple[bytes, str]:
         """(nội dung, mime) — ổ VPS trước, rồi CFS (tệp đã đẩy)."""
         from clinicai.services.tep_ket_qua_service import _tim_ban
 
@@ -187,7 +193,8 @@ class AnhChuyenKhoanService:
             )
             if r is None:
                 raise NotFoundError("Không tìm thấy ảnh này.")
-            await self._lan_thu(conn, identity, r["cycle_id"])
+            if not history_authorized:
+                await self._lan_thu(conn, identity, r["cycle_id"])
         duong, kho, f = await _tim_ban(str(r["khoa"]), str(r["vi_tri"]), mo=True)
         assert f is not None
         mo = f

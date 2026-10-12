@@ -99,7 +99,8 @@ async def test_bang_thu_theo_ngay_va_rac_la_hom_nay(pool: asyncpg.Pool) -> None:
     assert dong["hoa_don"]["dich_vu"]["dong"], "ngày cũ vẫn phải có dòng để thu"
     assert b["ngay"] == xa.isoformat() and b["hom_nay"] == hom_nay.isoformat()
     assert b["dem"]["da_thu_hom_nay"] >= 0
-    assert (await co_luot(None))["co"] is False
+    # Khách tồn chưa trả tiếp tục hiện cho quầy hiện tại, kể cả chưa ghi nợ.
+    assert (await co_luot(None))["co"] is True
 
 
 @pytest.mark.db
@@ -107,9 +108,10 @@ async def test_bang_thu_theo_ngay_va_rac_la_hom_nay(pool: asyncpg.Pool) -> None:
 async def test_luot_ngay_cu_con_no_hien_hom_nay_khong_hien_ngay_khac(
     pool: asyncpg.Pool,
 ) -> None:
-    """THU NỢ: lượt ngày cũ đã GHI NỢ, chưa thu → lên bảng HÔM NAY; xem một ngày
-    cũ khác thì không. Vế này từng nằm trong `ngày OR EXISTS(nợ)` — viết lại
-    thành tập ứng viên hai vế (09/10/2026) nên phải giữ đúng hành vi."""
+    """Khách tồn còn nợ/chỉ định chưa thu hiện ở quầy hiện tại.
+
+    Xem lại một ngày cũ khác không kéo khách tồn sang ngày ấy.
+    """
     q, _sa, _soi, _hpv = await _kich_ban(pool)
     svc = CashierBoardService(pool)
     xa = date(2021, 1, 1) + timedelta(days=uuid.uuid4().int % 365)
@@ -124,7 +126,7 @@ async def test_luot_ngay_cu_con_no_hien_hom_nay_khong_hien_ngay_khac(
         b = await svc.board(identity=q.thu_ngan, modes=["dich_vu"], ngay=ngay)
         return any(i["visit_id"] == q.visit_id for i in b["items"])
 
-    assert await co(None) is False, "chưa ghi nợ thì lượt ngày cũ không lên hôm nay"
+    assert await co(None) is True, "khách tồn chưa thu không mất khi đổi ngày/ca"
     no_id = await pool.fetchval(
         """
         INSERT INTO cong_no (clinic_id, visit_id, clinic_patient_id, so_tien,
@@ -144,4 +146,5 @@ async def test_luot_ngay_cu_con_no_hien_hom_nay_khong_hien_ngay_khac(
         "UPDATE cong_no SET trang_thai = 'DA_THU', thu_luc = now() WHERE id = $1",
         no_id,
     )
-    assert await co(None) is False, "thu xong nợ → rời quầy hôm nay"
+    # Đóng dòng công nợ không tự thanh toán các chỉ định còn chưa thu.
+    assert await co(None) is True, "còn chỉ định chưa thu → vẫn ở quầy hôm nay"

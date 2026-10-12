@@ -28,6 +28,10 @@ from clinicai.permissions.catalogue import (
     QUYEN,
     quyen_cua_khoi,
 )
+from clinicai.services.cashier_navigation_service import (
+    cashier_navigation,
+    navigation_deadline,
+)
 from clinicai.services.permission_service import PermissionService
 
 router = APIRouter()
@@ -167,7 +171,11 @@ async def quyen_cua_toi(
     Ẩn nút KHÔNG phải bảo mật: mọi lệnh vẫn kiểm lại quyền ở backend.
     """
     async with pool.acquire() as conn:
-        return {"quyen": await quyen_hieu_luc(conn, identity)}
+        capabilities = await quyen_hieu_luc(conn, identity)
+    return {
+        "quyen": await cashier_navigation(pool, identity, capabilities),
+        "lam_moi_luc": await navigation_deadline(pool, identity),
+    }
 
 
 @router.get("/phan-quyen/nhan-su/{staff_id}")

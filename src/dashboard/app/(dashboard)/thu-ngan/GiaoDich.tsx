@@ -29,6 +29,7 @@ interface GiaoDichDong {
   trang_thai: string;
   so_tien: number | null;
   luc: string | null;
+  tao_luc?: string | null;
   nguoi_thu: string | null;
   phuong_thuc: string | null;
   /** Chia TM + CK hiệu lực (01/10/2026). */
@@ -82,6 +83,10 @@ export default function GiaoDich({
   lichSu,
   quay,
   ngay,
+  ca,
+  coSo,
+  restricted = false,
+  thaoTac = false,
 }: {
   lichSu: boolean;
   /** Quầy đang đứng: chỉ xem / hoàn tác sổ của loại tiền mình (01/10/2026). */
@@ -89,6 +94,10 @@ export default function GiaoDich({
   /** Ngày trên thanh ngày của quầy (02/10/2026); không có = hôm nay. Đổi ngày
    *  thì TabThuNgan dựng lại tab này (`key`) — ô "Từ – Đến" chỉ để mở rộng sau đó. */
   ngay?: string;
+  ca?: string;
+  coSo?: string;
+  restricted?: boolean;
+  thaoTac?: boolean;
 }) {
   const ngayXem = ngay ?? homNay();
   const [tu, setTu] = useState(ngayXem);
@@ -105,12 +114,13 @@ export default function GiaoDich({
     loi?: string;
   } | null>(null);
   const [xem, setXem] = useState<string | null>(null);
+  const scope = new URLSearchParams({ ...(ca ? { ca } : {}), ...(coSo ? { co_so: coSo } : {}) }).toString();
   const khoa = `${hoi.tu}|${hoi.den}`;
   useNgheBang(BANG_GIAO_DICH, () => setHoi((h) => ({ ...h, lan: h.lan + 1 })));
 
   useEffect(() => {
     let huy = false;
-    void fetch(`/api/cashier?xem=giao-dich&kind=${quay}&tu=${hoi.tu}&den=${hoi.den}`, { cache: "no-store" })
+    void fetch(`/api/cashier?xem=giao-dich&kind=${quay}&tu=${hoi.tu}&den=${hoi.den}&${scope}`, { cache: "no-store" })
       .then(async (r) => ({ ok: r.ok, d: await r.json().catch(() => null) }))
       .then(({ ok, d }) => {
         if (huy) return;
@@ -127,7 +137,7 @@ export default function GiaoDich({
     return () => {
       huy = true;
     };
-  }, [hoi, quay]);
+  }, [hoi, quay, scope]);
 
   const ds = kq?.khoa === khoa ? kq.ds : undefined;
   const loi = kq?.khoa === khoa ? kq.loi : undefined;
@@ -138,7 +148,7 @@ export default function GiaoDich({
 
   return (
     <section className="space-y-3">
-      {lichSu ? (
+      {lichSu && !restricted ? (
         <div className="flex flex-wrap items-end gap-2">
           <label className="grid gap-1 text-xs font-semibold text-ink">
             Từ ngày
@@ -177,7 +187,7 @@ export default function GiaoDich({
                   </p>
                 </div>
                 <p className="text-xs text-ink-soft">
-                  {g.loai === "thuoc" ? "Thuốc" : "Dịch vụ"} · {ngayGio(g.luc)} · {g.nguoi_thu ?? "—"} · phương thức:{" "}
+                  {g.loai === "thuoc" ? "Thuốc" : "Dịch vụ"} · {g.tao_luc && g.tao_luc !== g.luc ? `Lập ${ngayGio(g.tao_luc)} · Thu ${ngayGio(g.luc)}` : ngayGio(g.luc)} · {g.nguoi_thu ?? "—"} · phương thức:{" "}
                   {nhanPhan(g.phan) ||
                     (g.phuong_thuc ? tenHinhThuc(g.phuong_thuc) : g.legacy ? "không rõ (phiếu cũ)" : "—")}
                   {g.ma_giao_dich ? ` · mã GD ${g.ma_giao_dich}` : ""}
@@ -195,25 +205,26 @@ export default function GiaoDich({
                     {g.sau_khi_dong_luot ? " · phát sinh SAU khi đóng lượt" : ""}
                   </p>
                 ) : null}
-                <DoiHinhThuc
+                {thaoTac ? <DoiHinhThuc
                   paymentCycleId={g.id}
                   hinhThuc={g.phuong_thuc}
                   soTien={g.so_tien}
                   doi={g.doi_hinh_thuc}
                   onXong={() => setHoi((h) => ({ ...h, lan: h.lan + 1 }))}
-                />
+                /> : null}
                 {/* Ảnh chuyển khoản: xem lại / thêm cho lần thu có phần CK (01/10). */}
                 {(g.anh_ck?.length ?? 0) > 0 ||
                 ((g.trang_thai === "PAID" || g.trang_thai === "PENDING_VERIFICATION") &&
                   (g.phan ?? []).some((p) => p.hinh_thuc === "TRANSFER")) ? (
                   <AnhChuyenKhoan
-                    cycleId={g.id}
+                    chiXem={!thaoTac}
+cycleId={g.id}
                     ds={g.anh_ck}
-                    choThem={g.trang_thai === "PAID" || g.trang_thai === "PENDING_VERIFICATION"}
+                    choThem={thaoTac && (g.trang_thai === "PAID" || g.trang_thai === "PENDING_VERIFICATION")}
                     onDoi={() => setHoi((h) => ({ ...h, lan: h.lan + 1 }))}
                   />
                 ) : null}
-                {g.hoan_tac?.duoc ? (
+                {thaoTac && g.hoan_tac?.duoc ? (
                   <div className="mt-1">
                     <NutHoanTac
                       cycleId={g.id}
@@ -229,7 +240,7 @@ export default function GiaoDich({
                     visitId={g.visit_id}
                     kind={g.loai}
                     hoan={g.hoan}
-                    coQuyenHoan={kq?.coQuyenHoan === true}
+                    coQuyenHoan={thaoTac && kq?.coQuyenHoan === true}
                     onXong={() => setHoi((h) => ({ ...h, lan: h.lan + 1 }))}
                   />
                 ) : null}

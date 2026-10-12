@@ -61,7 +61,26 @@ def _chuoi_trong_ma(p: Path) -> set[str]:
 def test_bo_doc_con_song() -> None:
     quyen = _quyen_mo_man()
     assert len(quyen) >= 25, f"chỉ đọc được {len(quyen)} quyền từ NAV_QUYEN"
-    assert quyen <= set(QUYEN), f"quyền lạ: {sorted(quyen - set(QUYEN))}"
+    # Cờ lịch sử được suy từ lịch trực, không phải quyền lego có thể cấp tay.
+    from clinicai.services.cashier_navigation_service import scoped_navigation
+
+    derived = {"payment.service.history", "payment.medicine.history"}
+    assert derived.isdisjoint(QUYEN)
+    assert not set(scoped_navigation(sorted(derived), {}))
+    assert (
+        set(
+            scoped_navigation(
+                [],
+                {
+                    kind: {"items": [{"ngay": "2026-10-12"}]}
+                    for kind in ("dich_vu", "thuoc")
+                },
+            )
+        )
+        == derived
+    )
+    known = set(QUYEN) | derived
+    assert quyen <= known, f"quyền lạ: {sorted(quyen - known)}"
 
 
 def test_moi_quyen_mo_man_deu_co_cho_backend_hoi() -> None:

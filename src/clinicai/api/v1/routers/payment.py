@@ -26,9 +26,10 @@ from clinicai.api.identity import (
     get_current_identity,
 )
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.services.cashier_scope_service import CashierScopeService
 from clinicai.services.doi_hinh_thuc_service import DoiHinhThucService
 from clinicai.services.hoan_tien_service import HoanTienService
+from clinicai.services.payment_access_service import authorize_payment
 from clinicai.services.payment_service import PaymentService
 
 router = APIRouter()
@@ -36,7 +37,7 @@ router = APIRouter()
 # Ai đụng được vào tiền: người giữ một trong hai khối thu tiền (24/09/2026 —
 # thay tập vai cũ, cùng người: Lễ tân, Thu ngân (+DV/+Thuốc), Dược sĩ, Quản lý).
 # Loại tiền nào ai được làm do PaymentService hỏi quyền của đúng loại ấy.
-_CASHIER_GUARD = cua_quyen("payment.service.collect", "payment.medicine.collect")
+_CASHIER_GUARD = get_current_identity
 
 PaymentKind = Literal["thuoc", "dich_vu"]
 #: Quầy màn đang đứng (01/10/2026): thuốc và dịch vụ thu RIÊNG HẲN — khác loại
@@ -105,14 +106,17 @@ class PaymentVoidRequest(BaseModel):
 @router.post("/payments")
 async def record_payment(
     body: PaymentRecordRequest,
-    # Cửa ngoài chỉ "đã đăng nhập": tiền dịch vụ hỏi QUYỀN, tiền thuốc hỏi vai —
-    # cả hai trong PaymentService (CORE-B3). Các lệnh khác vẫn qua _CASHIER_GUARD.
+    # Resolve the stored target and active roster before any payment command;
+    # services still enforce the original money permissions and invariants.
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
     idem: IdempotencyGuard = Depends(idempotency_guard),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> dict[str, Any]:
     """Một lần thu. Tiền mặt → PAID; chuyển khoản/QR → chờ xác minh."""
+    identity = await authorize_payment(
+        pool, identity, visit_id=str(body.visit_id), kind=body.kind
+    )
     if body.kind == "dich_vu":
         # Lifecycle v1 Slice 3: tiền dịch vụ dùng BIÊN NHẬN TRONG CÙNG giao dịch
         # (command_receipt) — một cơ chế chống trùng, khoá bắt buộc. Không đi
@@ -173,6 +177,13 @@ async def void_payment(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Huỷ ĐÚNG phiếu thu được nhắm, giữ nguyên lịch sử bất biến."""
+    identity = await authorize_payment(
+        pool,
+        identity,
+        cycle_id=str(body.payment_cycle_id),
+        visit_id=str(body.visit_id),
+        kind=body.kind,
+    )
     kq = await PaymentService(pool).void_payment(
         payment_cycle_id=str(body.payment_cycle_id),
         visit_id=str(body.visit_id),
@@ -202,6 +213,13 @@ async def xac_minh_dien_tu(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Lần chuyển khoản/QR chờ xác minh → PAID (contract tiền–thuốc A2)."""
+    identity = await authorize_payment(
+        pool,
+        identity,
+        cycle_id=str(body.payment_cycle_id),
+        visit_id=str(body.visit_id),
+        kind=body.kind,
+    )
     kq = await PaymentService(pool).xac_minh_dien_tu(
         payment_cycle_id=str(body.payment_cycle_id),
         visit_id=str(body.visit_id),
@@ -228,6 +246,13 @@ async def huy_cho_xac_minh(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Huỷ lần chuyển khoản/QR chờ xác minh (chưa từng thu)."""
+    identity = await authorize_payment(
+        pool,
+        identity,
+        cycle_id=str(body.payment_cycle_id),
+        visit_id=str(body.visit_id),
+        kind=body.kind,
+    )
     kq = await PaymentService(pool).huy_cho_xac_minh(
         payment_cycle_id=str(body.payment_cycle_id),
         visit_id=str(body.visit_id),
@@ -265,6 +290,9 @@ async def doi_hinh_thuc(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Đổi TM / CK / QR của một phiếu đã thu — một dòng sổ chỉ thêm, không huỷ."""
+    identity = await authorize_payment(
+        pool, identity, cycle_id=str(body.payment_cycle_id)
+    )
     kq = await DoiHinhThucService(pool).doi(
         identity=identity,
         payment_cycle_id=str(body.payment_cycle_id),
@@ -311,6 +339,13 @@ async def hoan_tien(
     trừ khi người gọi nói ra bằng `Idempotency-Key`. Cùng khoá → trả lại kết
     quả lần đầu, không tạo khoản hoàn thứ hai.
     """
+    identity = await authorize_payment(
+        pool,
+        identity,
+        cycle_id=str(body.payment_cycle_id),
+        visit_id=str(body.visit_id),
+        kind=body.kind,
+    )
     idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
     if idem.is_replay:
         return idem.cached_response  # type: ignore[return-value]
@@ -353,6 +388,7 @@ async def xac_nhan_hoan(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Khoản hoàn chuyển khoản / QR đã chuyển xong (kèm mã giao dịch)."""
+    identity = await authorize_payment(pool, identity, refund_id=str(body.refund_id))
     kq = await HoanTienService(pool).xac_nhan(
         identity=identity, refund_id=str(body.refund_id), reference=body.reference
     )
@@ -372,6 +408,7 @@ async def dong_khoan_hoan(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Khoản hoàn đang chờ → FAILED (thử không thành) hoặc CANCELLED (huỷ yêu cầu)."""
+    identity = await authorize_payment(pool, identity, refund_id=str(body.refund_id))
     kq = await HoanTienService(pool).dong(
         identity=identity,
         refund_id=str(body.refund_id),
@@ -399,6 +436,9 @@ async def hoan_tac_lan_thu(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Hoàn tác đúng một lần thu — lượt về chưa thu, giữ nguyên vết."""
+    identity = await authorize_payment(
+        pool, identity, cycle_id=str(body.payment_cycle_id)
+    )
     kq = await PaymentService(pool).hoan_tac(
         payment_cycle_id=str(body.payment_cycle_id),
         ly_do=body.ly_do,
@@ -426,15 +466,18 @@ async def tai_anh_chuyen_khoan(
         uuid_hoac_loi,
     )
 
+    # Check current counter access before accepting upload bytes; the target is
+    # checked again once its multipart cycle id is available.
+    await CashierScopeService(pool).authorize_any_active(identity)
     truong, tep = await nhan_multipart(request)
     try:
+        cycle_id = str(
+            uuid_hoac_loi(truong.get("payment_cycle_id"), "Mã lần thu", bat_buoc=True)
+        )
+        identity = await authorize_payment(pool, identity, cycle_id=cycle_id)
         return await AnhChuyenKhoanService(pool).tai_len(
             identity=identity,
-            payment_cycle_id=str(
-                uuid_hoac_loi(
-                    truong.get("payment_cycle_id"), "Mã lần thu", bat_buoc=True
-                )
-            ),
+            payment_cycle_id=cycle_id,
             tep=tep,
         )
     finally:
@@ -450,8 +493,9 @@ async def xem_anh_chuyen_khoan(
     """Nội dung ảnh (ảnh nhỏ — đọc trọn, không theo luồng)."""
     from clinicai.services.anh_chuyen_khoan_service import AnhChuyenKhoanService
 
+    identity = await authorize_payment(pool, identity, proof_id=str(anh_id), read=True)
     noi_dung, mime = await AnhChuyenKhoanService(pool).doc(
-        identity=identity, anh_id=str(anh_id)
+        identity=identity, anh_id=str(anh_id), history_authorized=True
     )
     return Response(
         content=noi_dung,
@@ -472,4 +516,5 @@ async def go_anh_chuyen_khoan(
     """Gỡ ảnh nhầm (ẩn khỏi màn, giữ tệp + vết)."""
     from clinicai.services.anh_chuyen_khoan_service import AnhChuyenKhoanService
 
+    identity = await authorize_payment(pool, identity, proof_id=str(anh_id))
     return await AnhChuyenKhoanService(pool).go(identity=identity, anh_id=str(anh_id))

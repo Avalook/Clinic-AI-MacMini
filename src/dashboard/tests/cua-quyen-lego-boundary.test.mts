@@ -73,7 +73,17 @@ test("mọi màn lego đều có quyền mở trong NAV_QUYEN — thiếu là c�
 });
 
 test("quyền trong NAV_QUYEN đều có thật trong danh mục backend", () => {
-  const ma = NAV_QUYEN_CAP.filter((q) => !QUYEN_DA_KHAI.has(q));
+  // Hai cờ lịch sử được suy từ lịch trực, không phải quyền lego có thể cấp.
+  const derived = new Set(["payment.service.history", "payment.medicine.history"]);
+  const navigation = doc("../../clinicai/services/cashier_navigation_service.py");
+  for (const q of derived) {
+    assert.ok(navigation.includes(`"${q}"`));
+    assert.equal(QUYEN_DA_KHAI.has(q), false, `${q} không được cấp bỏ qua lịch trực`);
+  }
+  assert.match(navigation, /result = set\(capabilities\) - cashier_caps/);
+  assert.match(navigation, /scope.get\("quan_ly"\) or scope.get\("items"\)/);
+  assert.match(navigation, /result.add\(f"\{prefix\}.history"\)/);
+  const ma = NAV_QUYEN_CAP.filter((q) => !QUYEN_DA_KHAI.has(q) && !derived.has(q));
   assert.deepEqual(ma, [], `quyền không có trong catalogue.py: ${ma.join(", ")}`);
 });
 

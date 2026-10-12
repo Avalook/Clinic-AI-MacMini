@@ -226,8 +226,12 @@ async def test_chi_mot_lego_doc_duoc_moi_api_cua_man(
         for duong in [*ds, *LUON_BAT]:
             p = duong.format(phong=phong, luot=luot)
             r = await _goi(http, ai, "GET", p)
-            if r.status_code != 200:
+            # Thu ngân còn cần lịch trực được duyệt; lego riêng không mở quầy.
+            expected = 403 if p.startswith("/cashier/board") else 200
+            if r.status_code != expected:
                 hong.append(f"{lego} ({vai}) GET {p} → {r.status_code} {r.text[:160]}")
+            if expected == 403:
+                assert "không được phân công" in r.json()["message"]
     assert not hong, "\n".join(hong)
 
 

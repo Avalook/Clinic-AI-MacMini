@@ -102,10 +102,12 @@ export async function vaiLamViec(
  *  `cache()` theo lượt dựng trang: một lần mở /home hỏi đúng một lần. */
 /** Quyền của người đang đăng nhập. `null` = máy chủ không trả lời (khác với
  *  `[]` = biết chắc không có quyền nào) — thanh bên dựng theo lego cần phân biệt. */
-export const getQuyenCuaToi = cache(async (): Promise<string[] | null> => {
-  const d = await fetchFromBackend<{ quyen: string[] }>("/api/v1/phan-quyen/toi");
-  return d?.quyen ?? null;
-});
+export const getTrangThaiQuyenCuaToi = cache(async () =>
+  fetchFromBackend<{ quyen: string[]; lam_moi_luc?: string }>("/api/v1/phan-quyen/toi"),
+);
+export const getQuyenCuaToi = cache(async (): Promise<string[] | null> =>
+  (await getTrangThaiQuyenCuaToi())?.quyen ?? null,
+);
 
 /** Server-side guard cho 1 trang theo nav href: không được vào → về /home.
  *  Trước đây các route chỉ ẩn ở sidebar (canSeeNav) → gõ thẳng URL vẫn vào & lộ

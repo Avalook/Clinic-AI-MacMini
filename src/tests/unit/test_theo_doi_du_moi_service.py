@@ -14,14 +14,16 @@ Thêm service mới có healthcheck → test này đỏ cho tới khi khai đủ
 
 from __future__ import annotations
 
+import importlib
 import json
 import re
 import typing
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]  # pyyaml đi kèm langchain, không có stub
-
 from clinicai.schemas.ops import HostServiceSnapshot
+
+# PyYAML is a runtime dependency; its optional type stubs vary across dev machines.
+yaml = importlib.import_module("yaml")
 
 GOC = Path(__file__).resolve().parents[3]
 

@@ -52,6 +52,32 @@ async def test_settings_roster_and_revoke(
         access = await service.access(q.thu_ngan, day.isoformat())
         assert access["cac_ca"] == ["SANG"]
         assert access["ban_hang"] and not access["tai_chinh"]
+        await service.save(
+            manager,
+            {
+                "nhan_vien_theo_ca": False,
+                "truong_ca_theo_ngay": False,
+                "tai_chinh_day_du": True,
+            },
+        )
+        flag_off = await service.access(q.thu_ngan, day.isoformat())
+        assert not flag_off["legacy"] and flag_off["cac_ca"] == ["SANG"]
+        with pytest.raises(SafetyGateError):
+            await service.authorize(
+                q.thu_ngan,
+                tu=day.isoformat(),
+                den=day.isoformat(),
+                ca="TOI",
+                co_so=access["co_so_ids"][0],
+            )
+        await service.save(
+            manager,
+            {
+                "nhan_vien_theo_ca": True,
+                "truong_ca_theo_ngay": True,
+                "tai_chinh_day_du": True,
+            },
+        )
         assert (await service.access(q.thu_ngan, None))["cac_ca"] == ["SANG"]
         await service.authorize(
             q.thu_ngan,
@@ -81,6 +107,58 @@ async def test_settings_roster_and_revoke(
         )
         head = await service.access(q.thu_ngan, day.isoformat())
         assert head["tai_chinh"] and head["tai_chinh_day_du"]
+        assert head["ngay_truc"] == [
+            {
+                "ngay": day.isoformat(),
+                "co_so_theo_ca": head["co_so_theo_ca"],
+            }
+        ]
+        assert "FULL" in head["cac_ca"]
+        await service.save(
+            manager,
+            {
+                "nhan_vien_theo_ca": False,
+                "truong_ca_theo_ngay": False,
+                "tai_chinh_day_du": True,
+            },
+        )
+        strict_head = replace(
+            q.thu_ngan, vai_theo_vi_tri=frozenset({ClinicRole.TRUONG_CA})
+        )
+        assert (await service.access(strict_head, day.isoformat()))["tai_chinh"]
+        assert not (await service.access(strict_head, "2026-10-13"))["ban_hang"]
+        other = await pool.fetchval(
+            """INSERT INTO work_roster
+            (clinic_id,week_start,work_date,shift,station,staff_id,staff_name,status)
+            VALUES ($1::uuid,$2::date,$2::date,'SANG','T1_LETAN',
+                $3::uuid,'Mixed role','APPROVED') RETURNING id""",
+            manager.clinic_id,
+            date(2026, 10, 11),
+            q.thu_ngan.staff_id,
+        )
+        staff_day = await service.access(strict_head, "2026-10-11")
+        assert staff_day["ban_hang"] and not staff_day["tai_chinh"]
+        assert staff_day["cac_ca"] == ["SANG"]
+        assert staff_day["ngay_truc"][1]["co_so_theo_ca"] == {
+            "SANG": staff_day["co_so_ids"]
+        }
+        await pool.execute("DELETE FROM work_roster WHERE id=$1", other)
+        with pytest.raises(SafetyGateError):
+            await service.authorize(
+                strict_head,
+                tu="2026-10-13",
+                den="2026-10-13",
+                ca="FULL",
+                co_so=strict_head.location_id,
+            )
+        await service.save(
+            manager,
+            {
+                "nhan_vien_theo_ca": True,
+                "truong_ca_theo_ngay": True,
+                "tai_chinh_day_du": True,
+            },
+        )
         assert not (await service.access(q.thu_ngan, "2026-10-13"))["ban_hang"]
         past = await service.access(q.thu_ngan, "2026-10-13")
         assert past["co_the_mo"] and not past["ban_hang"]

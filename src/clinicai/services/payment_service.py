@@ -63,6 +63,7 @@ from clinicai.services.lieu_trinh_tien import (
     loi_tien_lieu_trinh,
 )
 from clinicai.services.moc_kham_xong import kham_xong_sql
+from clinicai.services.payment_access_service import head_money_grant
 from clinicai.services.phan_lo_service import (
     PhanLo,
     can_theo_hoa_don,
@@ -179,7 +180,11 @@ HUY_PHIEU_NGUOI_KHAC = True
 
 def huy_duoc_phieu_nguoi_khac(identity: StaffIdentity) -> bool:
     """Huỷ được phiếu do người KHÁC thu không (đã qua cửa quyền thu loại ấy)."""
-    return HUY_PHIEU_NGUOI_KHAC or identity.co_vai({ClinicRole.MANAGEMENT})
+    return (
+        HUY_PHIEU_NGUOI_KHAC
+        or identity.co_vai({ClinicRole.MANAGEMENT})
+        or bool(identity.cashier_head_scope)
+    )
 
 
 #: Loại tiền → quyền thu / huỷ / xác minh (24/09/2026). `allowed_kinds` bên
@@ -256,7 +261,9 @@ class PaymentService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def _assert_kind_allowed(self, kind: str, identity: StaffIdentity) -> None:
+    async def _assert_kind_allowed(
+        self, kind: str, identity: StaffIdentity, visit_id: str
+    ) -> None:
         """Thu / huỷ / xác minh một loại tiền hỏi QUYỀN của loại ấy (24/09/2026).
 
         Trước đây theo vai (`allowed_kinds`): người được cấp khối "Thu tiền dịch
@@ -266,7 +273,9 @@ class PaymentService:
         if kind not in PAYMENT_KINDS:
             raise SafetyGateError(f"Loại thanh toán không hợp lệ: {kind!r}")
         async with self._pool.acquire() as conn:
-            if not await can(conn, identity, QUYEN_THU[kind]):
+            if not head_money_grant(identity, kind, visit_id) and not await can(
+                conn, identity, QUYEN_THU[kind]
+            ):
                 logger.info(
                     "payment_kind_forbidden", role=identity.role.value, kind=kind
                 )
@@ -327,7 +336,7 @@ class PaymentService:
             if kind not in PAYMENT_KINDS:
                 raise SafetyGateError(f"Loại thanh toán không hợp lệ: {kind!r}")
         else:
-            await self._assert_kind_allowed(kind, identity)
+            await self._assert_kind_allowed(kind, identity, visit_id)
         if method not in PAYMENT_METHODS:
             raise ValidationError(f"Phương thức thanh toán không hợp lệ: {method!r}")
         ds_phan = doc_phan(phan)
@@ -659,7 +668,8 @@ class PaymentService:
         async with self._pool.acquire() as conn:
             try:
                 async with conn.transaction():
-                    await doi_quyen(conn, identity, "payment.service.collect")
+                    if not head_money_grant(identity, "dich_vu", visit_id):
+                        await doi_quyen(conn, identity, "payment.service.collect")
                     status_row = await _khoa_luot_thu(conn, visit_id, identity)
                     cached = await bien_nhan_doc(
                         conn, identity, _THU_DICH_VU, idempotency_key, payload
@@ -950,7 +960,7 @@ class PaymentService:
         HOLD: ai được xác minh (hiện: cùng các vai được thu loại tiền này).
         """
         kiem_quay(quay, kind)
-        await self._assert_kind_allowed(kind, identity)
+        await self._assert_kind_allowed(kind, identity, visit_id)
         ma = (reference.strip() if isinstance(reference, str) else "") or None
         if ma is not None and len(ma) > 100:
             raise ValidationError("Mã giao dịch ngân hàng dài quá 100 ký tự.")
@@ -1146,7 +1156,7 @@ class PaymentService:
         sai). Không phải huỷ phiếu thu — chưa từng thu. Gửi lại cho lần đã huỷ
         → thành công như cũ."""
         kiem_quay(quay, kind)
-        await self._assert_kind_allowed(kind, identity)
+        await self._assert_kind_allowed(kind, identity, visit_id)
         ly_do = normalize_void_reason(reason)
         if ly_do is None:
             raise ValidationError("Lý do huỷ phải có từ 5 đến 500 ký tự")
@@ -1232,7 +1242,7 @@ class PaymentService:
         không bao giờ huỷ B; gửi lại cho A đã huỷ → thành công như cũ.
         """
         kiem_quay(quay, kind)
-        await self._assert_kind_allowed(kind, identity)
+        await self._assert_kind_allowed(kind, identity, visit_id)
         normalized_reason = normalize_void_reason(reason)
         if normalized_reason is None:
             raise ValidationError("Lý do hoàn tác phải có từ 5 đến 500 ký tự")
@@ -1492,7 +1502,7 @@ class PaymentService:
                 identity=identity,
             )
         else:  # CANCELLED — lần chờ đã huỷ từ trước
-            await self._assert_kind_allowed(lan["kind"], identity)
+            await self._assert_kind_allowed(lan["kind"], identity, lan["visit_id"])
             kq = {
                 "payment_cycle_id": payment_cycle_id,
                 "status": lan["status"],
@@ -1544,12 +1554,13 @@ async def _chot_lua_chon(
     """
 
     async def _truoc_khi_ghi() -> None:
-        await doi_quyen(
-            conn,
-            identity,
-            QUYEN_CHON_DICH_VU,
-            cau="Bạn không có quyền xác nhận lựa chọn dịch vụ.",
-        )
+        if not head_money_grant(identity, "dich_vu", inp.visit_id):
+            await doi_quyen(
+                conn,
+                identity,
+                QUYEN_CHON_DICH_VU,
+                cau="Bạn không có quyền xác nhận lựa chọn dịch vụ.",
+            )
         await khoa_luot(conn, identity.clinic_id, inp.visit_id)
 
     kq = await ap_lua_chon(conn, identity, inp, truoc_khi_ghi=_truoc_khi_ghi)

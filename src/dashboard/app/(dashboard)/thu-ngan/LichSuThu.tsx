@@ -35,6 +35,7 @@ interface SuKien {
   loai: "thu" | "hoan" | "huy";
   id: string;
   luc: string | null;
+  tao_luc?: string | null;
   ma: string;
   so_tien: number;
   hinh_thuc: string | null;
@@ -96,7 +97,7 @@ function gio(iso: string | null, coNgay: boolean): string {
 
 const O_NHAP = "h-8 rounded-control border border-line bg-surface px-2 text-meta text-ink";
 
-export default function LichSuThu({ ngay }: { ngay?: string }) {
+export default function LichSuThu({ quay = "dich_vu", ngay, ca, coSo, restricted = false, thaoTac = false }: { quay?: "dich_vu" | "thuoc"; ngay?: string; ca?: string; coSo?: string; restricted?: boolean; thaoTac?: boolean }) {
   // Thanh ngày của quầy (02/10/2026) quyết ngày xem; ô "Từ – Đến" dưới đây chỉ
   // để MỞ RỘNG khoảng sau đó (đối soát cả tuần). Đổi ngày → TabThuNgan dựng lại (`key`), về đúng ngày ấy.
   const ngayXem = ngay ?? todayVn();
@@ -109,7 +110,7 @@ export default function LichSuThu({ ngay }: { ngay?: string }) {
   const [loi, setLoi] = useState<string | null>(null);
   const [mo, setMo] = useState<string | null>(null);
 
-  const q = new URLSearchParams({ tu, den });
+  const q = new URLSearchParams({ tu, den, kind: quay, ...(ca ? { ca } : {}), ...(coSo ? { co_so: coSo } : {}) });
   if (tim.trim()) q.set("tim", tim.trim());
   if (hinhThuc) q.set("hinh_thuc", hinhThuc);
   if (nguoiThu) q.set("nguoi_thu", nguoiThu);
@@ -117,10 +118,12 @@ export default function LichSuThu({ ngay }: { ngay?: string }) {
 
   const tai = useCallback(async () => {
     setLoi(null);
-    const r = await fetch(`/api/cashier?xem=lich-su&${chuoi}`, { cache: "no-store" });
-    const d = (await r.json().catch(() => null)) as (GoiLichSu & { message?: string; error?: string }) | null;
-    if (!r.ok || !d) setLoi(d?.message ?? d?.error ?? "Không đọc được lịch sử thu.");
-    else setGoi(d);
+    try {
+      const r = await fetch(`/api/cashier?xem=lich-su&${chuoi}`, { cache: "no-store" });
+      const d = (await r.json().catch(() => null)) as (GoiLichSu & { message?: string; error?: string }) | null;
+      if (!r.ok || !d) { setLoi(d?.message ?? d?.error ?? "Không đọc được lịch sử thu."); setGoi(null); }
+      else setGoi(d);
+    } catch { setLoi("Mất kết nối tới máy chủ."); setGoi(null); }
   }, [chuoi]);
 
   useEffect(() => {
@@ -134,9 +137,9 @@ export default function LichSuThu({ ngay }: { ngay?: string }) {
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <input type="date" aria-label="Từ ngày" value={tu} onChange={(e) => setTu(e.target.value)} className={O_NHAP} />
+        {!restricted ? <><input type="date" aria-label="Từ ngày" value={tu} onChange={(e) => setTu(e.target.value)} className={O_NHAP} />
         <span className="text-meta text-ink-muted">→</span>
-        <input type="date" aria-label="Đến ngày" value={den} onChange={(e) => setDen(e.target.value)} className={O_NHAP} />
+        <input type="date" aria-label="Đến ngày" value={den} onChange={(e) => setDen(e.target.value)} className={O_NHAP} /></> : null}
         <input
           value={tim}
           onChange={(e) => setTim(e.target.value)}
@@ -224,7 +227,7 @@ export default function LichSuThu({ ngay }: { ngay?: string }) {
                       <ul className="space-y-1 bg-surface-muted px-4 py-2">
                         {k.su_kien.map((s) => (
                           <li key={`${s.loai}:${s.id}`} className="flex flex-wrap items-center gap-x-3 text-meta">
-                            <span className="tabular-nums text-ink-muted">{gio(s.luc, nhieuNgay)}</span>
+                            <span className="tabular-nums text-ink-muted">{s.loai === "thu" && s.tao_luc && s.tao_luc !== s.luc ? `Lập ${gio(s.tao_luc, true)} · Thu ${gio(s.luc, true)}` : gio(s.luc, nhieuNgay)}</span>
                             <span className="font-medium text-ink">
                               {TEN_LOAI[s.loai]} · {s.ma}
                             </span>
@@ -248,7 +251,7 @@ export default function LichSuThu({ ngay }: { ngay?: string }) {
                                 In
                               </a>
                             ) : null}
-                            {s.loai === "thu" && s.doi_hinh_thuc ? (
+                            {thaoTac && s.loai === "thu" && s.doi_hinh_thuc ? (
                               <div className="basis-full">
                                 <DoiHinhThuc
                                   paymentCycleId={s.id}
@@ -264,16 +267,17 @@ export default function LichSuThu({ ngay }: { ngay?: string }) {
                               (s.hoan_tac?.duoc && (s.phan ?? []).some((p) => p.hinh_thuc === "TRANSFER"))) ? (
                               <div className="basis-full">
                                 <AnhChuyenKhoan
-                                  cycleId={s.id}
+                                  chiXem={!thaoTac}
+cycleId={s.id}
                                   ds={s.anh_ck}
-                                  choThem={Boolean(s.hoan_tac?.duoc)}
+                                  choThem={thaoTac && Boolean(s.hoan_tac?.duoc)}
                                   onDoi={() => void tai()}
                                 />
                               </div>
                             ) : null}
-                            {s.loai === "thu" && s.hoan_tac?.duoc ? (
+                            {thaoTac && s.loai === "thu" && s.hoan_tac?.duoc ? (
                               <div className="basis-full">
-                                <NutHoanTac cycleId={s.id} soTien={s.so_tien} quay="dich_vu" onXong={() => void tai()} />
+                                <NutHoanTac cycleId={s.id} soTien={s.so_tien} quay={quay} onXong={() => void tai()} />
                               </div>
                             ) : null}
                           </li>

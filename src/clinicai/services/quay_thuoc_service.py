@@ -43,6 +43,7 @@ from clinicai.events.catalogue import ThuocQuayDaChinh
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
+from clinicai.services.payment_access_service import head_money_grant
 from clinicai.services.pharmacy_service import PharmacyService
 
 QUYEN = "payment.medicine.collect"
@@ -78,7 +79,10 @@ class QuayThuocService:
     # ── Đọc ────────────────────────────────────────────────────────────────
     async def doc(self, *, visit_id: str, identity: StaffIdentity) -> dict[str, Any]:
         async with self._pool.acquire() as conn:
-            await doi_quyen(conn, identity, QUYEN, cau="Bạn chưa được thu tiền thuốc.")
+            if not head_money_grant(identity, "thuoc", visit_id):
+                await doi_quyen(
+                    conn, identity, QUYEN, cau="Bạn chưa được thu tiền thuốc."
+                )
             rows = await conn.fetch(
                 """
                 SELECT r.id::text AS id, r.nguon, r.drug_name_raw AS ten,
@@ -188,9 +192,10 @@ class QuayThuocService:
     async def _khoa_dong(
         self, conn: asyncpg.Connection, identity: StaffIdentity, prescription_id: str
     ) -> dict[str, Any]:
-        await doi_quyen(conn, identity, QUYEN, cau="Bạn chưa được thu tiền thuốc.")
         # visit → prescription; từ chối nếu dòng đã chốt / tiền thuốc đã thu.
         don = await PharmacyService._khoa_dong_chua_thu(conn, identity, prescription_id)
+        if not head_money_grant(identity, "thuoc", str(don["visit_id"])):
+            await doi_quyen(conn, identity, QUYEN, cau="Bạn chưa được thu tiền thuốc.")
         r = await conn.fetchrow(
             "SELECT nguon, refusal_reason, so_luong_dien_boi, drug_name_raw, quantity,"
             "       so_luong_ke_goc,"
@@ -391,7 +396,10 @@ class QuayThuocService:
         them: list[str] = []
         sua: list[str] = []
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(conn, identity, QUYEN, cau="Bạn chưa được thu tiền thuốc.")
+            if not head_money_grant(identity, "thuoc", visit_id):
+                await doi_quyen(
+                    conn, identity, QUYEN, cau="Bạn chưa được thu tiền thuốc."
+                )
             luot = await conn.fetchrow(
                 "SELECT clinic_patient_id::text AS pid, status FROM visit"
                 " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid FOR UPDATE",
