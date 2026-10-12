@@ -317,7 +317,10 @@ async def test_so_gom_theo_khach_co_hoan_csv_phieu(pool: asyncpg.Pool) -> None:
     assert g["co_hoan"] and [s["loai"] for s in g["su_kien"]] == ["thu", "hoan"]
     assert g["doi_tac"][0]["id"] == hpv and g["doi_tac"][0]["gia"] == 900_000
     assert g["phieu"][0]["hoan"] is not None
-    assert ls["co_quyen_huy"] is True
+    # Lịch sử vẫn đọc được ở tầng dịch vụ; không có phân công đang trực
+    # thì giao diện không cấp thao tác huỷ/hoàn.
+    assert ls["co_quyen_huy"] is False
+    assert ls["co_quyen_hoan"] is False
     # Tìm theo mã phiếu; bộ lọc hình thức; ngày rác → hôm nay, không ném.
     ma = g["ma_phieu_dau"]
     assert (await svc.lich_su(identity=q.thu_ngan, tim=ma))["khach"][0]["visit_id"] == (

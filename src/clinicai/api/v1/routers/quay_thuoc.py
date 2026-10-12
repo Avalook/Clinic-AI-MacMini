@@ -15,6 +15,10 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
+from clinicai.services.payment_access_service import (
+    authorize_drug_line,
+    authorize_payment,
+)
 from clinicai.services.quay_thuoc_service import QuayThuocService
 
 router = APIRouter()
@@ -27,6 +31,9 @@ async def doc_don_ban(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Đơn bán của lượt: dòng bác sĩ kê + dòng quầy thêm, kèm tích / số mua."""
+    identity = await authorize_payment(
+        pool, identity, visit_id=str(visit_id), kind="thuoc"
+    )
     return await QuayThuocService(pool).doc(visit_id=str(visit_id), identity=identity)
 
 
@@ -42,6 +49,7 @@ async def chon(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Tích (khách lấy) / bỏ tick (khách không lấy)."""
+    identity = await authorize_drug_line(pool, identity, str(body.prescription_id))
     return await QuayThuocService(pool).chon(
         prescription_id=str(body.prescription_id), mua=body.mua, identity=identity
     )
@@ -59,6 +67,7 @@ async def doi_so_luong(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Đơn bác sĩ: số mua (≤ số kê). Dòng quầy thêm: số lượng."""
+    identity = await authorize_drug_line(pool, identity, str(body.prescription_id))
     return await QuayThuocService(pool).doi_so_luong(
         prescription_id=str(body.prescription_id),
         so_luong=body.so_luong,
@@ -86,6 +95,9 @@ async def luu_dong_them(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Lấy thêm thuốc: thêm dòng mới / sửa dòng quầy đã thêm. Không xoá dòng nào."""
+    identity = await authorize_payment(
+        pool, identity, visit_id=str(visit_id), kind="thuoc"
+    )
     return await QuayThuocService(pool).luu_dong_them(
         visit_id=str(visit_id),
         dong=[

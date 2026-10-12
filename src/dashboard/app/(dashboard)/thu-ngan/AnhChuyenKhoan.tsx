@@ -55,12 +55,14 @@ export default function AnhChuyenKhoan({
   cycleId,
   ds,
   choThem = true,
+  chiXem = false,
   onDoi,
 }: {
   cycleId: string;
   ds: AnhCk[] | null | undefined;
   /** Hiện nút thêm ảnh (lần thu chuyển khoản còn hiệu lực). */
   choThem?: boolean;
+  chiXem?: boolean;
   onDoi: () => void;
 }) {
   const [dang, setDang] = useState(false);
@@ -111,14 +113,14 @@ export default function AnhChuyenKhoan({
                   className="size-full object-cover"
                 />
               </a>
-              <Button size="sm" variant="ghost" disabled={dang} onClick={() => void go(a.id)}>
+              {!chiXem ? <Button size="sm" variant="ghost" disabled={dang} onClick={() => void go(a.id)}>
                 Gỡ ảnh
-              </Button>
+              </Button> : null}
             </li>
           ))}
         </ul>
       ) : null}
-      {choThem ? (
+      {choThem && !chiXem ? (
         <label className="flex flex-wrap items-center gap-2 text-meta text-ink-soft">
           {anh.length > 0 ? "Thêm ảnh chuyển khoản" : "Ảnh chuyển khoản (không bắt buộc)"}
           <input

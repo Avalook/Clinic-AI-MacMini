@@ -59,7 +59,7 @@ test("mỗi quầy là một trang có cửa gác riêng, quầy ghim cứng tro
     assert.match(trang, new RegExp(`<TabThuNgan quay="${quayCua}" />`));
     assert.match(
       readFileSync(new URL("../app/(dashboard)/thu-ngan/TabThuNgan.tsx", import.meta.url), "utf8"),
-      /<QuayThuNgan quay=\{quay\} ngay=\{ngay\} \/>/,
+      /<QuayThuNgan[^>]*quay=\{quay\} ngay=\{homNay\} coSo=\{activeCoSo\}/,
     );
     assert.doesNotMatch(trang, /searchParams/);
   }

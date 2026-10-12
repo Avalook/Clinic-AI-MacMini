@@ -8,7 +8,7 @@ import { logout } from "../(auth)/login/actions";
 import { maTraVeBackend } from "../../lib/backend-proxy";
 import { getCurrentStaff } from "../../lib/current-staff";
 import {
-  getQuyenCuaToi,
+  getTrangThaiQuyenCuaToi,
   getVaiHienThi,
   getViTriHomNay,
 } from "../../lib/clinic-session";
@@ -100,7 +100,7 @@ export default async function DashboardLayout({
   // `getClinicId()` ĐÃ BỎ khỏi khối này (06/08/2026): nó chỉ tồn tại để
   // truyền xuống RealtimeRefresher làm bộ lọc, mà nay máy chủ tự lọc theo
   // token. Một truy vấn ít đi trên MỌI lần dựng trang.
-  const [declinedRows, bookingPolicy, featureMode, phamViThuKy, viTri, quyen, reportAccess] =
+  const [declinedRows, bookingPolicy, featureMode, phamViThuKy, viTri, trangThaiQuyen, reportAccess] =
     await Promise.all([
     vaiHomNay.some(canWriteIntake) ? loadDeclined() : Promise.resolve([]),
     getBookingPolicy(),
@@ -120,7 +120,7 @@ export default async function DashboardLayout({
     getViTriHomNay(),
     // Quyền THẬT của người này. Đi cùng vòng, không nối đuôi: layout chạy lại
     // ở mọi lần chuyển trang. Hỏng thì rỗng → thanh bên rơi về theo vai.
-    getQuyenCuaToi(),
+    getTrangThaiQuyenCuaToi(),
     fetchFromBackend<{ ban_hang: boolean; co_the_mo?: boolean }>("/api/v1/reports/access"),
   ]);
   const viTriHomNay = viTri?.vi_tri ?? [];
@@ -151,7 +151,7 @@ export default async function DashboardLayout({
           featureMode={featureMode}
           viTriHomNay={viTriHomNay}
           phong={viTri?.phong ?? {}}
-          quyen={quyen}
+          quyen={trangThaiQuyen?.quyen ?? null}
           reportAccess={(reportAccess?.co_the_mo ?? reportAccess?.ban_hang) === true}
           leaveAction={logout}
         >
@@ -163,7 +163,7 @@ export default async function DashboardLayout({
           )}
           {children}
           <DeclinedNotice items={declined} />
-          <RealtimeRefresher />
+          <RealtimeRefresher lamMoiQuyenLuc={trangThaiQuyen?.lam_moi_luc} />
         </Shell>
       </BookingPolicyProvider>
     </NotificationProvider>

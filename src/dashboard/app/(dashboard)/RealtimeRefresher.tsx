@@ -139,8 +139,10 @@ const LIVE_TABLES = [
 // lớp lọc ở đây, và tin sai theo hướng nguy hiểm.
 export default function RealtimeRefresher({
   tables = LIVE_TABLES as readonly string[],
+  lamMoiQuyenLuc,
 }: {
   tables?: readonly string[];
+  lamMoiQuyenLuc?: string;
 }) {
   const router = useRouter();
 
@@ -164,6 +166,15 @@ export default function RealtimeRefresher({
       hen: (fn, ms) => setTimeout(fn, ms),
       huy: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
     });
+
+    // Máy chủ quyết định giờ đổi quyền; dùng chung nhịp gộp của toàn app.
+    const lucDoiQuyen = lamMoiQuyenLuc ? Date.parse(lamMoiQuyenLuc) : NaN;
+    const timerQuyen = Number.isFinite(lucDoiQuyen) && lucDoiQuyen > Date.now()
+      ? setTimeout(() => {
+          chuongCa.nhan();
+          nhip.nhan();
+        }, Math.min(lucDoiQuyen - Date.now() + 100, 2_147_483_647))
+      : undefined;
 
     // QUAY LẠI TAB = MỘT LẦN BẮT KỊP, tối đa một lần mỗi 2 giây (30/09/2026).
     // Người lướt A → B → A trong một giây làm A hiện lại hai lần; lần sau được
@@ -262,13 +273,14 @@ export default function RealtimeRefresher({
     const goPoll = nhipKhiHien(() => nhip.nhan(), POLL_MS, { hoiKhiHien: false });
 
     return () => {
+      clearTimeout(timerQuyen);
       goPoll();
       goDong();
       batKip.dung();
       nhip.dung();
       chuongCa.dung();
     };
-  }, [router, tables]);
+  }, [router, tables, lamMoiQuyenLuc]);
 
   return null;
 }

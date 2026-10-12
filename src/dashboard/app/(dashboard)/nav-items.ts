@@ -106,6 +106,8 @@ export const NAV: NavItem[] = [
   // ngân thuốc cùng 1 chỗ"). /cashier/board cũ nay chuyển hướng về đây.
   { href: "/thu-ngan/dich-vu", label: "Thu tiền dịch vụ", icon: Receipt },
   { href: "/thu-ngan/thuoc", label: "Thu tiền thuốc", icon: Receipt },
+  { href: "/thu-ngan/dich-vu/lich-su", label: "Lịch sử thu dịch vụ", icon: History },
+  { href: "/thu-ngan/thuoc/lich-su", label: "Lịch sử thu thuốc", icon: History },
   {
     href: "/reception/checkout",
     label: "Check-out lượt khám",
@@ -777,7 +779,7 @@ export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly
   {
     ma: "tiep-don",
     ten: "Tiếp đón & thu",
-    hrefs: ["/reception/queue", "/thu-ngan/dich-vu", "/thu-ngan/thuoc", "/reception/checkout"],
+    hrefs: ["/reception/queue", "/thu-ngan/dich-vu", "/thu-ngan/thuoc", "/thu-ngan/dich-vu/lich-su", "/thu-ngan/thuoc/lich-su", "/reception/checkout"],
   },
   { ma: "kham", ten: "Khám & dịch vụ", hrefs: ["/do-sinh-hieu", "/tu-van", "/ban-kham", "/phong", "/doi-tac"] },
   {

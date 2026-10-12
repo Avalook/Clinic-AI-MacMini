@@ -11,9 +11,20 @@ const NGAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const scope = new URLSearchParams();
+  for (const key of ["ca", "co_so"]) {
+    const value = url.searchParams.get(key);
+    if (value) scope.set(key, value.slice(0, 80));
+  }
+  if (url.searchParams.get("xem") === "ngay-truc") {
+    const q = new URLSearchParams({ quay: url.searchParams.get("quay") === "thuoc" ? "thuoc" : "dich_vu" });
+    const cursor = url.searchParams.get("cursor");
+    if (cursor) q.set("cursor", cursor.slice(0, 40));
+    return proxyJsonToBackend("GET", `/api/v1/cashier/ngay-truc?${q.toString()}`, undefined);
+  }
   // Giao dịch đã ghi (xem lại, kể cả dòng đã huỷ) — batch pilot 18/09.
   if (url.searchParams.get("xem") === "giao-dich") {
-    const q = new URLSearchParams();
+    const q = new URLSearchParams(scope);
     for (const k of ["tu", "den"]) {
       const v = url.searchParams.get(k) ?? "";
       if (NGAY_RE.test(v)) q.set(k, v);
@@ -26,7 +37,9 @@ export async function GET(request: Request) {
   // Lịch sử gom theo khách + CSV + phiếu thu (quầy một hoá đơn, 27/09/2026).
   const xem = url.searchParams.get("xem");
   if (xem === "lich-su" || xem === "lich-su-csv") {
-    const q = new URLSearchParams();
+    const q = new URLSearchParams(scope);
+    const kind = url.searchParams.get("kind");
+    if (kind) q.set("kind", kind.slice(0, 20));
     for (const k of ["tu", "den"]) {
       const v = url.searchParams.get(k) ?? "";
       if (NGAY_RE.test(v)) q.set(k, v);
@@ -89,7 +102,7 @@ export async function GET(request: Request) {
   // 16/09/2026 — người dùng thấy câu ấy khi vai hôm nay không có quyền thu).
   const res = await proxyJsonToBackend(
     "GET",
-    `/api/v1/cashier/board?modes=${encodeURIComponent(modes)}${duoiNgay}`,
+    `/api/v1/cashier/board?modes=${encodeURIComponent(modes)}${duoiNgay}&${scope.toString()}`,
     undefined,
   );
   if (res.status === 401 || res.status === 403) {

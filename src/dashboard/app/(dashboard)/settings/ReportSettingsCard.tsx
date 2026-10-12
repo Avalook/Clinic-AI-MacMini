@@ -27,22 +27,13 @@ export default function ReportSettingsCard({ initial }: { initial: ReportSetting
   };
   return <section className="space-y-3 rounded-card bg-surface p-4 ring-1 ring-hairline">
     <h2 className="text-title font-semibold">Thiết lập báo cáo</h2>
-    <label className="flex min-h-10 items-center gap-3 text-body">
-      <input type="checkbox" checked={value.nhan_vien_theo_ca} disabled={saving}
-        onChange={e => setValue({ ...value, nhan_vien_theo_ca: e.target.checked })} />
-      Nhân viên xem bán hàng trong ca được phân công
-    </label>
-    <label className="flex min-h-10 items-center gap-3 text-body">
-      <input type="checkbox" checked={value.truong_ca_theo_ngay} disabled={saving}
-        onChange={e => setValue({ ...value, truong_ca_theo_ngay: e.target.checked })} />
-      Trưởng ca xem báo cáo cả ngày được phân công
-    </label>
+    <p className="text-body">Quyền xem theo lịch phân công đã duyệt: nhân viên xem ca mình làm; trưởng ca xem cả ngày mình trực tại cơ sở đó.</p>
     <label className="flex min-h-10 items-center gap-3 text-body">
       <input type="checkbox" checked={value.tai_chinh_day_du} disabled={saving}
         onChange={e => setValue({ ...value, tai_chinh_day_du: e.target.checked })} />
       Hiển thị đầy đủ doanh thu, hoàn tiền, nợ và giảm giá
     </label>
-    <p className="text-meta text-ink-muted">Lịch phân công phải được duyệt. Quản lý xem toàn bộ báo cáo.</p>
+    <p className="text-meta text-ink-muted">Quản lý xem toàn bộ báo cáo. Phạm vi theo lịch trực luôn được áp dụng, kể cả khi mở bằng đường dẫn trực tiếp hoặc xuất Excel.</p>
     <Button size="lg" disabled={saving} onClick={() => void save()}>{saving ? "Đang lưu…" : "Lưu thiết lập"}</Button>
     {message ? <p role="status" className="text-body">{message}</p> : null}
   </section>;

@@ -12,7 +12,6 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.core.ma_vi_tri import ma_mau
-from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
 
 DEFAULT_SETTINGS = {
@@ -124,24 +123,29 @@ class ReportAccessService:
                     "SELECT settings FROM clinic WHERE id=$1::uuid", identity.clinic_id
                 )
             )
-            legacy = await can(conn, identity, "report.view")
-            historical = await conn.fetchval(
-                """SELECT EXISTS(
-                    SELECT 1 FROM work_roster w
-                    JOIN staff s ON s.id=w.staff_id AND s.is_active
-                    JOIN clinic_location l ON l.id=s.primary_location_id
-                        AND l.clinic_id=w.clinic_id
-                    WHERE w.clinic_id=$1::uuid AND w.staff_id=$2::uuid
-                        AND w.status='APPROVED'
-                        AND ($3::boolean OR
-                            ($4::boolean AND w.station LIKE 'DIEU_PHOI%'))
-                )""",
+            assigned = await conn.fetch(
+                """SELECT w.work_date,w.shift,w.station,w.status,
+                    COALESCE(r.location_id,l.id)::text location_id
+                FROM work_roster w
+                JOIN staff s ON s.id=w.staff_id AND s.is_active
+                JOIN clinic_location l ON l.id=s.primary_location_id
+                    AND l.clinic_id=w.clinic_id
+                LEFT JOIN vi_tri_lam_viec v ON v.clinic_id=w.clinic_id
+                    AND v.code=w.station
+                LEFT JOIN clinic_room r ON r.id=v.room_id AND r.clinic_id=w.clinic_id
+                WHERE w.clinic_id=$1::uuid AND w.staff_id=$2::uuid
+                    AND w.status='APPROVED' AND w.work_date<=$3::date
+                ORDER BY w.work_date DESC""",
                 identity.clinic_id,
                 identity.staff_id,
-                settings["nhan_vien_theo_ca"],
-                settings["truong_ca_theo_ngay"],
+                now_vn().date(),
+            )
+            historical_head = any(
+                ma_mau(str(r["station"])) == "DIEU_PHOI" for r in assigned
             )
             day = ngay_hop_le(ngay) if ngay is not None else now_vn().date()
+            if day and day > now_vn().date():
+                day = None
             rows = (
                 await conn.fetch(
                     """SELECT w.shift,w.station,w.status,
@@ -164,27 +168,31 @@ class ReportAccessService:
             )
         head = pham_vi_lich([dict(r) for r in rows], head=True)
         staff = pham_vi_lich([dict(r) for r in rows], head=False)
-        # Current operational head role selects the restrictive policy; it
-        # never grants access to an unassigned historical day.
-        is_head = identity.co_vai([ClinicRole.TRUONG_CA]) or bool(head)
-        restricted = (
-            settings["truong_ca_theo_ngay"]
-            if is_head
-            else settings["nhan_vien_theo_ca"]
-        )
-        unrestricted = manager or legacy and not restricted
-        scopes = (
-            head
-            if settings["truong_ca_theo_ngay"] and head
-            else staff
-            if settings["nhan_vien_theo_ca"]
-            else {}
-        )
-        financial = unrestricted or bool(head and settings["truong_ca_theo_ngay"])
+        # Explicit report.view cannot bypass roster scope for non-managers.
+        unrestricted = manager
+        scopes = head if head else staff
+        financial = unrestricted or bool(head)
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for row in assigned:
+            grouped.setdefault(row["work_date"].isoformat(), []).append(dict(row))
+        calendar = [
+            {
+                "ngay": day_key,
+                "co_so_theo_ca": pham_vi_lich(
+                    records,
+                    head=any(ma_mau(str(r["station"])) == "DIEU_PHOI" for r in records),
+                ),
+            }
+            for day_key, records in grouped.items()
+        ]
         return {
             "quan_ly": manager,
             "ban_hang": unrestricted or bool(scopes),
-            "co_the_mo": unrestricted or bool(scopes) or bool(historical),
+            "co_the_mo": unrestricted
+            or bool(scopes)
+            or any(d["co_so_theo_ca"] for d in calendar)
+            or historical_head,
+            "ngay_truc": [d for d in calendar if d["co_so_theo_ca"]],
             "tai_chinh": financial,
             "legacy": unrestricted,
             "tai_chinh_day_du": financial and settings["tai_chinh_day_du"],

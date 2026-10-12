@@ -14,15 +14,15 @@ test("thanh ngày dùng chung (ThanhNgay một ngày) cho cả ba tab, ngày ở
   assert.match(tab, /<ThanhNgay\s+motNgay/);
   // Ngày nằm trên URL qua hook dùng chung với phòng dịch vụ / Bàn khám.
   assert.match(tab, /useNgayXem\(\)/);
-  assert.match(tab, /<QuayThuNgan quay=\{quay\} ngay=\{ngay\} \/>/);
-  assert.match(tab, /<LichSuThu key=\{ngay\} ngay=\{ngay\} \/>/);
-  assert.match(tab, /<GiaoDich key=\{`\$\{tab\}:\$\{ngay\}`\} lichSu=\{tab === "lich_su"\} quay=\{quay\} ngay=\{ngay\} \/>/);
-  assert.match(tab, /Đã thanh toán ngày \$\{ngayNgan\(ngay\)\}/);
+  assert.match(tab, /<QuayThuNgan[^>]*quay=\{quay\} ngay=\{homNay\}/);
+  assert.match(tab, /<LichSuThu[^>]*quay=\{quay\} ngay=\{ngayXem\} ca=\{phamVi.ca\} coSo=\{phamVi.coSo\}/);
+  assert.match(tab, /<GiaoDich[^>]*quay=\{quay\} ngay=\{ngayXem\} ca=\{phamVi.ca\} coSo=\{phamVi.coSo\}/);
+  assert.match(tab, /Đã thanh toán ngày \$\{ngayNgan\(ngayXem\)\}/);
 });
 
 test("ngày đi tới máy chủ: bảng thu, sổ giao dịch, lịch sử — không tự cắt ngày ở TSX", () => {
-  assert.match(quay, /&ngay=\$\{ngay\}/);
-  assert.match(quay, /\[quay, ngay\]/);
+  assert.match(quay, /ngay \? \{ ngay \} : \{\}/);
+  assert.match(quay, /\[quay, ngay, ca, coSo\]/);
   assert.match(giaoDich, /ngay \?\? homNay\(\)/);
   assert.match(lichSu, /ngay \?\? todayVn\(\)/);
   assert.match(proxy, /\$\{duoiNgay\}/);

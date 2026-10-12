@@ -17,7 +17,7 @@ export type ClinicRole =
   | "CASHIER_DV"
   | "TRUONG_CA"
   | "PHARMACIST"
-  // Màn hình TV phòng chờ — KHÔNG phải người, là cái máy treo tường.
+  // Màn hình TV phòng chờ.
   // Backend từ chối vai này ở mọi endpoint trừ bảng gọi số; ở đây nó chỉ tồn
   // tại để layout biết mà đưa thẳng ra /display thay vì mở bảng điều khiển.
   | "DISPLAY"
@@ -303,6 +303,8 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // của họ chưa có thu ngân, nên tích hợp thu ngân vào lễ tân luôn, kho thuốc
   // cũng ở lễ tân luôn") — vai RECEPTION vào được quầy thu, quầy thuốc, kho.
   "/thu-ngan/dich-vu": ["RECEPTION", "CASHIER", "CASHIER_DV", "MANAGEMENT"],
+  "/thu-ngan/dich-vu/lich-su": [],
+  "/thu-ngan/thuoc/lich-su": [],
   // Dược sĩ thu tiền thuốc (Tuyền chốt 23/09: "Thu tiền thuốc + Kho thuốc →
   // Dược sĩ"; rà quyền nhóm 6, 24/09).
   "/thu-ngan/thuoc": ["RECEPTION", "CASHIER", "CASHIER_THUOC", "PHARMACIST", "MANAGEMENT"],
@@ -513,6 +515,7 @@ export function hienTrenThanhBen(
   quyen: readonly string[] | null = null,
 ): boolean {
   if (TAT_KHOI_THANH_BEN.has(href)) return false;
+  if (href.startsWith("/thu-ngan/")) return quyen !== null && quyenMoDuocMan(quyen, href);
   // THANH BÊN DỰNG THEO LEGO CỦA TÀI KHOẢN (Tuyền 25/09/2026): màn thuộc một
   // lego thì hiện KHI VÀ CHỈ KHI có quyền mở nó — thu lego là mất mục, cấp là
   // có, không phụ thuộc vai. Người ngoài phòng khám (DISPLAY, PARTNER) và màn
@@ -614,7 +617,9 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/phong": ["service.execute.start"], //  5 Phòng dịch vụ
   "/thu-ngan/dich-vu": ["payment.service.collect"], //  6 Thanh toán dịch vụ
   // Sửa 25/09: trước gắn nhầm `payment.service.collect`.
-  "/thu-ngan/thuoc": ["payment.medicine.collect"], //  7 Thu tiền thuốc
+  "/thu-ngan/thuoc": ["payment.medicine.collect"],
+  "/thu-ngan/dich-vu/lich-su": ["payment.service.history"],
+  "/thu-ngan/thuoc/lich-su": ["payment.medicine.history"], //  7 Thu tiền thuốc
   "/viec-can-xu-ly": ["worklist.handle"], //  8 Việc cần xử lý
   "/truong-ca": ["dispatch.manage"], //  9 Điều phối khách
   "/truong-ca/lich-su": ["dispatch.manage"],
@@ -682,6 +687,7 @@ export function laManLego(href: string): boolean {
  *  theo vị trí) và ô việc hôm nay ở trang chủ. Màn không thuộc lego, hoặc máy
  *  chủ chưa trả lời quyền (`null`), thì không lọc: vị trí hôm nay quyết. */
 export function legoChoHien(quyen: readonly string[] | null, href: string): boolean {
+  if (href.startsWith("/thu-ngan/")) return quyen !== null && quyenMoDuocMan(quyen, href);
   if (quyen === null || !laManLego(href)) return true;
   return quyenMoDuocMan(quyen, href);
 }
@@ -765,6 +771,7 @@ export function vaoDuocMan(
   vai: readonly ClinicRole[],
   quyen: readonly string[] | null,
 ): boolean {
+  if (href.startsWith("/thu-ngan/")) return quyen !== null && quyenMoDuocMan(quyen, href);
   if (laManLego(href)) {
     if (quyen !== null) {
       if (quyenMoDuocMan(quyen, href)) return true;

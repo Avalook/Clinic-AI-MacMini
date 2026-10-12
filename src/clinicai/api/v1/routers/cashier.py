@@ -13,23 +13,32 @@ import asyncpg
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.cashier_board_service import (
     CashierBoardService,
 )
+from clinicai.services.cashier_scope_service import CashierScopeService
 from clinicai.services.quay_thu_service import QuayThuService, csv_lich_su
 
 router = APIRouter()
 
-# Bảng thu ngân: người giữ một trong hai khối thu tiền (24/09/2026 — thay
-# CASHIER_ROLES, cùng người).
-_GUARD = cua_quyen("payment.service.collect", "payment.medicine.collect")
-#: IN phiếu thu (chỉ đọc): quầy thu + CSKH in hoá đơn trả khách (28/09/2026).
-_PHIEU_GUARD = cua_quyen(
-    "payment.service.collect", "payment.medicine.collect", "crm.manage"
-)
+# Authentication first; each read checks exact roster scope below.
+_GUARD = get_current_identity
+_PHIEU_GUARD = get_current_identity
+
+
+@router.get("/cashier/ngay-truc")
+async def cashier_ngay_truc(
+    quay: str = Query("dich_vu", max_length=20),
+    cursor: str | None = Query(None, max_length=40),
+    limit: int = Query(30, ge=1, le=100),
+    identity: StaffIdentity = Depends(_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await CashierScopeService(pool).days(
+        identity, kind=quay, cursor=cursor, limit=limit
+    )
 
 
 @router.get("/cashier/board")
@@ -44,6 +53,8 @@ async def cashier_board(
         description="YYYY-MM-DD giờ VN — xem lại một ngày cũ (02/10/2026); "
         "rỗng / rác = hôm nay",
     ),
+    ca: str | None = Query(None, max_length=10),
+    co_so: str | None = Query(None, max_length=40),
     identity: StaffIdentity = Depends(_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
@@ -54,8 +65,28 @@ async def cashier_board(
     cả hai. Vai được kiểm ở tầng router; `modes` chỉ quyết định hiện ô nào.
     """
     wanted = [m.strip() for m in modes.split(",") if m.strip()]
+    scopes = [
+        await CashierScopeService(pool).authorize_active(
+            identity, kind=kind, co_so=co_so
+        )
+        for kind in wanted
+    ]
+    if not scopes:
+        from clinicai.core.exceptions import SafetyGateError
+
+        raise SafetyGateError("Hãy chọn quầy dịch vụ hoặc thuốc.")
+    scope = scopes[0]
+    if any(s != scope for s in scopes):
+        from clinicai.core.exceptions import SafetyGateError
+
+        raise SafetyGateError("Hãy xem từng quầy trong ca được phân công.")
     return await CashierBoardService(pool).board(
-        identity=identity, modes=wanted, ngay=ngay
+        identity=scope.identity,
+        modes=wanted,
+        ngay=None,
+        scope_starts=scope.starts,
+        scope_ends=scope.ends,
+        scope_actor=scope.actor_id,
     )
 
 
@@ -69,12 +100,23 @@ async def cashier_giao_dich(
         description="dich_vu | thuoc — mỗi quầy chỉ xem sổ loại tiền của mình; "
         "rỗng = cả hai (01/10/2026)",
     ),
+    ca: str | None = Query(None, max_length=10),
+    co_so: str | None = Query(None, max_length=40),
     identity: StaffIdentity = Depends(_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Giao dịch đã ghi trong khoảng ngày (kể cả đã huỷ) — chỉ đọc."""
+    scope = await CashierScopeService(pool).authorize(
+        identity, tu=tu, den=den, kind=kind or "", ca=ca, co_so=co_so
+    )
     return await CashierBoardService(pool).giao_dich(
-        identity=identity, tu=tu, den=den, kind=kind
+        identity=scope.identity,
+        tu=tu,
+        den=den,
+        kind=kind,
+        scope_starts=scope.starts,
+        scope_ends=scope.ends,
+        scope_actor=scope.actor_id,
     )
 
 
@@ -92,12 +134,17 @@ async def cashier_lich_su(
     nguoi_thu: str | None = Query(None, max_length=200),
     kind: str = Query("dich_vu", max_length=20),
     chi_tiet: bool = Query(False),
+    ca: str | None = Query(None, max_length=10),
+    co_so: str | None = Query(None, max_length=40),
     identity: StaffIdentity = Depends(_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Sổ thu / hoàn GOM THEO KHÁCH (tab Đã thu hôm nay · Lịch sử) — chỉ đọc."""
+    scope = await CashierScopeService(pool).authorize(
+        identity, tu=tu, den=den, kind=kind, ca=ca, co_so=co_so
+    )
     return await QuayThuService(pool).lich_su(
-        identity=identity,
+        identity=scope.identity,
         tu=tu,
         den=den,
         tim=tim,
@@ -105,6 +152,9 @@ async def cashier_lich_su(
         nguoi_thu=nguoi_thu,
         kind=kind,
         chi_tiet=chi_tiet,
+        scope_starts=scope.starts,
+        scope_ends=scope.ends,
+        scope_actor=scope.actor_id,
     )
 
 
@@ -116,18 +166,26 @@ async def cashier_lich_su_csv(
     hinh_thuc: str | None = Query(None, max_length=20),
     nguoi_thu: str | None = Query(None, max_length=200),
     kind: str = Query("dich_vu", max_length=20),
+    ca: str | None = Query(None, max_length=10),
+    co_so: str | None = Query(None, max_length=40),
     identity: StaffIdentity = Depends(_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
     """[Xuất Excel]: CSV UTF-8 có BOM — mỗi lần thu / hoàn / huỷ một dòng."""
+    scope = await CashierScopeService(pool).authorize(
+        identity, tu=tu, den=den, kind=kind, ca=ca, co_so=co_so
+    )
     kq = await QuayThuService(pool).lich_su(
-        identity=identity,
+        identity=scope.identity,
         tu=tu,
         den=den,
         tim=tim,
         hinh_thuc=hinh_thuc,
         nguoi_thu=nguoi_thu,
         kind=kind,
+        scope_starts=scope.starts,
+        scope_ends=scope.ends,
+        scope_actor=scope.actor_id,
     )
     ten = f"so-thu-{kq['tu']}_{kq['den']}.csv"
     return Response(
@@ -152,6 +210,7 @@ async def cashier_phieu(
 
     ``loai=huong_dan``: ``phieu_id`` là mã LƯỢT — phiếu hướng dẫn phòng làm dịch
     vụ, in được cả khi chưa thu (làm trước, thu sau — 30/09/2026)."""
+    await CashierScopeService(pool).receipt(identity, id_=str(phieu_id), loai=loai)
     return await QuayThuService(pool).phieu(
         identity=identity, id_=str(phieu_id), loai=loai
     )
@@ -165,6 +224,30 @@ async def cashier_phieu_luot(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Mọi phiếu thu ĐÃ THU của một lượt theo loại — CSKH in hoá đơn trả khách."""
+    service = CashierScopeService(pool)
+    if not await service.receipt_exempt(identity):
+        ids = await pool.fetch(
+            """SELECT payment_cycle_id::text AS id FROM payment_cycle
+                WHERE clinic_id=$1::uuid AND visit_id=$2::uuid AND kind=$3
+                AND status='PAID' ORDER BY coalesce(paid_at,created_at),1""",
+            identity.clinic_id,
+            str(visit_id),
+            kind,
+        )
+        from clinicai.core.exceptions import SafetyGateError
+
+        visible = []
+        for row in ids:
+            try:
+                await service.receipt(identity, id_=row["id"], loai="thu")
+            except SafetyGateError:
+                continue
+            visible.append(
+                await QuayThuService(pool).phieu(
+                    identity=identity, id_=row["id"], loai="thu"
+                )
+            )
+        return {"phieu": visible}
     return await QuayThuService(pool).phieu_cua_luot(
         identity=identity, visit_id=str(visit_id), kind=kind
     )

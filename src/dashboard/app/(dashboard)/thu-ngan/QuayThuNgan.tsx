@@ -204,7 +204,7 @@ const TONE_DV: Record<DichVuLamTruoc["trang_thai"], ChipTone> = {
   KHONG_LAM: "neutral",
 };
 
-export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string }) {
+export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay?: string; ca?: string; coSo?: string }) {
   // THUỐC VÀ DỊCH VỤ THU RIÊNG HẲN (Tuyền 01/10/2026): mọi lệnh gửi kèm quầy
   // đang đứng — máy chủ từ chối (409 QUAY_KHAC_LOAI) nếu loại tiền không thuộc quầy.
   const quayThu = quay === "ca_hai" ? undefined : quay;
@@ -243,7 +243,8 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
   const doc = useCallback(async () => {
     try {
       // `ngay` (02/10/2026, thanh ngày): xem lại một ngày cũ; không có = hôm nay.
-      const duoiNgay = ngay ? `&ngay=${ngay}` : "";
+      const scope = new URLSearchParams({ ...(ngay ? { ngay } : {}), ...(ca ? { ca } : {}), ...(coSo ? { co_so: coSo } : {}) });
+      const duoiNgay = `&${scope.toString()}`;
       const r = await fetch(`/api/cashier?modes=${MODES[quay]}${duoiNgay}`, {
         cache: "no-store",
       });
@@ -255,12 +256,15 @@ export default function QuayThuNgan({ quay, ngay }: { quay: Quay; ngay?: string 
     } catch {
       return { loi: "Mất kết nối tới máy chủ." };
     }
-  }, [quay, ngay]);
+  }, [quay, ngay, ca, coSo]);
 
   const nhan = useCallback(
     (kq: { items?: Luot[]; paid?: DaThu[]; cho?: ChoXacMinh[]; loi?: string }) => {
       if (kq.loi) {
         setLoi(kq.loi);
+        setDs(null);
+        setDaThu([]);
+        setCho([]);
         return;
       }
       setLoi(null);

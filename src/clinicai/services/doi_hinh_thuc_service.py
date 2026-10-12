@@ -38,6 +38,7 @@ from clinicai.events.catalogue import HinhThucThuDaDoi
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
+from clinicai.services.payment_access_service import head_money_grant
 from clinicai.services.phan_thu import (
     CHUYEN_KHOAN,
     TIEN_MAT,
@@ -263,7 +264,9 @@ class DoiHinhThucService:
         ly = doc_ly_do(ly_do)
         cid = identity.clinic_id
         async with self._pool.acquire() as conn:
-            if not any([await can(conn, identity, q) for q in QUYEN_DOI]):
+            if not identity.cashier_head_scope and not any(
+                [await can(conn, identity, q) for q in QUYEN_DOI]
+            ):
                 raise SafetyGateError(
                     "Bạn không có quyền thu tiền nên không đổi được hình thức thu."
                 )
@@ -286,6 +289,12 @@ class DoiHinhThucService:
                 )
                 if lan is None:
                     raise NotFoundError("Không tìm thấy phiếu thu này.")
+                if identity.cashier_head_scope and not head_money_grant(
+                    identity, str(lan["kind"]), str(lan["visit_id"])
+                ):
+                    raise SafetyGateError(
+                        "Phiếu không thuộc loại tiền được phép xử lý."
+                    )
                 co_hoan = await conn.fetchval(
                     "SELECT EXISTS (SELECT 1 FROM payment_refund"
                     " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid"
