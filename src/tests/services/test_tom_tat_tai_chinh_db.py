@@ -24,7 +24,8 @@ async def test_no_chi_cua_ngay_ca_co_so_va_loai_da_chon(pool: asyncpg.Pool):  # 
                   '[{"loai":"dich_vu","so_tien":300000}]'::jsonb,
                   'Khách quên ví',$2::uuid
              FROM visit v WHERE v.visit_id=$1::uuid""",
-        visit, q.thu_ngan.staff_id,
+        visit,
+        q.thu_ngan.staff_id,
     )
     ghi_luc = await pool.fetchval(
         "SELECT ghi_luc FROM cong_no WHERE visit_id=$1::uuid", visit
