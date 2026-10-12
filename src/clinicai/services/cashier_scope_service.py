@@ -14,7 +14,11 @@ from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.ma_vi_tri import ma_mau
 from clinicai.core.shifts import ca_tu_settings, shift_windows
 from clinicai.permissions.can import can
-from clinicai.services.report_access_service import SHIFTS, ngay_hop_le
+from clinicai.services.report_access_service import (
+    ROSTER_LOCATION_JOIN,
+    SHIFTS,
+    ngay_hop_le,
+)
 
 STATIONS = {
     "dich_vu": {"T1_THUNGAN", "T1_LETAN", "LE_TAN", "T2_THUNGAN", "T3_THUNGAN"},
@@ -89,15 +93,14 @@ def allowed_roster(rows: list[dict[str, Any]], kind: str) -> dict[str, set[str]]
     return result
 
 
-_ROSTER = """SELECT w.work_date,w.shift,w.station,w.status,
-    COALESCE(r.location_id,l.id)::text location_id,
-    COALESCE(rl.name,l.name) location_name
+_ROSTER = f"""SELECT w.work_date,w.shift,w.station,w.status,
+    l.id::text location_id,
+    l.name location_name
     FROM work_roster w
     JOIN staff s ON s.id=w.staff_id AND s.is_active
-    JOIN clinic_location l ON l.id=s.primary_location_id AND l.clinic_id=w.clinic_id
     LEFT JOIN vi_tri_lam_viec v ON v.clinic_id=w.clinic_id AND v.code=w.station
     LEFT JOIN clinic_room r ON r.id=v.room_id AND r.clinic_id=w.clinic_id
-    LEFT JOIN clinic_location rl ON rl.id=r.location_id AND rl.clinic_id=w.clinic_id
+    {ROSTER_LOCATION_JOIN}
     WHERE w.clinic_id=$1::uuid AND w.staff_id=$2::uuid AND w.status='APPROVED'
 """
 
