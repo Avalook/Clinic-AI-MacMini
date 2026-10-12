@@ -13,6 +13,7 @@ from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.core.ma_vi_tri import ma_mau
 from clinicai.permissions.can import can
+from clinicai.services.audit import record_event
 
 DEFAULT_SETTINGS = {
     "nhan_vien_theo_ca": False,
@@ -52,7 +53,7 @@ def pham_vi_lich(rows: list[dict[str, Any]], *, head: bool) -> dict[str, list[st
         if head and not is_head or not location:
             continue
         shift = str(row["shift"])
-        allowed = SHIFTS if shift == "FULL" or head else (shift,)
+        allowed = SHIFTS if shift == "FULL" or head else [shift]
         for ca in allowed:
             scopes.setdefault(ca, set()).add(str(location))
     return {ca: sorted(scopes[ca]) for ca in SHIFTS if ca in scopes}
@@ -76,7 +77,7 @@ class ReportAccessService:
 
     @staticmethod
     def quan_ly(identity: StaffIdentity) -> bool:
-        return identity.co_vai((ClinicRole.MANAGEMENT,))
+        return identity.co_vai([ClinicRole.MANAGEMENT])
 
     async def settings(self, identity: StaffIdentity) -> dict[str, bool]:
         if not self.quan_ly(identity):
@@ -104,22 +105,14 @@ class ReportAccessService:
                 identity.clinic_id,
                 json.dumps(value),
             )
-            await conn.execute(
-                """INSERT INTO event_log
-                    (clinic_id,event_type,aggregate_type,aggregate_id,
-                     payload,metadata,source,event_published)
-                VALUES ($1::uuid,'clinic_settings.report_access_updated',
-                    'clinic',$1::uuid,$2::jsonb,$3::jsonb,
-                    'api:report-settings',FALSE)""",
-                identity.clinic_id,
-                json.dumps(value),
-                json.dumps(
-                    {
-                        "clinic_staff_id": identity.staff_id,
-                        "actor_auth_user_id": identity.auth_user_id,
-                        "vai_tai_khoan": identity.vai_goc.value,
-                    }
-                ),
+            await record_event(
+                conn,
+                event_type="clinic_settings.report_access_updated",
+                aggregate_type="clinic",
+                aggregate_id=identity.clinic_id,
+                identity=identity,
+                origin="api:report-settings",
+                payload=dict(value),
             )
         return dict(value)
 
@@ -157,7 +150,7 @@ class ReportAccessService:
         staff = pham_vi_lich([dict(r) for r in rows], head=False)
         # Current operational head role selects the restrictive policy; it
         # never grants access to an unassigned historical day.
-        is_head = identity.co_vai((ClinicRole.TRUONG_CA,)) or bool(head)
+        is_head = identity.co_vai([ClinicRole.TRUONG_CA]) or bool(head)
         restricted = (
             settings["truong_ca_theo_ngay"]
             if is_head
