@@ -14,6 +14,7 @@ import Button, { buttonClass } from "@/components/ui/Button";
 import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
 import ThanhNgay from "@/components/ui/ThanhNgay";
 import { todayVn } from "@/lib/roster";
+import NgayTrucBaoCao, { type ReportCalendar } from "./NgayTrucBaoCao";
 import { congNgay, type Khoang } from "@/lib/thanh-ngay";
 
 import BangHangHoa, { type HangHoa } from "./BangHangHoa";
@@ -53,11 +54,11 @@ function bayGio(): string {
 
 const NUT = "min-h-10 whitespace-nowrap rounded-control px-3 text-sm font-medium";
 
-export default function BaoCaoHangHoa({ coSo = [], access }: { coSo?: CoSo[]; access?: import("./access").ReportAccess }) {
+export default function BaoCaoHangHoa({ coSo = [], access, ngay }: { ngay?: string; coSo?: CoSo[]; access?: import("./access").ReportAccess }) {
   const lanTai = useRef(0);
   const lanNgay = useRef(0);
   const [chuoiDaTai, setChuoiDaTai] = useState("");
-  const [phamVi, setPhamVi] = useState(access);
+  const [phamVi, setPhamVi] = useState<ReportCalendar | undefined>(access);
   const restricted = !!phamVi && !phamVi.legacy && !phamVi.quan_ly;
   const doiNgay = async (k: Khoang) => {
     if (!restricted) { setKhoang(k); return; }
@@ -77,7 +78,7 @@ export default function BaoCaoHangHoa({ coSo = [], access }: { coSo?: CoSo[]; ac
     } catch { setLoi("Không kiểm được quyền xem ngày này."); setDl(null); }
   };
   const [homNay] = useState(todayVn);
-  const [khoang, setKhoang] = useState<Khoang>({ tu: homNay, den: homNay });
+  const [khoang, setKhoang] = useState<Khoang>({ tu: ngay ?? homNay, den: ngay ?? homNay });
   const [loai, setLoai] = useState<"thuoc" | "dich_vu">("thuoc");
   const [ca, setCa] = useState<"" | "SANG" | "CHIEU" | "TOI">(() => access && !access.legacy && !access.quan_ly && !access.cac_ca.includes("FULL") ? (access.cac_ca[0] as "SANG" | "CHIEU" | "TOI") ?? "" : "");
   const [coSoChon, setCoSoChon] = useState(() => access && !access.legacy && !access.quan_ly ? access.co_so_ids[0] ?? "" : "");
@@ -122,12 +123,7 @@ export default function BaoCaoHangHoa({ coSo = [], access }: { coSo?: CoSo[]; ac
       {restricted && phamVi?.tai_chinh ? <a className="text-body text-brand-700 underline print:hidden"
         href={`/reports?tab=cuoi-ngay&ngay=${encodeURIComponent(khoang.tu)}`}>Báo cáo tài chính ngày này</a> : null}
       <div className="flex flex-wrap items-start gap-2 print:hidden">
-        {restricted ? <label className="text-body">
-          Ngày bán
-          <input type="date" value={khoang.tu} max={homNay}
-            className="min-h-10 rounded-control bg-surface px-3 ring-1 ring-line-strong"
-            onChange={e => { if (e.target.value) void doiNgay({ tu: e.target.value, den: e.target.value }); }} />
-        </label> : <ThanhNgay
+        {restricted ? <NgayTrucBaoCao access={phamVi} ngay={khoang.tu} onChon={value => void doiNgay({ tu: value, den: value })} /> : <ThanhNgay
           nhan="Ngày bán"
           khoang={khoang}
           homNay={homNay}

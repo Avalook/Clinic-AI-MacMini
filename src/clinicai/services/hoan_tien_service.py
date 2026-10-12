@@ -34,6 +34,7 @@ from clinicai.events.catalogue import DaHoanTien
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can
 from clinicai.services.lieu_trinh_tien import loi_tien_lieu_trinh
+from clinicai.services.payment_access_service import head_money_grant
 from clinicai.services.phan_lo_service import so
 
 #: AI ĐƯỢC HOÀN TIỀN (Tuyền chốt 06/10/2026 — "ai có node cũng được"): QUYỀN,
@@ -57,20 +58,25 @@ def _ly_do(raw: object) -> str:
 
 
 async def co_quyen_hoan(
-    conn: asyncpg.Connection, identity: StaffIdentity, kind: str | None = None
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    kind: str | None = None,
+    visit_id: str | None = None,
 ) -> bool:
     """Có lego thu đúng loại tiền (không nói loại = có lego thu loại nào cũng được)."""
     loai = [kind] if kind in QUYEN_HOAN else list(QUYEN_HOAN)
     for k in loai:
-        if await can(conn, identity, QUYEN_HOAN[str(k)]):
+        if head_money_grant(identity, str(k), visit_id) or await can(
+            conn, identity, QUYEN_HOAN[str(k)]
+        ):
             return True
     return False
 
 
 async def _doi_quyen_hoan(
-    conn: asyncpg.Connection, identity: StaffIdentity, kind: str
+    conn: asyncpg.Connection, identity: StaffIdentity, kind: str, visit_id: str
 ) -> None:
-    if not await co_quyen_hoan(conn, identity, kind):
+    if not await co_quyen_hoan(conn, identity, kind, visit_id):
         raise SafetyGateError(
             "Bạn chưa được cấp lego "
             + ("Thu tiền thuốc" if kind == "thuoc" else "Thu tiền dịch vụ")
@@ -112,7 +118,7 @@ class HoanTienService:
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                await _doi_quyen_hoan(conn, identity, kind)
+                await _doi_quyen_hoan(conn, identity, kind, visit_id)
                 return await _tao_trong(
                     conn,
                     identity=identity,
@@ -140,7 +146,7 @@ class HoanTienService:
         )
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                await _doi_quyen_hoan(conn, identity, "dich_vu")
+                await _doi_quyen_hoan(conn, identity, "dich_vu", visit_id)
                 await _khoa_luot(conn, identity, visit_id)
                 dong = (await dong_tien_thua(conn, identity.clinic_id, [visit_id])).get(
                     visit_id, []
@@ -180,7 +186,9 @@ class HoanTienService:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 hoan = await _khoa_hoan(conn, identity, refund_id)
-                await _doi_quyen_hoan(conn, identity, str(hoan["kind"]))
+                await _doi_quyen_hoan(
+                    conn, identity, str(hoan["kind"]), str(hoan["visit_id"])
+                )
                 if hoan["status"] == "COMPLETED":
                     if hoan["reference"] == ma or hoan["method"] == "CASH":
                         return {"refund_id": refund_id, "status": "COMPLETED"}
@@ -239,7 +247,9 @@ class HoanTienService:
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 hoan = await _khoa_hoan(conn, identity, refund_id)
-                await _doi_quyen_hoan(conn, identity, str(hoan["kind"]))
+                await _doi_quyen_hoan(
+                    conn, identity, str(hoan["kind"]), str(hoan["visit_id"])
+                )
                 if hoan["status"] == trang_thai:
                     return {"refund_id": refund_id, "status": trang_thai}
                 if hoan["status"] != "PENDING":
@@ -448,7 +458,7 @@ async def _khoa_hoan(
     )
     hoan = await conn.fetchrow(
         """
-        SELECT refund_id, payment_cycle_id, status, method, amount, reference,
+        SELECT refund_id, payment_cycle_id, visit_id, status, method, amount, reference,
                kind
           FROM public.payment_refund
          WHERE refund_id = $1::uuid AND clinic_id = $2::uuid

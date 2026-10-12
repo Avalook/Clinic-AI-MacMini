@@ -89,7 +89,7 @@ export default async function ReportsPage({
       <main className="page-in min-w-0 space-y-4 p-4 lg:p-5">
         <style>{IN_CSS}</style>
         <ThanhTabBaoCao dangMo={dangMo} access={access} />
-        <BaoCaoHangHoa coSo={coSo} access={access ?? undefined} />
+        <BaoCaoHangHoa ngay={ngay} coSo={coSo} access={access ?? undefined} />
       </main>
     );
   }

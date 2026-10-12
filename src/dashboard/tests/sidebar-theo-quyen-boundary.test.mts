@@ -62,9 +62,14 @@ test("cửa trang cũng mở theo quyền, không chỉ thanh bên", () => {
   const guard = doc("../lib/clinic-session.ts");
   // 27/09/2026: MỘT luật cho mọi trang — `vaoDuocMan(href, vai, quyen)`.
   assert.match(guard, /getQuyenCuaToi\(\)\]\);\s*return vaoDuocMan\(href, vai, quyen\)/);
-  // Backend im → null (khác [] = biết chắc không có quyền) → thanh bên rơi về
-  // luật vai, không khoá cả phòng khám.
-  assert.match(guard, /return d\?\.quyen \?\? null/);
+  // Quyền và thời điểm đổi ca dùng cùng dữ kiện cache theo lượt render.
+  // Backend im vẫn trả null; riêng quầy thu không suy quyền từ vai.
+  assert.match(guard, /getTrangThaiQuyenCuaToi = cache/);
+  assert.match(guard, /\(await getTrangThaiQuyenCuaToi\(\)\)\?\.quyen \?\? null/);
+  for (const href of ["/thu-ngan/dich-vu", "/thu-ngan/thuoc"]) {
+    assert.equal(hienTrenThanhBen("MANAGEMENT", href, null), false);
+    assert.equal(hienTrenThanhBen("CASHIER", href, []), false);
+  }
 });
 
 test("thanh bên và thanh dưới dùng chung một luật", () => {

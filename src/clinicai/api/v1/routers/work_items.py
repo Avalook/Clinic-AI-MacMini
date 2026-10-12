@@ -26,7 +26,12 @@ from clinicai.api.idempotency import (
     idempotency_guard,
     tra_khoa_neu_bi_tu_choi,
 )
-from clinicai.api.identity import ClinicRole, StaffIdentity, cua_noi_bo
+from clinicai.api.identity import (
+    ClinicRole,
+    StaffIdentity,
+    cua_noi_bo,
+    get_current_identity,
+)
 from clinicai.api.nghi_huu import CHI_DINH_MOI, bao_da_nghi
 from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.database import get_db_pool
@@ -656,7 +661,7 @@ async def check_duplicates(
 
 
 # CHỈ LEGO (28/09/2026): cửa hỏi QUYỀN, không hỏi vai — xem permissions/cua_quyen.py.
-_CASHIER_ROLES = cua_quyen("payment.service.collect", "payment.medicine.collect")
+_CASHIER_ROLES = get_current_identity
 
 
 class ChargeLine(BaseModel):
@@ -702,6 +707,12 @@ async def visit_charges(
     ServiceOrderService.charges — in particular why `unpriced_lines` is part of
     the contract rather than an implementation detail.
     """
+    from clinicai.services.cashier_scope_service import CashierScopeService
+
+    identity = await CashierScopeService(pool).active_visit(
+        identity,
+        visit_id=str(visit_id),
+    )
     data = await ServiceOrderService(pool).charges(
         visit_id=str(visit_id), identity=identity
     )

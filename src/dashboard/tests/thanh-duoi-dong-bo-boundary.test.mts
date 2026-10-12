@@ -80,13 +80,13 @@ test("mọi nút thanh dưới đều là một mục CÓ THẬT trong NAV", () 
   }
 });
 
-test("mọi nút thanh dưới đều được vai ấy XEM ĐƯỢC", () => {
+test("mọi nút thanh dưới mở được khi vai và quyền hiện tại cho phép", () => {
   // Khai một màn ngoài quyền của vai thì nút hoặc biến mất, hoặc tệ hơn là hiện
   // ra để người ta bấm vào và nhận 403.
   for (const [vai, ds] of Object.entries(THANH_DUOI)) {
     for (const href of ds) {
       assert.ok(
-        hienTrenThanhBen(vai as ClinicRole, href),
+        hienTrenThanhBen(vai as ClinicRole, href, href === "/thu-ngan/dich-vu" ? ["payment.service.collect"] : href === "/thu-ngan/thuoc" ? ["payment.medicine.collect"] : null),
         `${vai} không xem được "${href}" — nút này sẽ hụt`,
       );
     }

@@ -42,10 +42,11 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, doc_ngay_xem, hom_nay_vn
 from clinicai.permissions.can import can
 from clinicai.services.anh_chuyen_khoan_service import anh_cua_cac_lan_thu
+from clinicai.services.cashier_scope_service import visible_refunds
 from clinicai.services.chot_0d import da_chot_0d, doc_chot_0d
 from clinicai.services.doi_hinh_thuc_service import trang_thai_doi
 from clinicai.services.hoan_tac_service import tien_thua_cua_luot
-from clinicai.services.hoan_tien_service import co_quyen_hoan, hoan_cua_cac_lan_thu
+from clinicai.services.hoan_tien_service import hoan_cua_cac_lan_thu
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_thu import doc_phan_db
 from clinicai.services.so_sua_chi_dinh_service import da_bo_cua_cac_luot
@@ -160,7 +161,32 @@ WITH v AS (
             -- xem HÔM NAY ($4): xem lại một ngày cũ thì chỉ khách của ngày ấy.
             SELECT n.visit_id FROM public.cong_no n
              WHERE $4::boolean AND n.clinic_id = $1::uuid
-               AND n.trang_thai = 'CHUA_THU')
+               AND n.trang_thai = 'CHUA_THU'
+            UNION ALL
+            SELECT old.visit_id FROM public.visit old
+             WHERE $4::boolean AND old.clinic_id=$1::uuid AND old.created_at<$2
+               AND (
+                 EXISTS(SELECT 1 FROM public.service_order so
+                   WHERE so.clinic_id=old.clinic_id AND so.visit_id=old.visit_id
+                     AND so.selection_status IN ('PENDING','SELECTED')
+                     AND so.exec_status NOT IN ('draft','cancelled')
+                     AND NOT EXISTS(SELECT 1 FROM public.payment_bill_line bl
+                       JOIN public.payment_cycle pc ON pc.clinic_id=bl.clinic_id
+                         AND pc.payment_cycle_id=bl.payment_cycle_id
+                       WHERE bl.clinic_id=so.clinic_id
+                         AND bl.source_type='service_order'
+                         AND bl.source_id=so.id::text
+                         AND pc.status IN ('PAID','PENDING_VERIFICATION')))
+                 OR EXISTS(SELECT 1 FROM public.prescription rx
+                   WHERE rx.clinic_id=old.clinic_id AND rx.visit_id=old.visit_id
+                     AND rx.removed_at IS NULL
+                     AND NOT EXISTS(SELECT 1 FROM public.payment_cycle pc
+                       WHERE pc.clinic_id=old.clinic_id AND pc.visit_id=old.visit_id
+                         AND pc.kind='thuoc'
+                         AND pc.status IN ('PAID','PENDING_VERIFICATION')))
+                 OR EXISTS(SELECT 1 FROM public.payment_cycle pc
+                   WHERE pc.clinic_id=old.clinic_id AND pc.visit_id=old.visit_id
+                     AND pc.status='PENDING_VERIFICATION')))
        -- CƠ SỞ ĐANG ĐỨNG ($5, 08/10/2026): chỉ khách của cơ sở ấy. Lượt chưa
        -- biết cơ sở vẫn hiện; $5 NULL (danh tính không mang cơ sở) = không lọc.
        AND coalesce(vi.location_id, a.location_id, $5::uuid)
@@ -270,11 +296,30 @@ SELECT json_build_object(
 async def quyen_thu_theo_loai(
     conn: asyncpg.Connection, identity: StaffIdentity
 ) -> dict[str, bool]:
-    """Người xem có quyền thu (→ hoàn tác) từng loại tiền không."""
-    return {
-        "dich_vu": await can(conn, identity, "payment.service.collect"),
-        "thuoc": await can(conn, identity, "payment.medicine.collect"),
-    }
+    """UI hints use the current roster too; writes recheck the target visit."""
+    from typing import cast
+
+    from clinicai.core.exceptions import SafetyGateError
+    from clinicai.services.cashier_scope_service import CashierScopeService
+
+    result = {}
+    for kind, permission in [
+        ("dich_vu", "payment.service.collect"),
+        ("thuoc", "payment.medicine.collect"),
+    ]:
+        try:
+            scope = await CashierScopeService(
+                cast(asyncpg.Pool, conn)
+            ).authorize_active(
+                identity,
+                kind=kind,
+            )
+            result[kind] = scope.actor_id is None or await can(
+                conn, identity, permission
+            )
+        except SafetyGateError:
+            result[kind] = False
+    return result
 
 
 def hoan_tac_cua(
@@ -298,7 +343,15 @@ def hoan_tac_cua(
 
 class CashierBoardService:
     async def giao_dich(
-        self, *, identity: StaffIdentity, tu: Any, den: Any, kind: Any = None
+        self,
+        *,
+        identity: StaffIdentity,
+        tu: Any,
+        den: Any,
+        kind: Any = None,
+        scope_starts: list[datetime] | None = None,
+        scope_ends: list[datetime] | None = None,
+        scope_actor: str | None = None,
     ) -> dict[str, Any]:
         """Giao dịch đã ghi trong khoảng ngày — CHỈ ĐỌC, kể cả dòng đã huỷ.
 
@@ -347,7 +400,17 @@ class CashierBoardService:
               LEFT JOIN staff xn ON xn.id = pc.confirmed_by
               LEFT JOIN staff dg ON dg.id = pc.closed_by
              WHERE pc.clinic_id = $1::uuid AND pc.kind = ANY($4::text[])
-               AND (coalesce(pc.paid_at, pc.created_at) AT TIME ZONE
+               AND ($8::uuid IS NULL OR pc.created_by=$8::uuid
+                    OR pc.confirmed_by=$8::uuid)
+               AND ($6::timestamptz[] IS NULL OR EXISTS(
+                    SELECT 1 FROM unnest($6::timestamptz[], $7::timestamptz[])
+                    AS allowed(start_at,end_at)
+                    WHERE (CASE WHEN pc.created_by=$8::uuid THEN pc.created_at
+                      ELSE coalesce(pc.paid_at,pc.created_at) END)>=allowed.start_at
+                      AND (CASE WHEN pc.created_by=$8::uuid THEN pc.created_at
+                      ELSE coalesce(pc.paid_at,pc.created_at) END)<allowed.end_at))
+               AND ((CASE WHEN pc.created_by=$8::uuid THEN pc.created_at
+                    ELSE coalesce(pc.paid_at,pc.created_at) END) AT TIME ZONE
                     'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
                -- Chỉ giao dịch của cơ sở đang đứng ($5 NULL = không lọc).
                AND coalesce(vi.location_id, ap.location_id, $5::uuid)
@@ -361,6 +424,9 @@ class CashierBoardService:
             b,
             loai,
             identity.location_id or None,
+            scope_starts,
+            scope_ends,
+            scope_actor,
         )
         # CP5: khoản hoàn của từng lần thu đã từng thu (kể cả đã huỷ phiếu) +
         # dòng còn hoàn được. Nút hoàn chỉ cho vai hoàn tiền TẠM THỜI (HOLD J4).
@@ -376,7 +442,7 @@ class CashierBoardService:
             )
             quyen = await quyen_thu_theo_loai(conn, identity)
             # Hoàn tiền theo lego thu (Tuyền 06/10/2026, thay HOLD J4 chỉ Quản lý).
-            co_hoan = await co_quyen_hoan(conn, identity, kind)
+            co_hoan = any(quyen[k] for k in loai)
         return {
             "tu": a.isoformat(),
             "den": b.isoformat(),
@@ -391,6 +457,7 @@ class CashierBoardService:
                     "trang_thai": r["status"],
                     "so_tien": float(r["amount"]) if r["amount"] is not None else None,
                     "luc": (r["paid_at"] or r["created_at"]).isoformat(),
+                    "tao_luc": r["created_at"].isoformat(),
                     "nguoi_thu": r["nguoi_xac_nhan"] or r["nguoi_tao"],
                     # NULL = phiếu thu trước CP2 — không biết phương thức, không đoán.
                     "phuong_thuc": r["method"],
@@ -401,7 +468,11 @@ class CashierBoardService:
                     "nguoi_huy": r["nguoi_huy"],
                     "ly_do_huy": r["close_reason"],
                     "sau_khi_dong_luot": r["sau_khi_dong_luot"],
-                    "hoan": hoan.get(r["id"]),
+                    "hoan": visible_refunds(
+                        hoan.get(r["id"]),
+                        None if scope_actor else scope_starts,
+                        None if scope_actor else scope_ends,
+                    ),
                     # [Đổi hình thức] (V7): cờ đổi được + lịch sử đổi.
                     "doi_hinh_thuc": doi.get(r["id"]),
                     # Chia hình thức + ảnh chuyển khoản + nút Hoàn tác (01/10).
@@ -419,7 +490,14 @@ class CashierBoardService:
         self._pool = pool
 
     async def board(
-        self, *, identity: StaffIdentity, modes: list[str], ngay: Any = None
+        self,
+        *,
+        identity: StaffIdentity,
+        modes: list[str],
+        ngay: Any = None,
+        scope_starts: list[datetime] | None = None,
+        scope_ends: list[datetime] | None = None,
+        scope_actor: str | None = None,
     ) -> dict[str, Any]:
         """Bảng thu của MỘT ngày (`ngay` YYYY-MM-DD giờ VN; rác / rỗng = hôm nay).
 
@@ -606,6 +684,9 @@ class CashierBoardService:
                     identity.clinic_id,
                     ngay_xem,
                     identity.location_id or None,
+                    scope_starts,
+                    scope_ends,
+                    scope_actor,
                 ),
             }
         if want_svc:
@@ -787,7 +868,13 @@ def _doc_luc(v: Any) -> datetime | None:
 
 
 async def _dem_da_thu_hom_nay(
-    pool: asyncpg.Pool, clinic_id: str, ngay: date, location_id: str | None
+    pool: asyncpg.Pool,
+    clinic_id: str,
+    ngay: date,
+    location_id: str | None,
+    scope_starts: list[datetime] | None = None,
+    scope_ends: list[datetime] | None = None,
+    scope_actor: str | None = None,
 ) -> int:
     """Số khách ở tab "Đã thu ngày …" — cùng tập với sổ gom theo khách
     (``QuayThuService.lich_su`` đúng ngày ấy, cùng cơ sở): lần thu đã thu hoặc
@@ -799,13 +886,35 @@ async def _dem_da_thu_hom_nay(
                 SELECT visit_id FROM payment_cycle
                  WHERE clinic_id = $1::uuid AND kind = 'dich_vu'
                    AND paid_at IS NOT NULL
-                   AND (paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2::date
+                   AND ($6::uuid IS NULL OR created_by=$6::uuid
+                        OR confirmed_by=$6::uuid)
+                   AND ((CASE WHEN created_by=$6::uuid THEN created_at ELSE paid_at END)
+                     AT TIME ZONE 'Asia/Ho_Chi_Minh')::date = $2::date
+                   AND ($4::timestamptz[] IS NULL OR EXISTS(
+                        SELECT 1 FROM unnest($4::timestamptz[],$5::timestamptz[])
+                        AS allowed(start_at,end_at)
+                        WHERE (CASE WHEN created_by=$6::uuid THEN created_at
+                          ELSE paid_at END)
+                          >=allowed.start_at
+                          AND (CASE WHEN created_by=$6::uuid THEN created_at
+                          ELSE paid_at END)<allowed.end_at))
                 UNION ALL
                 SELECT visit_id FROM payment_refund
                  WHERE clinic_id = $1::uuid AND kind = 'dich_vu'
+                   AND ($6::uuid IS NULL OR created_by=$6::uuid
+                     OR completed_by=$6::uuid OR EXISTS(
+                     SELECT 1 FROM payment_cycle pc
+                     WHERE pc.clinic_id=payment_refund.clinic_id
+                       AND pc.payment_cycle_id=payment_refund.payment_cycle_id
+                       AND (pc.created_by=$6::uuid OR pc.confirmed_by=$6::uuid)))
                    AND status IN ('PENDING', 'COMPLETED')
                    AND (created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                       = $2::date) x
+                       = $2::date
+                   AND ($4::timestamptz[] IS NULL OR EXISTS(
+                        SELECT 1 FROM unnest($4::timestamptz[],$5::timestamptz[])
+                        AS allowed(start_at,end_at)
+                        WHERE created_at>=allowed.start_at
+                          AND created_at<allowed.end_at))) x
              WHERE coalesce(public.co_so_cua_luot($1::uuid, x.visit_id), $3::uuid)
                    IS NOT DISTINCT FROM
                    coalesce($3::uuid, public.co_so_cua_luot($1::uuid, x.visit_id))
@@ -813,6 +922,9 @@ async def _dem_da_thu_hom_nay(
             clinic_id,
             ngay,
             location_id,
+            scope_starts,
+            scope_ends,
+            scope_actor,
         )
         or 0
     )

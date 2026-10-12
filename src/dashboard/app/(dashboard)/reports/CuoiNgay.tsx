@@ -21,6 +21,7 @@ import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
 import { INPUT } from "../form-ui";
 import TomTatCuoiNgay from "./TomTatCuoiNgay";
 import { todayVn } from "@/lib/roster";
+import NgayTrucBaoCao, { type ReportCalendar } from "./NgayTrucBaoCao";
 import { congNgay, nhanKhoang, type Khoang } from "@/lib/thanh-ngay";
 
 import type { ThuocTheoKhachData } from "./ThuocTheoKhach";
@@ -139,6 +140,9 @@ interface BaoCao {
 }
 
 export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { ngay?: string; coSo?: CoSo[]; dayDu?: boolean; access?: import("./access").ReportAccess }) {
+  const [phamVi, setPhamVi] = useState<ReportCalendar | undefined>(access);
+  const restricted = !!phamVi && !phamVi.legacy && !phamVi.quan_ly;
+  const lanNgay = useRef(0);
   const [homNay] = useState(todayVn);
   const [khoang, setKhoang] = useState<Khoang>({ tu: ngay ?? homNay, den: ngay ?? homNay });
   const [bc, setBc] = useState<BaoCao | null>(null);
@@ -155,6 +159,19 @@ export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { n
   const [ca, setCa] = useState<"" | "SANG" | "CHIEU" | "TOI">("");
   const motNgay = khoang.tu === khoang.den;
 
+  const doiNgay = async (value: string) => {
+    const lan = ++lanNgay.current;
+    ++lanTai.current; setBc(null); setDangTai(true);
+    try {
+      const r = await fetch(`/api/reports/access?ngay=${encodeURIComponent(value)}`, { cache: "no-store" });
+      if (!r.ok) throw new Error();
+      const next: ReportCalendar = await r.json();
+      if (lan !== lanNgay.current) return;
+      setPhamVi(next);
+      setCa(""); setCoSoChon(next.co_so_ids[0] ?? "");
+      setKhoang({ tu: value, den: value });
+    } catch { if (lan === lanNgay.current) { setLoi("Không kiểm được quyền xem ngày này."); setDangTai(false); } }
+  };
   const chuoi = new URLSearchParams({
     tu: khoang.tu,
     den: khoang.den,
@@ -253,10 +270,11 @@ export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { n
   return (
     <section className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
-        <ChonCoSoO coSo={coSo} dangChon={coSoChon} onChon={setCoSoChon} />
+        <ChonCoSoO coSo={restricted && phamVi ? coSo.filter(c => phamVi.co_so_ids.includes(c.id)) : coSo} dangChon={coSoChon} onChon={setCoSoChon} />
       </div>
       <div className="print:hidden">
       <div className="flex flex-wrap items-end gap-3 py-3">
+        {restricted ? <NgayTrucBaoCao access={phamVi} ngay={khoang.tu} onChon={value => void doiNgay(value)} /> : <>
         <label className="w-full space-y-1 text-meta text-ink-muted sm:w-auto">
           Chọn nhanh
           <select className={INPUT} defaultValue="" onChange={(e) => {
@@ -285,6 +303,7 @@ export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { n
               onChange={(e) => { if (e.target.value) setKhoang({ ...khoang, den: e.target.value }); }} />
           </label>
         </div>
+        </>}
         <div role="tablist" aria-label="Loại tiền" className="flex gap-1">
           {(
             [
@@ -316,7 +335,7 @@ export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { n
                 ["CHIEU", "Ca chiều"],
                 ["TOI", "Ca tối"],
               ] as const
-            ).map(([ma, nhan]) => (
+            ).filter(([ma]) => !restricted || phamVi?.cac_ca.includes(ma || "FULL")).map(([ma, nhan]) => (
               <button
                 key={ma}
                 type="button"

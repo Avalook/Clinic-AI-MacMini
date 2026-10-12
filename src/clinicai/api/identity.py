@@ -214,6 +214,10 @@ class StaffIdentity:
     #: không còn vai bác sĩ ở các cửa cũ.
     vai_theo_lego: frozenset[ClinicRole] | None = None
 
+    # Request-only money grant after server checks an active shift-head roster
+    # against the target visit. Never cached, loaded from a body, or used by can().
+    cashier_head_scope: tuple[str, str, str] | None = None
+
     def cac_vai(self) -> frozenset[ClinicRole]:
         """MỌI vai người này làm được HÔM NAY: vai vận hành vị trí trong lịch cấp,
         vai lego đang bật mang lại, vai tài khoản gốc (trừ vai do lego quyết khi
