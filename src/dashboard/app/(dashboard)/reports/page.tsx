@@ -62,13 +62,13 @@ function ThanhTabBaoCao({ dangMo, access }: { dangMo: MaTab; access?: import("./
 export default async function ReportsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; co_so?: string }>;
+  searchParams: Promise<{ tab?: string; co_so?: string; ngay?: string }>;
 }) {
   // Cửa theo LEGO Báo cáo (27/09/2026) — trước gác vai isOpsAdmin, nên cấp
   // lego cho người khác vai thì mục hiện trên thanh bên mà bấm vào bị đá về.
-  const { tab, co_so } = await searchParams;
-  const access = await fetchFromBackend<import("./access").ReportAccess>("/api/v1/reports/access");
-  if (!access?.ban_hang) await requireNavAccess("/reports");
+  const { tab, co_so, ngay } = await searchParams;
+  const access = await fetchFromBackend<import("./access").ReportAccess>(`/api/v1/reports/access${ngay ? `?ngay=${encodeURIComponent(ngay)}` : ""}`);
+  if (!(access?.co_the_mo ?? access?.ban_hang)) await requireNavAccess("/reports");
   // Tham số lạ (gõ tay, link hỏng) thì về tab đầu, không ném.
   const dangMo: MaTab = access && !access.legacy && !access.quan_ly && !tab ? (access.tai_chinh ? "cuoi-ngay" : "hang-hoa") : access && !access.tai_chinh ? "hang-hoa" : TAB.some((t) => t.ma === tab) ? (tab as MaTab) : "van-hanh";
   if (dangMo === "van-hanh") await requireNavAccess("/reports");
@@ -80,7 +80,7 @@ export default async function ReportsPage({
         <style>{IN_CSS}</style>
         <ThanhTabBaoCao dangMo={dangMo} access={access} />
         <h1 className="text-xl font-semibold text-ink lg:text-2xl">Báo cáo cuối ngày</h1>
-        <CuoiNgay access={access ?? undefined} coSo={coSo} dayDu={access?.tai_chinh_day_du ?? false} />
+        <CuoiNgay ngay={ngay} access={access ?? undefined} coSo={coSo} dayDu={access?.tai_chinh_day_du ?? false} />
       </main>
     );
   }

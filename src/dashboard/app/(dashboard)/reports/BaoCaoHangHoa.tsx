@@ -119,6 +119,8 @@ export default function BaoCaoHangHoa({ coSo = [], access }: { coSo?: CoSo[]; ac
 
   return (
     <section className="space-y-4">
+      {restricted && phamVi?.tai_chinh ? <a className="text-body text-brand-700 underline print:hidden"
+        href={`/reports?tab=cuoi-ngay&ngay=${encodeURIComponent(khoang.tu)}`}>Báo cáo tài chính ngày này</a> : null}
       <div className="flex flex-wrap items-start gap-2 print:hidden">
         {restricted ? <label className="text-body">
           Ngày bán

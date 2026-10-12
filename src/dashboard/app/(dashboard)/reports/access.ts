@@ -1,6 +1,7 @@
 export interface ReportAccess {
   quan_ly: boolean;
   ban_hang: boolean;
+  co_the_mo?: boolean;
   tai_chinh: boolean;
   cac_ca: string[];
   co_so_ids: string[];

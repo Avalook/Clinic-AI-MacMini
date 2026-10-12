@@ -121,7 +121,7 @@ export default async function DashboardLayout({
     // Quyền THẬT của người này. Đi cùng vòng, không nối đuôi: layout chạy lại
     // ở mọi lần chuyển trang. Hỏng thì rỗng → thanh bên rơi về theo vai.
     getQuyenCuaToi(),
-    fetchFromBackend<{ ban_hang: boolean }>("/api/v1/reports/access"),
+    fetchFromBackend<{ ban_hang: boolean; co_the_mo?: boolean }>("/api/v1/reports/access"),
   ]);
   const viTriHomNay = viTri?.vi_tri ?? [];
   const thuKyChuaPhan =
@@ -152,7 +152,7 @@ export default async function DashboardLayout({
           viTriHomNay={viTriHomNay}
           phong={viTri?.phong ?? {}}
           quyen={quyen}
-          reportAccess={reportAccess?.ban_hang === true}
+          reportAccess={(reportAccess?.co_the_mo ?? reportAccess?.ban_hang) === true}
           leaveAction={logout}
         >
           {thuKyChuaPhan && (

@@ -138,9 +138,9 @@ interface BaoCao {
   }[];
 }
 
-export default function CuoiNgay({ coSo = [], dayDu = false, access }: { coSo?: CoSo[]; dayDu?: boolean; access?: import("./access").ReportAccess }) {
+export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { ngay?: string; coSo?: CoSo[]; dayDu?: boolean; access?: import("./access").ReportAccess }) {
   const [homNay] = useState(todayVn);
-  const [khoang, setKhoang] = useState<Khoang>({ tu: homNay, den: homNay });
+  const [khoang, setKhoang] = useState<Khoang>({ tu: ngay ?? homNay, den: ngay ?? homNay });
   const [bc, setBc] = useState<BaoCao | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [dangTai, setDangTai] = useState(true);

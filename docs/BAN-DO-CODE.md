@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-12 12:10. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-12 12:22. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -373,7 +373,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - page: `src/dashboard/app/(dashboard)/reports/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
 - thành phần: app/(dashboard)/StatCard.tsx, BaoCaoHangHoa.tsx, CuoiNgay.tsx, PrintReportButton.tsx, access.ts, app/(dashboard)/form-ui.ts, BangHangHoa.tsx, ThuocTheoKhach.tsx (+1)
 - gọi API Next: `/api/reports/access`, `/api/reports/cuoi-ngay`
-- gọi thẳng backend (server): `/api/v1/reports/access`, `/api/v1/reports/tong-quan${locCoSo`, `/api/v1/reports/booking-channels`, `/api/v1/reports/kpi-dat-lich${locCoSo`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
+- gọi thẳng backend (server): `/api/v1/reports/access${ngay`, `/api/v1/reports/tong-quan${locCoSo`, `/api/v1/reports/booking-channels`, `/api/v1/reports/kpi-dat-lich${locCoSo`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
 - service: ReportAccessService.{access, authorize} · BaoCaoCuoiNgayService.bao_cao · report_access_service · bao_cao_cuoi_ngay_service · reports_service · ReportsService.{booking_channels, kpi_dat_lich_theo_nhan_vien}
 - test: test_bao_cao_theo_co_so_db.py, test_report_access.py, test_report_access_db.py, test_bao_cao_cuoi_ca_db.py, test_bao_cao_thuoc.py (+3)
 

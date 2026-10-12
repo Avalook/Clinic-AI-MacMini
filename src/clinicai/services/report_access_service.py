@@ -125,6 +125,22 @@ class ReportAccessService:
                 )
             )
             legacy = await can(conn, identity, "report.view")
+            historical = await conn.fetchval(
+                """SELECT EXISTS(
+                    SELECT 1 FROM work_roster w
+                    JOIN staff s ON s.id=w.staff_id AND s.is_active
+                    JOIN clinic_location l ON l.id=s.primary_location_id
+                        AND l.clinic_id=w.clinic_id
+                    WHERE w.clinic_id=$1::uuid AND w.staff_id=$2::uuid
+                        AND w.status='APPROVED'
+                        AND ($3::boolean OR
+                            ($4::boolean AND w.station LIKE 'DIEU_PHOI%'))
+                )""",
+                identity.clinic_id,
+                identity.staff_id,
+                settings["nhan_vien_theo_ca"],
+                settings["truong_ca_theo_ngay"],
+            )
             day = ngay_hop_le(ngay) if ngay is not None else now_vn().date()
             rows = (
                 await conn.fetch(
@@ -168,6 +184,7 @@ class ReportAccessService:
         return {
             "quan_ly": manager,
             "ban_hang": unrestricted or bool(scopes),
+            "co_the_mo": unrestricted or bool(scopes) or bool(historical),
             "tai_chinh": financial,
             "legacy": unrestricted,
             "tai_chinh_day_du": financial and settings["tai_chinh_day_du"],

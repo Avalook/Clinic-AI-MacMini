@@ -82,6 +82,8 @@ async def test_settings_roster_and_revoke(
         head = await service.access(q.thu_ngan, day.isoformat())
         assert head["tai_chinh"] and head["tai_chinh_day_du"]
         assert not (await service.access(q.thu_ngan, "2026-10-13"))["ban_hang"]
+        past = await service.access(q.thu_ngan, "2026-10-13")
+        assert past["co_the_mo"] and not past["ban_hang"]
         await service.save(
             manager,
             {
