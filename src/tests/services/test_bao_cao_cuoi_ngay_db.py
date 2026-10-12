@@ -201,6 +201,7 @@ async def test_bao_cao_cuoi_ngay_tong_dung_tung_dong(
 
 
 def test_cua_bao_cao_cuoi_ngay_xac_thuc_truoc_kiem_pham_vi() -> None:
+    from clinicai.api.identity import get_current_identity
     from clinicai.api.v1.routers import reports
 
     for p in ("/reports/cuoi-ngay", "/reports/cuoi-ngay.csv"):
@@ -208,4 +209,4 @@ def test_cua_bao_cao_cuoi_ngay_xac_thuc_truoc_kiem_pham_vi() -> None:
         deps = [d.call for d in route.dependant.dependencies]  # type: ignore[attr-defined]
         # Quyền report.view cũ + quyền ca mới được kiểm trong wrapper chung;
         # test_report_access kiểm từ chối ngoài phạm vi cho cả JSON và CSV.
-        assert reports.get_current_identity in deps
+        assert get_current_identity in deps
