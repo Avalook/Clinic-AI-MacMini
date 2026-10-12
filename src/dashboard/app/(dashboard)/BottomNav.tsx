@@ -11,6 +11,7 @@ import { Menu } from "lucide-react";
 import { hienTrenThanhBen, type ClinicRole } from "../../lib/roles";
 import { CLINICAL_HREFS } from "../../lib/feature-mode-client";
 import {
+  NAV,
   isActiveNav,
   mucHienRa,
   mucThanhDuoi,
@@ -28,6 +29,7 @@ export default function BottomNav({
   viTriHomNay = [],
   phong = {},
   quyen = null,
+  reportAccess = false,
 }: {
   role: ClinicRole | null;
   onMenu: () => void;
@@ -36,6 +38,7 @@ export default function BottomNav({
   phong?: PhongTheoViTri;
   /** Cùng luật với thanh bên — hai thanh lệch nhau là người dùng mất màn. */
   quyen?: readonly string[] | null;
+  reportAccess?: boolean;
 }) {
   const pathname = usePathname();
   // CÙNG MỘT PHÉP LỌC VỚI THANH BÊN, kể cả `featureMode`.
@@ -43,7 +46,7 @@ export default function BottomNav({
   // Bản trước gọi thẳng `NAV.filter(hienTrenThanhBen)` và bỏ qua featureMode,
   // nên khi phòng khám chạy chế độ CSKH_ONLY thì máy tính giấu các màn lâm sàng
   // còn điện thoại vẫn hiện lối vào. Hai thanh phải nói cùng một chuyện.
-  const visible = mucHienRa(
+  const baseVisible = mucHienRa(
     role,
     (r, href) => hienTrenThanhBen(r, href, quyen),
     featureMode,
@@ -53,6 +56,9 @@ export default function BottomNav({
     // Ngày có ca, thanh bên dựng theo vị trí — vẫn phải lọc theo lego.
     quyen,
   );
+  const reportItem = reportAccess && !baseVisible.some(i => i.href === "/reports")
+    ? NAV.find(i => i.href === "/reports") : undefined;
+  const visible = reportItem ? [...baseVisible, reportItem] : baseVisible;
   const allHrefs = visible.map((v) => v.href);
   // Có ca hôm nay thì `visible` ĐÃ xếp theo việc của hôm nay — lấy đầu danh sách
   // là đúng. Bảng `THANH_DUOI` theo vai chỉ dành cho ngày không có ca.

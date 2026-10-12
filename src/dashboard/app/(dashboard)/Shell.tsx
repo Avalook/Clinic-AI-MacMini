@@ -33,6 +33,8 @@ interface ShellProps {
   phong?: PhongTheoViTri;
   /** Capability đang có — thanh bên bày thêm màn mà quyền mở được. */
   quyen?: readonly string[] | null;
+  /** Lối báo cáo theo lịch đã được backend cho phép, không cấp thêm capability. */
+  reportAccess?: boolean;
   leaveAction: () => void | Promise<void>;
   children: React.ReactNode;
 }
@@ -69,6 +71,7 @@ export default function Shell({
   viTriHomNay = [],
   phong = {},
   quyen = null,
+  reportAccess = false,
   leaveAction,
   children,
 }: ShellProps) {
@@ -225,6 +228,7 @@ export default function Shell({
             viTriHomNay={viTriHomNay}
             phong={phong}
             quyen={quyen}
+            reportAccess={reportAccess}
           />
         </div>
         {/* Đáy: người dùng + Thoát. LỐI PHỤ — lối chính là ảnh đại diện ở góc
@@ -341,6 +345,7 @@ export default function Shell({
         viTriHomNay={viTriHomNay}
         phong={phong}
         quyen={quyen}
+        reportAccess={reportAccess}
       />
     </div>
   );

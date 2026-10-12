@@ -8,7 +8,7 @@
 // Số do máy chủ gom (`GET /api/v1/reports/cuoi-ngay` → `hang_hoa`, `chi_nhanh`),
 // cùng luật ngày / ca / cơ sở với tab Cuối ngày. Màn chỉ vẽ.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button, { buttonClass } from "@/components/ui/Button";
 import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
@@ -19,6 +19,8 @@ import { congNgay, type Khoang } from "@/lib/thanh-ngay";
 import BangHangHoa, { type HangHoa } from "./BangHangHoa";
 
 interface DuLieu {
+  co_so?: string | null;
+  ten_co_so?: string | null;
   tu: string;
   den: string;
   ca?: { ma: string; ten: string; tu: string; den: string } | null;
@@ -51,12 +53,34 @@ function bayGio(): string {
 
 const NUT = "min-h-10 whitespace-nowrap rounded-control px-3 text-sm font-medium";
 
-export default function BaoCaoHangHoa({ coSo = [] }: { coSo?: CoSo[] }) {
+export default function BaoCaoHangHoa({ coSo = [], access }: { coSo?: CoSo[]; access?: import("./access").ReportAccess }) {
+  const lanTai = useRef(0);
+  const lanNgay = useRef(0);
+  const [chuoiDaTai, setChuoiDaTai] = useState("");
+  const [phamVi, setPhamVi] = useState(access);
+  const restricted = !!phamVi && !phamVi.legacy && !phamVi.quan_ly;
+  const doiNgay = async (k: Khoang) => {
+    if (!restricted) { setKhoang(k); return; }
+    const lan = ++lanNgay.current;
+    ++lanTai.current; setDl(null);
+    try {
+      const res = await fetch(`/api/reports/access?ngay=${encodeURIComponent(k.tu)}`);
+      if (!res.ok) throw new Error("Không kiểm được quyền xem ngày này.");
+      const next: import("./access").ReportAccess = await res.json();
+      if (lan !== lanNgay.current) return;
+      setPhamVi(next); setDl(null);
+      setKhoang({ tu: k.tu, den: k.tu });
+      if (!next.ban_hang) { setLoi("Bạn không có ca được duyệt trong ngày này."); return; }
+      setCa(next.cac_ca.includes("FULL") ? "" : next.cac_ca[0] as "SANG" | "CHIEU" | "TOI");
+      setCoSoChon(next.co_so_ids[0] ?? "");
+      setKhoang({ tu: k.tu, den: k.tu });
+    } catch { setLoi("Không kiểm được quyền xem ngày này."); setDl(null); }
+  };
   const [homNay] = useState(todayVn);
   const [khoang, setKhoang] = useState<Khoang>({ tu: homNay, den: homNay });
   const [loai, setLoai] = useState<"thuoc" | "dich_vu">("thuoc");
-  const [ca, setCa] = useState<"" | "SANG" | "CHIEU" | "TOI">("");
-  const [coSoChon, setCoSoChon] = useState("");
+  const [ca, setCa] = useState<"" | "SANG" | "CHIEU" | "TOI">(() => access && !access.legacy && !access.quan_ly && !access.cac_ca.includes("FULL") ? (access.cac_ca[0] as "SANG" | "CHIEU" | "TOI") ?? "" : "");
+  const [coSoChon, setCoSoChon] = useState(() => access && !access.legacy && !access.quan_ly ? access.co_so_ids[0] ?? "" : "");
   const [dl, setDl] = useState<DuLieu | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [dangTai, setDangTai] = useState(true);
@@ -72,16 +96,17 @@ export default function BaoCaoHangHoa({ coSo = [] }: { coSo?: CoSo[] }) {
   }).toString();
 
   const tai = useCallback(async () => {
-    setDangTai(true);
-    setLoi(null);
-    const r = await fetch(`/api/reports/cuoi-ngay?${chuoi}`, { cache: "no-store" });
-    const d = (await r.json().catch(() => null)) as (DuLieu & { message?: string; error?: string }) | null;
-    if (!r.ok || !d || !d.hang_hoa) setLoi(d?.message ?? d?.error ?? "Không đọc được báo cáo hàng hoá.");
-    else {
-      setDl(d);
-      setLapLuc(bayGio());
-    }
-    setDangTai(false);
+    const lan = ++lanTai.current;
+    setDangTai(true); setLoi(null); setDl(null);
+    try {
+      const r = await fetch(`/api/reports/cuoi-ngay?${chuoi}`, { cache: "no-store", signal: AbortSignal.timeout(15000) });
+      const d = await r.json().catch(() => null) as (DuLieu & { message?: string; error?: string }) | null;
+      if (lan !== lanTai.current) return;
+      if (!r.ok || !d?.hang_hoa) throw new Error(d?.message ?? d?.error ?? "Không đọc được báo cáo hàng hoá.");
+      setDl(d); setChuoiDaTai(chuoi); setLapLuc(bayGio());
+    } catch (e) {
+      if (lan === lanTai.current) setLoi(e instanceof Error ? e.message : "Không đọc được báo cáo.");
+    } finally { if (lan === lanTai.current) setDangTai(false); }
   }, [chuoi]);
 
   useEffect(() => {
@@ -89,13 +114,18 @@ export default function BaoCaoHangHoa({ coSo = [] }: { coSo?: CoSo[] }) {
     return () => clearTimeout(h);
   }, [tai]);
 
-  const hh = dl?.hang_hoa?.[loai];
+  const hh = !dangTai && !loi && chuoiDaTai === chuoi ? dl?.hang_hoa?.[loai] : undefined;
   const chiNhanh = dl?.chi_nhanh ?? [];
 
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-start gap-2 print:hidden">
-        <ThanhNgay
+        {restricted ? <label className="text-body">
+          Ngày bán
+          <input type="date" value={khoang.tu} max={homNay}
+            className="min-h-10 rounded-control bg-surface px-3 ring-1 ring-line-strong"
+            onChange={e => { if (e.target.value) void doiNgay({ tu: e.target.value, den: e.target.value }); }} />
+        </label> : <ThanhNgay
           nhan="Ngày bán"
           khoang={khoang}
           homNay={homNay}
@@ -103,7 +133,7 @@ export default function BaoCaoHangHoa({ coSo = [] }: { coSo?: CoSo[] }) {
           dangTai={dangTai}
           onChon={(k) => setKhoang(k ?? { tu: congNgay(homNay, -92), den: homNay })}
           className="min-w-0 basis-full lg:basis-0 lg:flex-1"
-        />
+        />}
         <div role="tablist" aria-label="Loại hàng" className="flex gap-1">
           {(
             [
@@ -132,7 +162,7 @@ export default function BaoCaoHangHoa({ coSo = [] }: { coSo?: CoSo[] }) {
                 ["CHIEU", "Ca chiều"],
                 ["TOI", "Ca tối"],
               ] as const
-            ).map(([ma, nhan]) => (
+            ).filter(([ma]) => !phamVi || phamVi.quan_ly || phamVi.legacy || phamVi.cac_ca.includes(ma || "FULL")).map(([ma, nhan]) => (
               <button
                 key={ma}
                 type="button"
@@ -146,7 +176,7 @@ export default function BaoCaoHangHoa({ coSo = [] }: { coSo?: CoSo[] }) {
             ))}
           </div>
         ) : null}
-        <ChonCoSoO coSo={coSo} dangChon={coSoChon} onChon={setCoSoChon} />
+        <ChonCoSoO coSo={restricted && phamVi ? coSo.filter(c => phamVi.co_so_ids.includes(c.id)) : coSo} dangChon={coSoChon} onChon={setCoSoChon} />
         <div className="flex gap-2">
           <Button type="button" size="sm" onClick={() => window.print()} disabled={!hh}>
             In
@@ -176,7 +206,7 @@ export default function BaoCaoHangHoa({ coSo = [] }: { coSo?: CoSo[] }) {
               {dl.ca ? ` · ${dl.ca.ten} ${dl.ca.tu}–${dl.ca.den}` : ""}
             </p>
             <p className="text-body text-ink-soft">
-              Chi nhánh: {chiNhanh.length === 1 ? chiNhanh[0].ten : "Tất cả chi nhánh"}
+              Chi nhánh: {dl?.ten_co_so ?? (chiNhanh.length === 1 ? chiNhanh[0].ten : "Tất cả cơ sở")}
               {loai === "dich_vu" ? " · Dịch vụ" : " · Thuốc"}
             </p>
           </header>

@@ -122,6 +122,10 @@ export async function requireNavAccess(href: string): Promise<void> {
  *  cho chỗ cần HỎI (vd ô số ở trang chủ chỉ gắn link khi đích mở được). */
 export async function moDuocMan(href: string): Promise<boolean> {
   const [vai, quyen] = await Promise.all([getVaiHomNay(), getQuyenCuaToi()]);
+  if (href === "/reports") {
+    const access = await fetchFromBackend<{ ban_hang: boolean }>("/api/v1/reports/access");
+    if (access?.ban_hang) return true;
+  }
   return vaoDuocMan(href, vai, quyen) || luonBatChoVaiGoc(href, await getClinicRole());
 }
 

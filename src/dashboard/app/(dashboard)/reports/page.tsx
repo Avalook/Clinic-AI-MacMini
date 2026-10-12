@@ -42,10 +42,10 @@ const IN_CSS = `
   }
 `;
 
-function ThanhTabBaoCao({ dangMo }: { dangMo: MaTab }) {
+function ThanhTabBaoCao({ dangMo, access }: { dangMo: MaTab; access?: import("./access").ReportAccess | null }) {
   return (
     <nav aria-label="Báo cáo" className="flex flex-wrap gap-2">
-      {TAB.map((t) => (
+      {TAB.filter(t => !access || access.legacy || access.quan_ly || (t.ma === "hang-hoa" || (t.ma === "cuoi-ngay" && access.tai_chinh))).map((t) => (
         <Link
           key={t.ma}
           href={t.ma === "van-hanh" ? "/reports" : `/reports?tab=${t.ma}`}
@@ -66,19 +66,21 @@ export default async function ReportsPage({
 }) {
   // Cửa theo LEGO Báo cáo (27/09/2026) — trước gác vai isOpsAdmin, nên cấp
   // lego cho người khác vai thì mục hiện trên thanh bên mà bấm vào bị đá về.
-  await requireNavAccess("/reports");
   const { tab, co_so } = await searchParams;
+  const access = await fetchFromBackend<import("./access").ReportAccess>("/api/v1/reports/access");
+  if (!access?.ban_hang) await requireNavAccess("/reports");
   // Tham số lạ (gõ tay, link hỏng) thì về tab đầu, không ném.
-  const dangMo: MaTab = TAB.some((t) => t.ma === tab) ? (tab as MaTab) : "van-hanh";
+  const dangMo: MaTab = access && !access.legacy && !access.quan_ly && !tab ? (access.tai_chinh ? "cuoi-ngay" : "hang-hoa") : access && !access.tai_chinh ? "hang-hoa" : TAB.some((t) => t.ma === tab) ? (tab as MaTab) : "van-hanh";
+  if (dangMo === "van-hanh") await requireNavAccess("/reports");
   // Cơ sở (08/10/2026 — mở Hào Nam): danh sách cho ô chọn; lọc do máy chủ làm.
   const coSo = await layCoSo();
   if (dangMo === "cuoi-ngay") {
     return (
       <main className="page-in min-w-0 space-y-4 p-4 lg:p-5">
         <style>{IN_CSS}</style>
-        <ThanhTabBaoCao dangMo={dangMo} />
+        <ThanhTabBaoCao dangMo={dangMo} access={access} />
         <h1 className="text-xl font-semibold text-ink lg:text-2xl">Báo cáo cuối ngày</h1>
-        <CuoiNgay coSo={coSo} />
+        <CuoiNgay access={access ?? undefined} coSo={coSo} dayDu={access?.tai_chinh_day_du ?? false} />
       </main>
     );
   }
@@ -86,8 +88,8 @@ export default async function ReportsPage({
     return (
       <main className="page-in min-w-0 space-y-4 p-4 lg:p-5">
         <style>{IN_CSS}</style>
-        <ThanhTabBaoCao dangMo={dangMo} />
-        <BaoCaoHangHoa coSo={coSo} />
+        <ThanhTabBaoCao dangMo={dangMo} access={access} />
+        <BaoCaoHangHoa coSo={coSo} access={access ?? undefined} />
       </main>
     );
   }
@@ -196,7 +198,7 @@ export default async function ReportsPage({
     <main className="page-in min-w-0 space-y-6 p-4 lg:p-5">
       {/* Print CSS: khi in / lưu PDF ẩn sidebar, nav, nút bấm */}
       <style>{IN_CSS}</style>
-      <ThanhTabBaoCao dangMo={dangMo} />
+      <ThanhTabBaoCao dangMo={dangMo} access={access} />
 
       <header className="flex items-start justify-between gap-4">
         <div>

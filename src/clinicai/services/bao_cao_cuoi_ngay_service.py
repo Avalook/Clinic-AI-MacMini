@@ -1001,6 +1001,26 @@ class BaoCaoCuoiNgayService:
             from clinicai.services.cong_no_service import doc_khach_con_no
 
             con_no = await doc_khach_con_no(conn, cid, location_id=cs)
+            from clinicai.services.tom_tat_tai_chinh_service import (
+                doc_no_trong_khoang,
+                tom_tat_tai_chinh,
+            )
+
+            no_trong_khoang = await doc_no_trong_khoang(
+                conn,
+                cid,
+                a,
+                b,
+                co_so=cs,
+                loai=loai_loc,
+                tu_luc=k5,
+                den_luc=k6,
+            )
+            from clinicai.services.bao_cao_viec_tien_service import doc_viec_tien
+
+            can_xu_ly = await doc_viec_tien(
+                conn, cid, co_so=cs, loai=loai_loc, con_no=con_no
+            )
             ds_co_so = await doc_ds_co_so(conn, cid)
             # Tiền thừa (06/10/2026, E2c): đã hoàn / giữ lại / còn treo — tiền
             # DỊCH VỤ, báo cáo quầy thuốc không có.
@@ -1049,6 +1069,7 @@ class BaoCaoCuoiNgayService:
             so_luot_khong_chon_dich_vu_kham=sum(luot_khong_chon.values()),
         )
         bc["khach_con_no"] = con_no
+        bc["can_xu_ly"] = can_xu_ly
         bc["tien_thua"] = tien_thua
         bc["loai"] = loai_loc
         bc["ca"] = khung[2] if khung else None
@@ -1061,6 +1082,7 @@ class BaoCaoCuoiNgayService:
             (r for r in dong_ds if r.get("cycle_id") in da_thu),
             (dict(r) for r in tra_hang if r["refund_id"] in da_hoan),
         )
+        bc["tai_chinh"] = tom_tat_tai_chinh(bc, no_trong_khoang=no_trong_khoang)
         bc["co_so"] = cs
         bc["ten_co_so"] = next((c["ten"] for c in ds_co_so if c["id"] == cs), None)
         # Đầu / chân báo cáo kiểu KiotViet: "Chi nhánh: …" + địa chỉ từng cơ sở.

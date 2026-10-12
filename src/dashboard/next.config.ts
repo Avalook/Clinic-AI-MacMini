@@ -29,8 +29,11 @@ const clientCache = {
   staleTimes: { dynamic: 10, static: 180 },
 };
 
+// Local scripts open 127.0.0.1; allow that loopback origin for dev HMR.
+// Next defaults to localhost, so its WebSocket guard otherwise rejects it.
+const localDev = { allowedDevOrigins: ["127.0.0.1"] };
 const nextConfig: NextConfig = standalone
-  ? { output: "standalone", experimental: clientCache }
-  : { experimental: clientCache };
+  ? { ...localDev, output: "standalone", experimental: clientCache }
+  : { ...localDev, experimental: clientCache };
 
 export default nextConfig;

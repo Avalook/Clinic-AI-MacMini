@@ -15,14 +15,21 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
+from pydantic import BaseModel, StrictBool
 
-from clinicai.api.identity import StaffIdentity
+from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
+from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.bao_cao_cuoi_ngay_service import (
     BaoCaoCuoiNgayService,
     csv_bao_cao,
     csv_hang_hoa,
+)
+from clinicai.services.report_access_service import (
+    ReportAccessService,
+    gioi_han_ban_hang,
+    gioi_han_tai_chinh_ca,
 )
 from clinicai.services.reports_service import (
     ReportsService,
@@ -31,6 +38,39 @@ from clinicai.services.reports_service import (
 )
 
 router = APIRouter()
+
+
+class ReportSettingsRequest(BaseModel):
+    nhan_vien_theo_ca: StrictBool
+    truong_ca_theo_ngay: StrictBool
+    tai_chinh_day_du: StrictBool
+
+
+@router.get("/reports/settings")
+async def report_settings(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, bool]:
+    return await ReportAccessService(pool).settings(identity)
+
+
+@router.patch("/reports/settings")
+async def save_report_settings(
+    body: ReportSettingsRequest,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, bool]:
+    return await ReportAccessService(pool).save(identity, body.model_dump())
+
+
+@router.get("/reports/access")
+async def report_access(
+    ngay: str | None = Query(None, max_length=40),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await ReportAccessService(pool).access(identity, ngay)
+
 
 # Lego 17 "Báo cáo" (25/09/2026): hỏi quyền, không hỏi vai.
 _READ_GUARD = cua_quyen("report.view")
@@ -120,16 +160,30 @@ async def bao_cao_cuoi_ngay(
         max_length=10,
         description="SANG | CHIEU | TOI — cuối ca (một ngày); rác = cả ngày",
     ),
-    identity: StaffIdentity = Depends(_READ_GUARD),
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Thu gốc · huỷ · hoàn · thực thu; theo hình thức / loại / người thu / ngày;
     thuốc kê vs thực bán theo khách. ``ca`` → chỉ khung giờ một ca (cuối ca).
 
     Không chọn cơ sở → thêm ``theo_co_so`` (từng cơ sở, tiền cộng lại = tổng)."""
-    return await BaoCaoCuoiNgayService(pool).bao_cao(
-        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so, ca=ca
+    access, location = await ReportAccessService(pool).authorize(
+        identity, tu=tu, den=den, ca=ca, co_so=co_so
     )
+    bc = await BaoCaoCuoiNgayService(pool).bao_cao(
+        identity=identity,
+        tu=tu,
+        den=den,
+        loai=loai,
+        co_so=location,
+        ca=None if ca == "FULL" else ca,
+    )
+    data = (
+        (bc if access["legacy"] else gioi_han_tai_chinh_ca(bc))
+        if access["tai_chinh"]
+        else gioi_han_ban_hang(bc)
+    )
+    return {**data, "access": access}
 
 
 @router.get("/reports/cuoi-ngay.csv")
@@ -142,14 +196,30 @@ async def bao_cao_cuoi_ngay_csv(
     mau: str | None = Query(
         None, max_length=20, description="hang_hoa = khuôn KiotViet hàng hoá"
     ),
-    identity: StaffIdentity = Depends(_READ_GUARD),
+    identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> Response:
     """[Xuất Excel]: CSV UTF-8 có BOM. ``mau=hang_hoa`` → "Báo cáo cuối ngày về
     hàng hóa" (khuôn KiotViet) của loại đang xem (rỗng = thuốc)."""
-    bc = await BaoCaoCuoiNgayService(pool).bao_cao(
-        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so, ca=ca
+    access, location = await ReportAccessService(pool).authorize(
+        identity, tu=tu, den=den, ca=ca, co_so=co_so
     )
+    if not access["tai_chinh"] and mau != "hang_hoa":
+        raise SafetyGateError(
+            "Bạn chỉ được xuất báo cáo bán hàng của ca được phân công."
+        )
+    bc = await BaoCaoCuoiNgayService(pool).bao_cao(
+        identity=identity,
+        tu=tu,
+        den=den,
+        loai=loai,
+        co_so=location,
+        ca=None if ca == "FULL" else ca,
+    )
+    if not access["tai_chinh"]:
+        bc = gioi_han_ban_hang(bc)
+    elif not access["legacy"]:
+        bc = gioi_han_tai_chinh_ca(bc)
     hang_hoa = mau == "hang_hoa"
     ten = (
         f"bao-cao-hang-hoa-{bc['tu']}_{bc['den']}.csv"

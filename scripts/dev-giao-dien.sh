@@ -12,11 +12,10 @@
 # Nó KHÔNG tự dựng API/Supabase — chưa chạy thì bảo chạy dev-up.sh trước.
 # Dừng: Ctrl+C. Về lại bản dựng (để nghiệm thu như prod): scripts/dev-nap-lai.sh web
 #
-# GHI CHÚ `next dev` VÀ TRÌNH DUYỆT HEADLESS. dev-up.sh chọn bản dựng vì lúc dựng
-# stack, `next dev` không hydrate client component dưới Chromium HEADLESS (máy
-# bấm thử tự động). Đó là chuyện của trình duyệt headless — Chrome/Safari thật
-# mà Tuyền mở thì chạy bình thường. Nghiệm thu bằng máy bấm tự động hay đo tốc
-# độ thì quay về bản dựng.
+# `next.config.ts` cho phép origin loopback 127.0.0.1 để kết nối HMR hoạt động.
+# Thiếu cấu hình đó, Next chặn WebSocket và giao diện có thể chỉ hiện HTML,
+# chưa chạy tương tác — cả Chrome thật lẫn trình duyệt kiểm thử tự động.
+# Nghiệm thu giống prod hoặc đo tốc độ thì quay về bản dựng.
 
 set -euo pipefail
 
