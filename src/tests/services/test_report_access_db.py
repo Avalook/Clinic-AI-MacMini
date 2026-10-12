@@ -15,7 +15,9 @@ pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 
 @pytest.mark.db
 @pytest.mark.asyncio
-async def test_settings_roster_and_revoke(pool: asyncpg.Pool, monkeypatch):
+async def test_settings_roster_and_revoke(
+    pool: asyncpg.Pool, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         "clinicai.services.report_access_service.now_vn",
         lambda: datetime(2026, 10, 12, 8),

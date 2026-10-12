@@ -13,7 +13,9 @@ pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
-async def test_no_chi_cua_ngay_ca_co_so_va_loai_da_chon(pool: asyncpg.Pool):  # noqa: F811
+async def test_no_chi_cua_ngay_ca_co_so_va_loai_da_chon(
+    pool: asyncpg.Pool,
+) -> None:  # noqa: F811
     q = await tao_quay(pool)
     visit = q.visit_id
     ca = q
