@@ -200,10 +200,13 @@ async def test_bao_cao_cuoi_ngay_tong_dung_tung_dong(
     assert ngoai["tong"]["thu"] == 0 and ngoai["hoan_huy"] == []
 
 
-def test_cua_bao_cao_cuoi_ngay_la_report_view() -> None:
+def test_cua_bao_cao_cuoi_ngay_xac_thuc_truoc_kiem_pham_vi() -> None:
+    from clinicai.api.identity import get_current_identity
     from clinicai.api.v1.routers import reports
 
     for p in ("/reports/cuoi-ngay", "/reports/cuoi-ngay.csv"):
         route = next(r for r in reports.router.routes if getattr(r, "path", "") == p)
         deps = [d.call for d in route.dependant.dependencies]  # type: ignore[attr-defined]
-        assert reports._READ_GUARD in deps
+        # Quyền report.view cũ + quyền ca mới được kiểm trong wrapper chung;
+        # test_report_access kiểm từ chối ngoài phạm vi cho cả JSON và CSV.
+        assert get_current_identity in deps

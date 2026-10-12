@@ -18,10 +18,13 @@ import { fetchFromBackend } from "../../../lib/backend-proxy";
 
 export const dynamic = "force-dynamic";
 
+import ReportSettingsCard, { type ReportSettings } from "./ReportSettingsCard";
+
 export default async function SettingsPage() {
   // Lego 18 "Cài đặt phòng khám" (27/09/2026) — trước gác vai Quản lý.
   await requireNavAccess("/settings");
 
+  const reportSettings = await fetchFromBackend<ReportSettings>("/api/v1/reports/settings");
   const bookingPolicy = await getBookingPolicy();
   const featureMode = await getFeatureMode();
   // Đọc SERVER-SIDE rồi truyền xuống làm prop. Nạp trong useEffect thì trình
@@ -35,6 +38,7 @@ export default async function SettingsPage() {
   return (
     <main className="page-in min-w-0 space-y-5 p-4 lg:p-5">
       {/* Tiêu đề nằm ở thanh trên cùng (GlobalHeader) — không lặp lại ở đây. */}
+      {reportSettings ? <ReportSettingsCard initial={reportSettings} /> : null}
       <FeatureModeCard currentMode={featureMode} />
       <BookingPolicyCard policy={bookingPolicy} />
       {phamVi && (

@@ -14,6 +14,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { hienTrenThanhBen, type ClinicRole } from "../../lib/roles";
 import {
+  NAV,
   isActiveNav,
   navLabelFor,
   nhomTheoCongViec,
@@ -47,6 +48,7 @@ export default function Nav({
   viTriHomNay = [],
   phong = {},
   quyen = null,
+  reportAccess = false,
 }: {
   role: ClinicRole | null;
   /** Phòng của từng vị trí hôm nay — mục phòng mang tên phòng thật. */
@@ -55,6 +57,7 @@ export default function Nav({
   viTriHomNay?: readonly string[];
   /** Capability đang có. Màn nào quyền mở được thì bày, dù vai không có. */
   quyen?: readonly string[] | null;
+  reportAccess?: boolean;
   /** Called after a nav item is tapped (used to close the mobile drawer). */
   onNavigate?: () => void;
   isCollapsed?: boolean;
@@ -82,7 +85,10 @@ export default function Nav({
   // Lego ĐANG BẬT của chính tài khoản (7a, 27/09) là nhóm RIÊNG, MỞ sẵn — gộp
   // vào "Việc khác" (gập sẵn) là giấu đúng việc người ấy được bật để làm. Từ
   // 28/09 gập được như mọi nhóm, tiêu đề chỉ còn mũi tên.
-  const { dau: dau0, nhom: nhom0, lego: lego0, khac: khac0 } = tho;
+  const reportItem = reportAccess && ![...tho.dau, ...tho.nhom.flatMap(g => g.muc), ...tho.lego, ...tho.khac].some(i => i.href === "/reports")
+    ? NAV.find(i => i.href === "/reports") : undefined;
+  const { nhom: nhom0, lego: lego0, khac: khac0 } = tho;
+  const dau0 = reportItem ? [...tho.dau, reportItem] : tho.dau;
   const [dau, lego, khac, ...mucNhom] = xepNodeCon([
     dau0,
     lego0,

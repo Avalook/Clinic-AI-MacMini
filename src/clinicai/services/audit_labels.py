@@ -77,6 +77,8 @@ EVENT_LABELS: dict[str, str] = {
     "interaction.walkin": "Khách đến trực tiếp",
     # ── Luật đặt lịch & cấu hình ────────────────────────────────────────────
     "clinic_settings.booking_policy_updated": "Sửa luật đặt lịch",
+    "clinic_settings.report_access_updated": "Đổi thiết lập báo cáo",
+    "report.view": "Xem báo cáo",
     "clinic_settings.feature_mode_updated": "Đổi chế độ phòng khám",
     "booking_override.doctor_created": "Thêm luật cho bác sĩ",
     "booking_override.doctor_deleted": "Xoá luật của bác sĩ",
@@ -345,6 +347,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:staff": "Quản lý nhân sự",
     "api:staff-capability": "Quản lý nhân sự — Phân quyền",
     "api:roster": "Lịch làm việc",
+    "api:report-settings": "Thiết lập báo cáo",
     "api:clinic-settings": "Cấu hình phòng khám",
     "api:luot-kham": "Màn lượt khám",
     "api:chi-dinh": "Bàn khám — chỉ định dịch vụ",
