@@ -7,6 +7,7 @@ cũ: chỉ khách của ngày ấy, và vẫn thu được (không khoá).
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import date, datetime, timedelta
 
@@ -14,7 +15,11 @@ import asyncpg
 import pytest
 
 from clinicai.core.clock import CLINIC_TZ, hom_nay_vn
-from clinicai.services.cashier_board_service import CashierBoardService, khoang_ngay_xem
+from clinicai.services.cashier_board_service import (
+    _SQL,
+    CashierBoardService,
+    khoang_ngay_xem,
+)
 from tests.services.test_quay_thu_mot_hoa_don_db import _kich_ban
 
 # ── Luật thuần: ngày rác không bao giờ ném ─────────────────────────────────
@@ -86,7 +91,7 @@ async def test_bang_thu_theo_ngay_va_rac_la_hom_nay(pool: asyncpg.Pool) -> None:
         "ngay": hom_qua.isoformat(),
     }
     # Lùi lượt về một ngày XA, ngẫu nhiên và vắng khách (DB dùng chung đầy lượt
-    # thử; bảng thu chỉ lấy 300 lượt mới nhất của ngày) → hiện ở bảng ngày ấy,
+    # thử) → hiện ở bảng ngày ấy,
     # hết ở hôm nay, VẪN có dòng để thu (không khoá ngày cũ).
     xa = date(2021, 1, 1) + timedelta(days=uuid.uuid4().int % 365)
     await pool.execute(
@@ -148,3 +153,55 @@ async def test_luot_ngay_cu_con_no_hien_hom_nay_khong_hien_ngay_khac(
     )
     # Đóng dòng công nợ không tự thanh toán các chỉ định còn chưa thu.
     assert await co(None) is True, "còn chỉ định chưa thu → vẫn ở quầy hôm nay"
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_more_than_300_candidates_keep_old_unpaid_and_day_candidates(
+    pool: asyncpg.Pool,
+) -> None:
+    """Lượt mới không đẩy khách tồn chưa thu ra khỏi tập dựng hoá đơn."""
+    q, _sa, _soi, _hpv = await _kich_ban(pool)
+    _today, start, end = khoang_ngay_xem(None)
+    yesterday = start - timedelta(days=1)
+    await pool.execute(
+        "UPDATE visit SET created_at=$2 WHERE visit_id=$1::uuid",
+        q.visit_id,
+        yesterday,
+    )
+    async with pool.acquire() as conn:
+        transaction = conn.transaction()
+        await transaction.start()
+        newer = await conn.fetch(
+            "INSERT INTO visit(clinic_id,clinic_patient_id,location_id,created_at,"
+            " exam_completed_at) SELECT clinic_id,clinic_patient_id,location_id,$2,$2"
+            " FROM visit CROSS JOIN generate_series(1,301)"
+            " WHERE visit_id=$1::uuid RETURNING visit_id::text",
+            q.visit_id,
+            start + timedelta(hours=10),
+        )
+        try:
+            value = await conn.fetchval(
+                _SQL,
+                q.thu_ngan.clinic_id,
+                start,
+                end,
+                True,
+                q.thu_ngan.location_id or None,
+            )
+            raw = json.loads(value) if isinstance(value, str) else value
+            visits = {v["visit_id"] for v in raw["visits"]}
+            assert q.visit_id in visits, "khách tồn chưa thu phải được dựng hoá đơn"
+            assert {r["visit_id"] for r in newer} <= visits
+            value = await conn.fetchval(
+                _SQL,
+                q.thu_ngan.clinic_id,
+                start,
+                end,
+                False,
+                q.thu_ngan.location_id or None,
+            )
+            selected_day = json.loads(value) if isinstance(value, str) else value
+            assert q.visit_id not in {v["visit_id"] for v in selected_day["visits"]}
+        finally:
+            await transaction.rollback()

@@ -9,7 +9,6 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-from urllib.parse import urlsplit
 
 import asyncpg
 import pytest
@@ -19,7 +18,8 @@ from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.clinical_record_service import ClinicalRecordService
-from tests.quyen_gia import doi_quyen_theo_nhom_mau
+from tests.catalog_cleanup import disposable_database_name
+from tests.quyen_gia import can_theo_nhom_mau, doi_quyen_theo_nhom_mau
 
 VISIT = "10000000-0000-0000-0000-000000000001"
 CLINIC = "20000000-0000-0000-0000-000000000001"
@@ -41,6 +41,8 @@ def _cua_quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
         doi_quyen_theo_nhom_mau,
     )
 
+    monkeypatch.setattr("clinicai.services.dinh_chinh_don.can", can_theo_nhom_mau)
+
 
 class Context:
     def __init__(self, value: Any) -> None:
@@ -55,11 +57,11 @@ class Context:
 
 @pytest_asyncio.fixture
 async def chart_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
-    target = urlsplit(test_db_url)
-    if target.hostname not in {"localhost", "127.0.0.1"} or target.port != 55433:
-        pytest.skip("Clinical SQL tests only use disposable localhost:55433")
+    database = disposable_database_name(test_db_url)
     conn = await asyncpg.connect(test_db_url)
     try:
+        if await conn.fetchval("SELECT current_database()") != database:
+            raise ValueError("Connected database does not match disposable test DSN")
         await conn.execute(
             """
             CREATE TEMP TABLE clinical_record (
@@ -75,7 +77,12 @@ async def chart_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
                 doctor_id uuid, status text
             );
             CREATE TEMP TABLE patient (clinic_patient_id uuid, clinic_id uuid);
-            CREATE TEMP TABLE staff (id uuid PRIMARY KEY, is_active boolean);
+            CREATE TEMP TABLE so_sua_chi_dinh (
+                LIKE public.so_sua_chi_dinh INCLUDING DEFAULTS INCLUDING IDENTITY
+            );
+            CREATE TEMP TABLE staff (
+                id uuid PRIMARY KEY, is_active boolean, full_name text
+            );
             CREATE TEMP TABLE prescription (
                 id uuid PRIMARY KEY DEFAULT gen_random_uuid(), source_ref text UNIQUE,
                 clinic_patient_id uuid, visit_id uuid, clinic_id uuid,
@@ -125,7 +132,17 @@ async def chart_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
             re.DOTALL,
         ):
             await conn.execute(function.replace("public.", "pg_temp."))
-        await conn.execute("INSERT INTO staff VALUES ($1::uuid, true)", STAFF)
+        await conn.execute(
+            "INSERT INTO staff (id, is_active, full_name) "
+            "VALUES ($1::uuid, true, 'Test staff')",
+            STAFF,
+        )
+        await conn.execute(
+            "INSERT INTO clinic_membership VALUES ($1::uuid, $2::uuid, true, 'DOCTOR'),"
+            " ('60000000-0000-0000-0000-000000000001'::uuid, $2::uuid, true, 'DOCTOR')",
+            STAFF,
+            CLINIC,
+        )
         await conn.execute(
             "INSERT INTO patient VALUES ($1::uuid, $2::uuid)", PATIENT, CLINIC
         )
@@ -158,6 +175,14 @@ class TempFunctionConnection:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.conn, name)
+
+    async def fetch(self, query: str, *args: Any) -> Any:
+        return await self.conn.fetch(
+            query.replace("public.clinic_membership", "clinic_membership"), *args
+        )
+
+    async def fetchval(self, query: str, *args: Any) -> Any:
+        return await self.conn.fetchval(query.replace("public.visit", "visit"), *args)
 
     async def executemany(self, query: str, args: Any) -> None:
         await self.conn.executemany(query.replace("public.", "pg_temp."), args)

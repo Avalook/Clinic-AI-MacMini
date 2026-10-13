@@ -229,6 +229,46 @@ async def test_kham_cong_hpv_bill_chi_cong_kham(pool: asyncpg.Pool) -> None:
 
 @pytest.mark.db
 @pytest.mark.asyncio
+async def test_partner_exam_source_is_not_a_service_order_uuid(
+    pool: asyncpg.Pool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Synthetic exam IDs stay visible without entering the partner UUID lookup."""
+    from clinicai.services import bill_service
+
+    q = await tao_quay(pool)
+    await _gia(q, f"HPV-{q.duoi}", 900_000, HPV_NODE, ben="EXTERNAL_PARTNER")
+    hpv = await _cd(q, f"HPV-{q.duoi}", HPV_NODE)
+    await pool.execute(
+        "INSERT INTO doi_tac_thanh_toan (clinic_id,service_order_id,so_tien,"
+        "hinh_thuc,ghi_boi) VALUES ($1::uuid,$2::uuid,900000,'CASH',$3::uuid)",
+        CLINIC,
+        hpv,
+        q.thu_ngan.staff_id,
+    )
+    selected = str(uuid.uuid4())
+
+    async def partner_exam(*_args: Any) -> dict[str, Any]:
+        return {
+            "ten": "Khám đối tác",
+            "gia": [150_000],
+            "ben_thu": "EXTERNAL_PARTNER",
+            "source_id": f"selected-{selected}",
+        }
+
+    monkeypatch.setattr(bill_service, "_kham", partner_exam)
+    async with pool.acquire() as conn:
+        hd = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=q.visit_id)
+    assert hd.tong == 0
+    assert {d.source_id for d in hd.dong_doi_tac} == {
+        f"exam-{q.visit_id}-selected-{selected}",
+        hpv,
+    }
+    assert hd.doi_tac_da_thu[hpv]["so_tien"] == 900_000
+    assert len(hd.doi_tac_da_thu) == 1
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
 async def test_luot_chi_hpv_khong_ket_quay_check_out_duoc(pool: asyncpg.Pool) -> None:
     q = await tao_quay(pool)
     # Lịch "đi thẳng phòng" (chỉ làm HPV): không có buổi khám nào để tính tiền.
