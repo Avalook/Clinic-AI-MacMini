@@ -24,6 +24,7 @@ from clinicai.api.v1.routers.booking import cho_xep_bac_si
 from clinicai.api.v1.routers.queue import get_queue
 from clinicai.api.v1.routers.visit_progress import active_visits
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.services import man_trang_chu_service
 from clinicai.services.bang_hanh_trinh_service import BangHanhTrinhService
 from clinicai.services.booking_service import BookingService
 from clinicai.services.dispatch_service import DispatchService
@@ -159,7 +160,13 @@ async def _lich_lam_viec(pool: asyncpg.Pool, cs: CoSo, thu_hai: date) -> None:  
 
 
 @pytest.fixture
-async def hai_co_so(pool: asyncpg.Pool) -> tuple[CoSo, CoSo, date]:  # noqa: F811
+async def hai_co_so(
+    pool: asyncpg.Pool,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> tuple[CoSo, CoSo, date]:
+    # Bài này kiểm tách cơ sở, không kiểm trần danh sách: suite tuần tự đã
+    # dựng hơn 300 lượt cũ ở cơ sở mẫu trước khi dựng hai khách của bài này.
+    monkeypatch.setattr(man_trang_chu_service, "_TRAN_TRANG_THAI", 100_000)
     ca = await _dung(pool)
     loc2 = await _co_so_khac(pool, ca.loc)
     a = await _mot_co_so(pool, ca, ca.loc, ca.le_tan)
