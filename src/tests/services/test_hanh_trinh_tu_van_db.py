@@ -215,6 +215,35 @@ async def test_loai_khong_qua_tu_van_vao_thang_bac_si_chinh(
     assert await _hang(pool, lan.visit) == {"DOCTOR": "waiting"}
 
 
+async def test_khach_kham_xong_khong_qua_tu_van_hien_o_ban_tu_van_de_dien_don(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """13/10/2026: bác sĩ chính Hoàn tất, khách ra bàn tư vấn điền đơn thuốc —
+    khách KHÔNG có dòng tư vấn vẫn có mặt ở hàng chung, đúng một dòng."""
+    lan = await _check_in(pool, qua_tu_van=False)
+    await _hanh_trinh(pool)
+    svc = LuotKhamService(pool)
+    async with pool.acquire() as conn:
+        bs_tu_van = await _nguoi(conn, lan.loc, "DOCTOR")
+    tv = await svc.hang_cho(identity=bs_tu_van, room_id=None, tu_van=True)
+    # Chưa khám xong thì chưa có ở bàn tư vấn.
+    assert not [x for x in tv["hang_cho"] if x["visit_id"] == lan.visit]
+
+    phien = await pool.fetchval(
+        "SELECT id::text FROM consultation WHERE visit_id = $1::uuid"
+        " AND kind = 'PRIMARY'",
+        lan.visit,
+    )
+    await svc.start_consultation(consultation_id=phien, identity=lan.bac_si)
+    await svc.kham_xong(consultation_id=phien, identity=lan.bac_si)
+    tv = await svc.hang_cho(identity=bs_tu_van, room_id=None, tu_van=True)
+    [dong] = [x for x in tv["hang_cho"] if x["visit_id"] == lan.visit]
+    assert dong["loai"] == "KHAM" and dong["trang_thai"] == "done"
+    # Bàn khám (không phải tư vấn) vẫn thấy dòng của mình như cũ.
+    kham = await svc.hang_cho(identity=lan.bac_si, room_id=None)
+    assert [x for x in kham["hang_cho"] if x["visit_id"] == lan.visit]
+
+
 async def test_chay_lai_khong_nhan_doi(pool: asyncpg.Pool) -> None:  # noqa: F811
     lan = await _check_in(pool, qua_tu_van=True)
     await _hanh_trinh(pool)

@@ -32,7 +32,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.events.catalogue import DonThuocDaLuu
-from clinicai.events.emit import emit_event, nguoi_lam_thay
+from clinicai.events.emit import NguoiGayRa, emit_event, nguoi_lam_thay
 from clinicai.permissions.ca_truc import kiem_dung_ca
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.y_khoa import QUYEN_IN_PHIEU
@@ -59,7 +59,7 @@ from clinicai.phieu_kham.khung import (
 )
 from clinicai.phieu_kham.mang_sang import doc_dau_phieu
 from clinicai.services import hen_tai_kham_service as htk
-from clinicai.services.bac_si_phu_trach import bac_si_cua_phien
+from clinicai.services.bac_si_phu_trach import bac_si_cua_phien, bac_si_trong
 from clinicai.services.cskh_service import clinic_today
 from clinicai.services.danh_muc_dich_vu_service import (
     ly_do_khoa_chi_dinh,
@@ -785,20 +785,28 @@ class PhieuKhamService:
                 "       p.quantity, p.dosage_instructions, p.caution,"
                 "       c.unit_price AS don_gia, c.don_vi_ban AS dvt_kho,"
                 "       p.so_luong_dien_luc, p.so_luong_ke_goc,"
-                "       sd.full_name AS so_luong_dien_boi"
+                "       sd.full_name AS so_luong_dien_boi,"
+                "       p.created_by::text AS nguoi_ke_id, sk.full_name AS nguoi_ke"
                 "  FROM prescription p"
                 "  LEFT JOIN drug_catalog c"
                 "    ON c.id = p.drug_catalog_id AND c.clinic_id = p.clinic_id"
                 "  LEFT JOIN staff sd ON sd.id = p.so_luong_dien_boi"
+                "  LEFT JOIN staff sk ON sk.id = p.created_by"
                 " WHERE p.clinic_id = $1::uuid AND p.visit_id = $2::uuid"
                 "   AND p.removed_at IS NULL AND p.nguon = 'BAC_SI'"
                 " ORDER BY p.created_at, p.id",
                 identity.clinic_id,
                 visit_id,
             )
+            # Người kê là BÁC SĨ thật hay người nhập hộ (TKYK/ĐD): phiếu in cần
+            # để chọn chân ký (13/10/2026). Một lần hỏi cho cả đơn.
+            la_bac_si = await bac_si_trong(
+                conn, identity.clinic_id, [r["nguoi_ke_id"] for r in rows]
+            )
         return [
             {
                 **dict(r),
+                "nguoi_ke_la_bac_si": r["nguoi_ke_id"] in la_bac_si,
                 "don_gia": int(r["don_gia"]) if r["don_gia"] is not None else None,
                 "dvt_kho": (r["dvt_kho"] or "").strip() or None,
                 # C14: quầy thu thuốc điền số lượng bác sĩ để trống — màn kê đơn
@@ -839,7 +847,17 @@ class PhieuKhamService:
                 visit_id=visit_id,
                 nguoi_bam=identity.staff_id,
             )
-            await kiem_dung_ca(conn, identity, bac_si_id, visit_id=visit_id)
+            # ĐƠN CỦA LƯỢT, không của bác sĩ (Tuyền 13/10/2026): bác sĩ chính điền
+            # dở / vội thì bàn tư vấn điền tiếp đúng đơn đó. Người có lego Tư vấn
+            # không đi kèm bác sĩ chính hôm nay vẫn lưu được — CHỈ đường lưu đơn;
+            # cổng ca trực dùng chung cho khám/chỉ định/kết quả giữ nguyên.
+            ke_tai_tu_van = False
+            try:
+                await kiem_dung_ca(conn, identity, bac_si_id, visit_id=visit_id)
+            except SafetyGateError:
+                if not await can(conn, identity, "clinical.intake.perform"):
+                    raise
+                ke_tai_tu_van = True
             tom_tat = await luu_don_chua_ky(
                 conn,
                 visit_id=visit_id,
@@ -857,6 +875,11 @@ class PhieuKhamService:
                 (tom_tat or {}).get("so_dong_xoa") or 0
             )
             if thay or bo or them or doi_tai_cho:
+                boi: NguoiGayRa = (
+                    nguoi_lam_thay(identity, None)
+                    if ke_tai_tu_van
+                    else nguoi_lam_thay(identity, bac_si_id)
+                )
                 so_dong = await conn.fetchval(
                     "SELECT count(*) FROM prescription WHERE clinic_id = $1::uuid"
                     " AND visit_id = $2::uuid AND removed_at IS NULL",
@@ -874,8 +897,10 @@ class PhieuKhamService:
                         so_dong_them=them,
                         so_dong_thay=thay,
                         so_dong_bo=bo,
+                        ke_tai_tu_van=ke_tai_tu_van,
                     ),
-                    boi=nguoi_lam_thay(identity, bac_si_id),
+                    # Kê ở bàn tư vấn = người bấm tự đứng tên, không "làm thay".
+                    boi=boi,
                     correlation_id=visit_id,
                 )
         return {"ok": True, "tom_tat": tom_tat}

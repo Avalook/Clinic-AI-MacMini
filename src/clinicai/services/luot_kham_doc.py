@@ -949,6 +949,17 @@ class BangLuotKham:
                              AND q.room_id = $2::uuid)
                      -- Hàng TƯ VẤN là hàng CHUNG: ai mở màn tư vấn cũng thấy hết.
                      OR ($5::boolean AND q.lane = 'TU_VAN')
+                     -- KHÁCH ĐÃ KHÁM XONG, KHÔNG QUA TƯ VẤN ĐẦU LƯỢT (13/10/2026):
+                     -- bác sĩ chính chỉ định thuốc, khách ra bàn tư vấn để điền
+                     -- đơn — cùng hàng chung, nhóm riêng "điền đơn thuốc".
+                     OR ($5::boolean AND q.lane = 'DOCTOR' AND q.status = 'done'
+                         AND q.reason <> 'SERVICE'
+                         AND NOT EXISTS (
+                             SELECT 1 FROM queue_entry tv
+                              WHERE tv.clinic_id = q.clinic_id
+                                AND tv.visit_id = q.visit_id
+                                AND tv.lane = 'TU_VAN'
+                                AND tv.status <> 'cancelled'))
                      OR (NOT $5::boolean AND q.lane = 'DOCTOR'
                              AND ($4::boolean
                                   OR q.doctor_staff_id::text = ANY($3::text[])
