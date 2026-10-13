@@ -425,6 +425,7 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // (17/09/2026: thanh bên đối tác hiện "Lịch làm việc").
   "/schedule": ALL_ROLES.filter((r) => r !== "CSKH" && r !== "PARTNER" && r !== "DISPLAY"),
   "/reports": ["MANAGEMENT"],
+  "/hoa-don": ["MANAGEMENT"],
   // Lịch sử thao tác (audit log) — CSKH + Quản lý + Trưởng ca.
   "/audit-log": ["CSKH", "MANAGEMENT"],
   // Duyệt kết quả theo chỉ định — thay /result-review. Chỉ bác sĩ (duyệt là
@@ -575,6 +576,7 @@ const KHONG_MO_THEO_CONG_TAC = [
   "/ops",
   "/settings",
   "/reports",
+  "/hoa-don",
   "/admin",
   // Hai màn của người NGOÀI phòng khám. Chúng đóng theo thiết kế, và công tắc
   // "mở tạm" không được phép chạm vào — xem `test_mo_quyen_tam_thoi.py`.
@@ -635,6 +637,7 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/pharmacy/consult": ["pharmacy.view", "pharmacy.dispense"],
   "/schedule": ["roster.view"], // 15 Lịch làm việc
   "/cashier/dich-vu": ["price.service.manage"], // 16 Bảng giá (dịch vụ)
+  "/hoa-don": ["report.view"],
   "/reports": ["report.view"], // 17 Báo cáo
   "/lich-do-ve": ["report.view"],
   "/settings": ["config.clinic.manage"], // 18 Cài đặt phòng khám

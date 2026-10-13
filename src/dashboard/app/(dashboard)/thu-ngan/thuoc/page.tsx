@@ -23,7 +23,7 @@ export default async function TrangThuNgan() {
       <header>
         <h1 className="text-2xl font-semibold text-ink">Thu ngân thuốc</h1>
         <p className="text-sm text-ink-muted">
-          Khách có đơn thuốc, chờ trả tiền thuốc. Bấm “Đã nhận đủ” là ghi sổ.
+          Khách có đơn thuốc, chờ trả tiền thuốc. Bấm “Tạo bill” để ghi nhận tiền mặt; chuyển khoản chờ xác minh khi tiền về.
         </p>
       </header>
       <TabThuNgan quay="thuoc" />

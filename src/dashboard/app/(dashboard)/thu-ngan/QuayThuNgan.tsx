@@ -1190,12 +1190,11 @@ export function NhomThu({
           >
             {dangThu
               ? "Đang ghi…"
-              : chia?.coChuyenKhoan
-                ? "Ghi · chờ xác minh CK"
-                : "Đã nhận đủ tiền mặt"}
+              : "Tạo bill"}
           </button>
         )}
       </div>
+      {!daThu && chia?.coChuyenKhoan ? <p className="mt-2 text-meta text-warning">Tạo bill chuyển khoản: chờ xác minh khi tiền về, chưa tính là đã thu.</p> : null}
       {hd && hd.thu_duoc && !daThu && !hd.chi_doi_tac_thu ? (
         <div className="mt-3">
           <ChiaHinhThuc key={hd.revision} tong={hd.tong} onDoi={setChia} />
