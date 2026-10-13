@@ -34,7 +34,9 @@ TIEU_DE = [
 ]
 
 
-def _phieu(id_: str, thu_luc: str, dong: list[dict], **kw: object) -> dict:
+def _phieu(
+    id_: str, thu_luc: str, dong: list[dict[str, Any]], **kw: object
+) -> dict[str, Any]:
     return {
         "id": id_,
         "ma": f"PT-{id_.upper()}",
@@ -49,7 +51,7 @@ def _phieu(id_: str, thu_luc: str, dong: list[dict], **kw: object) -> dict:
     }
 
 
-def _dong(id_: str, ten: str, sl: float, tien: int) -> dict:
+def _dong(id_: str, ten: str, sl: float, tien: int) -> dict[str, Any]:
     return {"id": id_, "ten": ten, "so_luong": sl, "thanh_tien": tien}
 
 
@@ -89,12 +91,14 @@ KHACH = [
         ],
     }
 ]
-THEM_DONG = {
+THEM_DONG: dict[str, dict[str, Any]] = {
     "l1": {"unit": None, "source_type": "exam"},
     "l2": {"unit": None, "source_type": "service_order"},
     "l3": {"unit": "Hộp", "source_type": "prescription"},
 }
-THEM_KHACH = {"b1": {"dia_chi": "1 Kim Ngưu, Hà Nội", "cccd": "001", "email": None}}
+THEM_KHACH: dict[str, dict[str, Any]] = {
+    "b1": {"dia_chi": "1 Kim Ngưu, Hà Nội", "cccd": "001", "email": None}
+}
 
 
 def test_moi_phieu_mot_hoa_don_theo_gio_thu_bo_huy_va_ngoai_ky() -> None:
