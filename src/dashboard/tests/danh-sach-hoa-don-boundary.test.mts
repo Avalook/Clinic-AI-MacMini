@@ -18,8 +18,8 @@ test("UI nhận số tiền từ backend và có popup chi tiết chứng từ",
   const ui = read("../app/(dashboard)/hoa-don/DanhSachHoaDon.tsx");
   assert.match(ui, /\/api\/hoa-don/);
   assert.match(ui, /AbortController/);
-  assert.match(ui, /da_thu/); assert.match(ui, /da_hoan/); assert.match(ui, /cho_hoan/); assert.match(ui, /thu_rong/);
+  assert.match(ui, /da_thu/); assert.match(ui, /da_hoan/); assert.match(ui, /cho_hoan/); assert.match(ui, /chua_tra_lai/); assert.match(ui, /tong_khach/); assert.match(ui, /thu_rong/);
   assert.doesNotMatch(ui, /\.reduce\(/);
   const detail = read("../app/(dashboard)/hoa-don/ChiTietHoaDon.tsx");
-  assert.match(detail, /HopChiTiet/); assert.match(detail, /nguoi_thu/); assert.match(detail, /ly_do_huy/);
+  assert.match(detail, /HopChiTiet/); assert.match(detail, /nguoi_thu/); assert.match(detail, /su_kien/); assert.match(detail, /ly_do/); // lý do huỷ nằm trong "Sau khi thu" (v8)
 });

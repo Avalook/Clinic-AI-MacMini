@@ -331,8 +331,17 @@ def gom_hoa_don(
     ]
     # Khách còn việc tồn lên đầu; trong nhóm giữ thứ tự cũ (phiếu mới trước).
     selected.sort(key=lambda g: not g["viec_ton"])
+    # Dòng TỔNG cuối bảng = cộng đúng các dòng khách đang hiện (toàn chứng từ),
+    # khác "tong" (dòng tiền trong kỳ). Máy chủ cộng — màn không tự cộng tiền.
+    tong_khach = {
+        k: sum(int(g[k]) for g in selected)
+        for k in ("so_phieu", "giam_gia", "da_thu", "da_hoan", "chua_tra_lai")
+    }
+    tong_khach["thu_rong"] = sum(int(g["thu_rong"]) for g in selected)
+    tong_khach["so_khach_con_ton"] = sum(bool(g["viec_ton"]) for g in selected)
     return {
         "tong": {**_period(selected), "so_viec_ton": len(viec_ton)},
+        "tong_khach": tong_khach,
         "khach": selected,
         "viec_ton": list(viec_ton),
     }
