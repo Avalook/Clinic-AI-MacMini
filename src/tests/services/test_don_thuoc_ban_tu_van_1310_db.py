@@ -82,12 +82,13 @@ async def _canh(pool: asyncpg.Pool) -> dict[str, Any]:  # noqa: F811
 
 
 async def _su_kien(pool: asyncpg.Pool, visit: str) -> list[Any]:  # noqa: F811
-    return await pool.fetch(
+    rows: list[Any] = await pool.fetch(
         "SELECT payload, actor_staff_id::text AS ai, on_behalf_of::text AS thay"
         "  FROM domain_event WHERE event_type = 'prescription.saved'"
         "   AND aggregate_id = $1::uuid ORDER BY occurred_at",
         visit,
     )
+    return rows
 
 
 async def test_bac_si_tu_van_dien_tiep_dung_don_cua_luot(
