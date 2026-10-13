@@ -72,7 +72,7 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false }: {
         <Dong nhan="Hoàn tiền mặt" giaTri={tien(data?.tai_chinh?.hoan_tien_mat)} />
         <Dong nhan="Hoàn chuyển khoản" giaTri={tien(data?.tai_chinh?.hoan_chuyen_khoan)} />
         <Dong nhan="Nợ chưa thu trong kỳ" giaTri={tien(data?.tai_chinh?.no_chua_thu ?? undefined)} />
-        <Dong nhan="Giảm giá" giaTri={data?.tai_chinh?.giam_gia == null ? "Chưa có dữ liệu" : tien(data.tai_chinh.giam_gia)} />
+        <Dong nhan="Giảm giá (đã trừ vào doanh thu)" giaTri={data?.tai_chinh?.giam_gia == null ? "Chưa có dữ liệu" : tien(data.tai_chinh.giam_gia)} />
         <Dong nhan="Doanh thu thuần" giaTri={tien(data?.tai_chinh?.doanh_thu_thuan)} />
       </Nhom> : null}
       <Nhom ten="Phiếu thu">

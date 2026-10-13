@@ -72,4 +72,5 @@ async def test_no_chi_cua_ngay_ca_co_so_va_loai_da_chon(
     bc = await BaoCaoCuoiNgayService(pool).bao_cao(identity=ca.thu_ngan)
     # Báo cáo cả ngày của cả phòng khám: có ít nhất khoản này (test khác cũng ghi nợ).
     assert bc["tai_chinh"]["no_chua_thu"] >= 300000
-    assert bc["tai_chinh"]["giam_gia"] is None
+    assert bc["tai_chinh"]["giam_gia"] == bc["giam_gia"]["giam"]
+    assert "giam_gia" not in bc["tai_chinh"]["chua_co_du_lieu"]

@@ -1,6 +1,8 @@
 """Các chỉ số tài chính từ nguồn báo cáo đã lọc quyền, ngày và ca.
 
-Không suy giảm giá từ chênh lệch bảng giá: hệ thống chưa có sổ giảm giá.
+Giảm giá lấy từ sổ giảm giá ở quầy (khối ``giam_gia`` của báo cáo — chỉ lần thu
+còn hiệu lực), không suy từ chênh lệch bảng giá. Doanh thu cộng từ dòng hàng ĐÃ
+trừ giảm giá, nên giảm giá chỉ để xem — không trừ thêm lần nữa.
 Không thay đổi tập ngày của báo cáo cũ; đây là số hiệu lực hiện tại của tập ấy.
 """
 
@@ -64,22 +66,28 @@ def tom_tat_tai_chinh(
     doanh_thu = sum(int(v["tong"]["doanh_thu"]) for v in hang_hoa.values())
     doanh_thu_thuan = sum(int(v["tong"]["doanh_thu_thuan"]) for v in hang_hoa.values())
     hoan = {r["ma"]: int(r.get("hoan") or 0) for r in bao_cao.get("theo_hinh_thuc", ())}
+    gg = bao_cao.get("giam_gia")
+    giam_gia = int(gg.get("giam") or 0) if isinstance(gg, Mapping) else None
     return {
         "so_phieu_thu": int(tong.get("so_phieu_thu") or 0),
         "doanh_thu": doanh_thu,
         "hoan_tien_mat": hoan.get("CASH", 0),
         "hoan_chuyen_khoan": hoan.get("TRANSFER", 0) + hoan.get("QR", 0),
         "no_chua_thu": no_trong_khoang,
-        "giam_gia": None,
+        "giam_gia": giam_gia,
         "doanh_thu_thuan": doanh_thu_thuan,
         "thuc_thu": int(tong.get("thuc_thu") or 0),
-        "chua_co_du_lieu": ["giam_gia"]
+        "chua_co_du_lieu": (["giam_gia"] if giam_gia is None else [])
         + (["no_chua_thu"] if no_trong_khoang is None else []),
         "pham_vi": {
             "so_phieu_thu": "Phiếu có ngày thu trong khoảng, gồm phiếu đã huỷ.",
             "doanh_thu": "Dòng hàng của phiếu còn hiệu lực, theo ngày thu.",
             "hoan": "Khoản đã hoàn, theo ngày lập khoản hoàn trong khoảng.",
             "no_chua_thu": "Nợ ghi trong khoảng đã chọn, còn chưa thu tới hiện tại.",
+            "giam_gia": (
+                "Giảm giá ở quầy của phiếu còn hiệu lực, theo ngày thu — đã trừ"
+                " sẵn trong doanh thu."
+            ),
             "doanh_thu_thuan": (
                 "Doanh thu trừ giá trị dòng hàng đã hoàn trong tập báo cáo."
             ),
