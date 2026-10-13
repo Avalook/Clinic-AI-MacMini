@@ -1016,7 +1016,11 @@ MAN: dict[str, Man] = {
             "bang_gia", "Bảng giá", ["/cashier/dich-vu"], ["bang_gia"], "Thu ngân, QL"
         ),
         _lego(
-            "bao_cao", "Báo cáo", ["/reports", "/hoa-don", "/lich-do-ve"], ["bao_cao"], "Quản lý"
+            "bao_cao",
+            "Báo cáo",
+            ["/reports", "/hoa-don", "/lich-do-ve"],
+            ["bao_cao"],
+            "Quản lý",
         ),
         _lego(
             "cai_dat",
