@@ -86,6 +86,8 @@ export interface DongQuay {
 
 export interface QuayThu {
   tong: number;
+  /** Phần được phép giảm giá (máy chủ báo; trừ liệu trình trả trước). */
+  giam_duoc?: number;
   revision: string | null;
   thu_duoc: boolean;
   van_de: string[];
@@ -125,8 +127,9 @@ export interface LenhThuMot {
     | undefined;
   khoa: string;
   tong: number;
-  /** Giảm giá (13/10/2026). */
+  /** Giảm giá (13/10/2026): tham số gửi máy chủ + số phải thu xem trước. */
   discount?: GiamGiaParams;
+  tongSauGiam?: number;
 }
 
 function tien(n: number): string {
@@ -257,6 +260,7 @@ export default function HoaDonMot({
       ].join("|"),
       tong,
       discount: giamGia?.params ?? undefined,
+      tongSauGiam: giamGia?.params ? giamGia.tongSauGiam : undefined,
     });
   };
 
@@ -355,7 +359,7 @@ export default function HoaDonMot({
       {/* Giảm giá (13/10/2026) */}
       {tong > 0 ? (
         <div className="border-t border-line pt-3">
-          <GiamGia tong={tong} onDoi={setGiamGia} />
+          <GiamGia tong={tong} giamDuoc={qt.giam_duoc} onDoi={setGiamGia} />
         </div>
       ) : null}
 

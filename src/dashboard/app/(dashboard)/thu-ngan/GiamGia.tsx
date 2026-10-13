@@ -1,10 +1,10 @@
 "use client";
 
-// Component giảm giá dùng chung cho quầy dịch vụ và quầy thuốc (13/10/2026).
-//
-// Hai hình thức: nhập tiền HOẶC % (radio). Khi nhập một ô, ô kia quy đổi tham
-// khảo (read-only). Lý do bắt buộc (5–500 ký tự). Callback trả discount params
-// để cha gửi lên API.
+// Giảm giá theo TỔNG hoá đơn — dùng chung quầy dịch vụ, quầy thuốc, bán lẻ.
+// Người thu tiền chọn tiền HOẶC %, gõ lý do (chữ tự do, bắt buộc). Máy chủ mới
+// là bên quyết: nó tính lại, làm tròn 1đ, chặn vượt phần giảm được. Số hiện ở đây
+// chỉ để người thu xem trước — `giamDuoc` (phần được phép giảm, trừ liệu trình
+// trả trước) cũng do máy chủ báo, không suy ra ở trình duyệt.
 
 import { useEffect, useState } from "react";
 
@@ -15,15 +15,22 @@ export interface GiamGiaParams {
 }
 
 export interface GiamGiaResult {
-  /** null = không giảm; GiamGiaParams = có giảm hợp lệ. */
+  /** null = không giảm (chưa bật / chưa nhập / chưa hợp lệ). */
   params: GiamGiaParams | null;
-  /** Tiền giảm thực tế (tham khảo hiển thị). */
+  /** Tiền giảm xem trước. */
   tienGiam: number;
-  /** Tổng sau giảm. */
+  /** Số phải thu xem trước = tổng gốc − giảm. */
   tongSauGiam: number;
-  /** Lý do chưa hợp lệ (null = OK hoặc không bật giảm). */
+  /** Vì sao chưa thu được (null = ổn hoặc không giảm) — chặn nút Thu. */
   loi: string | null;
 }
+
+export const KHONG_GIAM = (tong: number): GiamGiaResult => ({
+  params: null,
+  tienGiam: 0,
+  tongSauGiam: tong,
+  loi: null,
+});
 
 function tien(n: number): string {
   return n.toLocaleString("vi-VN") + "đ";
@@ -31,67 +38,58 @@ function tien(n: number): string {
 
 export default function GiamGia({
   tong,
+  giamDuoc,
   onDoi,
 }: {
   /** Tổng gốc hoá đơn (trước giảm). */
   tong: number;
-  /** Gọi mỗi khi thay đổi — cha dùng để cập nhật nút Thu. */
+  /** Phần của hoá đơn được phép giảm (máy chủ báo; thiếu = cả hoá đơn). */
+  giamDuoc?: number;
   onDoi: (kq: GiamGiaResult) => void;
 }) {
   const [batGiam, setBatGiam] = useState(false);
   const [loai, setLoai] = useState<"AMOUNT" | "PERCENT">("AMOUNT");
   const [giaTri, setGiaTri] = useState("");
   const [lyDo, setLyDo] = useState("");
+  const tran = giamDuoc ?? tong;
 
   useEffect(() => {
-    if (!batGiam || tong <= 0) {
-      onDoi({ params: null, tienGiam: 0, tongSauGiam: tong, loi: null });
-      return;
-    }
-    const num = parseFloat(giaTri);
-    if (Number.isNaN(num) || num < 0) {
-      onDoi({ params: null, tienGiam: 0, tongSauGiam: tong, loi: "Giá trị không hợp lệ." });
-      return;
-    }
-    let giam: number;
-    if (loai === "AMOUNT") {
-      giam = Math.round(num);
-    } else {
-      if (num > 100) {
-        onDoi({ params: null, tienGiam: 0, tongSauGiam: tong, loi: "% giảm phải từ 0 đến 100." });
-        return;
-      }
-      giam = Math.round((tong * num) / 100);
-    }
-    if (giam > tong) {
-      onDoi({
-        params: null,
-        tienGiam: giam,
-        tongSauGiam: tong - giam,
-        loi: `Tiền giảm ${tien(giam)} vượt tổng hóa đơn ${tien(tong)}.`,
-      });
-      return;
+    const ko = (loi: string | null, giam = 0): GiamGiaResult => ({
+      params: null,
+      tienGiam: giam,
+      tongSauGiam: tong - giam,
+      loi,
+    });
+    if (!batGiam || tong <= 0) return onDoi(KHONG_GIAM(tong));
+    if (giaTri.trim() === "") return onDoi(KHONG_GIAM(tong)); // chưa nhập = thu nguyên giá
+    const num = Number(giaTri);
+    if (!Number.isFinite(num) || num <= 0) return onDoi(ko("Giá trị giảm phải lớn hơn 0."));
+    if (loai === "PERCENT" && num > 100) return onDoi(ko("Phần trăm giảm phải từ 0 đến 100."));
+    const giam = loai === "AMOUNT" ? Math.round(num) : Math.round((tran * num) / 100);
+    if (giam <= 0) return onDoi(ko("Số tiền giảm làm tròn còn 0đ — nhập giá trị lớn hơn."));
+    if (giam > tran) {
+      return onDoi(
+        ko(
+          tran < tong
+            ? `Giảm ${tien(giam)} vượt phần giảm được (${tien(tran)}) — liệu trình trả trước không giảm.`
+            : `Giảm ${tien(giam)} vượt tổng hoá đơn ${tien(tran)}.`,
+          giam,
+        ),
+      );
     }
     const reason = lyDo.trim();
-    if (giam > 0 && reason.length < 5) {
-      onDoi({
-        params: null,
-        tienGiam: giam,
-        tongSauGiam: tong - giam,
-        loi: "Lý do giảm giá bắt buộc (ít nhất 5 ký tự).",
-      });
-      return;
-    }
+    if (!reason) return onDoi(ko("Phải ghi lý do giảm giá.", giam));
     onDoi({
-      params: giam > 0 ? { discount_type: loai, discount_value: num, discount_reason: reason } : null,
+      params: { discount_type: loai, discount_value: num, discount_reason: reason },
       tienGiam: giam,
       tongSauGiam: tong - giam,
       loi: null,
     });
+    // onDoi do cha truyền, đổi mỗi lần render — không đưa vào deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batGiam, loai, giaTri, lyDo, tong]);
+  }, [batGiam, loai, giaTri, lyDo, tong, tran]);
 
-  if (tong <= 0) return null;
+  if (tong <= 0 || tran <= 0) return null;
 
   return (
     <div className="space-y-2">
@@ -113,7 +111,6 @@ export default function GiamGia({
 
       {batGiam ? (
         <div className="space-y-2 rounded-control border border-line bg-surface-raised px-3 py-2">
-          {/* Radio: loại giảm */}
           <div className="flex items-center gap-4 text-meta">
             <label className="flex items-center gap-1.5">
               <input
@@ -143,35 +140,39 @@ export default function GiamGia({
             </label>
           </div>
 
-          {/* Ô nhập + quy đổi */}
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="number"
               inputMode="decimal"
               min={0}
-              max={loai === "PERCENT" ? 100 : tong}
+              max={loai === "PERCENT" ? 100 : tran}
               step={loai === "PERCENT" ? 1 : 1000}
               value={giaTri}
               onChange={(e) => setGiaTri(e.target.value)}
               placeholder={loai === "AMOUNT" ? "Số tiền giảm" : "% giảm (0–100)"}
+              aria-label={loai === "AMOUNT" ? "Số tiền giảm" : "Phần trăm giảm"}
               className="w-36 rounded-control border border-line bg-surface px-2 py-1 text-body tabular-nums text-ink"
             />
-            {/* Quy đổi tham khảo */}
-            {giaTri && !Number.isNaN(parseFloat(giaTri)) ? (
+            {giaTri && Number.isFinite(Number(giaTri)) && Number(giaTri) > 0 ? (
               <span className="text-meta text-ink-muted">
                 {loai === "AMOUNT"
-                  ? `≈ ${tong > 0 ? ((parseFloat(giaTri) / tong) * 100).toFixed(1) : 0}%`
-                  : `≈ ${tien(Math.round((tong * parseFloat(giaTri)) / 100))}`}
+                  ? `≈ ${((Number(giaTri) / tran) * 100).toFixed(1)}%`
+                  : `≈ ${tien(Math.round((tran * Number(giaTri)) / 100))}`}
+              </span>
+            ) : null}
+            {tran < tong ? (
+              <span className="text-meta text-ink-muted">
+                Giảm được tối đa {tien(tran)} (liệu trình trả trước không giảm)
               </span>
             ) : null}
           </div>
 
-          {/* Lý do */}
           <input
             type="text"
             value={lyDo}
             onChange={(e) => setLyDo(e.target.value)}
             placeholder="Lý do giảm giá (bắt buộc, VD: khách quen, người nhà bác sĩ)"
+            aria-label="Lý do giảm giá"
             maxLength={500}
             className="w-full rounded-control border border-line bg-surface px-2 py-1 text-body text-ink"
           />

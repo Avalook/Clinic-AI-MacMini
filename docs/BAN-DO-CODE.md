@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-13 12:16. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-13 12:30. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -314,7 +314,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: InHoaDonThuoc.tsx, app/print/phieu-thu/[id]/InPhieuThu.tsx
 - gọi API Next: `/api/cashier`
 - service: CashierBoardService.{board, giao_dich} · CashierScopeService.{authorize_active, days, authorize, receipt, +1} · QuayThuService.{lich_su, phieu, phieu_cua_luot} · quay_thu_service
-- test: test_cashier_scope_db.py, test_quay_thu_mot_hoa_don_db.py, test_cashier_scope.py, test_payment_access.py, test_doi_hinh_thuc_db.py (+4)
+- test: test_cashier_scope_db.py, test_cashier_scope.py, test_payment_access.py, test_quay_thu_mot_hoa_don_db.py, test_doi_hinh_thuc_db.py (+5)
 
 ### `/print/ket-qua-luot/[visitId]` — In kết quả
 - page: `src/dashboard/app/print/ket-qua-luot/[visitId]/page.tsx` · quyền: ?
@@ -343,7 +343,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: InPhieuThu.tsx, app/(dashboard)/_lam-viec/DoiPhong.tsx
 - gọi API Next: `/api/cashier`, `/api/luot-kham`
 - service: CashierBoardService.{board, giao_dich} · CashierScopeService.{authorize_active, days, authorize, receipt, +1} · QuayThuService.{lich_su, phieu, phieu_cua_luot} · quay_thu_service · ServiceRoutingService.{assign, invalidate, dat_phong_du_kien, chuyen_phong_dang_lam, +1} · HoanTacService.{mo_lai_kham, huy_chi_dinh, hoan_tac_xong_dich_vu, mo_lai_luot, +1} (+11 service)
-- test: test_hoan_tac_moi_thao_tac_db.py, test_cashier_scope_db.py, test_loc_co_so_nhom_c_db.py, test_quay_thu_mot_hoa_don_db.py, test_so_sua_chi_dinh_db.py (+32)
+- test: test_hoan_tac_moi_thao_tac_db.py, test_cashier_scope_db.py, test_loc_co_so_nhom_c_db.py, test_so_sua_chi_dinh_db.py, test_cashier_scope.py (+33)
 
 ### `/print/sono/[id]`
 - page: `src/dashboard/app/print/sono/[id]/page.tsx` · quyền: ?
@@ -665,7 +665,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/cashier/lich-su.csv` → `src/clinicai/api/v1/routers/cashier.py:cashier_lich_su_csv` → CashierScopeService.authorize, QuayThuService.lich_su, csv_lich_su.encode, csv_lich_su
 - GET `/api/v1/cashier/phieu/{phieu_id}` → `src/clinicai/api/v1/routers/cashier.py:cashier_phieu` → CashierScopeService.receipt, QuayThuService.phieu
 - GET `/api/v1/cashier/phieu-luot/{visit_id}` → `src/clinicai/api/v1/routers/cashier.py:cashier_phieu_luot` → QuayThuService.phieu_cua_luot, CashierScopeService.receipt_exempt, CashierScopeService.receipt, QuayThuService.phieu + SQL ngay trong router
-- test: src/tests/services/test_cashier_scope_db.py, src/tests/services/test_quay_thu_mot_hoa_don_db.py, src/tests/unit/test_cashier_scope.py (+6)
+- test: src/tests/services/test_cashier_scope_db.py, src/tests/unit/test_cashier_scope.py, src/tests/services/test_quay_thu_mot_hoa_don_db.py (+7)
 - màn dùng: /pharmacy, /print/hoa-don-thuoc/[visitId], /print/phieu-thu/[id], /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc (+1)
 
 #### `/api/catalog` · `src/dashboard/app/api/catalog/route.ts`

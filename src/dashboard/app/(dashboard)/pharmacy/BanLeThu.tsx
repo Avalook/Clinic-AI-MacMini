@@ -19,7 +19,7 @@ import ChinhDonQuay from "../thu-ngan/ChinhDonQuay";
 import { nhanPhan } from "@/lib/hinh-thuc-thu";
 import { taiAnhChuyenKhoan } from "../thu-ngan/AnhChuyenKhoan";
 import type { KetQuaChia } from "../thu-ngan/ChiaHinhThuc";
-import type { GiamGiaParams } from "../thu-ngan/GiamGia";
+import type { GiamGiaResult } from "../thu-ngan/GiamGia";
 import NutHoanTac from "../thu-ngan/NutHoanTac";
 import { NhomThu, type ChoXacMinh, type HoaDon } from "../thu-ngan/QuayThuNgan";
 
@@ -169,12 +169,10 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
         daThu={doc.da_thu}
         cho={doc.cho_xac_minh ?? undefined}
         dangThu={dangThu}
-        onThu={(hd: HoaDon, chia: KetQuaChia | null, discount?: GiamGiaParams) => {
-          const tongSauGiam = discount
-            ? (discount.discount_type === "AMOUNT"
-                ? Math.max(0, hd.tong - discount.discount_value)
-                : Math.max(0, Math.round(hd.tong * (1 - discount.discount_value / 100))))
-            : hd.tong;
+        onThu={(hd: HoaDon, chia: KetQuaChia | null, giam?: GiamGiaResult) => {
+          // Số xem trước do GiamGia tính; máy chủ tính lại và quyết số thật.
+          const discount = giam?.params ?? undefined;
+          const tongSauGiam = discount ? giam!.tongSauGiam : hd.tong;
           const mienPhi = tongSauGiam === 0 && !!discount;
           const pt = chia?.coChuyenKhoan ? "TRANSFER" : "CASH";
           void gui(
@@ -184,7 +182,8 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
               kind: "thuoc",
               quay: "thuoc",
               billRevision: hd.revision,
-              amount: mienPhi ? 0 : tongSauGiam,
+              // Luôn là tổng GỐC — máy chủ so với hoá đơn của nó rồi tự trừ giảm.
+              amount: hd.tong,
               method: mienPhi ? "CASH" : pt,
               phan: mienPhi ? undefined : chia?.phan,
               ...(discount

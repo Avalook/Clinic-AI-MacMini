@@ -1035,6 +1035,24 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name AS ten,
 """
 
 
+def _giam_gia_in(goc: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Khối giảm giá của phiếu in; ``None`` nếu lần thu không giảm. Thuần."""
+    giam = _so(goc.get("discount_amount")) or 0
+    if giam <= 0:
+        return None
+    return {
+        "tong_goc": _so(goc.get("original_amount")) or 0,
+        "giam": giam,
+        "loai": goc.get("discount_type"),
+        "gia_tri": (
+            float(goc["discount_value"])
+            if goc.get("discount_value") is not None
+            else None
+        ),
+        "ly_do": goc.get("discount_reason"),
+    }
+
+
 class QuayThuService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -1443,6 +1461,9 @@ class QuayThuService:
                            pc.visit_id::text AS visit_id,
                            pc.payment_cycle_id::text AS cycle_id, pc.kind,
                            pc.amount,
+                           pc.original_amount, pc.discount_type,
+                           pc.discount_value, pc.discount_amount,
+                           pc.discount_reason,
                            hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
                                               pc.method) AS method,
                            phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
@@ -1546,6 +1567,9 @@ class QuayThuService:
             "bac_si": k["bac_si"] if k else None,
             "dong": dong,
             "tong": _so(goc["amount"]) or 0,
+            # Giảm giá của lần thu (13/10/2026): in kèm gốc / giảm / lý do. Phiếu
+            # hoàn và lần thu không giảm = None.
+            "giam_gia": _giam_gia_in(goc),
             "hinh_thuc": chuan_hinh_thuc(goc["method"]),
             # Bản in có DÒNG HÌNH THỨC từng phần (01/10/2026: 200k CK + 500k TM
             # in thành hai dòng) + tiền khách đưa / trả lại nếu có.

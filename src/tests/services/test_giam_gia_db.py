@@ -20,8 +20,13 @@ import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ConflictError, ValidationError
+from clinicai.services.bao_cao_cuoi_ngay_service import (
+    BaoCaoCuoiNgayService,
+    csv_bao_cao,
+)
 from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.payment_service import KHONG_CON_KHOAN, PaymentService
+from clinicai.services.quay_thu_service import QuayThuService
 from tests.services.test_doi_tac_tu_thu_db import _gia, _nguoi_vai
 from tests.services.test_luot_kham_service_db import CLINIC
 from tests.services.test_quay_thu_mot_hoa_don_db import _cd, _dong, _kich_ban
@@ -414,3 +419,56 @@ async def test_luot_dang_ghi_no_khong_giam_duoc(pool: asyncpg.Pool) -> None:
     )
     with pytest.raises(ValidationError, match="ghi nợ"):
         await _thu(q, sa, soi, hpv, loai="PERCENT", gia_tri=10)
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_phieu_in_co_khoi_giam_gia_va_phieu_khong_giam_thi_khong(
+    pool: asyncpg.Pool,
+) -> None:
+    q, sa, soi, hpv = await _kich_ban(pool)
+    kq = await _thu(q, sa, soi, hpv, loai="PERCENT", gia_tri=10)
+    phieu = await QuayThuService(pool).phieu(
+        identity=q.thu_ngan, id_=kq["payment_cycle_id"]
+    )
+    assert phieu["tong"] == 630_000
+    gg = phieu["giam_gia"]
+    assert (gg["tong_goc"], gg["giam"], gg["loai"], gg["gia_tri"]) == (
+        700_000,
+        70_000,
+        "PERCENT",
+        10.0,
+    )
+    assert gg["ly_do"] == "khách quen giảm theo chính sách"
+    # Từng dòng in là số SAU giảm → cộng lại đúng TỔNG THU.
+    assert sum(d["thanh_tien"] for d in phieu["dong"]) == 630_000
+
+    q2, sa2, soi2, hpv2 = await _kich_ban(pool)
+    kq2 = await _thu(q2, sa2, soi2, hpv2)
+    phieu2 = await QuayThuService(pool).phieu(
+        identity=q2.thu_ngan, id_=kq2["payment_cycle_id"]
+    )
+    assert phieu2["giam_gia"] is None and phieu2["tong"] == 700_000
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_bao_cao_cuoi_ngay_co_khoi_giam_gia_va_thuc_thu_khop(
+    pool: asyncpg.Pool,
+) -> None:
+    q, sa, soi, hpv = await _kich_ban(pool)
+    ql = await _nguoi_vai(q, "MANAGEMENT")
+    svc = BaoCaoCuoiNgayService(pool)
+    truoc = await svc.bao_cao(identity=ql)
+    kq = await _thu(q, sa, soi, hpv, loai="AMOUNT", gia_tri=50_000)
+    sau = await svc.bao_cao(identity=ql)
+    # Thực thu tăng đúng số THẬT đã thu (650k), không phải 700k.
+    assert sau["tong"]["thuc_thu"] - truoc["tong"]["thuc_thu"] == 650_000
+    dong = [d for d in sau["giam_gia"]["dong"] if d["id"] == kq["payment_cycle_id"]]
+    assert len(dong) == 1
+    d = dong[0]
+    assert (d["tong_goc"], d["giam"], d["thu_that"]) == (700_000, 50_000, 650_000)
+    assert d["ly_do"] and d["nguoi_giam"] and d["khach"]
+    assert sau["giam_gia"]["giam"] - truoc["giam_gia"]["giam"] == 50_000
+    out = csv_bao_cao(sau)
+    assert "Lý do giảm" in out and "khách quen giảm theo chính sách" in out

@@ -42,7 +42,7 @@ import { nhanPhan, tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
 import { gio, nhanLamTruocThuSau, type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
 import AnhChuyenKhoan, { taiAnhChuyenKhoan, type AnhCk } from "./AnhChuyenKhoan";
 import ChiaHinhThuc, { type KetQuaChia } from "./ChiaHinhThuc";
-import GiamGia, { type GiamGiaResult, type GiamGiaParams } from "./GiamGia";
+import GiamGia, { type GiamGiaResult } from "./GiamGia";
 import NutHoanTac from "./NutHoanTac";
 
 interface Dong {
@@ -71,6 +71,8 @@ interface DongDoiTac extends DongHoaDon {
 
 export interface HoaDon {
   tong: number;
+  /** Phần được phép giảm giá (máy chủ báo; trừ liệu trình trả trước). */
+  giam_duoc?: number;
   revision: string;
   thu_duoc: boolean;
   van_de: string[];
@@ -384,14 +386,12 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
       kind: "dich_vu" | "thuoc",
       hd: HoaDon,
       chia: KetQuaChia | null,
-      discount?: GiamGiaParams,
+      giam?: GiamGiaResult,
     ) => {
       const pt: PhuongThuc = chia?.coChuyenKhoan ? "TRANSFER" : "CASH";
-      const tongSauGiam = discount
-        ? (discount.discount_type === "AMOUNT"
-            ? Math.max(0, hd.tong - discount.discount_value)
-            : Math.max(0, Math.round(hd.tong * (1 - discount.discount_value / 100))))
-        : hd.tong;
+      // Số xem trước do GiamGia tính; máy chủ tính lại và quyết số thật.
+      const discount = giam?.params ?? undefined;
+      const tongSauGiam = discount ? giam!.tongSauGiam : hd.tong;
       const mienPhi = tongSauGiam === 0 && !!discount;
       const cau = mienPhi
         ? `Đã ghi nhận miễn phí (${l.full_name ?? "khách"}).`
@@ -404,7 +404,9 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
           kind,
           quay: quayThu,
           billRevision: hd.revision,
-          amount: mienPhi ? 0 : tongSauGiam,
+          // Luôn là tổng GỐC: máy chủ so với hoá đơn của nó để bắt hoá đơn đổi,
+          // rồi tự trừ giảm giá.
+          amount: hd.tong,
           method: mienPhi ? "CASH" : pt,
           phan: mienPhi ? undefined : chia?.phan,
           ...(discount
@@ -435,13 +437,13 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
   /** Thu một lệnh: máy chủ chốt lựa chọn dịch vụ + ghi sổ (quầy một hoá đơn). */
   const thuMot = useCallback(
     async (l: Luot, p: LenhThuMot) => {
-      const mienPhi = p.amount === 0 && !!p.discount;
+      const mienPhi = !!p.discount && p.tongSauGiam === 0;
       const cau =
         p.amount === undefined
           ? `Đã chốt dịch vụ của ${l.full_name ?? "khách"} (không có khoản thu tại quầy).`
           : mienPhi
             ? `Đã ghi nhận miễn phí (${l.full_name ?? "khách"}).`
-            : `Đã thu ${tien(p.tong)} (${nhanPhan(p.phan ?? [])}) của ${l.full_name ?? "khách"}.`;
+            : `Đã thu ${tien(p.tongSauGiam ?? p.tong)} (${nhanPhan(p.phan ?? [])}) của ${l.full_name ?? "khách"}.`;
       const ok = await gui(
         `${l.visit_id}:dich_vu`,
         {
@@ -806,7 +808,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                 daThu={daThuCua(l.visit_id, "dich_vu")}
                 cho={choCua(l.visit_id, "dich_vu")}
                 dangThu={dangThu === `${l.visit_id}:dich_vu`}
-                onThu={(hd, c, dc) => void thu(l, "dich_vu", hd, c, dc)}
+                onThu={(hd, c, g) => void thu(l, "dich_vu", hd, c, g)}
                 onXacMinh={(ma) => void xacMinh(l, "dich_vu", ma)}
                 onDoi={(cau) => {
                   if (cau) setXong(cau);
@@ -858,7 +860,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                 daThu={daThuCua(l.visit_id, "thuoc")}
                 cho={choCua(l.visit_id, "thuoc")}
                 dangThu={dangThu === `${l.visit_id}:thuoc`}
-                onThu={(hd, c, dc) => void thu(l, "thuoc", hd, c, dc)}
+                onThu={(hd, c, g) => void thu(l, "thuoc", hd, c, g)}
                 onXacMinh={(ma) => void xacMinh(l, "thuoc", ma)}
                 onDoi={(cau) => {
                   if (cau) setXong(cau);
@@ -1111,7 +1113,7 @@ export function NhomThu({
   daThu: boolean;
   cho: ChoXacMinh | undefined;
   dangThu: boolean;
-  onThu: (hd: HoaDon, chia: KetQuaChia | null, discount?: GiamGiaParams) => void;
+  onThu: (hd: HoaDon, chia: KetQuaChia | null, giam?: GiamGiaResult) => void;
   onXacMinh: (ma: string) => void;
   /** Sau hoàn tác / thêm ảnh: tải lại (kèm câu báo nếu có). */
   onDoi: (cau?: string) => void;
@@ -1215,7 +1217,7 @@ export function NhomThu({
       {/* Giảm giá (13/10/2026) */}
       {hd && hd.thu_duoc && !daThu && !hd.chi_doi_tac_thu && tongGoc > 0 ? (
         <div className="mt-3 border-t border-line pt-3">
-          <GiamGia tong={tongGoc} onDoi={setGiamGia} />
+          <GiamGia tong={tongGoc} giamDuoc={hd?.giam_duoc} onDoi={setGiamGia} />
         </div>
       ) : null}
 
@@ -1255,7 +1257,7 @@ export function NhomThu({
           <button
             type="button"
             disabled={chanThu}
-            onClick={() => hd && (mienPhi || chia) && onThu(hd, mienPhi ? null : chia, giamGia?.params ?? undefined)}
+            onClick={() => hd && (mienPhi || chia) && onThu(hd, mienPhi ? null : chia, giamGia?.params ? giamGia : undefined)}
             className="inline-flex min-h-10 items-center rounded-control border border-brand-500 bg-brand-500 px-4 text-sm font-semibold text-white disabled:opacity-50"
           >
             {dangThu
