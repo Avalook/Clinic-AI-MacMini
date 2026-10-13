@@ -1166,3 +1166,91 @@ async def tinh_hoa_don(
             }
         )
     return ghep_thuoc(visit_id, dong)
+
+
+# ── Giảm giá theo TỔNG hoá đơn (Tuyền chốt 09/10 + 13/10/2026) ──────────────
+#
+# Giảm áp lên phần phòng khám thu, TRỪ liệu trình trả trước (Tuyền: liệu trình
+# không giảm). % tính trên phần giảm được. Máy chủ tính, làm tròn 1đ
+# ROUND_HALF_UP; client chỉ gửi loại + giá trị. `revision` KHÔNG đổi vì giảm giá
+# (giảm chọn lúc thu, không phải một dòng của hoá đơn) — CK/QR đang chờ vẫn khớp.
+
+GIAM_AMOUNT = "AMOUNT"
+GIAM_PERCENT = "PERCENT"
+_LOAI_GIAM = frozenset({GIAM_AMOUNT, GIAM_PERCENT})
+#: Loại dòng KHÔNG được giảm (liệu trình trả trước).
+DONG_KHONG_GIAM = frozenset({"lieu_trinh"})
+
+
+def _giam_duoc(d: DongHoaDon) -> int:
+    """Số đồng của dòng có thể bị giảm (0 = dòng không dính giảm giá)."""
+    if d.ben_thu != CLINIC or d.source_type in DONG_KHONG_GIAM or d.van_de:
+        return 0
+    return max(0, int(d.thanh_tien or 0))
+
+
+def tong_giam_duoc(hoa_don: HoaDon) -> int:
+    """Phần hoá đơn được phép giảm (tổng các dòng ``_giam_duoc``)."""
+    return sum(_giam_duoc(d) for d in hoa_don.dong)
+
+
+def ap_giam_gia(hoa_don: HoaDon, loai: str, gia_tri: Decimal) -> tuple[int, int, int]:
+    """Tính giảm → ``(tổng_gốc, tiền_giảm, phải_thu)``. Thuần, không chạm DB.
+
+    Từ chối (ValidationError) thay vì tự cắt: nhập quá thì người thu thấy ngay.
+    """
+    from clinicai.api.exceptions import ValidationError
+
+    goc = hoa_don.tong
+    if loai not in _LOAI_GIAM:
+        raise ValidationError("Loại giảm giá phải là số tiền hoặc phần trăm.")
+    if not gia_tri.is_finite() or gia_tri <= 0:
+        raise ValidationError("Giá trị giảm phải lớn hơn 0.")
+    duoc = tong_giam_duoc(hoa_don)
+    if duoc <= 0:
+        raise ValidationError(
+            "Hoá đơn này không có khoản nào giảm giá được "
+            "(liệu trình trả trước không giảm)."
+        )
+    if loai == GIAM_PERCENT:
+        if gia_tri > 100:
+            raise ValidationError("Phần trăm giảm phải từ 0 đến 100.")
+        giam = int(
+            (Decimal(duoc) * gia_tri / Decimal(100)).quantize(
+                Decimal(1), rounding=ROUND_HALF_UP
+            )
+        )
+    else:
+        giam = int(gia_tri.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    if giam <= 0:
+        raise ValidationError("Số tiền giảm làm tròn còn 0đ — nhập giá trị lớn hơn.")
+    if giam > duoc:
+        raise ValidationError(
+            f"Giảm {giam:,}đ vượt phần giảm được của hoá đơn ({duoc:,}đ)."
+        )
+    return goc, giam, goc - giam
+
+
+def phan_bo_giam(dong: Sequence[DongHoaDon], tong_giam: int) -> list[int]:
+    """Chia ``tong_giam`` xuống từng dòng theo tỉ lệ giá (phương pháp phần dư
+    lớn nhất): tổng các phần LUÔN đúng bằng ``tong_giam`` và không dòng nào bị
+    giảm quá giá của nó. Dòng không giảm được nhận 0. Thuần.
+    """
+    ra = [0] * len(dong)
+    if tong_giam <= 0:
+        return ra
+    gia = [_giam_duoc(d) for d in dong]
+    duoc = sum(gia)
+    if tong_giam > duoc:
+        raise ValueError("tong_giam vượt phần giảm được")
+    du: list[tuple[int, int]] = []
+    for i, g in enumerate(gia):
+        if g <= 0:
+            continue
+        ra[i], phan_du = divmod(tong_giam * g, duoc)
+        du.append((phan_du, i))
+    con = tong_giam - sum(ra)
+    # Phần dư lớn nhất lấy trước; bằng nhau thì dòng đứng trước.
+    for _, i in sorted(du, key=lambda x: (-x[0], x[1]))[:con]:
+        ra[i] += 1
+    return ra

@@ -557,6 +557,15 @@ def gom_theo_khach(
                 "phan": phan,
                 "nguoi_thu": c.get("nguoi_thu"),
                 "tong": so_tien,
+                "original_amount": _so(c.get("original_amount")),
+                "discount_type": c.get("discount_type"),
+                "discount_value": (
+                    float(c["discount_value"])
+                    if c.get("discount_value") is not None
+                    else None
+                ),
+                "discount_amount": _so(c.get("discount_amount")) or 0,
+                "discount_reason": c.get("discount_reason"),
                 "dong": [
                     {
                         "id": str(d.get("id")),
@@ -564,6 +573,7 @@ def gom_theo_khach(
                         "ten": d.get("ten"),
                         "so_luong": float(d.get("so_luong") or 1),
                         "thanh_tien": _so(d.get("thanh_tien")),
+                        "discount_allocated": _so(d.get("discount_allocated")) or 0,
                     }
                     for d in dong.get(str(c["id"]), [])
                 ],
@@ -577,6 +587,15 @@ def gom_theo_khach(
                 "tao_luc": _iso(c.get("created_at")),
                 "ma": ma,
                 "so_tien": so_tien,
+                "original_amount": _so(c.get("original_amount")),
+                "discount_type": c.get("discount_type"),
+                "discount_value": (
+                    float(c["discount_value"])
+                    if c.get("discount_value") is not None
+                    else None
+                ),
+                "discount_amount": _so(c.get("discount_amount")) or 0,
+                "discount_reason": c.get("discount_reason"),
                 "hinh_thuc": ht,
                 "phan": phan,
                 "nhan_hinh_thuc": nhan_phan(phan),
@@ -744,6 +763,9 @@ def csv_lich_su(khach: Iterable[Mapping[str, Any]]) -> str:
             "Hình thức",
             "Người thu",
             "Dịch vụ",
+            "Tổng gốc",
+            "Giảm giá",
+            "Lý do giảm",
             "Số tiền",
             "Lý do",
         ]
@@ -753,6 +775,12 @@ def csv_lich_su(khach: Iterable[Mapping[str, Any]]) -> str:
             # `loai` luôn là chuỗi "thu"/"huy"/"hoan" do lich_su() tự gán; str()
             # chỉ để kiểu của .get(loai, loai) là str chứ không `str | None`.
             loai = str(s["loai"])
+            orig = (
+                s.get("original_amount")
+                if s.get("original_amount") is not None
+                else (s.get("so_tien") or 0)
+            )
+            giam = s.get("discount_amount") or 0
             w.writerow(
                 [
                     _o(_gio(s.get("luc"))),
@@ -771,6 +799,11 @@ def csv_lich_su(khach: Iterable[Mapping[str, Any]]) -> str:
                     ),
                     _o(s.get("nguoi")),
                     _o(", ".join(s.get("dich_vu") or [])),
+                    orig if loai == "thu" else "",
+                    giam if (loai == "thu" and giam > 0) else "",
+                    _o(s.get("discount_reason"))
+                    if (loai == "thu" and giam > 0)
+                    else "",
                     s.get("so_tien") or 0,
                     _o(s.get("ly_do")),
                 ]
@@ -807,6 +840,7 @@ _DONG_SQL = """
 SELECT bl.id::text AS id, bl.payment_cycle_id::text AS cycle_id, bl.source_id,
        bl.source_type, bl.name_snapshot AS ten, bl.quantity AS so_luong,
        bl.line_total AS thanh_tien,
+       coalesce(bl.discount_allocated, 0) AS discount_allocated,
        -- Phiếu ghi "Lần k" của chỉ định và "đã bỏ" khi in lại sau khi bỏ
        -- (06/10/2026, E3) — dòng vẫn in (tiền đã thu là sự thật).
        o.lan_chi_dinh AS lan,
@@ -1037,6 +1071,8 @@ class QuayThuService:
                 """
                 SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id,
                        pc.status, pc.amount,
+                       pc.discount_type, pc.discount_value, pc.discount_amount,
+                       pc.discount_reason, pc.original_amount,
                        -- Hình thức HIỆU LỰC (sau mọi lần đổi — V7).
                        hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
                                           pc.method) AS method,

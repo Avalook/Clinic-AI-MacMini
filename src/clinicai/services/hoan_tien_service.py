@@ -329,13 +329,34 @@ async def _tao_trong(
             raise ValidationError(
                 f"“{r['ten']}” không phải khoản phòng khám đã thu — không hoàn."
             )
-        if sl > r["con_hoan"]:
+        so_luong_tong = Decimal(str(r["so_luong"]))
+        da_hoan_sl = Decimal(str(r["da_hoan"]))
+        con_hoan_sl = Decimal(str(r["con_hoan"]))
+        if sl > con_hoan_sl:
             raise ConflictError(
-                f"“{r['ten']}” đã thu {so(r['so_luong'])}, đã hoàn "
-                f"{so(r['da_hoan'])} — chỉ còn hoàn được "
-                f"{so(r['con_hoan'])}."
+                f"“{r['ten']}” đã thu {so(so_luong_tong)}, đã hoàn "
+                f"{so(da_hoan_sl)} — chỉ còn hoàn được "
+                f"{so(con_hoan_sl)}."
             )
-        tien = int((sl * r["don_gia"]).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+        if int(r["discount_allocated"] or 0) == 0:
+            tien = int((sl * r["don_gia"]).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+        else:
+            # Dòng có giảm giá: ``line_total`` đã là số SAU giảm = số thật đã
+            # thu. Hoàn theo tỉ lệ số lượng; hoàn nốt số lượng cuối thì lấy hết
+            # phần còn lại (không để dư vài đồng do làm tròn).
+            con_hoan_tien = max(0, int(r["line_total"]) - int(r["da_hoan_tien"] or 0))
+            if sl == con_hoan_sl:
+                tien = con_hoan_tien
+            else:
+                tien = min(
+                    con_hoan_tien,
+                    int(
+                        (sl * Decimal(int(r["line_total"])) / so_luong_tong).quantize(
+                            Decimal(1), rounding=ROUND_HALF_UP
+                        )
+                    ),
+                )
+
         if tien <= 0:
             raise ValidationError(f"“{r['ten']}” thu 0đ — không có tiền để hoàn.")
         ghi.append((ma, sl, tien))
@@ -480,12 +501,16 @@ async def _con_hoan(
             """
             SELECT b.id::text AS id, b.name_snapshot AS ten, b.source_type,
                    b.source_id, b.quantity AS so_luong, b.unit AS don_vi,
-                   b.unit_price AS don_gia, b.billing_owner,
+                   b.unit_price AS don_gia, b.line_total,
+                   coalesce(b.discount_allocated, 0) AS discount_allocated,
+                   b.billing_owner,
                    coalesce(h.da_hoan, 0) AS da_hoan,
-                   b.quantity - coalesce(h.da_hoan, 0) AS con_hoan
+                   b.quantity - coalesce(h.da_hoan, 0) AS con_hoan,
+                   coalesce(h.da_hoan_tien, 0) AS da_hoan_tien
               FROM public.payment_bill_line b
               LEFT JOIN LATERAL (
-                   SELECT sum(l.quantity) AS da_hoan
+                   SELECT sum(l.quantity) AS da_hoan,
+                          sum(l.amount) AS da_hoan_tien
                      FROM public.payment_refund_line l
                      JOIN public.payment_refund r
                        ON r.refund_id = l.refund_id AND r.clinic_id = l.clinic_id
@@ -532,13 +557,21 @@ async def hoan_cua_cac_lan_thu(
     for c in cycle_ids:
         for d in await _con_hoan(conn, identity, c):
             if d["billing_owner"] == "CLINIC" and d["don_gia"] is not None:
+                giam = int(d["discount_allocated"] or 0)
+                # Dòng có giảm: đơn giá hiển thị = số đã thu thật / số lượng.
+                don_gia_hien = (
+                    int(Decimal(int(d["line_total"])) / Decimal(d["so_luong"]))
+                    if giam > 0 and d["so_luong"] > 0
+                    else d["don_gia"]
+                )
                 ket_qua[c]["dong_hoan_duoc"].append(
                     {
                         "payment_bill_line_id": d["id"],
                         "ten": d["ten"],
                         "so_luong": d["so_luong"],
                         "don_vi": d["don_vi"],
-                        "don_gia": d["don_gia"],
+                        "don_gia": don_gia_hien,
+                        "discount_allocated": giam,
                         "da_hoan": d["da_hoan"],
                         "con_hoan": d["con_hoan"],
                     }
