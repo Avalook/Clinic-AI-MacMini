@@ -9,7 +9,7 @@ type Tien = { thu: number; huy: number; hoan: number; thuc_thu: number };
 export interface TaiChinh {
  so_phieu_thu: number; doanh_thu: number; doanh_thu_thuan: number;
  thuc_thu: number; hoan_tien_mat: number; hoan_chuyen_khoan: number;
- no_chua_thu: number | null; giam_gia: number | null;
+ giam_gia: number | null;
 }
 interface DuLieuTomTat {
  tai_chinh?: TaiChinh;
@@ -71,7 +71,6 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false }: {
         <Dong nhan="Doanh thu" giaTri={tien(data?.tai_chinh?.doanh_thu)} />
         <Dong nhan="Hoàn tiền mặt" giaTri={tien(data?.tai_chinh?.hoan_tien_mat)} />
         <Dong nhan="Hoàn chuyển khoản" giaTri={tien(data?.tai_chinh?.hoan_chuyen_khoan)} />
-        <Dong nhan="Nợ chưa thu trong kỳ" giaTri={tien(data?.tai_chinh?.no_chua_thu ?? undefined)} />
         <Dong nhan="Giảm giá" giaTri={data?.tai_chinh?.giam_gia == null ? "Chưa có dữ liệu" : tien(data.tai_chinh.giam_gia)} />
         <Dong nhan="Doanh thu thuần" giaTri={tien(data?.tai_chinh?.doanh_thu_thuan)} />
       </Nhom> : null}

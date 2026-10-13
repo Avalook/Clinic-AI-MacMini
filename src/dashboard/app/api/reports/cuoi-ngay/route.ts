@@ -23,12 +23,14 @@ export async function GET(request: Request) {
   const ca = url.searchParams.get("ca");
   if (ca === "SANG" || ca === "CHIEU" || ca === "TOI") q.set("ca", ca);
   // Khuôn KiotViet "Báo cáo cuối ngày về hàng hóa" (08/10/2026) — chỉ cho tệp CSV.
-  if (url.searchParams.get("mau") === "hang_hoa") q.set("mau", "hang_hoa");
+  const mau = url.searchParams.get("mau");
+  if (mau && ["hang_hoa", "tom_tat", "tom_tat_day_du"].includes(mau)) q.set("mau", mau);
   // Một cơ sở (08/10/2026); rỗng = tất cả. Chuyển nguyên — máy chủ tự xử mã rác
   // (ra số 0), không để lớp này lặng lẽ biến một cơ sở thành "tất cả".
   const coSo = url.searchParams.get("co_so") ?? "";
   if (coSo) q.set("co_so", coSo.slice(0, 64));
-  if (url.searchParams.get("xuat") !== "csv") {
+  const format = url.searchParams.get("xuat");
+  if (format !== "csv" && format !== "xlsx") {
     return proxyJsonToBackend("GET", `/api/v1/reports/cuoi-ngay?${q.toString()}`, undefined);
   }
   const headers = await getCallerAuthHeaders();
@@ -36,7 +38,7 @@ export async function GET(request: Request) {
   if (!headers || !base) {
     return NextResponse.json({ error: "Chưa đăng nhập hoặc thiếu CLINIC_API_URL" }, { status: 401 });
   }
-  const res = await fetch(`${base}/api/v1/reports/cuoi-ngay.csv?${q.toString()}`, {
+  const res = await fetch(`${base}/api/v1/reports/cuoi-ngay.${format}?${q.toString()}`, {
     headers,
     cache: "no-store",
   });

@@ -185,8 +185,14 @@ async def test_bao_cao_cuoi_ngay_tong_dung_tung_dong(
     )
     # Đối tác: tham khảo, không vào thực thu.
     assert sau["doi_tac"]["tong"] - truoc["doi_tac"]["tong"] == 900_000
+    # Top 10 của CẢ phòng khám trong ngày: DB test chung có dịch vụ của test
+    # khác. SOI phải có mặt đúng 300k — trừ khi đủ 10 dịch vụ khác ≥ 300k đã
+    # đẩy nó ra (khi đó top vẫn đúng luật, chỉ không còn chỗ).
     top = {o["ten"]: o["doanh_thu"] for o in sau["top_dich_vu"]}
-    assert top.get(f"SOI-{q1.duoi}") == 300_000
+    if f"SOI-{q1.duoi}" in top:
+        assert top[f"SOI-{q1.duoi}"] == 300_000
+    else:
+        assert len(top) == 10 and min(top.values()) >= 300_000
 
     # Khác phòng khám: không thấy gì của phòng này.
     khac = str(

@@ -53,7 +53,9 @@ from clinicai.services import pos_outbox
 from clinicai.services.ban_le_service import dong_luot_ban_le, mo_lai_luot_ban_le
 from clinicai.services.bill_service import (
     HoaDon,
+    ap_giam_gia,
     hoa_don_theo_anh_chup,
+    phan_bo_giam,
     tinh_hoa_don,
 )
 from clinicai.services.chot_0d import ghi_chot_0d
@@ -199,7 +201,8 @@ def normalize_amount(raw: object) -> int | None:
     """Round a finite, positive number to an int; anything else → None.
 
     A payment for zero đồng is not a payment. ``bool`` is rejected even though
-    it is an ``int`` subclass.
+    it is an ``int`` subclass. (Giảm 100% không đi qua đây: client luôn gửi TỔNG
+    GỐC; số phải thu sau giảm do máy chủ tính.)
     """
     if isinstance(raw, bool):
         return None
@@ -207,6 +210,65 @@ def normalize_amount(raw: object) -> int | None:
         rounded = round(raw)
         return rounded if rounded > 0 else None
     return None
+
+
+#: Lý do giảm: chữ tự do, bắt buộc, chặn ở đây (DB chỉ ép "không rỗng").
+LY_DO_GIAM_TOI_DA = 500
+
+
+def _validate_discount_input(
+    discount_type: str | None,
+    discount_value: float | None,
+    discount_reason: str | None,
+) -> dict[str, Any] | None:
+    """Chuẩn hoá tham số giảm giá từ client. Thuần. ``None`` = không giảm.
+
+    Rác (NaN, ∞, âm, loại lạ, thiếu lý do) → ValidationError, không bao giờ 500.
+    """
+    if discount_type is None and discount_value is None:
+        return None
+    if discount_type is None or discount_value is None:
+        raise ValidationError("Loại giảm giá và giá trị giảm phải đi đôi.")
+    if discount_type not in ("AMOUNT", "PERCENT"):
+        raise ValidationError("Loại giảm giá phải là số tiền hoặc phần trăm.")
+    if isinstance(discount_value, bool) or not math.isfinite(discount_value):
+        raise ValidationError("Giá trị giảm phải là một số hữu hạn.")
+    val = Decimal(str(discount_value))
+    if val <= 0:
+        raise ValidationError("Giá trị giảm phải lớn hơn 0.")
+    if discount_type == "PERCENT" and val > 100:
+        raise ValidationError("Phần trăm giảm phải từ 0 đến 100.")
+    reason = (discount_reason or "").strip()
+    if not reason:
+        raise ValidationError("Phải ghi lý do giảm giá.")
+    if len(reason) > LY_DO_GIAM_TOI_DA:
+        raise ValidationError(f"Lý do giảm giá tối đa {LY_DO_GIAM_TOI_DA} ký tự.")
+    return {"type": discount_type, "value": val, "reason": reason}
+
+
+def _ap_giam(hoa_don: HoaDon, giam: dict[str, Any] | None) -> tuple[int, int, int]:
+    """``(tổng_gốc, tiền_giảm, phải_thu)``. Thuần."""
+    if giam is None:
+        return hoa_don.tong, 0, hoa_don.tong
+    return ap_giam_gia(hoa_don, giam["type"], giam["value"])
+
+
+async def _chan_giam_khi_ghi_no(
+    conn: asyncpg.Connection, clinic_id: str, visit_id: str
+) -> None:
+    """Lượt đang GHI NỢ không giảm giá được: số nợ đã chốt theo hoá đơn gốc,
+    giảm xen vào làm sổ nợ và hoá đơn lệch. Đường đúng: huỷ ghi nợ → giảm →
+    ghi nợ lại (Tuyền chốt 09/10/2026)."""
+    dang_no = await conn.fetchval(
+        "SELECT 1 FROM public.cong_no WHERE clinic_id = $1::uuid"
+        " AND visit_id = $2::uuid AND trang_thai = 'CHUA_THU' LIMIT 1",
+        clinic_id,
+        visit_id,
+    )
+    if dang_no:
+        raise ValidationError(
+            "Lượt này đang ghi nợ — huỷ ghi nợ, giảm giá, rồi ghi nợ lại."
+        )
 
 
 #: Hoàn tác lần thu không bắt gõ lý do (Tuyền 01/10/2026: mở cho người đứng
@@ -298,6 +360,9 @@ class PaymentService:
         chon: Mapping[str, Any] | None = None,
         phan: object = None,
         quay: str | None = None,
+        discount_type: str | None = None,
+        discount_value: float | None = None,
+        discount_reason: str | None = None,
     ) -> dict[str, Any]:
         """Một LẦN THU (payment_cycle) cho ``(visit_id, kind)``.
 
@@ -351,6 +416,11 @@ class PaymentService:
             if so_trinh_duyet is None:
                 raise ValidationError("Số tiền phải là số hữu hạn lớn hơn 0")
 
+        # Validate discount params early (trước giao dịch)
+        giam_input = _validate_discount_input(
+            discount_type, discount_value, discount_reason
+        )
+
         if kind == "dich_vu":
             return await self._thu_dich_vu(
                 visit_id=visit_id,
@@ -362,6 +432,7 @@ class PaymentService:
                 idempotency_key=idempotency_key,
                 chon=chon,
                 phan=ds_phan,
+                giam=giam_input,
             )
         if chon is not None:
             raise ValidationError("Lựa chọn dịch vụ chỉ đi kèm lần thu tiền dịch vụ.")
@@ -475,19 +546,26 @@ class PaymentService:
                     raise ValidationError(
                         "Chưa thu được — " + "; ".join(hoa_don.van_de)
                     )
-                if hoa_don.tong <= 0:
+                # ── Giảm giá (13/10/2026) ────────────────────────────────
+                if giam_input:
+                    await _chan_giam_khi_ghi_no(conn, identity.clinic_id, visit_id)
+                original_amount, discount_amount, normalized = _ap_giam(
+                    hoa_don, giam_input
+                )
+                if original_amount <= 0:
+                    # Hoá đơn rỗng / toàn dòng 0đ: không có gì để thu (và cũng
+                    # không có gì để giảm — `_ap_giam` đã từ chối giảm ở trên).
                     raise ValidationError("Lượt này không có khoản nào để thu.")
                 if bill_revision is not None and bill_revision != hoa_don.revision:
                     raise BillChangedError(
                         "Hoá đơn vừa thay đổi (chỉ định, số lượng hoặc giá) — "
                         "tải lại rồi thu theo hoá đơn mới."
                     )
-                if so_trinh_duyet is not None and so_trinh_duyet != hoa_don.tong:
+                if so_trinh_duyet is not None and so_trinh_duyet != original_amount:
                     raise BillChangedError(
                         f"Số tiền {so_trinh_duyet:,}đ khác hoá đơn máy chủ "
-                        f"{hoa_don.tong:,}đ — tải lại rồi thu theo hoá đơn mới."
+                        f"{original_amount:,}đ — tải lại rồi thu theo hoá đơn mới."
                     )
-                normalized = hoa_don.tong
                 if kind == "thuoc" and dung_kho_thuoc_khi_thanh_toan():
                     # CP3: thuốc chỉ thu được khi mọi dòng đã có đủ lô, lô còn
                     # hạn và còn khả dụng — thu xong là bán.
@@ -514,20 +592,29 @@ class PaymentService:
                             "Chưa thu được tiền thuốc — " + "; ".join(van_de)
                         )
 
-                phan_ghi = ap_phan(ds_phan, method, normalized)
+                # Giảm hết (0đ): ghi PAID ngay, không có tiền thật đi qua nên
+                # KHÔNG chia hình thức (bảng chia ép so_tien > 0) và không chờ
+                # xác minh chuyển khoản.
+                mien_phi = normalized == 0
+                if mien_phi:
+                    method = "CASH"
+                phan_ghi = [] if mien_phi else ap_phan(ds_phan, method, normalized)
                 cycle_id = str(uuid.uuid4())
-                dien_tu = method in DIEN_TU
+                dien_tu = method in DIEN_TU and not mien_phi
                 await conn.execute(
                     """
                     INSERT INTO payment_cycle (
                         payment_cycle_id, clinic_id, visit_id, kind, amount,
                         bill_revision, method, status, created_by,
-                        paid_at, confirmed_by
+                        paid_at, confirmed_by,
+                        discount_type, discount_value, discount_amount,
+                        discount_reason, discount_by, original_amount
                     )
                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8,
                             $9::uuid,
                             CASE WHEN $8 = 'PAID' THEN now() END,
-                            CASE WHEN $8 = 'PAID' THEN $9::uuid END)
+                            CASE WHEN $8 = 'PAID' THEN $9::uuid END,
+                            $10, $11, $12, $13, $14::uuid, $15)
                     """,
                     cycle_id,
                     identity.clinic_id,
@@ -538,6 +625,12 @@ class PaymentService:
                     method,
                     CHO_XAC_MINH if dien_tu else "PAID",
                     identity.staff_id,
+                    giam_input["type"] if giam_input else None,
+                    giam_input["value"] if giam_input else None,
+                    discount_amount,
+                    giam_input["reason"] if giam_input else None,
+                    identity.staff_id if giam_input else None,
+                    original_amount if giam_input else None,
                 )
                 await _ghi_phan(conn, identity.clinic_id, cycle_id, phan_ghi)
                 payment_id: str | None = None
@@ -553,6 +646,7 @@ class PaymentService:
                         identity=identity,
                         method=method,
                         reference=None,
+                        mien_phi=mien_phi,
                     )
                 await _ghi_anh_hoa_don(
                     conn,
@@ -560,6 +654,7 @@ class PaymentService:
                     payment_id=payment_id,
                     payment_cycle_id=cycle_id,
                     hoa_don=hoa_don,
+                    discount_amount=discount_amount,
                 )
                 if kind == "thuoc" and payment_id is not None:
                     # Tiền mặt: đã nhận VÀ ảnh chụp hoá đơn đã ghi → so bản
@@ -620,6 +715,7 @@ class PaymentService:
         idempotency_key: str | None,
         chon: Mapping[str, Any] | None = None,
         phan: Sequence[PhanThu] | None = None,
+        giam: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Một lần thu TIỀN DỊCH VỤ theo OUTSTANDING BILL (Lifecycle v1 Slice 3).
 
@@ -650,6 +746,13 @@ class PaymentService:
         if phan:
             # Chỉ thêm khi có: lần thu một hình thức giữ nguyên dấu băm cũ.
             payload["phan"] = [p.ra_dict() for p in phan]
+        if giam:
+            # Idempotency payload bao gồm lựa chọn giảm giá (review 13/10).
+            payload["discount"] = {
+                "type": giam["type"],
+                "value": str(giam["value"]),
+                "reason": giam["reason"],
+            }
         lua_chon = None
         if chon is not None:
             # Kiểm hình dạng TRƯỚC khi mở giao dịch — cùng luật lệnh xác nhận.
@@ -692,6 +795,7 @@ class PaymentService:
                         so_trinh_duyet=so_trinh_duyet,
                         chi_chot_khi_rong=kq_chon is not None,
                         phan=phan,
+                        giam=giam,
                     )
                     if kq_chon is not None:
                         kq["chon"] = kq_chon
@@ -732,6 +836,7 @@ class PaymentService:
         so_trinh_duyet: int | None,
         chi_chot_khi_rong: bool = False,
         phan: Sequence[PhanThu] | None = None,
+        giam: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         cho = await conn.fetchrow(
             """
@@ -786,10 +891,12 @@ class PaymentService:
                 )
             await ghi_chot_0d(conn, identity, visit_id, hoa_don)
             return {"payment_cycle_id": None, "status": KHONG_CON_KHOAN}
-        if hoa_don.tong <= 0:
+        # ── Giảm giá dịch vụ (13/10/2026) ──────────────────────────────
+        if giam:
+            await _chan_giam_khi_ghi_no(conn, identity.clinic_id, visit_id)
+        original_amount, discount_amount, amount_after = _ap_giam(hoa_don, giam)
+        if original_amount <= 0:
             if hoa_don.chi_doi_tac_thu:
-                # Đối tác tự thu (27/09/2026): không phải lỗi của quầy — nói
-                # đúng việc, không để lễ tân tưởng hệ thống kẹt.
                 raise ValidationError(
                     "Phòng khám không còn khoản nào — dịch vụ còn lại khách trả"
                     " trực tiếp cho đối tác."
@@ -800,33 +907,45 @@ class PaymentService:
                 "Hoá đơn vừa thay đổi (chỉ định, lựa chọn của khách hoặc giá) — "
                 "tải lại rồi thu theo hoá đơn mới."
             )
-        if so_trinh_duyet is not None and so_trinh_duyet != hoa_don.tong:
+        if so_trinh_duyet is not None and so_trinh_duyet != original_amount:
             raise BillChangedError(
                 f"Số tiền {so_trinh_duyet:,}đ khác hoá đơn máy chủ "
-                f"{hoa_don.tong:,}đ — tải lại rồi thu theo hoá đơn mới."
+                f"{original_amount:,}đ — tải lại rồi thu theo hoá đơn mới."
             )
-        phan_ghi = ap_phan(phan, method, hoa_don.tong)
+        mien_phi = amount_after == 0
+        if mien_phi:
+            method = "CASH"
+        phan_ghi = [] if mien_phi else ap_phan(phan, method, amount_after)
         cycle_id = str(uuid.uuid4())
-        dien_tu = method in DIEN_TU
+        dien_tu = method in DIEN_TU and not mien_phi
         await conn.execute(
             """
             INSERT INTO payment_cycle (
                 payment_cycle_id, clinic_id, visit_id, kind, amount,
-                bill_revision, method, status, created_by, paid_at, confirmed_by
+                bill_revision, method, status, created_by, paid_at, confirmed_by,
+                discount_type, discount_value, discount_amount,
+                discount_reason, discount_by, original_amount
             )
             VALUES ($1::uuid, $2::uuid, $3::uuid, 'dich_vu', $4, $5, $6, $7,
                     $8::uuid,
                     CASE WHEN $7 = 'PAID' THEN now() END,
-                    CASE WHEN $7 = 'PAID' THEN $8::uuid END)
+                    CASE WHEN $7 = 'PAID' THEN $8::uuid END,
+                    $9, $10, $11, $12, $13::uuid, $14)
             """,
             cycle_id,
             identity.clinic_id,
             visit_id,
-            hoa_don.tong,
+            amount_after,
             hoa_don.revision,
             method,
             CHO_XAC_MINH if dien_tu else "PAID",
             identity.staff_id,
+            giam["type"] if giam else None,
+            giam["value"] if giam else None,
+            discount_amount,
+            giam["reason"] if giam else None,
+            identity.staff_id if giam else None,
+            original_amount if giam else None,
         )
         await _ghi_phan(conn, identity.clinic_id, cycle_id, phan_ghi)
         payment_id: str | None = None
@@ -836,12 +955,13 @@ class PaymentService:
                 cycle_id=cycle_id,
                 visit_id=visit_id,
                 kind="dich_vu",
-                amount=hoa_don.tong,
+                amount=amount_after,
                 bill_revision=hoa_don.revision,
                 patient_id=patient_id,
                 identity=identity,
                 method=method,
                 reference=None,
+                mien_phi=mien_phi,
             )
         await _ghi_anh_hoa_don(
             conn,
@@ -849,13 +969,14 @@ class PaymentService:
             payment_id=payment_id,
             payment_cycle_id=cycle_id,
             hoa_don=hoa_don,
+            discount_amount=discount_amount,
         )
         if not dien_tu:
             await _phat_da_thu_dich_vu(
                 conn,
                 cycle_id=cycle_id,
                 visit_id=visit_id,
-                amount=hoa_don.tong,
+                amount=amount_after,
                 method=method,
                 identity=identity,
             )
@@ -867,7 +988,7 @@ class PaymentService:
                 payment_cycle_id=cycle_id,
                 visit_id=visit_id,
                 kind="dich_vu",
-                amount=hoa_don.tong,
+                amount=amount_after,
                 identity=identity,
                 method=method,
             )
@@ -1849,6 +1970,7 @@ async def _ghi_da_thu(
     identity: StaffIdentity,
     method: str | None,
     reference: str | None,
+    mien_phi: bool = False,
 ) -> str:
     """Hình chiếu "khoản hiện đã thu" (`payment`) + POS outbox + sự kiện.
 
@@ -1906,21 +2028,23 @@ async def _ghi_da_thu(
     # Transactional outbox (ADR-0010): queued with the payment, so the push
     # cannot be lost, and pushed later, so an external POS being down cannot
     # fail the cashier. No adapter is imported here — this is an INSERT.
-    await pos_outbox.enqueue(
-        conn,
-        kind=pos_outbox.INVOICE,
-        subject_id=cycle_id,
-        payload={
-            "clinic_reference": cycle_id,
-            "payment_id": payment_id,
-            "kind": kind,
-            "total_amount": amount,
-            "paid_at": datetime.now(timezone.utc),
-            "patient_reference": patient_id,
-            "visit_id": visit_id,
-        },
-        clinic_id=identity.clinic_id,
-    )
+    # 0đ miễn phí (13/10/2026): KHÔNG gửi POS invoice — không có tiền thật.
+    if not mien_phi:
+        await pos_outbox.enqueue(
+            conn,
+            kind=pos_outbox.INVOICE,
+            subject_id=cycle_id,
+            payload={
+                "clinic_reference": cycle_id,
+                "payment_id": payment_id,
+                "kind": kind,
+                "total_amount": amount,
+                "paid_at": datetime.now(timezone.utc),
+                "patient_reference": patient_id,
+                "visit_id": visit_id,
+            },
+            clinic_id=identity.clinic_id,
+        )
     # Sự kiện CHUẨN khi tiền thật sự đã nhận (CHECKPOINT §6): tiền mặt thu
     # xong, hoặc chuyển khoản/QR xác minh xong. Trước 22/09/2026 tên là
     # "payment.recorded" — lịch sử cũ giữ nguyên, không viết lại.
@@ -2029,17 +2153,20 @@ async def _ghi_anh_hoa_don(
     payment_id: str | None,
     payment_cycle_id: str,
     hoa_don: HoaDon,
+    discount_amount: int = 0,
 ) -> None:
     """Ảnh chụp từng dòng hoá đơn của LẦN THU này (C4) — chỉ thêm, bất biến."""
+    phan_giam = phan_bo_giam(hoa_don.dong, discount_amount)
     await conn.executemany(
         """
         INSERT INTO public.payment_bill_line (
             clinic_id, payment_id, payment_cycle_id, visit_id, kind,
             source_type, source_id, name_snapshot, quantity, unit,
-            unit_price, line_total, billing_owner, drug_catalog_id
+            unit_price, line_total, billing_owner, drug_catalog_id,
+            discount_allocated
         )
         VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10,
-                $11, $12, $13, $14::uuid)
+                $11, $12, $13, $14::uuid, $15)
         """,
         [
             (
@@ -2055,11 +2182,13 @@ async def _ghi_anh_hoa_don(
                 d.don_vi,
                 # Chưa biết giá là NULL, không phải 0đ (review CP1 #5).
                 d.don_gia,
-                d.thanh_tien,
+                # SAU giảm: mọi chỗ cộng line_total làm "đã thu" tự đúng.
+                (d.thanh_tien - phan_giam[i]) if d.thanh_tien is not None else None,
                 d.ben_thu,
                 d.drug_catalog_id,
+                phan_giam[i],
             )
-            for d in hoa_don.dong
+            for i, d in enumerate(hoa_don.dong)
         ],
     )
 

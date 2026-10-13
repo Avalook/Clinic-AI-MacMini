@@ -101,6 +101,8 @@ docker/rabbitmq/mnesia/
 # Allow seed CSVs that ship with the repo (clinic master data)
 !src/migrations/seed/**/*.csv
 !src/migrations/seed/**/*.xlsx
+# Tệp mẫu hoá đơn GTGT kế toán gửi — xuất hoá đơn đổ dữ liệu vào chính nó.
+!src/clinicai/services/mau/*.xlsx
 
 # Next.js dashboard (P7a)
 src/dashboard/node_modules/

@@ -75,9 +75,16 @@ async def test_buoi_du_dang_o_tiep_theo_gio_tung_buoc_va_check_out(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
     ca = await _dung(pool)
+    # Chỉ node seed gắn được vào giá (CHECK service_price_node_code_known):
+    # bài khác chèn node lạ `XN_NGOAI_TEST` vào DB chung, LIMIT 1 vớ phải nó
+    # thì đỏ theo thứ tự chạy.
     ngoai = await pool.fetchval(
+        # Chỉ node có mã hợp lệ cho service_price (DICHVU-/KHAM-): test khác
+        # (xác nhận tệp kết quả) tạo node ngoài tên XN_NGOAI_TEST trong cùng DB
+        # — LIMIT 1 trần có lúc trúng nó (đỏ chập chờn theo thứ tự worker).
         "SELECT code FROM node_definition WHERE clinic_id = $1::uuid"
-        " AND lam_ben_ngoai LIMIT 1",
+        " AND lam_ben_ngoai AND code ~ '^(DICHVU|KHAM)-[A-Z0-9-]+$'"
+        " ORDER BY code LIMIT 1",
         CLINIC,
     )
     assert ngoai, "seed cần một node làm bên ngoài"

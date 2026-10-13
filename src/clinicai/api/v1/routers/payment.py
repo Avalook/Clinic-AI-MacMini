@@ -85,6 +85,10 @@ class PaymentRecordRequest(BaseModel):
     # Chia lần thu theo hình thức (Tiền mặt + Chuyển khoản) — 01/10/2026.
     phan: list[PhanThuRequest] | None = Field(default=None, max_length=5)
     quay: QuayThu | None = None
+    # Giảm giá (13/10/2026): loại + giá trị + lý do (bắt buộc).
+    discount_type: Literal["AMOUNT", "PERCENT"] | None = None
+    discount_value: float | None = None
+    discount_reason: str | None = Field(default=None, max_length=500)
 
 
 class PaymentVoidRequest(BaseModel):
@@ -135,6 +139,9 @@ async def record_payment(
             chon=body.chon.model_dump() if body.chon is not None else None,
             phan=_phan(body),
             quay=body.quay,
+            discount_type=body.discount_type,
+            discount_value=body.discount_value,
+            discount_reason=body.discount_reason,
         )
         return {"ok": True, **lan_thu}
     if body.chon is not None:
@@ -159,6 +166,9 @@ async def record_payment(
             identity=identity,
             phan=_phan(body),
             quay=body.quay,
+            discount_type=body.discount_type,
+            discount_value=body.discount_value,
+            discount_reason=body.discount_reason,
         )
         result = {"ok": True, **lan_thu}
         await idem.save(pool, result, status_code=200)

@@ -32,6 +32,7 @@ import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "../_lam-viec/ChonB
 import OLamTruocThuSau, { type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
 import type { PhanGui } from "@/lib/hinh-thuc-thu";
 import ChiaHinhThuc, { type KetQuaChia } from "./ChiaHinhThuc";
+import GiamGia, { type GiamGiaResult, type GiamGiaParams } from "./GiamGia";
 
 export interface PhongChon {
   id: string;
@@ -85,6 +86,8 @@ export interface DongQuay {
 
 export interface QuayThu {
   tong: number;
+  /** Phần được phép giảm giá (máy chủ báo; trừ liệu trình trả trước). */
+  giam_duoc?: number;
   revision: string | null;
   thu_duoc: boolean;
   van_de: string[];
@@ -124,6 +127,9 @@ export interface LenhThuMot {
     | undefined;
   khoa: string;
   tong: number;
+  /** Giảm giá (13/10/2026): tham số gửi máy chủ + số phải thu xem trước. */
+  discount?: GiamGiaParams;
+  tongSauGiam?: number;
 }
 
 function tien(n: number): string {
@@ -165,6 +171,7 @@ export default function HoaDonMot({
   );
   const [chon, setChon] = useState<Set<string>>(macDinh);
   const [chia, setChia] = useState<KetQuaChia | null>(null);
+  const [giamGia, setGiamGia] = useState<GiamGiaResult | null>(null);
   const pt: PhuongThuc = chia?.coChuyenKhoan ? "TRANSFER" : "CASH";
   const [loiPhong, setLoiPhong] = useState<string | null>(null);
   const orderIdsCoTheDoi = new Set(qt.lua_chon.order_ids_seen);
@@ -173,9 +180,13 @@ export default function HoaDonMot({
   const doi = [...macDinh].some((id) => !chon.has(id)) || [...chon].some((id) => !macDinh.has(id));
   const tong = doi ? tongTheoLuaChon(qt.phong_kham, chon, orderIdsCoTheDoi) : qt.tong;
   const thieuGia = qt.phong_kham.some((d) => dangChon(d) && d.gia == null);
-  const chiChot = tong === 0;
+  const tongSauGiam = giamGia ? giamGia.tongSauGiam : tong;
+  const chiChot = tongSauGiam === 0 && !giamGia?.params;
+  const mienPhi = tongSauGiam === 0 && !!giamGia?.params;
   const chanThu =
-    thieuGia || (!doi && !qt.thu_duoc && !chiChot) || (!chiChot && !chia?.hopLe);
+    thieuGia || (!doi && !qt.thu_duoc && !chiChot && !mienPhi)
+    || (!chiChot && !mienPhi && !chia?.hopLe)
+    || (giamGia?.loi != null);
 
   const doiTick = (id: string) =>
     setChon((c) => {
@@ -232,9 +243,9 @@ export default function HoaDonMot({
     onThu({
       amount: chiChot ? undefined : tong,
       billRevision: doi ? undefined : (qt.revision ?? undefined),
-      method: pt,
-      phan: chiChot ? undefined : chia?.phan,
-      anh: chiChot ? null : (chia?.anh ?? null),
+      method: mienPhi ? "CASH" : pt,
+      phan: chiChot || mienPhi ? undefined : chia?.phan,
+      anh: chiChot || mienPhi ? null : (chia?.anh ?? null),
       chon: seen.length
         ? { order_ids_seen: seen, selected_order_ids: selected, expected_selection_revision: qt.lua_chon.revision }
         : undefined,
@@ -243,10 +254,13 @@ export default function HoaDonMot({
         qt.revision,
         String(qt.lua_chon.revision),
         selected.join(","),
-        JSON.stringify(chiChot ? null : chia?.phan),
+        JSON.stringify(chiChot || mienPhi ? null : chia?.phan),
         String(tong),
+        giamGia?.params ? `${giamGia.params.discount_type}:${giamGia.params.discount_value}` : "",
       ].join("|"),
       tong,
+      discount: giamGia?.params ?? undefined,
+      tongSauGiam: giamGia?.params ? giamGia.tongSauGiam : undefined,
     });
   };
 
@@ -342,15 +356,33 @@ export default function HoaDonMot({
         </div>
       ) : null}
 
-      {!chiChot ? (
+      {/* Giảm giá (13/10/2026) */}
+      {tong > 0 ? (
         <div className="border-t border-line pt-3">
-          <ChiaHinhThuc tong={tong} onDoi={setChia} />
+          <GiamGia tong={tong} giamDuoc={qt.giam_duoc} onDoi={setGiamGia} />
+        </div>
+      ) : null}
+
+      {giamGia?.loi ? (
+        <p role="alert" className="text-meta text-danger">{giamGia.loi}</p>
+      ) : null}
+
+      {!chiChot && !mienPhi ? (
+        <div className="border-t border-line pt-3">
+          <ChiaHinhThuc tong={tongSauGiam} onDoi={setChia} />
         </div>
       ) : null}
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-line pt-3">
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <span className="text-emph font-semibold tabular-nums text-ink">{tien(tong)}</span>
-          {onChotThuSau && conQuyet && !chiChot && lamTruoc?.chot_thu_sau_duoc ? (
+          {giamGia?.params ? (
+            <span className="text-meta text-ink-muted">
+              {tien(tong)} − {tien(giamGia.tienGiam)} ={" "}
+            </span>
+          ) : null}
+          <span className="text-emph font-semibold tabular-nums text-ink">
+            {mienPhi ? "Miễn phí" : tien(tongSauGiam)}
+          </span>
+          {onChotThuSau && conQuyet && !chiChot && !mienPhi && lamTruoc?.chot_thu_sau_duoc ? (
             <Button
               variant="secondary"
               size="lg"
@@ -370,9 +402,11 @@ export default function HoaDonMot({
               ? "Đang ghi…"
               : chiChot
                 ? "Chốt dịch vụ"
-                : chia?.coChuyenKhoan
-                  ? "Thu · chờ xác minh CK"
-                  : "Thu"}
+                : mienPhi
+                  ? "Ghi nhận miễn phí"
+                  : chia?.coChuyenKhoan
+                    ? "Tạo bill · chờ xác minh CK"
+                    : "Tạo bill"}
           </Button>
         </div>
       </div>

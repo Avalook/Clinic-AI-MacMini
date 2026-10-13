@@ -351,6 +351,7 @@ MODULE: dict[str, Module] = {
                 "vitals.started",
                 "vitals.recorded",
                 "prescription.saved",
+                "prescription.consultant_marked",
                 "medicine.counter_changed",
                 "medicine.declined",
                 "service_selection.confirmed",
@@ -544,6 +545,7 @@ MODULE: dict[str, Module] = {
                 "consultation.reopened",
                 "followup.scheduled",
                 "prescription.saved",
+                "prescription.consultant_marked",
             ],
             quyen=[
                 "clinical.intake.perform",

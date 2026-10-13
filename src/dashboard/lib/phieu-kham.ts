@@ -712,6 +712,32 @@ export interface DongDonMayChu {
   so_luong_do_thu_ngan?: boolean;
   /** C19: số bác sĩ kê gốc khi quầy đã sửa. */
   so_luong_ke_goc?: string | null;
+  /** Người ghi dòng này (13/10/2026) + họ có phải bác sĩ — phiếu in chọn chân ký. */
+  nguoi_ke?: string | null;
+  nguoi_ke_la_bac_si?: boolean;
+}
+
+/** Ai kê đơn của lượt, theo ĐÚNG người ghi từng dòng (13/10/2026): bác sĩ chính
+ *  điền dở, bác sĩ tư vấn điền tiếp → in cả hai tên. Người không phải bác sĩ
+ *  (TKYK/ĐD nhập hộ) là "người nhập", không đứng tên kê. `nguoiKy` = bác sĩ ghi
+ *  dòng MỚI NHẤT — chân ký khi in đơn riêng ở bàn tư vấn. */
+export function nguoiKeDon(dong: DongDonMayChu[]): {
+  bacSi: string[];
+  nguoiNhap: string[];
+  nguoiKy: string | null;
+} {
+  const bacSi: string[] = [];
+  const nguoiNhap: string[] = [];
+  let nguoiKy: string | null = null;
+  for (const d of dong) {
+    const ten = (d.nguoi_ke ?? "").trim();
+    if (!ten) continue;
+    if (d.nguoi_ke_la_bac_si) {
+      if (!bacSi.includes(ten)) bacSi.push(ten);
+      nguoiKy = ten;
+    } else if (!nguoiNhap.includes(ten)) nguoiNhap.push(ten);
+  }
+  return { bacSi, nguoiNhap, nguoiKy };
 }
 
 const NOI = " — ";

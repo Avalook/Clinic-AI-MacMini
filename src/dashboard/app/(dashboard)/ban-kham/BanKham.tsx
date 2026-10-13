@@ -65,6 +65,7 @@ import { TomTatLuotContext } from "../_lam-viec/phieu-kham/TomTatLuot";
 import XemLuot from "../_lam-viec/XemLuot";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
 import type { DatChiDinh } from "@/lib/phieu-kham";
+import BanDienDonThuoc from "./BanDienDonThuoc";
 import BanTuVan from "./BanTuVan";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -241,6 +242,9 @@ export default function BanKham({
   const router = useRouter();
   const [phongs, setPhongs] = useState<PhongHomNay | null>(null);
   const [hang, setHang] = useState<DongHangCho[] | null>(null);
+  // Bàn tư vấn (13/10/2026): khách đã khám xong bác sĩ chính, không có dòng tư
+  // vấn — ra đây để điền đơn thuốc. Mỗi khách MỘT dòng (dòng xong muộn nhất).
+  const [hangDon, setHangDon] = useState<DongHangCho[]>([]);
   const [bang, setBang] = useState<Bang | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -288,6 +292,15 @@ export default function BanKham({
       else {
         setLoi(null);
         setHang(h.data.hang_cho.filter((d) => d.loai === (tuVan ? "TU_VAN" : "KHAM")));
+        const donCuoi: Record<string, DongHangCho> = {};
+        if (tuVan) {
+          for (const d of h.data.hang_cho) {
+            if (d.loai !== "KHAM" || d.trang_thai !== "done") continue;
+            const cu = donCuoi[d.visit_id];
+            if (!cu || (d.xong_luc ?? "") > (cu.xong_luc ?? "")) donCuoi[d.visit_id] = d;
+          }
+        }
+        setHangDon(Object.values(donCuoi));
         setSapToi(tuVan ? [] : (h.data.sap_toi ?? []));
       }
       if (b.ok) setBang(b.data);
@@ -321,9 +334,18 @@ export default function BanKham({
       ),
     );
   }, [hang, query]);
+  const donHienRa = useMemo(() => {
+    const kim = query.trim().toLocaleLowerCase("vi");
+    if (!kim) return hangDon;
+    return hangDon.filter((d) =>
+      [d.ten, d.ma_bn, String(d.so_thu_tu)].some((v) => v?.toLocaleLowerCase("vi").includes(kim)),
+    );
+  }, [hangDon, query]);
+  const donChuaXong = donHienRa.filter((d) => !d.ke_don_tu_van_xong);
+  const donDaXong = donHienRa.filter((d) => d.ke_don_tu_van_xong);
   // Chip liệu trình (08/10/2026): một lần gọi cho cả hàng chờ — chỉ thêm chữ
   // cạnh khách, không đổi nhóm / đếm / thứ tự.
-  const chipLt = useChipLieuTrinh((hang ?? []).map((d) => d.visit_id));
+  const chipLt = useChipLieuTrinh([...(hang ?? []), ...hangDon].map((d) => d.visit_id));
 
   const dangKham = hienRa.filter((d) => d.trang_thai === "serving");
   const dangCho = hienRa.filter(
@@ -364,7 +386,7 @@ export default function BanKham({
   const choKy = daXong.filter((d) => !d.da_ky);
   const daKy = daXong.filter((d) => d.da_ky);
   const macDinh = dangKham[0] ?? canDoc[0] ?? choKham[0] ?? buocKhac[0] ?? null;
-  const chon = hienRa.find((d) => d.id === chonId) ?? macDinh;
+  const chon = hienRa.find((d) => d.id === chonId) ?? donHienRa.find((d) => d.id === chonId) ?? macDinh;
   // GHIM KHÁCH ĐANG HIỆN (Tuyền 02/10/2026, cùng luật phòng dịch vụ): Khám xong
   // thì khách sang "Đã khám xong" ở cột trái nhưng vùng làm việc VẪN là khách
   // ấy — sửa / in tiếp được ngay. Sang người mới = bấm dòng ở cột trái.
@@ -544,6 +566,8 @@ export default function BanKham({
                 <>
                   <Nhom ten="Đang tư vấn" chinh chuDang="đang tư vấn" ds={dangKham} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Chưa có ai đang tư vấn." />
                   <Nhom ten="Chờ tư vấn" chinh ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Không có khách đang chờ." batDau={nutBatDau} />
+                  <Nhom ten="Đã khám xong — điền đơn thuốc" ghiChu="bác sĩ chính chỉ định" ds={donChuaXong} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Chưa có khách khám xong." />
+                  <Nhom key={`don-${ngay}`} ten="Đã xong kê đơn thuốc" gap ds={donDaXong} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
                   <Nhom ten="Chưa đo sinh hiệu" ghiChu="vẫn nhận được" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
                   <Nhom key={`xong-${ngay}`} ten={`Đã chuyển bác sĩ chính ${nhanNgay}`} gap={laHomNay} ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
                   <Nhom ten="Khách đã về (chưa xong)" ds={daVe} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
@@ -988,7 +1012,9 @@ function HoSo({
   // BÀN TƯ VẤN theo bản giao diện mẫu (27/09/2026, mục 8): thẻ khách + sinh hiệu
   // dùng chung với phiếu bác sĩ chính, [Xong tư vấn] ở thanh dính đáy.
   const laTuVanMoi = TU_VAN_O_TU_DO && dong.loai === "TU_VAN" && !dangXem;
-  const gon = laPhieuMoi || laTuVanMoi;
+  // Khách đã khám xong ra bàn tư vấn chỉ để điền đơn thuốc (13/10/2026).
+  const laDienDon = tuVan && dong.loai === "KHAM" && !dangXem;
+  const gon = laPhieuMoi || laTuVanMoi || laDienDon;
   const nutHoanTat =
     choBam && dong.trang_thai === "serving" ? (
       <div className="flex flex-col gap-2">
@@ -1266,6 +1292,17 @@ function HoSo({
               />
             )}
           </div>
+        ) : laDienDon ? (
+          <BanDienDonThuoc
+            key={dong.visit_id}
+            visitId={dong.visit_id}
+            clinicPatientId={dong.clinic_patient_id}
+            choGhi={choBam}
+            daXong={dong.ke_don_tu_van_xong === true}
+            onTrangThai={baoGate}
+            datChiDinh={datChiDinh}
+            onDaDat={onDaBam}
+          />
         ) : laTuVanMoi ? (
           // Ô chữ tư vấn + mục B của CHÍNH phiếu khám lượt (Tuyền 24/09: "cho cả 2
           // bác sĩ đều thêm sửa xoá được, hồ sơ là open") sau công tắc "Thông tin

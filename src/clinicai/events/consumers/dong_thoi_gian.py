@@ -36,7 +36,8 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service_order.desk_added": ["service_code", "service_name", "nguon"],
     "service_order.desk_removed": ["service_code", "nguon"],
     # Số dòng đơn — không tên thuốc (tên thuốc nói ra bệnh).
-    "prescription.saved": ["so_dong"],
+    "prescription.saved": ["so_dong", "ke_tai_tu_van"],
+    "prescription.consultant_marked": ["xong"],
     "medicine.counter_changed": ["hanh_dong", "so_luong", "so_luong_cu"],
     "medicine.declined": ["so_ke", "so_mua"],
     # Số ô còn trống là thông tin vận hành, không phải chữ lâm sàng.
@@ -177,6 +178,8 @@ def _nhan_rieng(event_type: str, payload: dict[str, Any]) -> str | None:
         if cu is None:
             return f"Quầy thu thuốc điền số lượng thuốc (bác sĩ để trống): {moi}"
         return f"Quầy thu thuốc sửa số lượng thuốc đã điền: {cu} → {moi}"
+    if event_type == "prescription.consultant_marked" and payload.get("xong") is False:
+        return "Bác sĩ tư vấn mở lại kê đơn thuốc"
     if event_type == "service.routed" and payload.get("nguon") == "tai_phong":
         # Phòng tự bấm Nhận (07/10/2026) — không phải "Đã xếp phòng".
         return NHAN_NHAN_VAO_PHONG

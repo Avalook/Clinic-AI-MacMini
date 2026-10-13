@@ -328,6 +328,30 @@ def gom_bao_cao(
 
     ds_hoan_huy.sort(key=lambda s: s["luc"] or "")
     _chot(tong)
+    giam_ds = [
+        {
+            "id": c.get("id"),
+            "visit_id": c.get("visit_id"),
+            "luc": _iso(c.get("paid_at")),
+            "kind": c.get("kind"),
+            "khach": c.get("ten_khach"),
+            "ma_bn": c.get("ma_bn"),
+            "nguoi_thu": c.get("nguoi_thu"),
+            "tong_goc": _tien(c.get("original_amount")),
+            "giam": _tien(c.get("discount_amount")),
+            "thu_that": _tien(c.get("amount")),
+            "loai": c.get("discount_type"),
+            "gia_tri": (
+                float(c["discount_value"])
+                if c.get("discount_value") is not None
+                else None
+            ),
+            "ly_do": c.get("discount_reason"),
+            "nguoi_giam": c.get("nguoi_giam"),
+        }
+        for c in lan_thu
+        if c.get("status") == "PAID" and _tien(c.get("discount_amount")) > 0
+    ]
     return {
         "tu": tu.isoformat(),
         "den": den.isoformat(),
@@ -345,6 +369,35 @@ def gom_bao_cao(
             key=lambda n: (-n["thuc_thu"], n["ten"]),
         ),
         "hoan_huy": ds_hoan_huy,
+        # Giảm giá (13/10/2026): chỉ lần thu còn hiệu lực. `thuc_thu` ở "tong" đã là
+        # số thật sau giảm — khối này chỉ để thấy giảm bao nhiêu, vì sao, ai giảm.
+        "giam_gia": {
+            "so_phieu": len(giam_ds),
+            "tong_goc": sum(g["tong_goc"] for g in giam_ds),
+            "giam": sum(g["giam"] for g in giam_ds),
+            "dong": giam_ds,
+        },
+        # Audit metadata only: amount and financial totals remain after discount.
+        "chi_tiet_giam_gia": [
+            {
+                "id": str(c.get("id")),
+                "luc": _iso(c.get("paid_at")),
+                "khach": c.get("ten_khach"),
+                "ma_bn": c.get("ma_bn"),
+                "trang_thai": c.get("status"),
+                "truoc_giam": _tien(c["original_amount"])
+                if c.get("original_amount") is not None
+                else _tien(c.get("amount")),
+                "sau_giam": _tien(c.get("amount")),
+                "giam_gia": _tien(c.get("discount_amount")),
+                "ly_do": c.get("discount_reason"),
+                "nguoi": c.get("discount_by_name"),
+                "kieu": c.get("discount_type"),
+                "gia_tri": c.get("discount_value"),
+            }
+            for c in lan_thu
+            if _tien(c.get("discount_amount")) > 0
+        ],
         "khach": {
             "so_luot_kham": int(so_luot_kham),
             "so_luot_khong_chon_dich_vu_kham": int(so_luot_khong_chon_dich_vu_kham),
@@ -506,6 +559,37 @@ def csv_bao_cao(bc: Mapping[str, Any]) -> str:
     w.writerow(["Tổng", "Thu gốc", "Huỷ phiếu", "Hoàn", "Thực thu", "Hoàn chờ chuyển"])
     w.writerow(["", t["thu"], t["huy"], t["hoan"], t["thuc_thu"], t["hoan_cho"]])
     w.writerow([])
+    gg = bc.get("giam_gia") or {}
+    if gg.get("dong"):
+        w.writerow(["Giảm giá", "Số phiếu", "Tổng gốc", "Giảm", "Thu thật"])
+        w.writerow(
+            [
+                "",
+                gg["so_phieu"],
+                gg["tong_goc"],
+                gg["giam"],
+                sum(g["thu_that"] for g in gg["dong"]),
+            ]
+        )
+        w.writerow(
+            ["Giờ", "Khách", "Mã BN", "Người thu", "Tổng gốc", "Giảm", "Thu thật"]
+            + ["Lý do giảm", "Người giảm"]
+        )
+        for g in gg["dong"]:
+            w.writerow(
+                [
+                    _o(_gio(g.get("luc"))),
+                    _o(g.get("khach")),
+                    _o(g.get("ma_bn")),
+                    _o(g.get("nguoi_thu")),
+                    g["tong_goc"],
+                    g["giam"],
+                    g["thu_that"],
+                    _o(g.get("ly_do")),
+                    _o(g.get("nguoi_giam")),
+                ]
+            )
+        w.writerow([])
     # Tất cả cơ sở (08/10/2026): một dòng mỗi cơ sở + dòng Tổng (= cộng các dòng).
     if bc.get("theo_co_so"):
         w.writerow(
@@ -727,6 +811,9 @@ def _gio(iso: str | None) -> str:
 _LAN_THU_SQL = """
 SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
        pc.status, pc.amount,
+       pc.original_amount, pc.discount_amount, pc.discount_type,
+       pc.discount_value, pc.discount_reason, gg.full_name AS nguoi_giam,
+       gg.full_name AS discount_by_name,
        hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id, pc.method) AS method,
        phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id, pc.method, pc.amount)
            AS phan,
@@ -739,6 +826,7 @@ SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
   LEFT JOIN staff cb ON cb.id = pc.created_by
   LEFT JOIN staff xn ON xn.id = pc.confirmed_by
   LEFT JOIN staff dg ON dg.id = pc.closed_by
+  LEFT JOIN staff gg ON gg.id = pc.discount_by
   LEFT JOIN visit v ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id
   LEFT JOIN appointment ah
     ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
@@ -1001,21 +1089,6 @@ class BaoCaoCuoiNgayService:
             from clinicai.services.cong_no_service import doc_khach_con_no
 
             con_no = await doc_khach_con_no(conn, cid, location_id=cs)
-            from clinicai.services.tom_tat_tai_chinh_service import (
-                doc_no_trong_khoang,
-                tom_tat_tai_chinh,
-            )
-
-            no_trong_khoang = await doc_no_trong_khoang(
-                conn,
-                cid,
-                a,
-                b,
-                co_so=cs,
-                loai=loai_loc,
-                tu_luc=k5,
-                den_luc=k6,
-            )
             from clinicai.services.bao_cao_viec_tien_service import doc_viec_tien
 
             can_xu_ly = await doc_viec_tien(
@@ -1082,7 +1155,9 @@ class BaoCaoCuoiNgayService:
             (r for r in dong_ds if r.get("cycle_id") in da_thu),
             (dict(r) for r in tra_hang if r["refund_id"] in da_hoan),
         )
-        bc["tai_chinh"] = tom_tat_tai_chinh(bc, no_trong_khoang=no_trong_khoang)
+        from clinicai.services.tom_tat_tai_chinh_service import tom_tat_tai_chinh
+
+        bc["tai_chinh"] = tom_tat_tai_chinh(bc)
         bc["co_so"] = cs
         bc["ten_co_so"] = next((c["ten"] for c in ds_co_so if c["id"] == cs), None)
         # Đầu / chân báo cáo kiểu KiotViet: "Chi nhánh: …" + địa chỉ từng cơ sở.

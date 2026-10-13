@@ -237,34 +237,9 @@ export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { n
   };
   const xuat = () => {
     if (!bc || !pret) return;
-    const rows = [
-      ["Báo cáo cuối ngày", nhanKhoang({ tu: bc.tu, den: bc.den })],
-      ["Cơ sở", bc.ten_co_so ?? "Tất cả cơ sở"],
-      ["Ca", bc.ca ? `${bc.ca.ten} ${bc.ca.tu}–${bc.ca.den}` : "Cả ngày"],
-      ["Loại", nhanLoai],
-      ["Mục", "Giá trị"],
-      ["Tổng thu", bc.tong.thuc_thu],
-      ["Dịch vụ", bc.theo_loai.find(o => o.ma === "dich_vu")?.thuc_thu ?? ""],
-      ["Thuốc / vật tư", bc.theo_loai.find(o => o.ma === "thuoc")?.thuc_thu ?? ""],
-      ...bc.theo_hinh_thuc.map(o => [o.ten, o.thuc_thu]),
-      ...(dayDu && bc.tai_chinh ? [
-        ["Doanh thu", bc.tai_chinh.doanh_thu],
-        ["Hoàn tiền mặt", bc.tai_chinh.hoan_tien_mat],
-        ["Hoàn chuyển khoản", bc.tai_chinh.hoan_chuyen_khoan],
-        ["Nợ chưa thu trong kỳ", bc.tai_chinh.no_chua_thu ?? "Chưa có dữ liệu"],
-        ["Giảm giá", bc.tai_chinh.giam_gia ?? "Chưa có dữ liệu"],
-        ["Doanh thu thuần", bc.tai_chinh.doanh_thu_thuan],
-      ] : []),
-      ["Phiếu thu", bc.tong.so_phieu_thu],
-    ];
-    const csv = "\uFEFF" + rows.map(row => row.map(v => {
-      const s = String(v);
-      return '"' + (typeof v === "string" && (/^\s*[=+@-]/.test(s) || /^[\t\r\n]/.test(s)) ? "'" + s : s).replaceAll('"', '""') + '"';
-    }).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
-    a.href = url; a.download = `bao-cao-cuoi-ngay-${bc.tu}-${bc.den}.csv`;
-    a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    a.href = `/api/reports/cuoi-ngay?xuat=xlsx&mau=${dayDu ? "tom_tat_day_du" : "tom_tat"}&${chuoi}`;
+    a.click();
   };
 
   return (

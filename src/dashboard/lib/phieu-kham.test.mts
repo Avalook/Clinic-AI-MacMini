@@ -22,6 +22,7 @@ import {
   tongPhongKham,
   dongNgoaiDanhMuc,
   dongTuDon,
+  nguoiKeDon,
   dongTuMau,
   giaTriDoc,
   HEN_NHANH,
@@ -582,4 +583,27 @@ test("danhSachThuThuatBanKham: mỗi thủ thuật một lần, bỏ dòng khoá
   );
   assert.deepEqual(danhSachThuThuatBanKham(ds, "không có"), []);
   assert.deepEqual(danhSachThuThuatBanKham([], "que"), []);
+});
+
+// Người kê đơn (13/10/2026): đơn của lượt do bác sĩ chính điền dở, bác sĩ tư vấn
+// điền tiếp — phiếu in ghi đúng từng người; TKYK nhập hộ chỉ là người nhập.
+test("nguoiKeDon: hai bác sĩ cùng đơn → in cả hai, ký người ghi dòng mới nhất", () => {
+  const dong = (ten: string, laBs: boolean) =>
+    ({ id: ten, drug_catalog_id: null, drug_name_raw: "x", quantity: "1", dosage_instructions: "", caution: "", nguoi_ke: ten, nguoi_ke_la_bac_si: laBs });
+  const r = nguoiKeDon([dong("BS Chính", true), dong("BS Tư vấn", true), dong("BS Tư vấn", true)]);
+  assert.deepEqual(r.bacSi, ["BS Chính", "BS Tư vấn"]);
+  assert.equal(r.nguoiKy, "BS Tư vấn");
+  assert.deepEqual(r.nguoiNhap, []);
+});
+
+test("nguoiKeDon: TKYK nhập hộ không đứng tên kê, không thành chân ký", () => {
+  const dong = (ten: string, laBs: boolean) =>
+    ({ id: ten, drug_catalog_id: null, drug_name_raw: "x", quantity: "1", dosage_instructions: "", caution: "", nguoi_ke: ten, nguoi_ke_la_bac_si: laBs });
+  const r = nguoiKeDon([dong("BS Chính", true), dong("TKYK An", false)]);
+  assert.deepEqual(r.bacSi, ["BS Chính"]);
+  assert.deepEqual(r.nguoiNhap, ["TKYK An"]);
+  assert.equal(r.nguoiKy, "BS Chính");
+  // Máy chủ cũ chưa trả người kê → không đoán.
+  const rong = nguoiKeDon([{ id: "1", drug_catalog_id: null, drug_name_raw: "x", quantity: "1", dosage_instructions: "", caution: "" }]);
+  assert.deepEqual(rong, { bacSi: [], nguoiNhap: [], nguoiKy: null });
 });

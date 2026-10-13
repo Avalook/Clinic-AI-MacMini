@@ -52,15 +52,18 @@ export function ChonCoSoO({
   coSo,
   dangChon,
   onChon,
+  className,
 }: {
   coSo: CoSo[];
   /** "" = Tất cả cơ sở. */
   dangChon: string;
   onChon: (id: string) => void;
+  /** Vd "w-full" khi ô nằm trong lưới lọc cùng các ô khác. */
+  className?: string;
 }) {
   if (coSo.length < 2) return null;
   return (
-    <OChon aria-label="Cơ sở" value={dangChon} onChange={(e) => onChon(e.target.value)}>
+    <OChon aria-label="Cơ sở" value={dangChon} onChange={(e) => onChon(e.target.value)} className={className}>
       <option value="">Tất cả cơ sở</option>
       {coSo.map((c) => (
         <option key={c.id} value={c.id}>

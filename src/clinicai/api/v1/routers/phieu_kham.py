@@ -57,6 +57,10 @@ class LuuDon(BaseModel):
     ly_do: str | None = Field(default=None, max_length=500)
 
 
+class DanhDauKeDon(BaseModel):
+    xong: bool
+
+
 class LuuPhieu(BaseModel):
     form_id: str = Field(min_length=1, max_length=40)
     #: Cả gói (cách cũ) — kèm `expected_revision`, lệch là 409.
@@ -233,6 +237,20 @@ async def luu_don_thuoc(
         dong=[d.model_dump() for d in body.dong],
         ly_do=body.ly_do,
         identity=identity,
+    )
+
+
+@router.put("/phieu-kham/luot/{visit_id}/ke-don-tu-van")
+async def danh_dau_xong_ke_don(
+    visit_id: UUID,
+    body: DanhDauKeDon,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    kiem_quyen: KiemQuyen = Depends(lay_kiem_quyen),
+) -> dict[str, Any]:
+    """Bác sĩ tư vấn đánh dấu xong / mở lại việc kê đơn (mốc, không khoá đơn)."""
+    return await PhieuKhamService(pool, kiem_quyen=kiem_quyen).danh_dau_xong_ke_don(
+        visit_id=str(visit_id), xong=body.xong, identity=identity
     )
 
 

@@ -368,6 +368,7 @@ def dung_hoa_don_quay(
 
     return {
         "tong": int(hd.get("tong") or 0),
+        "giam_duoc": int(hd.get("giam_duoc") or 0),
         "revision": hd.get("revision"),
         "thu_duoc": bool(hd.get("thu_duoc")),
         "van_de": list(hd.get("van_de") or []),
@@ -557,6 +558,14 @@ def gom_theo_khach(
                 "phan": phan,
                 "nguoi_thu": c.get("nguoi_thu"),
                 "tong": so_tien,
+                "original_amount": _so(c.get("original_amount")),
+                "discount_type": c.get("discount_type"),
+                "discount_value": float(c["discount_value"])
+                if c.get("discount_value") is not None
+                else None,
+                "discount_amount": _so(c.get("discount_amount")) or 0,
+                "discount_reason": c.get("discount_reason"),
+                "discount_by_name": c.get("discount_by_name"),
                 "dong": [
                     {
                         "id": str(d.get("id")),
@@ -564,6 +573,7 @@ def gom_theo_khach(
                         "ten": d.get("ten"),
                         "so_luong": float(d.get("so_luong") or 1),
                         "thanh_tien": _so(d.get("thanh_tien")),
+                        "discount_allocated": _so(d.get("discount_allocated")) or 0,
                     }
                     for d in dong.get(str(c["id"]), [])
                 ],
@@ -577,6 +587,14 @@ def gom_theo_khach(
                 "tao_luc": _iso(c.get("created_at")),
                 "ma": ma,
                 "so_tien": so_tien,
+                "original_amount": _so(c.get("original_amount")),
+                "discount_type": c.get("discount_type"),
+                "discount_value": float(c["discount_value"])
+                if c.get("discount_value") is not None
+                else None,
+                "discount_amount": _so(c.get("discount_amount")) or 0,
+                "discount_reason": c.get("discount_reason"),
+                "discount_by_name": c.get("discount_by_name"),
                 "hinh_thuc": ht,
                 "phan": phan,
                 "nhan_hinh_thuc": nhan_phan(phan),
@@ -744,6 +762,9 @@ def csv_lich_su(khach: Iterable[Mapping[str, Any]]) -> str:
             "Hình thức",
             "Người thu",
             "Dịch vụ",
+            "Tổng gốc",
+            "Giảm giá",
+            "Lý do giảm",
             "Số tiền",
             "Lý do",
         ]
@@ -753,6 +774,12 @@ def csv_lich_su(khach: Iterable[Mapping[str, Any]]) -> str:
             # `loai` luôn là chuỗi "thu"/"huy"/"hoan" do lich_su() tự gán; str()
             # chỉ để kiểu của .get(loai, loai) là str chứ không `str | None`.
             loai = str(s["loai"])
+            orig = (
+                s.get("original_amount")
+                if s.get("original_amount") is not None
+                else (s.get("so_tien") or 0)
+            )
+            giam = s.get("discount_amount") or 0
             w.writerow(
                 [
                     _o(_gio(s.get("luc"))),
@@ -771,11 +798,77 @@ def csv_lich_su(khach: Iterable[Mapping[str, Any]]) -> str:
                     ),
                     _o(s.get("nguoi")),
                     _o(", ".join(s.get("dich_vu") or [])),
+                    orig if loai == "thu" else "",
+                    giam if (loai == "thu" and giam > 0) else "",
+                    _o(s.get("discount_reason"))
+                    if (loai == "thu" and giam > 0)
+                    else "",
                     s.get("so_tien") or 0,
                     _o(s.get("ly_do")),
                 ]
             )
     return "﻿" + buf.getvalue()
+
+
+def xlsx_lich_su(khach: Iterable[Mapping[str, Any]]) -> bytes:
+    """Each payment/refund/cancellation is a typed row in an editable table."""
+    from clinicai.services.excel_export import excel_datetime, excel_table
+
+    rows = []
+    for g in khach:
+        for s in g.get("su_kien") or []:
+            loai = str(s["loai"])
+            rows.append(
+                [
+                    excel_datetime(s.get("luc")),
+                    _NHAN_LOAI.get(loai, loai)
+                    + (" (chờ chuyển)" if s.get("cho") else ""),
+                    s.get("ma"),
+                    g.get("ten"),
+                    g.get("ma_bn"),
+                    g.get("so_booking"),
+                    g.get("so_tiep_don"),
+                    s.get("nhan_hinh_thuc")
+                    or TEN_HINH_THUC.get(str(s.get("hinh_thuc")), ""),
+                    s.get("nguoi"),
+                    ", ".join(s.get("dich_vu") or []),
+                    s.get("so_tien") or 0,
+                    s.get("ly_do"),
+                    (
+                        s.get("original_amount")
+                        if s.get("original_amount") is not None
+                        else s.get("so_tien") or 0
+                    )
+                    if loai == "thu"
+                    else None,
+                    s.get("discount_amount") or 0 if loai == "thu" else None,
+                    s.get("discount_reason") if loai == "thu" else None,
+                    s.get("discount_by_name") if loai == "thu" else None,
+                    s.get("discount_type") if loai == "thu" else None,
+                    s.get("discount_value") if loai == "thu" else None,
+                ]
+            )
+    headers = [
+        "Ngày giờ",
+        "Loại",
+        "Mã phiếu",
+        "Khách",
+        "Mã khách",
+        "Booking",
+        "Check-in",
+        "Hình thức",
+        "Người thu",
+        "Dịch vụ",
+        "Số tiền",
+        "Lý do",
+        "Trước giảm giá",
+        "Giảm giá",
+        "Lý do giảm giá",
+        "Người giảm giá",
+        "Kiểu giảm giá",
+        "Giá trị giảm giá",
+    ]
+    return excel_table([("Lịch sử thu", headers, rows)])
 
 
 def _o(v: Any) -> str:
@@ -807,6 +900,7 @@ _DONG_SQL = """
 SELECT bl.id::text AS id, bl.payment_cycle_id::text AS cycle_id, bl.source_id,
        bl.source_type, bl.name_snapshot AS ten, bl.quantity AS so_luong,
        bl.line_total AS thanh_tien,
+       coalesce(bl.discount_allocated, 0) AS discount_allocated,
        -- Phiếu ghi "Lần k" của chỉ định và "đã bỏ" khi in lại sau khi bỏ
        -- (06/10/2026, E3) — dòng vẫn in (tiền đã thu là sự thật).
        o.lan_chi_dinh AS lan,
@@ -1000,6 +1094,24 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.service_name AS ten,
 """
 
 
+def _giam_gia_in(goc: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Khối giảm giá của phiếu in; ``None`` nếu lần thu không giảm. Thuần."""
+    giam = _so(goc.get("discount_amount")) or 0
+    if giam <= 0:
+        return None
+    return {
+        "tong_goc": _so(goc.get("original_amount")) or 0,
+        "giam": giam,
+        "loai": goc.get("discount_type"),
+        "gia_tri": (
+            float(goc["discount_value"])
+            if goc.get("discount_value") is not None
+            else None
+        ),
+        "ly_do": goc.get("discount_reason"),
+    }
+
+
 class QuayThuService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -1037,6 +1149,9 @@ class QuayThuService:
                 """
                 SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id,
                        pc.status, pc.amount,
+                       pc.discount_type, pc.discount_value, pc.discount_amount,
+                       pc.discount_reason, pc.original_amount,
+                       gg.full_name AS discount_by_name,
                        -- Hình thức HIỆU LỰC (sau mọi lần đổi — V7).
                        hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
                                           pc.method) AS method,
@@ -1050,6 +1165,7 @@ class QuayThuService:
                   LEFT JOIN staff cb ON cb.id = pc.created_by
                   LEFT JOIN staff xn ON xn.id = pc.confirmed_by
                   LEFT JOIN staff dg ON dg.id = pc.closed_by
+                  LEFT JOIN staff gg ON gg.id = pc.discount_by
                   LEFT JOIN visit v
                     ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id
                   LEFT JOIN appointment ah
@@ -1406,6 +1522,9 @@ class QuayThuService:
                            pc.visit_id::text AS visit_id,
                            pc.payment_cycle_id::text AS cycle_id, pc.kind,
                            pc.amount,
+                           pc.original_amount, pc.discount_type,
+                           pc.discount_value, pc.discount_amount,
+                           pc.discount_reason,
                            hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
                                               pc.method) AS method,
                            phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
@@ -1509,6 +1628,9 @@ class QuayThuService:
             "bac_si": k["bac_si"] if k else None,
             "dong": dong,
             "tong": _so(goc["amount"]) or 0,
+            # Giảm giá của lần thu (13/10/2026): in kèm gốc / giảm / lý do. Phiếu
+            # hoàn và lần thu không giảm = None.
+            "giam_gia": _giam_gia_in(goc),
             "hinh_thuc": chuan_hinh_thuc(goc["method"]),
             # Bản in có DÒNG HÌNH THỨC từng phần (01/10/2026: 200k CK + 500k TM
             # in thành hai dòng) + tiền khách đưa / trả lại nếu có.

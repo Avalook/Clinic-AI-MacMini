@@ -67,6 +67,14 @@ export interface Phieu {
     doi_phong_duoc?: boolean;
   }[];
   tong: number;
+  /** Giảm giá của lần thu (13/10/2026); null = không giảm / phiếu hoàn. */
+  giam_gia?: {
+    tong_goc: number;
+    giam: number;
+    loai: "AMOUNT" | "PERCENT" | null;
+    gia_tri: number | null;
+    ly_do: string | null;
+  } | null;
   /** Phiếu hướng dẫn khi dây Nhận tại phòng bật: phòng in ra chỉ là hướng dẫn. */
   huong_dan_phong?: boolean;
   hinh_thuc: string | null;
@@ -258,6 +266,25 @@ export function PhieuThuGiay({ p }: { p: Phieu }) {
           ))}
         </tbody>
       </table>
+      {p.giam_gia ? (
+        <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-meta">
+          <dt className="text-ink-muted">Tổng trước giảm</dt>
+          <dd className="text-right tabular-nums">{tien(p.giam_gia.tong_goc)}</dd>
+          <dt className="text-ink-muted">
+            Giảm giá
+            {p.giam_gia.loai === "PERCENT" && p.giam_gia.gia_tri != null
+              ? ` (${p.giam_gia.gia_tri}%)`
+              : ""}
+          </dt>
+          <dd className="text-right tabular-nums">−{tien(p.giam_gia.giam)}</dd>
+          {p.giam_gia.ly_do ? (
+            <>
+              <dt className="text-ink-muted">Lý do</dt>
+              <dd className="text-right">{p.giam_gia.ly_do}</dd>
+            </>
+          ) : null}
+        </dl>
+      ) : null}
       <p className="mt-3 flex justify-between font-semibold">
         <span>{p.loai === "hoan" ? "TỔNG HOÀN" : "TỔNG THU"}</span>
         <span className="tabular-nums">{tien(Math.abs(p.tong))}</span>

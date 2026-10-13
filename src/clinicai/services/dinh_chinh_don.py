@@ -921,11 +921,12 @@ async def _chen(
     row_id: str | None = None,
 ) -> Any:
     # Dòng THAY THẾ của lần đính chính phải bắt đầu trống (trigger
-    # prescription_dinh_chinh_guard) — chỉ tự gắn thuốc kho cho dòng thường.
+    # prescription_dinh_chinh_guard: "không thuốc kho") — nhà thuốc xác định lại
+    # thuốc kho cho dòng mới. KHÔNG chép `drug_catalog_id` của form: màn luôn gửi
+    # mã kho của thuốc đang chọn, nên sửa số lượng một thuốc kho đã thu tiền từng
+    # nổ 500 (13/10/2026, bấm thật ở Bàn tư vấn). Chỉ tự gắn thuốc kho cho dòng thường.
     catalog_id = (
-        await _ma_kho(conn, clinic_id=clinic_id, item=item)
-        if lan is None
-        else _chu(item.get("drug_catalog_id"))
+        await _ma_kho(conn, clinic_id=clinic_id, item=item) if lan is None else None
     )
     catalog_name = await _ten_thuoc_catalog(
         conn,

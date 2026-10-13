@@ -15,6 +15,7 @@ from uuid import UUID
 import asyncpg
 from fastapi import APIRouter, Depends
 from fastapi.encoders import jsonable_encoder
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from clinicai.api.idempotency import (
@@ -273,6 +274,33 @@ async def xuat_nhap_ton(
         await kho_thuoc_service.xuat_nhap_ton(pool, identity=identity, tu=tu, den=den)
     )
     return kq
+
+
+@router.get("/pharmacy/xuat-nhap-ton.xlsx")
+async def xuat_nhap_ton_xlsx(
+    tu: str | None = None,
+    den: str | None = None,
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """Download stock records using the same clinic permission and date scope."""
+    from clinicai.services.excel_export import XLSX_MEDIA_TYPE, xlsx_inventory
+
+    report = await kho_thuoc_service.xuat_nhap_ton(
+        pool, identity=identity, tu=tu, den=den
+    )
+    return Response(
+        content=xlsx_inventory(report),
+        media_type=XLSX_MEDIA_TYPE,
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="xuat-nhap-ton_'
+                f'{report["tu"]}_{report["den"]}.xlsx"'
+            ),
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/pharmacy/phieu-kho")

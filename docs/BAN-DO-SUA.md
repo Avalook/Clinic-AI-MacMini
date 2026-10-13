@@ -230,6 +230,25 @@ lưới "Dịch vụ khác" F → Hẹn khám G) · 4 Đơn thuốc (E). Thẻ n
 `khoi-dieu-tri-boundary.test.mts`, `phieu-kham-boundary.test.mts` (mỗi mục A–G của bảy
 phiếu ở đúng một khối), `lib/phieu-kham.test.mts`.
 
+**Đơn thuốc điền tiếp ở bàn tư vấn (13/10/2026)** — MỘT đơn cho cả lượt: bác sĩ chính
+điền dở / vội thì bác sĩ tư vấn điền tiếp đúng đơn đó, không có đơn thứ hai. UI:
+`D/ban-kham/KhoiDonThuocBanTuVan.tsx` (công tắc "Đơn thuốc" = mục E của phiếu lượt,
+`PhieuKhamLuot chiMuc=["E"]`, nút In đơn thuốc) trong `BanTuVan.tsx`; khách đã khám xong
+không qua tư vấn: nhóm "Đã khám xong — điền đơn thuốc" ở `BanKham.tsx` → `BanDienDonThuoc.tsx`
+(hàng chung: `S/luot_kham_doc.py` `hang_cho`, nhánh `tu_van`). Máy chủ:
+`S/phieu_kham_service.py` `luu_don_thuoc` — người có lego Tư vấn không đi kèm bác sĩ chính hôm
+nay vẫn lưu được (cổng ca trực `kiem_dung_ca` dùng chung KHÔNG nới), sự kiện `prescription.saved`
+mang `ke_tai_tu_van` và người bấm tự đứng tên (không `on_behalf_of`); `doc_don_thuoc` trả
+`nguoi_ke` / `nguoi_ke_la_bac_si`. Hành trình: mốc `KE_DON_TU_VAN` ở `phieu_kham/hanh_trinh.py`.
+Phiếu in: `app/print/phieu-kham/[visitId]/InPhieuKham.tsx` + `nguoiKeDon` ở `lib/phieu-kham.ts`
+(đơn in riêng `?phan=don` ký bác sĩ ghi dòng mới nhất; TKYK nhập hộ chỉ là "Người nhập").
+Nút [Xong kê đơn thuốc] / [Mở lại] (mốc, không khoá đơn): `BanDienDonThuoc.tsx` → `/api/phieu-kham`
+`thao_tac=xong-ke-don` → `PUT /phieu-kham/luot/{visit}/ke-don-tu-van` → `PhieuKhamService.danh_dau_xong_ke_don`
+(sự kiện `prescription.consultant_marked`; lần mới nhất quyết định; `hang_cho` trả `ke_don_tu_van_xong`).
+Lỗi 409 cần lý do đính chính (dòng đã thu / bán / giao): proxy `lib/backend-proxy.ts` giữ mã ở `ma_loi`.
+Test: `T/services/test_don_thuoc_ban_tu_van_1310_db.py`, `T/services/test_hanh_trinh_tu_van_db.py`,
+`T/unit/test_hanh_trinh_moc.py`, FT `don-thuoc-ban-tu-van-boundary.test.mts`, `npm run test:phieu-kham`.
+
 **Dịch vụ của lượt trong hồ sơ khám — đổi dịch vụ, phiếu cũ, lượt Điều trị (07/10/2026)**
 — UI `D/_lam-viec/phieu-kham/KhoiDichVuHoSo.tsx` (đầu phiếu + hồ sơ tối giản ở
 `PhieuKhamLuot.tsx` nhánh `chonDuoc`) → `/api/ho-so-kham` → `R/ho_so_kham.py` →
@@ -340,6 +359,26 @@ và `PhiKhamService.chon`). Ô tìm + nút Tìm luôn hiện, danh mục mở s�
 `S/service_selection_service.py` (`ServiceSelectionService`; luật ở hàm `plan`, `ap_lua_chon`).
 
 ## 7. Thu tiền · phiếu thu · phiếu hướng dẫn
+
+**Danh sách hoá đơn theo khách** — `/hoa-don` ngay dưới Báo cáo; `D/hoa-don/DanhSachHoaDon.tsx`
++ `ChiTietHoaDon.tsx` → `/api/hoa-don` → `S/danh_sach_hoa_don_service.py`.
+Đọc phiếu đã thu và xử lý sau thanh toán (hoàn / hủy), gom dịch vụ + thuốc theo khách.
+Giảm giá: số trước giảm / đã giảm / sau giảm, lý do / người / giờ theo snapshot phiếu;
+dòng hiển thị phần giảm được phân bổ từ máy chủ. Miễn phí 100% có số thực thu 0 vẫn là phiếu đã thu,
+không suy ra hoàn tiền từ số 0. Test FT `hoa-don-giam-gia-boundary.test.mts` + E2E fixture giảm 100%.
+Số tổng giao dịch trong kỳ khác số toàn bộ phiếu liên quan của khách nếu hoàn khác ngày thu.
+Test `T/services/test_danh_sach_hoa_don_db.py`, `T/unit/test_danh_sach_hoa_don.py`,
+FT `danh-sach-hoa-don-boundary.test.mts`, E2E `e2e/danh-sach-hoa-don.mjs` (API giả lập, auth DEMO thật).
+
+**Xuất hoá đơn GTGT (mẫu MISA cho kế toán)** — `/xuat-hoa-don` ngay dưới Danh sách hoá đơn;
+`D/xuat-hoa-don/XuatHoaDon.tsx` → `/api/xuat-hoa-don` → `GET /api/v1/hoa-don/xuat` (+ `/xlsx`)
+→ `S/xuat_hoa_don_service.py` (`dung_hoa_don` thuần, `xlsx_misa` đổ vào tệp mẫu
+`S/mau/hoa_don_gtgt_1_thue_suat.xlsx`, bỏ 8 dòng chữ hướng dẫn → tiêu đề dòng 1, dữ liệu dòng 2). Dùng lại `DanhSachHoaDonService.xem` (cùng cổng quyền).
+Mỗi phiếu thu trong kỳ = 1 hoá đơn; bỏ phiếu huỷ; trừ dòng đã hoàn xong; ô chưa có dữ liệu để trống.
+Đổi mẫu = thay tệp `.xlsx` đó (tiêu đề cột ở dòng `TIEU_DE_MAU` = 9). Test `T/unit/test_xuat_hoa_don.py`,
+FT `xuat-hoa-don-boundary.test.mts`.
+Nút thu dùng chung `NhomThu` ở 2 quầy và Bán lẻ đổi thành **Tạo bill**; tiền mặt vẫn ghi thu,
+chuyển khoản vẫn chờ xác minh, nút xác minh **Đã nhận tiền** giữ nguyên.
 
 **Vật tư khách mua thêm ở quầy thu dịch vụ (01/10 — C13: đầu dò Bio chọn nhanh, tìm tên, Mirena cần QL duyệt)** —
 màn `D/thu-ngan/VatTuQuay.tsx` (khối "Mua thêm vật tư", chỉ quầy dịch vụ) → `S/vat_tu_service.py`
@@ -485,6 +524,13 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
 
 ## 12. CSKH · hẹn tái khám
 
+- **Nhập nhanh khách chưa lịch (13/10):** CSKH lưu/Enter ở tên hoặc SĐT trong
+  `D/patients/new/NewPatientForm.tsx` → `/customers?selected=…`, kể cả có quyền
+  Tiếp đón. `S/man_khach_hang_service.py` trả `CHO_DAT_LICH` cho hồ sơ tiếp nhận
+  chưa từng có lịch/lượt và chưa có việc CSKH khác: nhóm “Chờ xác nhận”, bước
+  “Gọi điện xác nhận”; ghi cuộc gọi loại `HOI_THAM`, không xác nhận lịch chưa có.
+  Có lịch/lượt là hết việc này. Test `T/services/test_man_khach_hang_callback_db.py`,
+  FT `intake-patient-ui-boundary.test.mts`; bấm thật `e2e/quick-intake-confirmation.mjs`.
 - Màn chuẩn `/customers` (`D/customers/CustomersView.tsx`, `VungLamViecKhach.tsx`,
   `HanhDongTrangThai.tsx`) → `S/cskh_service.py`, `S/danh_sach_khach_cskh.py`; ghi
   chăm sóc `S/tuong_tac_cskh_service.py`. Test: `T/unit/test_so_tuong_tac_cskh.py`.

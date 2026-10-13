@@ -180,7 +180,7 @@ export default function BaoCaoHangHoa({ coSo = [], access, ngay }: { ngay?: stri
             In
           </Button>
           <a
-            href={`/api/reports/cuoi-ngay?xuat=csv&mau=hang_hoa&${chuoi}`}
+            href={`/api/reports/cuoi-ngay?xuat=xlsx&mau=hang_hoa&${chuoi}`}
             className={buttonClass("secondary", "sm")}
           >
             Xuất Excel

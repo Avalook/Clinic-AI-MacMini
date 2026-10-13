@@ -949,6 +949,17 @@ class BangLuotKham:
                              AND q.room_id = $2::uuid)
                      -- Hàng TƯ VẤN là hàng CHUNG: ai mở màn tư vấn cũng thấy hết.
                      OR ($5::boolean AND q.lane = 'TU_VAN')
+                     -- KHÁCH ĐÃ KHÁM XONG, KHÔNG QUA TƯ VẤN ĐẦU LƯỢT (13/10/2026):
+                     -- bác sĩ chính chỉ định thuốc, khách ra bàn tư vấn để điền
+                     -- đơn — cùng hàng chung, nhóm riêng "điền đơn thuốc".
+                     OR ($5::boolean AND q.lane = 'DOCTOR' AND q.status = 'done'
+                         AND q.reason <> 'SERVICE'
+                         AND NOT EXISTS (
+                             SELECT 1 FROM queue_entry tv
+                              WHERE tv.clinic_id = q.clinic_id
+                                AND tv.visit_id = q.visit_id
+                                AND tv.lane = 'TU_VAN'
+                                AND tv.status <> 'cancelled'))
                      OR (NOT $5::boolean AND q.lane = 'DOCTOR'
                              AND ($4::boolean
                                   OR q.doctor_staff_id::text = ANY($3::text[])
@@ -995,6 +1006,26 @@ class BangLuotKham:
                 ngay_xem,
                 la_hom_nay,
                 identity.location_id or None,
+            )
+            # Bàn tư vấn (13/10/2026): lần đánh dấu "Xong kê đơn" MỚI NHẤT của từng
+            # lượt — đọc thẳng sổ sự kiện (nhất quán ngay sau khi bấm, không đợi
+            # bên nhận chạy).
+            ke_don_xong: dict[str, bool] = (
+                {
+                    r["visit_id"]: bool(r["xong"])
+                    for r in await conn.fetch(
+                        "SELECT DISTINCT ON (aggregate_id) aggregate_id::text AS"
+                        " visit_id, (payload->>'xong')::boolean AS xong"
+                        "  FROM domain_event WHERE clinic_id = $1::uuid"
+                        "   AND event_type = 'prescription.consultant_marked'"
+                        "   AND aggregate_id = ANY($2::uuid[])"
+                        " ORDER BY aggregate_id, seq DESC",
+                        cid,
+                        list({r["visit_id"] for r in rows}),
+                    )
+                }
+                if tu_van and rows
+                else {}
             )
             # SẮP TỚI (Tuyền chốt 24/09): khách của bác sĩ chính đang ở bước tư
             # vấn — bác sĩ chính THẤY trước nhưng chưa gọi được (chưa có chỗ chờ
@@ -1098,6 +1129,7 @@ class BangLuotKham:
                 ),
                 "ref_id": r["ref_id"],
                 "visit_id": r["visit_id"],
+                "ke_don_tu_van_xong": ke_don_xong.get(r["visit_id"], False),
                 "clinic_patient_id": r["clinic_patient_id"],
                 "appointment_id": r["appointment_id"],
                 "so_thu_tu": int(r["so_thu_tu"]),

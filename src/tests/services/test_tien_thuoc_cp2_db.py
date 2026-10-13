@@ -171,6 +171,41 @@ async def test_da_thu_tien_doi_so_luong_tao_dong_thay_the(q: Quay) -> None:
     )
 
 
+async def test_da_thu_tien_doi_so_luong_thuoc_kho_form_gui_ma_kho_khong_no_500(
+    q: Quay,
+) -> None:
+    """13/10/2026 (bấm thật Bàn tư vấn): màn luôn gửi `drug_catalog_id` của thuốc
+    đang chọn; dòng thay thế phải bắt đầu TRỐNG (không thuốc kho) — trước đây
+    chép mã kho vào dòng mới → trigger từ chối → 500 dù đã ghi lý do."""
+    rx, _ = await _don_da_thu(q)
+    kho = await q.pool.fetchval(
+        "SELECT id::text FROM drug_catalog WHERE clinic_id = $1::uuid LIMIT 1",
+        CLINIC,
+    )
+    assert kho, "khuôn test phải có ít nhất một thuốc kho"
+    await _luu_don(
+        q,
+        [
+            {
+                "id": rx,
+                "drug_catalog_id": kho,
+                "drug_name": "Thuốc đã thu",
+                "quantity": "30 viên",
+            }
+        ],
+        ly_do="Tăng số lượng theo đơn mới",
+    )
+    dong = await _hien_hanh(q)
+    assert [(d["quantity"], d["id"] != rx) for d in dong] == [("30 viên", True)]
+    assert (
+        await q.pool.fetchval(
+            "SELECT drug_catalog_id FROM prescription WHERE id = $1::uuid",
+            dong[0]["id"],
+        )
+        is None
+    )
+
+
 async def test_da_thu_tien_them_thuoc_la_nghia_vu_moi(q: Quay) -> None:
     """Thêm thuốc sau khi đã thu: dòng mới (chưa thu); dòng cũ nguyên vẹn.
     Thu thêm lần hai là bước 5 (nhiều lần thu thuốc) — chưa mở ở đây."""
