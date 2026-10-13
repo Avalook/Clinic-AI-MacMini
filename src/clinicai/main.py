@@ -49,6 +49,7 @@ from clinicai.api.v1.routers.don_du_lieu_thu import router as don_du_lieu_thu_ro
 from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.events import router as events_router
 from clinicai.api.v1.routers.ho_so_kham import router as ho_so_kham_router
+from clinicai.api.v1.routers.hoa_don import router as hoa_don_router
 from clinicai.api.v1.routers.hoan_tac import router as hoan_tac_router
 from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.identity import router as identity_router
@@ -281,6 +282,9 @@ app.include_router(
 )
 app.include_router(
     reports_router, prefix="/api/v1", tags=["reports"], dependencies=_GUARDED
+)
+app.include_router(
+    hoa_don_router, prefix="/api/v1", tags=["hoa-don"], dependencies=_GUARDED
 )
 app.include_router(
     audit_log_router, prefix="/api/v1", tags=["audit-log"], dependencies=_GUARDED
