@@ -96,7 +96,11 @@ def _bill(
         "da_thu": amount,
         "da_hoan": completed,
         "cho_hoan": pending,
-        "thu_rong": amount - completed,
+        # Phiếu đã huỷ không còn tiền của phòng khám: thu ròng 0 — cùng định
+        # nghĩa với báo cáo cuối ngày (thực thu = thu − huỷ − hoàn). Để nguyên
+        # số tiền thì tổng thu ròng bị thổi lên đúng bằng tiền phiếu huỷ (staging
+        # 12/10: 77.505.000 so với 74.250.000 của báo cáo).
+        "thu_rong": 0 if row["status"] == "VOIDED" else amount - completed,
         "hinh_thuc": row.get("method"),
         "lap_luc": _iso(row.get("created_at")),
         "thu_luc": _iso(row.get("paid_at")),
@@ -122,7 +126,7 @@ def _customer(group: dict[str, Any]) -> dict[str, Any]:
             for message in (
                 "Phiếu cần đối soát" if p["can_doi_soat"] else None,
                 "Phiếu huỷ cần xác minh tiền trả lại"
-                if p["trang_thai"] == "DA_HUY" and p["thu_rong"] > 0
+                if p["trang_thai"] == "DA_HUY" and p["so_tien"] > 0
                 else None,
                 "Có khoản hoàn thất bại"
                 if any(r["trang_thai"] == "FAILED" for r in p["hoan"])
@@ -159,17 +163,18 @@ def _period(customers: list[dict[str, Any]]) -> dict[str, int]:
     refunds = [r for p in bills for r in p["hoan"] if r["trong_ky"]]
     paid = sum(p["so_tien"] for p in bills if p["thu_trong_ky"])
     completed = sum(r["so_tien"] for r in refunds if r["trang_thai"] == "COMPLETED")
+    voided = sum(p["so_tien"] for p in bills if p["huy_trong_ky"])
     return dict(
         da_thu=paid,
         tong_truoc_giam=sum(p["tong_truoc_giam"] for p in bills if p["thu_trong_ky"]),
         giam_gia=sum(p["giam_gia"] for p in bills if p["thu_trong_ky"]),
         da_hoan=completed,
-        thu_rong=paid - completed,
+        thu_rong=paid - completed - voided,
         cho_hoan=sum(r["so_tien"] for r in refunds if r["trang_thai"] == "PENDING"),
         so_phieu=len(bills),
         so_khach=len(customers),
         so_huy=sum(bool(p["huy_trong_ky"]) for p in bills),
-        gia_tri_huy=sum(p["so_tien"] for p in bills if p["huy_trong_ky"]),
+        gia_tri_huy=voided,
     )
 
 

@@ -35,8 +35,15 @@ def test_void_does_not_invent_refund_and_groups_by_patient() -> None:
     assert len(data["khach"]) == 1
     assert data["tong"]["da_thu"] == 150
     assert data["tong"]["da_hoan"] == 0
-    assert data["tong"]["thu_rong"] == 150
+    # Huỷ không phải hoàn (không bịa khoản hoàn) nhưng cũng không còn là tiền
+    # của phòng khám: thu ròng = thu − hoàn − huỷ, đúng định nghĩa "thực thu"
+    # của báo cáo cuối ngày (staging 12/10 từng lệch 3.255.000đ vì thiếu huỷ).
     assert data["tong"]["gia_tri_huy"] == 100
+    assert data["tong"]["thu_rong"] == 50
+    t = data["tong"]
+    assert t["thu_rong"] == t["da_thu"] - t["da_hoan"] - t["gia_tri_huy"]
+    huy = next(p for p in data["khach"][0]["phieu"] if p["trang_thai"] == "DA_HUY")
+    assert huy["thu_rong"] == 0 and huy["so_tien"] == 100
 
 
 def test_completed_date_controls_period_totals_pending_is_separate() -> None:
@@ -154,7 +161,8 @@ def test_needs_review_filter_and_xlsx_lifetime_period_parity() -> None:
     book = load_workbook(BytesIO(xlsx_hoa_don(data)))
     assert book["Trong kỳ"]["C2"].value == data["tong"]["da_thu"] == 0
     assert book["Chứng từ"]["G2"].value == 100
-    assert book["Theo khách"]["J2"].value == 100
+    # Khách chỉ có một phiếu đã huỷ: thu ròng 0 (tiền không còn ở phòng khám).
+    assert book["Theo khách"]["J2"].value == 0
     assert all(
         not sheet.protection.sheet and not sheet.merged_cells.ranges
         for sheet in book.worksheets
