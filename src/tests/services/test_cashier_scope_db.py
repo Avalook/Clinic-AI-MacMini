@@ -145,9 +145,30 @@ async def test_history_sql_halfopen_scope_before_totals(
             paid["payment_cycle_id"],
             location,
         )
-        await scope_service.receipt(
-            q.thu_ngan, id_=paid["payment_cycle_id"], loai="thu"
+        # Phiếu thu "ngay bây giờ": giờ chạy test quyết định nó nằm trong hay
+        # ngoài khung trực (khung có khe trưa 13:00–14:00 và hết 21:30). Chạy
+        # trong khe trưa từng làm test đỏ dù luật đúng (13/10). Hỏi chính dịch
+        # vụ khung của ngày ấy rồi kiểm cả hai phía của luật.
+        tao_luc = await pool.fetchval(
+            "SELECT created_at FROM payment_cycle WHERE payment_cycle_id=$1::uuid",
+            paid["payment_cycle_id"],
         )
+        khung = await scope_service.authorize(
+            q.thu_ngan, tu=day, den=day, kind="thuoc", ca=None, co_so=location
+        )
+        trong_ca = khung.starts is None or any(
+            lo <= tao_luc < hi
+            for lo, hi in zip(khung.starts or [], khung.ends or [], strict=True)
+        )
+        if trong_ca:
+            await scope_service.receipt(
+                q.thu_ngan, id_=paid["payment_cycle_id"], loai="thu"
+            )
+        else:
+            with pytest.raises(SafetyGateError):
+                await scope_service.receipt(
+                    q.thu_ngan, id_=paid["payment_cycle_id"], loai="thu"
+                )
     finally:
         await pool.execute("DELETE FROM work_roster WHERE id=$1", roster_id)
 
