@@ -77,13 +77,14 @@ export function gio(value: string | null) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleTimeString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour12: false });
 }
-/** "5 giờ" / "2 ngày" — đã tồn bao lâu, chỉ để hiển thị. */
+/** "5 giờ" / "2 ngày" — đã tồn bao lâu, chỉ để hiển thị. Đếm phần ĐÃ TRỌN
+ *  (12,6 ngày = 12 ngày) — cùng cách với cột "Đã tồn (ngày)" trong file Excel. */
 export function daTon(value: string | null, bayGio: number = Date.now()) {
   if (!value) return "—";
   const t = new Date(value).getTime();
   if (Number.isNaN(t)) return "—";
-  const phut = Math.max(0, Math.round((bayGio - t) / 60_000));
+  const phut = Math.max(0, Math.floor((bayGio - t) / 60_000));
   if (phut < 60) return `${phut} phút`;
-  if (phut < 24 * 60) return `${Math.round(phut / 60)} giờ`;
-  return `${Math.round(phut / (24 * 60))} ngày`;
+  if (phut < 24 * 60) return `${Math.floor(phut / 60)} giờ`;
+  return `${Math.floor(phut / (24 * 60))} ngày`;
 }
