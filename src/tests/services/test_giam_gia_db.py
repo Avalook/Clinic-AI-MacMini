@@ -75,12 +75,15 @@ async def _cycle(pool: asyncpg.Pool, cycle_id: str) -> asyncpg.Record:
     return row
 
 
-async def _dong_anh(pool: asyncpg.Pool, cycle_id: str) -> list[asyncpg.Record]:
-    return await pool.fetch(
-        "SELECT * FROM payment_bill_line WHERE payment_cycle_id = $1::uuid"
-        " ORDER BY unit_price",
-        cycle_id,
+async def _dong_anh(pool: asyncpg.Pool, cycle_id: str) -> list[Any]:
+    rows: list[Any] = list(
+        await pool.fetch(
+            "SELECT * FROM payment_bill_line WHERE payment_cycle_id = $1::uuid"
+            " ORDER BY unit_price",
+            cycle_id,
+        )
     )
+    return rows
 
 
 @pytest.mark.db

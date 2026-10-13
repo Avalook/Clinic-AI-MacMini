@@ -137,6 +137,9 @@ class HoaDon:
             "visit_id": self.visit_id,
             "kind": self.kind,
             "tong": self.tong,
+            # Phần được phép giảm (trừ liệu trình trả trước) — giao diện lấy
+            # từ đây, không tự suy ra luật giảm giá.
+            "giam_duoc": tong_giam_duoc(self),
             "revision": self.revision,
             "thu_duoc": self.thu_duoc,
             "van_de": self.van_de,

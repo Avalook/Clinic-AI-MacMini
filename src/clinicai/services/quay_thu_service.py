@@ -368,6 +368,7 @@ def dung_hoa_don_quay(
 
     return {
         "tong": int(hd.get("tong") or 0),
+        "giam_duoc": int(hd.get("giam_duoc") or 0),
         "revision": hd.get("revision"),
         "thu_duoc": bool(hd.get("thu_duoc")),
         "van_de": list(hd.get("van_de") or []),

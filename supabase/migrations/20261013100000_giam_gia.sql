@@ -38,6 +38,8 @@ COMMENT ON COLUMN public.payment_cycle.original_amount IS
 
 -- Một CHECK nói trọn luật: hoặc không giảm gì, hoặc giảm đủ bộ.
 ALTER TABLE public.payment_cycle
+    DROP CONSTRAINT IF EXISTS payment_cycle_giam_gia_khop;
+ALTER TABLE public.payment_cycle
     ADD CONSTRAINT payment_cycle_giam_gia_khop CHECK (
         (discount_amount = 0
             AND discount_type IS NULL AND discount_value IS NULL
@@ -75,6 +77,8 @@ BEGIN
 END $$;
 
 ALTER TABLE public.payment_cycle
+    DROP CONSTRAINT IF EXISTS payment_cycle_amount_duong_hoac_giam_het;
+ALTER TABLE public.payment_cycle
     ADD CONSTRAINT payment_cycle_amount_duong_hoac_giam_het CHECK (
         amount > 0 OR (amount = 0 AND discount_amount > 0));
 
@@ -92,6 +96,8 @@ ALTER TABLE public.payment_bill_line
     ADD COLUMN IF NOT EXISTS discount_allocated numeric(14, 0) NOT NULL DEFAULT 0;
 
 -- Dòng có giảm: số SAU giảm + phần giảm = đơn giá × số lượng (ảnh chụp).
+ALTER TABLE public.payment_bill_line
+    DROP CONSTRAINT IF EXISTS payment_bill_line_giam_khop;
 ALTER TABLE public.payment_bill_line
     ADD CONSTRAINT payment_bill_line_giam_khop CHECK (
         discount_allocated >= 0
