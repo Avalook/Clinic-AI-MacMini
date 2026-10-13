@@ -48,11 +48,12 @@ test("[Xong kê đơn thuốc] chỉ là mốc: đợi đơn lưu xong, có [M�
   assert.match(BAN_KHAM, /ke_don_tu_van_xong/);
 });
 
-test("ô Lý do đính chính đơn hiện được: proxy giữ mã lỗi máy chủ trong ma_loi", () => {
+test("sửa dòng đã thu tiền: màn tự ghi lý do mặc định, không bắt người kê gõ", () => {
   assert.match(PROXY, /ma_loi: maLoi/);
-  assert.match(PHIEU_LUOT, /kq\.d\?\.ma_loi === "PRESCRIPTION_CORRECTION_REASON_REQUIRED"/);
+  assert.match(PHIEU_LUOT, /ma_loi === "PRESCRIPTION_CORRECTION_REASON_REQUIRED"/);
+  assert.match(PHIEU_LUOT, /guiLan\(LY_DO_SUA_DON_DA_THU\)/);
+  assert.doesNotMatch(PHIEU_LUOT, /Lưu đơn kèm lý do|aria-label="Lý do đính chính/);
 });
-
 test("phiếu in: ghi người kê theo từng dòng, in đơn riêng ký người ghi mới nhất", () => {
   assert.match(IN, /nguoiKeDon\(dl\.don\)/);
   assert.match(IN, /phan === "don" \? keDon\.nguoiKy : null/);

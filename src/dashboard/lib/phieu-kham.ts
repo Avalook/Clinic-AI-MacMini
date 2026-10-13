@@ -740,14 +740,6 @@ export function nguoiKeDon(dong: DongDonMayChu[]): {
   return { bacSi, nguoiNhap, nguoiKy };
 }
 
-/** Câu NGẮN cho ô "Lý do đính chính" (13/10/2026): máy chủ trả một đoạn dài
- *  ("Sửa hoặc bỏ dòng đã có nhà thuốc … Dòng cũ giữ làm lịch sử; tiền / thuốc cũ
- *  đối soát riêng …") — màn chỉ cần nói dòng nào và phải làm gì. */
-export function cauLyDoDinhChinh(loiMayChu: string): string {
-  const dong = /Dòng:\s*(.+)$/.exec(loiMayChu)?.[1]?.trim();
-  return `${dong ? `Dòng ${dong} — s` : "S"}ửa hoặc bỏ dòng đã thu / bán / giao là ĐÍNH CHÍNH đơn: ghi lý do (tối thiểu 5 ký tự). Dòng cũ giữ làm lịch sử.`;
-}
-
 const NOI = " — ";
 
 export function dongTuDon(r: DongDonMayChu): DongThuoc {
