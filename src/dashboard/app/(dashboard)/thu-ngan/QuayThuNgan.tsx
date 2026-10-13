@@ -334,6 +334,10 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
       setPhieuVuaThu(null);
       setLanVuaGhi(null);
       let daThuThat = false;
+      // Lời máy chủ từ chối phải sống sót qua lần tải lại bên dưới: `tai()` →
+      // `nhan()` gọi setLoi(null) nên lỗi vừa đặt sẽ bị xoá và người thu không
+      // biết vì sao bấm Thu mà không có gì xảy ra (thấy trên staging 13/10).
+      let loiThu: string | null = null;
       try {
         // Một THAO TÁC một khoá gửi lại: mất phản hồi rồi bấm lại thì mang đúng
         // khoá cũ, máy chủ trả kết quả lần đầu thay vì thu lần hai.
@@ -349,7 +353,8 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
           | { error?: string; message?: string; status?: string; payment_cycle_id?: string | null }
           | null;
         if (!r.ok) {
-          setLoi(d?.message ?? d?.error ?? "Không ghi được.");
+          loiThu = d?.message ?? d?.error ?? "Không ghi được.";
+          setLoi(loiThu);
         } else {
           daThuThat = d?.status !== "PENDING_VERIFICATION";
           if (daThuThat && d?.payment_cycle_id) setPhieuVuaThu(d.payment_cycle_id);
@@ -370,6 +375,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
         }
         // Hoá đơn đổi (BILL_CHANGED) hay bị từ chối: tải lại để thấy số mới.
         await tai();
+        if (loiThu) setLoi(loiThu);
       } catch {
         setLoi("Mất kết nối — CHƯA ghi được thao tác này.");
       } finally {
