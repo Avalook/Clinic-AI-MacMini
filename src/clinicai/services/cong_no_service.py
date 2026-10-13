@@ -319,6 +319,40 @@ async def no_khi_ve(
     return no
 
 
+async def doc_no_dang_mo(
+    conn: asyncpg.Connection, clinic_id: str, visit_ids: list[str]
+) -> dict[str, dict[str, Any]]:
+    """Khoản ghi nợ CHƯA THU của các lượt — MỘT truy vấn cho cả bảng quầy thu.
+
+    Quầy thu hiện nhãn "đang ghi nợ" trên hoá đơn: thu ở đây là thu nợ, và thu
+    có giảm giá vẫn được (13/10/2026). ``{visit_id: {so_tien, ly_do, nguoi_ghi,
+    ghi_luc}}``; lượt không nợ không có mặt.
+    """
+    if not visit_ids:
+        return {}
+    rows = await conn.fetch(
+        """
+        SELECT n.visit_id::text AS visit_id, n.so_tien, n.ly_do, n.ghi_luc,
+               s.full_name AS nguoi_ghi
+          FROM public.cong_no n
+          LEFT JOIN public.staff s ON s.id = n.ghi_boi
+         WHERE n.clinic_id = $1::uuid AND n.visit_id = ANY($2::uuid[])
+           AND n.trang_thai = 'CHUA_THU'
+        """,
+        clinic_id,
+        visit_ids,
+    )
+    return {
+        r["visit_id"]: {
+            "so_tien": int(r["so_tien"]),
+            "ly_do": r["ly_do"],
+            "nguoi_ghi": r["nguoi_ghi"],
+            "ghi_luc": r["ghi_luc"].isoformat() if r["ghi_luc"] else None,
+        }
+        for r in rows
+    }
+
+
 #: Lọc khoản nợ theo cơ sở của lượt ($2 rỗng = mọi cơ sở). Hằng cố định, không
 #: ghép đầu vào người dùng vào chuỗi SQL.
 _NO_CO_SO_JOIN = """
@@ -562,6 +596,7 @@ __all__ = [
     "DongNo",
     "NoKhiVe",
     "doc_khach_con_no",
+    "doc_no_dang_mo",
     "loc_no_dich_vu",
     "loc_no_thuoc",
     "no_khi_ve",

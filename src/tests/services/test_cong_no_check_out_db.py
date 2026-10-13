@@ -11,6 +11,7 @@ làm / chưa làm KHÔNG là nợ.
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -23,6 +24,7 @@ from clinicai.events.catalogue import CONG_NO
 from clinicai.services.bao_cao_cuoi_ngay_service import BaoCaoCuoiNgayService
 from clinicai.services.checkout_service import CheckoutService
 from clinicai.services.cong_no_service import CongNoService, doc_khach_con_no
+from clinicai.services.payment_service import PaymentService
 from clinicai.services.service_execution_service import ServiceExecutionService
 from tests.chay_nguoi_dua_tin import chay_ben_nhan, chay_hanh_trinh
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
@@ -209,6 +211,83 @@ async def test_ghi_no_thi_qua_co_ban_ghi_bao_cao_dem_thu_sau_la_da_thu(
     async with pool.acquire() as conn:
         sau = await doc_khach_con_no(conn, CLINIC)
     assert r["id"] not in {x["id"] for x in sau["ds"]}
+
+
+async def test_khach_da_ve_con_no_thu_co_giam_100_thi_no_dong_thu_0d(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tuyền chốt 13/10/2026: khách đã check-out còn ghi nợ vẫn được thu có giảm
+    giá ở quầy (người nhà bác sĩ…) — nợ đóng, sổ ghi "thu 0đ, giảm 300k"."""
+    ca, visit, _order = await _luot_da_lam_chua_thu(pool)
+    cn = CongNoService(pool)
+    await cn.ghi(identity=ca.le_tan, visit_id=visit, ly_do="Người nhà BS")
+    await _dong(pool, ca, visit)
+    cn_id = await pool.fetchval(
+        "SELECT id::text FROM cong_no WHERE visit_id = $1::uuid", visit
+    )
+
+    kq = await PaymentService(pool).record_payment(
+        visit_id=visit,
+        kind="dich_vu",
+        amount=None,
+        clinic_patient_id=None,
+        identity=ca.thu_ngan,
+        idempotency_key=_khoa(),
+        discount_type="PERCENT",
+        discount_value=100,
+        discount_reason="Người nhà bác sĩ",
+    )
+    assert kq["status"] == "PAID"
+    await chay_ben_nhan(pool, CONG_NO)
+
+    r = await pool.fetchrow(
+        "SELECT trang_thai, thu_luc FROM cong_no WHERE id = $1::uuid", cn_id
+    )
+    assert r["trang_thai"] == "DA_THU" and r["thu_luc"] is not None
+    payload = await pool.fetchval(
+        "SELECT payload FROM domain_event WHERE event_type = 'cong_no.da_thu'"
+        " AND aggregate_id = $1::uuid",
+        cn_id,
+    )
+    payload = json.loads(payload) if isinstance(payload, str) else payload
+    assert (payload["so_tien"], payload["so_thu"], payload["so_giam"]) == (
+        300000,
+        0,
+        300000,
+    )
+
+
+async def test_thu_co_giam_mot_phan_khi_dang_no_so_thu_va_so_giam_khop(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    ca, visit, _order = await _luot_da_lam_chua_thu(pool)
+    await CongNoService(pool).ghi(identity=ca.le_tan, visit_id=visit, ly_do="Quên ví")
+    cn_id = await pool.fetchval(
+        "SELECT id::text FROM cong_no WHERE visit_id = $1::uuid", visit
+    )
+    await PaymentService(pool).record_payment(
+        visit_id=visit,
+        kind="dich_vu",
+        amount=None,
+        clinic_patient_id=None,
+        identity=ca.thu_ngan,
+        idempotency_key=_khoa(),
+        discount_type="AMOUNT",
+        discount_value=50000,
+        discount_reason="Khách quen",
+    )
+    await chay_ben_nhan(pool, CONG_NO)
+    payload = await pool.fetchval(
+        "SELECT payload FROM domain_event WHERE event_type = 'cong_no.da_thu'"
+        " AND aggregate_id = $1::uuid",
+        cn_id,
+    )
+    payload = json.loads(payload) if isinstance(payload, str) else payload
+    assert (payload["so_tien"], payload["so_thu"], payload["so_giam"]) == (
+        300000,
+        250000,
+        50000,
+    )
 
 
 async def test_no_moi_sau_ghi_no_thi_chan_lai_huy_ghi_no_truoc_khi_ve(

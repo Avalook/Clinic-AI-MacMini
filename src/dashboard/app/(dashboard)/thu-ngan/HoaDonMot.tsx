@@ -109,6 +109,8 @@ export interface QuayThu {
     luc: string | null;
   };
   lua_chon: { revision: number; order_ids_seen: string[] };
+  /** Lượt đang GHI NỢ (13/10/2026): thu ở đây là thu nợ; vẫn giảm giá được. */
+  dang_no?: { so_tien: number; ly_do: string; nguoi_ghi: string | null; ghi_luc: string | null } | null;
 }
 
 /** Hình thức chính của lần thu — có phần chuyển khoản thì là chuyển khoản. */
@@ -354,6 +356,15 @@ export default function HoaDonMot({
             onDoi={onDoiPhong}
           />
         </div>
+      ) : null}
+
+      {qt.dang_no ? (
+        <p className="rounded-control bg-warning-bg px-3 py-2 text-meta text-warning">
+          Đang ghi nợ {tien(qt.dang_no.so_tien)} — “{qt.dang_no.ly_do}”
+          {qt.dang_no.nguoi_ghi ? ` · ${qt.dang_no.nguoi_ghi} ghi` : ""}
+          {qt.dang_no.ghi_luc ? ` lúc ${gio(qt.dang_no.ghi_luc)}` : ""}. Thu ở đây là
+          thu nợ — giảm giá được như thường (miễn phí = giảm 100%).
+        </p>
       ) : null}
 
       {/* Giảm giá (13/10/2026) */}

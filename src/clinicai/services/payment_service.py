@@ -253,24 +253,6 @@ def _ap_giam(hoa_don: HoaDon, giam: dict[str, Any] | None) -> tuple[int, int, in
     return ap_giam_gia(hoa_don, giam["type"], giam["value"])
 
 
-async def _chan_giam_khi_ghi_no(
-    conn: asyncpg.Connection, clinic_id: str, visit_id: str
-) -> None:
-    """Lượt đang GHI NỢ không giảm giá được: số nợ đã chốt theo hoá đơn gốc,
-    giảm xen vào làm sổ nợ và hoá đơn lệch. Đường đúng: huỷ ghi nợ → giảm →
-    ghi nợ lại (Tuyền chốt 09/10/2026)."""
-    dang_no = await conn.fetchval(
-        "SELECT 1 FROM public.cong_no WHERE clinic_id = $1::uuid"
-        " AND visit_id = $2::uuid AND trang_thai = 'CHUA_THU' LIMIT 1",
-        clinic_id,
-        visit_id,
-    )
-    if dang_no:
-        raise ValidationError(
-            "Lượt này đang ghi nợ — huỷ ghi nợ, giảm giá, rồi ghi nợ lại."
-        )
-
-
 #: Hoàn tác lần thu không bắt gõ lý do (Tuyền 01/10/2026: mở cho người đứng
 #: quầy làm lại thao tác sai). Sổ vẫn cần một câu (CHECK 5–500 ký tự của
 #: payment_cycle) — để trống thì ghi câu này; ai/lúc nào nằm ở closed_by/at.
@@ -547,8 +529,6 @@ class PaymentService:
                         "Chưa thu được — " + "; ".join(hoa_don.van_de)
                     )
                 # ── Giảm giá (13/10/2026) ────────────────────────────────
-                if giam_input:
-                    await _chan_giam_khi_ghi_no(conn, identity.clinic_id, visit_id)
                 original_amount, discount_amount, normalized = _ap_giam(
                     hoa_don, giam_input
                 )
@@ -892,8 +872,6 @@ class PaymentService:
             await ghi_chot_0d(conn, identity, visit_id, hoa_don)
             return {"payment_cycle_id": None, "status": KHONG_CON_KHOAN}
         # ── Giảm giá dịch vụ (13/10/2026) ──────────────────────────────
-        if giam:
-            await _chan_giam_khi_ghi_no(conn, identity.clinic_id, visit_id)
         original_amount, discount_amount, amount_after = _ap_giam(hoa_don, giam)
         if original_amount <= 0:
             if hoa_don.chi_doi_tac_thu:

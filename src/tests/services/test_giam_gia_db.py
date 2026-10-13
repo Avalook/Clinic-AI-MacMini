@@ -8,7 +8,8 @@
   mọi lần thu 0đ khác như trước.
 * Dịch vụ giá 0đ vẫn bán bình thường (chốt 0đ như cũ), không dính giảm giá.
 * Rác (lý do trống, NaN, vượt tổng…) → ValidationError, không ghi gì.
-* Hoàn tiền dòng có giảm chỉ tới số đã thu thật; lượt đang ghi nợ không giảm được.
+* Hoàn tiền dòng có giảm chỉ tới số đã thu thật; lượt đang ghi nợ vẫn giảm được
+  (13/10/2026 — nợ đóng bằng lần thu có giảm, `test_cong_no_check_out_db`).
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from clinicai.services.bao_cao_cuoi_ngay_service import (
     BaoCaoCuoiNgayService,
     csv_bao_cao,
 )
+from clinicai.services.cashier_board_service import CashierBoardService
 from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.payment_service import KHONG_CON_KHOAN, PaymentService
 from clinicai.services.quay_thu_service import QuayThuService
@@ -407,7 +409,7 @@ async def test_hoan_dong_co_giam_chi_toi_so_da_thu(pool: asyncpg.Pool) -> None:
 
 @pytest.mark.db
 @pytest.mark.asyncio
-async def test_luot_dang_ghi_no_khong_giam_duoc(pool: asyncpg.Pool) -> None:
+async def test_luot_dang_ghi_no_van_giam_duoc(pool: asyncpg.Pool) -> None:
     q, sa, soi, hpv = await _kich_ban(pool)
     await pool.execute(
         "INSERT INTO cong_no (clinic_id, visit_id, clinic_patient_id, so_tien,"
@@ -417,8 +419,13 @@ async def test_luot_dang_ghi_no_khong_giam_duoc(pool: asyncpg.Pool) -> None:
         q.visit_id,
         q.thu_ngan.staff_id,
     )
-    with pytest.raises(ValidationError, match="ghi nợ"):
-        await _thu(q, sa, soi, hpv, loai="PERCENT", gia_tri=10)
+    # Bảng quầy báo lượt đang nợ — màn hiện nhãn "Đang ghi nợ".
+    bang = await CashierBoardService(pool).board(identity=q.thu_ngan, modes=["dich_vu"])
+    luot = next(i for i in bang["items"] if i["visit_id"] == q.visit_id)
+    assert luot["quay_thu"]["dang_no"]["so_tien"] == 700_000
+    assert luot["quay_thu"]["dang_no"]["ly_do"] == "khách xin ghi nợ"
+    kq = await _thu(q, sa, soi, hpv, loai="PERCENT", gia_tri=10)
+    assert kq["status"] == "PAID"
 
 
 @pytest.mark.db

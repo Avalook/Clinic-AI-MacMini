@@ -4,6 +4,10 @@
         → lượt có khoản ghi nợ CHƯA THU mà nay HẾT NỢ (cùng luật `no_khi_ve`
           của check-out) → khoản ấy ĐÃ THU + phát `cong_no.da_thu`.
 
+Thu có giảm giá (13/10/2026) vẫn đóng được nợ: nợ hết khi mọi dòng hoá đơn đã
+được lần thu phủ, không so với con số nợ đã ghi. Sự kiện đóng nợ kèm tiền thực
+thu và tiền giảm để lịch sử ghi đúng "thu 0đ, giảm 700k", không phải "thu 700k".
+
 Thu một phần thì khoản ghi nợ còn nguyên — lượt chưa hết nợ. Đọc trạng thái
 HIỆN TẠI nên sự kiện tới trễ hay tới hai lần vẫn ra một kết quả; khoá dòng
 `FOR UPDATE` để hai lần thu cùng lúc chỉ đóng một lần. Phát lại thì im.
@@ -29,7 +33,7 @@ async def xet_da_thu(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
         return
     mo = await conn.fetchrow(
         """
-        SELECT id::text AS id, so_tien FROM public.cong_no
+        SELECT id::text AS id, so_tien, ghi_luc FROM public.cong_no
          WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
            AND trang_thai = 'CHUA_THU'
            FOR UPDATE
@@ -42,6 +46,18 @@ async def xet_da_thu(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     no = await no_khi_ve(conn, clinic_id=su_kien.clinic_id, visit_id=str(visit_id))
     if no.dong:
         return
+    # Tiền thực thu / tiền giảm của các lần thu SAU lúc ghi nợ (lần thu trước đó
+    # thuộc hoá đơn chưa nợ; lần đã hoàn tác không tính).
+    thu = await conn.fetchrow(
+        "SELECT coalesce(sum(amount), 0)::bigint AS so_thu,"
+        "       coalesce(sum(discount_amount), 0)::bigint AS so_giam"
+        "  FROM public.payment_cycle"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid"
+        "   AND created_at >= $3 AND status IN ('PAID', 'PENDING_VERIFICATION')",
+        su_kien.clinic_id,
+        str(visit_id),
+        mo["ghi_luc"],
+    )
     await conn.execute(
         "UPDATE public.cong_no SET trang_thai = 'DA_THU', thu_luc = now()"
         " WHERE clinic_id = $1::uuid AND id = $2::uuid AND trang_thai = 'CHUA_THU'",
@@ -54,7 +70,11 @@ async def xet_da_thu(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
         clinic_id=su_kien.clinic_id,
         aggregate_id=mo["id"],
         payload=CongNoDaThu(
-            visit_id=str(visit_id), cong_no_id=mo["id"], so_tien=int(mo["so_tien"])
+            visit_id=str(visit_id),
+            cong_no_id=mo["id"],
+            so_tien=int(mo["so_tien"]),
+            so_thu=int(thu["so_thu"]) if thu else None,
+            so_giam=int(thu["so_giam"]) if thu else 0,
         ),
         boi=NguoiGayRa(actor_type=su_kien.actor_type, staff_id=su_kien.actor_staff_id),
         correlation_id=str(visit_id),
