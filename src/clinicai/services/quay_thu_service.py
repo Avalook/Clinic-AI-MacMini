@@ -778,6 +778,49 @@ def csv_lich_su(khach: Iterable[Mapping[str, Any]]) -> str:
     return "﻿" + buf.getvalue()
 
 
+def xlsx_lich_su(khach: Iterable[Mapping[str, Any]]) -> bytes:
+    """Each payment/refund/cancellation is a typed row in an editable table."""
+    from clinicai.services.excel_export import excel_datetime, excel_table
+
+    rows = []
+    for g in khach:
+        for s in g.get("su_kien") or []:
+            loai = str(s["loai"])
+            rows.append(
+                [
+                    excel_datetime(s.get("luc")),
+                    _NHAN_LOAI.get(loai, loai)
+                    + (" (chờ chuyển)" if s.get("cho") else ""),
+                    s.get("ma"),
+                    g.get("ten"),
+                    g.get("ma_bn"),
+                    g.get("so_booking"),
+                    g.get("so_tiep_don"),
+                    s.get("nhan_hinh_thuc")
+                    or TEN_HINH_THUC.get(str(s.get("hinh_thuc")), ""),
+                    s.get("nguoi"),
+                    ", ".join(s.get("dich_vu") or []),
+                    s.get("so_tien") or 0,
+                    s.get("ly_do"),
+                ]
+            )
+    headers = [
+        "Ngày giờ",
+        "Loại",
+        "Mã phiếu",
+        "Khách",
+        "Mã khách",
+        "Booking",
+        "Check-in",
+        "Hình thức",
+        "Người thu",
+        "Dịch vụ",
+        "Số tiền",
+        "Lý do",
+    ]
+    return excel_table([("Lịch sử thu", headers, rows)])
+
+
 def _o(v: Any) -> str:
     s = "" if v is None else str(v)
     return "'" + s if s[:1] in ("=", "+", "-", "@") else s

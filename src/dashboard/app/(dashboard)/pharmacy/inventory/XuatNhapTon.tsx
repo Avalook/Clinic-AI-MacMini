@@ -3,7 +3,7 @@
 // Xuất – nhập – tồn theo khoảng ngày (Tuyền 29/09/2026, kiểu KiotViet).
 // `GET /api/pharmacy/xuat-nhap-ton?tu=&den=` → `GET /api/v1/pharmacy/xuat-nhap-ton`.
 // Máy chủ tính tồn đầu / cuối, giá trị tồn (theo giá nhập của lô) và đọc lại
-// khoảng ngày (rác → hôm nay). Ở đây chỉ vẽ + xuất CSV đúng các con số đã nhận.
+// khoảng ngày (rác → hôm nay). Ở đây chỉ vẽ; máy chủ xuất bảng Excel theo cùng khoảng ngày.
 
 import { useEffect, useState } from "react";
 
@@ -46,11 +46,6 @@ const COT: { ma: keyof DongXnt; nhan: string }[] = [
   { ma: "tra_lai", nhan: "Khách trả" },
   { ma: "ton_cuoi", nhan: "Tồn cuối" },
 ];
-
-function oCsv(v: unknown): string {
-  const s = v == null ? "" : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => void }) {
   const [homNay] = useState(homNayVn);
@@ -106,24 +101,11 @@ export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => vo
   const coTraLai = dong.some((d) => Number(d.tra_lai) !== 0);
   const cot = COT.filter((c) => c.ma !== "tra_lai" || coTraLai);
 
-  const xuatCsv = () => {
-    if (!kq) return;
-    const dau = ["Mã hàng", "Tên thuốc", "Đơn vị", ...cot.map((c) => c.nhan)];
-    if (coGiaTri) dau.push("Giá trị tồn");
-    const hang = kq.dong.map((d) => {
-      const o: unknown[] = [d.ma_hang ?? "", d.ten, d.don_vi ?? d.don_vi_ban ?? ""];
-      for (const c of cot) o.push(Number(d[c.ma]));
-      if (coGiaTri) o.push(d.gia_tri_ton == null ? "" : Number(d.gia_tri_ton));
-      return o.map(oCsv).join(",");
-    });
-    // BOM UTF-8 để Excel đọc đúng tiếng Việt.
-    const noiDung = `﻿${[dau.map(oCsv).join(","), ...hang].join("\r\n")}`;
-    const url = URL.createObjectURL(new Blob([noiDung], { type: "text/csv;charset=utf-8" }));
+  const xuatExcel = () => {
+    if (!kq || dangTai || loi) return;
     const a = document.createElement("a");
-    a.href = url;
-    a.download = `xuat-nhap-ton_${kq.tu}_${kq.den}.csv`;
+    a.href = `/api/pharmacy/xuat-nhap-ton-xlsx?tu=${kq.tu}&den=${kq.den}`;
     a.click();
-    URL.revokeObjectURL(url);
   };
 
   return (
@@ -146,7 +128,7 @@ export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => vo
           variant="secondary"
           className="sm:ml-auto"
           disabled={!kq || dangTai || dong.length === 0}
-          onClick={xuatCsv}
+          onClick={xuatExcel}
         >
           Xuất Excel
         </Button>

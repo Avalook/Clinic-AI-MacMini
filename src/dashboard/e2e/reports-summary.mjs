@@ -1,6 +1,9 @@
 // Chạy với stack DEMO local; dữ liệu báo cáo giả lập chỉ ở lớp trình duyệt.
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+const python = '../../.venv/bin/python';
+const pythonEnv = { ...process.env, PYTHONPATH: '../../src' };
 import { chromium } from 'playwright';
 
 const base = process.env.E2E_BASE_URL || 'http://127.0.0.1:3100';
@@ -32,6 +35,11 @@ try {
   await page.waitForURL(url => !url.pathname.includes('login'));
   await page.route('**/api/reports/cuoi-ngay?**', async route => {
     if (state === 'loading') await new Promise(resolve => { release = resolve; });
+    if (new URL(route.request().url()).searchParams.get('xuat') === 'xlsx') {
+      assert.equal(new URL(route.request().url()).searchParams.get('mau'), 'tom_tat');
+      const body = execFileSync(python, ['-c', 'import json,sys; from clinicai.services.excel_report_export import xlsx_tom_tat; sys.stdout.buffer.write(xlsx_tom_tat(json.load(sys.stdin)))'], { input: JSON.stringify(data(8550000)), env: pythonEnv });
+      return route.fulfill({ body, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers: { 'Content-Disposition': 'attachment; filename="bao-cao-cuoi-ngay.xlsx"' } });
+    }
     await route.fulfill({ status: state === 'error' ? 500 : 200, json: state === 'error' ? { message: 'Lỗi báo cáo thử' } : data(state === 'populated' ? 8550000 : 0) });
   });
   await page.goto(`${base}/reports?tab=cuoi-ngay`);
@@ -67,11 +75,13 @@ try {
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Xuất Excel', exact: true }).click();
   const download = await downloadPromise;
-  const stream = await download.createReadStream(); let csv = '';
-  for await (const part of stream) csv += part.toString('utf8');
-  assert.match(csv, /Tổng thu","8550000/);
-  assert.match(csv, /Dịch vụ","8000000/);
-  assert.doesNotMatch(csv, /Huỷ|Khách còn nợ|990000/);
+  assert.match(download.suggestedFilename(), /\.xlsx$/);
+  const stream = await download.createReadStream(); const parts = [];
+  for await (const part of stream) parts.push(part);
+  const rows = JSON.parse(execFileSync(python, ['-c', 'import sys,json,io; from openpyxl import load_workbook; w=load_workbook(io.BytesIO(sys.stdin.buffer.read())); s=w.active; assert s.tables and not s.protection.sheet; print(json.dumps(list(s.values),ensure_ascii=False))'], { input: Buffer.concat(parts), encoding: 'utf8', env: pythonEnv }));
+  assert.equal(rows.find(r => r[0] === 'Tổng thu')[1], 8550000);
+  assert.equal(rows.find(r => r[0] === 'Dịch vụ')[1], 8000000);
+  assert.doesNotMatch(JSON.stringify(rows), /Huỷ|Khách còn nợ|990000/);
   await mkdir('../../.dev-logs/reports-ui', { recursive: true });
   for (const width of [375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });

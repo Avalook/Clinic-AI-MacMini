@@ -26,6 +26,12 @@ from clinicai.services.bao_cao_cuoi_ngay_service import (
     csv_bao_cao,
     csv_hang_hoa,
 )
+from clinicai.services.excel_export import XLSX_MEDIA_TYPE
+from clinicai.services.excel_report_export import (
+    xlsx_bao_cao,
+    xlsx_hang_hoa,
+    xlsx_tom_tat,
+)
 from clinicai.services.report_access_service import (
     ReportAccessService,
     gioi_han_ban_hang,
@@ -230,6 +236,65 @@ async def bao_cao_cuoi_ngay_csv(
     return Response(
         content=noi_dung.encode("utf-8"),
         media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{ten}"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.get("/reports/cuoi-ngay.xlsx")
+async def bao_cao_cuoi_ngay_xlsx(
+    tu: str | None = Query(None, max_length=40),
+    den: str | None = Query(None, max_length=40),
+    loai: str | None = Query(None, max_length=20),
+    co_so: str | None = _CO_SO,
+    ca: str | None = Query(None, max_length=10),
+    mau: str | None = Query(
+        None, max_length=20, description="hang_hoa = khuôn KiotViet hàng hoá"
+    ),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """Editable Excel tables with exactly the same access scope as the report."""
+    access, location = await ReportAccessService(pool).authorize(
+        identity, tu=tu, den=den, ca=ca, co_so=co_so
+    )
+    if not access["tai_chinh"] and mau != "hang_hoa":
+        raise SafetyGateError(
+            "Bạn chỉ được xuất báo cáo bán hàng của ca được phân công."
+        )
+    bc = await BaoCaoCuoiNgayService(pool).bao_cao(
+        identity=identity,
+        tu=tu,
+        den=den,
+        loai=loai,
+        co_so=location,
+        ca=None if ca == "FULL" else ca,
+    )
+    if not access["tai_chinh"]:
+        bc = gioi_han_ban_hang(bc)
+    elif not access["legacy"]:
+        bc = gioi_han_tai_chinh_ca(bc)
+    if not access.get("tai_chinh_day_du", False):
+        bc = {key: value for key, value in bc.items() if key != "tai_chinh"}
+    hang_hoa = mau == "hang_hoa"
+    ten = (
+        f"bao-cao-hang-hoa-{bc['tu']}_{bc['den']}.xlsx"
+        if hang_hoa
+        else f"bao-cao-cuoi-ngay-{bc['tu']}_{bc['den']}.xlsx"
+    )
+    noi_dung = (
+        xlsx_hang_hoa(bc, loai)
+        if hang_hoa
+        else xlsx_tom_tat(bc, day_du=mau == "tom_tat_day_du")
+        if mau in ("tom_tat", "tom_tat_day_du")
+        else xlsx_bao_cao(bc)
+    )
+    return Response(
+        content=noi_dung,
+        media_type=XLSX_MEDIA_TYPE,
         headers={
             "Content-Disposition": f'attachment; filename="{ten}"',
             "Cache-Control": "private, no-store",

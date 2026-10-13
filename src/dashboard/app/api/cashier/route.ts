@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   }
   // Lịch sử gom theo khách + CSV + phiếu thu (quầy một hoá đơn, 27/09/2026).
   const xem = url.searchParams.get("xem");
-  if (xem === "lich-su" || xem === "lich-su-csv") {
+  if (xem === "lich-su" || xem === "lich-su-csv" || xem === "lich-su-xlsx") {
     const q = new URLSearchParams(scope);
     const kind = url.searchParams.get("kind");
     if (kind) q.set("kind", kind.slice(0, 20));
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     if (!headers || !base) {
       return NextResponse.json({ error: "Chưa đăng nhập hoặc thiếu CLINIC_API_URL" }, { status: 401 });
     }
-    const res = await fetch(`${base}/api/v1/cashier/lich-su.csv?${q.toString()}`, {
+    const res = await fetch(`${base}/api/v1/cashier/lich-su.${xem === "lich-su-xlsx" ? "xlsx" : "csv"}?${q.toString()}`, {
       headers,
       cache: "no-store",
     });

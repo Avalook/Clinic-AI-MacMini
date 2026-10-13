@@ -161,7 +161,7 @@ export default function LichSuThu({ quay = "dich_vu", ngay, ca, coSo, restricted
           ))}
         </select>
         <a
-          href={`/api/cashier?xem=lich-su-csv&${chuoi}`}
+          href={`/api/cashier?xem=lich-su-xlsx&${chuoi}`}
           className="inline-flex h-8 items-center rounded-control px-3 text-meta font-medium text-ink ring-1 ring-inset ring-line-strong hover:bg-surface-muted"
         >
           Xuất Excel
