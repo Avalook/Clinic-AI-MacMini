@@ -153,7 +153,7 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
           </select>
         </OLoc>
         <OLoc ten="Cơ sở">
-          <ChonCoSoO coSo={restricted ? coSo.filter(c => access.co_so_ids.includes(c.id)) : coSo} dangChon={coSoChon} onChon={setCoSoChon} />
+          <ChonCoSoO coSo={restricted ? coSo.filter(c => access.co_so_ids.includes(c.id)) : coSo} dangChon={coSoChon} onChon={setCoSoChon} className="w-full" />
         </OLoc>
         <div className="flex items-end">
           <a href={`/api/hoa-don?${chuoi}&xuat=xlsx`} className={`${buttonClass("secondary", "md")} w-full justify-center`}>Xuất Excel (.xlsx)</a>
