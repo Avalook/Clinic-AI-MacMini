@@ -333,10 +333,6 @@ async def dao_ban(
     return sorted(da_giao)
 
 
-def gom_loi(van_de: list[str]) -> str:
-    return "; ".join(van_de)
-
-
 def tom_tat(phan_lo: list[PhanLo]) -> list[dict[str, Any]]:
     return [
         {

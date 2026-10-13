@@ -33,7 +33,6 @@ from clinicai.api.identity import (
     get_current_identity,
 )
 from clinicai.api.nghi_huu import CHI_DINH_MOI, bao_da_nghi
-from clinicai.core.clock import CLINIC_TZ as _CLINIC_TZ
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.can import doi_quyen
 from clinicai.permissions.cua_quyen import cua_quyen
@@ -41,9 +40,6 @@ from clinicai.services.service_order_service import ServiceOrderService
 from clinicai.services.work_item_service import QUYEN_THEO_KHU, WorkItemService
 
 router = APIRouter()
-
-# The clinic's day, not the server's.
-VN_TZ = _CLINIC_TZ
 
 # Every clinical and front-desk role works the flow; the node's own actor list
 # is what narrows it per station.
