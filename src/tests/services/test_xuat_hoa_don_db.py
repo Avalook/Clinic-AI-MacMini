@@ -82,8 +82,9 @@ async def test_xuat_hoa_don_doc_dvt_va_thong_tin_khach(pool: asyncpg.Pool) -> No
     ]
     ws: Any = load_workbook(io.BytesIO(xlsx_misa([hd]))).active
     assert ws.cell(10, 7).value == "khach@example.com"
+    # Số thứ tự = vị trí trong file (DB chung có phiếu của bài khác) — so theo hd.
     assert [ws.cell(11, c).value for c in (1, 13, 14, 17)] == [
-        "1",
+        str(hd["stt"]),
         "Que thử",
         "Cái",
         50000,
