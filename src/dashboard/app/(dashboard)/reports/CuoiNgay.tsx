@@ -251,7 +251,6 @@ export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { n
         ["Doanh thu", bc.tai_chinh.doanh_thu],
         ["Hoàn tiền mặt", bc.tai_chinh.hoan_tien_mat],
         ["Hoàn chuyển khoản", bc.tai_chinh.hoan_chuyen_khoan],
-        ["Nợ chưa thu trong kỳ", bc.tai_chinh.no_chua_thu ?? "Chưa có dữ liệu"],
         ["Giảm giá", bc.tai_chinh.giam_gia ?? "Chưa có dữ liệu"],
         ["Doanh thu thuần", bc.tai_chinh.doanh_thu_thuan],
       ] : []),
