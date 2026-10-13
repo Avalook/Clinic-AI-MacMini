@@ -112,7 +112,7 @@ job_backend() {
   fi
   ANTHROPIC_API_KEY="" CI_MAY_DB_THEO_WORKER=1 \
     DATABASE_URL_TEST="postgresql://postgres:${MK_DB_THU}@127.0.0.1:${CONG_TEST}/postgres" \
-    "$VENV/pytest" src/tests/ -q --tb=short -p no:cacheprovider "${song_song[@]}" \
+    "$VENV/pytest" src/tests/ -q --tb=short -p no:cacheprovider ${song_song[@]+"${song_song[@]}"} \
     -m "not integration" --ignore=src/tests/integration \
     --cov=clinicai --cov-report=term --cov-fail-under=80
 }
