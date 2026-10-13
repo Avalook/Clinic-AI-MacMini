@@ -405,8 +405,8 @@ export default function HoaDonMot({
                 : mienPhi
                   ? "Ghi nhận miễn phí"
                   : chia?.coChuyenKhoan
-                    ? "Thu · chờ xác minh CK"
-                    : "Thu"}
+                    ? "Tạo bill · chờ xác minh CK"
+                    : "Tạo bill"}
           </Button>
         </div>
       </div>

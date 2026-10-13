@@ -66,7 +66,6 @@ def xlsx_tom_tat(bc: Mapping[str, Any], day_du: bool = False) -> bytes:
                     ("Doanh thu", "doanh_thu"),
                     ("Hoàn tiền mặt", "hoan_tien_mat"),
                     ("Hoàn chuyển khoản", "hoan_chuyen_khoan"),
-                    ("Nợ chưa thu trong kỳ", "no_chua_thu"),
                     ("Giảm giá", "giam_gia"),
                     ("Doanh thu thuần", "doanh_thu_thuan"),
                 )

@@ -13,6 +13,10 @@ test("hai quầy cùng tạo bill, vẫn giữ xác minh tiền chuyển khoản
   assert.match(quay, /"Tạo bill"/);
   assert.match(quay, /onXacMinh\(ma.trim\(\)\)/);
   for (const p of ["dich-vu", "thuoc"]) assert.match(read(`../app/(dashboard)/thu-ngan/${p}/page.tsx`), /Tạo bill/);
+  // Quầy dịch vụ (hoá đơn từng lượt) cùng chữ với quầy thuốc — không còn nút "Thu" (13/10/2026).
+  const hoaDon = read("../app/(dashboard)/thu-ngan/HoaDonMot.tsx");
+  assert.match(hoaDon, /"Tạo bill"/);
+  assert.doesNotMatch(hoaDon, /: "Thu"\}/);
 });
 test("UI nhận số tiền từ backend và có popup chi tiết chứng từ", () => {
   const ui = read("../app/(dashboard)/hoa-don/DanhSachHoaDon.tsx");
