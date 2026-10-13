@@ -9,6 +9,7 @@ from openpyxl import load_workbook
 from clinicai.services.xuat_hoa_don_service import (
     DONG_DAU,
     MAU,
+    TIEU_DE_MAU,
     dung_hoa_don,
     xlsx_misa,
 )
@@ -181,12 +182,24 @@ def test_file_giu_nguyen_mau_va_sua_duoc() -> None:
         mau: Any = load_workbook(MAU).active
         ws: Any = load_workbook(io.BytesIO(xlsx_misa(hd))).active
     assert ws.title == mau.title == "Hóa đơn GTGT"
-    # Tiêu đề, hướng dẫn, độ rộng cột y hệt tệp mẫu.
-    for r in range(1, DONG_DAU):
-        for c in range(1, 18):
-            assert ws.cell(r, c).value == mau.cell(r, c).value
-    assert [ws.cell(9, c).value for c in range(1, 18)] == TIEU_DE
+    # Bỏ 8 dòng chữ hướng dẫn của mẫu: tiêu đề cột lên dòng 1, giữ font, màu,
+    # chiều cao, độ rộng cột như mẫu.
+    assert DONG_DAU == 2
+    assert [ws.cell(1, c).value for c in range(1, 18)] == TIEU_DE
+    for c in range(1, 18):
+        moi, goc = ws.cell(1, c), mau.cell(TIEU_DE_MAU, c)
+        assert (moi.font.name, moi.font.sz, moi.font.b) == (
+            goc.font.name,
+            goc.font.sz,
+            goc.font.b,
+        )
+        assert repr(moi.fill.fgColor) == repr(goc.fill.fgColor)
+        assert moi.border.bottom.style == goc.border.bottom.style
+    assert ws.row_dimensions[1].height == mau.row_dimensions[TIEU_DE_MAU].height
     assert ws.column_dimensions["M"].width == mau.column_dimensions["M"].width
+    chu = " ".join(str(c.value) for row in ws.iter_rows() for c in row if c.value)
+    assert "Hướng dẫn" not in chu and "File mẫu" not in chu
+    assert "Nếu là công ty" not in chu
     assert ws.protection.sheet is False
     rows = [
         [ws.cell(r, c).value for c in range(1, 18)]
@@ -210,5 +223,6 @@ def test_file_giu_nguyen_mau_va_sua_duoc() -> None:
 
 def test_khong_co_hoa_don_van_ra_file_mau_trong() -> None:
     ws: Any = load_workbook(io.BytesIO(xlsx_misa([]))).active
-    assert ws.cell(9, 1).value == TIEU_DE[0]
+    assert ws.cell(1, 1).value == TIEU_DE[0]
+    assert all(c.value is None for row in ws.iter_rows(min_row=2) for c in row)
     assert ws.cell(DONG_DAU, 1).value is None and ws.cell(DONG_DAU, 17).value is None

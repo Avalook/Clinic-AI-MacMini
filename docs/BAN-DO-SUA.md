@@ -354,9 +354,9 @@ FT `danh-sach-hoa-don-boundary.test.mts`, E2E `e2e/danh-sach-hoa-don.mjs` (API g
 **Xuất hoá đơn GTGT (mẫu MISA cho kế toán)** — `/xuat-hoa-don` ngay dưới Danh sách hoá đơn;
 `D/xuat-hoa-don/XuatHoaDon.tsx` → `/api/xuat-hoa-don` → `GET /api/v1/hoa-don/xuat` (+ `/xlsx`)
 → `S/xuat_hoa_don_service.py` (`dung_hoa_don` thuần, `xlsx_misa` đổ vào tệp mẫu
-`S/mau/hoa_don_gtgt_1_thue_suat.xlsx` từ dòng 10). Dùng lại `DanhSachHoaDonService.xem` (cùng cổng quyền).
+`S/mau/hoa_don_gtgt_1_thue_suat.xlsx`, bỏ 8 dòng chữ hướng dẫn → tiêu đề dòng 1, dữ liệu dòng 2). Dùng lại `DanhSachHoaDonService.xem` (cùng cổng quyền).
 Mỗi phiếu thu trong kỳ = 1 hoá đơn; bỏ phiếu huỷ; trừ dòng đã hoàn xong; ô chưa có dữ liệu để trống.
-Đổi mẫu = thay tệp `.xlsx` đó (giữ tiêu đề ở dòng 9). Test `T/unit/test_xuat_hoa_don.py`,
+Đổi mẫu = thay tệp `.xlsx` đó (tiêu đề cột ở dòng `TIEU_DE_MAU` = 9). Test `T/unit/test_xuat_hoa_don.py`,
 FT `xuat-hoa-don-boundary.test.mts`.
 Nút thu dùng chung `NhomThu` ở 2 quầy và Bán lẻ đổi thành **Tạo bill**; tiền mặt vẫn ghi thu,
 chuyển khoản vẫn chờ xác minh, nút xác minh **Đã nhận tiền** giữ nguyên.

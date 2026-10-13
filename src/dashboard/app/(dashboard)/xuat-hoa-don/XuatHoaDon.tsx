@@ -123,7 +123,7 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
             <div><dt className="text-meta text-ink-muted">Số dòng hàng</dt><dd className="tabular-nums text-emph font-semibold text-ink">{data.so_dong}</dd></div>
             <div><dt className="text-meta text-ink-muted">Tổng thành tiền</dt><dd className="tabular-nums text-emph font-semibold text-ink">{tien(data.tong)}</dd></div>
           </dl>
-          <p className="text-meta text-ink-muted">Mỗi phiếu thu là một hoá đơn, xếp theo giờ thu. Không gồm phiếu đã huỷ; dòng đã hoàn tiền xong được trừ. Số tiền là số khách thực trả (sau giảm giá).</p>
+          <p className="text-meta text-ink-muted">Đây là Màn hình xem nhanh, tải file excel để xem chi tiết!</p>
 
           {!coHoaDon ? <p className="rounded-card bg-surface p-4 text-body text-ink-muted ring-1 ring-hairline">Không có phiếu thu trong phạm vi đã chọn.</p> : null}
           {coHoaDon ? (

@@ -2,8 +2,9 @@
 
 Kế toán không phải gõ tay lại từng phiếu thu (Tuyền 13/10/2026). File dựng từ
 CHÍNH tệp mẫu kế toán gửi (`mau/hoa_don_gtgt_1_thue_suat.xlsx`) — giữ nguyên
-tiêu đề, hướng dẫn, font, độ rộng cột; chỉ đổ dữ liệu từ dòng 10. Ô nào hệ thống
-chưa có dữ liệu (mã số thuế, thuế suất, tiền thuế…) để TRỐNG cho kế toán điền.
+hàng tiêu đề cột, font, độ rộng cột; BỎ 8 dòng chữ hướng dẫn phía trên của mẫu
+(Tuyền 13/10: file tải về chỉ còn bảng) → tiêu đề ở dòng 1, dữ liệu từ dòng 2.
+Ô nào hệ thống chưa có dữ liệu (mã số thuế, thuế suất, tiền thuế…) để TRỐNG.
 
 Một phiếu thu = một hoá đơn. Không tự tạo con số: tiền lấy từ dòng phiếu đã thu
 (sau giảm giá), trừ phần đã hoàn xong theo đúng dòng.
@@ -30,8 +31,10 @@ from clinicai.services.danh_sach_hoa_don_service import DanhSachHoaDonService
 from clinicai.services.hoa_don_excel import HINH_THUC
 
 MAU = Path(__file__).parent / "mau" / "hoa_don_gtgt_1_thue_suat.xlsx"
-#: Dòng đầu tiên của dữ liệu trong mẫu (dòng 9 là tiêu đề cột).
-DONG_DAU = 10
+#: Hàng tiêu đề cột trong TỆP MẪU (dòng 1–8 phía trên là chữ hướng dẫn — bỏ).
+TIEU_DE_MAU = 9
+#: Dòng đầu tiên của dữ liệu trong FILE XUẤT (tiêu đề đã lên dòng 1).
+DONG_DAU = 2
 #: Dịch vụ không ghi đơn vị trên phiếu → "Lần" (đúng ví dụ trong mẫu kế toán gửi).
 DVT_DICH_VU = "Lần"
 _NGUON_DICH_VU = frozenset({"exam", "service_order", "lieu_trinh"})
@@ -216,8 +219,14 @@ def xlsx_misa(hoa_don: Sequence[Mapping[str, Any]]) -> bytes:
         wb = load_workbook(MAU)
     ws = wb.active
     assert ws is not None
+    cao_tieu_de = ws.row_dimensions[TIEU_DE_MAU].height
+    ws.delete_rows(1, TIEU_DE_MAU - 1)
+    # delete_rows không dời chiều cao dòng → gỡ chiều cao cũ, gắn lại cho tiêu đề.
+    for r in [r for r in ws.row_dimensions if r <= TIEU_DE_MAU]:
+        del ws.row_dimensions[r]
+    ws.row_dimensions[1].height = cao_tieu_de
     mau_dong = [ws.cell(DONG_DAU, c)._style for c in range(1, 18)]
-    # Xoá dòng ví dụ + công thức mẫu (dòng 10 → hết): file chỉ còn dữ liệu thật,
+    # Xoá dòng ví dụ + công thức mẫu (dữ liệu → hết): file chỉ còn dữ liệu thật,
     # không còn công thức để phần mềm nhập đọc nhầm ô rỗng.
     for row in ws.iter_rows(min_row=DONG_DAU, max_row=max(ws.max_row, DONG_DAU)):
         for cell in row:

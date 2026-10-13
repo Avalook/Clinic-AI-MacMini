@@ -12,7 +12,11 @@ from openpyxl import load_workbook
 from clinicai.api.identity import ClinicRole
 from clinicai.core.clock import now_vn
 from clinicai.services.quay_thu_service import ma_phieu
-from clinicai.services.xuat_hoa_don_service import XuatHoaDonService, xlsx_misa
+from clinicai.services.xuat_hoa_don_service import (
+    DONG_DAU,
+    XuatHoaDonService,
+    xlsx_misa,
+)
 from tests.services.test_tien_thuoc_cp1_db import tao_quay
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
@@ -81,9 +85,9 @@ async def test_xuat_hoa_don_doc_dvt_va_thong_tin_khach(pool: asyncpg.Pool) -> No
         ("Que thử", "Cái", 50000),
     ]
     ws: Any = load_workbook(io.BytesIO(xlsx_misa([hd]))).active
-    assert ws.cell(10, 7).value == "khach@example.com"
+    assert ws.cell(DONG_DAU, 7).value == "khach@example.com"
     # Số thứ tự = vị trí trong file (DB chung có phiếu của bài khác) — so theo hd.
-    assert [ws.cell(11, c).value for c in (1, 13, 14, 17)] == [
+    assert [ws.cell(DONG_DAU + 1, c).value for c in (1, 13, 14, 17)] == [
         str(hd["stt"]),
         "Que thử",
         "Cái",
