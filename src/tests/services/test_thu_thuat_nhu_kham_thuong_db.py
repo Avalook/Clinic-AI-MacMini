@@ -28,7 +28,11 @@ import asyncpg
 import pytest
 
 from clinicai.core.clock import CLINIC_TZ
-from clinicai.services import bang_hanh_trinh_service, man_trang_chu_service
+from clinicai.services import (
+    bang_hanh_trinh_service,
+    man_trang_chu_service,
+    week_appointments_service,
+)
 from clinicai.services.bang_hanh_trinh_service import BangHanhTrinhService
 from clinicai.services.checkout_service import CheckoutService
 from clinicai.services.man_khach_hang_service import ManKhachHangService
@@ -175,6 +179,15 @@ def _khong_tran(monkeypatch: pytest.MonkeyPatch) -> None:
     của bảng trạng thái buổi khám cắt mất lượt vừa dựng."""
     monkeypatch.setattr(man_trang_chu_service, "_TRAN_TRANG_THAI", 100_000)
     monkeypatch.setattr(bang_hanh_trinh_service, "_TRAN_LUOT", 100_000)
+    # SQL lưới tuần đóng trần lúc import; kiểm trạng thái fixture mới, không
+    # kiểm phân trang của toàn bộ các lịch do những bài trước dựng trong DB.
+    monkeypatch.setattr(
+        week_appointments_service,
+        "_SQL",
+        week_appointments_service._SQL.replace(
+            f"LIMIT {week_appointments_service.MAX_ROWS}", "LIMIT 100000"
+        ),
+    )
 
 
 @pytest.mark.parametrize("code", ["THU_THUAT", "SAN_CHAU"])

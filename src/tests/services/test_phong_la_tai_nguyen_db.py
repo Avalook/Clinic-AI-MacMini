@@ -20,6 +20,7 @@ import pytest_asyncio
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.services.clinic_config_service import ClinicConfigService
+from tests.catalog_cleanup import retire_new_catalog_rows
 
 CLINIC = "a0000000-0000-4000-8000-000000000001"
 
@@ -33,8 +34,11 @@ async def pool() -> Any:
         pytest.skip("cần DATABASE_URL_TEST trỏ tới database dùng một lần")
     dsn = url.replace("postgresql+asyncpg://", "postgresql://", 1)
     p = await asyncpg.create_pool(dsn=dsn, min_size=1, max_size=4)
-    yield p
-    await p.close()
+    try:
+        async with retire_new_catalog_rows(p, dsn=dsn):
+            yield p
+    finally:
+        await p.close()
 
 
 @pytest.fixture(autouse=True)

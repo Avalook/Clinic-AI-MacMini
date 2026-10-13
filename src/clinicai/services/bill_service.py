@@ -952,7 +952,9 @@ async def hoa_don_con_no(
     tach_doi_tac(hd)
     if hd.dong_doi_tac:
         hd.doi_tac_da_thu = await doi_tac_da_thu(
-            conn, clinic_id, [d.source_id for d in hd.dong_doi_tac]
+            conn,
+            clinic_id,
+            [d.source_id for d in hd.dong_doi_tac if d.source_type == "service_order"],
         )
     if unknown:
         hd.van_de_luot.append(THU_CU_KHONG_TRUY_DUOC)

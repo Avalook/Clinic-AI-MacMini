@@ -582,6 +582,12 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   sẵn có) để sổ có tên người sửa. Test: `T/unit/test_lich_truc_phien_ban.py`,
   `T/services/test_lich_truc_phien_ban_db.py`.
 
+- **Trưởng ca thấy sai cơ sở trong báo cáo/quầy thu:** `S/report_access_service.py`
+  `ROSTER_LOCATION_JOIN` dùng chung với `S/cashier_scope_service.py`. Vị trí
+  `DIEU_PHOI` không gắn phòng dùng chung cơ sở đang bật trong cùng phòng khám;
+  có phòng thì lấy cơ sở của phòng. Không suy ra từ cơ sở mặc định nhân viên.
+  Test: `T/services/test_report_access_db.py`.
+
 ## 14. Quyền · lego · tài khoản
 
 - Trên màn: bật/tắt lego, kỹ năng, nhóm quyền mẫu → `/phan-quyen`; nhân sự →

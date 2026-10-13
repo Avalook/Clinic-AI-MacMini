@@ -237,7 +237,9 @@ WITH v AS (
                           AND bl.source_id = t.id::text
                           AND c.status = 'PAID')))
      ORDER BY vi.created_at DESC
-     LIMIT 300
+     -- Không cắt ứng viên trước khi dựng hoá đơn: lượt mới đã thu có thể
+     -- đẩy khách cũ chưa trả ra khỏi quầy. Tập đã giới hạn theo ngày đang
+     -- xem và các khoản tồn chưa xử lý; không lấy toàn bộ lịch sử đã thu.
 )
 SELECT json_build_object(
   'visits', (SELECT coalesce(json_agg(row_to_json(v)), '[]'::json) FROM v),

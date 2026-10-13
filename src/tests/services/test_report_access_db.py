@@ -1,11 +1,13 @@
 from dataclasses import replace
 from datetime import date, datetime
+from uuid import uuid4
 
 import asyncpg
 import pytest
 
 from clinicai.api.identity import ClinicRole
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.cashier_scope_service import _ROSTER, allowed_roster
 from clinicai.services.report_access_service import ReportAccessService
 from tests.services.test_doi_tac_tu_thu_db import _nguoi_vai
 from tests.services.test_tien_thuoc_cp1_db import tao_quay
@@ -203,3 +205,108 @@ async def test_settings_roster_and_revoke(
             "DELETE FROM work_roster WHERE staff_id=$1::uuid", q.thu_ngan.staff_id
         )
         await service.save(manager, original)
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_shared_head_locations_ignore_primary_location(
+    pool: asyncpg.Pool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "clinicai.services.report_access_service.now_vn",
+        lambda: datetime(2026, 10, 12, 8),
+    )
+    q = await tao_quay(pool)
+    service = ReportAccessService(pool)
+    day = date(2026, 10, 12)
+    code = uuid4().hex[:8]
+    other = await pool.fetchval(
+        "INSERT INTO clinic_location(clinic_id,code,name)"
+        " VALUES($1::uuid,$2,'Head other') RETURNING id::text",
+        q.thu_ngan.clinic_id,
+        code,
+    )
+    inactive = await pool.fetchval(
+        "INSERT INTO clinic_location(clinic_id,code,name,is_active)"
+        " VALUES($1::uuid,$2,'Inactive',false) RETURNING id::text",
+        q.thu_ngan.clinic_id,
+        code + "X",
+    )
+    foreign_clinic = await pool.fetchval(
+        "INSERT INTO clinic(code,name,timezone)"
+        " VALUES($1,'Foreign head','Asia/Ho_Chi_Minh') RETURNING id::text",
+        code,
+    )
+    foreign_location = await pool.fetchval(
+        "INSERT INTO clinic_location(clinic_id,code,name)"
+        " VALUES($1::uuid,$2,'Foreign location') RETURNING id::text",
+        foreign_clinic,
+        code,
+    )
+    roster = await pool.fetchval(
+        "INSERT INTO work_roster"
+        " (clinic_id,week_start,work_date,shift,station,staff_id,staff_name,status)"
+        " VALUES($1::uuid,$2::date,$2::date,'SANG','DIEU_PHOI',"
+        " $3::uuid,'Head locations','APPROVED') RETURNING id",
+        q.thu_ngan.clinic_id,
+        day,
+        q.thu_ngan.staff_id,
+    )
+    room = await pool.fetchval(
+        "INSERT INTO clinic_room(clinic_id,location_id,code,name,node_code)"
+        " VALUES($1::uuid,$2::uuid,$3,'Head bound','THU_NGAN') RETURNING id::text",
+        q.thu_ngan.clinic_id,
+        other,
+        code,
+    )
+    bound_station = "TEST__DIEU_PHOI__2"
+    await pool.execute(
+        "INSERT INTO vi_tri_lam_viec(clinic_id,code,ten,room_id)"
+        " VALUES($1::uuid,$2,'Head bound',$3::uuid)",
+        q.thu_ngan.clinic_id,
+        bound_station,
+        room,
+    )
+    try:
+        active = {
+            r["id"]
+            for r in await pool.fetch(
+                "SELECT id::text FROM clinic_location WHERE clinic_id=$1::uuid"
+                " AND is_active",
+                q.thu_ngan.clinic_id,
+            )
+        }
+        access = await service.access(q.thu_ngan, day.isoformat())
+        assert set(access["co_so_ids"]) == active
+        assert other in active and inactive not in access["co_so_ids"]
+        assert foreign_location not in access["co_so_ids"]
+        rows = await pool.fetch(_ROSTER, q.thu_ngan.clinic_id, q.thu_ngan.staff_id)
+        assert set(allowed_roster([dict(r) for r in rows], "dich_vu")) == active
+        assert not (await service.access(q.thu_ngan, "2026-10-11"))["ban_hang"]
+        await pool.execute(
+            "UPDATE work_roster SET station=$2 WHERE id=$1", roster, bound_station
+        )
+        assert (await service.access(q.thu_ngan, day.isoformat()))["co_so_ids"] == [
+            other
+        ]
+        rows = await pool.fetch(_ROSTER, q.thu_ngan.clinic_id, q.thu_ngan.staff_id)
+        assert set(allowed_roster([dict(r) for r in rows], "thuoc")) == {other}
+        await pool.execute(
+            "UPDATE work_roster SET status='REJECTED' WHERE id=$1", roster
+        )
+        assert not (await service.access(q.thu_ngan, day.isoformat()))["ban_hang"]
+    finally:
+        await pool.execute("DELETE FROM work_roster WHERE id=$1", roster)
+        await pool.execute(
+            "DELETE FROM vi_tri_lam_viec WHERE clinic_id=$1::uuid AND code=$2",
+            q.thu_ngan.clinic_id,
+            bound_station,
+        )
+        await pool.execute("DELETE FROM clinic_room WHERE id=$1::uuid", room)
+        await pool.execute(
+            "DELETE FROM clinic_location WHERE id=$1::uuid", foreign_location
+        )
+        await pool.execute("DELETE FROM clinic WHERE id=$1::uuid", foreign_clinic)
+        await pool.execute(
+            "DELETE FROM clinic_location WHERE id=ANY($1::uuid[])", [other, inactive]
+        )

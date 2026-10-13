@@ -70,6 +70,18 @@ def gioi_han_tai_chinh_ca(bc: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in bc.items() if key not in blocked}
 
 
+# Trưởng ca không gắn phòng là vị trí dùng chung các cơ sở của phòng khám.
+# Những vị trí khác giữ phạm vi cũ; không dùng cơ sở mặc định để giới hạn trưởng ca.
+ROSTER_LOCATION_JOIN = """JOIN clinic_location l ON l.clinic_id=w.clinic_id
+    AND CASE
+        WHEN regexp_replace(regexp_replace(w.station, '^[A-Z0-9]+__', ''),
+                            '__[0-9]+$', '') = 'DIEU_PHOI'
+        THEN v.code IS NOT NULL AND l.is_active
+             AND (v.room_id IS NULL OR l.id=r.location_id)
+        ELSE l.id=COALESCE(r.location_id,s.primary_location_id)
+    END"""
+
+
 class ReportAccessService:
     def __init__(self, pool: asyncpg.Pool):
         self.pool = pool
@@ -124,15 +136,14 @@ class ReportAccessService:
                 )
             )
             assigned = await conn.fetch(
-                """SELECT w.work_date,w.shift,w.station,w.status,
-                    COALESCE(r.location_id,l.id)::text location_id
+                f"""SELECT w.work_date,w.shift,w.station,w.status,
+                    l.id::text location_id
                 FROM work_roster w
                 JOIN staff s ON s.id=w.staff_id AND s.is_active
-                JOIN clinic_location l ON l.id=s.primary_location_id
-                    AND l.clinic_id=w.clinic_id
                 LEFT JOIN vi_tri_lam_viec v ON v.clinic_id=w.clinic_id
                     AND v.code=w.station
                 LEFT JOIN clinic_room r ON r.id=v.room_id AND r.clinic_id=w.clinic_id
+                {ROSTER_LOCATION_JOIN}
                 WHERE w.clinic_id=$1::uuid AND w.staff_id=$2::uuid
                     AND w.status='APPROVED' AND w.work_date<=$3::date
                 ORDER BY w.work_date DESC""",
@@ -148,15 +159,14 @@ class ReportAccessService:
                 day = None
             rows = (
                 await conn.fetch(
-                    """SELECT w.shift,w.station,w.status,
-                    COALESCE(r.location_id, l.id)::text location_id
+                    f"""SELECT w.shift,w.station,w.status,
+                    l.id::text location_id
                 FROM work_roster w
                 JOIN staff s ON s.id=w.staff_id AND s.is_active
-                JOIN clinic_location l ON l.id=s.primary_location_id
-                    AND l.clinic_id=w.clinic_id
                 LEFT JOIN vi_tri_lam_viec v ON v.clinic_id=w.clinic_id
                     AND v.code=w.station
                 LEFT JOIN clinic_room r ON r.id=v.room_id AND r.clinic_id=w.clinic_id
+                {ROSTER_LOCATION_JOIN}
                 WHERE w.clinic_id=$1::uuid AND w.staff_id=$2::uuid
                     AND w.work_date=$3::date AND w.status='APPROVED'""",
                     identity.clinic_id,

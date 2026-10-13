@@ -131,8 +131,15 @@ async def test_nhat_ky_co_nguoi_lam_va_chi_so(pool: asyncpg.Pool) -> None:  # no
     await chay_hanh_trinh(pool)
     await _kham_va_chi_dinh(pool, ca, visit)
     await chay_ben_nhan(pool, DONG_THOI_GIAN_LUOT)
+    patient_code = await pool.fetchval(
+        "SELECT p.patient_code FROM patient p JOIN visit v "
+        "ON v.clinic_patient_id=p.clinic_patient_id AND v.clinic_id=p.clinic_id "
+        "WHERE v.clinic_id=$1::uuid AND v.visit_id=$2::uuid",
+        CLINIC,
+        visit,
+    )
     kq = await nhat_ky_van_hanh.doc_nhat_ky(
-        pool, clinic_id=CLINIC, ngay=now_vn().date().isoformat()
+        pool, clinic_id=CLINIC, ngay=now_vn().date().isoformat(), tim=patient_code
     )
     cua = [d for d in kq["dong"] if d["visit_id"] == visit]
     assert any(d["loai"] == "visit.checked_in" and d["nguoi_lam"] for d in cua)

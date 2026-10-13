@@ -33,6 +33,7 @@ from clinicai.services.luot_kham_service import (
     LuotKhamValidationError,
 )
 from clinicai.services.permission_service import cap_preset_mac_dinh
+from tests.catalog_cleanup import retire_new_catalog_rows
 from tests.chay_nguoi_dua_tin import (
     chay_hanh_trinh,
     danh_dau_doi_tac_da_nhan,
@@ -51,8 +52,11 @@ async def pool() -> Any:
         pytest.skip("cần DATABASE_URL_TEST trỏ tới database dùng một lần")
     dsn = url.replace("postgresql+asyncpg://", "postgresql://", 1)
     p = await asyncpg.create_pool(dsn=dsn, min_size=1, max_size=8)
-    yield p
-    await p.close()
+    try:
+        async with retire_new_catalog_rows(p, dsn=dsn):
+            yield p
+    finally:
+        await p.close()
 
 
 @dataclass
