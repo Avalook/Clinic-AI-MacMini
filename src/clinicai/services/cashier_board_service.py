@@ -592,6 +592,10 @@ class CashierBoardService:
             chot0 = (
                 await doc_chot_0d(conn, identity.clinic_id, vids) if want_svc else {}
             )
+            # Nhập trễ: cong_no_service → bill_service → module này (vòng nhập).
+            from clinicai.services.cong_no_service import doc_no_dang_mo
+
+            no_mo = await doc_no_dang_mo(conn, identity.clinic_id, vids)
             if want_svc:
                 chon = await cho_khach_quyet(conn, identity.clinic_id, vids)
                 # Đã trả, chưa bắt đầu → xếp / đổi phòng SAU khi thu (24/09).
@@ -649,6 +653,8 @@ class CashierBoardService:
                             tinh_dv,
                             chon.get(item["visit_id"]),
                         )
+                        # Lượt đang GHI NỢ: màn hiện nhãn, thu ở đây là thu nợ.
+                        item["quay_thu"]["dang_no"] = no_mo.get(item["visit_id"])
                         # Hoá đơn DỰ KIẾN còn dòng khách làm → CHƯA thu xong.
                         # Hoá đơn thật chỉ có chỉ định đã chốt; lượt Điều trị
                         # không phí khám, chỉ định còn chờ chọn → hoá đơn thật

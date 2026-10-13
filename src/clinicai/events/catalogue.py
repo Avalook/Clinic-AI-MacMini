@@ -1108,11 +1108,17 @@ class CongNoDaHuy(PayloadSuKien):
 
 
 class CongNoDaThu(PayloadSuKien):
-    """`cong_no.da_thu` — lượt có khoản ghi nợ nay đã hết nợ (thu ở quầy)."""
+    """`cong_no.da_thu` — lượt có khoản ghi nợ nay đã hết nợ (thu ở quầy).
+
+    `so_tien` là nợ gốc đã ghi. Thu có giảm giá thì tiền thật vào quầy ít hơn:
+    `so_thu` = tiền thực thu từ lúc ghi nợ, `so_giam` = tiền giảm (0đ nếu thu đủ).
+    Hai trường có mặc định để sự kiện cũ vẫn đọc được."""
 
     visit_id: str
     cong_no_id: str
     so_tien: int
+    so_thu: int | None = None
+    so_giam: int = 0
 
 
 # ── HOÀN TÁC (Tuyền 01/10/2026: "không được để bất kể cái gì khoá hẳn") ──────
