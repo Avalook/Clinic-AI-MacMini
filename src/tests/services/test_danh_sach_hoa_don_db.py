@@ -137,7 +137,7 @@ async def test_head_scope_and_xlsx_endpoint_share_guard(pool: asyncpg.Pool) -> N
             assert response.status_code == 200
             if path.endswith("xlsx"):
                 book = load_workbook(BytesIO(response.content))
-                assert len(book.sheetnames) == 5
+                assert len(book.sheetnames) == 7  # + Sau khi thu, Việc còn tồn
                 assert book["Trong kỳ"]["A2"].is_date
             for params in (
                 dict(tu=day, den=day, ca="INVALID"),

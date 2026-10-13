@@ -11,6 +11,7 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
     bills = []
     lines = []
     refunds = []
+    events = []
     for g in data["khach"]:
         customers.append(
             [
@@ -26,9 +27,27 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                 g["thu_rong"],
                 g["tong_truoc_giam"],
                 g["giam_gia"],
+                g.get("da_thu_dich_vu", 0),
+                g.get("da_thu_thuoc", 0),
+                g.get("chua_tra_lai", 0),
+                len(g.get("viec_ton") or []),
             ]
         )
         for p in g["phieu"]:
+            for e in p.get("su_kien") or []:
+                events.append(
+                    [
+                        g["ma_bn"],
+                        g["ten"],
+                        p["ma"],
+                        excel_datetime(e["luc"]),
+                        TEN_SU_KIEN.get(e["loai"], e["loai"]),
+                        e.get("nguoi"),
+                        e.get("mo_ta"),
+                        e.get("ly_do"),
+                        e["so_tien"],
+                    ]
+                )
             bills.append(
                 [
                     g["ma_bn"],
@@ -63,6 +82,7 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                 lines.append(
                     [
                         g["ma_bn"],
+                        g["ten"],
                         p["ma"],
                         d["id"],
                         d["ten"],
@@ -77,6 +97,7 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                 refunds.append(
                     [
                         g["ma_bn"],
+                        g["ten"],
                         p["ma"],
                         r["ma"],
                         r["trang_thai"],
@@ -97,6 +118,7 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                     lines.append(
                         [
                             g["ma_bn"],
+                            g["ten"],
                             r["ma"],
                             d["id"],
                             d["ten"],
@@ -118,11 +140,13 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                     "Đã thu",
                     "Đã hoàn",
                     "Chờ hoàn",
-                    "Thu ròng",
+                    "Thực thu",
                     "Số phiếu huỷ",
                     "Giá trị phiếu huỷ",
                     "Trước giảm trong kỳ",
                     "Giảm giá trong kỳ",
+                    "Chưa trả lại khách",
+                    "Việc còn tồn (mọi ngày)",
                 ],
                 [
                     [
@@ -136,6 +160,8 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                         totals["gia_tri_huy"],
                         totals["tong_truoc_giam"],
                         totals["giam_gia"],
+                        totals.get("chua_tra_lai", 0),
+                        totals.get("so_viec_ton", 0),
                     ]
                 ],
             ),
@@ -151,9 +177,13 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                     "Đã thu toàn chứng từ",
                     "Đã hoàn toàn chứng từ",
                     "Chờ hoàn",
-                    "Thu ròng toàn chứng từ",
+                    "Thực thu toàn chứng từ",
                     "Trước giảm toàn chứng từ",
                     "Giảm giá toàn chứng từ",
+                    "Đã thu dịch vụ",
+                    "Đã thu thuốc",
+                    "Chưa trả lại khách",
+                    "Số việc tồn",
                 ],
                 customers,
             ),
@@ -169,7 +199,7 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                     "Đã thu toàn phiếu",
                     "Đã hoàn toàn phiếu",
                     "Chờ hoàn",
-                    "Thu ròng toàn phiếu",
+                    "Thực thu toàn phiếu",
                     "Thu trong kỳ",
                     "Hình thức",
                     "Lập lúc",
@@ -193,6 +223,7 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                 "Chi tiết",
                 [
                     "Mã khách",
+                    "Khách",
                     "Mã chứng từ",
                     "Mã dòng",
                     "Dịch vụ hoặc thuốc",
@@ -208,6 +239,7 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                 "Hoàn tiền",
                 [
                     "Mã khách",
+                    "Khách",
                     "Phiếu gốc",
                     "Mã phiếu hoàn",
                     "Trạng thái",
@@ -225,5 +257,58 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                 ],
                 refunds,
             ),
+            (
+                "Sau khi thu",
+                [
+                    "Mã khách",
+                    "Khách",
+                    "Mã phiếu",
+                    "Lúc",
+                    "Việc",
+                    "Người làm",
+                    "Mô tả",
+                    "Lý do",
+                    "Số tiền",
+                ],
+                events,
+            ),
+            (
+                "Việc còn tồn",
+                [
+                    "Phát sinh",
+                    "Mã khách",
+                    "Khách",
+                    "Việc",
+                    "Số tiền",
+                    "Mô tả",
+                    "Mã phiếu",
+                    "Loại",
+                    "Người",
+                ],
+                [
+                    [
+                        excel_datetime(v["luc"]),
+                        v["ma_bn"],
+                        v["ten"],
+                        v["ten_loai"],
+                        v["so_tien"],
+                        v.get("mo_ta"),
+                        v.get("ma"),
+                        {"thuoc": "Thuốc", "dich_vu": "Dịch vụ"}.get(
+                            v.get("kind") or ""
+                        ),
+                        v.get("nguoi"),
+                    ]
+                    for v in data.get("viec_ton") or []
+                ],
+            ),
         ]
     )
+
+
+TEN_SU_KIEN = {
+    "DOI_HINH_THUC": "Đổi hình thức",
+    "BO_DICH_VU": "Bỏ dịch vụ sau thu",
+    "HOAN_TIEN": "Hoàn tiền",
+    "HUY_PHIEU": "Huỷ phiếu",
+}

@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-13 13:08. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-13 14:45. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -170,7 +170,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/hoa-don`, `/api/reports/access`
 - gọi thẳng backend (server): `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
 - service: DanhSachHoaDonService.xem · danh_sach_hoa_don_service · ReportAccessService.access
-- test: test_danh_sach_hoa_don_db.py, test_danh_sach_hoa_don.py, test_report_access.py, test_report_access_db.py
+- test: test_danh_sach_hoa_don_db.py, test_danh_sach_hoa_don.py, test_danh_sach_hoa_don_viec_ton_db.py, test_report_access.py, test_report_access_db.py
 
 ### `/home` — Trang chủ
 - page: `src/dashboard/app/(dashboard)/home/page.tsx` · quyền: ?
@@ -943,7 +943,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 #### `/api/hoa-don` · `src/dashboard/app/api/hoa-don/route.ts`
 - GET `/api/v1/hoa-don` → `src/clinicai/api/v1/routers/hoa_don.py:danh_sach_hoa_don` → DanhSachHoaDonService.xem
 - GET `/api/v1/hoa-don/xlsx` → `src/clinicai/api/v1/routers/hoa_don.py:danh_sach_hoa_don_excel` → xlsx_hoa_don
-- test: src/tests/services/test_danh_sach_hoa_don_db.py, src/tests/unit/test_danh_sach_hoa_don.py
+- test: src/tests/services/test_danh_sach_hoa_don_db.py, src/tests/services/test_danh_sach_hoa_don_viec_ton_db.py, src/tests/unit/test_danh_sach_hoa_don.py
 - màn dùng: /hoa-don
 
 #### `/api/lab-result` · `src/dashboard/app/api/lab-result/route.ts`
