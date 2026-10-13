@@ -259,11 +259,11 @@ def test_discount_excel_columns_and_cross_day_refund_do_not_double_count() -> No
         (
             "Chứng từ",
             {
-                "Trước giảm": 100,
+                "Tổng tiền hàng": 100,
                 "Giảm giá": 30,
                 "Lý do giảm": "Ưu đãi",
                 "Người giảm": "Thu ngân",
-                "Đã thu toàn phiếu": 70,
+                "Tiền đã thu toàn phiếu": 70,
             },
         ),
         (

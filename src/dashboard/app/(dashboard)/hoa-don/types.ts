@@ -50,7 +50,7 @@ export interface DanhSachData {
   tong: {
     tong_truoc_giam: number; giam_gia: number; da_thu: number; da_hoan: number; cho_hoan: number;
     thu_rong: number; so_phieu: number; so_khach: number;
-    chua_tra_lai?: number; so_viec_ton?: number;
+    chua_tra_lai?: number; so_viec_ton?: number; gia_tri_huy?: number; so_huy?: number;
   };
   /** Tổng các dòng khách đang hiện (máy chủ cộng) — dòng TỔNG cuối bảng. */
   tong_khach?: { so_phieu: number; giam_gia: number; da_thu: number; da_hoan: number; chua_tra_lai: number; thu_rong: number; so_khach_con_ton: number };

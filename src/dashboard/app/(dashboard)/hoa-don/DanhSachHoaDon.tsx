@@ -183,12 +183,14 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
 
       {data ? (
         <>
-          <dl className="grid grid-cols-2 gap-4 rounded-card bg-surface p-4 ring-1 ring-hairline md:grid-cols-3 lg:grid-cols-6">
+          <dl className="grid grid-cols-2 gap-4 rounded-card bg-surface p-4 ring-1 ring-hairline md:grid-cols-4">
+            <SoTien ten="Tổng tiền hàng" so={tien(data.tong.tong_truoc_giam)} />
             <SoTien ten="Giảm giá" so={tien(data.tong.giam_gia)} />
-            <SoTien ten="Đã thu" so={tien(data.tong.da_thu)} />
+            <SoTien ten="Tiền đã thu" so={tien(data.tong.da_thu)} />
+            <SoTien ten="Phiếu huỷ" so={tien(data.tong.gia_tri_huy ?? 0)} />
             <SoTien ten="Đã trả lại khách" so={tien(data.tong.da_hoan)} />
-            <SoTien ten="Chưa trả lại khách" so={tien(data.tong.chua_tra_lai ?? 0)} nhan={(data.tong.chua_tra_lai ?? 0) > 0 ? "do" : undefined} />
             <SoTien ten="Thực thu" so={tien(data.tong.thu_rong)} />
+            <SoTien ten="Chưa trả lại khách" so={tien(data.tong.chua_tra_lai ?? 0)} nhan={(data.tong.chua_tra_lai ?? 0) > 0 ? "do" : undefined} />
             <SoTien ten="Việc còn tồn" so={`${data.tong.so_viec_ton ?? ton.length} việc`} nhan={ton.length ? "do" : undefined} />
           </dl>
 
@@ -209,7 +211,7 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
                   <table className="w-full text-body">
                     <thead className="bg-surface-muted text-left text-meta text-ink-muted">
                       <tr>
-                        {["Khách hàng", "Số phiếu", "Giảm giá", "Đã thu", "Đã trả lại", "Chưa trả lại", "Thực thu", "Trạng thái"].map((t, i) => (
+                        {["Khách hàng", "Số phiếu", "Giảm giá", "Tiền đã thu", "Đã trả lại", "Chưa trả lại", "Thực thu", "Trạng thái"].map((t, i) => (
                           <th key={t} className={`px-3 py-2 font-semibold ${i > 0 && i < 7 ? "text-right" : ""}`}>{t}</th>
                         ))}
                       </tr>
@@ -258,7 +260,7 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
                     </div>
                     <p className="mt-1 text-meta text-ink-muted">{k.ma_bn || "—"} · {k.so_phieu} phiếu</p>
                     <dl className="mt-3 grid grid-cols-2 gap-3">
-                      <SoTien ten="Đã thu" so={tien(k.da_thu)} />
+                      <SoTien ten="Tiền đã thu" so={tien(k.da_thu)} />
                       <SoTien ten="Thực thu" so={tien(k.thu_rong)} />
                       {(k.chua_tra_lai ?? 0) > 0 ? <SoTien ten="Chưa trả lại" so={tien(k.chua_tra_lai ?? 0)} nhan="do" /> : null}
                     </dl>

@@ -94,7 +94,7 @@ export default function ChiTietHoaDon({ khach, onDong }: { khach: KhachHoaDon; o
   return <HopChiTiet tieuDe={`Hoá đơn · ${khach.ten}`} onDong={onDong}>
     <p className="mb-4 text-meta text-ink-muted">{khach.ma_bn || "—"} · {khach.so_dien_thoai || "—"} · {khach.so_phieu} phiếu</p>
     <dl className="mb-4 grid grid-cols-2 gap-3 rounded-control bg-surface-muted p-3 sm:grid-cols-4">
-      {([["Trước giảm giá", khach.tong_truoc_giam], ["Giảm giá", khach.giam_gia], ["Đã thu", khach.da_thu], ["Thực thu", khach.thu_rong]] as const).map(([ten, so]) => <div key={ten}><dt className="text-meta text-ink-muted">{ten}</dt><dd className="tabular-nums font-semibold">{tien(so)}</dd></div>)}
+      {([["Tổng tiền hàng", khach.tong_truoc_giam], ["Giảm giá", khach.giam_gia], ["Tiền đã thu", khach.da_thu], ["Thực thu", khach.thu_rong]] as const).map(([ten, so]) => <div key={ten}><dt className="text-meta text-ink-muted">{ten}</dt><dd className="tabular-nums font-semibold">{tien(so)}</dd></div>)}
       {(khach.chua_tra_lai ?? 0) > 0 ? <div><dt className="text-meta text-ink-muted">Chưa trả lại khách</dt><dd className="tabular-nums font-semibold text-danger">{tien(khach.chua_tra_lai ?? 0)}</dd></div> : null}
     </dl>
     {ton.length ? <div className="mb-4 rounded-control bg-surface-muted p-3">
