@@ -27,7 +27,6 @@ import { LOI_MAT_KET_NOI, nenThuLai, type KetQuaGui, type TrangThaiLuu } from "@
 import { useTuLuu } from "@/lib/use-tu-luu";
 import {
   donTuDong,
-  cauLyDoDinhChinh,
   docKhoi1,
   dongTuDon,
   gopSoLuongQuayDien,
@@ -102,6 +101,9 @@ async function ghi(
   }
 }
 
+/** Lý do ghi sẵn khi sửa / bỏ dòng đơn đã thu tiền (xem `guiDon`). */
+const LY_DO_SUA_DON_DA_THU = "Sửa đơn sau khi khách đã thu tiền thuốc";
+
 function cauLoi(d: Record<string, unknown> | null, macDinh: string): string {
   const m = d?.message ?? d?.detail ?? d?.error;
   return typeof m === "string" && m ? m : macDinh;
@@ -158,16 +160,12 @@ export default function PhieuKhamLuot({
   const [don, setDon] = useState<DongThuoc[]>([]);
   /** Lỗi NẠP phiếu (lỗi lưu nằm ở hàng đợi tự lưu). */
   const [loi, setLoi] = useState<string | null>(null);
-  const [canLyDo, setCanLyDo] = useState(false);
-  const [lyDo, setLyDo] = useState("");
   const revision = useRef(0);
   /** Bản đã lưu gần nhất — tự lưu chỉ gửi phần khác bản này (lát 2). */
   const daLuu = useRef<Record<string, ONhap>>({});
   const soLanSuaDon = useRef(0);
   /** Đơn MỚI NHẤT — hàng đợi đọc lúc gửi (kèm mã dòng lần lưu trước vừa gắn). */
   const donRef = useRef<DongThuoc[]>([]);
-  /** Lý do đính chính gửi kèm lần lưu KẾ TIẾP (nút "Lưu đơn kèm lý do"). */
-  const lyDoRef = useRef<string | null>(null);
   const datDon = useCallback((d: DongThuoc[]) => {
     donRef.current = d;
     setDon(d);
@@ -325,18 +323,24 @@ export default function PhieuKhamLuot({
     async (keepalive: boolean): Promise<KetQuaGui> => {
       const lan = soLanSuaDon.current;
       const dong = donRef.current;
-      const lyDoGui = lyDoRef.current;
-      const kq = await ghi(
-        {
-          thao_tac: "luu-don",
-          visit_id: visitId,
-          dong: dong.filter((d) => d.ten_thuoc.trim()).map(donTuDong),
-          ly_do: lyDoGui,
-        },
-        keepalive,
-      );
+      const guiLan = (lyDo: string | null) =>
+        ghi(
+          {
+            thao_tac: "luu-don",
+            visit_id: visitId,
+            dong: dong.filter((d) => d.ten_thuoc.trim()).map(donTuDong),
+            ly_do: lyDo,
+          },
+          keepalive,
+        );
+      let kq = await guiLan(null);
+      // Sửa / bỏ dòng ĐÃ THU TIỀN là "đính chính" — máy chủ đòi lý do (≥ 5 ký tự).
+      // Người kê không phải gõ (Tuyền 13/10/2026: "cứ chỉnh sửa đơn thoải mái"):
+      // màn tự ghi lý do mặc định, sổ đính chính vẫn lưu ai sửa gì lúc nào.
+      if (!kq.ok && kq.d?.ma_loi === "PRESCRIPTION_CORRECTION_REASON_REQUIRED") {
+        kq = await guiLan(LY_DO_SUA_DON_DA_THU);
+      }
       if (!kq.ok) {
-        if (kq.d?.ma_loi === "PRESCRIPTION_CORRECTION_REASON_REQUIRED") setCanLyDo(true);
         return {
           ok: false,
           loi:
@@ -346,9 +350,6 @@ export default function PhieuKhamLuot({
           thuLai: nenThuLai(kq.status),
         };
       }
-      lyDoRef.current = null;
-      setCanLyDo(false);
-      setLyDo("");
       if (keepalive) return { ok: true };
       // Nạp lại để dòng mới có MÃ — lần lưu sau không tạo trùng. Chưa gõ thêm
       // thì lấy nguyên bản máy chủ; đã gõ thêm thì chỉ gắn mã theo thứ tự dòng
@@ -666,33 +667,10 @@ export default function PhieuKhamLuot({
         baoLoiDon={
           tuLuuDon.trangThai.loi ? (
             <BaoLoiCanhNut className="space-y-2">
-              <p>{canLyDo ? cauLyDoDinhChinh(tuLuuDon.trangThai.loi) : tuLuuDon.trangThai.loi}</p>
-              {canLyDo ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    value={lyDo}
-                    onChange={(e) => setLyDo(e.target.value)}
-                    placeholder="Lý do đính chính đơn (đơn đã thu tiền / đã cấp)"
-                    aria-label="Lý do đính chính đơn thuốc"
-                    className="min-h-10 min-w-0 flex-1 rounded-control border border-line bg-surface px-3 text-body text-ink"
-                  />
-                  <Button
-                    type="button"
-                    variant="primary"
-                    disabled={!lyDo.trim()}
-                    onClick={() => {
-                      lyDoRef.current = lyDo.trim();
-                      void tuLuuDon.luuNgay();
-                    }}
-                  >
-                    Lưu đơn kèm lý do
-                  </Button>
-                </div>
-              ) : (
-                <Button type="button" size="sm" variant="danger" onClick={() => void tuLuuDon.luuNgay()}>
-                  Thử lại
-                </Button>
-              )}
+              <p>{tuLuuDon.trangThai.loi}</p>
+              <Button type="button" size="sm" variant="danger" onClick={() => void tuLuuDon.luuNgay()}>
+                Thử lại
+              </Button>
             </BaoLoiCanhNut>
           ) : null
         }
