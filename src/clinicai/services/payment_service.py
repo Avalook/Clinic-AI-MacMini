@@ -1650,6 +1650,11 @@ async def _chot_lua_chon(
     định, khoá, "Bắt buộc" — mọi luật giữ nguyên. Lựa chọn không đổi (lễ tân
     đã tick-lưu từng dòng) thì không ghi gì và không cần quyền chọn dịch vụ;
     đổi thì hỏi quyền ấy và lượt phải còn mở (như lệnh xác nhận).
+
+    Ngoại lệ (14/10/2026): lượt "khách về giữa chừng" (INCOMPLETE) mà còn GHI NỢ
+    thì khách quay lại trả nợ ở quầy được — UI luôn gửi kèm `chon`, và lượt đã
+    đóng không nợ thì check-out đã chặn từ đầu nên chỉ nợ mới dẫn tới đây. Lượt
+    INCOMPLETE không nợ vẫn 409 như cũ: không mở rộng quyền sửa lượt đã rời.
     """
 
     async def _truoc_khi_ghi() -> None:
@@ -1660,7 +1665,18 @@ async def _chot_lua_chon(
                 QUYEN_CHON_DICH_VU,
                 cau="Bạn không có quyền xác nhận lựa chọn dịch vụ.",
             )
-        await khoa_luot(conn, identity.clinic_id, inp.visit_id)
+        con_no = await conn.fetchval(
+            "SELECT 1 FROM public.cong_no WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid AND trang_thai = 'CHUA_THU' LIMIT 1",
+            identity.clinic_id,
+            inp.visit_id,
+        )
+        await khoa_luot(
+            conn,
+            identity.clinic_id,
+            inp.visit_id,
+            cho_phep_ve_giua_chung=bool(con_no),
+        )
 
     kq = await ap_lua_chon(conn, identity, inp, truoc_khi_ghi=_truoc_khi_ghi)
     return {
