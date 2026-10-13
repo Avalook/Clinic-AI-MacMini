@@ -46,6 +46,7 @@ _SU_KIEN = (
     "result.ready",
     "result_file.uploaded",
     "prescription.saved",
+    "prescription.consultant_marked",
     "payment.medicine_collected",
     "medicine.dispensed",
 )
@@ -316,23 +317,37 @@ def dung_moc(
 
     # Đơn do bác sĩ tư vấn kê/điền tiếp (13/10/2026): cùng MỘT đơn của lượt, chỉ
     # thêm mốc để thấy khách còn ghé bàn tư vấn. Lấy từ sự kiện, không suy từ tên.
-    ke_tv = [
-        (t, ct)
-        for (e, t, ct) in su_kien
-        if e == "prescription.saved" and ct.get("ke_tai_tu_van") is True
-    ]
-    if ke_tv:
-        lan_dau = min(ke_tv, key=lambda x: x[0])
-        lan_cuoi = max(ke_tv, key=lambda x: x[0])
-        ai = lan_cuoi[1].get(KHOA_AI)
+    ke_tv = sorted(
+        (
+            (t, ct)
+            for (e, t, ct) in su_kien
+            if e == "prescription.saved" and ct.get("ke_tai_tu_van") is True
+        ),
+        key=lambda x: x[0],
+    )
+    danh_dau = sorted(
+        ((t, ct) for (e, t, ct) in su_kien if e == "prescription.consultant_marked"),
+        key=lambda x: x[0],
+    )
+    if ke_tv or danh_dau:
+        # Có bấm "Xong kê đơn" thì theo lần bấm MỚI NHẤT (mở lại → đang kê); chưa
+        # ai bấm thì coi xong từ lần lưu cuối (lượt kê từ bàn tư vấn đầu lượt).
+        moc_gio = [t for t, _ in ke_tv] + [t for t, _ in danh_dau]
+        ai_ct = (danh_dau or ke_tv)[-1][1]
+        ai = ai_ct.get(KHOA_AI)
+        if danh_dau:
+            ket = danh_dau[-1][0] if danh_dau[-1][1].get("xong") is True else None
+        else:
+            ket = max(t for t, _ in ke_tv)
+        bat = min(moc_gio)
         moc.append(
             _moc(
                 "KE_DON_TU_VAN",
                 "Bác sĩ tư vấn kê đơn",
                 f"Bàn tư vấn · {ai}" if ai else "Bàn tư vấn",
-                lan_dau[0],
-                lan_cuoi[0],
-                XONG,
+                bat,
+                ket,
+                _tt(bat, ket),
             )
         )
 

@@ -103,6 +103,12 @@ export async function PUT(request: Request) {
   if (thao_tac === "luu-don") {
     return proxyJsonToBackend("PUT", `/api/v1/phieu-kham/luot/${visit_id}/don-thuoc`, con);
   }
+  if (thao_tac === "xong-ke-don") {
+    // Bác sĩ tư vấn đánh dấu xong / mở lại việc kê đơn (13/10/2026) — chỉ là mốc.
+    return proxyJsonToBackend("PUT", `/api/v1/phieu-kham/luot/${visit_id}/ke-don-tu-van`, {
+      xong: con.xong === true,
+    });
+  }
   if (thao_tac === "dat-lich-tai-kham") {
     return proxyJsonToBackend("POST", `/api/v1/phieu-kham/luot/${visit_id}/lich-tai-kham`, con);
   }

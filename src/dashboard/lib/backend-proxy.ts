@@ -180,9 +180,14 @@ export async function proxyJsonToBackend(
     // mang tên phòng đang giữ khách để màn hỏi "chuyển sang đây?").
     const coChiTiet =
       chiTiet !== null && typeof chiTiet === "object" && !Array.isArray(chiTiet);
+    // `ma_loi` = mã lỗi của máy chủ (13/10/2026): `error` ở đây là CÂU cho người
+    // đọc, nên màn không so mã được — vd ô "Lý do đính chính đơn" (409
+    // PRESCRIPTION_CORRECTION_REASON_REQUIRED) không bao giờ hiện.
+    const maLoi = (payload as { error?: unknown }).error;
     return NextResponse.json(
       {
         error: msg ?? "Lỗi xử lý",
+        ...(typeof maLoi === "string" && maLoi ? { ma_loi: maLoi } : {}),
         ...(oLoi.length > 0 ? { truong: oLoi } : {}),
         ...(coChiTiet ? { chi_tiet: chiTiet } : {}),
       },

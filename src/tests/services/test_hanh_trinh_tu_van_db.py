@@ -297,3 +297,39 @@ async def test_phat_lai_thi_hanh_trinh_khong_lam_gi(
     async with pool.acquire() as conn:
         await xu_ly_hanh_trinh(conn, sk)
     assert await _duong_di(pool, lan.visit) is None
+
+
+async def test_ban_tu_van_biet_khach_da_danh_dau_xong_ke_don(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """13/10/2026: dòng khách khám xong ở bàn tư vấn mang cờ `ke_don_tu_van_xong`
+    — đổi theo lần "Xong kê đơn" mới nhất."""
+    lan = await _check_in(pool, qua_tu_van=False)
+    await _hanh_trinh(pool)
+    svc = LuotKhamService(pool)
+    async with pool.acquire() as conn:
+        bs_tu_van = await _nguoi(conn, lan.loc, "DOCTOR")
+    phien = await pool.fetchval(
+        "SELECT id::text FROM consultation WHERE visit_id = $1::uuid"
+        " AND kind = 'PRIMARY'",
+        lan.visit,
+    )
+    await svc.start_consultation(consultation_id=phien, identity=lan.bac_si)
+    await svc.kham_xong(consultation_id=phien, identity=lan.bac_si)
+
+    async def co() -> bool:
+        tv = await svc.hang_cho(identity=bs_tu_van, room_id=None, tu_van=True)
+        [dong] = [x for x in tv["hang_cho"] if x["visit_id"] == lan.visit]
+        return bool(dong["ke_don_tu_van_xong"])
+
+    from clinicai.services.phieu_kham_service import (
+        PhieuKhamService,
+        kiem_quyen_core,
+    )
+
+    pk = PhieuKhamService(pool, kiem_quyen=kiem_quyen_core)
+    assert await co() is False
+    await pk.danh_dau_xong_ke_don(visit_id=lan.visit, xong=True, identity=bs_tu_van)
+    assert await co() is True
+    await pk.danh_dau_xong_ke_don(visit_id=lan.visit, xong=False, identity=bs_tu_van)
+    assert await co() is False

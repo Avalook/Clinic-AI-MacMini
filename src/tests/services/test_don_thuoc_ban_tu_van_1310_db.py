@@ -18,6 +18,7 @@ import pytest
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions import cache
 from clinicai.services.phieu_kham_service import PhieuKhamService, kiem_quyen_core
+from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_ca_truc_lam_sang_db import _noi_tai_khoan, _truc, _vi_tri
 from tests.services.test_luot_kham_service_db import CLINIC
 from tests.services.test_luot_kham_service_db import _nguoi as _nguoi_loc
@@ -155,3 +156,59 @@ async def test_khong_co_lego_tu_van_van_bi_cong_ca_truc_chan(
             ly_do=None,
             identity=c["khong_lego"],
         )
+
+
+async def test_xong_ke_don_la_moc_khong_khoa_don_va_bam_lai_khong_nhan_doi(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    c = await _canh(pool)
+    svc, visit = c["svc"], c["luot"]
+    await svc.luu_don_thuoc(
+        visit_id=visit, dong=[_dong("Duphaston")], ly_do=None, identity=c["bs"]
+    )
+
+    async def dem() -> int:
+        return int(
+            await pool.fetchval(
+                "SELECT count(*) FROM domain_event WHERE aggregate_id = $1::uuid"
+                " AND event_type = 'prescription.consultant_marked'",
+                visit,
+            )
+        )
+
+    kq = await svc.danh_dau_xong_ke_don(visit_id=visit, xong=True, identity=c["tu_van"])
+    assert kq == {"ok": True, "xong": True, "da_co": False}
+    kq = await svc.danh_dau_xong_ke_don(visit_id=visit, xong=True, identity=c["tu_van"])
+    assert kq["da_co"] is True and await dem() == 1
+    # Đã xong mà vẫn sửa / thêm thuốc được (mốc, không khoá).
+    don = await svc.doc_don_thuoc(visit_id=visit, identity=c["bs"])
+    await svc.luu_don_thuoc(
+        visit_id=visit,
+        dong=[_dong("Duphaston", don[0]["id"]), _dong("Vitamin D3")],
+        ly_do=None,
+        identity=c["tu_van"],
+    )
+    # Mở lại → sự kiện mới; chưa từng bấm mà mở lại thì không phát gì.
+    await svc.danh_dau_xong_ke_don(visit_id=visit, xong=False, identity=c["tu_van"])
+    assert await dem() == 2
+    c2 = await _canh(pool)
+    kq = await c2["svc"].danh_dau_xong_ke_don(
+        visit_id=c2["luot"], xong=False, identity=c2["tu_van"]
+    )
+    assert kq["da_co"] is True
+    # Người không ghi được phiếu thì không đánh dấu được.
+    with pytest.raises(SafetyGateError):
+        await svc.danh_dau_xong_ke_don(
+            visit_id=visit,
+            xong=True,
+            identity=await _nguoi_khong_quyen(pool),
+        )
+
+
+async def _nguoi_khong_quyen(pool: asyncpg.Pool) -> Any:  # noqa: F811
+    from tests.services.test_phieu_kham_db import _nguoi
+
+    async with pool.acquire() as conn:
+        le_tan = await _nguoi(conn, "RECEPTION")
+        await ve_goi_mau_cu(conn, le_tan)
+    return le_tan

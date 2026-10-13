@@ -335,7 +335,7 @@ export default function PhieuKhamLuot({
         keepalive,
       );
       if (!kq.ok) {
-        if (kq.d?.error === "PRESCRIPTION_CORRECTION_REASON_REQUIRED") setCanLyDo(true);
+        if (kq.d?.ma_loi === "PRESCRIPTION_CORRECTION_REASON_REQUIRED") setCanLyDo(true);
         return {
           ok: false,
           loi:

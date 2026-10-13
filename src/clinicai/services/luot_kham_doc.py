@@ -1007,6 +1007,26 @@ class BangLuotKham:
                 la_hom_nay,
                 identity.location_id or None,
             )
+            # Bàn tư vấn (13/10/2026): lần đánh dấu "Xong kê đơn" MỚI NHẤT của từng
+            # lượt — đọc thẳng sổ sự kiện (nhất quán ngay sau khi bấm, không đợi
+            # bên nhận chạy).
+            ke_don_xong: dict[str, bool] = (
+                {
+                    r["visit_id"]: bool(r["xong"])
+                    for r in await conn.fetch(
+                        "SELECT DISTINCT ON (aggregate_id) aggregate_id::text AS"
+                        " visit_id, (payload->>'xong')::boolean AS xong"
+                        "  FROM domain_event WHERE clinic_id = $1::uuid"
+                        "   AND event_type = 'prescription.consultant_marked'"
+                        "   AND aggregate_id = ANY($2::uuid[])"
+                        " ORDER BY aggregate_id, seq DESC",
+                        cid,
+                        list({r["visit_id"] for r in rows}),
+                    )
+                }
+                if tu_van and rows
+                else {}
+            )
             # SẮP TỚI (Tuyền chốt 24/09): khách của bác sĩ chính đang ở bước tư
             # vấn — bác sĩ chính THẤY trước nhưng chưa gọi được (chưa có chỗ chờ
             # ở hàng bác sĩ). Tư vấn bấm Xong thì khách mới vào hàng thật.
@@ -1109,6 +1129,7 @@ class BangLuotKham:
                 ),
                 "ref_id": r["ref_id"],
                 "visit_id": r["visit_id"],
+                "ke_don_tu_van_xong": ke_don_xong.get(r["visit_id"], False),
                 "clinic_patient_id": r["clinic_patient_id"],
                 "appointment_id": r["appointment_id"],
                 "so_thu_tu": int(r["so_thu_tu"]),
