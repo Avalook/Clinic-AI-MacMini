@@ -1124,9 +1124,6 @@ export function NhomThu({
   const tongGoc = hd?.tong ?? 0;
   const tongSauGiam = giamGia ? giamGia.tongSauGiam : tongGoc;
   const mienPhi = tongSauGiam === 0 && !!giamGia?.params;
-  const chanThu =
-    dangThu || !hd || !hd.thu_duoc || (giamGia?.loi != null) || (!mienPhi && !chia?.hopLe);
-
   if (cho) {
     // CHỜ XÁC MINH: bấm "Đã nhận tiền" là xong. Mã giao dịch TUỲ CHỌN (Tuyền
     // 24/09/2026: "không được bắt buộc điền mã mới cho thanh toán xong, open đi").
@@ -1256,7 +1253,7 @@ export function NhomThu({
         ) : (
           <button
             type="button"
-            disabled={chanThu}
+            disabled={dangThu || !hd || !hd.thu_duoc || giamGia?.loi != null || (!mienPhi && !chia?.hopLe)}
             onClick={() => hd && (mienPhi || chia) && onThu(hd, mienPhi ? null : chia, giamGia?.params ? giamGia : undefined)}
             className="inline-flex min-h-10 items-center rounded-control border border-brand-500 bg-brand-500 px-4 text-sm font-semibold text-white disabled:opacity-50"
           >
