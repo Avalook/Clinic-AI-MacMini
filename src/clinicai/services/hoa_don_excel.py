@@ -1,44 +1,134 @@
-"""Editable invoice export using the same authorized dataset."""
+"""File Excel của Danh sách hoá đơn — cùng dữ liệu đã cấp quyền với màn.
 
+Tên sheet và tên cột dùng ĐÚNG chữ trên màn (Tuyền 13/10: file từng dùng chữ kỹ
+thuật "Trong kỳ", "toàn chứng từ", mã thô DA_THU / dich_vu / CASH — người đối
+soát không đối chiếu được với màn). Không đưa mã nội bộ (uuid) ra file.
+"""
+
+from datetime import datetime, timezone
 from typing import Any
 
+TRANG_THAI = {
+    "DA_THU": "Đã thu",
+    "CHO_HOAN": "Chờ hoàn",
+    "HOAN_MOT_PHAN": "Hoàn một phần",
+    "HOAN_TOAN_BO": "Hoàn toàn bộ",
+    "DA_HUY": "Đã hủy",
+    "HON_HOP": "Nhiều trạng thái",
+}
+LOAI_HOA_DON = {"dich_vu": "Dịch vụ", "thuoc": "Thuốc"}
+HINH_THUC = {"CASH": "Tiền mặt", "TRANSFER": "Chuyển khoản", "QR": "Chuyển khoản"}
+KIEU_GIAM = {"AMOUNT": "Số tiền", "PERCENT": "%"}
+TRANG_THAI_HOAN = {
+    "PENDING": "Chờ trả lại",
+    "COMPLETED": "Đã trả lại",
+    "FAILED": "Hoàn thất bại",
+    "CANCELLED": "Đã hủy yêu cầu hoàn",
+}
+TEN_SU_KIEN = {
+    "DOI_HINH_THUC": "Đổi hình thức",
+    "BO_DICH_VU": "Bỏ dịch vụ sau thu",
+    "HOAN_TIEN": "Hoàn tiền",
+    "HUY_PHIEU": "Huỷ phiếu",
+}
 
-def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
-    """Editable tables; period totals and lifetime bill amounts are labelled."""
+
+def _ten(bang: dict[str, str], ma: Any) -> str | None:
+    return bang.get(str(ma), str(ma)) if ma else None
+
+
+def _co(x: Any) -> str:
+    return "Có" if x else ""
+
+
+def _so_ngay_ton(luc: Any, bay_gio: datetime) -> int | None:
+    from clinicai.services.excel_export import excel_datetime
+
+    t = excel_datetime(luc)
+    if t is None:
+        return None
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    return max(0, (bay_gio - t).days)
+
+
+def xlsx_hoa_don(data: dict[str, Any], *, bay_gio: datetime | None = None) -> bytes:
+    """Bảng sửa / lọc được; mỗi sheet là một Excel Table."""
     from clinicai.services.excel_export import excel_date, excel_datetime, excel_table
 
-    customers = []
-    bills = []
-    lines = []
-    refunds = []
-    events = []
+    bay_gio = bay_gio or datetime.now(timezone.utc)
+    customers: list[list[Any]] = []
+    bills: list[list[Any]] = []
+    lines: list[list[Any]] = []
+    refunds: list[list[Any]] = []
+    events: list[list[Any]] = []
     for g in data["khach"]:
         customers.append(
             [
-                g["id"],
-                g["ma_bn"],
                 g["ten"],
+                g["ma_bn"],
                 g["so_dien_thoai"],
                 g["so_phieu"],
-                g["trang_thai"],
-                g["da_thu"],
-                g["da_hoan"],
-                g["cho_hoan"],
-                g["thu_rong"],
                 g["tong_truoc_giam"],
                 g["giam_gia"],
+                g["da_thu"],
                 g.get("da_thu_dich_vu", 0),
                 g.get("da_thu_thuoc", 0),
+                g["da_hoan"],
                 g.get("chua_tra_lai", 0),
+                g["thu_rong"],
+                _ten(TRANG_THAI, g["trang_thai"]),
                 len(g.get("viec_ton") or []),
             ]
         )
         for p in g["phieu"]:
+            bills.append(
+                [
+                    g["ten"],
+                    g["ma_bn"],
+                    p["ma"],
+                    _ten(LOAI_HOA_DON, p["kind"]),
+                    _ten(TRANG_THAI, p["trang_thai"]),
+                    excel_datetime(p["thu_luc"]),
+                    p["nguoi_thu"],
+                    _ten(HINH_THUC, p["hinh_thuc"]),
+                    p["tong_truoc_giam"],
+                    p["giam_gia"],
+                    _ten(KIEU_GIAM, p["kieu_giam"]),
+                    p["gia_tri_giam"],
+                    p["ly_do_giam"],
+                    p["nguoi_giam"],
+                    p["so_tien"],
+                    p["da_hoan"],
+                    p["cho_hoan"],
+                    p["thu_rong"],
+                    excel_datetime(p["huy_luc"]),
+                    p["nguoi_huy"],
+                    p["ly_do_huy"],
+                    excel_datetime(p["lap_luc"]),
+                    p["nguoi_lap"],
+                ]
+            )
+            for d in p["dong"]:
+                lines.append(
+                    [
+                        g["ten"],
+                        g["ma_bn"],
+                        "Thu",
+                        p["ma"],
+                        d["ten"],
+                        d["so_luong"],
+                        d["thanh_tien_truoc_giam"],
+                        d["giam_gia"],
+                        d["thanh_tien"],
+                        _co(d["da_bo"]),
+                    ]
+                )
             for e in p.get("su_kien") or []:
                 events.append(
                     [
-                        g["ma_bn"],
                         g["ten"],
+                        g["ma_bn"],
                         p["ma"],
                         excel_datetime(e["luc"]),
                         TEN_SU_KIEN.get(e["loai"], e["loai"]),
@@ -48,67 +138,21 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                         e["so_tien"],
                     ]
                 )
-            bills.append(
-                [
-                    g["ma_bn"],
-                    g["ten"],
-                    p["ma"],
-                    p["visit_id"],
-                    p["kind"],
-                    p["trang_thai"],
-                    p["so_tien"],
-                    p["da_hoan"],
-                    p["cho_hoan"],
-                    p["thu_rong"],
-                    p["thu_trong_ky"],
-                    p["hinh_thuc"],
-                    excel_datetime(p["lap_luc"]),
-                    p["nguoi_lap"],
-                    excel_datetime(p["thu_luc"]),
-                    p["nguoi_thu"],
-                    excel_datetime(p["huy_luc"]),
-                    p["nguoi_huy"],
-                    p["ly_do_huy"],
-                    p["tong_truoc_giam"],
-                    p["giam_gia"],
-                    p["kieu_giam"],
-                    p["gia_tri_giam"],
-                    p["ly_do_giam"],
-                    p["nguoi_giam"],
-                    excel_datetime(p["giam_luc"]),
-                ]
-            )
-            for d in p["dong"]:
-                lines.append(
-                    [
-                        g["ma_bn"],
-                        g["ten"],
-                        p["ma"],
-                        d["id"],
-                        d["ten"],
-                        d["so_luong"],
-                        d["thanh_tien"],
-                        d["da_bo"],
-                        d["thanh_tien_truoc_giam"],
-                        d["giam_gia"],
-                    ]
-                )
             for r in p["hoan"]:
                 refunds.append(
                     [
-                        g["ma_bn"],
                         g["ten"],
+                        g["ma_bn"],
                         p["ma"],
                         r["ma"],
-                        r["trang_thai"],
+                        _ten(TRANG_THAI_HOAN, r["trang_thai"]),
                         r["so_tien"],
-                        r["trong_ky"],
-                        r["hinh_thuc"],
+                        _ten(HINH_THUC, r["hinh_thuc"]),
+                        r["ly_do"],
                         excel_datetime(r["lap_luc"]),
                         r["nguoi_lap"],
                         excel_datetime(r["hoan_luc"]),
                         r["nguoi_hoan"],
-                        r["ly_do"],
                         excel_datetime(r["huy_luc"]),
                         r["nguoi_huy"],
                         r["ly_do_huy"],
@@ -117,140 +161,134 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                 for d in r["dong"]:
                     lines.append(
                         [
-                            g["ma_bn"],
                             g["ten"],
+                            g["ma_bn"],
+                            "Hoàn",
                             r["ma"],
-                            d["id"],
                             d["ten"],
                             d["so_luong"],
+                            None,
+                            None,
                             d["thanh_tien"],
-                            None,
-                            None,
-                            None,
+                            "",
                         ]
                     )
-    totals = data["tong"]
+    t = data["tong"]
     return excel_table(
         [
             (
-                "Trong kỳ",
+                # = hàng tổng trên màn (dòng tiền trong khoảng ngày đang xem).
+                "Tổng hợp",
                 [
                     "Từ ngày",
                     "Đến ngày",
+                    "Tổng tiền hàng",
+                    "Giảm giá",
                     "Tiền đã thu",
-                    "Đã hoàn",
-                    "Chờ hoàn",
-                    "Thực thu",
+                    "Phiếu huỷ",
                     "Số phiếu huỷ",
-                    "Giá trị phiếu huỷ",
-                    "Tổng tiền hàng trong kỳ",
-                    "Giảm giá trong kỳ",
+                    "Đã trả lại khách",
+                    "Thực thu",
                     "Chưa trả lại khách",
-                    "Việc còn tồn (mọi ngày)",
+                    "Việc còn tồn",
                 ],
                 [
                     [
                         excel_date(data["tu"]),
                         excel_date(data["den"]),
-                        totals["da_thu"],
-                        totals["da_hoan"],
-                        totals["cho_hoan"],
-                        totals["thu_rong"],
-                        totals["so_huy"],
-                        totals["gia_tri_huy"],
-                        totals["tong_truoc_giam"],
-                        totals["giam_gia"],
-                        totals.get("chua_tra_lai", 0),
-                        totals.get("so_viec_ton", 0),
+                        t["tong_truoc_giam"],
+                        t["giam_gia"],
+                        t["da_thu"],
+                        t.get("gia_tri_huy", 0),
+                        t.get("so_huy", 0),
+                        t["da_hoan"],
+                        t["thu_rong"],
+                        t.get("chua_tra_lai", 0),
+                        t.get("so_viec_ton", 0),
                     ]
                 ],
             ),
             (
+                # = bảng "Theo khách" trên màn.
                 "Theo khách",
                 [
-                    "Mã khách nội bộ",
-                    "Mã khách",
                     "Khách",
+                    "Mã khách",
                     "Điện thoại",
                     "Số phiếu",
-                    "Trạng thái",
-                    "Tiền đã thu toàn chứng từ",
-                    "Đã hoàn toàn chứng từ",
-                    "Chờ hoàn",
-                    "Thực thu toàn chứng từ",
-                    "Tổng tiền hàng toàn chứng từ",
-                    "Giảm giá toàn chứng từ",
+                    "Tổng tiền hàng",
+                    "Giảm giá",
+                    "Tiền đã thu",
                     "Tiền đã thu dịch vụ",
                     "Tiền đã thu thuốc",
-                    "Chưa trả lại khách",
+                    "Đã trả lại",
+                    "Chưa trả lại",
+                    "Thực thu",
+                    "Trạng thái",
                     "Số việc tồn",
                 ],
                 customers,
             ),
             (
-                "Chứng từ",
+                "Phiếu thu",
                 [
-                    "Mã khách",
                     "Khách",
+                    "Mã khách",
                     "Mã phiếu",
-                    "Mã lượt",
-                    "Loại",
+                    "Loại hoá đơn",
                     "Trạng thái",
-                    "Tiền đã thu toàn phiếu",
-                    "Đã hoàn toàn phiếu",
-                    "Chờ hoàn",
-                    "Thực thu toàn phiếu",
-                    "Thu trong kỳ",
-                    "Hình thức",
-                    "Lập lúc",
-                    "Người lập",
                     "Thu lúc",
                     "Người thu",
-                    "Huỷ lúc",
-                    "Người huỷ",
-                    "Lý do huỷ",
+                    "Hình thức",
                     "Tổng tiền hàng",
                     "Giảm giá",
                     "Kiểu giảm",
-                    "Giá trị nhập",
+                    "Giá trị giảm",
                     "Lý do giảm",
                     "Người giảm",
-                    "Giảm lúc",
+                    "Tiền đã thu",
+                    "Đã trả lại",
+                    "Chờ trả lại",
+                    "Thực thu",
+                    "Huỷ lúc",
+                    "Người huỷ",
+                    "Lý do huỷ",
+                    "Lập lúc",
+                    "Người lập",
                 ],
                 bills,
             ),
             (
-                "Chi tiết",
+                "Dòng phiếu",
                 [
-                    "Mã khách",
                     "Khách",
-                    "Mã chứng từ",
-                    "Mã dòng",
-                    "Dịch vụ hoặc thuốc",
+                    "Mã khách",
+                    "Phiếu",
+                    "Mã phiếu",
+                    "Dịch vụ / thuốc",
                     "Số lượng",
+                    "Tổng tiền hàng",
+                    "Giảm giá",
                     "Thành tiền",
-                    "Đã bỏ",
-                    "Thành tiền trước giảm",
-                    "Giảm giá phân bổ",
+                    "Bỏ sau thu",
                 ],
                 lines,
             ),
             (
                 "Hoàn tiền",
                 [
-                    "Mã khách",
                     "Khách",
-                    "Phiếu gốc",
+                    "Mã khách",
+                    "Phiếu thu gốc",
                     "Mã phiếu hoàn",
                     "Trạng thái",
                     "Số tiền",
-                    "Sự kiện trong kỳ",
                     "Hình thức",
+                    "Lý do",
                     "Lập lúc",
                     "Người lập",
-                    "Hoàn lúc",
-                    "Người hoàn",
-                    "Lý do",
+                    "Trả lúc",
+                    "Người trả",
                     "Đóng lúc",
                     "Người đóng",
                     "Lý do đóng",
@@ -260,8 +298,8 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
             (
                 "Sau khi thu",
                 [
-                    "Mã khách",
                     "Khách",
+                    "Mã khách",
                     "Mã phiếu",
                     "Lúc",
                     "Việc",
@@ -276,27 +314,27 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                 "Việc còn tồn",
                 [
                     "Phát sinh",
-                    "Mã khách",
                     "Khách",
+                    "Mã khách",
                     "Việc",
                     "Số tiền",
+                    "Đã tồn (ngày)",
                     "Mô tả",
                     "Mã phiếu",
-                    "Loại",
+                    "Loại hoá đơn",
                     "Người",
                 ],
                 [
                     [
                         excel_datetime(v["luc"]),
-                        v["ma_bn"],
                         v["ten"],
+                        v["ma_bn"],
                         v["ten_loai"],
                         v["so_tien"],
+                        _so_ngay_ton(v["luc"], bay_gio),
                         v.get("mo_ta"),
                         v.get("ma"),
-                        {"thuoc": "Thuốc", "dich_vu": "Dịch vụ"}.get(
-                            v.get("kind") or ""
-                        ),
+                        _ten(LOAI_HOA_DON, v.get("kind")),
                         v.get("nguoi"),
                     ]
                     for v in data.get("viec_ton") or []
@@ -304,11 +342,3 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
             ),
         ]
     )
-
-
-TEN_SU_KIEN = {
-    "DOI_HINH_THUC": "Đổi hình thức",
-    "BO_DICH_VU": "Bỏ dịch vụ sau thu",
-    "HOAN_TIEN": "Hoàn tiền",
-    "HUY_PHIEU": "Huỷ phiếu",
-}

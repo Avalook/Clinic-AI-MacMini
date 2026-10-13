@@ -1,8 +1,15 @@
 """Money history must distinguish actual refunds from voids."""
 
 from datetime import datetime, timezone
+from typing import Any
 
 from clinicai.services.danh_sach_hoa_don_service import gom_hoa_don
+
+
+def _o(ws: Any, nhan: str) -> Any:
+    """Ô dòng 2 dưới tiêu đề ``nhan`` — tra theo TÊN cột, không theo chữ cái."""
+    cot = {c.value: c.column for c in ws[1]}
+    return ws.cell(2, cot[nhan]).value
 
 
 def test_void_does_not_invent_refund_and_groups_by_patient() -> None:
@@ -159,10 +166,10 @@ def test_needs_review_filter_and_xlsx_lifetime_period_parity() -> None:
     assert data["khach"][0]["canh_bao"] == ["Phiếu huỷ cần xác minh tiền trả lại"]
     data.update(tu="2026-10-13", den="2026-10-13")
     book = load_workbook(BytesIO(xlsx_hoa_don(data)))
-    assert book["Trong kỳ"]["C2"].value == data["tong"]["da_thu"] == 0
-    assert book["Chứng từ"]["G2"].value == 100
+    assert _o(book["Tổng hợp"], "Tiền đã thu") == data["tong"]["da_thu"] == 0
+    assert _o(book["Phiếu thu"], "Tiền đã thu") == 100
     # Khách chỉ có một phiếu đã huỷ: thu ròng 0 (tiền không còn ở phòng khám).
-    assert book["Theo khách"]["J2"].value == 0
+    assert _o(book["Theo khách"], "Thực thu") == 0
     assert all(
         not sheet.protection.sheet and not sheet.merged_cells.ranges
         for sheet in book.worksheets
@@ -257,21 +264,18 @@ def test_discount_excel_columns_and_cross_day_refund_do_not_double_count() -> No
     book = load_workbook(BytesIO(xlsx_hoa_don(data)))
     for sheet, expected in (
         (
-            "Chứng từ",
+            "Phiếu thu",
             {
                 "Tổng tiền hàng": 100,
                 "Giảm giá": 30,
                 "Lý do giảm": "Ưu đãi",
                 "Người giảm": "Thu ngân",
-                "Tiền đã thu toàn phiếu": 70,
+                "Tiền đã thu": 70,
             },
         ),
-        (
-            "Chi tiết",
-            {"Thành tiền": 70, "Thành tiền trước giảm": 100, "Giảm giá phân bổ": 30},
-        ),
-        ("Theo khách", {"Giảm giá toàn chứng từ": 30, "Thực thu toàn chứng từ": 50}),
-        ("Trong kỳ", {"Giảm giá trong kỳ": 0, "Thực thu": -20}),
+        ("Dòng phiếu", {"Thành tiền": 70, "Tổng tiền hàng": 100, "Giảm giá": 30}),
+        ("Theo khách", {"Giảm giá": 30, "Thực thu": 50}),
+        ("Tổng hợp", {"Giảm giá": 0, "Thực thu": -20}),
     ):
         ws = book[sheet]
         cells = {cell.value: ws.cell(2, cell.column) for cell in ws[1]}
@@ -432,5 +436,109 @@ def test_moi_sheet_co_ma_khach_deu_co_ten_khach() -> None:
         if "Mã khách" in dau and "Khách" not in dau:
             thieu.append(ws.title)
     assert not thieu, f"Sheet thiếu tên khách: {thieu}"
-    assert book["Chi tiết"]["B2"].value == "Nguyễn Thị A"
-    assert book["Hoàn tiền"]["B2"].value == "Nguyễn Thị A"
+    assert _o(book["Dòng phiếu"], "Khách") == "Nguyễn Thị A"
+    assert _o(book["Hoàn tiền"], "Khách") == "Nguyễn Thị A"
+
+
+def test_excel_dung_chu_tren_man_khong_lo_ma_tho() -> None:
+    """Tuyền 13/10: file từng ghi "Trong kỳ", "toàn chứng từ", DA_THU, dich_vu,
+    CASH… — người đối soát không đối chiếu được với màn."""
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    from clinicai.services.danh_sach_hoa_don_service import xlsx_hoa_don
+    from clinicai.services.hoa_don_projection import gom_hoa_don
+
+    now = datetime(2026, 10, 13, tzinfo=timezone.utc)
+    row = dict(
+        id="c1",
+        patient_id="p",
+        ten="Khách A",
+        ma_bn="BN1",
+        visit_id="v",
+        kind="dich_vu",
+        amount=70,
+        original_amount=100,
+        discount_amount=30,
+        discount_type="PERCENT",
+        discount_value=30,
+        discount_reason="quen",
+        method="CASH",
+        status="PAID",
+        paid_at=now,
+        trong_ky=True,
+        huy_trong_ky=False,
+    )
+    line = dict(
+        id="l",
+        cycle_id="c1",
+        ten="Siêu âm",
+        so_luong=1,
+        thanh_tien=70,
+        discount_allocated=30,
+        da_bo=False,
+    )
+    refund = dict(
+        id="r",
+        cycle_id="c1",
+        amount=20,
+        status="COMPLETED",
+        method="TRANSFER",
+        trong_ky=True,
+    )
+    data = gom_hoa_don([row], [refund], [line], [], tim=None, trang_thai=None)
+    data.update(tu="2026-10-13", den="2026-10-13")
+    book = load_workbook(BytesIO(xlsx_hoa_don(data)))
+    assert book.sheetnames == [
+        "Tổng hợp",
+        "Theo khách",
+        "Phiếu thu",
+        "Dòng phiếu",
+        "Hoàn tiền",
+        "Sau khi thu",
+        "Việc còn tồn",
+    ]
+    assert [c.value for c in book["Theo khách"][1]][:13] == [
+        "Khách",
+        "Mã khách",
+        "Điện thoại",
+        "Số phiếu",
+        "Tổng tiền hàng",
+        "Giảm giá",
+        "Tiền đã thu",
+        "Tiền đã thu dịch vụ",
+        "Tiền đã thu thuốc",
+        "Đã trả lại",
+        "Chưa trả lại",
+        "Thực thu",
+        "Trạng thái",
+    ]
+    tho = {
+        "DA_THU",
+        "dich_vu",
+        "thuoc",
+        "CASH",
+        "TRANSFER",
+        "PERCENT",
+        "AMOUNT",
+        "COMPLETED",
+        "PENDING",
+        "HOAN_MOT_PHAN",
+    }
+    o_tho = [
+        (ws.title, c.coordinate, c.value)
+        for ws in book.worksheets
+        for r in ws.iter_rows()
+        for c in r
+        if c.value in tho
+    ]
+    assert not o_tho, f"Còn mã thô trong file: {o_tho}"
+    assert not any(
+        "toàn chứng từ" in str(c.value) or c.value == "Trong kỳ"
+        for ws in book.worksheets
+        for c in ws[1]
+    )
+    assert _o(book["Phiếu thu"], "Hình thức") == "Tiền mặt"
+    assert _o(book["Phiếu thu"], "Kiểu giảm") == "%"
+    assert _o(book["Hoàn tiền"], "Trạng thái") == "Đã trả lại"
