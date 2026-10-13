@@ -21,6 +21,7 @@ import {
   dongKetQua,
   tongPhongKham,
   dongNgoaiDanhMuc,
+  cauLyDoDinhChinh,
   dongTuDon,
   nguoiKeDon,
   dongTuMau,
@@ -606,4 +607,13 @@ test("nguoiKeDon: TKYK nhập hộ không đứng tên kê, không thành chân 
   // Máy chủ cũ chưa trả người kê → không đoán.
   const rong = nguoiKeDon([{ id: "1", drug_catalog_id: null, drug_name_raw: "x", quantity: "1", dosage_instructions: "", caution: "" }]);
   assert.deepEqual(rong, { bacSi: [], nguoiNhap: [], nguoiKy: null });
+});
+
+test("cauLyDoDinhChinh: câu ngắn nêu đúng dòng; máy chủ không nói dòng thì vẫn đọc được", () => {
+  const may =
+    "Đơn thuốc: Sửa hoặc bỏ dòng đã có nhà thuốc / thu ngân đụng tới là ĐÍNH CHÍNH đơn — ghi lý do (tối thiểu 5 ký tự). Dòng cũ giữ làm lịch sử; tiền / thuốc cũ đối soát riêng, không cần huỷ phiếu hay hoàn tiền trước. Dòng: “Assimicin” (đã thu tiền / bán / giao / chốt)";
+  const ngan = cauLyDoDinhChinh(may);
+  assert.match(ngan, /^Dòng “Assimicin” \(đã thu tiền \/ bán \/ giao \/ chốt\) — sửa hoặc bỏ/);
+  assert.ok(ngan.length < may.length / 1.5, "phải ngắn hơn câu máy chủ");
+  assert.match(cauLyDoDinhChinh("lỗi lạ"), /^Sửa hoặc bỏ dòng đã thu/);
 });

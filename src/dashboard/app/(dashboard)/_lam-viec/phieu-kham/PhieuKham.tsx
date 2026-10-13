@@ -347,9 +347,13 @@ export default function PhieuKham({
   };
   const khoiCuoi = KHOI[KHOI.length - 1]?.so ?? 4;
 
+  // Lỗi lưu ĐƠN đã hiện ngay cạnh form (kèm [Thử lại] / ô lý do) → dòng trạng
+  // thái ở cuối không nhắc lại cùng câu (13/10/2026: một câu đỏ hiện hai lần).
+  const ttCuoi =
+    baoLoiDon && ttKem?.loi && !ttPhieu.loi ? { ...ttLuu, loi: null } : ttLuu;
   const dongTrangThai = (
     <TrangThaiLuu
-      tt={ttLuu}
+      tt={ttCuoi}
       onLuuNgay={() => void luuCaHai()}
       chuaGo={ghi ? "Tự lưu khi gõ" : "Chỉ xem"}
     />

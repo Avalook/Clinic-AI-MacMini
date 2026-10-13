@@ -27,6 +27,7 @@ import { LOI_MAT_KET_NOI, nenThuLai, type KetQuaGui, type TrangThaiLuu } from "@
 import { useTuLuu } from "@/lib/use-tu-luu";
 import {
   donTuDong,
+  cauLyDoDinhChinh,
   docKhoi1,
   dongTuDon,
   gopSoLuongQuayDien,
@@ -665,7 +666,7 @@ export default function PhieuKhamLuot({
         baoLoiDon={
           tuLuuDon.trangThai.loi ? (
             <BaoLoiCanhNut className="space-y-2">
-              <p>{tuLuuDon.trangThai.loi}</p>
+              <p>{canLyDo ? cauLyDoDinhChinh(tuLuuDon.trangThai.loi) : tuLuuDon.trangThai.loi}</p>
               {canLyDo ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <input
