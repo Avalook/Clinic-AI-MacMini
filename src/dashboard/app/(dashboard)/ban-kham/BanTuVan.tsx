@@ -8,6 +8,8 @@
 //   2. Khối "✎ Bác sĩ tư vấn · tự lưu" — MỘT ô chữ to (`ONhapTuVan`).
 //   3. Công tắc "Thông tin cơ bản" (mặc định đóng) = mục B của CHÍNH phiếu khám
 //      lượt; chip "N ô đã điền" + "đồng bộ bác sĩ chính".
+//   3b. Công tắc "Đơn thuốc" (13/10/2026) = mục E của CHÍNH phiếu khám lượt: bác
+//      sĩ chính điền dở thì bác sĩ tư vấn điền tiếp đúng đơn đó (`KhoiDonThuocBanTuVan`).
 //   4. Thanh DÍNH ĐÁY "[Xong tư vấn — chuyển bác sĩ chính]" (lệnh `xong-tu-van`
 //      do `BanKham` dựng). Dưới md có BottomNav cố định cao 64px → dính ở
 //      bottom-16 để nút nằm TRÊN thanh điều hướng (cách đã bấm thật ở 375, 27/09).
@@ -21,6 +23,7 @@ import { gopCong, type ClinicalCompletionGate } from "@/lib/clinical-completion"
 import CongTacThongTinCoBan from "../_lam-viec/phieu-kham/CongTacThongTinCoBan";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
 import type { DatChiDinh } from "@/lib/phieu-kham";
+import KhoiDonThuocBanTuVan from "./KhoiDonThuocBanTuVan";
 import ONhapTuVan from "./ONhapTuVan";
 
 export default function BanTuVan({
@@ -57,10 +60,12 @@ export default function BanTuVan({
   // trước đây mục B không báo cổng, gõ mục B rồi bấm Xong ngay là lỡ chữ.
   const [congTuVan, setCongTuVan] = useState<ClinicalCompletionGate | null>(null);
   const [congPhieu, setCongPhieu] = useState<ClinicalCompletionGate | null>(null);
+  // Đơn thuốc điền ở bàn tư vấn (13/10/2026) cũng phải lưu xong mới Xong tư vấn.
+  const [congDon, setCongDon] = useState<ClinicalCompletionGate | null>(null);
   useEffect(() => {
-    const g = gopCong(congTuVan, congPhieu);
+    const g = gopCong(gopCong(congTuVan, congPhieu), congDon);
     if (g) onTrangThai(g);
-  }, [congTuVan, congPhieu, onTrangThai]);
+  }, [congTuVan, congPhieu, congDon, onTrangThai]);
 
   return (
     <div className="space-y-4">
@@ -84,6 +89,16 @@ export default function BanTuVan({
             onTrangThai={setCongPhieu}
           />
         </CongTacThongTinCoBan>
+      ) : null}
+      {coPhieu ? (
+        <KhoiDonThuocBanTuVan
+          visitId={visitId}
+          clinicPatientId={clinicPatientId}
+          choGhi={choGhi}
+          onTrangThai={setCongDon}
+          datChiDinh={datChiDinh}
+          onDaDat={onDaDat}
+        />
       ) : null}
       {nutXong ? (
         <div className="sticky bottom-16 z-10 flex flex-wrap items-center justify-end gap-2 rounded-card border border-hairline bg-surface p-4 md:bottom-3">

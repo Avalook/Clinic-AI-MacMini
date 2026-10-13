@@ -36,7 +36,7 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "service_order.desk_added": ["service_code", "service_name", "nguon"],
     "service_order.desk_removed": ["service_code", "nguon"],
     # Số dòng đơn — không tên thuốc (tên thuốc nói ra bệnh).
-    "prescription.saved": ["so_dong"],
+    "prescription.saved": ["so_dong", "ke_tai_tu_van"],
     "medicine.counter_changed": ["hanh_dong", "so_luong", "so_luong_cu"],
     "medicine.declined": ["so_ke", "so_mua"],
     # Số ô còn trống là thông tin vận hành, không phải chữ lâm sàng.

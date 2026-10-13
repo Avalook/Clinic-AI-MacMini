@@ -230,6 +230,21 @@ lưới "Dịch vụ khác" F → Hẹn khám G) · 4 Đơn thuốc (E). Thẻ n
 `khoi-dieu-tri-boundary.test.mts`, `phieu-kham-boundary.test.mts` (mỗi mục A–G của bảy
 phiếu ở đúng một khối), `lib/phieu-kham.test.mts`.
 
+**Đơn thuốc điền tiếp ở bàn tư vấn (13/10/2026)** — MỘT đơn cho cả lượt: bác sĩ chính
+điền dở / vội thì bác sĩ tư vấn điền tiếp đúng đơn đó, không có đơn thứ hai. UI:
+`D/ban-kham/KhoiDonThuocBanTuVan.tsx` (công tắc "Đơn thuốc" = mục E của phiếu lượt,
+`PhieuKhamLuot chiMuc=["E"]`, nút In đơn thuốc) trong `BanTuVan.tsx`; khách đã khám xong
+không qua tư vấn: nhóm "Đã khám xong — điền đơn thuốc" ở `BanKham.tsx` → `BanDienDonThuoc.tsx`
+(hàng chung: `S/luot_kham_doc.py` `hang_cho`, nhánh `tu_van`). Máy chủ:
+`S/phieu_kham_service.py` `luu_don_thuoc` — người có lego Tư vấn không đi kèm bác sĩ chính hôm
+nay vẫn lưu được (cổng ca trực `kiem_dung_ca` dùng chung KHÔNG nới), sự kiện `prescription.saved`
+mang `ke_tai_tu_van` và người bấm tự đứng tên (không `on_behalf_of`); `doc_don_thuoc` trả
+`nguoi_ke` / `nguoi_ke_la_bac_si`. Hành trình: mốc `KE_DON_TU_VAN` ở `phieu_kham/hanh_trinh.py`.
+Phiếu in: `app/print/phieu-kham/[visitId]/InPhieuKham.tsx` + `nguoiKeDon` ở `lib/phieu-kham.ts`
+(đơn in riêng `?phan=don` ký bác sĩ ghi dòng mới nhất; TKYK nhập hộ chỉ là "Người nhập").
+Test: `T/services/test_don_thuoc_ban_tu_van_1310_db.py`, `T/services/test_hanh_trinh_tu_van_db.py`,
+`T/unit/test_hanh_trinh_moc.py`, FT `don-thuoc-ban-tu-van-boundary.test.mts`, `npm run test:phieu-kham`.
+
 **Dịch vụ của lượt trong hồ sơ khám — đổi dịch vụ, phiếu cũ, lượt Điều trị (07/10/2026)**
 — UI `D/_lam-viec/phieu-kham/KhoiDichVuHoSo.tsx` (đầu phiếu + hồ sơ tối giản ở
 `PhieuKhamLuot.tsx` nhánh `chonDuoc`) → `/api/ho-so-kham` → `R/ho_so_kham.py` →

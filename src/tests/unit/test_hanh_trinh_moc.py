@@ -137,6 +137,46 @@ def test_doc_ket_qua_thuoc_va_ve() -> None:
     assert all(m["trang_thai"] == XONG for m in moc if m["ma"] != "SINH_HIEU")
 
 
+def test_moc_ke_don_tu_van_chi_ve_khi_co_co_ke_tai_tu_van() -> None:
+    """13/10/2026: đơn của lượt do bác sĩ tư vấn điền tiếp → thêm mốc, đứng
+    TRƯỚC "Nhận thuốc". Đơn chỉ do bác sĩ chính kê thì KHÔNG có mốc này."""
+
+    def moc_cua(su_kien: list[SuKien]) -> list[str]:
+        return [
+            m["ma"]
+            for m in dung_moc(
+                dat_lich_luc=None,
+                check_in_luc=p(0),
+                ve_luc=None,
+                su_kien=su_kien,
+                chi_dinh=[],
+            )
+        ]
+
+    chi_bs_chinh: list[SuKien] = [("prescription.saved", p(40), {"so_dong": 2})]
+    assert "KE_DON_TU_VAN" not in moc_cua(chi_bs_chinh)
+
+    them_tu_van: list[SuKien] = [
+        *chi_bs_chinh,
+        ("prescription.saved", p(60), {"ke_tai_tu_van": True, "_ai": "BS Tư vấn Y"}),
+    ]
+    ma = moc_cua(them_tu_van)
+    assert ma.index("KE_DON_TU_VAN") < ma.index("THUOC")
+    moc = {
+        m["ma"]: m
+        for m in dung_moc(
+            dat_lich_luc=None,
+            check_in_luc=p(0),
+            ve_luc=None,
+            su_kien=them_tu_van,
+            chi_dinh=[],
+        )
+    }
+    assert moc["KE_DON_TU_VAN"]["ten"] == "Bác sĩ tư vấn kê đơn"
+    assert moc["KE_DON_TU_VAN"]["noi"] == "Bàn tư vấn · BS Tư vấn Y"
+    assert moc["KE_DON_TU_VAN"]["trang_thai"] == XONG
+
+
 # --- Bảng "Từng dịch vụ" (27/09/2026, bản giao diện mẫu) -------------------
 
 

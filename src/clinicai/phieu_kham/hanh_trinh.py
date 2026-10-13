@@ -314,6 +314,28 @@ def dung_moc(
             )
         )
 
+    # Đơn do bác sĩ tư vấn kê/điền tiếp (13/10/2026): cùng MỘT đơn của lượt, chỉ
+    # thêm mốc để thấy khách còn ghé bàn tư vấn. Lấy từ sự kiện, không suy từ tên.
+    ke_tv = [
+        (t, ct)
+        for (e, t, ct) in su_kien
+        if e == "prescription.saved" and ct.get("ke_tai_tu_van") is True
+    ]
+    if ke_tv:
+        lan_dau = min(ke_tv, key=lambda x: x[0])
+        lan_cuoi = max(ke_tv, key=lambda x: x[0])
+        ai = lan_cuoi[1].get(KHOA_AI)
+        moc.append(
+            _moc(
+                "KE_DON_TU_VAN",
+                "Bác sĩ tư vấn kê đơn",
+                f"Bàn tư vấn · {ai}" if ai else "Bàn tư vấn",
+                lan_dau[0],
+                lan_cuoi[0],
+                XONG,
+            )
+        )
+
     if luc("prescription.saved"):
         bat = _dau(luc("payment.medicine_collected"))
         ket = _cuoi(luc("medicine.dispensed"))

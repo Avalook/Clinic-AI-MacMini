@@ -807,6 +807,9 @@ class DonThuocDaLuu(PayloadSuKien):
     so_dong_them: int = 0
     so_dong_thay: int = 0
     so_dong_bo: int = 0
+    #: Lưu ở BÀN TƯ VẤN bởi người không đi kèm bác sĩ chính của lượt (13/10/2026):
+    #: mốc hành trình "Bác sĩ tư vấn kê đơn" chỉ vẽ khi cờ này bật.
+    ke_tai_tu_van: bool = False
 
 
 class KhachDaChonDichVu(PayloadSuKien):

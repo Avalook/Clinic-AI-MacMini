@@ -40,6 +40,7 @@ import {
   coNhap,
   dongKetQua,
   dongTuDon,
+  nguoiKeDon,
   giaTriDoc,
   gomNhom,
   hienThi,
@@ -427,6 +428,12 @@ export default function InPhieuKham({
   const cls = conLai.filter((c) => !thuThuat.includes(c));
   const ngayKham = dau?.hanh_chinh["encounter.date"] ?? null;
   const tk = dau?.the_khach;
+  const keDon = nguoiKeDon(dl.don);
+  // Ghi chú người kê chỉ khi KHÁC bác sĩ chính của lượt (hoặc có người nhập hộ);
+  // chân ký đơn in riêng (`?phan=don`, bàn tư vấn) = bác sĩ ghi dòng mới nhất.
+  const khacBacSiChinh =
+    keDon.nguoiNhap.length > 0 || keDon.bacSi.some((t) => t !== (tk?.bac_si ?? null));
+  const kyKeDon = phan === "don" ? keDon.nguoiKy : null;
   const hc = dau?.hanh_chinh;
   const namSinh = typeof hc?.["patient.birth_year"] === "number" ? hc["patient.birth_year"] : null;
   const tuoi =
@@ -564,6 +571,15 @@ export default function InPhieuKham({
       </Muc>
       <Muc so={so("don")} ten="Đơn thuốc" an={!CO.don || (!ca && phan !== "don")}>
         {dl.don.length ? <DonThuoc dong={dl.don} /> : null}
+        {/* Người kê đơn = người THẬT ghi từng dòng (13/10/2026: bác sĩ tư vấn
+            điền tiếp đơn của bác sĩ chính). Chỉ ghi chú khi khác bác sĩ chính. */}
+        {keDon.bacSi.length + keDon.nguoiNhap.length > 0 && khacBacSiChinh ? (
+          <p className="in-giu mt-2 text-meta text-ink-soft">
+            {keDon.bacSi.length ? `Người kê đơn: ${keDon.bacSi.join(", ")}` : ""}
+            {keDon.bacSi.length && keDon.nguoiNhap.length ? " · " : ""}
+            {keDon.nguoiNhap.length ? `Người nhập: ${keDon.nguoiNhap.join(", ")}` : ""}
+          </p>
+        ) : null}
         {oCua("don_thuoc")}
       </Muc>
       <Muc so={so("cls")} ten="Dịch vụ · kết quả cận lâm sàng" an={!CO.cls || !inCls}>
@@ -591,8 +607,11 @@ export default function InPhieuKham({
           LUÔN Ở CUỐI CÙNG — sau cả trang ảnh (Tuyền nhắc nhiều lần, 30/09/2026). */}
       <footer className={`in-giu mt-8 flex justify-end ${phan === "cls_anh" ? AN : ""}`}>
         <div className="min-w-48 text-center">
-          <p className="text-ink-muted">Bác sĩ khám</p>
-          <p className="mt-12 font-semibold">{tk?.bac_si ?? "\u00a0"}</p>
+          <p className="text-ink-muted">{kyKeDon ? "Bác sĩ kê đơn" : "Bác sĩ khám"}</p>
+          <p className="mt-12 font-semibold">{kyKeDon ?? tk?.bac_si ?? "\u00a0"}</p>
+          {phan === "don" && !kyKeDon && keDon.nguoiNhap.length ? (
+            <p className="text-meta text-ink-muted">Người nhập: {keDon.nguoiNhap.join(", ")}</p>
+          ) : null}
         </div>
       </footer>
     </main>
