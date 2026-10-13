@@ -3,14 +3,16 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from io import BytesIO
+from typing import Any
 
 import pytest
+from fastapi.routing import APIRoute
 from openpyxl import load_workbook
 
 from clinicai.services.excel_export import excel_table
 
 
-def test_excel_table_preserves_types_and_literal_formulas():
+def test_excel_table_preserves_types_and_literal_formulas() -> None:
     content = excel_table(
         [
             (
@@ -42,13 +44,13 @@ def test_excel_table_preserves_types_and_literal_formulas():
     assert next(iter(ws.tables.values())).ref == "A1:D3"
 
 
-def test_excel_table_empty_data_still_has_filterable_headers():
+def test_excel_table_empty_data_still_has_filterable_headers() -> None:
     ws = load_workbook(BytesIO(excel_table([("Dữ liệu", ["Mã", "Tiền"], [])]))).active
     assert ws.max_row == 1
     assert next(iter(ws.tables.values())).ref == "A1:B1"
 
 
-def test_xlsx_download_routes_keep_authenticated_dependencies():
+def test_xlsx_download_routes_keep_authenticated_dependencies() -> None:
     from clinicai.api.identity import get_current_identity
     from clinicai.api.v1.routers import cashier, pharmacy, reports
 
@@ -58,11 +60,12 @@ def test_xlsx_download_routes_keep_authenticated_dependencies():
         (pharmacy.router, "/pharmacy/xuat-nhap-ton.xlsx"),
     ):
         route = next(r for r in router.routes if getattr(r, "path", "") == path)
+        assert isinstance(route, APIRoute)
         calls = [dep.call for dep in route.dependant.dependencies]
         assert get_current_identity in calls or pharmacy._DOC in calls
 
 
-def _report():
+def _report() -> dict[str, Any]:
     from clinicai.services.bao_cao_cuoi_ngay_service import gom_bao_cao
 
     return gom_bao_cao(
@@ -93,7 +96,7 @@ def _report():
     )
 
 
-def test_report_summary_matches_filtered_net_not_original_receipts():
+def test_report_summary_matches_filtered_net_not_original_receipts() -> None:
     from clinicai.services.excel_report_export import xlsx_tom_tat
 
     report = _report()
@@ -109,7 +112,7 @@ def test_report_summary_matches_filtered_net_not_original_receipts():
     assert dict(list(detailed.values)[1:])["Doanh thu"] == 990000
 
 
-def test_report_detail_and_inventory_keep_tables_and_numeric_data():
+def test_report_detail_and_inventory_keep_tables_and_numeric_data() -> None:
     from clinicai.services.excel_export import (
         excel_date,
         excel_datetime,
@@ -149,7 +152,7 @@ def test_report_detail_and_inventory_keep_tables_and_numeric_data():
     assert excel_datetime(datetime(2026, 10, 12)) == datetime(2026, 10, 12)
 
 
-def test_cashier_export_keeps_refunds_as_numbers_and_timestamps():
+def test_cashier_export_keeps_refunds_as_numbers_and_timestamps() -> None:
     from clinicai.services.quay_thu_service import xlsx_lich_su
 
     group = {
@@ -170,7 +173,7 @@ def test_cashier_export_keeps_refunds_as_numbers_and_timestamps():
     assert ws["A2"].value.hour == 19
 
 
-def test_cashier_discount_export_preserves_net_and_does_not_repeat_discount():
+def test_cashier_discount_export_preserves_net_and_does_not_repeat_discount() -> None:
     from clinicai.services.quay_thu_service import gom_theo_khach, xlsx_lich_su
 
     cycle = {
@@ -203,7 +206,7 @@ def test_cashier_discount_export_preserves_net_and_does_not_repeat_discount():
     assert canceled["Số tiền"] == -800000
 
 
-def test_cashier_legacy_discount_metadata_defaults_without_changing_totals():
+def test_cashier_legacy_discount_metadata_defaults_without_changing_totals() -> None:
     from clinicai.services.quay_thu_service import gom_theo_khach, xlsx_lich_su
 
     cycle = {
@@ -220,7 +223,7 @@ def test_cashier_legacy_discount_metadata_defaults_without_changing_totals():
     assert group[0]["con_lai"] == 800000
 
 
-def test_report_discount_metadata_keeps_actual_summary_and_audit_details():
+def test_report_discount_metadata_keeps_actual_summary_and_audit_details() -> None:
     from clinicai.services.bao_cao_cuoi_ngay_service import gom_bao_cao
     from clinicai.services.excel_report_export import xlsx_bao_cao, xlsx_tom_tat
 
@@ -259,7 +262,9 @@ def test_report_discount_metadata_keeps_actual_summary_and_audit_details():
 
 
 @pytest.mark.asyncio
-async def test_report_xlsx_endpoint_uses_authorized_scope(monkeypatch):
+async def test_report_xlsx_endpoint_uses_authorized_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
@@ -276,7 +281,7 @@ async def test_report_xlsx_endpoint_uses_authorized_scope(monkeypatch):
     monkeypatch.setattr(
         reports, "BaoCaoCuoiNgayService", lambda _: SimpleNamespace(bao_cao=report)
     )
-    params = dict(
+    params: dict[str, Any] = dict(
         tu="2026-10-12",
         den="2026-10-13",
         loai=None,
