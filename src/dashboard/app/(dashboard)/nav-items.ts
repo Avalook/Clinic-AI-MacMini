@@ -220,6 +220,7 @@ export const NAV: NavItem[] = [
   },
   { href: "/reports", label: "Báo cáo", icon: BarChart3 },
   { href: "/hoa-don", label: "Danh sách hoá đơn", icon: Receipt },
+  { href: "/xuat-hoa-don", label: "Xuất hoá đơn", icon: FileSpreadsheet },
   {
     href: "/audit-log",
     label: "Lịch sử thao tác",
@@ -807,6 +808,7 @@ export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly
       "/cashier/thuoc",
       "/reports",
       "/hoa-don",
+      "/xuat-hoa-don",
       "/lich-do-ve",
       "/ops",
       "/audit-log",

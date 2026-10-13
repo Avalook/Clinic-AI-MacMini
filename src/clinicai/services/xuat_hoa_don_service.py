@@ -1,0 +1,302 @@
+"""Xuất hoá đơn GTGT theo ĐÚNG mẫu nhập của phần mềm hoá đơn (MISA meInvoice).
+
+Kế toán không phải gõ tay lại từng phiếu thu (Tuyền 13/10/2026). File dựng từ
+CHÍNH tệp mẫu kế toán gửi (`mau/hoa_don_gtgt_1_thue_suat.xlsx`) — giữ nguyên
+tiêu đề, hướng dẫn, font, độ rộng cột; chỉ đổ dữ liệu từ dòng 10. Ô nào hệ thống
+chưa có dữ liệu (mã số thuế, thuế suất, tiền thuế…) để TRỐNG cho kế toán điền.
+
+Một phiếu thu = một hoá đơn. Không tự tạo con số: tiền lấy từ dòng phiếu đã thu
+(sau giảm giá), trừ phần đã hoàn xong theo đúng dòng.
+"""
+
+from __future__ import annotations
+
+import io
+import warnings
+from collections.abc import Mapping, Sequence
+from copy import copy
+from datetime import datetime
+from decimal import Decimal
+from pathlib import Path
+from typing import Any
+
+import asyncpg
+from openpyxl import load_workbook
+from openpyxl.worksheet.datavalidation import DataValidation
+
+from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import CLINIC_TZ
+from clinicai.services.danh_sach_hoa_don_service import DanhSachHoaDonService
+from clinicai.services.hoa_don_excel import HINH_THUC
+
+MAU = Path(__file__).parent / "mau" / "hoa_don_gtgt_1_thue_suat.xlsx"
+#: Dòng đầu tiên của dữ liệu trong mẫu (dòng 9 là tiêu đề cột).
+DONG_DAU = 10
+#: Dịch vụ không ghi đơn vị trên phiếu → "Lần" (đúng ví dụ trong mẫu kế toán gửi).
+DVT_DICH_VU = "Lần"
+_NGUON_DICH_VU = frozenset({"exam", "service_order", "lieu_trinh"})
+
+#: Câu gợi ý khi bấm vào ô — chép nguyên văn từ mẫu. openpyxl không đọc được
+#: phần mở rộng x14 chứa chúng nên phải gắn lại, để file giống mẫu khi mở.
+GOI_Y: tuple[tuple[str, str], ...] = (
+    (
+        "A1:A1100",
+        "- Nhập số thứ tự của hóa đơn\n"
+        "- Chú ý: Mỗi số thứ tự sẽ tương ứng với 1 hóa đơn",
+    ),
+    ("B1:B1100", "Nhập Ngày hóa đơn"),
+    ("C1:C1100", "Nhập Tên đơn vị mua hàng\n"),
+    ("D1:D1100", "Nhập Địa chỉ đơn vị mua hàng\n"),
+    ("E1:E1100", "Nhập Mã số thuế đơn vị mua hàng"),
+    ("F1:F1100", "Nhập Tên người mua hàng"),
+    ("G1:I1100", "Nhập Email người nhận hóa đơn"),
+    ("J1:J1100", "Nhập hình thức thanh toán"),
+    (
+        "K1:K1100",
+        "Nhập thuế suất thuế GTGT: \n- 0: 0%\n- 5: 5%\n- 8: 8%\n- 10: 10%\n"
+        "- KCT: Không chịu thuế GTGT\n- KKKNT: Không kê khai nộp thuế GTGT\n"
+        "- KHAC: Trường hợp khác",
+    ),
+    ("L1:L1100", "Nhập tổng tiền thuế GTGT của hóa đơn\n"),
+    ("M1:M1100", "Nhập Tên hàng hóa/dịch vụ\n"),
+    ("N1:N1100", "Nhập Đơn vị tính"),
+    ("O1:O1100", "Nhập Số lượng\n"),
+    ("P1:P1100", "Nhập Đơn giá\n"),
+    ("Q1:Q1100", "Nhập Thành tiền\n"),
+)
+
+_THEM_DONG = """
+SELECT bl.id::text id, bl.unit, bl.source_type
+FROM payment_bill_line bl
+WHERE bl.clinic_id=$1::uuid AND bl.payment_cycle_id=ANY($2::uuid[])
+"""
+_THEM_KHACH = """
+SELECT pc.payment_cycle_id::text id,
+ coalesce(nullif(btrim(p.address), ''),
+   nullif(concat_ws(', ', nullif(btrim(p.address_detail), ''),
+     nullif(btrim(p.ward_name), ''), nullif(btrim(p.province_name), '')), ''))
+   dia_chi,
+ nullif(btrim(p.national_id_number), '') cccd,
+ (SELECT c.channel_value FROM patient_contact_channel c
+   WHERE c.clinic_id=p.clinic_id AND c.clinic_patient_id=p.clinic_patient_id
+     AND c.channel_type='EMAIL'
+   ORDER BY c.is_primary DESC, c.created_at DESC LIMIT 1) email
+FROM payment_cycle pc
+JOIN visit v ON v.visit_id=pc.visit_id AND v.clinic_id=pc.clinic_id
+LEFT JOIN patient p ON p.clinic_patient_id=v.clinic_patient_id
+ AND p.clinic_id=v.clinic_id
+WHERE pc.clinic_id=$1::uuid AND pc.payment_cycle_id=ANY($2::uuid[])
+"""
+
+
+def _ngay(iso: Any) -> str:
+    """ISO → "dd/mm/yyyy" giờ Việt Nam; rác → rỗng (không ném)."""
+    try:
+        return (
+            datetime.fromisoformat(str(iso)).astimezone(CLINIC_TZ).strftime("%d/%m/%Y")
+        )
+    except (TypeError, ValueError):
+        return ""
+
+
+def _don_gia(thanh_tien: int, so_luong: float) -> int | float:
+    if so_luong <= 0:
+        return thanh_tien
+    gia = Decimal(thanh_tien) / Decimal(str(so_luong))
+    return int(gia) if gia == gia.to_integral_value() else float(round(gia, 4))
+
+
+def _so(x: float) -> int | float:
+    return int(x) if float(x).is_integer() else x
+
+
+def dung_hoa_don(
+    khach: Sequence[Mapping[str, Any]],
+    them_dong: Mapping[str, Mapping[str, Any]],
+    them_khach: Mapping[str, Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Phiếu thu trong kỳ → danh sách hoá đơn theo giờ thu. Hàm thuần.
+
+    Bỏ phiếu đã huỷ và phiếu thu ngoài kỳ (chỉ có hoàn / huỷ trong kỳ). Dòng
+    đã hoàn xong trừ đúng số tiền / số lượng hoàn; còn 0 thì bỏ dòng; phiếu
+    không còn dòng nào thì bỏ phiếu. Hoàn đang chờ chưa trừ — ghi chú để kế
+    toán xem lại.
+    """
+    phieu = [
+        (k, p)
+        for k in khach
+        for p in k.get("phieu") or []
+        if p.get("thu_trong_ky") and p.get("trang_thai") != "DA_HUY"
+    ]
+    phieu.sort(key=lambda kp: (str(kp[1].get("thu_luc") or ""), str(kp[1]["id"])))
+    out: list[dict[str, Any]] = []
+    for k, p in phieu:
+        hoan_tien: dict[str, int] = {}
+        hoan_sl: dict[str, float] = {}
+        hoan_khong_dong = 0
+        cho_hoan = 0
+        for r in p.get("hoan") or []:
+            if r.get("trang_thai") == "PENDING":
+                cho_hoan += int(r.get("so_tien") or 0)
+            if r.get("trang_thai") != "COMPLETED":
+                continue
+            dong_hoan = r.get("dong") or []
+            if not dong_hoan:
+                hoan_khong_dong += int(r.get("so_tien") or 0)
+            for d in dong_hoan:
+                hoan_tien[d["id"]] = hoan_tien.get(d["id"], 0) + int(d["thanh_tien"])
+                hoan_sl[d["id"]] = hoan_sl.get(d["id"], 0.0) + float(d["so_luong"])
+        dong: list[dict[str, Any]] = []
+        for d in p.get("dong") or []:
+            tien = int(d["thanh_tien"]) - hoan_tien.get(d["id"], 0)
+            if tien <= 0:
+                continue
+            sl = float(d["so_luong"]) - hoan_sl.get(d["id"], 0.0)
+            if sl <= 0:
+                sl = float(d["so_luong"])
+            them = them_dong.get(d["id"]) or {}
+            dvt = (them.get("unit") or "").strip()
+            if not dvt and them.get("source_type") in _NGUON_DICH_VU:
+                dvt = DVT_DICH_VU
+            dong.append(
+                {
+                    "ten": str(d.get("ten") or ""),
+                    "dvt": dvt,
+                    "so_luong": _so(sl),
+                    "don_gia": _don_gia(tien, sl),
+                    "thanh_tien": tien,
+                }
+            )
+        if not dong:
+            continue
+        kh = them_khach.get(p["id"]) or {}
+        ghi_chu = []
+        if hoan_khong_dong:
+            ghi_chu.append(
+                f"Có hoàn {hoan_khong_dong:,}đ không theo dòng — kiểm lại".replace(
+                    ",", "."
+                )
+            )
+        if cho_hoan:
+            ghi_chu.append(f"Đang chờ hoàn {cho_hoan:,}đ".replace(",", "."))
+        out.append(
+            {
+                "stt": len(out) + 1,
+                "ma_phieu": p.get("ma"),
+                "kind": p.get("kind"),
+                "ngay": _ngay(p.get("thu_luc")),
+                "ten_khach": k.get("ten") or "",
+                "ma_bn": k.get("ma_bn"),
+                "dia_chi": kh.get("dia_chi") or "",
+                "ma_so_thue": "",
+                "nguoi_mua": k.get("ten") or "",
+                "email": kh.get("email") or "",
+                "so_dien_thoai": k.get("so_dien_thoai") or "",
+                "cccd": kh.get("cccd") or "",
+                "hinh_thuc": HINH_THUC.get(str(p.get("hinh_thuc") or ""), ""),
+                "dong": dong,
+                "tong": sum(d["thanh_tien"] for d in dong),
+                "ghi_chu": ghi_chu,
+            }
+        )
+    return out
+
+
+def _chu(cell: Any, value: str) -> None:
+    """Ghi CHỮ (kể cả chữ bắt đầu bằng "=") — không bao giờ thành công thức."""
+    cell.value = value
+    cell.data_type = "s"
+
+
+def xlsx_misa(hoa_don: Sequence[Mapping[str, Any]]) -> bytes:
+    """Đổ hoá đơn vào bản sao tệp mẫu; trả bytes .xlsx sửa được như mẫu."""
+    with warnings.catch_warnings():
+        # Mẫu có phần mở rộng x14 (câu gợi ý) openpyxl không đọc — gắn lại dưới.
+        warnings.simplefilter("ignore", UserWarning)
+        wb = load_workbook(MAU)
+    ws = wb.active
+    assert ws is not None
+    mau_dong = [ws.cell(DONG_DAU, c)._style for c in range(1, 18)]
+    # Xoá dòng ví dụ + công thức mẫu (dòng 10 → hết): file chỉ còn dữ liệu thật,
+    # không còn công thức để phần mềm nhập đọc nhầm ô rỗng.
+    for row in ws.iter_rows(min_row=DONG_DAU, max_row=max(ws.max_row, DONG_DAU)):
+        for cell in row:
+            cell.value = None
+            cell.hyperlink = None  # ô email ví dụ của mẫu gắn link mailto
+    r = DONG_DAU
+    for hd in hoa_don:
+        for i, d in enumerate(hd["dong"]):
+            dau = i == 0
+            van_ban = {
+                1: str(hd["stt"]),
+                2: hd["ngay"],
+                3: hd["ten_khach"],
+                4: hd["dia_chi"],
+                5: hd["ma_so_thue"],
+                6: hd["nguoi_mua"],
+                7: hd["email"],
+                8: hd["so_dien_thoai"],
+                9: hd["cccd"],
+                10: hd["hinh_thuc"],
+            }
+            for c in range(1, 18):
+                ws.cell(r, c)._style = copy(mau_dong[c - 1])
+            for c, v in van_ban.items():
+                # Thông tin chung chỉ ghi ở dòng đầu của hoá đơn (như ví dụ mẫu);
+                # số thứ tự lặp ở mọi dòng để phần mềm gom dòng vào đúng hoá đơn.
+                if v and (dau or c == 1):
+                    _chu(ws.cell(r, c), str(v))
+            _chu(ws.cell(r, 13), d["ten"])
+            if d["dvt"]:
+                _chu(ws.cell(r, 14), d["dvt"])
+            ws.cell(r, 15).value = d["so_luong"]
+            ws.cell(r, 16).value = d["don_gia"]
+            ws.cell(r, 17).value = d["thanh_tien"]
+            r += 1
+    for sqref, loi_nhac in GOI_Y:
+        dv = DataValidation(
+            allow_blank=True, showInputMessage=True, prompt=loi_nhac, sqref=sqref
+        )
+        ws.add_data_validation(dv)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+class XuatHoaDonService:
+    def __init__(self, pool: asyncpg.Pool) -> None:
+        self.pool = pool
+
+    async def xem(
+        self,
+        *,
+        identity: StaffIdentity,
+        tu: str | None = None,
+        den: str | None = None,
+        loai: str | None = None,
+        co_so: str | None = None,
+    ) -> dict[str, Any]:
+        """Cùng cổng quyền / phạm vi với Danh sách hoá đơn (không tự dựng luật)."""
+        data = await DanhSachHoaDonService(self.pool).xem(
+            identity=identity, tu=tu, den=den, loai=loai, co_so=co_so
+        )
+        ids = [p["id"] for k in data["khach"] for p in k["phieu"]]
+        async with self.pool.acquire() as conn:
+            them_dong = {
+                r["id"]: dict(r)
+                for r in await conn.fetch(_THEM_DONG, identity.clinic_id, ids)
+            }
+            them_khach = {
+                r["id"]: dict(r)
+                for r in await conn.fetch(_THEM_KHACH, identity.clinic_id, ids)
+            }
+        hoa_don = dung_hoa_don(data["khach"], them_dong, them_khach)
+        return {
+            "tu": data["tu"],
+            "den": data["den"],
+            "co_so": data.get("co_so"),
+            "hoa_don": hoa_don,
+            "so_hoa_don": len(hoa_don),
+            "so_dong": sum(len(h["dong"]) for h in hoa_don),
+            "tong": sum(h["tong"] for h in hoa_don),
+        }

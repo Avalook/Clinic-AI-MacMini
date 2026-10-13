@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-13 15:23. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-13 15:54. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -12,7 +12,7 @@ tệp mà hơn 25% số màn cùng import (dùng chung): `lib/backend-proxy.ts`,
 
 Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. Sự kiện (consumer) · 5. Bảng → migration
 
-## 1. Màn (86)
+## 1. Màn (87)
 ### `/`
 - page: `src/dashboard/app/page.tsx` · quyền: ?
 - gọi API: (không thấy — màn tĩnh, hoặc gọi qua lối không suy được ?)
@@ -564,7 +564,15 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: TepKetQuaService.{cho_xac_nhan, xac_nhan_tep, mo_de_doc} · media_service · tep_ket_qua_service
 - test: test_xac_nhan_tep_ket_qua_db.py, test_tep_ket_qua.py, test_cho_xac_nhan_queue_va_doc_tep_db.py, test_full_chi_dinh_slice_ab_db.py, test_slice1_rail_db.py (+1)
 
-## 2. API Next → backend (121)
+### `/xuat-hoa-don` — Xuất hoá đơn
+- page: `src/dashboard/app/(dashboard)/xuat-hoa-don/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
+- thành phần: XuatHoaDon.tsx, app/(dashboard)/form-ui.ts, app/(dashboard)/hoa-don/types.ts
+- gọi API Next: `/api/xuat-hoa-don`
+- gọi thẳng backend (server): `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
+- service: XuatHoaDonService.xem · xuat_hoa_don_service
+- test: test_xuat_hoa_don.py
+
+## 2. API Next → backend (122)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -1460,7 +1468,13 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/api/test_visit_work_items_read.py, src/tests/test_work_item_service.py
 - màn dùng: /viec-can-xu-ly
 
-## 3. Service → màn (179)
+#### `/api/xuat-hoa-don` · `src/dashboard/app/api/xuat-hoa-don/route.ts`
+- GET `/api/v1/hoa-don/xuat` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don` → XuatHoaDonService.xem
+- GET `/api/v1/hoa-don/xuat/xlsx` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don_excel` → xlsx_misa
+- test: src/tests/unit/test_xuat_hoa_don.py
+- màn dùng: /xuat-hoa-don
+
+## 3. Service → màn (181)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1641,6 +1655,8 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `WeekAppointmentsService` | `src/clinicai/services/week_appointments_service.py` | /lich-do-ve |
 | `WorkItemService` | `src/clinicai/services/work_item_service.py` | /viec-can-xu-ly |
 | `XemLuotService` | `src/clinicai/services/xem_luot_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+11) |
+| `xuat_hoa_don_service` | `src/clinicai/services/xuat_hoa_don_service.py` | /xuat-hoa-don |
+| `XuatHoaDonService` | `src/clinicai/services/xuat_hoa_don_service.py` | /xuat-hoa-don |
 | `y_khoa` | `src/clinicai/permissions/y_khoa.py` | /ban-kham, /ban-kham/[phong], /customers, /patient-list, /pharmacy, /print/[appointmentId], /print/ket-qua-luot/[visitId], /print/phieu-kham/[visitId] (+5) |
 | `zalo` | `src/clinicai/services/providers/zalo.py` | — (chỉ API/worker) |
 

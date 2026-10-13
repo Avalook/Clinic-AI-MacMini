@@ -1018,7 +1018,7 @@ MAN: dict[str, Man] = {
         _lego(
             "bao_cao",
             "Báo cáo",
-            ["/reports", "/hoa-don", "/lich-do-ve"],
+            ["/reports", "/hoa-don", "/xuat-hoa-don", "/lich-do-ve"],
             ["bao_cao"],
             "Quản lý",
         ),

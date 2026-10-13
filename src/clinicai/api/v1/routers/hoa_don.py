@@ -13,6 +13,7 @@ from clinicai.services.danh_sach_hoa_don_service import (
     xlsx_hoa_don,
 )
 from clinicai.services.excel_export import XLSX_MEDIA_TYPE
+from clinicai.services.xuat_hoa_don_service import XuatHoaDonService, xlsx_misa
 
 router = APIRouter()
 
@@ -52,6 +53,36 @@ async def danh_sach_hoa_don_excel(
         media_type=XLSX_MEDIA_TYPE,
         headers={
             "Content-Disposition": 'attachment; filename="danh-sach-hoa-don.xlsx"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.get("/hoa-don/xuat")
+async def xuat_hoa_don(
+    tu: str | None = Query(None, max_length=40),
+    den: str | None = Query(None, max_length=40),
+    loai: str | None = Query(None, max_length=20),
+    co_so: str | None = Query(None, max_length=64),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await XuatHoaDonService(pool).xem(
+        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so
+    )
+
+
+@router.get("/hoa-don/xuat/xlsx")
+async def xuat_hoa_don_excel(
+    data: dict[str, Any] = Depends(xuat_hoa_don),
+) -> Response:
+    ten = f"hoa-don-gtgt-{data['tu']}-den-{data['den']}.xlsx"
+    return Response(
+        xlsx_misa(data["hoa_don"]),
+        media_type=XLSX_MEDIA_TYPE,
+        headers={
+            "Content-Disposition": f'attachment; filename="{ten}"',
             "Cache-Control": "private, no-store",
             "X-Content-Type-Options": "nosniff",
         },
