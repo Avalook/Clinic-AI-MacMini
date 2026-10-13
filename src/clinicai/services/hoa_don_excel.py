@@ -24,6 +24,8 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                 g["da_hoan"],
                 g["cho_hoan"],
                 g["thu_rong"],
+                g["tong_truoc_giam"],
+                g["giam_gia"],
             ]
         )
         for p in g["phieu"]:
@@ -48,6 +50,13 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                     excel_datetime(p["huy_luc"]),
                     p["nguoi_huy"],
                     p["ly_do_huy"],
+                    p["tong_truoc_giam"],
+                    p["giam_gia"],
+                    p["kieu_giam"],
+                    p["gia_tri_giam"],
+                    p["ly_do_giam"],
+                    p["nguoi_giam"],
+                    excel_datetime(p["giam_luc"]),
                 ]
             )
             for d in p["dong"]:
@@ -60,6 +69,8 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                         d["so_luong"],
                         d["thanh_tien"],
                         d["da_bo"],
+                        d["thanh_tien_truoc_giam"],
+                        d["giam_gia"],
                     ]
                 )
             for r in p["hoan"]:
@@ -92,6 +103,8 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                             d["so_luong"],
                             d["thanh_tien"],
                             None,
+                            None,
+                            None,
                         ]
                     )
     totals = data["tong"]
@@ -108,6 +121,8 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                     "Thu ròng",
                     "Số phiếu huỷ",
                     "Giá trị phiếu huỷ",
+                    "Trước giảm trong kỳ",
+                    "Giảm giá trong kỳ",
                 ],
                 [
                     [
@@ -119,6 +134,8 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                         totals["thu_rong"],
                         totals["so_huy"],
                         totals["gia_tri_huy"],
+                        totals["tong_truoc_giam"],
+                        totals["giam_gia"],
                     ]
                 ],
             ),
@@ -135,6 +152,8 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                     "Đã hoàn toàn chứng từ",
                     "Chờ hoàn",
                     "Thu ròng toàn chứng từ",
+                    "Trước giảm toàn chứng từ",
+                    "Giảm giá toàn chứng từ",
                 ],
                 customers,
             ),
@@ -160,6 +179,13 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                     "Huỷ lúc",
                     "Người huỷ",
                     "Lý do huỷ",
+                    "Trước giảm",
+                    "Giảm giá",
+                    "Kiểu giảm",
+                    "Giá trị nhập",
+                    "Lý do giảm",
+                    "Người giảm",
+                    "Giảm lúc",
                 ],
                 bills,
             ),
@@ -173,6 +199,8 @@ def xlsx_hoa_don(data: dict[str, Any]) -> bytes:
                     "Số lượng",
                     "Thành tiền",
                     "Đã bỏ",
+                    "Thành tiền trước giảm",
+                    "Giảm giá phân bổ",
                 ],
                 lines,
             ),

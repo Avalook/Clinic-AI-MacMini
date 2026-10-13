@@ -21,6 +21,11 @@ from clinicai.services.report_access_service import ReportAccessService
 _BILLS = """
 SELECT pc.payment_cycle_id::text id, pc.visit_id::text visit_id, pc.kind,
  pc.amount, pc.status, pc.created_at, pc.paid_at, pc.closed_at, pc.close_reason,
+ (to_jsonb(pc)->>'original_amount')::bigint original_amount,
+ coalesce((to_jsonb(pc)->>'discount_amount')::bigint,0) discount_amount,
+ to_jsonb(pc)->>'discount_type' discount_type,
+ (to_jsonb(pc)->>'discount_value')::numeric discount_value,
+ to_jsonb(pc)->>'discount_reason' discount_reason, discount_staff.full_name nguoi_giam,
  pc.can_doi_soat, p.clinic_patient_id::text patient_id, p.full_name ten,
  p.patient_code ma_bn, p.phone_primary so_dien_thoai,
  creator.full_name nguoi_lap, confirmer.full_name nguoi_thu, closer.full_name nguoi_huy,
@@ -35,6 +40,7 @@ LEFT JOIN patient p ON p.clinic_patient_id=v.clinic_patient_id
 LEFT JOIN staff creator ON creator.id=pc.created_by
 LEFT JOIN staff confirmer ON confirmer.id=pc.confirmed_by
 LEFT JOIN staff closer ON closer.id=pc.closed_by
+LEFT JOIN staff discount_staff ON discount_staff.id=(to_jsonb(pc)->>'discount_by')::uuid
 WHERE pc.clinic_id=$1::uuid AND pc.paid_at IS NOT NULL
  AND ($4::uuid IS NULL OR coalesce(v.location_id,a.location_id)=$4::uuid)
  AND ($5::text IS NULL OR pc.kind=$5)
@@ -64,6 +70,13 @@ LEFT JOIN staff x ON x.id=r.closed_by
 WHERE r.clinic_id=$1::uuid AND r.payment_cycle_id=ANY($2::uuid[])
 ORDER BY r.created_at,r.refund_id
 """
+# Optional JSON fields keep this reader compatible until discount migration lands.
+_LINES = _DONG_SQL.replace(
+    "bl.line_total AS thanh_tien,",
+    "bl.line_total AS thanh_tien,"
+    " coalesce((to_jsonb(bl)->>'discount_allocated')::numeric,0) discount_allocated,",
+)
+
 _REFUND_LINES = """
 SELECT rl.refund_id::text refund_id,bl.name_snapshot ten,rl.quantity so_luong,
  rl.amount thanh_tien,bl.id::text id
@@ -124,9 +137,7 @@ class DanhSachHoaDonService:
                 dict(r)
                 for r in await conn.fetch(_REFUNDS, identity.clinic_id, ids, start, end)
             ]
-            lines = [
-                dict(r) for r in await conn.fetch(_DONG_SQL, identity.clinic_id, ids)
-            ]
+            lines = [dict(r) for r in await conn.fetch(_LINES, identity.clinic_id, ids)]
             refund_lines = [
                 dict(r)
                 for r in await conn.fetch(

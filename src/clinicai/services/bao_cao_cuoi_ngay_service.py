@@ -345,6 +345,27 @@ def gom_bao_cao(
             key=lambda n: (-n["thuc_thu"], n["ten"]),
         ),
         "hoan_huy": ds_hoan_huy,
+        # Audit metadata only: amount and financial totals remain after discount.
+        "chi_tiet_giam_gia": [
+            {
+                "id": str(c.get("id")),
+                "luc": _iso(c.get("paid_at")),
+                "khach": c.get("ten_khach"),
+                "ma_bn": c.get("ma_bn"),
+                "trang_thai": c.get("status"),
+                "truoc_giam": _tien(c["original_amount"])
+                if c.get("original_amount") is not None
+                else _tien(c.get("amount")),
+                "sau_giam": _tien(c.get("amount")),
+                "giam_gia": _tien(c.get("discount_amount")),
+                "ly_do": c.get("discount_reason"),
+                "nguoi": c.get("discount_by_name"),
+                "kieu": c.get("discount_type"),
+                "gia_tri": c.get("discount_value"),
+            }
+            for c in lan_thu
+            if _tien(c.get("discount_amount")) > 0
+        ],
         "khach": {
             "so_luot_kham": int(so_luot_kham),
             "so_luot_khong_chon_dich_vu_kham": int(so_luot_khong_chon_dich_vu_kham),
@@ -727,6 +748,12 @@ def _gio(iso: str | None) -> str:
 _LAN_THU_SQL = """
 SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
        pc.status, pc.amount,
+       (to_jsonb(pc)->>'original_amount')::bigint AS original_amount,
+       (to_jsonb(pc)->>'discount_amount')::bigint AS discount_amount,
+       to_jsonb(pc)->>'discount_type' AS discount_type,
+       (to_jsonb(pc)->>'discount_value')::numeric AS discount_value,
+       to_jsonb(pc)->>'discount_reason' AS discount_reason,
+       gg.full_name AS discount_by_name,
        hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id, pc.method) AS method,
        phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id, pc.method, pc.amount)
            AS phan,
@@ -739,6 +766,7 @@ SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
   LEFT JOIN staff cb ON cb.id = pc.created_by
   LEFT JOIN staff xn ON xn.id = pc.confirmed_by
   LEFT JOIN staff dg ON dg.id = pc.closed_by
+  LEFT JOIN staff gg ON gg.id::text = to_jsonb(pc)->>'discount_by'
   LEFT JOIN visit v ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id
   LEFT JOIN appointment ah
     ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id

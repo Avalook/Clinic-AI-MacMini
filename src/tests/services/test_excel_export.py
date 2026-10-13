@@ -170,6 +170,94 @@ def test_cashier_export_keeps_refunds_as_numbers_and_timestamps():
     assert ws["A2"].value.hour == 19
 
 
+def test_cashier_discount_export_preserves_net_and_does_not_repeat_discount():
+    from clinicai.services.quay_thu_service import gom_theo_khach, xlsx_lich_su
+
+    cycle = {
+        "id": "12345678-1234-1234-1234-123456789abc",
+        "visit_id": "visit",
+        "amount": 800000,
+        "original_amount": 1000000,
+        "discount_amount": 200000,
+        "discount_reason": "=khách thân thiết",
+        "discount_by_name": "Nhân viên A",
+        "discount_type": "PERCENT",
+        "discount_value": Decimal("20"),
+        "status": "VOIDED",
+    }
+    groups = gom_theo_khach([cycle], [], {}, {})
+    receipt = groups[0]["phieu"][0]
+    assert receipt["discount_amount"] == 200000
+    assert receipt["tong"] == 800000
+    ws = load_workbook(BytesIO(xlsx_lich_su(groups))).active
+    headers = {cell.value: cell.column for cell in ws[1]}
+    rows = [dict(zip(headers, row)) for row in list(ws.values)[1:]]
+    paid = next(row for row in rows if row["Loại"] == "Thu")
+    canceled = next(row for row in rows if row["Loại"] != "Thu")
+    assert paid["Số tiền"] == 800000
+    assert paid["Trước giảm giá"] == 1000000
+    assert paid["Giảm giá"] == 200000
+    assert paid["Người giảm giá"] == "Nhân viên A"
+    assert paid["Lý do giảm giá"] == "=khách thân thiết"
+    assert canceled["Giảm giá"] is None
+    assert canceled["Số tiền"] == -800000
+
+
+def test_cashier_legacy_discount_metadata_defaults_without_changing_totals():
+    from clinicai.services.quay_thu_service import gom_theo_khach, xlsx_lich_su
+
+    cycle = {
+        "id": "12345678-1234-1234-1234-123456789abc",
+        "visit_id": "visit",
+        "amount": 800000,
+        "status": "PAID",
+    }
+    group = gom_theo_khach([cycle], [], {}, {})
+    ws = load_workbook(BytesIO(xlsx_lich_su(group))).active
+    row = dict(zip(list(ws.values)[0], list(ws.values)[1]))
+    assert row["Trước giảm giá"] == 800000
+    assert row["Giảm giá"] == 0
+    assert group[0]["con_lai"] == 800000
+
+
+def test_report_discount_metadata_keeps_actual_summary_and_audit_details():
+    from clinicai.services.bao_cao_cuoi_ngay_service import gom_bao_cao
+    from clinicai.services.excel_report_export import xlsx_bao_cao, xlsx_tom_tat
+
+    cycle = {
+        "id": "discounted",
+        "amount": 800000,
+        "kind": "dich_vu",
+        "status": "PAID",
+        "method": "CASH",
+        "paid_at": datetime(2026, 10, 12),
+        "original_amount": 1000000,
+        "discount_amount": 200000,
+        "discount_reason": "Khách thân thiết",
+        "discount_by_name": "Nhân viên A",
+        "discount_type": "PERCENT",
+        "discount_value": 20,
+    }
+    report = gom_bao_cao(
+        tu=date(2026, 10, 12),
+        den=date(2026, 10, 12),
+        lan_thu=[cycle],
+        hoan=[],
+        dong=[],
+        doi_tac=[],
+        so_luot_kham=1,
+    )
+    assert report["tong"]["thuc_thu"] == 800000
+    ws = load_workbook(BytesIO(xlsx_bao_cao(report)))["Giảm giá"]
+    row = dict(zip(list(ws.values)[0], list(ws.values)[1]))
+    assert row["Giảm giá"] == 200000
+    assert row["Sau giảm giá"] == 800000
+    assert row["Người giảm giá"] == "Nhân viên A"
+    simple = load_workbook(BytesIO(xlsx_tom_tat(report)))
+    assert dict(list(simple.active.values)[1:])["Tổng thu"] == 800000
+    assert "Giảm giá" not in simple.sheetnames
+
+
 @pytest.mark.asyncio
 async def test_report_xlsx_endpoint_uses_authorized_scope(monkeypatch):
     from types import SimpleNamespace

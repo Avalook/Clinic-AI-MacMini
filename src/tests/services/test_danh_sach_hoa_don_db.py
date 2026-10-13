@@ -130,7 +130,10 @@ async def test_head_scope_and_xlsx_endpoint_share_guard(pool: asyncpg.Pool) -> N
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
         for path in ("/hoa-don", "/hoa-don/xlsx"):
-            response = await client.get(path, params=dict(tu=day, den=day, ca="SANG"))
+            response = await client.get(
+                path,
+                params=dict(tu=day, den=day, ca="SANG", co_so=q.thu_ngan.location_id),
+            )
             assert response.status_code == 200
             if path.endswith("xlsx"):
                 book = load_workbook(BytesIO(response.content))

@@ -84,16 +84,16 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
     {dangTai ? <p role="status" className="text-body text-ink-muted">Đang tải hoá đơn…</p> : null}
     {data ? <>
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-emph font-semibold text-ink">Giao dịch trong kỳ đã chọn</h2><a href={`/api/hoa-don?${exportQuery}`} className={buttonClass("secondary", "md")}>Xuất Excel</a></div>
-      <dl className="grid grid-cols-2 gap-4 rounded-card bg-surface p-4 ring-1 ring-hairline md:grid-cols-4">
-        <SoTien ten="Đã thu" so={data.tong.da_thu} /><SoTien ten="Đã trả lại" so={data.tong.da_hoan} /><SoTien ten="Chờ trả lại" so={data.tong.cho_hoan} /><SoTien ten="Thu ròng" so={data.tong.thu_rong} />
+      <dl className="grid grid-cols-2 gap-4 rounded-card bg-surface p-4 ring-1 ring-hairline lg:grid-cols-5">
+        <SoTien ten="Giảm giá" so={data.tong.giam_gia} /><SoTien ten="Đã thu" so={data.tong.da_thu} /><SoTien ten="Đã trả lại" so={data.tong.da_hoan} /><SoTien ten="Chờ trả lại" so={data.tong.cho_hoan} /><SoTien ten="Thu ròng" so={data.tong.thu_rong} />
       </dl>
       <p className="text-meta text-ink-muted">{data.tong.so_khach} khách · {data.tong.so_phieu} phiếu. Bảng khách thể hiện toàn bộ các phiếu liên quan, kể cả phiếu thu ngoài kỳ có hoàn trong kỳ. Tổng theo khách có thể khác tổng giao dịch trong kỳ.</p>
       {!data.khach.length ? <p className="rounded-card bg-surface p-4 text-body text-ink-muted ring-1 ring-hairline">Không có hoá đơn trong phạm vi đã chọn.</p> : null}
       <div className="hidden overflow-x-auto rounded-card bg-surface ring-1 ring-hairline md:block">
-        <table className="w-full text-body"><thead className="bg-surface-muted text-left text-meta text-ink-muted"><tr>{["Khách hàng", "Số phiếu", "Đã thu", "Đã hoàn", "Chờ hoàn", "Thu ròng", "Trạng thái", "Chi tiết"].map((t, i) => <th key={t} className={`px-3 py-2 font-semibold ${i > 0 && i < 6 ? "text-right" : ""}`}>{t}</th>)}</tr></thead>
+        <table className="w-full text-body"><thead className="bg-surface-muted text-left text-meta text-ink-muted"><tr>{["Khách hàng", "Số phiếu", "Giảm giá", "Đã thu", "Đã hoàn", "Chờ hoàn", "Thu ròng", "Trạng thái", "Chi tiết"].map((t, i) => <th key={t} className={`px-3 py-2 font-semibold ${i > 0 && i < 7 ? "text-right" : ""}`}>{t}</th>)}</tr></thead>
           <tbody>{data.khach.map(k => <tr key={k.id} className="border-t border-hairline hover:bg-surface-muted">
             <td className="px-3 py-3"><span className="font-semibold">{k.ten}</span><span className="block text-meta text-ink-muted">{k.ma_bn || "—"} · {k.so_dien_thoai || "—"}</span></td>
-            <td className="px-3 py-3 text-right tabular-nums">{k.so_phieu}</td>{[k.da_thu, k.da_hoan, k.cho_hoan, k.thu_rong].map((n, i) => <td key={i} className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(n)}</td>)}
+            <td className="px-3 py-3 text-right tabular-nums">{k.so_phieu}</td>{[k.giam_gia, k.da_thu, k.da_hoan, k.cho_hoan, k.thu_rong].map((n, i) => <td key={i} className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(n)}</td>)}
             <td className="px-3 py-3"><TrangThai ma={k.trang_thai} /><CanhBao khach={k} /></td><td className="px-3 py-3"><Button type="button" size="sm" onClick={() => setKhach(k)} aria-label={`Xem hoá đơn ${k.ten}`}>Xem</Button></td>
           </tr>)}</tbody></table>
       </div>
@@ -101,7 +101,7 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
         <div className="flex flex-wrap justify-between gap-2"><h2 className="text-emph font-semibold">{k.ten}</h2><TrangThai ma={k.trang_thai} /></div>
         <CanhBao khach={k} />
         <p className="mt-1 text-meta text-ink-muted">{k.ma_bn || "—"} · {k.so_phieu} phiếu</p>
-        <dl className="my-3 grid grid-cols-2 gap-3"><SoTien ten="Đã thu" so={k.da_thu} /><SoTien ten="Đã hoàn" so={k.da_hoan} /><SoTien ten="Chờ hoàn" so={k.cho_hoan} /><SoTien ten="Thu ròng" so={k.thu_rong} /></dl>
+        <dl className="my-3 grid grid-cols-2 gap-3"><SoTien ten="Giảm giá" so={k.giam_gia} /><SoTien ten="Đã thu" so={k.da_thu} /><SoTien ten="Đã hoàn" so={k.da_hoan} /><SoTien ten="Chờ hoàn" so={k.cho_hoan} /><SoTien ten="Thu ròng" so={k.thu_rong} /></dl>
         <Button type="button" onClick={() => setKhach(k)} aria-label={`Xem hoá đơn ${k.ten}`}>Xem hoá đơn</Button>
       </article>)}</div>
     </> : null}

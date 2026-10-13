@@ -310,4 +310,40 @@ def xlsx_bao_cao(bc: Mapping[str, Any]) -> bytes:
                 ],
             )
         )
+    sheets.append(
+        (
+            "Giảm giá",
+            [
+                "Mã lần thu",
+                "Lúc thu",
+                "Khách",
+                "Mã khách",
+                "Trạng thái",
+                "Trước giảm giá",
+                "Giảm giá",
+                "Sau giảm giá",
+                "Lý do giảm giá",
+                "Người giảm giá",
+                "Kiểu giảm giá",
+                "Giá trị giảm giá",
+            ],
+            [
+                [
+                    r["id"],
+                    excel_datetime(r["luc"]),
+                    r["khach"],
+                    r["ma_bn"],
+                    r["trang_thai"],
+                    r["truoc_giam"],
+                    r["giam_gia"],
+                    r["sau_giam"],
+                    r["ly_do"],
+                    r["nguoi"],
+                    r["kieu"],
+                    r["gia_tri"],
+                ]
+                for r in bc.get("chi_tiet_giam_gia") or []
+            ],
+        )
+    )
     return excel_table(sheets)

@@ -557,6 +557,14 @@ def gom_theo_khach(
                 "phan": phan,
                 "nguoi_thu": c.get("nguoi_thu"),
                 "tong": so_tien,
+                "original_amount": _so(c.get("original_amount")),
+                "discount_type": c.get("discount_type"),
+                "discount_value": float(c["discount_value"])
+                if c.get("discount_value") is not None
+                else None,
+                "discount_amount": _so(c.get("discount_amount")) or 0,
+                "discount_reason": c.get("discount_reason"),
+                "discount_by_name": c.get("discount_by_name"),
                 "dong": [
                     {
                         "id": str(d.get("id")),
@@ -577,6 +585,14 @@ def gom_theo_khach(
                 "tao_luc": _iso(c.get("created_at")),
                 "ma": ma,
                 "so_tien": so_tien,
+                "original_amount": _so(c.get("original_amount")),
+                "discount_type": c.get("discount_type"),
+                "discount_value": float(c["discount_value"])
+                if c.get("discount_value") is not None
+                else None,
+                "discount_amount": _so(c.get("discount_amount")) or 0,
+                "discount_reason": c.get("discount_reason"),
+                "discount_by_name": c.get("discount_by_name"),
                 "hinh_thuc": ht,
                 "phan": phan,
                 "nhan_hinh_thuc": nhan_phan(phan),
@@ -802,6 +818,18 @@ def xlsx_lich_su(khach: Iterable[Mapping[str, Any]]) -> bytes:
                     ", ".join(s.get("dich_vu") or []),
                     s.get("so_tien") or 0,
                     s.get("ly_do"),
+                    (
+                        s.get("original_amount")
+                        if s.get("original_amount") is not None
+                        else s.get("so_tien") or 0
+                    )
+                    if loai == "thu"
+                    else None,
+                    s.get("discount_amount") or 0 if loai == "thu" else None,
+                    s.get("discount_reason") if loai == "thu" else None,
+                    s.get("discount_by_name") if loai == "thu" else None,
+                    s.get("discount_type") if loai == "thu" else None,
+                    s.get("discount_value") if loai == "thu" else None,
                 ]
             )
     headers = [
@@ -817,6 +845,12 @@ def xlsx_lich_su(khach: Iterable[Mapping[str, Any]]) -> bytes:
         "Dịch vụ",
         "Số tiền",
         "Lý do",
+        "Trước giảm giá",
+        "Giảm giá",
+        "Lý do giảm giá",
+        "Người giảm giá",
+        "Kiểu giảm giá",
+        "Giá trị giảm giá",
     ]
     return excel_table([("Lịch sử thu", headers, rows)])
 
@@ -1080,6 +1114,12 @@ class QuayThuService:
                 """
                 SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id,
                        pc.status, pc.amount,
+                       (to_jsonb(pc)->>'original_amount')::bigint AS original_amount,
+                       (to_jsonb(pc)->>'discount_amount')::bigint AS discount_amount,
+                       to_jsonb(pc)->>'discount_type' AS discount_type,
+                       (to_jsonb(pc)->>'discount_value')::numeric AS discount_value,
+                       to_jsonb(pc)->>'discount_reason' AS discount_reason,
+                       gg.full_name AS discount_by_name,
                        -- Hình thức HIỆU LỰC (sau mọi lần đổi — V7).
                        hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
                                           pc.method) AS method,
@@ -1093,6 +1133,7 @@ class QuayThuService:
                   LEFT JOIN staff cb ON cb.id = pc.created_by
                   LEFT JOIN staff xn ON xn.id = pc.confirmed_by
                   LEFT JOIN staff dg ON dg.id = pc.closed_by
+                  LEFT JOIN staff gg ON gg.id::text = to_jsonb(pc)->>'discount_by'
                   LEFT JOIN visit v
                     ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id
                   LEFT JOIN appointment ah

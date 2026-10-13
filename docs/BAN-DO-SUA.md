@@ -344,6 +344,9 @@ và `PhiKhamService.chon`). Ô tìm + nút Tìm luôn hiện, danh mục mở s�
 **Danh sách hoá đơn theo khách** — `/hoa-don` ngay dưới Báo cáo; `D/hoa-don/DanhSachHoaDon.tsx`
 + `ChiTietHoaDon.tsx` → `/api/hoa-don` → `S/danh_sach_hoa_don_service.py`.
 Đọc phiếu đã thu và xử lý sau thanh toán (hoàn / hủy), gom dịch vụ + thuốc theo khách.
+Giảm giá: số trước giảm / đã giảm / sau giảm, lý do / người / giờ theo snapshot phiếu;
+dòng hiển thị phần giảm được phân bổ từ máy chủ. Miễn phí 100% có số thực thu 0 vẫn là phiếu đã thu,
+không suy ra hoàn tiền từ số 0. Test FT `hoa-don-giam-gia-boundary.test.mts` + E2E fixture giảm 100%.
 Số tổng giao dịch trong kỳ khác số toàn bộ phiếu liên quan của khách nếu hoàn khác ngày thu.
 Test `T/services/test_danh_sach_hoa_don_db.py`, `T/unit/test_danh_sach_hoa_don.py`,
 FT `danh-sach-hoa-don-boundary.test.mts`, E2E `e2e/danh-sach-hoa-don.mjs` (API giả lập, auth DEMO thật).

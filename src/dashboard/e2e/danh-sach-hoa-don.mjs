@@ -8,10 +8,10 @@ assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname));
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 const page = await browser.newPage();
 const access = { quan_ly: true, ban_hang: true, co_the_mo: true, tai_chinh: true, legacy: false, cac_ca: ['FULL', 'SANG', 'CHIEU', 'TOI'], co_so_ids: [] };
-const p = { id: 'demo-bill', ma: 'PT-DEMO', visit_id: 'demo-visit', kind: 'dich_vu', trang_thai: 'HOAN_MOT_PHAN', so_tien: 1000000, da_hoan: 200000, cho_hoan: 100000, thu_rong: 800000, hinh_thuc: 'Tiền mặt', lap_luc: '2026-10-13T08:00:00+07:00', thu_luc: '2026-10-13T08:01:00+07:00', huy_luc: null, nguoi_lap: 'Lễ tân DEMO', nguoi_thu: 'Thu ngân DEMO', nguoi_huy: null, ly_do_huy: null,
-  dong: [{ id: 'demo-line', ten: 'Dịch vụ DEMO đầy đủ tên', so_luong: 1, thanh_tien: 1000000, da_bo: true }],
+const p = { id: 'demo-bill', ma: 'PT-DEMO', visit_id: 'demo-visit', kind: 'dich_vu', trang_thai: 'HOAN_MOT_PHAN', tong_truoc_giam: 1100000, giam_gia: 100000, kieu_giam: 'AMOUNT', gia_tri_giam: 100000, ly_do_giam: 'Ưu đãi DEMO', nguoi_giam: 'Quản lý DEMO', giam_luc: '2026-10-13T08:00:00+07:00', so_tien: 1000000, da_hoan: 200000, cho_hoan: 100000, thu_rong: 800000, hinh_thuc: 'Tiền mặt', lap_luc: '2026-10-13T08:00:00+07:00', thu_luc: '2026-10-13T08:01:00+07:00', huy_luc: null, nguoi_lap: 'Lễ tân DEMO', nguoi_thu: 'Thu ngân DEMO', nguoi_huy: null, ly_do_huy: null,
+  dong: [{ id: 'demo-line', ten: 'Dịch vụ DEMO đầy đủ tên', so_luong: 1, thanh_tien_truoc_giam: 1100000, giam_gia: 100000, thanh_tien: 1000000, da_bo: true }],
   hoan: [{ id: 'demo-refund', ma: 'HT-DEMO', so_tien: 200000, trang_thai: 'COMPLETED', lap_luc: '2026-10-13T09:00:00+07:00', hoan_luc: '2026-10-13T09:05:00+07:00', nguoi_lap: 'Trưởng ca DEMO', nguoi_hoan: 'Thu ngân DEMO', ly_do: 'Khách không làm dịch vụ', dong: [] }] };
-const k = { id: 'demo-patient', ten: 'Khách DEMO', ma_bn: 'DEMO-001', so_dien_thoai: '0900000000', da_thu: 1000000, da_hoan: 200000, cho_hoan: 100000, thu_rong: 800000, so_phieu: 1, trang_thai: 'HOAN_MOT_PHAN', can_doi_soat: true, canh_bao: ['Có khoản hoàn thất bại'], phieu: [p] };
+const k = { id: 'demo-patient', ten: 'Khách DEMO', ma_bn: 'DEMO-001', so_dien_thoai: '0900000000', tong_truoc_giam: 1100000, giam_gia: 100000, da_thu: 1000000, da_hoan: 200000, cho_hoan: 100000, thu_rong: 800000, so_phieu: 1, trang_thai: 'HOAN_MOT_PHAN', can_doi_soat: true, canh_bao: ['Có khoản hoàn thất bại'], phieu: [p] };
 let mode = 'populated';
 const requests = [];
 const errors = [];
@@ -25,7 +25,8 @@ try {
   await page.route('**/api/reports/access?**', r => r.fulfill({ json: access }));
   await page.route('**/api/hoa-don?**', async r => {
     requests.push(new URL(r.request().url()).searchParams);
-    await r.fulfill({ status: mode === 'error' ? 403 : 200, json: mode === 'error' ? { error: 'Không có quyền xem tài chính DEMO' } : { tu: '2026-10-13', den: '2026-10-13', access, tong: { ...k, so_khach: mode === 'empty' ? 0 : 1 }, khach: mode === 'empty' ? [] : [k] } });
+    const customer = mode === 'discount100' ? { ...k, tong_truoc_giam: 1000000, giam_gia: 1000000, da_thu: 0, da_hoan: 0, cho_hoan: 0, thu_rong: 0, trang_thai: 'DA_THU', can_doi_soat: false, canh_bao: [], phieu: [{ ...p, tong_truoc_giam: 1000000, giam_gia: 1000000, kieu_giam: 'PERCENT', gia_tri_giam: 100, ly_do_giam: 'Miễn phí chương trình DEMO', so_tien: 0, da_hoan: 0, cho_hoan: 0, thu_rong: 0, trang_thai: 'DA_THU', dong: [{...p.dong[0], thanh_tien_truoc_giam: 1000000, giam_gia: 1000000, thanh_tien: 0, da_bo: false}], hoan: [] }] } : k;
+    await r.fulfill({ status: mode === 'error' ? 403 : 200, json: mode === 'error' ? { error: 'Không có quyền xem tài chính DEMO' } : { tu: '2026-10-13', den: '2026-10-13', access, tong: { ...customer, so_khach: mode === 'empty' ? 0 : 1 }, khach: mode === 'empty' ? [] : [customer] } });
   });
   await mkdir('e2e/out/hoa-don', { recursive: true });
   for (const width of [375, 768, 1280]) {
@@ -42,6 +43,8 @@ try {
     assert.match(await dialog.innerText(), /Thu ngân DEMO/);
     assert.match(await dialog.innerText(), /Khách không làm dịch vụ/);
     assert.match(await dialog.innerText(), /Đã trả lại/);
+    assert.match(await dialog.innerText(), /Ưu đãi DEMO/);
+    assert.match(await dialog.innerText(), /Quản lý DEMO/);
     assert.equal(await dialog.evaluate(el => el.getBoundingClientRect().bottom <= innerHeight && el.getBoundingClientRect().top >= 0), true);
     await page.screenshot({ path: `e2e/out/hoa-don/detail-${width}.png`, fullPage: false });
     await page.keyboard.press('Escape');
@@ -65,6 +68,19 @@ try {
   mode = 'error';
   await page.getByRole('button', { name: 'Tải lại', exact: true }).click();
   await page.getByRole('alert').getByText('Không có quyền xem tài chính DEMO', { exact: true }).waitFor();
+  mode = 'discount100';
+  await page.getByRole('button', { name: 'Tải lại', exact: true }).click();
+  await page.getByRole('button', { name: 'Xem hoá đơn Khách DEMO' }).filter({ visible: true }).click();
+  const discountDialog = page.getByRole('dialog');
+  await discountDialog.getByText('Miễn phí chương trình DEMO', { exact: false }).waitFor();
+  assert.match(await discountDialog.innerText(), /Giảm giá trên phiếu · 100%/);
+  assert.match(await discountDialog.innerText(), /Quản lý DEMO/);
+  const zeroAmount = discountDialog.locator('dl > div').filter({ has: page.getByText('Tiền sau giảm', { exact: true }) });
+  assert.match(await zeroAmount.innerText(), /0đ/);
+  assert.equal(await discountDialog.getByText('Đã thu', { exact: true }).count() > 0, true);
+  assert.equal(await discountDialog.getByText(/Phiếu hoàn HT-/).count(), 0);
+  await page.screenshot({ path: 'e2e/out/hoa-don/discount100.png', fullPage: false });
+  await page.keyboard.press('Escape');
   assert.deepEqual(errors, []);
   console.log('PASS invoice list UI: responsive 375/768/1280, dialog, actor/reason, filters, empty, denied; mocked invoice API, real local auth');
 } finally { await browser.close(); }

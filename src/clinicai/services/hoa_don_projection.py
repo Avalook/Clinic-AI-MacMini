@@ -11,7 +11,7 @@ def _iso(value: Any) -> str | None:
 
 
 def _sum(bills: list[dict[str, Any]]) -> dict[str, int]:
-    keys = ("da_thu", "da_hoan", "cho_hoan", "thu_rong")
+    keys = ("da_thu", "da_hoan", "cho_hoan", "thu_rong", "tong_truoc_giam", "giam_gia")
     return {k: sum(int(p[k]) for p in bills) for k in keys}
 
 
@@ -26,10 +26,31 @@ def _state(status: Any, amount: int, returned: int, pending: int) -> str:
 
 
 def _line(row: dict[str, Any]) -> dict[str, Any]:
+    actual = int(row["thanh_tien"])
+    discount = int(row.get("discount_allocated") or 0)
     return {
         **row,
         "so_luong": float(row["so_luong"]),
-        "thanh_tien": int(row["thanh_tien"]),
+        "thanh_tien": actual,
+        "thanh_tien_truoc_giam": actual + discount,
+        "giam_gia": discount,
+    }
+
+
+def _discount(row: dict[str, Any]) -> dict[str, Any]:
+    original = row.get("original_amount")
+    value = row.get("discount_value")
+    discount = int(row.get("discount_amount") or 0)
+    return {
+        "tong_truoc_giam": int(original)
+        if original is not None
+        else int(row["amount"]),
+        "giam_gia": discount,
+        "kieu_giam": row.get("discount_type"),
+        "gia_tri_giam": float(value) if value is not None else None,
+        "ly_do_giam": row.get("discount_reason"),
+        "nguoi_giam": row.get("nguoi_giam"),
+        "giam_luc": _iso(row.get("created_at")) if discount else None,
     }
 
 
@@ -71,6 +92,7 @@ def _bill(
         "trang_thai": _state(row["status"], amount, completed, pending),
         "trang_thai_goc": row["status"],
         "so_tien": amount,
+        **_discount(row),
         "da_thu": amount,
         "da_hoan": completed,
         "cho_hoan": pending,
@@ -139,6 +161,8 @@ def _period(customers: list[dict[str, Any]]) -> dict[str, int]:
     completed = sum(r["so_tien"] for r in refunds if r["trang_thai"] == "COMPLETED")
     return dict(
         da_thu=paid,
+        tong_truoc_giam=sum(p["tong_truoc_giam"] for p in bills if p["thu_trong_ky"]),
+        giam_gia=sum(p["giam_gia"] for p in bills if p["thu_trong_ky"]),
         da_hoan=completed,
         thu_rong=paid - completed,
         cho_hoan=sum(r["so_tien"] for r in refunds if r["trang_thai"] == "PENDING"),
