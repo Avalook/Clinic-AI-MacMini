@@ -96,3 +96,48 @@ async def test_ck_chua_ve_va_ghi_no_la_viec_ton_moi_ngay(pool: asyncpg.Pool) -> 
     # Lọc loại hoá đơn "thuốc": CK dịch vụ và ghi nợ (cấp lượt) không hiện.
     thuoc = await svc.xem(identity=ql, tu="2026-01-01", den="2026-01-01", loai="thuoc")
     assert not _cua_luot(thuoc, q.visit_id) and not _cua_luot(thuoc, q2.visit_id)
+
+
+#: "Đã làm" phải có phòng (CHECK service_order_room_when_assigned) — lấy một
+#: phòng có sẵn của phòng khám.
+_DA_LAM = (
+    "UPDATE service_order SET exec_status='performed', room_id=(SELECT id FROM"
+    " clinic_room WHERE clinic_id=service_order.clinic_id ORDER BY id LIMIT 1)"
+    " WHERE id=$1::uuid"
+)
+
+
+async def test_da_thu_khach_ve_chua_lam_la_chua_tra_lai(pool: asyncpg.Pool) -> None:
+    """Khách 8763 (staging 13/10): thu SÂ + Soi, làm Soi rồi check-out về — SÂ
+    vẫn "chờ" nên không ai bấm bỏ / không làm → trước đây không hiện ở đâu."""
+    q, sa, soi, hpv = await _kich_ban(pool)
+    await _thu(q, sa, soi, hpv)
+    await pool.execute(_DA_LAM, soi)
+    ql = replace(q.thu_ngan, role=ClinicRole.MANAGEMENT)
+    svc = DanhSachHoaDonService(pool)
+    ngay = now_vn().date().isoformat()
+
+    # Lượt còn mở hôm nay: khách có thể vẫn đang chờ làm → chưa phải việc tồn.
+    mo = await svc.xem(identity=ql, tu=ngay, den=ngay, tim=f"TT-{q.duoi}")
+    assert not [v for v in _cua_luot(mo, q.visit_id) if v["loai"] == "CHUA_LAM"]
+    assert mo["khach"][0]["chua_tra_lai"] == 0
+
+    # Check-out, khách về: SÂ 250k đã thu mà chưa làm → nợ khách.
+    await pool.execute(
+        "UPDATE visit SET closed_at=now() WHERE visit_id=$1::uuid", q.visit_id
+    )
+    ve = await svc.xem(identity=ql, tu=ngay, den=ngay, tim=f"TT-{q.duoi}")
+    ton = [v for v in _cua_luot(ve, q.visit_id) if v["loai"] == "CHUA_LAM"]
+    assert [(v["so_tien"], v["ten_loai"]) for v in ton] == [
+        (250_000, "Đã thu – khách về chưa làm")
+    ]
+    assert "chưa làm" in ton[0]["mo_ta"]
+    [khach] = ve["khach"]
+    assert khach["chua_tra_lai"] == 250_000
+    assert khach["viec_ton"] == _cua_luot(ve, q.visit_id)
+
+    # Khách quay lại làm → tự hết.
+    await pool.execute(_DA_LAM, sa)
+    sau = await svc.xem(identity=ql, tu=ngay, den=ngay, tim=f"TT-{q.duoi}")
+    assert not _cua_luot(sau, q.visit_id)
+    assert sau["khach"][0]["chua_tra_lai"] == 0

@@ -8,7 +8,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.bao_cao_cuoi_ngay_service import khung_ca
 from clinicai.services.cashier_board_service import doc_khoang_ngay
@@ -16,7 +16,10 @@ from clinicai.services.co_so_bao_cao import doc_co_so
 from clinicai.services.hoa_don_excel import xlsx_hoa_don as xlsx_hoa_don
 from clinicai.services.hoa_don_projection import gom_hoa_don as gom_hoa_don
 from clinicai.services.hoa_don_projection import gom_viec_ton
-from clinicai.services.hoan_tac_service import tien_thua_cua_luot
+from clinicai.services.hoan_tac_service import (
+    tien_da_thu_cua_chi_dinh,
+    tien_thua_cua_luot,
+)
 from clinicai.services.quay_thu_service import _DONG_SQL
 from clinicai.services.report_access_service import ReportAccessService
 
@@ -123,6 +126,79 @@ LEFT JOIN staff s ON s.id=n.ghi_boi
 WHERE n.clinic_id=$1::uuid AND n.trang_thai='CHUA_THU' AND {_LOC}
  AND $3::text IS NULL
 """
+#: ĐÃ THU nhưng KHÁCH VỀ CHƯA LÀM (Tuyền 13/10, Khách 8763): dịch vụ đã thu vẫn
+#: ở trạng thái chờ / đã xếp / đang làm khi lượt đã đóng (check-out) hoặc là lượt
+#: của ngày trước. Không ai bấm "bỏ" / "không làm" nên tiền thừa không bắt được.
+#: Lượt đang mở hôm nay không tính (khách có thể còn đang chờ làm). Buổi liệu
+#: trình trả trước không có dòng thu theo chỉ định nên tự không lọt vào.
+_CHUA_LAM = f"""
+SELECT o.id::text order_id, o.visit_id::text visit_id, o.service_name ten_dv,
+ coalesce(v.closed_at, o.updated_at) luc, p.clinic_patient_id::text patient_id,
+ p.full_name ten, p.patient_code ma_bn
+FROM service_order o {_KHACH_CUA_LUOT.format(luot="o.visit_id", clinic="o.clinic_id")}
+WHERE o.clinic_id=$1::uuid
+ AND o.exec_status IN ('authorized','assigned','in_progress')
+ AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
+ AND (v.closed_at IS NOT NULL OR v.created_at < $4)
+ AND o.created_at >= now() - interval '90 days' AND {_LOC}
+ AND ($3::text IS NULL OR $3='dich_vu')
+ AND ($5::text[] IS NULL OR o.visit_id::text = ANY($5::text[]))
+"""
+
+
+async def _chua_lam(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    co_so: str | None,
+    loai: str | None,
+    visit_ids: list[str] | None = None,
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    """(lượt → {tong, dong}, lượt → khách) của dịch vụ đã thu mà khách về chưa
+    làm. Số tiền = đã thu − đã hoàn của đúng chỉ định ấy (hàm dùng chung)."""
+    dau_hom_nay = datetime.combine(now_vn().date(), time.min, tzinfo=CLINIC_TZ)
+    rows = [
+        dict(r)
+        for r in await conn.fetch(
+            _CHUA_LAM, clinic_id, co_so, loai, dau_hom_nay, visit_ids
+        )
+    ]
+    tien = await tien_da_thu_cua_chi_dinh(
+        conn, clinic_id, [r["order_id"] for r in rows]
+    )
+    out: dict[str, dict[str, Any]] = {}
+    luot: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        t = tien.get(r["order_id"])
+        con = (t["da_thu"] - t["da_hoan"]) if t else 0
+        if con <= 0:
+            continue
+        muc = out.setdefault(r["visit_id"], {"tong": 0, "dong": []})
+        muc["tong"] += con
+        muc["dong"].append(
+            {
+                "order_id": r["order_id"],
+                "ten": r["ten_dv"],
+                "so_tien": con,
+                "loai": "CHUA_LAM",
+                "ly_do": None,
+            }
+        )
+        luot.setdefault(r["visit_id"], r)
+    return out, luot
+
+
+def _gop_thua(
+    a: dict[str, dict[str, Any]], b: dict[str, dict[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    """Gộp hai bảng tiền thừa theo lượt (không sửa tại chỗ)."""
+    out = {k: {"tong": v["tong"], "dong": list(v["dong"])} for k, v in a.items()}
+    for k, v in b.items():
+        muc = out.setdefault(k, {"tong": 0, "dong": []})
+        muc["tong"] += v["tong"]
+        muc["dong"].extend(v["dong"])
+    return out
+
+
 #: Tiền thừa chỉ dò trong lượt có thu dịch vụ 90 ngày gần nhất — đủ cho việc
 #: tồn thật, không quét cả lịch sử mỗi lần mở màn.
 TIEN_THUA_SO_NGAY = 90
@@ -211,7 +287,18 @@ class DanhSachHoaDonService:
                 for r in await conn.fetch(_DOI_HINH_THUC, identity.clinic_id, ids)
             ]
             vids = sorted({r["visit_id"] for r in rows if r.get("visit_id")})
-            tien_thua = await tien_thua_cua_luot(conn, identity.clinic_id, vids)
+            tien_thua = _gop_thua(
+                await tien_thua_cua_luot(conn, identity.clinic_id, vids),
+                (
+                    await _chua_lam(
+                        conn,
+                        identity.clinic_id,
+                        doc_co_so(location),
+                        loai if loai in ("thuoc", "dich_vu") else None,
+                        vids,
+                    )
+                )[0],
+            )
             ton = await self._viec_ton(
                 conn,
                 identity.clinic_id,
@@ -250,4 +337,9 @@ class DanhSachHoaDonService:
         no = [dict(r) for r in await conn.fetch(_TON_NO, *args)]
         luot = {r["visit_id"]: dict(r) for r in await conn.fetch(_TON_THUA_LUOT, *args)}
         thua = await tien_thua_cua_luot(conn, clinic_id, sorted(luot))
-        return gom_viec_ton(hoan=hoan, ck=ck, no=no, tien_thua=thua, luot=luot)
+        chua_lam, luot_cl = await _chua_lam(conn, clinic_id, co_so, loai)
+        for k, v in luot_cl.items():
+            luot.setdefault(k, v)
+        return gom_viec_ton(
+            hoan=hoan, ck=ck, no=no, tien_thua=_gop_thua(thua, chua_lam), luot=luot
+        )

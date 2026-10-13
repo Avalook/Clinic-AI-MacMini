@@ -50,6 +50,8 @@ function DaThu({ k }: { k: KhachHoaDon }) {
 }
 
 const CHIP = "inline-block rounded-chip px-2 py-0.5 text-meta font-medium";
+/** Việc tồn là tiền phòng khám đang nợ khách → tô đỏ. */
+const NO_KHACH = new Set(["CHUA_TRA_LAI", "CHUA_LAM"]);
 
 function TrangThai({ k }: { k: KhachHoaDon }) {
   const ton = k.viec_ton ?? [];
@@ -296,7 +298,7 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
                               <span className="block text-meta text-ink-muted">{v.ma_bn ?? "—"}</span>
                             </td>
                             <td className="px-3 py-3">
-                              <span className={`${CHIP} ${v.loai === "CHUA_TRA_LAI" ? "bg-danger-bg text-danger" : "bg-warning-bg text-warning"}`}>{v.ten_loai}</span>
+                              <span className={`${CHIP} ${NO_KHACH.has(v.loai) ? "bg-danger-bg text-danger" : "bg-warning-bg text-warning"}`}>{v.ten_loai}</span>
                               {v.mo_ta || v.nguoi ? <span className="mt-1 block text-meta text-ink-muted">{[v.mo_ta, v.nguoi].filter(Boolean).join(" · ")}</span> : null}
                             </td>
                             <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(v.so_tien)}</td>
@@ -312,7 +314,7 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
                 {ton.map((v, i) => (
                   <article key={`${v.loai}-${v.visit_id}-${v.ma}-${i}`} className="rounded-card bg-surface p-4 ring-1 ring-hairline">
                     <div className="flex items-start justify-between gap-2">
-                      <span className={`${CHIP} ${v.loai === "CHUA_TRA_LAI" ? "bg-danger-bg text-danger" : "bg-warning-bg text-warning"}`}>{v.ten_loai}</span>
+                      <span className={`${CHIP} ${NO_KHACH.has(v.loai) ? "bg-danger-bg text-danger" : "bg-warning-bg text-warning"}`}>{v.ten_loai}</span>
                       <b className="tabular-nums">{tien(v.so_tien)}</b>
                     </div>
                     <p className="mt-1 text-meta text-ink-muted">{v.ten ?? "—"} · {daTon(v.luc)}{v.mo_ta ? ` · ${v.mo_ta}` : ""}</p>

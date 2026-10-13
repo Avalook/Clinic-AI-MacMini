@@ -20,6 +20,7 @@ def _sum(bills: list[dict[str, Any]]) -> dict[str, int]:
 #: xử lý bằng nút có sẵn thì tự hết — màn danh sách hoá đơn chỉ để xem).
 TEN_VIEC_TON: dict[str, str] = {
     "CHUA_TRA_LAI": "Chưa trả lại khách",
+    "CHUA_LAM": "Đã thu – khách về chưa làm",
     "HOAN_CHUA_XONG": "Hoàn tiền chưa xong",
     "HOAN_THAT_BAI": "Hoàn tiền thất bại",
     "CK_CHUA_VE": "Chuyển khoản chưa về",
@@ -419,8 +420,9 @@ def gom_viec_ton(
     for vid, t in tien_thua.items():
         k = luot.get(vid) or {}
         for d in t.get("dong", []):
+            chua_lam = d.get("loai") == "CHUA_LAM"
             them(
-                "CHUA_TRA_LAI",
+                "CHUA_LAM" if chua_lam else "CHUA_TRA_LAI",
                 k.get("luc"),
                 k,
                 so_tien=int(d["so_tien"]),
@@ -428,7 +430,9 @@ def gom_viec_ton(
                 visit_id=vid,
                 kind="dich_vu",
                 mo_ta=(
-                    f"Bỏ {d['ten']} sau khi đã thu"
+                    f"{d['ten']} chưa làm — lượt đã đóng, khách đã về"
+                    if chua_lam
+                    else f"Bỏ {d['ten']} sau khi đã thu"
                     if d.get("loai") != "KHONG_LAM"
                     else f"Không làm {d['ten']} sau khi đã thu"
                 ),
