@@ -134,6 +134,32 @@ class ManKhachHangService:
                   FROM v_trang_thai_cskh
                  WHERE clinic_id = $1::uuid
                    AND clinic_patient_id = ANY($2::uuid[])
+                UNION ALL
+                SELECT p.clinic_patient_id, 'CHO_DAT_LICH', 'Gọi điện xác nhận',
+                       NULL::date, false, 1::bigint, false, NULL::uuid, false
+                  FROM patient p
+                 WHERE p.clinic_id = $1::uuid
+                   AND p.clinic_patient_id = ANY($2::uuid[])
+                   -- Chỉ hồ sơ nhập từ màn tiếp nhận, không gom dữ liệu nhập cũ.
+                   AND EXISTS (
+                       SELECT 1 FROM event_log e
+                        WHERE e.clinic_id = p.clinic_id
+                          AND e.aggregate_id = p.clinic_patient_id
+                          AND e.event_type = 'patient.created'
+                          AND e.source = 'api:patient-intake')
+                   -- Kiểm toàn bộ lịch sử, không dựa vào khối appts có LIMIT.
+                   AND NOT EXISTS (
+                       SELECT 1 FROM appointment a
+                        WHERE a.clinic_id = p.clinic_id
+                          AND a.clinic_patient_id = p.clinic_patient_id)
+                   AND NOT EXISTS (
+                       SELECT 1 FROM visit v
+                        WHERE v.clinic_id = p.clinic_id
+                          AND v.clinic_patient_id = p.clinic_patient_id)
+                   AND NOT EXISTS (
+                       SELECT 1 FROM v_trang_thai_cskh t
+                        WHERE t.clinic_id = p.clinic_id
+                          AND t.clinic_patient_id = p.clinic_patient_id)
                 """,
                 clinic_id,
                 ids,
@@ -362,7 +388,20 @@ class ManKhachHangService:
             "ca_truc": [dict(r) for r in ca_truc],
             "tuan_cong_bo": [str(w) for w in tuan_cong_bo],
             "trang_thai": [dict(r) for r in trang_thai],
-            "viec_mo": [dict(r) for r in viec_mo],
+            "viec_mo": [dict(r) for r in viec_mo]
+            + [
+                {
+                    "clinic_patient_id": r["clinic_patient_id"],
+                    "trang_thai": r["trang_thai"],
+                    "nhan": r["nhan"],
+                    "uu_tien": 10,
+                    "han_xu_ly": None,
+                    "qua_han": False,
+                    "appointment_id": None,
+                }
+                for r in trang_thai
+                if r["trang_thai"] == "CHO_DAT_LICH"
+            ],
             "tep": [_kem_nhan_vien(r) for r in tep],
             "phan_hoi": [_kem_nhan_vien(r) for r in phan_hoi],
             "hen_goi_lai": [_kem_nhan_vien(r) for r in hen_goi_lai],

@@ -7,6 +7,7 @@
 // patient's profile. No more two-screen flow.
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import type { KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { UserRound, CalendarClock } from "lucide-react";
@@ -654,6 +655,7 @@ export default function NewPatientForm({
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   // TRÙNG TÊN ĐƠN THUẦN — tín hiệu YẾU, tách khỏi `phoneDupes`.
   //
   // `phoneDupes` là những hồ sơ mà ĐƯỜNG LƯU cũng coi là trùng (số điện thoại,
@@ -865,6 +867,12 @@ export default function NewPatientForm({
     if (khoaNhapKhach && typeof window !== "undefined") {
       xoaNhap(window.localStorage, khoaNhapKhach);
     }
+    // CSKH nhập nhanh hồ sơ chưa có lịch cần chăm sóc tiếp tại đúng khách,
+    // kể cả tài khoản được cấp thêm quyền Tiếp đón.
+    if (role === "CSKH" && !walkin && !wantsAppointment) {
+      router.push(`/customers?selected=${encodeURIComponent(id)}`);
+      return;
+    }
     // TẠO XONG → VỀ MÀN TIẾP ĐÓN (Tuyền 29/09/2026: "lễ tân thêm khách mới
     // xong thì nhảy về màn Tiếp đón khách để làm việc tiếp"). Áp cho mọi đường
     // lưu thành công: chỉ lưu hồ sơ, lưu + đặt lịch (khách Trực tiếp hôm nay đã
@@ -913,7 +921,14 @@ export default function NewPatientForm({
   // Không cần thay bằng gì cả: state đã khởi tạo `locations[0]?.id` ngay ở
   // useState, và `save()` vẫn còn lớp đỡ `locationId || locations[0]?.id`.
 
+  function luuNhapNhanh(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing || walkin || wantsAppointment || dupes) return;
+    e.preventDefault();
+    void save(false);
+  }
+
   async function save(force: boolean, lyDoCccd?: string) {
+    if (submitting || submittingRef.current) return;
     setError(null);
     const effLocationId = locationId || coSoDau;
     if (!effLocationId) {
@@ -987,58 +1002,66 @@ export default function NewPatientForm({
         return;
       }
     }
+    submittingRef.current = true;
     setSubmitting(true);
-    // Gộp địa chỉ đầy đủ (chi tiết + phường full + tỉnh full) cho cột address
-    // free-text (back-compat hiển thị) + gửi kèm mã/tên có cấu trúc.
-    const provSel = provinces.find((p) => p.code === provinceCode);
-    const wardSel = wards.find((w) => w.code === wardCode);
-    const composedAddress = [addressDetail.trim(), wardSel?.full_name, provSel?.fullName]
-      .filter(Boolean)
-      .join(", ");
-    const res = await fetch("/api/patients", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        full_name: fullName,
-        date_of_birth: dobYearOnly ? "" : dobIso,
-        birth_year: dobYearOnly ? birthYear : undefined,
-        phone_primary: phone,
-        phone_secondary: phone2,
-        national_id_number: cccd,
-        location_id: effLocationId,
-        gender,
-        ethnicity,
-        nationality,
-        occupation,
-        patient_objection: objection,
-        address: composedAddress,
-        province_code: provinceCode || undefined,
-        province_name: provSel?.name || undefined,
-        ward_code: wardCode || undefined,
-        ward_name: wardSel?.name || undefined,
-        address_detail: addressDetail.trim() || undefined,
-        van_de_di_kham: vanDe.trim() || undefined,
-        linh_vuc: MA_LINH_VUC.has(linhVuc) ? linhVuc : undefined,
-        force,
-        ly_do_trung_cccd: lyDoCccd?.trim() || undefined,
-      }),
-    });
-    const json = await res.json();
-    if (!res.ok) {
+    try {
+      // Gộp địa chỉ đầy đủ (chi tiết + phường full + tỉnh full) cho cột address
+      // free-text (back-compat hiển thị) + gửi kèm mã/tên có cấu trúc.
+      const provSel = provinces.find((p) => p.code === provinceCode);
+      const wardSel = wards.find((w) => w.code === wardCode);
+      const composedAddress = [addressDetail.trim(), wardSel?.full_name, provSel?.fullName]
+        .filter(Boolean)
+        .join(", ");
+      const res = await fetch("/api/patients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: fullName,
+          date_of_birth: dobYearOnly ? "" : dobIso,
+          birth_year: dobYearOnly ? birthYear : undefined,
+          phone_primary: phone,
+          phone_secondary: phone2,
+          national_id_number: cccd,
+          location_id: effLocationId,
+          gender,
+          ethnicity,
+          nationality,
+          occupation,
+          patient_objection: objection,
+          address: composedAddress,
+          province_code: provinceCode || undefined,
+          province_name: provSel?.name || undefined,
+          ward_code: wardCode || undefined,
+          ward_name: wardSel?.name || undefined,
+          address_detail: addressDetail.trim() || undefined,
+          van_de_di_kham: vanDe.trim() || undefined,
+          linh_vuc: MA_LINH_VUC.has(linhVuc) ? linhVuc : undefined,
+          force,
+          ly_do_trung_cccd: lyDoCccd?.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setSubmitting(false);
+        setError(json.error ?? "Có lỗi xảy ra.");
+        return;
+      }
+      if (json.duplicate) {
+        setSubmitting(false);
+        setCccdTrung(Boolean(json.cccd_trung));
+        setDupes(json.matches as DupMatch[]);
+        return;
+      }
+      await proceed(
+        json.patient.clinic_patient_id as string,
+        json.patient.patient_code as string,
+      );
+    } catch {
+      setError("Không lưu được hồ sơ. Kiểm tra kết nối rồi thử lại.");
       setSubmitting(false);
-      setError(json.error ?? "Có lỗi xảy ra.");
-      return;
+    } finally {
+      submittingRef.current = false;
     }
-    if (json.duplicate) {
-      setSubmitting(false);
-      setCccdTrung(Boolean(json.cccd_trung));
-      setDupes(json.matches as DupMatch[]);
-      return;
-    }
-    await proceed(
-      json.patient.clinic_patient_id as string,
-      json.patient.patient_code as string,
-    );
   }
 
   return (
@@ -1112,6 +1135,7 @@ export default function NewPatientForm({
             </label>
             <input
               value={fullName}
+              onKeyDown={luuNhapNhanh}
               onChange={(e) => setFullName(e.target.value)}
               onBlur={() => setFullName((v) => toTitleCaseVi(v))}
               className={INPUT}
@@ -1176,6 +1200,7 @@ export default function NewPatientForm({
             </label>
             <input
               value={phone}
+              onKeyDown={luuNhapNhanh}
               onChange={(e) => setPhone(normalizePhoneVi(e.target.value))}
               className={INPUT + (phoneErr ? " border-danger" : "")}
               placeholder="10 chữ số, bắt đầu bằng 0 — vd 0901234567"
@@ -1266,6 +1291,7 @@ export default function NewPatientForm({
             <label className={LABEL}>SĐT người nhà (nếu có)</label>
             <input
               value={phone2}
+              onKeyDown={luuNhapNhanh}
               onChange={(e) => setPhone2(normalizePhoneVi(e.target.value))}
               className={INPUT + (phone2Err ? " border-danger" : "")}
               placeholder="10 chữ số, bắt đầu bằng 0"

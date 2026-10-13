@@ -103,6 +103,65 @@ test("intake makes the real patient-and-appointment flow legible", () => {
   assert.match(intake, /\/api\/appointments/);
 });
 
+test("CSKH intake without an appointment returns to the selected customer before reception routing", () => {
+  const customerRoute = intake.indexOf('if (role === "CSKH" && !walkin && !wantsAppointment)');
+  const receptionRoute = intake.indexOf("if (veTiepDon)", customerRoute);
+  assert.ok(customerRoute >= 0 && receptionRoute > customerRoute);
+  assert.match(intake.slice(customerRoute, receptionRoute), /\/customers\?selected=\$\{encodeURIComponent\(id\)\}/);
+});
+
+test("saved customer routing preserves reception and walk-in destinations", () => {
+  const routeBody = intake.match(/function goToProfile\(id: string, code\?: string\) \{([\s\S]*?)\n  \}/)?.[1];
+  assert.ok(routeBody);
+  const makeRoute = new Function("role", "walkin", "wantsAppointment", "veTiepDon", "router", "khoaNhapKhach", `return function(id, code) {${routeBody}}`);
+  for (const scenario of [
+    { role: "CSKH", walkin: false, appointment: false, reception: true, destination: "/customers?selected=khach%201" },
+    { role: "CSKH", walkin: false, appointment: false, reception: false, destination: "/customers?selected=khach%201" },
+    { role: "CSKH", walkin: false, appointment: true, reception: true, destination: "/reception/queue" },
+    { role: "RECEPTION", walkin: false, appointment: false, reception: true, destination: "/reception/queue" },
+    { role: "RECEPTION", walkin: false, appointment: false, reception: false, destination: "/patient-list" },
+    { role: "NURSE", walkin: true, appointment: false, reception: false, destination: "/patients/khach 1?new=1" },
+  ]) {
+    const destinations: string[] = [];
+    const route = makeRoute(scenario.role, scenario.walkin, scenario.appointment, scenario.reception, { push: (url: string) => destinations.push(url) }, null);
+    route("khach 1");
+    assert.deepEqual(destinations, [scenario.destination]);
+  }
+});
+
+test("quick intake Enter is limited to identity inputs and protects against duplicate saves", () => {
+  assert.equal((intake.match(/onKeyDown=\{luuNhapNhanh\}/g) ?? []).length, 3);
+  assert.match(intake, /e\.nativeEvent\.isComposing \|\| walkin \|\| wantsAppointment \|\| dupes/);
+  assert.match(intake, /if \(submitting \|\| submittingRef\.current\) return;/);
+  assert.match(intake, /submittingRef\.current = true;/);
+  assert.match(intake, /finally \{\s*submittingRef\.current = false;/);
+  assert.match(intake, /Không lưu được hồ sơ/);
+});
+
+test("quick intake Enter saves once while composition and appointment controls keep their normal behavior", () => {
+  const handler = intake.match(/function luuNhapNhanh\(e: KeyboardEvent<HTMLInputElement>\) \{([\s\S]*?)\n  \}/)?.[1];
+  assert.ok(handler, "Quick intake handler is present");
+  const makeHandler = new Function("walkin", "wantsAppointment", "dupes", "save", `return function(e) {${handler}}`);
+  for (const scenario of [
+    { key: "Enter", composing: false, walkin: false, appointment: false, dupes: null, saved: 1 },
+    { key: "Tab", composing: false, walkin: false, appointment: false, dupes: null, saved: 0 },
+    { key: "Enter", composing: true, walkin: false, appointment: false, dupes: null, saved: 0 },
+    { key: "Enter", composing: false, walkin: true, appointment: false, dupes: null, saved: 0 },
+    { key: "Enter", composing: false, walkin: false, appointment: true, dupes: null, saved: 0 },
+    { key: "Enter", composing: false, walkin: false, appointment: false, dupes: [], saved: 0 },
+  ]) {
+    let saves = 0;
+    let prevented = 0;
+    const run = makeHandler(scenario.walkin, scenario.appointment, scenario.dupes, (force: boolean) => {
+      assert.equal(force, false);
+      saves += 1;
+    });
+    run({ key: scenario.key, nativeEvent: { isComposing: scenario.composing }, preventDefault: () => { prevented += 1; } });
+    assert.equal(saves, scenario.saved, JSON.stringify(scenario));
+    assert.equal(prevented, scenario.saved, JSON.stringify(scenario));
+  }
+});
+
 // "Số thứ tự gọi khám" (/queue, ẩn từ 03/07) gộp vào Tiếp đón khách
 // 18/09/2026 — bài kiểm "trang chỉ còn chuyển hướng" ở man-da-gop-boundary.
 

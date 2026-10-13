@@ -83,8 +83,9 @@ class _Conn:
 
     async def fetch(self, sql: str, *args: object) -> list[dict[str, Any]]:
         self.cac_cau.append(sql)
+        bang_chinh = re.search(r"FROM (\w+)", sql)
         for bang, dong in self._tra_loi.items():
-            if f"FROM {bang}" in sql or f"FROM {bang}\n" in sql:
+            if bang_chinh and bang_chinh.group(1) == bang:
                 return dong
         return []
 

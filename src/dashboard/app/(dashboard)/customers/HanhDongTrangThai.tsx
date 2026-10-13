@@ -65,6 +65,12 @@ const HANH_DONG: Record<string, HanhDongViec> = {
     goiKhach: true,
     zalo: "NHAC_HEN",
   },
+  CHO_DAT_LICH: {
+    tieuDe: "Gọi điện xác nhận",
+    loai: "HOI_THAM",
+    goiKhach: true,
+    zalo: null,
+  },
   NHAC_HEN_MAI: {
     tieuDe: "Gọi nhắc hẹn ngày mai",
     loai: "NHAC_HEN",
@@ -658,6 +664,7 @@ export default function HanhDongTrangThai({
       //
       // Cả ba đều là "gọi khách rồi ghi kết quả", đúng bộ nút của `GOI_LAI`.
       // `loai` lấy từ chính `HANH_DONG` để hai bảng không nói hai kiểu.
+      case "CHO_DAT_LICH":
       case "HEN_GOI_LAI":
       case "MOI_TAI_KHAM":
       case "NHAC_DI_KHAM":
