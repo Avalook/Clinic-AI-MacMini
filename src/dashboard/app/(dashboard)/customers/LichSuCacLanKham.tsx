@@ -41,6 +41,7 @@ const NHAN_BUOC: Record<string, string> = {
   // Mã do màn Chờ xếp bác sĩ ghi vào sổ khi quản lý đổi giờ.
   QUAN_LY_DOI_GIO: "Quản lý đổi giờ hẹn",
   CHO_XAC_NHAN: "Gọi xác nhận lịch",
+  CHO_DAT_LICH: "Gọi điện xác nhận",
   VUOT_SUC_CHUA: "Gọi chốt lịch vượt sức chứa",
   NHAC_HEN_MAI: "Gọi nhắc hẹn",
   DA_CHECKIN: "Check-in",

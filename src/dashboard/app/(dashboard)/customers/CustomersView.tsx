@@ -98,6 +98,7 @@ const TONE_VIEC: Record<string, StatusTone> = {
   NHAC_HEN_MAI: "assigned",
   MOI_TAI_KHAM: "ready",
   CHO_XAC_NHAN: "ready",
+  CHO_DAT_LICH: "ready",
   VUOT_SUC_CHUA: "assigned",
 };
 
@@ -115,6 +116,7 @@ const BUOC_TIEP: Record<string, string> = {
   NHAC_HEN_MAI: "Gọi nhắc hẹn ngày mai",
   MOI_TAI_KHAM: "Gọi mời tái khám",
   CHO_XAC_NHAN: "Gọi xác nhận lịch",
+  CHO_DAT_LICH: "Gọi điện xác nhận",
   VUOT_SUC_CHUA: "Gọi khách chốt hoặc đổi ca — lịch vượt sức chứa",
 };
 
@@ -858,7 +860,7 @@ export default function CustomersView({
       if (key === "qua_sla") {
         return Boolean(tt?.co_viec_qua_han) || Boolean(appointment?.qua_gio_hen);
       }
-      if (key === "cho_xac_nhan") return tt?.trang_thai === "CHO_XAC_NHAN";
+      if (key === "cho_xac_nhan") return tt?.trang_thai === "CHO_XAC_NHAN" || tt?.trang_thai === "CHO_DAT_LICH";
       if (key === "upcoming") {
         // "Cần xử lý hôm nay" = có việc đang mở, tới hạn hôm nay hoặc đã quá.
         // Không đếm việc của tuần sau: ô này để biết sáng nay phải làm gì.

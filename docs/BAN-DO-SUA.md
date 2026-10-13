@@ -485,6 +485,13 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
 
 ## 12. CSKH · hẹn tái khám
 
+- **Nhập nhanh khách chưa lịch (13/10):** CSKH lưu/Enter ở tên hoặc SĐT trong
+  `D/patients/new/NewPatientForm.tsx` → `/customers?selected=…`, kể cả có quyền
+  Tiếp đón. `S/man_khach_hang_service.py` trả `CHO_DAT_LICH` cho hồ sơ tiếp nhận
+  chưa từng có lịch/lượt và chưa có việc CSKH khác: nhóm “Chờ xác nhận”, bước
+  “Gọi điện xác nhận”; ghi cuộc gọi loại `HOI_THAM`, không xác nhận lịch chưa có.
+  Có lịch/lượt là hết việc này. Test `T/services/test_man_khach_hang_callback_db.py`,
+  FT `intake-patient-ui-boundary.test.mts`; bấm thật `e2e/quick-intake-confirmation.mjs`.
 - Màn chuẩn `/customers` (`D/customers/CustomersView.tsx`, `VungLamViecKhach.tsx`,
   `HanhDongTrangThai.tsx`) → `S/cskh_service.py`, `S/danh_sach_khach_cskh.py`; ghi
   chăm sóc `S/tuong_tac_cskh_service.py`. Test: `T/unit/test_so_tuong_tac_cskh.py`.
