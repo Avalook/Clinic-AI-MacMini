@@ -68,6 +68,13 @@ export async function POST(request: Request) {
       selected_order_ids: string[];
       expected_selection_revision: number;
     };
+    /** Giảm giá (13/10/2026). */
+    discount_type?: "AMOUNT" | "PERCENT" | null;
+    discountType?: "AMOUNT" | "PERCENT" | null;
+    discount_value?: number | null;
+    discountValue?: number | null;
+    discount_reason?: string | null;
+    discountReason?: string | null;
   };
   // CP5 — hoàn tiền (tạm thời chỉ Quản lý, máy chủ kiểm; số tiền máy chủ tính).
   if (p.action === "hoan-tien") {
@@ -149,6 +156,9 @@ export async function POST(request: Request) {
       bill_revision: p.billRevision || null,
       method: p.method || "CASH",
       quay: p.quay ?? null,
+      discount_type: p.discount_type ?? p.discountType ?? null,
+      discount_value: p.discount_value ?? p.discountValue ?? null,
+      discount_reason: p.discount_reason ?? p.discountReason ?? null,
       ...(p.chon ? { chon: p.chon } : {}),
       ...(p.phan ? { phan: p.phan } : {}),
     },
