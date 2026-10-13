@@ -341,6 +341,18 @@ và `PhiKhamService.chon`). Ô tìm + nút Tìm luôn hiện, danh mục mở s�
 
 ## 7. Thu tiền · phiếu thu · phiếu hướng dẫn
 
+**Danh sách hoá đơn theo khách** — `/hoa-don` ngay dưới Báo cáo; `D/hoa-don/DanhSachHoaDon.tsx`
++ `ChiTietHoaDon.tsx` → `/api/hoa-don` → `S/danh_sach_hoa_don_service.py`.
+Đọc phiếu đã thu và xử lý sau thanh toán (hoàn / hủy), gom dịch vụ + thuốc theo khách.
+Giảm giá: số trước giảm / đã giảm / sau giảm, lý do / người / giờ theo snapshot phiếu;
+dòng hiển thị phần giảm được phân bổ từ máy chủ. Miễn phí 100% có số thực thu 0 vẫn là phiếu đã thu,
+không suy ra hoàn tiền từ số 0. Test FT `hoa-don-giam-gia-boundary.test.mts` + E2E fixture giảm 100%.
+Số tổng giao dịch trong kỳ khác số toàn bộ phiếu liên quan của khách nếu hoàn khác ngày thu.
+Test `T/services/test_danh_sach_hoa_don_db.py`, `T/unit/test_danh_sach_hoa_don.py`,
+FT `danh-sach-hoa-don-boundary.test.mts`, E2E `e2e/danh-sach-hoa-don.mjs` (API giả lập, auth DEMO thật).
+Nút thu dùng chung `NhomThu` ở 2 quầy và Bán lẻ đổi thành **Tạo bill**; tiền mặt vẫn ghi thu,
+chuyển khoản vẫn chờ xác minh, nút xác minh **Đã nhận tiền** giữ nguyên.
+
 **Vật tư khách mua thêm ở quầy thu dịch vụ (01/10 — C13: đầu dò Bio chọn nhanh, tìm tên, Mirena cần QL duyệt)** —
 màn `D/thu-ngan/VatTuQuay.tsx` (khối "Mua thêm vật tư", chỉ quầy dịch vụ) → `S/vat_tu_service.py`
 (`VatTuService.them` / `dat_so_luong` / `bo`, hàm thuần `ly_do_khong_ban`: giá 0 / chưa có giá = không bán).

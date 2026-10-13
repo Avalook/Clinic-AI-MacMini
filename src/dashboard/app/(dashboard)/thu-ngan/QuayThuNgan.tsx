@@ -1267,12 +1267,11 @@ export function NhomThu({
               ? "Đang ghi…"
               : mienPhi
                 ? "Ghi nhận miễn phí"
-                : chia?.coChuyenKhoan
-                  ? "Ghi · chờ xác minh CK"
-                  : "Đã nhận đủ tiền mặt"}
+                : "Tạo bill"}
           </button>
         )}
       </div>
+      {!daThu && !mienPhi && chia?.coChuyenKhoan ? <p className="mt-2 text-meta text-warning">Tạo bill chuyển khoản: chờ xác minh khi tiền về, chưa tính là đã thu.</p> : null}
     </div>
   );
 }

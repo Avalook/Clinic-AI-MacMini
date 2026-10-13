@@ -19,7 +19,8 @@ from clinicai.services.cashier_board_service import (
     CashierBoardService,
 )
 from clinicai.services.cashier_scope_service import CashierScopeService
-from clinicai.services.quay_thu_service import QuayThuService, csv_lich_su
+from clinicai.services.excel_export import XLSX_MEDIA_TYPE
+from clinicai.services.quay_thu_service import QuayThuService, csv_lich_su, xlsx_lich_su
 
 router = APIRouter()
 
@@ -191,6 +192,47 @@ async def cashier_lich_su_csv(
     return Response(
         content=csv_lich_su(kq["khach"]).encode("utf-8"),
         media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{ten}"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.get("/cashier/lich-su.xlsx")
+async def cashier_lich_su_xlsx(
+    tu: str | None = Query(None),
+    den: str | None = Query(None),
+    tim: str | None = Query(None, max_length=200),
+    hinh_thuc: str | None = Query(None, max_length=20),
+    nguoi_thu: str | None = Query(None, max_length=200),
+    kind: str = Query("dich_vu", max_length=20),
+    ca: str | None = Query(None, max_length=10),
+    co_so: str | None = Query(None, max_length=40),
+    identity: StaffIdentity = Depends(_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> Response:
+    """Editable Excel table; each payment/refund/cancellation is one row."""
+    scope = await CashierScopeService(pool).authorize(
+        identity, tu=tu, den=den, kind=kind, ca=ca, co_so=co_so
+    )
+    kq = await QuayThuService(pool).lich_su(
+        identity=scope.identity,
+        tu=tu,
+        den=den,
+        tim=tim,
+        hinh_thuc=hinh_thuc,
+        nguoi_thu=nguoi_thu,
+        kind=kind,
+        scope_starts=scope.starts,
+        scope_ends=scope.ends,
+        scope_actor=scope.actor_id,
+    )
+    ten = f"so-thu-{kq['tu']}_{kq['den']}.xlsx"
+    return Response(
+        content=xlsx_lich_su(kq["khach"]),
+        media_type=XLSX_MEDIA_TYPE,
         headers={
             "Content-Disposition": f'attachment; filename="{ten}"',
             "Cache-Control": "private, no-store",

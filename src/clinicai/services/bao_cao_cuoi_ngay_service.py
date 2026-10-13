@@ -377,6 +377,27 @@ def gom_bao_cao(
             "giam": sum(g["giam"] for g in giam_ds),
             "dong": giam_ds,
         },
+        # Audit metadata only: amount and financial totals remain after discount.
+        "chi_tiet_giam_gia": [
+            {
+                "id": str(c.get("id")),
+                "luc": _iso(c.get("paid_at")),
+                "khach": c.get("ten_khach"),
+                "ma_bn": c.get("ma_bn"),
+                "trang_thai": c.get("status"),
+                "truoc_giam": _tien(c["original_amount"])
+                if c.get("original_amount") is not None
+                else _tien(c.get("amount")),
+                "sau_giam": _tien(c.get("amount")),
+                "giam_gia": _tien(c.get("discount_amount")),
+                "ly_do": c.get("discount_reason"),
+                "nguoi": c.get("discount_by_name"),
+                "kieu": c.get("discount_type"),
+                "gia_tri": c.get("discount_value"),
+            }
+            for c in lan_thu
+            if _tien(c.get("discount_amount")) > 0
+        ],
         "khach": {
             "so_luot_kham": int(so_luot_kham),
             "so_luot_khong_chon_dich_vu_kham": int(so_luot_khong_chon_dich_vu_kham),
@@ -792,6 +813,7 @@ SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
        pc.status, pc.amount,
        pc.original_amount, pc.discount_amount, pc.discount_type,
        pc.discount_value, pc.discount_reason, gg.full_name AS nguoi_giam,
+       gg.full_name AS discount_by_name,
        hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id, pc.method) AS method,
        phan_thu_hieu_luc(pc.clinic_id, pc.payment_cycle_id, pc.method, pc.amount)
            AS phan,

@@ -560,13 +560,12 @@ def gom_theo_khach(
                 "tong": so_tien,
                 "original_amount": _so(c.get("original_amount")),
                 "discount_type": c.get("discount_type"),
-                "discount_value": (
-                    float(c["discount_value"])
-                    if c.get("discount_value") is not None
-                    else None
-                ),
+                "discount_value": float(c["discount_value"])
+                if c.get("discount_value") is not None
+                else None,
                 "discount_amount": _so(c.get("discount_amount")) or 0,
                 "discount_reason": c.get("discount_reason"),
+                "discount_by_name": c.get("discount_by_name"),
                 "dong": [
                     {
                         "id": str(d.get("id")),
@@ -590,13 +589,12 @@ def gom_theo_khach(
                 "so_tien": so_tien,
                 "original_amount": _so(c.get("original_amount")),
                 "discount_type": c.get("discount_type"),
-                "discount_value": (
-                    float(c["discount_value"])
-                    if c.get("discount_value") is not None
-                    else None
-                ),
+                "discount_value": float(c["discount_value"])
+                if c.get("discount_value") is not None
+                else None,
                 "discount_amount": _so(c.get("discount_amount")) or 0,
                 "discount_reason": c.get("discount_reason"),
+                "discount_by_name": c.get("discount_by_name"),
                 "hinh_thuc": ht,
                 "phan": phan,
                 "nhan_hinh_thuc": nhan_phan(phan),
@@ -810,6 +808,67 @@ def csv_lich_su(khach: Iterable[Mapping[str, Any]]) -> str:
                 ]
             )
     return "﻿" + buf.getvalue()
+
+
+def xlsx_lich_su(khach: Iterable[Mapping[str, Any]]) -> bytes:
+    """Each payment/refund/cancellation is a typed row in an editable table."""
+    from clinicai.services.excel_export import excel_datetime, excel_table
+
+    rows = []
+    for g in khach:
+        for s in g.get("su_kien") or []:
+            loai = str(s["loai"])
+            rows.append(
+                [
+                    excel_datetime(s.get("luc")),
+                    _NHAN_LOAI.get(loai, loai)
+                    + (" (chờ chuyển)" if s.get("cho") else ""),
+                    s.get("ma"),
+                    g.get("ten"),
+                    g.get("ma_bn"),
+                    g.get("so_booking"),
+                    g.get("so_tiep_don"),
+                    s.get("nhan_hinh_thuc")
+                    or TEN_HINH_THUC.get(str(s.get("hinh_thuc")), ""),
+                    s.get("nguoi"),
+                    ", ".join(s.get("dich_vu") or []),
+                    s.get("so_tien") or 0,
+                    s.get("ly_do"),
+                    (
+                        s.get("original_amount")
+                        if s.get("original_amount") is not None
+                        else s.get("so_tien") or 0
+                    )
+                    if loai == "thu"
+                    else None,
+                    s.get("discount_amount") or 0 if loai == "thu" else None,
+                    s.get("discount_reason") if loai == "thu" else None,
+                    s.get("discount_by_name") if loai == "thu" else None,
+                    s.get("discount_type") if loai == "thu" else None,
+                    s.get("discount_value") if loai == "thu" else None,
+                ]
+            )
+    headers = [
+        "Ngày giờ",
+        "Loại",
+        "Mã phiếu",
+        "Khách",
+        "Mã khách",
+        "Booking",
+        "Check-in",
+        "Hình thức",
+        "Người thu",
+        "Dịch vụ",
+        "Số tiền",
+        "Lý do",
+        "Trước giảm giá",
+        "Giảm giá",
+        "Lý do giảm giá",
+        "Người giảm giá",
+        "Kiểu giảm giá",
+        "Giá trị giảm giá",
+    ]
+    return excel_table([("Lịch sử thu", headers, rows)])
 
 
 def _o(v: Any) -> str:
@@ -1092,6 +1151,7 @@ class QuayThuService:
                        pc.status, pc.amount,
                        pc.discount_type, pc.discount_value, pc.discount_amount,
                        pc.discount_reason, pc.original_amount,
+                       gg.full_name AS discount_by_name,
                        -- Hình thức HIỆU LỰC (sau mọi lần đổi — V7).
                        hinh_thuc_hieu_luc(pc.clinic_id, pc.payment_cycle_id,
                                           pc.method) AS method,
@@ -1105,6 +1165,7 @@ class QuayThuService:
                   LEFT JOIN staff cb ON cb.id = pc.created_by
                   LEFT JOIN staff xn ON xn.id = pc.confirmed_by
                   LEFT JOIN staff dg ON dg.id = pc.closed_by
+                  LEFT JOIN staff gg ON gg.id = pc.discount_by
                   LEFT JOIN visit v
                     ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id
                   LEFT JOIN appointment ah

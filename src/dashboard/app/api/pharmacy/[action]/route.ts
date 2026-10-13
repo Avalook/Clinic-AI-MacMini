@@ -10,7 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "../../../../lib/supabase-server";
-import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
+import { getCallerAuthHeaders, proxyJsonToBackend } from "../../../../lib/backend-proxy";
 
 /** Thao tác cho phép → đường backend. */
 const ACTIONS: Record<string, string> = {
@@ -75,6 +75,19 @@ export async function GET(
   } = await caller.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const { action } = await params;
+  if (action === "xuat-nhap-ton-xlsx") {
+    const query = new URL(request.url).searchParams;
+    const q = new URLSearchParams({ tu: query.get("tu") ?? "", den: query.get("den") ?? "" });
+    const headers = await getCallerAuthHeaders();
+    const base = process.env.CLINIC_API_URL;
+    if (!headers || !base) return NextResponse.json({ error: "Chưa đăng nhập hoặc thiếu CLINIC_API_URL" }, { status: 401 });
+    const res = await fetch(`${base}/api/v1/pharmacy/xuat-nhap-ton.xlsx?${q}`, { headers, cache: "no-store" });
+    return new NextResponse(res.body, { status: res.status, headers: {
+      "Content-Type": res.headers.get("Content-Type") ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": res.headers.get("Content-Disposition") ?? 'attachment; filename="xuat-nhap-ton.xlsx"',
+      "Cache-Control": "private, no-store",
+    } });
+  }
   const path = DOC[action]?.(new URL(request.url).searchParams) ?? null;
   if (!path) {
     return NextResponse.json({ error: `Không đọc được: ${action}` }, { status: 400 });
