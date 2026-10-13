@@ -8,3 +8,6 @@ export interface ReportAccess {
   legacy: boolean;
   tai_chinh_day_du?: boolean;
 }
+
+
+
