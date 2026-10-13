@@ -3,7 +3,7 @@
 // Phát hiện thông báo lịch làm việc CHẠY NỀN toàn app (gắn Provider ở layout) để
 // dù đang ở trang nào cũng biết khi ca của mình được duyệt / từ chối. State chia
 // sẻ qua context cho 2 nơi tiêu thụ:
-//   - RosterBell (chỉ render ở Trang chủ): chuông + dropdown + popup ngắn.
+//   - GlobalHeader: chuông + danh sách thông báo.
 //   - Nav (sidebar): chấm "!" đỏ nhấp nháy trên mục Trang chủ khi đang ở trang khác.
 // Phát hiện bằng dòng SSE chung (bảng `work_roster` và `thong_bao` bắn tin qua
 // LISTEN/NOTIFY → RealtimeRefresher) + poll 20s dự phòng. Lần nạp đầu chỉ ghi
