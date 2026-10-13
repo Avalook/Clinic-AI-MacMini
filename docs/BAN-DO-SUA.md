@@ -242,6 +242,10 @@ mang `ke_tai_tu_van` và người bấm tự đứng tên (không `on_behalf_of`
 `nguoi_ke` / `nguoi_ke_la_bac_si`. Hành trình: mốc `KE_DON_TU_VAN` ở `phieu_kham/hanh_trinh.py`.
 Phiếu in: `app/print/phieu-kham/[visitId]/InPhieuKham.tsx` + `nguoiKeDon` ở `lib/phieu-kham.ts`
 (đơn in riêng `?phan=don` ký bác sĩ ghi dòng mới nhất; TKYK nhập hộ chỉ là "Người nhập").
+Nút [Xong kê đơn thuốc] / [Mở lại] (mốc, không khoá đơn): `BanDienDonThuoc.tsx` → `/api/phieu-kham`
+`thao_tac=xong-ke-don` → `PUT /phieu-kham/luot/{visit}/ke-don-tu-van` → `PhieuKhamService.danh_dau_xong_ke_don`
+(sự kiện `prescription.consultant_marked`; lần mới nhất quyết định; `hang_cho` trả `ke_don_tu_van_xong`).
+Lỗi 409 cần lý do đính chính (dòng đã thu / bán / giao): proxy `lib/backend-proxy.ts` giữ mã ở `ma_loi`.
 Test: `T/services/test_don_thuoc_ban_tu_van_1310_db.py`, `T/services/test_hanh_trinh_tu_van_db.py`,
 `T/unit/test_hanh_trinh_moc.py`, FT `don-thuoc-ban-tu-van-boundary.test.mts`, `npm run test:phieu-kham`.
 

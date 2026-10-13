@@ -812,6 +812,15 @@ class DonThuocDaLuu(PayloadSuKien):
     ke_tai_tu_van: bool = False
 
 
+class DonThuocTuVanDanhDau(PayloadSuKien):
+    """`prescription.consultant_marked` — bác sĩ tư vấn bấm "Xong kê đơn" (hoặc mở
+    lại) trên đơn thuốc CHUNG của lượt (13/10/2026). Chỉ là mốc, không khoá đơn:
+    lần đánh dấu mới nhất của lượt quyết định trạng thái."""
+
+    visit_id: str
+    xong: bool
+
+
 class KhachDaChonDichVu(PayloadSuKien):
     """`service_selection.confirmed` — lễ tân chốt khách làm / không làm những
     chỉ định nào (SELECTION v1). Vòng đọc nghe: chỉ định khách bỏ thành việc
@@ -1405,6 +1414,15 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Bác sĩ kê / sửa đơn thuốc",
             # Kê đơn từng KHÔNG phát sự kiện nào (bộ mô phỏng ngày khám,
             # 24/09/2026): kho thuốc, dòng thời gian không có dây để nghe.
+            consumers=[DONG_THOI_GIAN_LUOT],
+        ),
+        SuKien(
+            ten="prescription.consultant_marked",
+            version=1,
+            aggregate_type="visit",
+            source_module="consultation",
+            payload=DonThuocTuVanDanhDau,
+            nhan="Bác sĩ tư vấn đánh dấu xong kê đơn thuốc",
             consumers=[DONG_THOI_GIAN_LUOT],
         ),
         SuKien(

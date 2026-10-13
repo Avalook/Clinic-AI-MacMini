@@ -31,7 +31,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError, NotFoundError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError, ValidationError
-from clinicai.events.catalogue import DonThuocDaLuu
+from clinicai.events.catalogue import DonThuocDaLuu, DonThuocTuVanDanhDau
 from clinicai.events.emit import NguoiGayRa, emit_event, nguoi_lam_thay
 from clinicai.permissions.ca_truc import kiem_dung_ca
 from clinicai.permissions.can import can, doi_quyen
@@ -904,6 +904,46 @@ class PhieuKhamService:
                     correlation_id=visit_id,
                 )
         return {"ok": True, "tom_tat": tom_tat}
+
+    async def danh_dau_xong_ke_don(
+        self, *, visit_id: str, xong: bool, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Bác sĩ tư vấn bấm "Xong kê đơn" (hoặc mở lại) — chỉ là MỐC (13/10/2026).
+
+        Đơn thuốc vẫn là một đơn của lượt, vẫn sửa được, quầy thuốc không chờ mốc
+        này. Lần đánh dấu mới nhất quyết định trạng thái; bấm lại cùng trạng thái
+        thì không phát thêm sự kiện. Quyền = quyền ghi phiếu (như lưu đơn).
+        """
+        cid = identity.clinic_id
+        async with self._pool.acquire() as conn, conn.transaction():
+            await self._kiem_quyen(conn, identity, "ghi_phieu")
+            if not await conn.fetchval(
+                "SELECT 1 FROM visit WHERE clinic_id = $1::uuid"
+                " AND visit_id = $2::uuid FOR UPDATE",
+                cid,
+                visit_id,
+            ):
+                raise ValidationError("Không tìm thấy lượt khám.")
+            hien_tai = await conn.fetchval(
+                "SELECT (payload->>'xong')::boolean FROM domain_event"
+                " WHERE clinic_id = $1::uuid AND aggregate_id = $2::uuid"
+                "   AND event_type = 'prescription.consultant_marked'"
+                " ORDER BY seq DESC LIMIT 1",
+                cid,
+                visit_id,
+            )
+            if bool(hien_tai) == xong and (hien_tai is not None or not xong):
+                return {"ok": True, "xong": xong, "da_co": True}
+            await emit_event(
+                conn,
+                ten="prescription.consultant_marked",
+                clinic_id=cid,
+                aggregate_id=visit_id,
+                payload=DonThuocTuVanDanhDau(visit_id=visit_id, xong=xong),
+                boi=nguoi_lam_thay(identity, None),
+                correlation_id=visit_id,
+            )
+        return {"ok": True, "xong": xong, "da_co": False}
 
     # ------------------------------------------------------------------
     async def dau_phieu(

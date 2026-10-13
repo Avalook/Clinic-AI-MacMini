@@ -31,6 +31,8 @@ export interface DongHangCho {
   /** Mã phiên khám (KHAM) hoặc mã chỉ định (DICH_VU). */
   ref_id: string;
   visit_id: string;
+  /** Bàn tư vấn: bác sĩ tư vấn đã bấm "Xong kê đơn" cho lượt này (13/10/2026). */
+  ke_don_tu_van_xong?: boolean;
   clinic_patient_id: string;
   appointment_id: string | null;
   so_thu_tu: number;

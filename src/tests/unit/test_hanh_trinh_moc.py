@@ -177,6 +177,34 @@ def test_moc_ke_don_tu_van_chi_ve_khi_co_co_ke_tai_tu_van() -> None:
     assert moc["KE_DON_TU_VAN"]["trang_thai"] == XONG
 
 
+def test_moc_ke_don_tu_van_theo_lan_danh_dau_xong_moi_nhat() -> None:
+    """13/10/2026: bấm "Xong kê đơn" → mốc xong; mở lại → đang kê; chưa ai bấm thì
+    giữ như cũ (xong từ lần lưu cuối)."""
+
+    def moc_ke(su_kien: list[SuKien]) -> dict[str, Any]:
+        return {
+            m["ma"]: m
+            for m in dung_moc(
+                dat_lich_luc=None,
+                check_in_luc=p(0),
+                ve_luc=None,
+                su_kien=su_kien,
+                chi_dinh=[],
+            )
+        }["KE_DON_TU_VAN"]
+
+    luu: SuKien = ("prescription.saved", p(60), {"ke_tai_tu_van": True})
+    assert moc_ke([luu])["trang_thai"] == XONG
+    xong: SuKien = ("prescription.consultant_marked", p(70), {"xong": True})
+    m = moc_ke([luu, xong])
+    assert m["trang_thai"] == XONG and m["ket"] == p(70)
+    mo_lai: SuKien = ("prescription.consultant_marked", p(80), {"xong": False})
+    m = moc_ke([luu, xong, mo_lai])
+    assert m["trang_thai"] != XONG and m["ket"] is None
+    # Bấm Xong mà chưa lưu dòng nào ở bàn tư vấn vẫn có mốc.
+    assert moc_ke([xong])["trang_thai"] == XONG
+
+
 # --- Bảng "Từng dịch vụ" (27/09/2026, bản giao diện mẫu) -------------------
 
 

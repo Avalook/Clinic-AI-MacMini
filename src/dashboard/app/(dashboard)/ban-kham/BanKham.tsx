@@ -341,6 +341,8 @@ export default function BanKham({
       [d.ten, d.ma_bn, String(d.so_thu_tu)].some((v) => v?.toLocaleLowerCase("vi").includes(kim)),
     );
   }, [hangDon, query]);
+  const donChuaXong = donHienRa.filter((d) => !d.ke_don_tu_van_xong);
+  const donDaXong = donHienRa.filter((d) => d.ke_don_tu_van_xong);
   // Chip liệu trình (08/10/2026): một lần gọi cho cả hàng chờ — chỉ thêm chữ
   // cạnh khách, không đổi nhóm / đếm / thứ tự.
   const chipLt = useChipLieuTrinh([...(hang ?? []), ...hangDon].map((d) => d.visit_id));
@@ -564,7 +566,8 @@ export default function BanKham({
                 <>
                   <Nhom ten="Đang tư vấn" chinh chuDang="đang tư vấn" ds={dangKham} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Chưa có ai đang tư vấn." />
                   <Nhom ten="Chờ tư vấn" chinh ds={choKham} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Không có khách đang chờ." batDau={nutBatDau} />
-                  <Nhom ten="Đã khám xong — điền đơn thuốc" ghiChu="bác sĩ chính chỉ định" ds={donHienRa} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Chưa có khách khám xong." />
+                  <Nhom ten="Đã khám xong — điền đơn thuốc" ghiChu="bác sĩ chính chỉ định" ds={donChuaXong} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} trong="Chưa có khách khám xong." />
+                  <Nhom key={`don-${ngay}`} ten="Đã xong kê đơn thuốc" gap ds={donDaXong} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
                   <Nhom ten="Chưa đo sinh hiệu" ghiChu="vẫn nhận được" ds={buocKhac} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
                   <Nhom key={`xong-${ngay}`} ten={`Đã chuyển bác sĩ chính ${nhanNgay}`} gap={laHomNay} ds={daXong} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
                   <Nhom ten="Khách đã về (chưa xong)" ds={daVe} chon={chon?.id ?? null} onChon={chonKhach} lieuTrinh={chipLt} />
@@ -1295,6 +1298,7 @@ function HoSo({
             visitId={dong.visit_id}
             clinicPatientId={dong.clinic_patient_id}
             choGhi={choBam}
+            daXong={dong.ke_don_tu_van_xong === true}
             onTrangThai={baoGate}
             datChiDinh={datChiDinh}
             onDaDat={onDaBam}
