@@ -92,11 +92,12 @@ else:
 # 127.0.0.1 với nó là chính nó. Đây đúng là lỗi đã làm hỏng đăng nhập ở
 # dashboard, chỉ khác vị trí.
 suffix = f"clinicai_{env}"
+caddy_url = "https://dr4women.io.vn/health" if env == "prod" else "http://caddy:80/health"
 MONITORS = [
     # (tên, url, giây, mô tả vì sao theo dõi)
     (f"API /health/db",     "http://api:8000/health/db",     60),
     (f"Dashboard /health",  "http://dashboard:3000/health",  60),
-    (f"Caddy (ingress)",    "http://caddy:80/health",        60),
+    (f"Caddy (ingress)",    caddy_url,                       60),
 ]
 # Kuma đòi DẢI dạng CHUỖI, không phải số. Đưa số vào thì nó log
 # "Accepted status code not a string" cho từng mã rồi coi mọi phản hồi là hỏng —
@@ -107,7 +108,8 @@ added = 0
 for name, url, interval in MONITORS:
     full = f"{name} · {env}"
     if c.execute("SELECT 1 FROM monitor WHERE name=?", (full,)).fetchone():
-        print(f"  monitor: '{full}' đã có")
+        c.execute("UPDATE monitor SET url=? WHERE name=?", (url, full))
+        print(f"  monitor: '{full}' đã có (đã đồng bộ URL)")
         continue
     c.execute("""INSERT INTO monitor
         (name, active, user_id, interval, url, type, weight, maxretries,
