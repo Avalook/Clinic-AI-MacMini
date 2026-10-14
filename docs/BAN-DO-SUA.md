@@ -468,6 +468,19 @@ gợi ý dịch vụ→vật tư `vat_tu_goi_y` (mig 20261003000000; nạp lại
 ở quầy thu", `D/cashier/VatTuBangGia.tsx`)** — không code. Hàng cần QL duyệt = cột `can_ql_duyet` (Mirena).
 Test: `T/services/test_vat_tu_ban_them_db.py`, FT `quay-thu-vat-tu-boundary.test.mts`.
 
+**Đầu dò Bio chọn ở CHỈ ĐỊNH CLS (14/10/2026, G9 — Notion recap 12/10 mục 3: "hiện bổ sung trong Chỉ định CLS thay vì ở bước thanh toán")** —
+bác sĩ chọn "Bio 1 lần / nhiều lần" ngay ở thẻ chỉ định: màn `D/_lam-viec/phieu-kham/DauDoChiDinh.tsx` (gắn trong
+`KetQuaChiDinh.tsx` qua prop `dauDoLuot`) → `S/bio_chi_dinh_service.py` (`BioChiDinhService.doc` / `chon`; quyền
+`clinical.order.place`; chọn = ĐẶT, radio, không cộng dồn; đã thu → khoá). Dòng bán vẫn là `luot_vat_tu` nhưng có
+`order_id` (migration 20261014190000; dòng cũ NULL, không di chuyển). **Tiền đi theo chỉ định, suy từ trạng thái chỉ
+định lúc đọc** (không chép sang dòng Bio): `S/bill_service.py` `_VAT_TU_THEO_CHI_DINH` (hoá đơn còn nợ), nợ khi check-out
+chỉ khi chỉ định đã làm `S/cong_no_service.py` `loc_no_dich_vu`, màn quầy `S/vat_tu_service.py` `_DONG_SQL` (`tinh_tien`).
+Quầy bỏ dòng đi kèm chỉ định bắt ghi lý do (`VatTuService.bo(ly_do=)`, cột `bo_ly_do`); bỏ chỉ định đã thu Bio →
+`HoanTacService.huy_chi_dinh` nhắc khoản Bio (không tự thành tiền thừa); hoàn tác bỏ chỉ định sau hoàn tiền (chỉ định
+MỚI) → Bio chưa thu đi theo (`so_sua_chi_dinh_service._chi_dinh_moi_thay` → `chuyen_bio_chua_thu`).
+Test: `T/services/test_bio_chi_dinh_db.py` (bất biến B1–B5 + bấm ngẫu nhiên 40×10 có bên nhận sự kiện xen giữa),
+FT `dau-do-chi-dinh-boundary.test.mts`. Luật duyệt trigger `luot_vat_tu_gac` KHÔNG đổi ở đây (G8b).
+
 **Liệu trình ở quầy thu dịch vụ — trả trước k buổi (08/10/2026, C1)** — khối "Liệu trình" của
 khách đang thu `D/thu-ngan/LieuTrinhQuay.tsx` ([Trả trước … buổi] / [Trả hết]) → `/api/lieu-trinh`
 (`xem=quay`, `thao_tac=tra-truoc`) → `S/lieu_trinh_tien.py` (`quay`, `dat_tra_truoc`); [Bỏ] dòng trả

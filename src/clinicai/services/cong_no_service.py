@@ -227,7 +227,10 @@ def loc_no_dich_vu(hd: HoaDon, da_lam: Iterable[str]) -> list[DongNo]:
         elif d.source_type == "vat_tu":
             # Vật tư khách đã được thêm vào hoá đơn (C13, 01/10/2026): đã lấy
             # là đã nhận — còn nợ thì chặn check-out như mọi khoản dịch vụ.
-            pass
+            # Trừ vật tư đi kèm CHỈ ĐỊNH (đầu dò Bio, G9 14/10/2026): chỉ định
+            # chưa làm thì đầu dò chưa dùng — không phải nợ (như phụ thu).
+            if d.order_id is not None and d.order_id not in lam:
+                continue
         else:
             # Trả trước liệu trình chưa thu (08/10/2026) không phải nợ: khách
             # chưa nhận buổi nào bằng khoản ấy — bỏ dòng là xong.

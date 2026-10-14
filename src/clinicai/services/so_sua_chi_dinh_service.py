@@ -898,6 +898,11 @@ class SoSuaChiDinhService:
         )
         await conn.execute("SELECT set_config('clinicai.so_bo_qua', '', true)")
         assert moi is not None
+        # Đầu dò Bio CHƯA THU đi theo chỉ định cũ → sang chỉ định mới thay nó
+        # (dòng đã thu ở lại với lần thu của nó — hoàn tiền như mọi khoản đã thu).
+        from clinicai.services.bio_chi_dinh_service import chuyen_bio_chua_thu
+
+        await chuyen_bio_chua_thu(conn, cid, oid, moi["id"])
         await conn.execute(
             """
             INSERT INTO so_sua_chi_dinh
