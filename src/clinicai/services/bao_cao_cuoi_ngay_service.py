@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 from collections.abc import Iterable, Mapping
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
@@ -41,7 +42,18 @@ from clinicai.core.shifts import CAC_CA, NHAN_CA, ca_tu_settings, khung_chot_ca
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.bao_cao_thuoc_service import doc_thuoc_theo_khach
 from clinicai.services.cashier_board_service import doc_khoang_ngay
-from clinicai.services.co_so_bao_cao import TEN_CHUA_RO, doc_co_so, doc_ds_co_so
+from clinicai.services.chot_so_ca_service import (
+    KHOA_TRUOC_SQL,
+    chenh_sau_chot,
+    khoa_dang_co,
+    thong_tin_khoa,
+)
+from clinicai.services.co_so_bao_cao import (
+    KHONG_KHOP,
+    TEN_CHUA_RO,
+    doc_co_so,
+    doc_ds_co_so,
+)
 from clinicai.services.phan_thu import (
     HINH_THUC_THU,
     chuan_hinh_thuc,
@@ -170,6 +182,7 @@ def gom_bao_cao(
     luot_ban_le: set[str] = set()
     khach_da_thu: set[str] = set()
     cycle_paid: set[str] = set()
+    dieu_chinh = {"so_phieu": 0, "tong": 0}
 
     def ngay_o(n: str | None) -> dict[str, int] | None:
         if n is None:
@@ -183,24 +196,35 @@ def gom_bao_cao(
         phan = _phan(c)
         loai = c.get("kind") if c.get("kind") in TEN_LOAI else None
         nguoi = str(c.get("nguoi_thu") or "Không rõ")
-        huy = c.get("status") == "VOIDED"
+        # KHOÁ SỔ THEO CA (G4c): phiếu huỷ SAU khi ca của nó đã chốt → ở ca cũ
+        # vẫn là đã thu (`huy_sau_chot`), phần huỷ là một dòng `chi_huy` riêng
+        # theo GIỜ HUỶ ("điều chỉnh ca trước") — không trừ lùi số đã chốt.
+        chi_huy = bool(c.get("chi_huy"))
+        if chi_huy:
+            dieu_chinh["so_phieu"] += 1
+            dieu_chinh["tong"] += so
+        huy = chi_huy or (c.get("status") == "VOIDED" and not c.get("huy_sau_chot"))
         n = theo_nguoi.setdefault(nguoi, {"ten": nguoi, "so_phieu": 0, **_o_tien()})
-        d = ngay_o(_ngay_vn(c.get("paid_at")))
+        d = ngay_o(_ngay_vn(c.get("closed_at" if chi_huy else "paid_at")))
         for o in (tong, n, *([theo_loai[loai]] if loai else [])):
-            o["thu"] += so
+            if not chi_huy:
+                o["thu"] += so
             if huy:
                 o["huy"] += so
         # Theo hình thức: cộng TỪNG PHẦN (200k CK + 500k TM → hai dòng).
         for p in phan:
             o = theo_ht[chuan_hinh_thuc(p.get("hinh_thuc")) or "KHAC"]
-            o["thu"] += _tien(p.get("so_tien"))
+            if not chi_huy:
+                o["thu"] += _tien(p.get("so_tien"))
             if huy:
                 o["huy"] += _tien(p.get("so_tien"))
-        tong["so_phieu_thu"] += 1
-        n["so_phieu"] += 1
+        if not chi_huy:
+            tong["so_phieu_thu"] += 1
+            n["so_phieu"] += 1
         if d is not None:
-            d["thu"] += so
-            d["so_phieu"] += 1
+            if not chi_huy:
+                d["thu"] += so
+                d["so_phieu"] += 1
             if huy:
                 d["huy"] += so
         if huy:
@@ -219,6 +243,9 @@ def gom_bao_cao(
                     "nguoi": c.get("nguoi_huy"),
                     "ly_do": c.get("close_reason"),
                     "cho": False,
+                    # G4c: huỷ phiếu của ca đã chốt — tính vào ca này.
+                    "dieu_chinh_ca_truoc": chi_huy,
+                    "thu_luc": _iso(c.get("paid_at")) if chi_huy else None,
                 }
             )
         else:
@@ -350,12 +377,16 @@ def gom_bao_cao(
             "nguoi_giam": c.get("nguoi_giam"),
         }
         for c in lan_thu
-        if c.get("status") == "PAID" and _tien(c.get("discount_amount")) > 0
+        if (c.get("status") == "PAID" or c.get("huy_sau_chot"))
+        and not c.get("chi_huy")
+        and _tien(c.get("discount_amount")) > 0
     ]
     return {
         "tu": tu.isoformat(),
         "den": den.isoformat(),
         "tong": tong,
+        # G4c: huỷ phiếu của ca ĐÃ CHỐT, làm trong khoảng này (đã cộng vào huỷ).
+        "dieu_chinh_ca_truoc": dieu_chinh,
         "theo_hinh_thuc": [
             {"ma": m, "ten": TEN_HINH_THUC.get(m, "Khác (dữ liệu cũ)"), **_chot(o)}
             for m, o in theo_ht.items()
@@ -808,7 +839,15 @@ def _gio(iso: str | None) -> str:
 # Đọc DB
 # ---------------------------------------------------------------------------
 
-_LAN_THU_SQL = """
+#: Khoá ca phủ GIỜ THU của lần thu, chốt TRƯỚC lúc huỷ (G4c).
+_KHOA_LAN_THU = KHOA_TRUOC_SQL.format(
+    clinic="pc.clinic_id",
+    co_so="coalesce(v.location_id, ah.location_id)",
+    luc="pc.paid_at",
+    moc="pc.closed_at",
+)
+
+_LAN_THU_SQL = f"""
 SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
        pc.status, pc.amount,
        pc.original_amount, pc.discount_amount, pc.discount_type,
@@ -821,7 +860,10 @@ SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
        coalesce(xn.full_name, cb.full_name) AS nguoi_thu, dg.full_name AS nguoi_huy,
        v.clinic_patient_id::text AS khach_id, p.full_name AS ten_khach,
        p.patient_code AS ma_bn, coalesce(v.ban_le, false) AS ban_le,
-       coalesce(v.location_id, ah.location_id)::text AS co_so
+       coalesce(v.location_id, ah.location_id)::text AS co_so,
+       -- G4c: huỷ SAU khi ca của lần thu đã chốt → tiền thu ở lại ca cũ, phần
+       -- huỷ tính ở ca đang làm (_HUY_SAU_CHOT_SQL), không trừ lùi.
+       (pc.status = 'VOIDED' AND {_KHOA_LAN_THU}) AS huy_sau_chot
   FROM payment_cycle pc
   LEFT JOIN staff cb ON cb.id = pc.created_by
   LEFT JOIN staff xn ON xn.id = pc.confirmed_by
@@ -841,6 +883,25 @@ SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
  ORDER BY pc.paid_at
  LIMIT 5000
 """
+
+_WHERE_THU = """ WHERE pc.clinic_id = $1::uuid AND pc.status IN ('PAID', 'VOIDED')
+   AND pc.paid_at IS NOT NULL
+   AND (pc.paid_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+   AND ($5::timestamptz IS NULL OR pc.paid_at >= $5)
+   AND ($6::timestamptz IS NULL OR pc.paid_at < $6)"""
+assert _WHERE_THU in _LAN_THU_SQL, "_LAN_THU_SQL đổi dạng — sửa lại _HUY_SAU_CHOT_SQL"
+#: G4c: phiếu HUỶ trong khoảng (theo giờ huỷ) mà ca của lần thu đã CHỐT trước giờ
+#: huỷ → phần huỷ tính ở đây (ca đang làm, "điều chỉnh ca trước"); tiền thu ở
+#: lại ca cũ (``huy_sau_chot`` của _LAN_THU_SQL).
+_HUY_SAU_CHOT_SQL = _LAN_THU_SQL.replace(
+    _WHERE_THU,
+    f""" WHERE pc.clinic_id = $1::uuid AND pc.status = 'VOIDED'
+   AND pc.paid_at IS NOT NULL AND pc.closed_at IS NOT NULL
+   AND (pc.closed_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+   AND ($5::timestamptz IS NULL OR pc.closed_at >= $5)
+   AND ($6::timestamptz IS NULL OR pc.closed_at < $6)
+   AND {_KHOA_LAN_THU}""",
+).replace(" ORDER BY pc.paid_at", " ORDER BY pc.closed_at")
 
 #: Lần chờ chuyển khoản bị HUỶ trong khoảng (G4d, R1) — không phải tiền đã
 #: thu nên không cộng vào số nào; ghi chú riêng để kế toán đối chiếu sao kê
@@ -1076,14 +1137,35 @@ class BaoCaoCuoiNgayService:
                 )
             k5, k6 = (khung[0], khung[1]) if khung else (None, None)
             lan_thu = await conn.fetch(_LAN_THU_SQL, cid, a, b, cs, k5, k6)
+            huy_sau = await conn.fetch(_HUY_SAU_CHOT_SQL, cid, a, b, cs, k5, k6)
             hoan = await conn.fetch(_HOAN_SQL, cid, a, b, cs, k5, k6)
+            # Xem ĐÚNG một ca đã chốt (một ngày, một ca, một cơ sở, cả hai loại
+            # tiền) → trả bản chụp lúc chốt (G4c), không tính lại.
+            xem_mot_ca = (
+                khung is not None
+                and a == b
+                and cs is not None
+                and cs != KHONG_KHOP
+                and loai_loc is None
+            )
+            khoa = (
+                await khoa_dang_co(conn, cid, str(cs), a, khung[2]["ma"])
+                if xem_mot_ca and khung is not None
+                else None
+            )
             ck_huy = await conn.fetch(_CK_HUY_SQL, cid, a, b, cs, k5, k6)
             canh_bao_neu_day(
                 "bao_cao_cuoi_ngay.lan_thu", len(lan_thu), _TRAN, tu=a, den=b
             )
             canh_bao_neu_day("bao_cao_cuoi_ngay.hoan", len(hoan), _TRAN, tu=a, den=b)
             dong = await conn.fetch(
-                _DONG_SQL, cid, [r["id"] for r in lan_thu if r["status"] == "PAID"]
+                _DONG_SQL,
+                cid,
+                [
+                    r["id"]
+                    for r in lan_thu
+                    if r["status"] == "PAID" or r["huy_sau_chot"]
+                ],
             )
             doi_tac = await conn.fetch(_DOI_TAC_SQL, cid, a, b, cs, k5, k6)
             tra_hang = await conn.fetch(
@@ -1153,7 +1235,9 @@ class BaoCaoCuoiNgayService:
                 if loai_loc != "dich_vu"
                 else None
             )
-        lan_thu_ds = [dict(r) for r in lan_thu]
+        lan_thu_ds = [dict(r) for r in lan_thu] + [
+            {**dict(r), "chi_huy": True} for r in huy_sau
+        ]
         hoan_ds = [dict(r) for r in hoan]
         doi_ht_ds = [dict(r) for r in doi_ht]
         doi_tac_ds = [dict(r) for r in doi_tac]
@@ -1189,7 +1273,12 @@ class BaoCaoCuoiNgayService:
         bc["thuoc_theo_khach"] = thuoc
         # Hàng hoá chỉ của lần thu / khoản hoàn ĐÃ lọc loại (dong lấy theo mọi
         # lần thu PAID, trước khi lọc loại).
-        da_thu = {r["id"] for r in lan_thu_ds if r.get("status") == "PAID"}
+        da_thu = {
+            r["id"]
+            for r in lan_thu_ds
+            if (r.get("status") == "PAID" or r.get("huy_sau_chot"))
+            and not r.get("chi_huy")
+        }
         da_hoan = {r["refund_id"] for r in hoan_ds}
         bc["hang_hoa"] = gom_hang_hoa(
             (r for r in dong_ds if r.get("cycle_id") in da_thu),
@@ -1220,4 +1309,15 @@ class BaoCaoCuoiNgayService:
                 luot=luot,
                 luot_khong_chon=luot_khong_chon,
             )
-        return bc
+        # KHOÁ SỔ THEO CA (G4c): ca đã chốt → đúng số lúc chốt + phần phát sinh
+        # sau chốt (để không gì bị giấu). Ca chưa chốt: số sống như cũ.
+        bc["xem_mot_ca"] = xem_mot_ca
+        if khoa is None:
+            bc["chot"] = None
+            return bc
+        v = khoa["so_lieu"]
+        chup: dict[str, Any] = json.loads(v) if isinstance(v, str) else dict(v)
+        chup["xem_mot_ca"] = True
+        chup["chot"] = thong_tin_khoa(khoa)
+        chup["sau_chot"] = chenh_sau_chot(chup, bc)
+        return chup

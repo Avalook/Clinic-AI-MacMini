@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 13:30. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 13:40. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -379,11 +379,11 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/reports` — Báo cáo
 - page: `src/dashboard/app/(dashboard)/reports/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
-- thành phần: app/(dashboard)/StatCard.tsx, BaoCaoHangHoa.tsx, CuoiNgay.tsx, PrintReportButton.tsx, access.ts, app/(dashboard)/form-ui.ts, BangHangHoa.tsx, NgayTrucBaoCao.tsx (+2)
-- gọi API Next: `/api/reports/cuoi-ngay`, `/api/reports/access`
+- thành phần: app/(dashboard)/StatCard.tsx, BaoCaoHangHoa.tsx, CuoiNgay.tsx, PrintReportButton.tsx, access.ts, app/(dashboard)/dung-nghe-bang.ts, app/(dashboard)/form-ui.ts, BangHangHoa.tsx (+4)
+- gọi API Next: `/api/reports/cuoi-ngay`, `/api/reports/chot-ca`, `/api/reports/access`
 - gọi thẳng backend (server): `/api/v1/reports/access${ngay`, `/api/v1/reports/tong-quan${locCoSo`, `/api/v1/reports/booking-channels`, `/api/v1/reports/kpi-dat-lich${locCoSo`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
-- service: ReportAccessService.{authorize, access} · BaoCaoCuoiNgayService.bao_cao · report_access_service · reports_service · ReportsService.{booking_channels, kpi_dat_lich_theo_nhan_vien}
-- test: test_report_access.py, test_report_access_db.py, test_bao_cao_theo_co_so_db.py, test_bao_cao_cuoi_ca_db.py, test_bao_cao_va_danh_sach_khach_db.py (+1)
+- service: ReportAccessService.{authorize, access} · BaoCaoCuoiNgayService.bao_cao · report_access_service · ChotSoCaService.{chot, mo_khoa} · reports_service · ReportsService.{booking_channels, kpi_dat_lich_theo_nhan_vien}
+- test: test_report_access.py, test_report_access_db.py, test_bao_cao_theo_co_so_db.py, test_chot_so_ca_db.py, test_bao_cao_cuoi_ca_db.py (+2)
 
 ### `/reset-password`
 - page: `src/dashboard/app/(auth)/reset-password/page.tsx` · quyền: ?
@@ -572,7 +572,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: XuatHoaDonService.xem · xuat_hoa_don_service
 - test: test_xuat_hoa_don_db.py, test_xuat_hoa_don.py
 
-## 2. API Next → backend (122)
+## 2. API Next → backend (123)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -1300,6 +1300,12 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_report_access_db.py, src/tests/unit/test_report_access.py
 - màn dùng: /hoa-don, /reports
 
+#### `/api/reports/chot-ca` · `src/dashboard/app/api/reports/chot-ca/route.ts`
+- POST `/api/v1/reports/chot-ca` → `src/clinicai/api/v1/routers/reports.py:chot_ca` → ChotSoCaService.chot
+- POST `/api/v1/reports/chot-ca/mo-khoa` → `src/clinicai/api/v1/routers/reports.py:mo_khoa_ca` → ChotSoCaService.mo_khoa
+- test: src/tests/services/test_chot_so_ca_db.py
+- màn dùng: /reports
+
 #### `/api/reports/cuoi-ngay` · `src/dashboard/app/api/reports/cuoi-ngay/route.ts`
 - GET `/api/v1/reports/cuoi-ngay` → `src/clinicai/api/v1/routers/reports.py:bao_cao_cuoi_ngay` → ReportAccessService.authorize, BaoCaoCuoiNgayService.bao_cao, gioi_han_ban_hang, gioi_han_tai_chinh_ca
 - `/api/v1/reports/cuoi-ngay.${format}` → ?
@@ -1475,7 +1481,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_xuat_hoa_don_db.py, src/tests/unit/test_xuat_hoa_don.py
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (181)
+## 3. Service → màn (182)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1508,6 +1514,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `CheckoutService` | `src/clinicai/services/checkout_service.py` | /hanh-trinh, /reception/checkout, /reception/queue, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `chi_phi` | `src/clinicai/llm/chi_phi.py` | /doi-tac, /giam-sat, /login |
 | `ChiDinhService` | `src/clinicai/services/chi_dinh_service.py` | /ban-kham, /ban-kham/[phong], /patient-list, /tu-van |
+| `ChotSoCaService` | `src/clinicai/services/chot_so_ca_service.py` | /reports |
 | `classify` | `src/clinicai/tools/lab/classify.py` | — (chỉ API/worker) |
 | `clinic_policy` | `src/clinicai/services/clinic_policy.py` | — (chỉ API/worker) |
 | `ClinicalFormService` | `src/clinicai/services/clinical_form_service.py` | /ban-kham, /ban-kham/[phong], /patient-list, /tu-van |
@@ -1703,6 +1710,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `capability` | `20260923000003_capability.sql` | 0 |
 | `capability_grant` | `20260923000003_capability.sql` | 2 |
 | `care_episode` | `20260714000001_baseline_schema.sql` | 0 |
+| `chot_so_ca` | `20261014149000_chot_so_ca.sql` | 0 |
 | `clinic` | `20260730000003_multi_tenant_foundation.sql` | 2 |
 | `clinic_location` | `20260714000001_baseline_schema.sql` | 3 |
 | `clinic_membership` | `20260730000003_multi_tenant_foundation.sql` | 3 |
