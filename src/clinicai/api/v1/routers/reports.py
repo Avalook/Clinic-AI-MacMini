@@ -15,7 +15,7 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
-from pydantic import BaseModel, StrictBool
+from pydantic import BaseModel, Field, StrictBool
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
@@ -190,6 +190,67 @@ async def bao_cao_cuoi_ngay(
         else gioi_han_ban_hang(bc)
     )
     return {**data, "access": access}
+
+
+class ChotCaRequest(BaseModel):
+    ngay: str = Field(max_length=40)
+    ca: str = Field(max_length=10)
+    co_so: str = Field(max_length=40)
+    ghi_chu: str | None = Field(default=None, max_length=500)
+
+
+class MoKhoaCaRequest(BaseModel):
+    id: str = Field(max_length=40)
+    ly_do: str = Field(max_length=500)
+
+
+@router.get("/reports/chot-ca")
+async def trang_thai_chot_ca(
+    ngay: str | None = Query(None, max_length=40),
+    ca: str | None = Query(None, max_length=10),
+    co_so: str | None = _CO_SO,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ca (một ngày, một ca, một cơ sở) đã chốt chưa — G4c khoá sổ theo ca."""
+    from clinicai.services.chot_so_ca_service import ChotSoCaService
+
+    return await ChotSoCaService(pool).trang_thai(
+        identity=identity, ngay=ngay, ca=ca, co_so=co_so
+    )
+
+
+@router.post("/reports/chot-ca")
+async def chot_ca(
+    body: ChotCaRequest,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chốt ca: chụp lại báo cáo cuối ca; sau đó huỷ / hoàn tác của ca này tính
+    vào ca đang làm. Ai xem được tài chính của ca thì chốt được (máy chủ kiểm)."""
+    from clinicai.services.chot_so_ca_service import ChotSoCaService
+
+    return await ChotSoCaService(pool).chot(
+        identity=identity,
+        ngay=body.ngay,
+        ca=body.ca,
+        co_so=body.co_so,
+        ghi_chu=body.ghi_chu,
+    )
+
+
+@router.post("/reports/chot-ca/mo-khoa")
+async def mo_khoa_ca(
+    body: MoKhoaCaRequest,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Mở khoá ca đã chốt — Quản lý, bắt lý do, giữ dấu (không sửa số chụp)."""
+    from clinicai.services.chot_so_ca_service import ChotSoCaService
+
+    return await ChotSoCaService(pool).mo_khoa(
+        identity=identity, chot_id=body.id, ly_do=body.ly_do
+    )
 
 
 @router.get("/reports/cuoi-ngay.csv")
