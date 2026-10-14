@@ -199,8 +199,9 @@ BEGIN
     -- 109 → 110 (08/10/2026): lieu_trinh_tra_truoc (20261008110000, trả trước
     -- k buổi liệu trình vào hoá đơn dịch vụ).
     -- G8a: phiếu vật tư + tồn theo nơi chứa + sổ chỉ thêm.
-    IF scoped_count <> 113 THEN
-        RAISE EXCEPTION 'expected 113 tenant-scoped read policies, found %', scoped_count;
+    -- 113 → 114 (G8b, 14/10/2026): vat_tu_nhap_cho_duyet (20261014200100).
+    IF scoped_count <> 114 THEN
+        RAISE EXCEPTION 'expected 114 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

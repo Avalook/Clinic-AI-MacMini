@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 17:59. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 18:11. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1841,6 +1841,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `ultrasound_record` | `20260714000001_baseline_schema.sql` | 3 |
 | `vai_duoc_vao_tram` | `20260809000002_vai_duoc_vao_tram.sql` | 0 |
 | `vat_tu_goi_y` | `20261003000000_vat_tu_ban_them.sql` | 0 |
+| `vat_tu_nhap_cho_duyet` | `20261014200100_vat_tu_nhap_cho_duyet.sql` | 0 |
 | `vat_tu_phieu` | `20261014180000_vat_tu_so_kho.sql` | 0 |
 | `vat_tu_ton` | `20261014180000_vat_tu_so_kho.sql` | 1 |
 | `vat_tu_txn` | `20261014180000_vat_tu_so_kho.sql` | 0 |

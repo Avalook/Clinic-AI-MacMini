@@ -814,8 +814,17 @@ MODULE: dict[str, Module] = {
         Module(
             ma="kho_vat_tu",
             ten="Kho vật tư (phiếu kho, tồn theo nơi chứa, mức tối thiểu)",
-            lenh=["LapPhieuVatTu", "HoanPhieuVatTu", "DatMucToiThieuVatTu"],
-            bang=["vat_tu_phieu", "vat_tu_ton", "vat_tu_txn"],
+            lenh=[
+                "LapPhieuVatTu",
+                "HoanPhieuVatTu",
+                "DatMucToiThieuVatTu",
+                # G8b: phiếu nhập hàng "cần duyệt nhập" → yêu cầu chờ duyệt.
+                "DuyetPhieuNhapVatTu",
+                "TuChoiPhieuNhapVatTu",
+                "RutLaiPhieuNhapVatTu",
+            ],
+            phat=["vat_tu.nhap_cho_duyet", "vat_tu.nhap_da_quyet"],
+            bang=["vat_tu_phieu", "vat_tu_ton", "vat_tu_txn", "vat_tu_nhap_cho_duyet"],
             quyen=["vat_tu.manage"],
         ),
         # Lịch ĐIỀU TRỊ (07/10/2026): khách vào hàng → chỉ định sẵn đúng dịch vụ

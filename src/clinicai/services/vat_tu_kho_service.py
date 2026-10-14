@@ -203,6 +203,45 @@ async def _ghi(
     )
 
 
+async def _ghi_phieu(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    khoa: str,
+    loai: str,
+    ds: list[dict[str, Any]],
+    ghi_chu: str | None,
+) -> dict[str, Any]:
+    """Ghi nguyên phiếu trong giao dịch + khoá cơ sở của người gọi (đã mở)."""
+    p = await _mo_phieu(conn, identity, loai, khoa, ghi_chu)
+    for d in ds:
+        vt, so = d["vat_tu_id"], d["so"]
+        gia = d["gia"]
+        if gia is None:
+            gia = Decimal(
+                await conn.fetchval(
+                    "SELECT coalesce(gia_nhap_vat_tu,0) FROM service_price"
+                    " WHERE id=$1::uuid AND clinic_id=$2::uuid",
+                    vt,
+                    identity.clinic_id,
+                )
+                or 0
+            )
+        if loai in {"XUAT_PHONG", "TRA_KHO", "CHUYEN_PHONG"}:
+            tu = await _ton(conn, identity, vt, d["tu"])
+            den = await _ton(conn, identity, vt, d["den"])
+            await _ghi(conn, identity, p["id"], vt, tu, -so, gia)
+            await _ghi(conn, identity, p["id"], vt, den, so, gia)
+        else:
+            ton = await _ton(
+                conn, identity, vt, d["den"] if loai == "NHAP" else d["tu"]
+            )
+            dem = so if loai in {"KIEM", "DIEU_CHINH"} else None
+            lech = so - ton["so_luong"] if loai == "DIEU_CHINH" else Decimal(0)
+            delta = lech if dem is not None else (-so if loai == "HUY" else so)
+            await _ghi(conn, identity, p["id"], vt, ton, delta, gia, dem)
+    return p
+
+
 async def tao_phieu(
     pool: asyncpg.Pool,
     *,
@@ -212,7 +251,12 @@ async def tao_phieu(
     dong: list[dict[str, Any]],
     ghi_chu: str | None = None,
 ) -> dict[str, Any]:
-    """Ghi nguyên phiếu; KIEM chỉ chụp số đếm, DIEU_CHINH mới đổi tồn."""
+    """Ghi nguyên phiếu; KIEM chỉ chụp số đếm, DIEU_CHINH mới đổi tồn.
+
+    Phiếu NHẬP có dòng thuộc loại "cần duyệt nhập" (cờ ở danh mục, G8b) KHÔNG ghi
+    sổ ngay: thành YÊU CẦU chờ người có lego Duyệt vật tư — xem
+    `vat_tu_nhap_duyet_service`. Người có lego tự lập thì duyệt luôn.
+    """
     khoa = _khoa(khoa_gui)
     if loai not in LOAI or not dong:
         raise ValidationError("Chọn loại phiếu và ít nhất một vật tư.")
@@ -225,34 +269,15 @@ async def tao_phieu(
         cu = await _phieu_da_co(conn, identity, khoa)
         if cu:
             return cu
-        p = await _mo_phieu(conn, identity, loai, khoa, ghi_chu)
-        for d in ds:
-            vt, so = d["vat_tu_id"], d["so"]
-            gia = d["gia"]
-            if gia is None:
-                gia = Decimal(
-                    await conn.fetchval(
-                        "SELECT coalesce(gia_nhap_vat_tu,0) FROM service_price"
-                        " WHERE id=$1::uuid AND clinic_id=$2::uuid",
-                        vt,
-                        identity.clinic_id,
-                    )
-                    or 0
-                )
-            if loai in {"XUAT_PHONG", "TRA_KHO", "CHUYEN_PHONG"}:
-                tu = await _ton(conn, identity, vt, d["tu"])
-                den = await _ton(conn, identity, vt, d["den"])
-                await _ghi(conn, identity, p["id"], vt, tu, -so, gia)
-                await _ghi(conn, identity, p["id"], vt, den, so, gia)
-            else:
-                ton = await _ton(
-                    conn, identity, vt, d["den"] if loai == "NHAP" else d["tu"]
-                )
-                dem = so if loai in {"KIEM", "DIEU_CHINH"} else None
-                lech = so - ton["so_luong"] if loai == "DIEU_CHINH" else Decimal(0)
-                delta = lech if dem is not None else (-so if loai == "HUY" else so)
-                await _ghi(conn, identity, p["id"], vt, ton, delta, gia, dem)
-        return p
+        if loai == "NHAP":
+            from clinicai.services.vat_tu_nhap_duyet_service import (
+                xu_ly_nhap_can_duyet,
+            )
+
+            cho = await xu_ly_nhap_can_duyet(conn, identity, khoa, ds, ghi_chu)
+            if cho is not None:
+                return cho
+        return await _ghi_phieu(conn, identity, khoa, loai, ds, ghi_chu)
 
 
 async def hoan_phieu(
