@@ -52,7 +52,7 @@ interface Body {
 }
 
 /** Trim → null nếu rỗng. */
-function nn(v: string | undefined): string | null {
+function nn(v: string | null | undefined): string | null {
   const t = (v ?? "").trim();
   return t || null;
 }
@@ -100,13 +100,13 @@ export async function POST(request: Request) {
   }
   if (phone_primary && !PHONE_RE.test(phone_primary)) {
     return NextResponse.json(
-      { error: "SĐT chính không hợp lệ (10 số, bắt đầu bằng 0; đầu số 02/03/05/07/08/09)." },
+      { error: "SĐT chính không hợp lệ (10 số, bắt đầu bằng 0; đầu số 03/05/07/08/09)." },
       { status: 400 },
     );
   }
   if (phone_secondary && !PHONE_RE.test(phone_secondary)) {
     return NextResponse.json(
-      { error: "SĐT người nhà không hợp lệ (10 số, bắt đầu bằng 0; đầu số 02/03/05/07/08/09)." },
+      { error: "SĐT người nhà không hợp lệ (10 số, bắt đầu bằng 0; đầu số 03/05/07/08/09)." },
       { status: 400 },
     );
   }
@@ -218,17 +218,19 @@ interface PatchBody {
   /** Mốc `updated_at` màn hình đã đọc — thẻ khoá lạc quan. Xem chỗ chuyển tiếp. */
   sua_luc?: string;
   full_name?: string;
-  date_of_birth?: string;
-  phone_primary?: string;
-  phone_secondary?: string;
+  date_of_birth?: string | null;
+  phone_primary?: string | null;
+  phone_secondary?: string | null;
+  national_id_number?: string | null;
+  email?: string | null;
   location_id?: string;
-  gender?: string;
-  ethnicity?: string;
-  nationality?: string;
-  occupation?: string;
-  patient_objection?: string;
-  address?: string;
-  guardian_name?: string;
+  gender?: string | null;
+  ethnicity?: string | null;
+  nationality?: string | null;
+  occupation?: string | null;
+  patient_objection?: string | null;
+  address?: string | null;
+  guardian_name?: string | null;
 }
 
 export async function PATCH(request: Request) {
@@ -249,59 +251,72 @@ export async function PATCH(request: Request) {
   const id = (body.clinic_patient_id ?? "").trim();
   if (!id) return NextResponse.json({ error: "Thiếu id bệnh nhân." }, { status: 400 });
 
-  const full_name = (body.full_name ?? "").trim();
-  const loiTenSua = tenError(full_name);
-  if (loiTenSua) {
-    return NextResponse.json({ error: loiTenSua }, { status: 400 });
+  if (body.full_name !== undefined) {
+    const full_name = (body.full_name ?? "").trim();
+    const loiTenSua = tenError(full_name);
+    if (loiTenSua) {
+      return NextResponse.json({ error: loiTenSua }, { status: 400 });
+    }
   }
-  // SỬA cũng phải qua đúng luật như TẠO. Trước đây nhánh này chỉ kiểm "có nhập
-  // tên hay chưa", nên một hồ sơ sạch vẫn sửa được thành tên 5000 ký tự hoặc
-  // ngày sinh năm 2099 — cửa sau của chính cái cửa trước vừa khoá.
-  const loiNgaySinhSua = dobErrorIso(body.date_of_birth, homNayVn());
-  if (loiNgaySinhSua) {
-    return NextResponse.json({ error: loiNgaySinhSua }, { status: 400 });
+
+  // SỬA cũng phải qua đúng luật như TẠO. Chỉ kiểm khi trường có gửi lên.
+  if (body.date_of_birth !== undefined) {
+    const loiNgaySinhSua = dobErrorIso(body.date_of_birth, homNayVn());
+    if (loiNgaySinhSua) {
+      return NextResponse.json({ error: loiNgaySinhSua }, { status: 400 });
+    }
   }
+
   // Quy tắc nhập liệu CỨNG (server-side): SĐT 10 số.
-  const editPhone = (body.phone_primary ?? "").trim();
-  const editPhone2 = (body.phone_secondary ?? "").trim();
-  if (editPhone && !PHONE_RE.test(editPhone)) {
-    return NextResponse.json(
-      { error: "SĐT chính không hợp lệ (10 số, bắt đầu bằng 0; đầu số 02/03/05/07/08/09)." },
-      { status: 400 },
-    );
+  if (body.phone_primary !== undefined) {
+    const editPhone = (body.phone_primary ?? "").trim();
+    if (editPhone && !PHONE_RE.test(editPhone)) {
+      return NextResponse.json(
+        { error: "SĐT chính không hợp lệ (10 số, bắt đầu bằng 0; đầu số 03/05/07/08/09)." },
+        { status: 400 },
+      );
+    }
   }
-  if (editPhone2 && !PHONE_RE.test(editPhone2)) {
-    return NextResponse.json(
-      { error: "SĐT người nhà không hợp lệ (10 số, bắt đầu bằng 0; đầu số 02/03/05/07/08/09)." },
-      { status: 400 },
-    );
+  if (body.phone_secondary !== undefined) {
+    const editPhone2 = (body.phone_secondary ?? "").trim();
+    if (editPhone2 && !PHONE_RE.test(editPhone2)) {
+      return NextResponse.json(
+        { error: "SĐT người nhà không hợp lệ (10 số, bắt đầu bằng 0; đầu số 03/05/07/08/09)." },
+        { status: 400 },
+      );
+    }
+  }
+
+  if (body.national_id_number !== undefined) {
+    const editCccd = (body.national_id_number ?? "").trim();
+    if (editCccd && !/^(\d{9}|\d{12})$/.test(editCccd)) {
+      return NextResponse.json(
+        { error: "Số CCCD phải gồm 9 hoặc 12 chữ số." },
+        { status: 422 },
+      );
+    }
   }
 
   // W5 (ADR-0012): PATCH /api/v1/patients/{id} owns this now. It is scoped to
   // the caller's clinic — this path updated by clinic_patient_id alone, which
   // reaches every clinic once there is more than one. Off until
   // PATIENT_EDIT_VIA_BACKEND=1.
-  return proxyJsonToBackend("PATCH", `/api/v1/patients/${id}`, {
-    full_name,
-    date_of_birth: (body.date_of_birth ?? "").trim() || null,
-    phone_primary: (body.phone_primary ?? "").trim() || null,
-    phone_secondary: (body.phone_secondary ?? "").trim() || null,
-    gender: nn(body.gender),
-    ethnicity: nn(body.ethnicity),
-    nationality: nn(body.nationality),
-    occupation: nn(body.occupation),
-    patient_objection: nn(body.patient_objection),
-    address: nn(body.address),
-    guardian_name: nn(body.guardian_name),
-    ...((body.location_id ?? "").trim()
-      ? { location_id: (body.location_id ?? "").trim() }
-      : {}),
-    // THẺ KHOÁ LẠC QUAN — mốc `updated_at` mà màn hình đã đọc khi mở hồ sơ.
-    // Backend chỉ ghi đè nếu hồ sơ dưới database vẫn đúng mốc ấy; ai chen vào
-    // giữa thì người bấm sau nhận 409 kèm câu giải thích, thay vì lặng lẽ xoá
-    // công của người bấm trước. Bỏ trống = không khoá (lời gọi cũ vẫn chạy).
-    ...((body.sua_luc ?? "").trim()
-      ? { sua_luc: (body.sua_luc ?? "").trim() }
-      : {}),
-  });
+  const backendPayload: Record<string, unknown> = {};
+  if (body.full_name !== undefined) backendPayload.full_name = (body.full_name ?? "").trim() || null;
+  if (body.date_of_birth !== undefined) backendPayload.date_of_birth = (body.date_of_birth ?? "").trim() || null;
+  if (body.phone_primary !== undefined) backendPayload.phone_primary = (body.phone_primary ?? "").trim() || null;
+  if (body.phone_secondary !== undefined) backendPayload.phone_secondary = (body.phone_secondary ?? "").trim() || null;
+  if (body.national_id_number !== undefined) backendPayload.national_id_number = (body.national_id_number ?? "").trim() || null;
+  if (body.email !== undefined) backendPayload.email = (body.email ?? "").trim() || null;
+  if (body.gender !== undefined) backendPayload.gender = nn(body.gender);
+  if (body.ethnicity !== undefined) backendPayload.ethnicity = nn(body.ethnicity);
+  if (body.nationality !== undefined) backendPayload.nationality = nn(body.nationality);
+  if (body.occupation !== undefined) backendPayload.occupation = nn(body.occupation);
+  if (body.patient_objection !== undefined) backendPayload.patient_objection = nn(body.patient_objection);
+  if (body.address !== undefined) backendPayload.address = nn(body.address);
+  if (body.guardian_name !== undefined) backendPayload.guardian_name = nn(body.guardian_name);
+  if ((body.location_id ?? "").trim()) backendPayload.location_id = (body.location_id ?? "").trim();
+  if ((body.sua_luc ?? "").trim()) backendPayload.sua_luc = (body.sua_luc ?? "").trim();
+
+  return proxyJsonToBackend("PATCH", `/api/v1/patients/${id}`, backendPayload);
 }

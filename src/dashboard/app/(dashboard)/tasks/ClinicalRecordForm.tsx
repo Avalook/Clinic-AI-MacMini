@@ -1166,6 +1166,8 @@ export default function ClinicalRecordForm({
                 date_of_birth: p.date_of_birth,
                 phone_primary: p.phone_primary,
                 phone_secondary: p.phone_secondary,
+                national_id_number: p.national_id_number,
+                email: p.email,
                 gender: p.gender,
                 ethnicity: p.ethnicity,
                 nationality: p.nationality,
@@ -1173,6 +1175,7 @@ export default function ClinicalRecordForm({
                 patient_objection: p.patient_objection,
                 address: p.address,
                 guardian_name: p.guardian_name,
+                updated_at: p.updated_at ?? null,
               }}
             />
           ) : (
