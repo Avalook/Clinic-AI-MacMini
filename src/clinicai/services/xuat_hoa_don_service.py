@@ -30,6 +30,7 @@ from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.danh_sach_hoa_don_service import DanhSachHoaDonService
 from clinicai.services.hoa_don_cong_ty_service import doc_cong_ty_cho_phieu
 from clinicai.services.hoa_don_excel import HINH_THUC
+from clinicai.services.hoa_don_misa_doc import dau_van_tay
 from clinicai.services.thue_gtgt import (
     CHE_DO_MOT,
     CHE_DO_TACH,
@@ -412,11 +413,16 @@ class XuatHoaDonService:
         che_do: str | None = None,
         ghi_giam_gia: bool = False,
         ghi_de: Mapping[str, str] | None = None,
+        kem_dau_van_tay: bool = False,
     ) -> dict[str, Any]:
         """`che_do` (khi một phiếu có nhiều thuế suất): "tach" (mặc định) = mỗi thuế
         suất một hoá đơn, "mot" = một hoá đơn. `ghi_giam_gia` = K2 (dòng giá gốc +
         dòng chiết khấu). `ghi_de` = sửa tay thuế suất từng dòng {id dòng: mã}.
-        Rác ở các tham số này → bỏ qua, không ném."""
+        Rác ở các tham số này → bỏ qua, không ném.
+
+        `kem_dau_van_tay`: thêm `dau_van_tay` {id phiếu: (dấu người mua, dấu nội
+        dung)} tính từ hoá đơn GỐC — cho `HoaDonMisaService.gan_trang_thai` so với
+        lúc đánh dấu "đã xuất MISA"; bên gọi phải lấy nó ra khỏi kết quả."""
         data, goc = await self.doc_goc(
             identity=identity, tu=tu, den=den, loai=loai, co_so=co_so, ghi_de=ghi_de
         )
@@ -430,7 +436,7 @@ class XuatHoaDonService:
         # duy nhất, phần mềm hoá đơn gom dòng theo nó.
         for i, hd in enumerate(hoa_don, 1):
             hd["stt"] = i
-        return {
+        ket_qua: dict[str, Any] = {
             "tu": data["tu"],
             "den": data["den"],
             "co_so": data.get("co_so"),
@@ -445,3 +451,8 @@ class XuatHoaDonService:
             "che_do": mode,
             "ghi_giam_gia": bool(ghi_giam_gia),
         }
+        if kem_dau_van_tay:
+            ket_qua["dau_van_tay"] = {
+                str(h["payment_cycle_id"]): dau_van_tay(h) for h in goc
+            }
+        return ket_qua
