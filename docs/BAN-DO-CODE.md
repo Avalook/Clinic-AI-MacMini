@@ -1617,7 +1617,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_hoa_don_misa_db.py
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (195)
+## 3. Service → màn (196)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1806,6 +1806,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `update_task_status` | `src/clinicai/tools/task/update_task_status.py` | — (chỉ API/worker) |
 | `vat_tu_kho_man_service` | `src/clinicai/services/vat_tu_kho_man_service.py` | /kho-vat-tu |
 | `vat_tu_kho_service` | `src/clinicai/services/vat_tu_kho_service.py` | /kho-vat-tu |
+| `vat_tu_nhap_duyet_service` | `src/clinicai/services/vat_tu_nhap_duyet_service.py` | — (chỉ API/worker) |
 | `vat_tu_tieu_hao_service` | `src/clinicai/services/vat_tu_tieu_hao_service.py` | /kho-vat-tu |
 | `VatTuService` | `src/clinicai/services/vat_tu_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+11) |
 | `VisitProgressService` | `src/clinicai/services/visit_progress_service.py` | — (chỉ API/worker) |
