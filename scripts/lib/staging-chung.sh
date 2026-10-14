@@ -137,6 +137,46 @@ kiem_tai_nguyen() {
     xong "đĩa còn ${con_gb}G (ngưỡng ${STG_DIA_TOI_THIEU_GB}G)"
 }
 
+# ── Giờ khám: dựng ảnh làm prod chậm (chỉ kiểu chung) ─────────────────────────
+# Đo 14/10/2026: prod 4 nhân, ~14 req/giây, CPU dashboard 130% / API 60% / DB 110%
+# lúc cao điểm. Dựng ảnh staging (next build + pip) chạy trên CHÍNH các nhân đó:
+# `nice`/cpu-shares chỉ giảm chứ không xoá tranh chấp, và staging tạm tắt vài phút
+# (xem deploy-staging.sh). Nên GIỜ KHÁM mặc định là DỪNG kèm cách đi tiếp; ngoài
+# giờ khám không đổi gì. Không phải chặn cứng: Tuyền cố ý dựng giữa giờ thì đặt
+# `CHO_PHEP_GIO_KHAM=1` (script vẫn dựng, chỉ in cảnh báo).
+#
+# Giờ VN = UTC+7, không có giờ mùa hè → tính từ `date -u`, khỏi phụ thuộc tzdata
+# trên VPS (thiếu tzdata thì `TZ=Asia/Ho_Chi_Minh date` lặng lẽ in giờ UTC).
+# Khung đổi bằng GIO_KHAM_TU / GIO_KHAM_DEN (mặc định 7 → 21, nửa mở [7,21)).
+# STG_GIO_VN_GIA chỉ để test.
+gio_vn_hien_tai() {
+    if [ -n "${STG_GIO_VN_GIA:-}" ]; then
+        printf '%s' "$STG_GIO_VN_GIA"
+    else
+        printf '%s' $(( (10#$(date -u +%H) + 7) % 24 ))
+    fi
+}
+
+kiem_gio_kham() {
+    [ "$STAGING_KIEU" = "chung" ] || return 0
+    local gio tu den
+    gio=$(( 10#$(gio_vn_hien_tai) ))
+    tu=$(( 10#${GIO_KHAM_TU:-7} ))
+    den=$(( 10#${GIO_KHAM_DEN:-21} ))
+    if [ "$gio" -lt "$tu" ] || [ "$gio" -ge "$den" ]; then
+        return 0
+    fi
+    if [ "${CHO_PHEP_GIO_KHAM:-0}" = "1" ]; then
+        canh "ĐANG GIỜ KHÁM (${gio}h giờ VN, khung ${tu}h–${den}h) — dựng staging sẽ làm prod chậm. Tiếp tục vì CHO_PHEP_GIO_KHAM=1."
+        return 0
+    fi
+    canh "ĐANG GIỜ KHÁM (${gio}h giờ VN, khung ${tu}h–${den}h): staging chung 4 nhân với prod,"
+    canh "dựng ảnh bây giờ làm prod chậm (đo 14/10: p95 1,3s, CPU máy tăng vọt)."
+    canh "Nên chờ sau ${den}h. Cố ý dựng ngay thì chạy lại, thêm CHO_PHEP_GIO_KHAM=1 đứng đầu lệnh:"
+    canh "    CHO_PHEP_GIO_KHAM=1 ./scripts/deploy-staging.sh <PR|nhánh>"
+    dung "chưa dựng gì — chờ ngoài giờ khám hoặc đặt CHO_PHEP_GIO_KHAM=1."
+}
+
 # ── Mạng cầu Caddy prod ↔ Caddy staging ──────────────────────────────────────
 tao_mang_cau() {
     docker network inspect "$STAGING_EDGE_NETWORK" >/dev/null 2>&1 || \

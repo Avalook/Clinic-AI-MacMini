@@ -79,6 +79,24 @@ Caddy — không database, không api nào của hai bên.
   ở `command:` của `db` trong `docker-compose.supabase.staging.yml`, **không**
   `ALTER SYSTEM` (nằm trong volume, dựng lại là mất; tham số dòng lệnh cũng
   thắng `postgresql.auto.conf`).
+- **Giờ khám (7h–21h giờ VN) — `deploy-staging.sh` dừng, kèm cách đi tiếp (14/10).**
+  Staging chung 4 nhân với prod; đo 14/10 prod ~14 req/giây, CPU dashboard 130% /
+  API 60% / DB 110% lúc cao điểm, p95 1,3s. Dựng ảnh trong giờ ấy làm khách thấy
+  chậm. Ngoài giờ khám không đổi gì. Cố ý dựng giữa giờ (sửa khẩn, hoặc Tuyền xác
+  nhận phòng khám đang vắng) thì đặt biến đứng đầu lệnh — script vẫn dựng, chỉ in
+  cảnh báo: `ssh clinic-vps-moi "cd ~/clinicai-staging && CHO_PHEP_GIO_KHAM=1 ./scripts/deploy-staging.sh 301"`.
+  Đổi khung: `GIO_KHAM_TU` / `GIO_KHAM_DEN` (mặc định 7 / 21). Giờ tính từ UTC+7,
+  không phụ thuộc múi giờ của VPS. Chỉ áp kiểu `chung` (staging VPS riêng không xét).
+  `nice -n 19` + `ionice -c3` (client) và builder buildx `cpu-shares 128` đã có từ
+  trước; chúng chỉ nhường lúc tranh chấp, không thay được việc né giờ khám.
+- **Bộ nhớ đệm tài nguyên tĩnh (14/10):** Caddy (prod + staging) đặt
+  `Cache-Control: public, max-age=86400, stale-while-revalidate=604800` cho
+  `/manifest.webmanifest`, `/favicon.ico`, `/icon.png`, `/apple-icon.png`, `/pwa/*`,
+  `/logo.png`, `/clinicai-logo.svg` (chỉ khi upstream trả 2xx) — trước đó Next trả
+  `max-age=0`, trình duyệt hỏi lại mỗi lần chuyển trang (~28% request). Kiểm sau
+  deploy: `curl -sI https://staging.dr4women.io.vn/manifest.webmanifest | grep -i cache-control`
+  phải ra đúng MỘT dòng `max-age=86400…`; `curl -sI …/login` vẫn `max-age=0`.
+  Đổi icon PWA: đặt tên tệp mới + sửa `app/manifest.ts` (máy khách giữ bản cũ tới ~1 ngày).
 
 ### Sự cố 08/10/2026 — nạp lại hỏng "out of shared memory"
 

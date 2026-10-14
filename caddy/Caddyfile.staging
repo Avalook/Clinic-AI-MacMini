@@ -37,6 +37,22 @@ http://localhost, http://127.0.0.1 {
 	respond 404
 }
 
+# TÀI NGUYÊN TĨNH — bản chép NGUYÊN VĂN của snippet cùng tên trong caddy/Caddyfile
+# (giải thích + số đo + cú pháp đã thử ở đó). Staging cần riêng vì Caddy prod chỉ
+# chuyển request sang đây chứ không thêm header giúp.
+(tai_nguyen_tinh) {
+	@tinh path /manifest.webmanifest /favicon.ico /icon.png /apple-icon.png /pwa/* /logo.png /clinicai-logo.svg
+	handle @tinh {
+		reverse_proxy dashboard:3000 {
+			@ok status 2xx
+			handle_response @ok {
+				header >Cache-Control "public, max-age=86400, stale-while-revalidate=604800"
+				copy_response
+			}
+		}
+	}
+}
+
 {$SITE_ADDRESS} {
 	encode zstd gzip
 
@@ -80,6 +96,8 @@ Disallow: /
 	handle @supabase {
 		reverse_proxy {$SUPABASE_GATEWAY_HOST:clinicai_stg_supabase_gateway}:8000
 	}
+
+	import tai_nguyen_tinh
 
 	handle {
 		reverse_proxy dashboard:3000

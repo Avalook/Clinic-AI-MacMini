@@ -166,6 +166,67 @@ class TestChotTaiNguyen:
         )
         assert r.returncode == 0, r.stderr
 
+    @pytest.mark.parametrize("gio", ["7", "12", "20", "07"])
+    def test_gio_kham_khong_co_bien_cho_phep_thi_dung(
+        self, tmp_path: Path, gio: str
+    ) -> None:
+        r = _goi_lib(
+            tmp_path,
+            "kiem_gio_kham && echo QUA",
+            them={"STG_GIO_VN_GIA": gio, "CHO_PHEP_GIO_KHAM": ""},
+        )
+        assert r.returncode != 0
+        assert "QUA" not in r.stdout
+        assert "GIỜ KHÁM" in r.stderr
+        # Câu thông báo phải nói được cách đi tiếp, không chỉ "cấm".
+        assert "CHO_PHEP_GIO_KHAM=1" in r.stderr
+
+    @pytest.mark.parametrize("gio", ["7", "12", "20"])
+    def test_gio_kham_co_bien_cho_phep_thi_di_tiep_kem_canh_bao(
+        self, tmp_path: Path, gio: str
+    ) -> None:
+        r = _goi_lib(
+            tmp_path,
+            "kiem_gio_kham && echo QUA",
+            them={"STG_GIO_VN_GIA": gio, "CHO_PHEP_GIO_KHAM": "1"},
+        )
+        assert r.returncode == 0, r.stderr
+        assert "QUA" in r.stdout
+        assert "GIỜ KHÁM" in r.stderr
+
+    @pytest.mark.parametrize("gio", ["0", "3", "6", "21", "23"])
+    def test_ngoai_gio_kham_khong_doi_hanh_vi(self, tmp_path: Path, gio: str) -> None:
+        r = _goi_lib(
+            tmp_path,
+            "kiem_gio_kham && echo QUA",
+            them={"STG_GIO_VN_GIA": gio, "CHO_PHEP_GIO_KHAM": ""},
+        )
+        assert r.returncode == 0, r.stderr
+        assert "QUA" in r.stdout
+        assert r.stderr == ""
+
+    def test_kieu_rieng_khong_xet_gio_kham(self, tmp_path: Path) -> None:
+        r = _goi_lib(
+            tmp_path,
+            "kiem_gio_kham && echo QUA",
+            them={"STAGING_KIEU": "rieng", "STG_GIO_VN_GIA": "12"},
+        )
+        assert r.returncode == 0, r.stderr
+        assert r.stderr == ""
+
+    def test_gio_vn_tinh_tu_utc_cong_7(self, tmp_path: Path) -> None:
+        # Không giả giờ: hàm phải ra một số trong [0,23] và khớp UTC+7.
+        r = _goi_lib(tmp_path, "gio_vn_hien_tai")
+        assert r.returncode == 0, r.stderr
+        gio = int(r.stdout)
+        assert 0 <= gio <= 23
+
+    def test_deploy_staging_goi_kiem_gio_kham_sau_kiem_tai_nguyen(self) -> None:
+        sh = (REPO / "scripts" / "deploy-staging.sh").read_text(encoding="utf-8")
+        assert sh.index("kiem_tai_nguyen\n") < sh.index("kiem_gio_kham\n")
+        # Phải đứng TRƯỚC bước tắt staging / dựng ảnh.
+        assert sh.index("kiem_gio_kham\n") < sh.index("docker stop")
+
     def test_nguong_mac_dinh_dung_chot(self) -> None:
         lib = LIB.read_text(encoding="utf-8")
         assert 'STG_RAM_TOI_THIEU_MB="${STG_RAM_TOI_THIEU_MB:-2560}"' in lib
