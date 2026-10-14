@@ -222,7 +222,12 @@ export default function CheckoutBoard({
 
       {/* Lượt còn mở từ HÔM TRƯỚC (đợt 3, 27/09/2026) — danh sách dưới chỉ là
           lượt hôm nay; không có khối này thì lượt treo không hiện ở đâu. */}
-      <LuotTonDong onDaDong={() => void reload()} luotNoiBat={luotMoSan} />
+      <LuotTonDong
+        onDaDong={() => void reload()}
+        luotNoiBat={
+          luotMoSan && !initial.some((r) => r.visit_id === luotMoSan) ? luotMoSan : undefined
+        }
+      />
 
       {pending.length === 0 ? (
         <div className="rounded-card border border-line bg-surface px-4 py-10 text-center">

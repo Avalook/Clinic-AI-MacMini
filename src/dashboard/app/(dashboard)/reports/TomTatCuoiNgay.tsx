@@ -144,13 +144,10 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false, loc }: {
           <p className="px-3 py-2 text-meta text-ink-muted">Còn {tien(dt.hoan_cho)} hoàn tiền đang chờ — chưa trừ vào Trả lại.</p>
         ) : null}
         {dt?.ck_cho_da_huy && dt.ck_cho_da_huy.so_lan > 0 ? (
-          <p className="px-3 py-2 text-meta text-warning">
-            {dt.ck_cho_da_huy.so_lan} lần chờ chuyển khoản đã huỷ ({tien(dt.ck_cho_da_huy.tong)}) — không tính là đã thu; đối chiếu sao kê ngân hàng.{" "}
+          <p className="px-3 py-2 text-meta text-ink-muted">
+            {dt.ck_cho_da_huy.so_lan} lần chờ chuyển khoản đã huỷ ({tien(dt.ck_cho_da_huy.tong)}), không tính là đã thu.{" "}
             <a href={linkHoaDon(loc, "ck_da_huy")} className="text-brand-700 underline-offset-2 hover:underline print:hidden">Xem</a>
           </p>
-        ) : null}
-        {dt && !dt.khop ? (
-          <p role="alert" className="px-3 py-2 text-meta text-danger">Các số dòng tiền không khớp công thức — báo kỹ thuật kiểm tra.</p>
         ) : null}
         {dt ? (
           <p className="px-3 py-2 text-meta text-ink-muted">

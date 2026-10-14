@@ -22,11 +22,20 @@ function DongChiTiet({ dong }: { dong: DongHoaDon[] }) {
 
 const MAU_SU_KIEN: Record<SuKien["loai"], string> = {
   DOI_HINH_THUC: "bg-info-bg text-info",
-  BO_DICH_VU: "bg-warning-bg text-warning",
+  BO_DICH_VU: "bg-surface-muted text-ink-soft",
   HOAN_TIEN: "bg-success-bg text-success",
-  HUY_PHIEU: "bg-danger-bg text-danger",
-  HUY_CHO_CK: "bg-warning-bg text-warning",
+  HUY_PHIEU: "bg-surface-muted text-ink-soft",
+  HUY_CHO_CK: "bg-surface-muted text-ink-soft",
 };
+/** Vì sao một phiếu cần soi lại — chữ trung tính (không phải lỗi). `SO_TIEN_LECH`
+ *  đã có dòng riêng "Ngân hàng báo nhận …" nên không lặp ở đây. */
+const GHI_CHU_DOI_CHIEU: Record<string, string> = {
+  HOA_DON_DOI: "hoá đơn đã đổi sau khi chuyển khoản",
+  CHUA_GHI_BAN: "thuốc chưa ghi bán được",
+};
+function ghiChuDoiChieu(p: PhieuThu): string[] {
+  return (p.doi_soat_ly_do ?? []).filter(m => m in GHI_CHU_DOI_CHIEU).map(m => GHI_CHU_DOI_CHIEU[m]);
+}
 const TEN_HOAN: Record<string, string> = {
   PENDING: "chờ trả", COMPLETED: "đã trả", FAILED: "thất bại", CANCELLED: "đã huỷ yêu cầu",
 };
@@ -49,7 +58,7 @@ function SauKhiThu({ su }: { su: SuKien[] }) {
           {e.ly_do ? <span className="block text-meta text-ink-muted">Lý do: {e.ly_do}</span> : null}
           {e.loai === "HUY_PHIEU" && e.sau_giay != null ? <span className="block text-meta text-ink-muted">huỷ sau {e.sau_giay < 120 ? `${e.sau_giay} giây` : `${Math.round(e.sau_giay / 60)} phút`} kể từ lúc thu</span> : null}
         </span>
-        <span className={`text-right font-semibold tabular-nums ${e.so_tien < 0 ? "text-danger" : ""}`}>
+        <span className="text-right font-semibold tabular-nums">
           {e.loai === "DOI_HINH_THUC" ? tien(e.so_tien) : e.so_tien < 0 ? `−${tien(-e.so_tien)}` : tien(e.so_tien)}
         </span>
       </li>)}
@@ -68,9 +77,9 @@ function Phieu({ phieu: p, so }: { phieu: PhieuThu; so: number }) {
       <span className="text-body font-semibold">{TRANG_THAI[p.trang_thai] ?? p.trang_thai}</span>
       <a className={buttonClass("secondary", "md")} href={`/print/phieu-thu/${encodeURIComponent(p.id)}`} target="_blank" rel="noopener noreferrer">Xem / in phiếu</a>
     </div>
-    {p.can_doi_soat ? <p className="mt-2 rounded-control bg-warning-bg p-2 text-warning">Phiếu cần đối soát: chuyển khoản về nhưng hoá đơn đã đổi, thuốc chưa ghi bán được, hoặc ngân hàng báo nhận khác số chuyển khoản.</p> : null}
+    {ghiChuDoiChieu(p).length ? <p className="mt-2 text-meta text-ink-muted">Ghi chú: {ghiChuDoiChieu(p).join("; ")}.</p> : null}
     {p.so_tien_thuc_nhan != null ? <p className="mt-2 text-meta text-ink">Ngân hàng báo nhận <span className="tabular-nums">{tien(p.so_tien_thuc_nhan)}</span>{p.doi_soat_ly_do?.includes("SO_TIEN_LECH") ? " — khác số chuyển khoản của phiếu" : ""}.</p> : null}
-    {p.trang_thai === "CK_DA_HUY" ? <p className="mt-2 rounded-control bg-warning-bg p-2 text-warning">Lần chờ chuyển khoản {tien(p.so_tien)} đã huỷ{p.nguoi_huy ? ` bởi ${p.nguoi_huy}` : ""}{p.ly_do_huy ? ` — “${p.ly_do_huy}”` : ""}. Chưa ghi là đã thu. Đối chiếu sao kê: nếu tiền đã về thì thu lại ở quầy bằng chuyển khoản rồi bấm “Đã nhận tiền”.</p> : null}
+    {p.trang_thai === "CK_DA_HUY" ? <p className="mt-2 text-meta text-ink-muted">Lần chờ chuyển khoản {tien(p.so_tien)} đã huỷ{p.nguoi_huy ? ` bởi ${p.nguoi_huy}` : ""}{p.ly_do_huy ? ` — “${p.ly_do_huy}”` : ""}; chưa ghi là đã thu.</p> : null}
     {p.thu_trong_ky === false ? <p className="mt-2 text-meta text-ink-muted">Phiếu thu ngoài kỳ đang xem, có xử lý sau thanh toán trong kỳ.</p> : null}
     <dl className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
       <div><dt className="text-meta text-ink-muted">{p.trang_thai === "CK_DA_HUY" ? "Số tiền lần chờ" : "Tiền đã thu"}</dt><dd className="tabular-nums">{tien(p.so_tien)}</dd></div>
@@ -100,7 +109,7 @@ export default function ChiTietHoaDon({ khach, onDong }: { khach: KhachHoaDon; o
     <p className="mb-4 text-meta text-ink-muted">{khach.ma_bn || "—"} · {khach.so_dien_thoai || "—"} · {khach.so_phieu} phiếu</p>
     <dl className="mb-4 grid grid-cols-2 gap-3 rounded-control bg-surface-muted p-3 sm:grid-cols-4">
       {([["Tổng tiền hàng", khach.tong_truoc_giam], ["Giảm giá", khach.giam_gia], ["Tiền đã thu", khach.da_thu], ["Thực thu", khach.thu_rong]] as const).map(([ten, so]) => <div key={ten}><dt className="text-meta text-ink-muted">{ten}</dt><dd className="tabular-nums font-semibold">{tien(so)}</dd></div>)}
-      {(khach.chua_tra_lai ?? 0) > 0 ? <div><dt className="text-meta text-ink-muted">Chưa trả lại khách</dt><dd className="tabular-nums font-semibold text-danger">{tien(khach.chua_tra_lai ?? 0)}</dd></div> : null}
+      {(khach.chua_tra_lai ?? 0) > 0 ? <div><dt className="text-meta text-ink-muted">Chưa trả lại khách</dt><dd className="tabular-nums font-semibold">{tien(khach.chua_tra_lai ?? 0)}</dd></div> : null}
     </dl>
     {ton.length ? <div className="mb-4 rounded-control bg-surface-muted p-3">
       <b>Việc còn tồn</b>

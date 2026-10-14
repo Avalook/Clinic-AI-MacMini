@@ -31,11 +31,11 @@ function OLoc({ ten, children, className = "" }: { ten: string; children: ReactN
   );
 }
 
-function SoTien({ ten, so, nhan }: { ten: string; so: ReactNode; nhan?: "do" }) {
+function SoTien({ ten, so }: { ten: string; so: ReactNode }) {
   return (
     <div>
       <dt className="text-meta text-ink-muted">{ten}</dt>
-      <dd className={`tabular-nums text-emph font-semibold ${nhan === "do" ? "text-danger" : "text-ink"}`}>{so}</dd>
+      <dd className="tabular-nums text-emph font-semibold text-ink">{so}</dd>
     </div>
   );
 }
@@ -54,8 +54,6 @@ function DaThu({ k }: { k: KhachHoaDon }) {
 
 const CHIP = "inline-block rounded-chip px-2 py-0.5 text-meta font-medium";
 /** Việc tồn là tiền phòng khám đang nợ khách → tô đỏ. */
-const NO_KHACH = new Set(["CHUA_TRA_LAI", "CHUA_LAM"]);
-
 /** Nút "Xử lý" của một việc tồn: đích do MÁY CHỦ quyết (`xu_ly`); màn chỉ vẽ.
  *  Thiếu lego của màn đích → chữ nhắc thay vì nút (máy chủ vẫn tự kiểm quyền). */
 function NutXuLy({ v, quyen }: { v: ViecTon; quyen: readonly string[] | null }) {
@@ -78,7 +76,7 @@ function TrangThai({ k }: { k: KhachHoaDon }) {
   return (
     <div className="flex flex-col items-start gap-1">
       {ton.length ? (
-        <span className={`${CHIP} bg-warning-bg text-warning`}>
+        <span className={`${CHIP} bg-surface-muted text-ink-soft`}>
           {ton.length} việc tồn · {ton[0].ten_loai.toLowerCase()} {tien(ton[0].so_tien)}
         </span>
       ) : (
@@ -91,7 +89,7 @@ function TrangThai({ k }: { k: KhachHoaDon }) {
         <span key={t} className={`${CHIP} bg-surface-muted text-ink-soft`}>{t.toLowerCase()}</span>
       ))}
       {(k.canh_bao ?? []).filter(c => !c.startsWith("Phiếu huỷ")).map(c => (
-        <span key={c} className={`${CHIP} bg-warning-bg text-warning`}>{c}</span>
+        <span key={c} className={`${CHIP} bg-surface-muted text-ink-soft`}>{c}</span>
       ))}
     </div>
   );
@@ -241,7 +239,7 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
               <button type="button" onClick={() => setNhom("dung")} className={`${CHIP} bg-success-bg text-success`}>
                 Đúng {data.tong.dung_khong_dung.dung} hoá đơn
               </button>
-              <button type="button" onClick={() => setNhom("khong_dung")} className={`${CHIP} ${data.tong.dung_khong_dung.khong_dung ? "bg-warning-bg text-warning" : "bg-surface-muted text-ink-soft"}`}>
+              <button type="button" onClick={() => setNhom("khong_dung")} className={`${CHIP} bg-surface-muted text-ink-soft`}>
                 Không đúng {data.tong.dung_khong_dung.khong_dung} hoá đơn
               </button>
               {Object.entries(data.tong.dung_khong_dung.ly_do).filter(([, n]) => n > 0).map(([ma, n]) => (
@@ -257,8 +255,8 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
             <SoTien ten="Phiếu huỷ" so={tien(data.tong.gia_tri_huy ?? 0)} />
             <SoTien ten="Đã trả lại khách" so={tien(data.tong.da_hoan)} />
             <SoTien ten="Thực thu" so={tien(data.tong.thu_rong)} />
-            <SoTien ten="Chưa trả lại khách" so={tien(data.tong.chua_tra_lai ?? 0)} nhan={(data.tong.chua_tra_lai ?? 0) > 0 ? "do" : undefined} />
-            <SoTien ten="Việc còn tồn" so={`${data.tong.so_viec_ton ?? tonDay.length} việc`} nhan={tonDay.length ? "do" : undefined} />
+            <SoTien ten="Chưa trả lại khách" so={tien(data.tong.chua_tra_lai ?? 0)} />
+            <SoTien ten="Việc còn tồn" so={`${data.tong.so_viec_ton ?? tonDay.length} việc`} />
           </dl>
 
           <div className="flex justify-end">
@@ -294,7 +292,7 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
                           <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(k.giam_gia)}</td>
                           <td className="whitespace-nowrap px-3 py-3 text-right"><DaThu k={k} /></td>
                           <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(k.da_hoan)}</td>
-                          <td className={`whitespace-nowrap px-3 py-3 text-right tabular-nums ${(k.chua_tra_lai ?? 0) > 0 ? "font-semibold text-danger" : ""}`}>
+                          <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
                             {tien(k.chua_tra_lai ?? 0)}
                             {k.cho_hoan > 0 ? <span className="block text-meta font-normal text-ink-muted">gồm hoàn đang chờ {tien(k.cho_hoan)}</span> : null}
                           </td>
@@ -310,7 +308,7 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(tk?.giam_gia ?? 0)}</td>
                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(tk?.da_thu ?? 0)}</td>
                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(tk?.da_hoan ?? 0)}</td>
-                        <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums text-danger">{tien(tk?.chua_tra_lai ?? 0)}</td>
+                        <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(tk?.chua_tra_lai ?? 0)}</td>
                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(tk?.thu_rong ?? 0)}</td>
                         <td className="px-3 py-3 text-meta font-normal text-ink-muted">{tk?.so_khach_con_ton ?? 0} khách còn việc tồn</td>
                       </tr>
@@ -329,14 +327,14 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
                     <dl className="mt-3 grid grid-cols-2 gap-3">
                       <SoTien ten="Tiền đã thu" so={tien(k.da_thu)} />
                       <SoTien ten="Thực thu" so={tien(k.thu_rong)} />
-                      {(k.chua_tra_lai ?? 0) > 0 ? <SoTien ten="Chưa trả lại" so={tien(k.chua_tra_lai ?? 0)} nhan="do" /> : null}
+                      {(k.chua_tra_lai ?? 0) > 0 ? <SoTien ten="Chưa trả lại" so={tien(k.chua_tra_lai ?? 0)} /> : null}
                     </dl>
                   </button>
                 ))}
                 {ds.length ? (
                   <div className="grid grid-cols-2 gap-3 rounded-card bg-surface-muted p-4 font-semibold">
                     <span>TỔNG thực thu</span><span className="text-right tabular-nums">{tien(tk?.thu_rong ?? 0)}</span>
-                    <span>Chưa trả lại khách</span><span className="text-right tabular-nums text-danger">{tien(tk?.chua_tra_lai ?? 0)}</span>
+                    <span>Chưa trả lại khách</span><span className="text-right tabular-nums">{tien(tk?.chua_tra_lai ?? 0)}</span>
                   </div>
                 ) : null}
               </div>
@@ -373,7 +371,7 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
                               <span className="block text-meta text-ink-muted">{v.ma_bn ?? "—"}</span>
                             </td>
                             <td className="px-3 py-3">
-                              <span className={`${CHIP} ${NO_KHACH.has(v.loai) ? "bg-danger-bg text-danger" : "bg-warning-bg text-warning"}`}>{v.ten_loai}</span>
+                              <span className={`${CHIP} bg-surface-muted text-ink-soft`}>{v.ten_loai}</span>
                               {v.mo_ta || v.nguoi ? <span className="mt-1 block text-meta text-ink-muted">{[v.mo_ta, v.nguoi].filter(Boolean).join(" · ")}</span> : null}
                             </td>
                             <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(v.so_tien)}</td>
@@ -390,7 +388,7 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
                 {ton.map((v, i) => (
                   <article key={`${v.loai}-${v.visit_id}-${v.ma}-${i}`} className="rounded-card bg-surface p-4 ring-1 ring-hairline">
                     <div className="flex items-start justify-between gap-2">
-                      <span className={`${CHIP} ${NO_KHACH.has(v.loai) ? "bg-danger-bg text-danger" : "bg-warning-bg text-warning"}`}>{v.ten_loai}</span>
+                      <span className={`${CHIP} bg-surface-muted text-ink-soft`}>{v.ten_loai}</span>
                       <b className="tabular-nums">{tien(v.so_tien)}</b>
                     </div>
                     <p className="mt-1 text-meta text-ink-muted">{v.ten ?? "—"} · {daTon(v.luc)}{v.mo_ta ? ` · ${v.mo_ta}` : ""}</p>

@@ -45,7 +45,9 @@ test("quầy thu không lặng lẽ nhảy sang khách khác khi lượt của l
   assert.match(quay, /const luotTuUrl = thamSo\?\.get\("luot"\) \?\? null/);
   assert.match(quay, /luotUrlLac/);
   assert.match(quay, /\(luotUrlLac \? null : \(conCho\[0\] \?\? null\)\)/);
-  assert.match(quay, /Máy KHÔNG tự chọn khách khác/);
+  // Một dòng trung tính, không hộp vàng đỏ (Tuyền 14/10): vẫn không tự chọn khách khác.
+  assert.match(quay, /Khách này không có trong danh sách chờ thu — chọn khách ở dưới/);
+  assert.doesNotMatch(quay, /Máy KHÔNG tự chọn khách khác/);
 });
 
 test("Check-out nhận ?luot= (UUID) và tô sáng đúng lượt tồn đọng", () => {
@@ -53,8 +55,30 @@ test("Check-out nhận ?luot= (UUID) và tô sáng đúng lượt tồn đọng"
   assert.match(page, /UUID\.test\(sp\.luot\)/);
   assert.match(page, /luotMoSan=\{luot\}/);
   const board = read("../app/(dashboard)/reception/checkout/CheckoutBoard.tsx");
-  assert.match(board, /luotNoiBat=\{luotMoSan\}/);
+  assert.match(board, /luotNoiBat=\{\s*luotMoSan &&/);
   const ton = read("../app/(dashboard)/reception/checkout/LuotTonDong.tsx");
   assert.match(ton, /luotNoiBat === l\.visit_id/);
   assert.match(ton, /scrollIntoView/);
+});
+
+test("lượt cũ từ ?luot= không nằm trong danh sách tồn đọng vẫn hiện (có Đóng lượt) hoặc một dòng trung tính", () => {
+  const ton = read("../app/(dashboard)/reception/checkout/LuotTonDong.tsx");
+  assert.match(ton, /checkout\?visit_id=\$\{encodeURIComponent\(id\)\}/);
+  assert.match(ton, /\[rieng\.luot, \.\.\.ds\]/);
+  assert.match(ton, /Lượt này đã đóng\./);
+  assert.match(ton, /Không tìm thấy lượt này\./);
+  // Lượt đã có trong bảng hôm nay thì bảng lo, không tô thêm.
+  const board = read("../app/(dashboard)/reception/checkout/CheckoutBoard.tsx");
+  assert.match(board, /!initial\.some\(\(r\) => r\.visit_id === luotMoSan\)/);
+});
+
+test("không hộp vàng/đỏ cho việc bình thường: nợ, huỷ, CK đã huỷ, chưa trả lại, cần đối soát", () => {
+  const ct = read("../app/(dashboard)/hoa-don/ChiTietHoaDon.tsx");
+  assert.doesNotMatch(ct, /bg-warning-bg/);
+  assert.doesNotMatch(ct, /chua_tra_lai[^\n]*text-danger/);
+  const tt = read("../app/(dashboard)/reports/TomTatCuoiNgay.tsx");
+  assert.doesNotMatch(tt, /không khớp công thức/);
+  assert.doesNotMatch(tt, /ck_cho_da_huy[\s\S]{0,200}text-warning/);
+  const ton = read("../app/(dashboard)/reception/checkout/LuotTonDong.tsx");
+  assert.doesNotMatch(ton, /border-warning|bg-warning-bg|tone="warning"/);
 });

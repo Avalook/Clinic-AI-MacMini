@@ -16,6 +16,7 @@ import pytest
 
 from clinicai.events.catalogue import CONG_NO, SO_NO
 from clinicai.services.cashier_board_service import CashierBoardService
+from clinicai.services.checkout_service import CheckoutService
 from clinicai.services.cong_no_service import CongNoService
 from clinicai.services.danh_sach_hoa_don_service import DanhSachHoaDonService
 from clinicai.services.hoan_tac_service import HoanTacService
@@ -172,3 +173,33 @@ async def test_chua_lam_luot_hom_truoc_chua_dong_noi_dung_va_dan_check_out(
     assert "lượt hôm trước" in t["mo_ta"] and "chưa đóng" in t["mo_ta"]
     assert "lượt đã đóng" not in t["mo_ta"]
     assert t["xu_ly"]["href"] == f"/reception/checkout?luot={v}"
+
+
+async def test_luot_cu_13_ngay_con_mo_xem_va_dong_duoc_qua_lien_ket(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Link `/reception/checkout?luot=` của lượt mở 13 ngày trước: màn hỏi đúng
+    lượt ấy (`readiness`, không giới hạn ngày) và hiện nút Đóng lượt; đóng xong
+    hỏi lại báo đã đóng. Trước đây lượt cũ không có ở đâu → link chết."""
+    ca = await _dung(pool)
+    v, _o = await _luot(pool, ca)
+    await _thu(pool, ca, v)  # đã thu, chưa làm, chưa đóng lượt
+    await pool.execute(
+        "UPDATE visit SET created_at = created_at - interval '13 days',"
+        " checked_in_at = checked_in_at - interval '13 days'"
+        " WHERE visit_id = $1::uuid",
+        v,
+    )
+    svc = CheckoutService(pool)
+    r = await svc.readiness(identity=ca.le_tan, visit_id=v)
+    assert r["visit_id"] == v and r["already_closed"] is False
+    assert r["patient_name"]
+    await svc.close(
+        identity=ca.le_tan,
+        visit_id=v,
+        incomplete=True,
+        incomplete_reason="Khách về từ 13 ngày trước",
+    )
+    assert (await svc.readiness(identity=ca.le_tan, visit_id=v))[
+        "already_closed"
+    ] is True
