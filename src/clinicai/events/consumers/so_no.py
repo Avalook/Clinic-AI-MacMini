@@ -8,6 +8,11 @@ nợ khách" của đúng lượt ấy rồi ghi phần chênh (`services/so_no_
 một sự kiện chỉ ghi một lần mỗi chiều (chỉ mục duy nhất theo sự kiện). Phát lại
 lịch sử thì im: số dư đọc bây giờ không phải số dư lúc ấy.
 
+Tiền và chỉ định có thể thuộc HAI lượt khác nhau (chỉ định mang sang lượt mới,
+thu ở lần thu của lượt đang đứng): sự kiện tiền mang `visit_id` của lần thu, nhưng
+số dư của lượt GIỮ chỉ định cũng đổi — nên tính lại cả các lượt ấy (14/10/2026, bấm
+thật: hoàn tiền thừa xong mà việc tồn của lượt cũ đứng yên).
+
 Không sửa nơi phát: thêm bên nghe ở danh mục sự kiện là đủ.
 """
 
@@ -32,6 +37,59 @@ def _loai(su_kien: SuKienDaNhan) -> str:
     return LOAI_THEO_SU_KIEN.get(su_kien.event_type, "DOI_CHIEU")
 
 
+#: Mọi lượt mà dòng hoá đơn của lần thu / lần hoàn chạm tới: lượt của dòng, lượt
+#: của chỉ định (kể cả phụ thu), lượt của đơn thuốc.
+_LUOT_LIEN_QUAN_SQL = """
+WITH dong AS (
+    SELECT bl.visit_id::text AS line_visit, bl.source_type, bl.source_id
+      FROM public.payment_bill_line bl
+     WHERE bl.clinic_id = $1::uuid
+       AND (($2::text IS NOT NULL AND bl.payment_cycle_id::text = $2::text)
+            OR ($3::text IS NOT NULL AND bl.id IN (
+                SELECT l.payment_bill_line_id FROM public.payment_refund_line l
+                 WHERE l.clinic_id = $1::uuid AND l.refund_id::text = $3::text)))
+)
+SELECT DISTINCT v FROM (
+    SELECT d.line_visit AS v FROM dong d
+    UNION
+    SELECT o.visit_id::text FROM dong d
+      JOIN public.service_order o
+        ON d.source_type = 'service_order' AND o.clinic_id = $1::uuid
+       AND o.id::text = d.source_id
+    UNION
+    SELECT o.visit_id::text FROM dong d
+      JOIN public.luot_phu_thu p
+        ON d.source_type = 'phu_thu' AND p.clinic_id = $1::uuid
+       AND p.id::text = d.source_id
+      JOIN public.service_order o
+        ON o.clinic_id = $1::uuid AND o.id = p.service_order_id
+    UNION
+    SELECT rx.visit_id::text FROM dong d
+      JOIN public.prescription rx
+        /* rx:gom-ca-lich-su: tiền đã thu ở dòng đã đính chính vẫn thuộc lượt đó */
+        ON d.source_type = 'prescription' AND rx.clinic_id = $1::uuid
+       AND rx.id::text = d.source_id
+) x WHERE v IS NOT NULL
+"""
+
+
+async def luot_lien_quan(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> list[str]:
+    """Các lượt KHÁC `visit_id` của sự kiện mà tiền của sự kiện chạm tới."""
+    chu = su_kien.payload
+    lan_thu = chu.get("payment_cycle_id")
+    hoan = chu.get("refund_id")
+    if not lan_thu and not hoan:
+        return []
+    rows = await conn.fetch(
+        _LUOT_LIEN_QUAN_SQL,
+        su_kien.clinic_id,
+        str(lan_thu) if lan_thu else None,
+        str(hoan) if hoan else None,
+    )
+    chinh = str(chu.get("visit_id") or "")
+    return sorted(str(r["v"]) for r in rows if str(r["v"]) != chinh)
+
+
 async def ghi_so(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     if su_kien.la_phat_lai:
         return
@@ -51,8 +109,20 @@ async def ghi_so(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
         su_kien_ten=su_kien.event_type,
         boi=su_kien.actor_staff_id,
     )
+    # Lượt khác của cùng khoản tiền: không có chỉ mục sự kiện (một sự kiện chỉ ghi
+    # một lần mỗi chiều) — an toàn vì chỉ ghi PHẦN CHÊNH so với dòng cuối.
+    for khac in await luot_lien_quan(conn, su_kien):
+        await ghi_chenh_lech(
+            conn,
+            clinic_id=su_kien.clinic_id,
+            visit_id=khac,
+            loai="HOAN_TIEN" if su_kien.payload.get("refund_id") else "DOI_CHIEU",
+            luc=luc,
+            su_kien_ten=su_kien.event_type,
+            boi=su_kien.actor_staff_id,
+        )
 
 
 dang_ky(SO_NO, ghi_so)
 
-__all__ = ["ghi_so"]
+__all__ = ["ghi_so", "luot_lien_quan"]

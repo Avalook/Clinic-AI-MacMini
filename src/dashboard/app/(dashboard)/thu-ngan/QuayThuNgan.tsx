@@ -629,7 +629,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
       ) : null}
       {luotUrlLac ? (
         <p role="status" className="text-meta text-ink-muted">
-          Khách này không có trong danh sách chờ thu — chọn khách ở dưới.
+          Khách này không có trong danh sách chờ thu — chọn khách ở dưới, hoặc đổi sang cơ sở của khách nếu khách thuộc cơ sở khác.
         </p>
       ) : null}
       {xong ? (

@@ -193,6 +193,42 @@ async def test_da_thu_chua_lam_ve_la_no_khach_hoan_xong_het(pool: asyncpg.Pool) 
     assert (await _so(pool, v))[-1] == ("PHAI_TRA", -300_000, 0, "HOAN_TIEN")
 
 
+async def test_hoan_tien_thua_chi_dinh_mang_sang_thu_o_lan_thu_luot_khac_so_cu_ve_0(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Bấm thật 14/10 (staging): tiền thừa của chỉ định lượt A nằm ở lần thu của
+    lượt B → sự kiện `payment.refunded` mang visit B; sổ lượt A phải về 0 chứ
+    không đứng yên (việc tồn "Chưa trả lại" không hết dù tiền đã hoàn)."""
+    ca = await _dung(pool)
+    va, oa = await _luot(pool, ca)
+    vb, _ob = await _luot(pool, ca)
+    await _thu(pool, ca, va)
+    await _ve(pool, ca, va)
+    d = await _don(pool, oa)
+    await ServiceExecutionService(pool).khong_lam(
+        order_id=oa,
+        expected_execution_revision=int(d["execution_revision"]),
+        ly_do="PATIENT_DECLINED_AT_ROOM",
+        ghi_chu=None,
+        identity=ca.dd,
+        idempotency_key=_khoa(),
+    )
+    assert (await _so(pool, va))[-1][:3] == ("PHAI_TRA", 300_000, 300_000)
+    # Chỉ định mang sang: lần thu và dòng hoá đơn thuộc lượt B, chỉ định ở lượt A.
+    async with pool.acquire() as conn, conn.transaction():
+        await conn.execute("SET LOCAL session_replication_role = replica")
+        for bang in ("payment_cycle", "payment_bill_line"):
+            await conn.execute(
+                f"UPDATE public.{bang} SET visit_id = $2::uuid"
+                " WHERE visit_id = $1::uuid",
+                va,
+                vb,
+            )
+    await HoanTienService(pool).hoan_tien_thua(identity=ca.thu_ngan, visit_id=va)
+    so_a = await _so(pool, va)
+    assert so_a[-1] == ("PHAI_TRA", -300_000, 0, "HOAN_TIEN"), so_a
+
+
 async def test_giu_lai_tien_thua_van_la_no_khach(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
     v, o = await _luot(pool, ca)
