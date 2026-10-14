@@ -34,9 +34,11 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
 async def _cong_no(pool: asyncpg.Pool, visit: str) -> list[asyncpg.Record]:  # noqa: F811
-    return await pool.fetch(
-        "SELECT so_tien, trang_thai, ly_do FROM cong_no WHERE visit_id = $1::uuid",
-        visit,
+    return list(
+        await pool.fetch(
+            "SELECT so_tien, trang_thai, ly_do FROM cong_no WHERE visit_id = $1::uuid",
+            visit,
+        )
     )
 
 
