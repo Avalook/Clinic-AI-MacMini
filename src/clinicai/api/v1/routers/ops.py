@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.clock import doc_ngay_xem, hom_nay_vn
-from clinicai.core.database import get_db_pool
+from clinicai.core.database import get_db_pool, thong_ke_be
 from clinicai.core.telemetry import SLOW_REQUEST_MS, telemetry
 from clinicai.llm import chi_phi
 from clinicai.permissions.cua_quyen import cua_quyen
@@ -54,6 +54,7 @@ async def get_telemetry(
     response: Response,
     window_s: float | None = Query(default=900, ge=0, le=86400),
     _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, object]:
     """Response times and recent failures, from the API process's ring buffer.
 
@@ -68,6 +69,9 @@ async def get_telemetry(
     response.headers["Cache-Control"] = "no-store"
     snapshot = telemetry.snapshot(window_s=window_s or None)
     snapshot["slow_threshold_ms"] = SLOW_REQUEST_MS
+    # Bể kết nối ngay lúc hỏi (14/10/2026): "tong" đã mở, "ranh" đang rảnh, "ban"
+    # đang bị giữ, "tran" là trần. ban ≈ tran kéo dài = request đang xếp hàng.
+    snapshot["db_pool"] = thong_ke_be(pool)
     return snapshot
 
 

@@ -47,7 +47,8 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from clinicai.core.telemetry import route_template, telemetry
+from clinicai.core.database import be_ket_noi_dang_ban, thong_ke_be
+from clinicai.core.telemetry import SLOW_REQUEST_MS, route_template, telemetry
 from clinicai.services.media_service import MAX_BYTES_KET_QUA_UPLOAD
 
 logger = structlog.get_logger()
@@ -237,20 +238,58 @@ class DbErrorMiddleware(BaseHTTPMiddleware):
             )
 
 
+#: Số request đang xử lý cùng lúc (một tiến trình, một vòng lặp sự kiện → số
+#: nguyên thường là đủ, không cần khoá).
+_dang_xu_ly = 0
+#: Cảnh báo "bể đầy" tối đa 1 lần mỗi chừng này giây — giờ cao điểm đầy liên tục,
+#: log mỗi request sẽ chính là thứ làm chậm thêm.
+CANH_BAO_BE_MOI_GIAY = 5.0
+_lan_canh_bao_be = 0.0
+
+
+def _ghi_canh_bao_be(pool: object) -> None:
+    """Bể kết nối gần đầy → một dòng log (tối đa 1/5s). Không bao giờ ném."""
+    global _lan_canh_bao_be
+    try:
+        if not be_ket_noi_dang_ban(pool):
+            return
+        now = time.monotonic()
+        if now - _lan_canh_bao_be < CANH_BAO_BE_MOI_GIAY:
+            return
+        _lan_canh_bao_be = now
+        logger.warning(
+            "db_pool_gan_day", dang_xu_ly=_dang_xu_ly, **(thong_ke_be(pool) or {})
+        )
+    except Exception:  # noqa: BLE001 - đo đạc không được làm hỏng request
+        return
+
+
 class TimingMiddleware(BaseHTTPMiddleware):
     """Record how long each request took, and what it returned.
 
     Only the route template is stored — see core/telemetry for why an actual
     path must never end up in a debugging buffer.
+
+    14/10/2026 — thêm LOG, vì bộ đệm trong bộ nhớ không đủ: chỉ giữ 4.096 mẫu
+    (~4 phút giờ cao điểm), mất khi deploy, và không ai đọc nó lúc 20h. Nay:
+      * request chậm (≥ SLOW_REQUEST_MS) → dòng `api_cham` (route TEMPLATE,
+        không id khách) kèm số đo bể kết nối và số request đang xử lý;
+      * bể kết nối gần đầy → dòng `db_pool_gan_day` (tối đa 1/5s).
+    Hai dòng này là thứ tối 12/10 thiếu: biết đúng API nào chậm và bể có cạn
+    không, không phải đoán từ log Caddy.
     """
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
+        global _dang_xu_ly
         started = time.perf_counter()
+        pool = getattr(request.app.state, "db_pool", None)
         status = 500
         kind = ""
         detail = ""
+        _dang_xu_ly += 1
+        _ghi_canh_bao_be(pool)
         try:
             response = await call_next(request)
             status = response.status_code
@@ -263,12 +302,25 @@ class TimingMiddleware(BaseHTTPMiddleware):
             detail = str(exc)
             raise
         finally:
+            _dang_xu_ly -= 1
+            duration_ms = (time.perf_counter() - started) * 1000.0
+            route = route_template(request)
             telemetry.record(
-                route=route_template(request),
+                route=route,
                 method=request.method,
                 status=status,
-                duration_ms=(time.perf_counter() - started) * 1000.0,
+                duration_ms=duration_ms,
                 request_id=current_request_id(),
                 kind=kind,
                 detail=detail,
             )
+            if duration_ms >= SLOW_REQUEST_MS:
+                logger.warning(
+                    "api_cham",
+                    route=route,
+                    method=request.method,
+                    status=status,
+                    duration_ms=round(duration_ms),
+                    dang_xu_ly=_dang_xu_ly,
+                    **(thong_ke_be(pool) or {}),
+                )

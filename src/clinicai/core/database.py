@@ -10,10 +10,29 @@ from fastapi import Request
 
 logger = structlog.get_logger()
 
-# App giữ sẵn tối thiểu 2, tối đa 10 kết nối tới Postgres.
+# App giữ sẵn tối thiểu 2, tối đa POOL_MAX_SIZE kết nối tới Postgres.
 POOL_MIN_SIZE = 2
+
+
+def doc_pool_max(raw: str | None) -> int:
+    """Trần bể kết nối từ biến môi trường `DB_POOL_MAX`; rác / ngoài 5–40 → 20.
+
+    Hàm thuần, không ném: một giá trị gõ sai không được làm API không khởi động
+    được. 20 (14/10/2026, nâng từ 10): tối 12/10 số request chờ cùng lúc vọt lên
+    hơn 270 và cả route nhẹ `/api/thong-bao` treo 18s — nghi bể 10 kết nối bị vài
+    truy vấn nặng giữ hết (xem `be_ket_noi_dang_ban`). Postgres cho 100 kết nối,
+    prod đang dùng ~24; API + su-kien (mỗi tiến trình một bể) + PostgREST +
+    realtime + auth vẫn dưới ~65 ở mức cao nhất.
+    """
+    try:
+        n = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return 20
+    return n if 5 <= n <= 40 else 20
+
+
 # Request mượn kết nối từ bể rồi trả lại, không mở/đóng mỗi lần.
-POOL_MAX_SIZE = 10
+POOL_MAX_SIZE = doc_pool_max(os.environ.get("DB_POOL_MAX"))
 # Mỗi câu SQL quá 15 giây sẽ bị huỷ, tránh truy vấn chạy mãi.
 COMMAND_TIMEOUT = 15
 STARTUP_RETRIES = 3
@@ -26,6 +45,31 @@ STARTUP_BACKOFF = 2.0  # seconds between retries
 #: staging (trần 384MiB) tới OOM. Đặt ở đây, không ở `command:` của Postgres, để
 #: prod, staging, CI và máy dev cùng một hành vi.
 SERVER_SETTINGS = {"jit": "off"}
+
+
+def thong_ke_be(pool: object) -> dict[str, int] | None:
+    """Số đo bể kết nối: tổng, đang rảnh, đang bận, trần. Không có bể → None.
+
+    Chỉ đọc bộ đếm trong bộ nhớ của asyncpg (không chạm DB), nên gọi trên mọi
+    request cũng không tốn.
+    """
+    try:
+        tong = int(pool.get_size())  # type: ignore[attr-defined]
+        ranh = int(pool.get_idle_size())  # type: ignore[attr-defined]
+        tran = int(pool.get_max_size())  # type: ignore[attr-defined]
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return {"tong": tong, "ranh": ranh, "ban": max(0, tong - ranh), "tran": tran}
+
+
+def be_ket_noi_dang_ban(pool: object) -> bool:
+    """Bể còn chưa tới 2 kết nối rảnh — request kế tiếp sắp phải xếp hàng.
+
+    "Bận" tính theo trần chứ không theo số đã mở: bể mở lười (2 → trần), nên
+    `ranh == 0` khi mới mở 2/20 không phải là đầy.
+    """
+    tk = thong_ke_be(pool)
+    return tk is not None and tk["tran"] - tk["ban"] <= 1
 
 
 def normalize_dsn(dsn: str) -> str:
