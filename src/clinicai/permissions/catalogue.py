@@ -889,7 +889,13 @@ for _vai in PRESET:
 # này cho người cụ thể (và thêm/bớt lego tuỳ ý). Cố ý KHÔNG có `thu_tien_dv`,
 # `thu_tien_thuoc`: kế toán không thu tiền — máy chủ chặn theo capability của hai
 # khối ấy, không theo tên vai. Đặt SAU vòng mở-full ở trên.
-PRESET["KE_TOAN"] = ["bao_cao", "ke_toan", "ds_benh_nhan", "lich_lam_viec"]
+PRESET["KE_TOAN"] = [
+    "bao_cao",
+    "ke_toan",
+    "ds_benh_nhan",
+    "lich_lam_viec",
+    "kho_vat_tu",
+]
 
 
 # ── QUYỀN THEO MÀN (Tuyền chốt 23/09/2026) ───────────────────────────────

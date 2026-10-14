@@ -28,7 +28,7 @@ pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 #: Gói mẫu Kế toán đổi ra lego (đúng cái Quản lý bấm cấp).
-GOI_KE_TOAN = ["bao_cao", "ke_toan", "ds_benh_nhan", "lich_lam_viec"]
+GOI_KE_TOAN = ["bao_cao", "ke_toan", "ds_benh_nhan", "lich_lam_viec", "kho_vat_tu"]
 
 
 async def _co(pool: asyncpg.Pool, ai: StaffIdentity, quyen: str) -> bool:
