@@ -1586,6 +1586,16 @@ class PaymentService:
                     truoc="PAID",
                     ly_do=normalized_reason,
                 )
+                tu_ghi_no = (
+                    await _tu_ghi_no_sau_ve(
+                        conn,
+                        identity=identity,
+                        visit_id=visit_id,
+                        ly_do=normalized_reason,
+                    )
+                    if kind == "dich_vu"
+                    else None
+                )
                 if kind == "thuoc":
                     # Lượt BÁN LẺ tự đóng lúc thu → hoàn tác thì mở lại để thu
                     # lại được (01/10/2026). Lượt khám thường: không làm gì.
@@ -1597,7 +1607,11 @@ class PaymentService:
             payment_cycle_id=payment_cycle_id,
             by_staff_id=identity.staff_id,
         )
-        return {"payment_cycle_id": payment_cycle_id, "status": "VOIDED"}
+        return {
+            "payment_cycle_id": payment_cycle_id,
+            "status": "VOIDED",
+            "tu_ghi_no": tu_ghi_no,
+        }
 
     async def hoan_tac(
         self,
@@ -1661,6 +1675,38 @@ class PaymentService:
                 "da_huy_tu_truoc": True,
             }
         return {**kq, "visit_id": lan["visit_id"], "kind": lan["kind"]}
+
+
+async def _tu_ghi_no_sau_ve(
+    conn: asyncpg.Connection,
+    *,
+    identity: StaffIdentity,
+    visit_id: str,
+    ly_do: str,
+) -> dict[str, Any] | None:
+    """HUỶ PHIẾU SAU KHI KHÁCH ĐÃ VỀ (G4d · D — Tuyền chốt 14/10, cách không
+    khoá): dịch vụ đã làm mà phiếu bị huỷ thì khách thành "không nợ, không
+    trả". Không chặn lệnh huỷ — máy tự ghi khoản ấy thành nợ CHỜ XỬ LÝ (lý do
+    huỷ + người bấm), hiện ở việc tồn / Khách còn nợ; quầy thu lại hoặc miễn
+    (thu 0đ, giảm 100%) sau. Lượt còn mở: cổng check-out đã hỏi nợ — không ghi."""
+    if (
+        await conn.fetchval(
+            "SELECT closed_at FROM public.visit"
+            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
+            identity.clinic_id,
+            visit_id,
+        )
+        is None
+    ):
+        return None
+    from clinicai.services.cong_no_service import ghi_no_trong
+
+    return await ghi_no_trong(
+        conn,
+        identity=identity,
+        visit_id=visit_id,
+        ly_do=f"Huỷ phiếu sau khi khách đã về — chờ thu hoặc miễn: {ly_do}"[:500],
+    )
 
 
 async def _phat_hoan_tac(

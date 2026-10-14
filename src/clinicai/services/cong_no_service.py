@@ -420,6 +420,74 @@ def _ly_do(ly_do: str | None, *, viec: str) -> str:
     return s
 
 
+async def ghi_no_trong(
+    conn: asyncpg.Connection,
+    *,
+    identity: StaffIdentity,
+    visit_id: str,
+    ly_do: str,
+) -> dict[str, Any] | None:
+    """Thân lệnh Ghi nợ, TRONG giao dịch của người gọi (``ly_do`` đã chuẩn).
+    Không còn khoản nào chưa thu → ``None``. Dùng chung cho nút "Ghi nợ" và
+    huỷ phiếu sau khi khách đã về (G4d · D)."""
+    luot = await _khoa_luot(conn, identity.clinic_id, visit_id)
+    no = await no_khi_ve(conn, clinic_id=identity.clinic_id, visit_id=visit_id)
+    if not no.dong:
+        return None
+    dong = json.dumps([d.cho_api() for d in no.dong], ensure_ascii=False)
+    if no.ghi_no is not None:
+        cong_no_id = await conn.fetchval(
+            """
+            UPDATE public.cong_no
+               SET so_tien = $3, dong = $4::jsonb, ly_do = $5,
+                   ghi_boi = $6::uuid, ghi_luc = now()
+             WHERE clinic_id = $1::uuid AND id = $2::uuid
+               AND trang_thai = 'CHUA_THU'
+            RETURNING id::text
+            """,
+            identity.clinic_id,
+            no.ghi_no["id"],
+            no.tong,
+            dong,
+            ly_do,
+            identity.staff_id,
+        )
+    else:
+        cong_no_id = await conn.fetchval(
+            """
+            INSERT INTO public.cong_no
+                (clinic_id, visit_id, clinic_patient_id, so_tien,
+                 dong, ly_do, ghi_boi)
+            VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::jsonb, $6,
+                    $7::uuid)
+            RETURNING id::text
+            """,
+            identity.clinic_id,
+            visit_id,
+            luot["clinic_patient_id"],
+            no.tong,
+            dong,
+            ly_do,
+            identity.staff_id,
+        )
+    await emit_event(
+        conn,
+        ten="cong_no.ghi",
+        clinic_id=identity.clinic_id,
+        aggregate_id=cong_no_id,
+        payload=CongNoDaGhi(
+            visit_id=visit_id,
+            cong_no_id=cong_no_id,
+            so_tien=no.tong,
+            so_khoan=len(no.dong),
+            ly_do=ly_do,
+        ),
+        boi=nguoi(identity),
+        correlation_id=visit_id,
+    )
+    return {"cong_no_id": cong_no_id, "so_tien": no.tong, "so_khoan": len(no.dong)}
+
+
 class CongNoService:
     """Lệnh của khối Công nợ: Ghi nợ / Huỷ ghi nợ."""
 
@@ -437,71 +505,14 @@ class CongNoService:
         s = _ly_do(ly_do, viec="Ghi nợ")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                luot = await _khoa_luot(conn, identity.clinic_id, visit_id)
-                no = await no_khi_ve(
-                    conn, clinic_id=identity.clinic_id, visit_id=visit_id
+                kq = await ghi_no_trong(
+                    conn, identity=identity, visit_id=visit_id, ly_do=s
                 )
-                if not no.dong:
-                    raise ValidationError(
-                        "Lượt này không còn khoản nào chưa thu — không cần ghi nợ."
-                    )
-                dong = json.dumps([d.cho_api() for d in no.dong], ensure_ascii=False)
-                if no.ghi_no is not None:
-                    cong_no_id = await conn.fetchval(
-                        """
-                        UPDATE public.cong_no
-                           SET so_tien = $3, dong = $4::jsonb, ly_do = $5,
-                               ghi_boi = $6::uuid, ghi_luc = now()
-                         WHERE clinic_id = $1::uuid AND id = $2::uuid
-                           AND trang_thai = 'CHUA_THU'
-                        RETURNING id::text
-                        """,
-                        identity.clinic_id,
-                        no.ghi_no["id"],
-                        no.tong,
-                        dong,
-                        s,
-                        identity.staff_id,
-                    )
-                else:
-                    cong_no_id = await conn.fetchval(
-                        """
-                        INSERT INTO public.cong_no
-                            (clinic_id, visit_id, clinic_patient_id, so_tien,
-                             dong, ly_do, ghi_boi)
-                        VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::jsonb, $6,
-                                $7::uuid)
-                        RETURNING id::text
-                        """,
-                        identity.clinic_id,
-                        visit_id,
-                        luot["clinic_patient_id"],
-                        no.tong,
-                        dong,
-                        s,
-                        identity.staff_id,
-                    )
-                await emit_event(
-                    conn,
-                    ten="cong_no.ghi",
-                    clinic_id=identity.clinic_id,
-                    aggregate_id=cong_no_id,
-                    payload=CongNoDaGhi(
-                        visit_id=visit_id,
-                        cong_no_id=cong_no_id,
-                        so_tien=no.tong,
-                        so_khoan=len(no.dong),
-                        ly_do=s,
-                    ),
-                    boi=nguoi(identity),
-                    correlation_id=visit_id,
-                )
-        return {
-            "ok": True,
-            "cong_no_id": cong_no_id,
-            "so_tien": no.tong,
-            "so_khoan": len(no.dong),
-        }
+        if kq is None:
+            raise ValidationError(
+                "Lượt này không còn khoản nào chưa thu — không cần ghi nợ."
+            )
+        return {"ok": True, **kq}
 
     async def huy(
         self, *, identity: StaffIdentity, visit_id: str, ly_do: str | None
@@ -558,6 +569,7 @@ __all__ = [
     "NoKhiVe",
     "doc_khach_con_no",
     "doc_no_dang_mo",
+    "ghi_no_trong",
     "loc_no_dich_vu",
     "loc_no_thuoc",
     "no_khi_ve",
