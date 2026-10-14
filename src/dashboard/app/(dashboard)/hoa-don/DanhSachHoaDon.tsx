@@ -12,10 +12,13 @@ import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
 import ThanhTab from "@/components/ui/ThanhTab";
 import { todayVn } from "@/lib/roster";
 import { khoangNhanh, type Khoang } from "@/lib/thanh-ngay";
+import Link from "next/link";
+import { coQuyen } from "@/lib/quyen-client";
 import { INPUT } from "../form-ui";
+import { useQuyen } from "../QuyenContext";
 import NgayTrucBaoCao, { type ReportCalendar } from "../reports/NgayTrucBaoCao";
 import ChiTietHoaDon from "./ChiTietHoaDon";
-import { NHOM_HOA_DON, TEN_LECH, TRANG_THAI, daTon, ngayGio, tien, type DanhSachData, type KhachHoaDon } from "./types";
+import { NHOM_HOA_DON, TEN_LECH, TRANG_THAI, daTon, ngayGio, tien, type DanhSachData, type KhachHoaDon, type ViecTon } from "./types";
 
 type Tab = "khach" | "ton";
 
@@ -53,6 +56,23 @@ const CHIP = "inline-block rounded-chip px-2 py-0.5 text-meta font-medium";
 /** Việc tồn là tiền phòng khám đang nợ khách → tô đỏ. */
 const NO_KHACH = new Set(["CHUA_TRA_LAI", "CHUA_LAM"]);
 
+/** Nút "Xử lý" của một việc tồn: đích do MÁY CHỦ quyết (`xu_ly`); màn chỉ vẽ.
+ *  Thiếu lego của màn đích → chữ nhắc thay vì nút (máy chủ vẫn tự kiểm quyền). */
+function NutXuLy({ v, quyen }: { v: ViecTon; quyen: readonly string[] | null }) {
+  const x = v.xu_ly;
+  if (!x) return null;
+  if (!x.href) return <p className="max-w-xs text-meta text-ink-muted">{x.huong_dan}</p>;
+  if (x.lego && !coQuyen(quyen, x.lego)) {
+    return <span className="text-meta text-ink-muted">Nhờ người có quyền thu xử lý</span>;
+  }
+  return (
+    <div className="space-y-1">
+      <Link href={x.href} className={buttonClass("secondary", "sm")}>{x.nhan ?? "Xử lý"}</Link>
+      {x.huong_dan ? <p className="max-w-xs text-meta text-ink-muted">{x.huong_dan}</p> : null}
+    </div>
+  );
+}
+
 function TrangThai({ k }: { k: KhachHoaDon }) {
   const ton = k.viec_ton ?? [];
   return (
@@ -81,6 +101,8 @@ function TrangThai({ k }: { k: KhachHoaDon }) {
 export interface LocBanDau {
   tu?: string; den?: string; ca?: string; co_so?: string;
   nhom?: string; hinh_thuc?: string; loai?: string;
+  /** `viec-ton` = mở tab Việc tồn; `viec` = nhóm (`no_khach` / `no_phong_kham`) hoặc mã loại. */
+  tab?: string; viec?: string;
 }
 
 export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; banDau?: LocBanDau }) {
@@ -93,7 +115,9 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
   const [coSoChon, setCoSoChon] = useState(banDau.co_so ?? "");
   const [nhom, setNhom] = useState(banDau.nhom && banDau.nhom in NHOM_HOA_DON ? banDau.nhom : "");
   const [hinhThuc, setHinhThuc] = useState(banDau.hinh_thuc ?? "");
-  const [tab, setTab] = useState<Tab>("khach");
+  const [tab, setTab] = useState<Tab>(banDau.tab === "viec-ton" ? "ton" : "khach");
+  const [viec, setViec] = useState(banDau.viec ?? "");
+  const quyen = useQuyen();
   const [access, setAccess] = useState<ReportCalendar | null>(null);
   const [data, setData] = useState<DanhSachData | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
@@ -137,7 +161,9 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
   }, [chuoi]);
 
   const ds = data?.khach ?? [];
-  const ton = data?.viec_ton ?? [];
+  const tonDay = data?.viec_ton ?? [];
+  // Lọc Ở MÀN chỉ để thu hẹp danh sách (không tính tiền): nhóm do máy chủ gắn.
+  const ton = viec ? tonDay.filter(v => v.nhom_no === viec || v.loai === viec) : tonDay;
   const tk = data?.tong_khach;
   const moKhach = (patientId: string | null) => {
     const k = ds.find(x => x.id === patientId);
@@ -232,7 +258,7 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
             <SoTien ten="Đã trả lại khách" so={tien(data.tong.da_hoan)} />
             <SoTien ten="Thực thu" so={tien(data.tong.thu_rong)} />
             <SoTien ten="Chưa trả lại khách" so={tien(data.tong.chua_tra_lai ?? 0)} nhan={(data.tong.chua_tra_lai ?? 0) > 0 ? "do" : undefined} />
-            <SoTien ten="Việc còn tồn" so={`${data.tong.so_viec_ton ?? ton.length} việc`} nhan={ton.length ? "do" : undefined} />
+            <SoTien ten="Việc còn tồn" so={`${data.tong.so_viec_ton ?? tonDay.length} việc`} nhan={tonDay.length ? "do" : undefined} />
           </dl>
 
           <div className="flex justify-end">
@@ -240,7 +266,7 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
               nhan="Xem theo"
               chon={tab}
               onChon={setTab}
-              muc={[{ ma: "khach", nhan: "Theo khách" }, { ma: "ton", nhan: "Việc còn tồn", dem: ton.length }]}
+              muc={[{ ma: "khach", nhan: "Theo khách" }, { ma: "ton", nhan: "Việc còn tồn", dem: tonDay.length }]}
             />
           </div>
 
@@ -317,12 +343,22 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
             </>
           ) : (
             <>
-              {!ton.length ? <p className="rounded-card bg-surface p-4 text-body text-ink-muted ring-1 ring-hairline">Không còn việc tồn.</p> : null}
+              {tonDay.length ? (
+                <OLoc ten="Loại việc" className="max-w-xs">
+                  <select aria-label="Loại việc tồn" className={`${INPUT} w-full`} value={viec} onChange={e => setViec(e.target.value)}>
+                    <option value="">Mọi loại việc</option>
+                    <option value="no_khach">Khách còn nợ phòng khám</option>
+                    <option value="no_phong_kham">Phòng khám còn nợ khách</option>
+                    {[...new Map(tonDay.map(v => [v.loai, v.ten_loai])).entries()].map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                  </select>
+                </OLoc>
+              ) : null}
+              {!ton.length ? <p className="rounded-card bg-surface p-4 text-body text-ink-muted ring-1 ring-hairline">{tonDay.length ? "Không có việc tồn thuộc loại đã chọn." : "Không còn việc tồn."}</p> : null}
               {ton.length ? (
                 <div className="hidden overflow-x-auto rounded-card bg-surface ring-1 ring-hairline md:block">
                   <table className="w-full text-body">
                     <thead className="bg-surface-muted text-left text-meta text-ink-muted">
-                      <tr>{["Phát sinh", "Khách", "Việc", "Số tiền", "Đã tồn"].map((t, i) => <th key={t} className={`px-3 py-2 font-semibold ${i === 3 ? "text-right" : ""}`}>{t}</th>)}</tr>
+                      <tr>{["Phát sinh", "Khách", "Việc", "Số tiền", "Đã tồn", "Xử lý"].map((t, i) => <th key={t} className={`px-3 py-2 font-semibold ${i === 3 ? "text-right" : ""}`}>{t}</th>)}</tr>
                     </thead>
                     <tbody>
                       {ton.map((v, i) => {
@@ -342,6 +378,7 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
                             </td>
                             <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(v.so_tien)}</td>
                             <td className="px-3 py-3 whitespace-nowrap">{daTon(v.luc)}</td>
+                            <td className="px-3 py-3"><NutXuLy v={v} quyen={quyen} /></td>
                           </tr>
                         );
                       })}
@@ -357,6 +394,7 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
                       <b className="tabular-nums">{tien(v.so_tien)}</b>
                     </div>
                     <p className="mt-1 text-meta text-ink-muted">{v.ten ?? "—"} · {daTon(v.luc)}{v.mo_ta ? ` · ${v.mo_ta}` : ""}</p>
+                    <div className="mt-2"><NutXuLy v={v} quyen={quyen} /></div>
                   </article>
                 ))}
               </div>

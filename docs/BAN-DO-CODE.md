@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 12:53. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 14:27. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -166,7 +166,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/hoa-don` — Danh sách hoá đơn
 - page: `src/dashboard/app/(dashboard)/hoa-don/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
-- thành phần: DanhSachHoaDon.tsx, app/(dashboard)/form-ui.ts, ChiTietHoaDon.tsx, types.ts, app/(dashboard)/reports/NgayTrucBaoCao.tsx
+- thành phần: DanhSachHoaDon.tsx, app/(dashboard)/QuyenContext.tsx, app/(dashboard)/form-ui.ts, ChiTietHoaDon.tsx, types.ts, app/(dashboard)/reports/NgayTrucBaoCao.tsx
 - gọi API Next: `/api/hoa-don`, `/api/reports/access`
 - gọi thẳng backend (server): `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
 - service: DanhSachHoaDonService.xem · danh_sach_hoa_don_service · ReportAccessService.access

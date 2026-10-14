@@ -223,9 +223,13 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
   // `?luot=` — mở quầy từ nút "Thu ngay" của check-out (khách còn nợ,
   // 01/10/2026): chọn sẵn đúng lượt ấy.
   const thamSo = useSearchParams();
-  const [chonVisit, setChonVisit] = useState<string | null>(
-    () => thamSo?.get("luot") ?? null,
-  );
+  const luotTuUrl = thamSo?.get("luot") ?? null;
+  const [chonVisit, setChonVisit] = useState<string | null>(() => luotTuUrl);
+  // Đã từng thấy lượt của liên kết trong hàng chờ chưa (chốt một chiều). Lượt
+  // thu xong rồi biến mất khỏi hàng chờ là chuyện thường — màn nhảy sang khách
+  // kế; còn lượt của LIÊN KẾT chưa bao giờ có ở đây thì KHÔNG được nhảy sang
+  // khách khác (G4a, 14/10/2026: bấm "Xử lý" từ việc tồn mà thu nhầm người).
+  const [daThayLuotUrl, setDaThayLuotUrl] = useState(false);
   // Lượt vừa thu xong — để mời Check-out ngay dưới câu "Đã thu…" (27/09/2026,
   // đợt 3). Nút tự ẩn nếu tài khoản không có quyền đóng lượt.
   // Gắn với ĐÚNG câu báo của lần thu ấy (`cau`): câu báo đổi sang việc khác
@@ -585,7 +589,15 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
     (quay !== "dich_vu" && l.drugs.length > 0);
   const daXong = ds.filter((l) => lienQuan(l) && !conCho.includes(l)).length;
 
-  const dangXem = conCho.find((l) => l.visit_id === chonVisit) ?? conCho[0] ?? null;
+  // Chốt một chiều: đã thấy lượt của liên kết một lần thì sau đó nó rời hàng chờ
+  // (thu xong) là chuyện thường — mẫu "lưu thông tin từ lần render trước" của React.
+  if (!daThayLuotUrl && luotTuUrl && conCho.some((l) => l.visit_id === luotTuUrl)) {
+    setDaThayLuotUrl(true);
+  }
+  const luotUrlLac = !!luotTuUrl && chonVisit === luotTuUrl && !daThayLuotUrl;
+  const dangXem =
+    conCho.find((l) => l.visit_id === chonVisit) ??
+    (luotUrlLac ? null : (conCho[0] ?? null));
 
   const daThuChoPhong =
     quay === "thuoc"
@@ -613,6 +625,16 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
           className="rounded-control border border-danger bg-danger-bg px-3 py-2 text-meta text-danger"
         >
           {loi}
+        </p>
+      ) : null}
+      {luotUrlLac ? (
+        <p
+          role="alert"
+          className="rounded-control border border-warning bg-warning-bg px-3 py-2 text-meta text-warning"
+        >
+          Khách bạn mở từ liên kết hiện không nằm trong danh sách chờ thu của quầy này (đã xử lý
+          xong, thuộc quầy hoặc cơ sở khác, hoặc ngoài ca đang trực). Máy KHÔNG tự chọn khách khác —
+          chọn đúng khách trong danh sách bên dưới nếu có.
         </p>
       ) : null}
       {xong ? (

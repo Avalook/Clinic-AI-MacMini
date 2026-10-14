@@ -23,6 +23,32 @@ from clinicai.services.hoan_tac_service import (
 from clinicai.services.quay_thu_service import _DONG_SQL
 from clinicai.services.report_access_service import ReportAccessService
 
+
+def _ngay_vn(v: Any) -> str | None:
+    return (
+        v.astimezone(CLINIC_TZ).date().isoformat() if isinstance(v, datetime) else None
+    )
+
+
+def luc_that(r: dict[str, Any]) -> Any:
+    """Mốc để hiện "đã tồn bao lâu". Dòng sổ ``DAU_KY`` có ``luc`` = mốc BẬT SỔ
+    (nên hiện "1 giờ" cho khoản nợ có từ hôm trước) → lấy ngày thật của lượt
+    (đóng, không thì tạo). Dòng sổ khác: giờ sự kiện sinh ra khoản ấy."""
+    if r.get("loai") == "DAU_KY":
+        return r.get("luot_dong_luc") or r.get("luot_tao_luc") or r.get("luc")
+    return r.get("luc")
+
+
+def quay_cua_no(chi_tiet: list[dict[str, Any]]) -> str:
+    """Quầy thu khoản nợ: chỉ toàn thuốc → ``thuoc``; còn lại → ``dich_vu``."""
+    khoan = [x for x in chi_tiet if x.get("loai") != "CK_CHO"]
+    return (
+        "thuoc"
+        if khoan and all(x.get("loai") == "prescription" for x in khoan)
+        else "dich_vu"
+    )
+
+
 _BILLS = """
 SELECT pc.payment_cycle_id::text id, pc.visit_id::text visit_id, pc.kind,
  pc.amount, pc.status, pc.created_at, pc.paid_at, pc.closed_at, pc.close_reason,
@@ -106,8 +132,11 @@ _KHACH_PC = _KHACH_CUA_LUOT.format(luot="pc.visit_id", clinic="pc.clinic_id")
 _TON_HOAN = f"""
 SELECT r.refund_id::text refund_id, r.visit_id::text visit_id, r.kind, r.amount,
  r.status, r.reason, r.created_at, r.closed_at, s.full_name nguoi,
- p.clinic_patient_id::text patient_id, p.full_name ten, p.patient_code ma_bn
+ p.clinic_patient_id::text patient_id, p.full_name ten, p.patient_code ma_bn,
+ pc0.paid_at thu_luc
 FROM payment_refund r {_KHACH_CUA_LUOT.format(luot="r.visit_id", clinic="r.clinic_id")}
+LEFT JOIN payment_cycle pc0
+ ON pc0.clinic_id=r.clinic_id AND pc0.payment_cycle_id=r.payment_cycle_id
 LEFT JOIN staff s ON s.id=r.created_by
 WHERE r.clinic_id=$1::uuid AND r.status='PENDING' AND {_LOC}
  AND ($3::text IS NULL OR r.kind=$3)
@@ -324,7 +353,11 @@ class DanhSachHoaDonService:
         from clinicai.services.so_no_service import PHAI_THU, PHAI_TRA, doc_so_du_mo
 
         args = (clinic_id, co_so, loai)
-        hoan = [dict(r) for r in await conn.fetch(_TON_HOAN, *args)]
+        hoan = [
+            # Ngày thu gốc (giờ VN) — nút "Xử lý hoàn tiền" mở quầy đúng ngày ấy.
+            {**dict(r), "ngay_thu": _ngay_vn(r["thu_luc"])}
+            for r in await conn.fetch(_TON_HOAN, *args)
+        ]
         ck = [dict(r) for r in await conn.fetch(_TON_CK, *args)]
 
         def hop_loai(x: dict[str, Any]) -> bool:
@@ -349,7 +382,8 @@ class DanhSachHoaDonService:
                         **r,
                         "id": r["cong_no_id"] or r["id"],
                         "so_tien": con,
-                        "ghi_luc": r["luc"],
+                        "ghi_luc": luc_that(r),
+                        "quay": quay_cua_no(r["chi_tiet"]),
                     }
                 )
         tra: dict[str, dict[str, Any]] = {}
@@ -357,5 +391,5 @@ class DanhSachHoaDonService:
         if loai in (None, "dich_vu"):
             for r in await doc_so_du_mo(conn, clinic_id, PHAI_TRA, co_so):
                 tra[r["visit_id"]] = {"tong": r["so_du"], "dong": r["chi_tiet"]}
-                luot[r["visit_id"]] = r
+                luot[r["visit_id"]] = {**r, "luc": luc_that(r)}
         return gom_viec_ton(hoan=hoan, ck=ck, no=no, tien_thua=tra, luot=luot)

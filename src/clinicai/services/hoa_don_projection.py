@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
+from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.quay_thu_service import ma_phieu
 
 
@@ -486,6 +487,96 @@ TRANG_THAI_PHIEU = frozenset(
 )
 
 
+def _ngay_vn(v: Any) -> str | None:
+    """Ngày (giờ VN, YYYY-MM-DD) của một mốc giờ; không phải giờ → None."""
+    if not isinstance(v, datetime):
+        return None
+    return v.astimezone(CLINIC_TZ).date().isoformat()
+
+
+#: Việc tồn → màn xử lý (G4a nối màn, 14/10/2026). `lego` = quyền màn đích cần
+#: (màn chỉ dùng để ẨN nút — máy chủ vẫn tự kiểm ở mọi lệnh).
+LEGO_QUAY = {"dich_vu": "payment.service.collect", "thuoc": "payment.medicine.collect"}
+LEGO_CHECK_OUT = "reception.checkin.perform"
+
+
+def duong_xu_ly(v: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Đích của nút "Xử lý" cho một dòng việc tồn. Thuần.
+
+    Quầy thu hôm nay đã gom lượt cũ còn việc (nợ, CK chờ, tiền phòng khám nợ
+    khách) nên KHÔNG truyền ngày — chỉ ``?luot=``. Việc chưa có màn xử lý riêng
+    (khách đã về mà chưa làm) trả ``huong_dan`` bằng chữ, không link giả."""
+    loai = str(v.get("loai"))
+    vid = v.get("visit_id")
+    if not vid:
+        return None
+    quay = "thuoc" if v.get("kind") == "thuoc" else "dich_vu"
+    # Đường quầy thu là `/thu-ngan/dich-vu` (gạch NGANG), mã quầy là `dich_vu`.
+    duong = "thuoc" if quay == "thuoc" else "dich-vu"
+    if loai == "GHI_NO":
+        return {
+            "href": f"/thu-ngan/{duong}?luot={vid}",
+            "nhan": "Thu nợ / miễn",
+            "lego": LEGO_QUAY[quay],
+        }
+    if loai == "CK_CHUA_VE":
+        return {
+            "href": f"/thu-ngan/{duong}?luot={vid}",
+            "nhan": "Xác nhận đã nhận tiền",
+            "lego": LEGO_QUAY[quay],
+        }
+    if loai == "CHUA_TRA_LAI":
+        if v.get("luot_con_mo"):
+            return {
+                "href": f"/reception/checkout?luot={vid}",
+                "nhan": "Mở lượt để xử lý",
+                "lego": LEGO_CHECK_OUT,
+            }
+        return {
+            "href": f"/thu-ngan/dich-vu?luot={vid}",
+            "nhan": "Hoàn tiền thừa",
+            "lego": LEGO_QUAY["dich_vu"],
+        }
+    if loai == "CHUA_LAM":
+        if v.get("luot_con_mo"):
+            return {
+                "href": f"/reception/checkout?luot={vid}",
+                "nhan": "Đóng lượt / làm tiếp",
+                "lego": LEGO_CHECK_OUT,
+            }
+        return {
+            "huong_dan": (
+                "Mời khách quay lại làm, hoặc đánh dấu “không làm” ở phòng dịch vụ"
+                " để tiền thành tiền thừa rồi hoàn ở quầy thu."
+            ),
+        }
+    if loai in ("HOAN_CHUA_XONG", "HOAN_THAT_BAI"):
+        ngay = v.get("ngay_thu")
+        if not ngay:
+            return None
+        return {
+            "href": f"/thu-ngan/{duong}?ngay={ngay}",
+            "nhan": "Xử lý hoàn tiền",
+            "lego": LEGO_QUAY[quay],
+            "huong_dan": (
+                "Mở tab “Đã thanh toán ngày …”, tìm khách, xác nhận chuyển xong"
+                " (kèm mã giao dịch) hoặc ghi không thành."
+            ),
+        }
+    return None
+
+
+def _mo_ta_chua_lam(ten: Any, luot: Mapping[str, Any]) -> str:
+    """ "Đã thu – khách về chưa làm": nói đúng trạng thái lượt. Sổ coi "đã về" =
+    đã đóng HOẶC tạo trước hôm nay (cố ý, R14) — lượt hôm trước CHƯA đóng vẫn có
+    thể hiện ở "Lượt tồn đọng" của màn Check-out, nên không được viết "đã đóng"."""
+    if isinstance(luot.get("luot_dong_luc"), datetime):
+        return f"{ten} chưa làm — lượt đã đóng, khách đã về"
+    ngay = _ngay_vn(luot.get("luot_tao_luc"))
+    hom = f" ({ngay[8:10]}/{ngay[5:7]})" if ngay else ""
+    return f"{ten} chưa làm — lượt hôm trước{hom} chưa đóng; đóng lượt hoặc làm tiếp"
+
+
 def gom_viec_ton(
     *,
     hoan: Sequence[Mapping[str, Any]],
@@ -502,17 +593,30 @@ def gom_viec_ton(
     out: list[dict[str, Any]] = []
 
     def them(loai: str, luc: Any, khach: Mapping[str, Any], **x: Any) -> None:
-        out.append(
-            {
-                "loai": loai,
-                "ten_loai": TEN_VIEC_TON[loai],
-                "luc": luc if isinstance(luc, str) or luc is None else _iso(luc),
-                "patient_id": khach.get("patient_id"),
-                "ten": khach.get("ten"),
-                "ma_bn": khach.get("ma_bn"),
-                **x,
-            }
+        # NGÀY THẬT của lượt (không phải giờ dòng sổ) + lượt còn mở từ hôm trước
+        # hay đã đóng — để mô tả đúng và chọn đúng màn xử lý.
+        dong, tao = khach.get("luot_dong_luc"), khach.get("luot_tao_luc")
+        row = {
+            "loai": loai,
+            "ten_loai": TEN_VIEC_TON[loai],
+            "luc": luc if isinstance(luc, str) or luc is None else _iso(luc),
+            "patient_id": khach.get("patient_id"),
+            "ten": khach.get("ten"),
+            "ma_bn": khach.get("ma_bn"),
+            "luot_ngay": _ngay_vn(dong or tao),
+            "luot_con_mo": isinstance(tao, datetime) and not isinstance(dong, datetime),
+            **x,
+        }
+        row["xu_ly"] = duong_xu_ly(row)
+        # Nhóm của dòng cho bộ lọc / link từ báo cáo (máy chủ quyết, màn chỉ lọc).
+        row["nhom_no"] = (
+            "no_khach"
+            if loai in _VIEC_NO_KHACH
+            else "no_phong_kham"
+            if loai in _VIEC_NO_PHONG_KHAM
+            else None
         )
+        out.append(row)
 
     for r in hoan:
         them(
@@ -546,7 +650,7 @@ def gom_viec_ton(
             so_tien=int(n["so_tien"]),
             ma=None,
             visit_id=n.get("visit_id"),
-            kind=None,
+            kind=n.get("quay"),
             mo_ta=n.get("ly_do"),
             nguoi=n.get("nguoi"),
         )
@@ -563,7 +667,7 @@ def gom_viec_ton(
                 visit_id=vid,
                 kind="dich_vu",
                 mo_ta=(
-                    f"{d['ten']} chưa làm — lượt đã đóng, khách đã về"
+                    _mo_ta_chua_lam(d["ten"], k)
                     if chua_lam
                     else f"Bỏ {d['ten']} sau khi đã thu"
                     if d.get("loai") != "KHONG_LAM"

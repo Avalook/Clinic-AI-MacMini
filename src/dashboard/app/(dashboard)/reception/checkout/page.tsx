@@ -11,8 +11,17 @@ import LiveBoardSync from "../../LiveBoardSync";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReceptionCheckoutPage() {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function ReceptionCheckoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requireNavAccess("/reception/checkout");
+  // `?luot=<visit_id>` (nút "Xử lý" của việc tồn ở /hoa-don): chỉ nhận UUID.
+  const sp = await searchParams;
+  const luot = typeof sp.luot === "string" && UUID.test(sp.luot) ? sp.luot : undefined;
 
   const data = await fetchFromBackend<{ ok: boolean; items: CheckoutRow[] }>(
     "/api/v1/reception/checkout",
@@ -26,7 +35,7 @@ export default async function ReceptionCheckoutPage() {
 
       {/* `data === null` = backend không trả lời, KHÁC HẲN "không còn ai cần
           đóng". Truyền cờ xuống để màn hình nói ra thay vì vẽ danh sách rỗng. */}
-      <CheckoutBoard initial={data?.items ?? []} ok={data !== null} />
+      <CheckoutBoard initial={data?.items ?? []} ok={data !== null} luotMoSan={luot} />
     </main>
     </>
   );

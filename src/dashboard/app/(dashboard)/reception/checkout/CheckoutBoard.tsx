@@ -55,14 +55,19 @@ const BANG_CHECKOUT = [
 export default function CheckoutBoard({
   initial,
   ok,
+  luotMoSan,
 }: {
   initial: CheckoutRow[];
   ok: boolean;
+  /** `?luot=` từ nút "Xử lý" của việc tồn: chọn sẵn / tô sáng đúng lượt ấy. */
+  luotMoSan?: string;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState(initial);
   const [live, setLive] = useState(ok);
-  const [dangChon, setDangChon] = useState<string | null>(null);
+  const [dangChon, setDangChon] = useState<string | null>(
+    () => (luotMoSan && initial.some((r) => r.visit_id === luotMoSan) ? luotMoSan : null),
+  );
   const [tab, setTab] = useState<"tat_ca" | "san_sang" | "bi_chan">("tat_ca");
   const [timKiem, setTimKiem] = useState("");
   const [reason, setReason] = useState("");
@@ -217,7 +222,7 @@ export default function CheckoutBoard({
 
       {/* Lượt còn mở từ HÔM TRƯỚC (đợt 3, 27/09/2026) — danh sách dưới chỉ là
           lượt hôm nay; không có khối này thì lượt treo không hiện ở đâu. */}
-      <LuotTonDong onDaDong={() => void reload()} />
+      <LuotTonDong onDaDong={() => void reload()} luotNoiBat={luotMoSan} />
 
       {pending.length === 0 ? (
         <div className="rounded-card border border-line bg-surface px-4 py-10 text-center">

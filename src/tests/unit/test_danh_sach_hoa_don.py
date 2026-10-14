@@ -357,6 +357,8 @@ def test_viec_ton_cu_nhat_truoc_va_khach_con_viec_len_dau() -> None:
         luot={},
     )
     assert [v["loai"] for v in ton] == ["GHI_NO", "CK_CHUA_VE"]
+    # Nhóm do máy chủ gắn — link "Nợ" ở báo cáo mở đúng nhóm này ở tab Việc tồn.
+    assert [v["nhom_no"] for v in ton] == ["no_khach", "no_khach"]
     now = datetime(2026, 10, 13, tzinfo=timezone.utc)
     receipts = [
         dict(
@@ -380,6 +382,129 @@ def test_viec_ton_cu_nhat_truoc_va_khach_con_viec_len_dau() -> None:
         receipts, [], [], [], tim=None, trang_thai="CON_VIEC_TON", viec_ton=ton
     )
     assert [g["id"] for g in only["khach"]] == ["p2"]
+
+
+def _tg(ngay: int, gio: int = 9) -> datetime:
+    return datetime(2026, 10, ngay, gio, tzinfo=timezone.utc)
+
+
+def test_duong_xu_ly_theo_loai_viec_ton() -> None:
+    """Nút "Xử lý" (G4a nối màn): mỗi loại việc tồn một đích; quầy thu hôm nay đã
+    gom lượt cũ nên chỉ `?luot=`, không truyền ngày; việc chưa có màn riêng thì
+    chỉ có hướng dẫn bằng chữ — không link giả."""
+    from clinicai.services.hoa_don_projection import duong_xu_ly
+
+    base = dict(visit_id="v1", kind=None, luot_con_mo=False, ngay_thu=None)
+    no_dv = duong_xu_ly(dict(base, loai="GHI_NO", kind="dich_vu"))
+    assert no_dv is not None
+    assert (no_dv["href"], no_dv["lego"]) == (
+        "/thu-ngan/dich-vu?luot=v1",
+        "payment.service.collect",
+    )
+    no_thuoc = duong_xu_ly(dict(base, loai="GHI_NO", kind="thuoc"))
+    assert no_thuoc is not None and no_thuoc["href"] == "/thu-ngan/thuoc?luot=v1"
+    # Chưa rõ quầy → dịch vụ (không để nút vô chủ).
+    chua = duong_xu_ly(dict(base, loai="GHI_NO"))
+    assert chua is not None and chua["href"] == "/thu-ngan/dich-vu?luot=v1"
+    ck = duong_xu_ly(dict(base, loai="CK_CHUA_VE", kind="thuoc"))
+    assert ck is not None and ck["nhan"] == "Xác nhận đã nhận tiền"
+    assert ck["href"] == "/thu-ngan/thuoc?luot=v1"
+    # Phòng khám nợ khách: lượt đã đóng → khối Tiền thừa ở quầy; còn mở → check-out.
+    dong = duong_xu_ly(dict(base, loai="CHUA_TRA_LAI"))
+    assert dong is not None and dong["href"] == "/thu-ngan/dich-vu?luot=v1"
+    mo = duong_xu_ly(dict(base, loai="CHUA_TRA_LAI", luot_con_mo=True))
+    assert mo is not None and mo["href"] == "/reception/checkout?luot=v1"
+    assert mo["lego"] == "reception.checkin.perform"
+    # Đã thu mà chưa làm: lượt còn mở → check-out; đã đóng → chỉ hướng dẫn.
+    lam_mo = duong_xu_ly(dict(base, loai="CHUA_LAM", luot_con_mo=True))
+    assert lam_mo is not None and lam_mo["href"] == "/reception/checkout?luot=v1"
+    lam_dong = duong_xu_ly(dict(base, loai="CHUA_LAM"))
+    assert lam_dong is not None and "href" not in lam_dong
+    assert "không làm" in lam_dong["huong_dan"]
+    # Hoàn tiền chưa xong: mở quầy đúng NGÀY THU của phiếu gốc.
+    hoan = duong_xu_ly(
+        dict(base, loai="HOAN_CHUA_XONG", kind="thuoc", ngay_thu="2026-10-13")
+    )
+    assert hoan is not None
+    assert hoan["href"] == "/thu-ngan/thuoc?ngay=2026-10-13"
+    assert duong_xu_ly(dict(base, loai="HOAN_THAT_BAI")) is None  # không biết ngày thu
+    # Thiếu lượt / loại lạ → không nút.
+    assert duong_xu_ly(dict(base, loai="GHI_NO", visit_id=None)) is None
+    assert duong_xu_ly(dict(base, loai="LA_HOAC")) is None
+
+
+def test_mo_ta_chua_lam_noi_dung_trang_thai_luot() -> None:
+    """Bấm thật 14/10: việc tồn nói "lượt đã đóng" trong khi Check-out liệt kê
+    chính khách ấy là lượt hôm trước CÒN MỞ. Chữ phải theo trạng thái lượt."""
+    from clinicai.services.hoa_don_projection import gom_viec_ton
+
+    dong = [dict(ten="Ghế điện từ trường", so_tien=3_000_000, loai="CHUA_LAM")]
+    mo = gom_viec_ton(
+        hoan=[],
+        ck=[],
+        no=[],
+        tien_thua={"v1": dict(tong=3_000_000, dong=dong)},
+        luot={
+            "v1": dict(
+                patient_id="p",
+                ten="A",
+                ma_bn="A1",
+                luc=_tg(12),
+                luot_tao_luc=_tg(12),
+                luot_dong_luc=None,
+            )
+        },
+    )
+    assert "lượt hôm trước (12/10) chưa đóng" in mo[0]["mo_ta"]
+    assert "đóng lượt hoặc làm tiếp" in mo[0]["mo_ta"]
+    assert "đã đóng, khách đã về" not in mo[0]["mo_ta"]
+    assert mo[0]["luot_con_mo"] is True and mo[0]["luot_ngay"] == "2026-10-12"
+    assert mo[0]["xu_ly"]["href"] == "/reception/checkout?luot=v1"
+    da_dong = gom_viec_ton(
+        hoan=[],
+        ck=[],
+        no=[],
+        tien_thua={"v1": dict(tong=3_000_000, dong=dong)},
+        luot={
+            "v1": dict(
+                patient_id="p",
+                ten="A",
+                ma_bn="A1",
+                luc=_tg(13),
+                luot_tao_luc=_tg(12),
+                luot_dong_luc=_tg(13),
+            )
+        },
+    )
+    assert "lượt đã đóng, khách đã về" in da_dong[0]["mo_ta"]
+    assert (
+        da_dong[0]["luot_con_mo"] is False and da_dong[0]["luot_ngay"] == "2026-10-13"
+    )
+
+
+def test_luc_that_dau_ky_lay_ngay_that_cua_luot() -> None:
+    """ "1 giờ" gây hiểu lầm: dòng DAU_KY có `luc` = mốc BẬT SỔ, không phải tuổi
+    khoản nợ. Hiện ngày thật của lượt (đóng, không thì tạo)."""
+    from clinicai.services.danh_sach_hoa_don_service import luc_that, quay_cua_no
+    from clinicai.services.so_no_service import NHAN_LOAI
+
+    bat_so = _tg(14, 8)
+    dau_ky = dict(
+        loai="DAU_KY", luc=bat_so, luot_tao_luc=_tg(10), luot_dong_luc=_tg(11)
+    )
+    assert luc_that(dau_ky) == _tg(11)
+    assert luc_that(dict(dau_ky, luot_dong_luc=None)) == _tg(10)
+    assert luc_that(dict(dau_ky, luot_tao_luc=None, luot_dong_luc=None)) == bat_so
+    # Dòng sổ thường: giờ sự kiện sinh ra khoản ấy.
+    assert luc_that(dict(dau_ky, loai="KHI_VE", luc=_tg(12))) == _tg(12)
+    assert NHAN_LOAI["DAU_KY"] == "Nợ từ trước khi bật sổ"
+    # Quầy thu khoản nợ: chỉ toàn thuốc → thuốc; còn lại → dịch vụ.
+    assert quay_cua_no([dict(loai="prescription"), dict(loai="CK_CHO")]) == "thuoc"
+    assert (
+        quay_cua_no([dict(loai="prescription"), dict(loai="service_order")])
+        == "dich_vu"
+    )
+    assert quay_cua_no([]) == "dich_vu"
 
 
 def test_moi_sheet_co_ma_khach_deu_co_ten_khach() -> None:

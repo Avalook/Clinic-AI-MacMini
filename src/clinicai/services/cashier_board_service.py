@@ -202,6 +202,24 @@ WITH v AS (
              WHERE $4::boolean AND n.clinic_id = $1::uuid
                AND n.trang_thai = 'CHUA_THU'
             UNION ALL
+            -- VIỆC TỒN CỦA MỌI NGÀY (G4a nối màn, 14/10/2026): nút "Xử lý" ở
+            -- /hoa-don mở đúng khách tại đây, nên mọi khoản việc tồn phải có chỗ
+            -- xử lý, không bị cắt bởi hạn ngày của vế "đã về" bên dưới:
+            --  · chuyển khoản CHỜ xác minh bất kể tuổi lượt ("Đã nhận tiền");
+            --  · tiền phòng khám còn nợ khách (sổ nợ, chiều PHAI_TRA còn số dư)
+            --    — khối "Tiền thừa" có nút hoàn.
+            SELECT pc.visit_id FROM public.payment_cycle pc
+             WHERE $4::boolean AND pc.clinic_id = $1::uuid
+               AND pc.status = 'PENDING_VERIFICATION'
+            UNION ALL
+            SELECT n.visit_id FROM public.so_no n
+             WHERE $4::boolean AND n.clinic_id = $1::uuid
+               AND n.chieu = 'PHAI_TRA' AND n.so_du > 0
+               AND NOT EXISTS (SELECT 1 FROM public.so_no m
+                                WHERE m.clinic_id = n.clinic_id
+                                  AND m.visit_id = n.visit_id
+                                  AND m.chieu = n.chieu AND m.seq > n.seq)
+            UNION ALL
             SELECT old.visit_id FROM public.visit old
              WHERE $4::boolean AND old.clinic_id=$1::uuid AND old.created_at<$2
                AND NOT """
