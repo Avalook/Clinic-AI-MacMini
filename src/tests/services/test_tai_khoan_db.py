@@ -361,6 +361,11 @@ async def test_khoa_nghi_viec_va_mo_lai(
         assert m_active is False
         assert s_active is False
 
+    # Màn đọc nhân viên TRƯỚC khi bấm "Mở lại" (route Next gọi doc rồi mới mo-lai):
+    # đã khoá vẫn phải đọc được, nếu không khoá xong không mở lại được từ màn.
+    r = await http.get(f"/api/v1/staff/{sid}/tai-khoan")
+    assert r.status_code == 200, r.text
+
     # 2. Mở lại
     r = await http.post(f"/api/v1/staff/{sid}/mo-lai")
     assert r.status_code == 200, r.text
