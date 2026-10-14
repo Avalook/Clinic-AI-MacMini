@@ -199,8 +199,9 @@ BEGIN
     -- 109 → 110 (08/10/2026): lieu_trinh_tra_truoc (20261008110000, trả trước
     -- k buổi liệu trình vào hoá đơn dịch vụ).
     -- 110 → 111 (14/10/2026, G3b): drug_ma_vach (20261014135000, mã vạch → thuốc).
-    IF scoped_count <> 111 THEN
-        RAISE EXCEPTION 'expected 111 tenant-scoped read policies, found %', scoped_count;
+    -- 111 → 113 (14/10/2026, G6): kiem_ke_ca + kiem_ke_ca_dong (20261014170000).
+    IF scoped_count <> 113 THEN
+        RAISE EXCEPTION 'expected 113 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

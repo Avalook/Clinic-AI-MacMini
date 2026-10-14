@@ -438,6 +438,7 @@ def gom_hang_hoa(
         return ra[loai].setdefault(
             khoa,
             {"ma": r.get("hh_ma"), "ten": r.get("hh_ten") or "Không tên"}
+            | {"khoa": khoa}
             | {"don_vi": r.get("hh_don_vi"), "sl_ban": 0.0, "doanh_thu": 0}
             | {"sl_tra": 0.0, "gia_tri_tra": 0},
         )
@@ -1155,6 +1156,23 @@ class BaoCaoCuoiNgayService:
             (r for r in dong_ds if r.get("cycle_id") in da_thu),
             (dict(r) for r in tra_hang if r["refund_id"] in da_hoan),
         )
+        if loai_loc != "dich_vu":
+            # G6: khối `kho` (tồn đầu/nhập/giao/trả/cuối + kiểm kê) vào từng dòng
+            # thuốc — chỉ THÊM khoá, không đổi số tiền / số lượng thu ở trên.
+            from clinicai.services.kiem_ke_ca_service import ghep_vao_bao_cao
+
+            async with self._pool.acquire() as conn_kho:
+                await ghep_vao_bao_cao(
+                    conn_kho,
+                    bc["hang_hoa"]["thuoc"],
+                    clinic_id=cid,
+                    location_id=cs,
+                    tu_ngay=a,
+                    den_ngay=b,
+                    tu=k5,
+                    den=k6,
+                    ca=khung[2]["ma"] if khung else None,
+                )
         from clinicai.services.tom_tat_tai_chinh_service import tom_tat_tai_chinh
 
         bc["tai_chinh"] = tom_tat_tai_chinh(bc)
