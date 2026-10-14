@@ -348,3 +348,62 @@ async def test_xuat_hoa_don_doc_patient_email(pool: asyncpg.Pool) -> None:
     assert ma_phieu(cycle) in ma
     hd = ma[ma_phieu(cycle)]
     assert hd["email"] == "email_chinh_thuc@example.com"
+
+
+async def test_dau_vao_rac_khong_bi_500() -> None:
+    """Đầu vào rác (full_name/location_id gửi null/rỗng) bị chặn 422, không 500."""
+    with pytest.raises(PydanticValidationError) as exc:
+        PatientUpdateDTO(full_name=None)
+    assert "Họ và tên không được để trống" in str(exc.value)
+
+    with pytest.raises(PydanticValidationError) as exc:
+        PatientUpdateDTO(full_name="   ")
+    assert "Họ và tên không được để trống" in str(exc.value)
+
+    with pytest.raises(PydanticValidationError) as exc:
+        PatientUpdateDTO(location_id=None)
+    assert "Cơ sở không được để trống" in str(exc.value)
+
+    with pytest.raises(PydanticValidationError) as exc:
+        PatientUpdateDTO(is_active=None)
+    assert "Trạng thái hoạt động không được để trống" in str(exc.value)
+
+
+async def test_so_dien_thoai_co_dinh_02_tao_va_sua_duoc(pool: asyncpg.Pool) -> None:
+    """SĐT cố định 02 tạo/sửa được; normalize_vn_phone giữ nguyên không nhận."""
+    from clinicai.core.phone import normalize_vn_phone
+    from clinicai.schemas.patient import PatientCreateDTO
+
+    # normalize_vn_phone giữ nguyên KHÔNG nhận số bàn (tránh gộp nhầm MPI)
+    assert normalize_vn_phone("0281234567") is None
+    assert normalize_vn_phone("0241234567") is None
+
+    # Tạo và sửa hồ sơ với số bàn 02 hợp lệ
+    dto_create = PatientCreateDTO(
+        full_name="Khách Dùng Số Bàn",
+        location_id=uuid.uuid4(),
+        phone_primary="0281234567",
+    )
+    assert dto_create.phone_primary == "0281234567"
+
+    dto_update = PatientUpdateDTO(phone_primary="0247654321")
+    assert dto_update.phone_primary == "0247654321"
+
+    async with pool.acquire() as conn:
+        loc = await conn.fetchval(
+            "SELECT id::text FROM clinic_location "
+            "WHERE clinic_id = $1::uuid AND is_active LIMIT 1;",
+            CLINIC,
+        )
+        pid, staff = await _tao_khach_test(conn, loc, phone_primary="0281234567")
+
+    svc = PatientService(pool)
+    updated = await svc.update_patient(pid, dto_update, identity=staff)
+    assert updated.phone_primary == "0247654321"
+
+    async with pool.acquire() as conn:
+        phone_db = await conn.fetchval(
+            "SELECT phone_primary FROM patient WHERE clinic_patient_id = $1;",
+            pid,
+        )
+        assert phone_db == "0247654321"

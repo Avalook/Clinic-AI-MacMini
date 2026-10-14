@@ -12,6 +12,7 @@ from clinicai.core.phone import normalize_vn_phone
 
 _CCCD_RE = re.compile(r"^\d{12}$")
 _CCCD_9_OR_12_RE = re.compile(r"^(\d{9}|\d{12})$")
+_SO_BAN_RE = re.compile(r"^02\d{8}$")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _LINH_VUC = {"PK", "SK", "NT", "HMVS", "NK"}
 _GENDER = {"Nam", "Nữ", "Khác"}
@@ -106,10 +107,13 @@ class PatientCreateDTO(BaseModel):
         if v is None:
             return None
         normalized = normalize_vn_phone(v)
-        if normalized is None:
-            msg = "phone must be a supported Vietnamese mobile number"
-            raise ValueError(msg)
-        return normalized
+        if normalized is not None:
+            return normalized
+        raw = v.strip()
+        if _SO_BAN_RE.match(raw):
+            return raw
+        msg = "phone must be a supported Vietnamese mobile or landline number"
+        raise ValueError(msg)
 
     @field_validator("national_id_number")
     @classmethod
@@ -223,10 +227,23 @@ class PatientUpdateDTO(BaseModel):
     @field_validator("full_name")
     @classmethod
     def full_name_not_blank(cls, v: str | None) -> str | None:
-        if v is not None and not v.strip():
-            msg = "full_name must not be blank"
-            raise ValueError(msg)
-        return v.strip() if v else v
+        if v is None or not v.strip():
+            raise ValueError("Họ và tên không được để trống")
+        return v.strip()
+
+    @field_validator("location_id")
+    @classmethod
+    def location_id_not_none(cls, v: UUID | None) -> UUID | None:
+        if v is None:
+            raise ValueError("Cơ sở không được để trống")
+        return v
+
+    @field_validator("is_active")
+    @classmethod
+    def is_active_not_none(cls, v: bool | None) -> bool | None:
+        if v is None:
+            raise ValueError("Trạng thái hoạt động không được để trống")
+        return v
 
     @field_validator("phone_primary", "phone_secondary", mode="before")
     @classmethod
@@ -237,9 +254,13 @@ class PatientUpdateDTO(BaseModel):
         if not isinstance(v, str):
             raise ValueError("phone must be a string")
         normalized = normalize_vn_phone(v)
-        if normalized is None:
-            raise ValueError("phone must be a supported Vietnamese mobile number")
-        return normalized
+        if normalized is not None:
+            return normalized
+        raw = v.strip()
+        if _SO_BAN_RE.match(raw):
+            return raw
+        msg = "phone must be a supported Vietnamese mobile or landline number"
+        raise ValueError(msg)
 
     @field_validator("national_id_number", mode="before")
     @classmethod

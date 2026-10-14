@@ -29,7 +29,7 @@ logger = structlog.get_logger()
 
 # Ten digits, leading zero, a plausible Vietnamese prefix. Enforced server-side
 # because the form is not the only caller.
-PHONE_RE = re.compile(r"^0(3|5|7|8|9)\d{8}$")
+PHONE_RE = re.compile(r"^0(2|3|5|7|8|9)\d{8}$")
 
 
 def validate_phone(value: str | None, label: str) -> None:
@@ -37,7 +37,7 @@ def validate_phone(value: str | None, label: str) -> None:
     phone = (value or "").strip()
     if phone and not PHONE_RE.match(phone):
         raise ValidationError(
-            f"{label} không hợp lệ (10 số, bắt đầu bằng 0; đầu số 03/05/07/08/09)."
+            f"{label} không hợp lệ (10 số, bắt đầu bằng 0; đầu số 02/03/05/07/08/09)."
         )
 
 
