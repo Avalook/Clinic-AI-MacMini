@@ -31,6 +31,8 @@ interface DongTieuHao {
   gia_nhap: number;
   gia_tri: number | null;
   dem_dau_luc: string | null;
+  /** Chưa có lần đếm trước kỳ: đầu kỳ = lần đếm đầu tiên trong kỳ. */
+  dau_trong_ky: boolean;
   dem_cuoi_luc: string | null;
   canh_bao: string;
 }
@@ -179,7 +181,7 @@ export default function TieuHaoVatTu() {
                     </p>
                     <p className="text-meta text-ink-muted">
                       {d.du_du_lieu
-                        ? `Đầu ${soVatTu(d.dau)} · Nhận ${soVatTu(d.nhan)} · Trả ${soVatTu(d.tra)} · Cuối ${soVatTu(d.cuoi)} (đếm ${gio(d.dem_dau_luc)} → ${gio(d.dem_cuoi_luc)})`
+                        ? `Đầu ${soVatTu(d.dau)} · Nhận ${soVatTu(d.nhan)} · Trả ${soVatTu(d.tra)} · Cuối ${soVatTu(d.cuoi)} (đếm ${gio(d.dem_dau_luc)} → ${gio(d.dem_cuoi_luc)}${d.dau_trong_ky ? "; chưa có lần đếm trước kỳ nên lấy lần đếm đầu tiên trong kỳ" : ""})`
                         : d.ly_do_thieu}
                     </p>
                   </div>

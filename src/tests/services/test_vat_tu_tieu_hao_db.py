@@ -121,13 +121,13 @@ async def test_thieu_so_dem_thi_noi_chua_du_du_lieu_khong_suy_ton_so(
     )
     assert d["du_du_lieu"] is False and d["tieu_hao"] is None and d["dau"] is None
     assert "Chưa có lần kiểm đếm nào" in d["ly_do_thieu"]
-    # 2) Lần đếm đầu tiên nằm TRONG kỳ: chưa có số đếm đầu kỳ.
+    # 2) Mới có MỘT lần đếm (nằm trong kỳ): chưa tính được.
     await _ghi(pool, identity, vt, "KIEM", tu=p, so=7)
     t2 = await _moc(pool)
     d = _dong_cua(
         await tinh_theo_moc(pool, identity=identity, tu_luc=t1, den_luc=t2), vt, p
     )
-    assert d["du_du_lieu"] is False and "trước kỳ" in d["ly_do_thieu"]
+    assert d["du_du_lieu"] is False and "một lần kiểm đếm" in d["ly_do_thieu"]
     # 3) Có số đếm trước kỳ nhưng chưa đếm lại: không lấy tồn sổ làm số cuối.
     t3 = await _moc(pool)
     await _ghi(pool, identity, vt, "XUAT_PHONG", den=p, so=2)
@@ -136,7 +136,41 @@ async def test_thieu_so_dem_thi_noi_chua_du_du_lieu_khong_suy_ton_so(
         await tinh_theo_moc(pool, identity=identity, tu_luc=t3, den_luc=t4), vt, p
     )
     assert d["du_du_lieu"] is False and d["tieu_hao"] is None
-    assert "mới trong kỳ" in d["ly_do_thieu"]
+    assert "một lần kiểm đếm" in d["ly_do_thieu"]
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_chua_co_so_dem_truoc_ky_thi_lay_lan_dem_dau_trong_ky(
+    pool: asyncpg.Pool,
+) -> None:
+    """Hệ thống mới: cả hai lần đếm đều nằm TRONG kỳ → vẫn tính, và nói rõ đầu kỳ
+    là lần đếm đầu tiên trong kỳ (giờ thật của hai lần đếm có trong dòng)."""
+    identity, vt, rooms = await _bo(pool)
+    p = rooms[0]
+    tu = await _moc(pool)
+    await _ghi(pool, identity, vt, "XUAT_PHONG", den=p, so=10)
+    await _ghi(pool, identity, vt, "KIEM", tu=p, so=10)
+    await _ghi(pool, identity, vt, "XUAT_PHONG", den=p, so=5)
+    await _ghi(pool, identity, vt, "KIEM", tu=p, so=12)
+    await _ghi(pool, identity, vt, "KIEM", tu=p, so=11)
+    den = await _moc(pool)
+    d = _dong_cua(
+        await tinh_theo_moc(pool, identity=identity, tu_luc=tu, den_luc=den), vt, p
+    )
+    # Lần đếm đầu trong kỳ = 10, lần cuối = 11, nhận 5 giữa hai lần.
+    assert d["dau_trong_ky"] is True and d["du_du_lieu"] is True
+    assert (d["dau"], d["nhan"], d["cuoi"], d["tieu_hao"]) == (10, 5, 11, 4)
+    assert d["dem_dau_luc"] and d["dem_cuoi_luc"]
+    # Có lần đếm trước kỳ thì dùng nó, không dùng lần đầu trong kỳ.
+    d2 = _dong_cua(
+        await tinh_theo_moc(
+            pool, identity=identity, tu_luc=await _moc(pool), den_luc=await _moc(pool)
+        ),
+        vt,
+        p,
+    )
+    assert d2["du_du_lieu"] is False
 
 
 @pytest.mark.db

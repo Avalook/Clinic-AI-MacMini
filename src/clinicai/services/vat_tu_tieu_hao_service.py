@@ -3,7 +3,10 @@
 Tiêu hao = đầu + nhận − trả − cuối, trong đó đầu / cuối là SỐ ĐẾM THẬT (``thuc_te``
 của phiếu KIEM / DIEU_CHINH), không phải tồn trên sổ:
 
-* đầu = lần đếm gần nhất ≤ đầu kỳ, cuối = lần đếm gần nhất ≤ cuối kỳ;
+* đầu = lần đếm gần nhất ≤ đầu kỳ; CHƯA có lần nào ≤ đầu kỳ (hệ thống mới, hoặc
+  đếm ngay buổi sáng ngày đầu kỳ) thì lấy lần đếm ĐẦU TIÊN trong kỳ và báo
+  ``dau_trong_ky`` — mỗi dòng luôn ghi giờ thật của hai lần đếm. Cuối = lần đếm
+  gần nhất ≤ cuối kỳ;
 * nhận / trả / huỷ chỉ tính GIỮA hai lần đếm ấy (theo thứ tự ghi sổ, không theo
   giờ — hai phiếu cùng lúc vẫn có thứ tự: ``giao_dich`` do khoá cơ sở sinh ra);
 * thiếu một trong hai lần đếm → "chưa đủ dữ liệu", KHÔNG suy tồn sổ thành số đếm;
@@ -52,13 +55,26 @@ WITH dong AS (
 ), dau AS (
     SELECT DISTINCT ON (ton_id) ton_id, giao_dich, tao_luc, thuc_te
       FROM dem WHERE tao_luc <= $3 ORDER BY ton_id, giao_dich DESC
+), dau_trong AS (
+    SELECT DISTINCT ON (ton_id) ton_id, giao_dich, tao_luc, thuc_te
+      FROM dem WHERE tao_luc > $3 AND tao_luc <= $4 ORDER BY ton_id, giao_dich
 ), cuoi AS (
     SELECT DISTINCT ON (ton_id) ton_id, giao_dich, tao_luc, thuc_te
       FROM dem WHERE tao_luc <= $4 ORDER BY ton_id, giao_dich DESC
+), moc_dau AS (
+    SELECT t.id AS ton_id,
+           coalesce(a.giao_dich, b.giao_dich) AS giao_dich,
+           coalesce(a.tao_luc, b.tao_luc) AS tao_luc,
+           coalesce(a.thuc_te, b.thuc_te) AS thuc_te,
+           (a.giao_dich IS NULL AND b.giao_dich IS NOT NULL) AS trong_ky
+      FROM public.vat_tu_ton t
+      LEFT JOIN dau a ON a.ton_id = t.id
+      LEFT JOIN dau_trong b ON b.ton_id = t.id
+     WHERE t.clinic_id = $1::uuid AND t.location_id = $2::uuid
 )
 SELECT t.vat_tu_id::text, t.room_id::text, s.name AS ten, s.don_vi,
        r.name AS phong, r.is_active AS phong_dang_bat,
-       d.thuc_te AS dau, d.tao_luc AS dau_luc,
+       d.thuc_te AS dau, d.tao_luc AS dau_luc, d.trong_ky AS dau_trong_ky,
        c.thuc_te AS cuoi, c.tao_luc AS cuoi_luc,
        (d.giao_dich IS NOT NULL AND c.giao_dich IS NOT NULL
         AND c.giao_dich > d.giao_dich) AS du_moc,
@@ -72,7 +88,7 @@ SELECT t.vat_tu_id::text, t.room_id::text, s.name AS ten, s.don_vi,
   FROM public.vat_tu_ton t
   JOIN public.service_price s ON s.id = t.vat_tu_id AND s.clinic_id = t.clinic_id
   JOIN public.clinic_room r ON r.id = t.room_id AND r.clinic_id = t.clinic_id
-  LEFT JOIN dau d ON d.ton_id = t.id
+  LEFT JOIN moc_dau d ON d.ton_id = t.id
   LEFT JOIN cuoi c ON c.ton_id = t.id
   LEFT JOIN LATERAL (
       SELECT sum(f.so_luong)
@@ -115,9 +131,7 @@ def _thieu(dau: Any, cuoi: Any, du_moc: bool) -> str:
         return ""
     if dau is None and cuoi is None:
         return "Chưa có lần kiểm đếm nào"
-    if dau is None:
-        return "Chưa có lần kiểm đếm trước kỳ — lần đếm đầu tiên nằm trong kỳ"
-    return "Chưa có lần kiểm đếm mới trong kỳ"
+    return "Mới có một lần kiểm đếm — cần hai lần (kiểm đếm ở tab Phiếu) để tính"
 
 
 async def tinh_theo_moc(
@@ -154,6 +168,7 @@ async def tinh_theo_moc(
                 "gia_nhap": r["gia_nhap"],
                 "gia_tri": kq["gia_tri"] if kq else None,
                 "dem_dau_luc": r["dau_luc"] if kq else None,
+                "dau_trong_ky": bool(r["dau_trong_ky"]) if kq else False,
                 "dem_cuoi_luc": r["cuoi_luc"] if kq else None,
             }
         )
