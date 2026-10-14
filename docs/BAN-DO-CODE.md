@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 17:56. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 18:02. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -182,11 +182,11 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/ke-toan` — Kế toán
 - page: `src/dashboard/app/(dashboard)/ke-toan/page.tsx` · quyền: lego `ke_toan` (Kế toán · mặc định: Kế toán)
-- thành phần: KeToan.tsx, app/(dashboard)/form-ui.ts, app/(dashboard)/hoa-don/types.ts
-- gọi API Next: `/api/theo-hang-hoa`
+- thành phần: KeToan.tsx, app/(dashboard)/form-ui.ts, app/(dashboard)/hoa-don/types.ts, ThueSuat.tsx, thue-suat.ts
+- gọi API Next: `/api/theo-hang-hoa`, `/api/ke-toan/thue-suat`, `/api/ke-toan/thue-suat/nhom/[nhom]`, `/api/ke-toan/thue-suat/mat-hang`
 - gọi thẳng backend (server): `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
-- service: TheoHangHoaService.xem · theo_hang_hoa_service
-- test: test_theo_hang_hoa_db.py, test_theo_hang_hoa.py
+- service: TheoHangHoaService.xem · theo_hang_hoa_service · ThueSuatService.{xem, dat_nhom, dat_mat_hang}
+- test: test_thue_gtgt_db.py, test_theo_hang_hoa_db.py, test_theo_hang_hoa.py
 
 ### `/kham/[loai]`
 - page: `src/dashboard/app/(dashboard)/kham/[loai]/page.tsx` · quyền: ?
@@ -580,7 +580,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: HoaDonMisaService.{doc_danh_sach, danh_dau, doc_chi_tiet, huy_danh_dau, +2} · XuatHoaDonService.xem · xuat_hoa_don_service
 - test: test_hoa_don_misa_db.py, test_thue_gtgt_db.py, test_sua_ho_so_khach_db.py, test_xuat_hoa_don.py
 
-## 2. API Next → backend (127)
+## 2. API Next → backend (130)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -973,6 +973,21 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/hoa-don/cong-ty/phieu/{payment_cycle_id}/lich-su` → `src/clinicai/api/v1/routers/hoa_don_cong_ty.py:lich_su_cong_ty_hoa_don` → HoaDonCongTyService.doc_lich_su
 - test: src/tests/services/test_hoa_don_cong_ty_db.py
 - màn dùng: (không màn nào gọi thấy được ?)
+
+#### `/api/ke-toan/thue-suat` · `src/dashboard/app/api/ke-toan/thue-suat/route.ts`
+- GET `/api/v1/ke-toan/thue-suat` → `src/clinicai/api/v1/routers/ke_toan.py:xem_thue_suat` → ThueSuatService.xem
+- test: src/tests/services/test_thue_gtgt_db.py
+- màn dùng: /ke-toan
+
+#### `/api/ke-toan/thue-suat/mat-hang` · `src/dashboard/app/api/ke-toan/thue-suat/mat-hang/route.ts`
+- PUT `/api/v1/ke-toan/thue-suat/mat-hang` → `src/clinicai/api/v1/routers/ke_toan.py:dat_thue_mat_hang` → ThueSuatService.dat_mat_hang
+- test: src/tests/services/test_thue_gtgt_db.py
+- màn dùng: /ke-toan
+
+#### `/api/ke-toan/thue-suat/nhom/[nhom]` · `src/dashboard/app/api/ke-toan/thue-suat/nhom/[nhom]/route.ts`
+- PUT `/api/v1/ke-toan/thue-suat/nhom/{nhom}` → `src/clinicai/api/v1/routers/ke_toan.py:dat_thue_nhom` → ThueSuatService.dat_nhom
+- test: src/tests/services/test_thue_gtgt_db.py
+- màn dùng: /ke-toan
 
 #### `/api/lab-result` · `src/dashboard/app/api/lab-result/route.ts`
 - POST `/api/v1/lab/orders` → `src/clinicai/api/v1/routers/lab.py:order_lab_test` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
@@ -1684,7 +1699,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `TheoHangHoaService` | `src/clinicai/services/theo_hang_hoa_service.py` | /ke-toan |
 | `ThongBaoService` | `src/clinicai/services/thong_bao_service.py` | /customers, /doi-tac |
 | `thu_ky_bac_si` | `src/clinicai/services/thu_ky_bac_si.py` | /settings/clinic-config |
-| `ThueSuatService` | `src/clinicai/services/thue_suat_service.py` | — (chỉ API/worker) |
+| `ThueSuatService` | `src/clinicai/services/thue_suat_service.py` | /ke-toan |
 | `ThuTuKhamService` | `src/clinicai/services/thu_tu_kham_service.py` | /customers |
 | `TienThuaService` | `src/clinicai/services/tien_thua_service.py` | /hanh-trinh, /reception/checkout, /reception/queue |
 | `TiepDonService` | `src/clinicai/services/tiep_don_service.py` | /reception/queue |
