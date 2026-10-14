@@ -151,7 +151,7 @@ class TestDuongDoc:
         conn = _Conn([{"id": "b1", "het_han": True}])
         ra = await PharmacyService(_PoolCo(conn)).ton_kho(identity=_identity())
         assert ra[0]["het_han"] is True
-        assert "expiry_date" in conn.da_chay[0]
+        assert any("expiry_date" in sql for sql in conn.da_chay)
 
     @pytest.mark.asyncio
     async def test_thong_bao_cua_toi_loc_theo_vai_va_nguoi(self) -> None:
@@ -234,19 +234,15 @@ class TestNhaThuoc:
             )
         assert "số lô" in str(e.value).lower()
 
-    @pytest.mark.asyncio
-    async def test_nhap_lo_thieu_han_dung_thi_tu_choi(self) -> None:
-        # Thuốc không có hạn dùng trong sổ là thuốc không ai biết khi nào bỏ.
-        with pytest.raises(ValidationError) as e:
-            await PharmacyService(_Pool()).nhap_lo(
-                identity=_identity(),
-                drug_catalog_id="c0000000-0000-4000-8000-000000000001",
-                so_luong=10,
-                batch_code="LO-1",
-                expiry_date=None,
-                unit="viên",
-            )
-        assert "hạn dùng" in str(e.value).lower()
+    def test_nhap_lo_thieu_han_dung_thi_cho_phep(self) -> None:
+        from clinicai.services.pharmacy_service import kiem_dong_nhap
+
+        assert (
+            kiem_dong_nhap(
+                so_luong=10, batch_code="LO-1", expiry_date=None, unit="viên"
+            )[3]
+            is None
+        )
 
     @pytest.mark.asyncio
     async def test_tu_choi_lay_thuoc_phai_co_ly_do(self) -> None:
@@ -384,7 +380,7 @@ class TestCapPhatNoiTruocRangBuoc:
             "expiry_date": hom_qua,
             "name_base": "Androgel",
         }
-        with pytest.raises(ValidationError) as e:
+        with pytest.raises(ConflictError) as e:
             await PharmacyService(_PoolCo(self._conn(don, lo))).cap_phat(
                 identity=_identity(),
                 prescription_id="p1",

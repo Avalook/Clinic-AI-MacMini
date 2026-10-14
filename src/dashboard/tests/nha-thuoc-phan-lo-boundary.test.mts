@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 
 // Màn Nhà thuốc sau contract tiền–thuốc CP4 (19/09/2026). Bốn điều dễ hỏng
 // nhất khi ai đó "sửa nhanh" màn này.
@@ -11,6 +13,31 @@ const board = doc("app/(dashboard)/pharmacy/PharmacyBoard.tsx");
 const dong = doc("app/(dashboard)/pharmacy/DongThuoc.tsx");
 const kieu = doc("app/(dashboard)/pharmacy/ban-thuoc.ts");
 const proxy = doc("app/api/pharmacy/[action]/route.ts");
+
+test("G3a: formatter ngày không vẽ epoch hay Invalid Date cho NULL/rác", () => {
+  const exports: { fmtNgay?: (iso: string | null) => string } = {};
+  const code = ts.transpileModule(kieu, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  runInNewContext(code, { exports, require: () => ({ VN_TZ: "Asia/Ho_Chi_Minh" }) });
+  assert.equal(exports.fmtNgay?.(null), "—");
+  assert.equal(exports.fmtNgay?.(""), "—");
+  assert.equal(exports.fmtNgay?.("ngày rác"), "—");
+  assert.equal(exports.fmtNgay?.("2026-10-14"), "14/10/2026");
+});
+
+test("G3a: hai lối nhập không ép hạn, kho nhận NULL và chưa có hạn là chip xám", () => {
+  const nhap = doc("app/(dashboard)/pharmacy/inventory/NhapLo.tsx");
+  const phieu = doc("app/(dashboard)/pharmacy/inventory/PhieuNhap.tsx");
+  const kho = doc("app/(dashboard)/pharmacy/inventory/InventoryBoard.tsx");
+  const trangKho = doc("app/(dashboard)/pharmacy/inventory/page.tsx");
+  assert.doesNotMatch(nhap, /\|\| !f\.han/);
+  assert.doesNotMatch(phieu, /\|\| !d\.han/);
+  assert.match(nhap, /expiry_date: f\.han \|\| null/);
+  assert.match(kho, /chua_co_han: "neutral"/);
+  assert.match(trangKho, /expiry_date: string \| null/);
+  assert.doesNotMatch(trangKho, /a\.expiry_date\.localeCompare/);
+});
 
 test("màn đọc qua máy chủ, không đọc thẳng Supabase", () => {
   // Giai đoạn tiền thuốc và các nút được phép là luật nghiệp vụ (FastAPI).

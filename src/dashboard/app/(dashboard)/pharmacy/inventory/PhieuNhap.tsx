@@ -190,7 +190,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                   />
                 </label>
                 <label className="block">
-                  <span className={LABEL}>Hạn dùng</span>
+                  <span className={LABEL}>Hạn dùng (có thể nhập sau)</span>
                   <input
                     type="date"
                     value={d.han}
@@ -262,7 +262,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
             <Button
               type="button"
               variant="primary"
-              disabled={dang || dong.some((d) => !d.ten || !d.so_lo.trim() || !d.han || !d.so_luong.trim())}
+              disabled={dang || dong.some((d) => !d.ten || !d.so_lo.trim() || !d.so_luong.trim())}
               onClick={() => void luu()}
             >
               {dang ? "Đang lưu…" : "Lưu phiếu nhập"}

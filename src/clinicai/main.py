@@ -429,6 +429,7 @@ async def exclusion_violation_handler(
     # mỗi khung (clinic_policy.py:31-32) — ba lịch cùng bác sĩ cùng giờ là hợp
     # lệ. Trần theo số đếm phải là trigger, và nó đã có: enforce_slot_capacity.
     known = {
+        "lo_het_han": "Lô này đã hết hạn — đổi lô hoặc hoàn phần chưa giao.",
         "slot_override_no_overlap": (
             "Đã có một điều chỉnh khác phủ khung giờ này — sửa hoặc xoá nó trước."
         ),

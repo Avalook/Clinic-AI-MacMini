@@ -2,7 +2,7 @@
 
 // Nhập lô thuốc vào kho (Tuyền 25/09/2026: "lô thuốc, ngày nhập xuất, kho để
 // họ tự fill"). Gọi lệnh có sẵn `receive` → `POST /api/v1/pharmacy/receive`:
-// số lô, hạn dùng, đơn vị BẮT BUỘC (máy chủ từ chối kèm câu tiếng Việt); tồn
+// số lô và đơn vị bắt buộc; hạn có thể bổ sung sau. Tồn
 // cộng qua sổ kho (trigger), không cộng tay.
 
 import { useRouter } from "next/navigation";
@@ -40,7 +40,7 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
     const kq = await guiKho("receive", {
       drug_catalog_id: chon.id,
       batch_code: f.so_lo.trim(),
-      expiry_date: f.han,
+      expiry_date: f.han || null,
       so_luong: f.so_luong.trim(),
       unit: f.don_vi.trim(),
       cost_price: f.gia_nhap.trim() === "" ? null : f.gia_nhap.trim(),
@@ -92,7 +92,7 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
           </datalist>
         </label>
         {o("so_lo", "Số lô")}
-        {o("han", "Hạn dùng", "date")}
+        {o("han", "Hạn dùng (có thể nhập sau)", "date")}
         {o("so_luong", "Số lượng nhập")}
         {o("don_vi", "Đơn vị")}
         {o("gia_nhap", "Giá nhập (đ / đơn vị)")}
@@ -102,7 +102,7 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
         <Button
           type="button"
           variant="primary"
-          disabled={dang || !f.ten || !f.so_lo.trim() || !f.han || !f.so_luong.trim() || !f.don_vi.trim()}
+          disabled={dang || !f.ten || !f.so_lo.trim() || !f.so_luong.trim() || !f.don_vi.trim()}
           onClick={() => void luu()}
         >
           {dang ? "Đang nhập…" : "Nhập vào kho"}

@@ -19,9 +19,8 @@ interface LoTon {
   drug_catalog_id: string | null;
   name_base: string | null;
   variant: string | null;
-  // Bốn cột NOT NULL ở `drug_batch` (xem PharmacyService.nhap_lo).
   batch_code: string;
-  expiry_date: string;
+  expiry_date: string | null;
   quantity_on_hand: number;
   unit: string;
   cost_price: number | null;
@@ -51,7 +50,7 @@ export default async function PharmacyInventoryPage() {
     );
   }
   const batches = [...data.items]
-    .sort((a, b) => a.expiry_date.localeCompare(b.expiry_date))
+    .sort((a, b) => (a.expiry_date ?? "9999").localeCompare(b.expiry_date ?? "9999"))
     .map(({ name_base, variant, ...b }) => ({
       ...b,
       quantity_on_hand: Number(b.quantity_on_hand),

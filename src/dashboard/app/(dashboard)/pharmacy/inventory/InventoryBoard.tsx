@@ -29,7 +29,7 @@ export interface InvBatch {
   id: string;
   drug_catalog_id: string | null;
   batch_code: string;
-  expiry_date: string;
+  expiry_date: string | null;
   quantity_on_hand: number;
   unit: string;
   cost_price: number | null;
@@ -47,18 +47,20 @@ const fmtDate = (iso: string | null) =>
 const fmtQty = (n: number) =>
   new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 }).format(n);
 
-export type ExpiryState = "con_han" | "sap_het_han" | "het_han";
+export type ExpiryState = "con_han" | "sap_het_han" | "het_han" | "chua_co_han";
 
 const STATE_LABEL: Record<ExpiryState, string> = {
   con_han: "Còn hạn",
   sap_het_han: "Sắp hết hạn",
   het_han: "Hết hạn",
+  chua_co_han: "Chưa có hạn",
 };
 
-const STATE_TONE: Record<ExpiryState, "success" | "warning" | "danger"> = {
+const STATE_TONE: Record<ExpiryState, "success" | "warning" | "danger" | "neutral"> = {
   con_han: "success",
   sap_het_han: "warning",
   het_han: "danger",
+  chua_co_han: "neutral",
 };
 
 type ThaoTacLo = { id: string; loai: "adjust" | "discard"; so_luong: string; ly_do: string };
@@ -145,7 +147,7 @@ export default function InventoryBoard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {(["all", "con_han", "sap_het_han", "het_han"] as const).map((f) => (
+        {(["all", "con_han", "sap_het_han", "het_han", "chua_co_han"] as const).map((f) => (
           <Button
             key={f}
             type="button"
