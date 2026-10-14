@@ -6,12 +6,13 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { buttonClass } from "@/components/ui/Button";
+import Button, { buttonClass } from "@/components/ui/Button";
 import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
 import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
 import { todayVn } from "@/lib/roster";
 import { khoangNhanh, type Khoang } from "@/lib/thanh-ngay";
 import { INPUT } from "../form-ui";
+import LanXuatMisa from "./LanXuatMisa";
 import { tien } from "../hoa-don/types";
 
 type DongHang = { ten: string; dvt: string; so_luong: number; don_gia: number; thanh_tien: number };
@@ -20,8 +21,13 @@ type HoaDon = {
   so_dien_thoai: string; hinh_thuc: string; dong: DongHang[]; tong: number; ghi_chu: string[];
   /** Hoá đơn công ty (G5c): tên + MST của công ty thay cho thông tin khách cá nhân. */
   la_hd_cong_ty: boolean; ten_cong_ty: string; ma_so_thue: string;
+  /** Đã đánh dấu xuất sang MISA chưa; có thay đổi sau khi xuất không + lý do (máy chủ so). */
+  misa: { xuat_id: string; xuat_luc: string; xuat_boi: string | null; co_thay_doi: boolean; ly_do: string[] } | null;
 };
-type XuatData = { tu: string; den: string; hoa_don: HoaDon[]; so_hoa_don: number; so_dong: number; tong: number };
+type XuatData = {
+  tu: string; den: string; hoa_don: HoaDon[]; so_hoa_don: number; so_dong: number; tong: number;
+  so_da_xuat_misa: number; so_co_thay_doi_sau_xuat: number;
+};
 
 function OLoc({ ten, children }: { ten: string; children: ReactNode }) {
   return (
@@ -52,6 +58,22 @@ function KhachHang({ h }: { h: HoaDon }) {
   return <>{h.ten_khach || "—"}<span className="block text-meta text-ink-muted">{h.ma_bn || "—"} · {h.so_dien_thoai || "—"}</span></>;
 }
 
+/** "Đã xuất MISA" + "có thay đổi sau khi xuất" của một hoá đơn — máy chủ so dấu vân tay. */
+function TrangThaiMisa({ h }: { h: HoaDon }) {
+  if (!h.misa) return null;
+  const luc = new Date(h.misa.xuat_luc).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <span className="inline-block rounded-chip bg-success-bg px-2 py-0.5 text-meta font-medium text-success">Đã xuất MISA {luc}</span>
+      {h.misa.co_thay_doi ? (
+        <span className="inline-block rounded-chip bg-info-bg px-2 py-0.5 text-meta font-medium text-info">
+          Có thay đổi sau khi xuất — {h.misa.ly_do.join(" · ")}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function GhiChu({ h }: { h: HoaDon }) {
   return h.ghi_chu.length ? (
     <div className="flex flex-col items-start gap-1">
@@ -68,6 +90,11 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
   const [data, setData] = useState<XuatData | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [dangTai, setDangTai] = useState(true);
+  const [lamMoi, setLamMoi] = useState(0);
+  const [coQuyenMisa, setCoQuyenMisa] = useState(true);
+  const [dangDanhDau, setDangDanhDau] = useState(false);
+  const [vuaDanhDau, setVuaDanhDau] = useState<{ id: string; so: number } | null>(null);
+  const [loiMisa, setLoiMisa] = useState<string | null>(null);
   const chuoi = new URLSearchParams({ tu: khoang.tu, den: khoang.den, loai, co_so: coSoChon }).toString();
 
   useEffect(() => {
@@ -84,7 +111,29 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
       } finally { if (!controller.signal.aborted) setDangTai(false); }
     }, 250);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [chuoi]);
+  }, [chuoi, lamMoi]);
+
+  const danhDau = async () => {
+    setDangDanhDau(true); setLoiMisa(null);
+    try {
+      const r = await fetch("/api/xuat-hoa-don/misa", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tu: khoang.tu, den: khoang.den, loai: loai || null, co_so: coSoChon || null }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(typeof d.error === "string" ? d.error : "Máy chủ chưa đánh dấu được — thử lại.");
+      setVuaDanhDau({ id: d.id, so: d.so_hoa_don });
+      setLamMoi(n => n + 1);
+    } catch (e) { setLoiMisa(e instanceof Error ? e.message : "Mất kết nối tới máy chủ."); }
+    finally { setDangDanhDau(false); }
+  };
+  const hoanTacDanhDau = async () => {
+    if (!vuaDanhDau) return;
+    setDangDanhDau(true); setLoiMisa(null);
+    const r = await fetch(`/api/xuat-hoa-don/misa/${vuaDanhDau.id}`, { method: "DELETE" });
+    if (r.ok) { setVuaDanhDau(null); setLamMoi(n => n + 1); } else setLoiMisa("Máy chủ chưa bỏ được đánh dấu — thử lại.");
+    setDangDanhDau(false);
+  };
 
   const ds = data?.hoa_don ?? [];
   const coHoaDon = ds.length > 0;
@@ -128,6 +177,19 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
         </div>
       </div>
 
+      {coHoaDon && coQuyenMisa ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => void danhDau()} disabled={dangDanhDau}>{dangDanhDau ? "Đang đánh dấu…" : "Đánh dấu đã xuất MISA"}</Button>
+          <span className="text-meta text-ink-muted">Bấm sau khi đã tải file và nhập vào MISA — để biết hoá đơn nào đã xuất và hoá đơn nào đổi sau đó.</span>
+        </div>
+      ) : null}
+      {vuaDanhDau ? (
+        <p role="status" className="flex flex-wrap items-center gap-2 rounded-control bg-info-bg p-3 text-body text-info">
+          Đã đánh dấu {vuaDanhDau.so} hoá đơn là đã xuất sang MISA.
+          <Button size="sm" variant="ghost" disabled={dangDanhDau} onClick={() => void hoanTacDanhDau()}>Hoàn tác</Button>
+        </p>
+      ) : null}
+      {loiMisa ? <p role="alert" className="rounded-control bg-danger-bg p-3 text-body text-danger">{loiMisa}</p> : null}
       {loi ? <p role="alert" className="rounded-control bg-danger-bg p-3 text-body text-danger">{loi}</p> : null}
       {dangTai && !data ? <p role="status" className="text-body text-ink-muted">Đang tải hoá đơn…</p> : null}
 
@@ -138,6 +200,12 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
             <div><dt className="text-meta text-ink-muted">Số dòng hàng</dt><dd className="tabular-nums text-emph font-semibold text-ink">{data.so_dong}</dd></div>
             <div><dt className="text-meta text-ink-muted">Tổng thành tiền</dt><dd className="tabular-nums text-emph font-semibold text-ink">{tien(data.tong)}</dd></div>
           </dl>
+          {data.so_da_xuat_misa > 0 ? (
+            <p role="status" className="rounded-control bg-info-bg p-3 text-body text-info">
+              Đã xuất MISA: {data.so_da_xuat_misa}/{data.so_hoa_don} hoá đơn
+              {data.so_co_thay_doi_sau_xuat > 0 ? ` · ${data.so_co_thay_doi_sau_xuat} hoá đơn có thay đổi sau khi xuất — mở “Các lần đã xuất” bên dưới để xem` : ""}.
+            </p>
+          ) : null}
           <p className="text-meta text-ink-muted">Đây là Màn hình xem nhanh, tải file excel để xem chi tiết!</p>
 
           {!coHoaDon ? <p className="rounded-card bg-surface p-4 text-body text-ink-muted ring-1 ring-hairline">Không có phiếu thu trong phạm vi đã chọn.</p> : null}
@@ -160,7 +228,7 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
                       <td className="whitespace-nowrap px-3 py-3">{h.hinh_thuc || "—"}</td>
                       <td className="px-3 py-3"><DongHangGon dong={h.dong} /></td>
                       <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(h.tong)}</td>
-                      <td className="px-3 py-3"><GhiChu h={h} /></td>
+                      <td className="px-3 py-3"><TrangThaiMisa h={h} /><GhiChu h={h} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -176,12 +244,13 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
                 </div>
                 <p className="text-meta text-ink-muted">{h.ngay} · {h.ma_phieu} · {h.hinh_thuc || "—"}</p>
                 <div className="mt-2"><DongHangGon dong={h.dong} /></div>
-                <div className="mt-2"><GhiChu h={h} /></div>
+                <div className="mt-2 space-y-1"><TrangThaiMisa h={h} /><GhiChu h={h} /></div>
               </div>
             ))}
           </div>
         </>
       ) : null}
+      <LanXuatMisa lamMoi={lamMoi} onDoi={() => setLamMoi(n => n + 1)} onQuyen={setCoQuyenMisa} />
     </div>
   );
 }

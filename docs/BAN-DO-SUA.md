@@ -415,7 +415,7 @@ KHÔNG gồm thuế suất). Sau đó `/hoa-don/xuat` gắn `misa` cho từng ho
 đã xuất lúc nào, có đổi không, lý do) + `so_da_xuat_misa` / `so_co_thay_doi_sau_xuat`. Bỏ đánh dấu = `huy_luc`
 (`PUT` khôi phục). Migration `20261014157000_hoa_don_misa_xuat.sql`. Router `R/hoa_don_misa.py`
 (`/hoa-don/misa-xuat` GET/POST, `/{id}` GET chi tiết · DELETE bỏ · PUT khôi phục); quyền lego `accounting.finance.full`.
-Ngày rác khi ghi → 422. Test `T/unit/test_hoa_don_misa.py`, `T/services/test_hoa_don_misa_db.py` (bấm ngẫu nhiên 20×10 khớp mô hình).
+Ngày rác khi ghi → 422. **Màn:** `D/xuat-hoa-don/XuatHoaDon.tsx` (nút đánh dấu + chip `TrangThaiMisa` + banner tổng) và `D/xuat-hoa-don/LanXuatMisa.tsx` (các lần đã xuất, xem thay đổi, bỏ / khôi phục) → `/api/xuat-hoa-don/misa(/[id])`. Test `T/unit/test_hoa_don_misa.py`, `T/services/test_hoa_don_misa_db.py` (bấm ngẫu nhiên 20×10 khớp mô hình), FT `hoa-don-misa-boundary.test.mts`.
 
 Nút thu dùng chung `NhomThu` ở 2 quầy và Bán lẻ đổi thành **Tạo bill**; tiền mặt vẫn ghi thu,
 chuyển khoản vẫn chờ xác minh, nút xác minh **Đã nhận tiền** giữ nguyên.

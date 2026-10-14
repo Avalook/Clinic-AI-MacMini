@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 17:45. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 17:56. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -574,13 +574,13 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/xuat-hoa-don` — Xuất hoá đơn
 - page: `src/dashboard/app/(dashboard)/xuat-hoa-don/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
-- thành phần: XuatHoaDon.tsx, app/(dashboard)/form-ui.ts, app/(dashboard)/hoa-don/types.ts
-- gọi API Next: `/api/xuat-hoa-don`
+- thành phần: XuatHoaDon.tsx, app/(dashboard)/form-ui.ts, app/(dashboard)/hoa-don/types.ts, LanXuatMisa.tsx
+- gọi API Next: `/api/xuat-hoa-don/misa`, `/api/xuat-hoa-don/misa/[id]`, `/api/xuat-hoa-don`
 - gọi thẳng backend (server): `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
-- service: XuatHoaDonService.xem · HoaDonMisaService.gan_trang_thai · xuat_hoa_don_service
-- test: test_thue_gtgt_db.py, test_hoa_don_misa_db.py, test_sua_ho_so_khach_db.py, test_xuat_hoa_don.py
+- service: HoaDonMisaService.{doc_danh_sach, danh_dau, doc_chi_tiet, huy_danh_dau, +2} · XuatHoaDonService.xem · xuat_hoa_don_service
+- test: test_hoa_don_misa_db.py, test_thue_gtgt_db.py, test_sua_ho_so_khach_db.py, test_xuat_hoa_don.py
 
-## 2. API Next → backend (125)
+## 2. API Next → backend (127)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -1499,6 +1499,19 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/hoa-don/xuat` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don` → XuatHoaDonService.xem, HoaDonMisaService.gan_trang_thai
 - GET `/api/v1/hoa-don/xuat/xlsx` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don_excel` → xlsx_misa
 - test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_hoa_don_misa_db.py, src/tests/services/test_sua_ho_so_khach_db.py (+1)
+- màn dùng: /xuat-hoa-don
+
+#### `/api/xuat-hoa-don/misa` · `src/dashboard/app/api/xuat-hoa-don/misa/route.ts`
+- GET `/api/v1/hoa-don/misa-xuat` → `src/clinicai/api/v1/routers/hoa_don_misa.py:danh_sach_lan_xuat` → HoaDonMisaService.doc_danh_sach
+- POST `/api/v1/hoa-don/misa-xuat` → `src/clinicai/api/v1/routers/hoa_don_misa.py:danh_dau_da_xuat` → HoaDonMisaService.danh_dau
+- test: src/tests/services/test_hoa_don_misa_db.py
+- màn dùng: /xuat-hoa-don
+
+#### `/api/xuat-hoa-don/misa/[id]` · `src/dashboard/app/api/xuat-hoa-don/misa/[id]/route.ts`
+- GET `/api/v1/hoa-don/misa-xuat/{xuat_id}` → `src/clinicai/api/v1/routers/hoa_don_misa.py:chi_tiet_lan_xuat` → HoaDonMisaService.doc_chi_tiet
+- DELETE `/api/v1/hoa-don/misa-xuat/{xuat_id}` → `src/clinicai/api/v1/routers/hoa_don_misa.py:bo_danh_dau` → HoaDonMisaService.huy_danh_dau
+- PUT `/api/v1/hoa-don/misa-xuat/{xuat_id}` → `src/clinicai/api/v1/routers/hoa_don_misa.py:khoi_phuc_danh_dau` → HoaDonMisaService.khoi_phuc
+- test: src/tests/services/test_hoa_don_misa_db.py
 - màn dùng: /xuat-hoa-don
 
 ## 3. Service → màn (186)
