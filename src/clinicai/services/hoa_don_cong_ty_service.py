@@ -27,6 +27,7 @@ import asyncpg
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.audit import record_event
 
@@ -627,6 +628,8 @@ class HoaDonCongTyService:
                 identity.clinic_id,
                 cid,
             )
+        # Một hoá đơn hiếm khi có >100 lần sửa; chạm trần thì kêu lên (đã cắt).
+        canh_bao_neu_day("hoa_don_cong_ty_lich_su", len(rows), 100, cycle=str(cid))
         return [dict(r) for r in rows]
 
 
