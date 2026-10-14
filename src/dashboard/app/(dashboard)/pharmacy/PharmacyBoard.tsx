@@ -93,7 +93,10 @@ export default function PharmacyBoard({
     }
     setLoQuet({ dongId: dong.id, loId });
     const lo = dong.lo_goi_y.find((b) => b.drug_batch_id === loId);
-    setBaoQuet(`Đã điền lô ${lo?.batch_code ?? ""} cho ${dong.drug_name_raw ?? "thuốc"} — kiểm số rồi bấm Chọn lô.`);
+    // Nút kế tiếp tuỳ giai đoạn dòng (máy chủ quyết `thao_tac`): chưa thu → Chọn lô;
+    // đã thu chưa phân lô → Giao thuốc giao đúng lô vừa quét.
+    const buoc = dong.thao_tac.giao_khong_lo ? "Giao thuốc (giao đúng lô này)" : "Chọn lô";
+    setBaoQuet(`Đã điền lô ${lo?.batch_code ?? ""} cho ${dong.drug_name_raw ?? "thuốc"} — kiểm số rồi bấm ${buoc}.`);
   };
 
   return (
