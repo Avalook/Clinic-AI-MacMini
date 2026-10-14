@@ -91,3 +91,9 @@ test("chi tiết khách liệt kê từng khoản chưa trả lại bằng chữ
   assert.match(ct, /Khoản hoàn đang chờ xử lý/);
   assert.doesNotMatch(ct, /bg-warning-bg|bg-danger-bg|text-danger|text-warning/);
 });
+
+test("báo cáo hàng hoá giải thích 'Đã giao chưa gắn lô' là số cộng mọi ngày, chữ trung tính", () => {
+  const b = read("../app/(dashboard)/reports/BangHangHoa.tsx");
+  assert.match(b, /cộng mọi lượt, mọi ngày, cho tới khi/);
+  assert.doesNotMatch(b, /text-warning">\s*Đã giao chưa gắn lô/);
+});

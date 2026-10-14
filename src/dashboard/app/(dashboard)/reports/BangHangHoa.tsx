@@ -129,8 +129,9 @@ function BangCoTon({ hh }: { hh: HangHoa }) {
                     {m.don_vi ? ` (${m.don_vi})` : ""}
                     {m.ma ? <span className="block text-meta text-info sm:hidden">{m.ma}</span> : null}
                     {m.kho?.giao_chua_gan_lo ? (
-                      <span className="block text-meta text-warning">
-                        Đã giao chưa gắn lô: {sk(m.kho.giao_chua_gan_lo)} (không phải lệch đếm)
+                      <span className="block text-meta text-ink-muted">
+                        Đã giao chưa gắn lô: {sk(m.kho.giao_chua_gan_lo)} — cộng mọi lượt, mọi ngày, cho tới khi
+                        gắn lô ở Kho thuốc; không phải lệch đếm
                       </span>
                     ) : null}
                   </td>

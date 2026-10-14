@@ -139,9 +139,17 @@ async def test_hoan_chuyen_khoan_la_khoan_cho_va_hien_viec_ton(q: Quay) -> None:
     assert [h[:3] for h in await _hoan_cua(q)] == [("TRANSFER", "PENDING", 2 * GIA)]
     async with q.pool.acquire() as conn:
         ton = await DanhSachHoaDonService._viec_ton(conn, CLINIC, None, "thuoc")
-    assert any(
-        t["loai"] == "HOAN_CHUA_XONG" and t.get("visit_id") == q.visit_id for t in ton
-    )
+    cho = [
+        t
+        for t in ton
+        if t["loai"] == "HOAN_CHUA_XONG" and t.get("visit_id") == q.visit_id
+    ]
+    assert cho
+    # Cột "Xử lý" không được trống: mở QUẦY THUỐC đúng ngày thu gốc.
+    xu_ly = cho[0]["xu_ly"]
+    assert xu_ly is not None
+    assert xu_ly["href"].startswith("/thu-ngan/thuoc?ngay=20")
+    assert xu_ly["lego"] == "payment.medicine.collect"
 
 
 async def test_doi_thuoc_hoan_ra_ghi_ly_do_doi(q: Quay) -> None:

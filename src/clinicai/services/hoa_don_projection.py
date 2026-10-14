@@ -637,6 +637,8 @@ def gom_viec_ton(
             kind=r.get("kind"),
             mo_ta=r.get("reason"),
             nguoi=r.get("nguoi"),
+            # Ngày thu gốc — nút "Xử lý hoàn tiền" mở quầy đúng ngày ấy.
+            ngay_thu=r.get("ngay_thu"),
         )
     for c in ck:
         them(

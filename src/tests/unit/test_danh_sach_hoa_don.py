@@ -672,3 +672,38 @@ def test_excel_dung_chu_tren_man_khong_lo_ma_tho() -> None:
     assert _o(book["Phiếu thu"], "Hình thức") == "Tiền mặt"
     assert _o(book["Phiếu thu"], "Kiểu giảm") == "%"
     assert _o(book["Hoàn tiền"], "Trạng thái") == "Đã trả lại"
+
+
+def test_hoan_chua_xong_co_nut_xu_ly_ve_dung_quay_va_ngay_thu() -> None:
+    """Bấm thật 14/10 (staging): "Hoàn tiền chưa xong" của khách trả thuốc (hoàn
+    chuyển khoản PENDING) có cột Xử lý TRỐNG — dòng hoàn không mang ngày thu gốc
+    sang dòng việc tồn nên máy chủ không dựng được link."""
+    from clinicai.services.hoa_don_projection import gom_viec_ton
+
+    def hoan(kind: str, status: str = "PENDING") -> dict[str, Any]:
+        return dict(
+            refund_id="83f0d89a-0000-0000-0000-000000000000",
+            visit_id="v1",
+            kind=kind,
+            amount=160_000,
+            status=status,
+            reason="Khách trả thuốc",
+            created_at=_tg(1),
+            closed_at=_tg(1),
+            nguoi="TN",
+            patient_id="p",
+            ten="A",
+            ma_bn="A1",
+            ngay_thu="2026-10-14",
+        )
+
+    thuoc = gom_viec_ton(hoan=[hoan("thuoc")], ck=[], no=[], tien_thua={}, luot={})
+    assert thuoc[0]["loai"] == "HOAN_CHUA_XONG"
+    assert thuoc[0]["xu_ly"] is not None
+    assert thuoc[0]["xu_ly"]["href"] == "/thu-ngan/thuoc?ngay=2026-10-14"
+    assert thuoc[0]["xu_ly"]["lego"] == "payment.medicine.collect"
+    dv = gom_viec_ton(
+        hoan=[hoan("dich_vu", "FAILED")], ck=[], no=[], tien_thua={}, luot={}
+    )
+    assert dv[0]["loai"] == "HOAN_THAT_BAI"
+    assert dv[0]["xu_ly"]["href"] == "/thu-ngan/dich-vu?ngay=2026-10-14"
