@@ -37,6 +37,42 @@ export interface VatTuDong {
   da_thu: boolean;
   nguoi_duyet: string | null;
   ly_do_duyet: string | null;
+  /** Đi kèm CHỈ ĐỊNH (đầu dò Bio bác sĩ chọn, G9 14/10/2026); null = quầy tự thêm. */
+  order_id: string | null;
+  ten_chi_dinh: string | null;
+  /** false = khách không làm dịch vụ ấy → dòng hiện nhưng không tính tiền. */
+  tinh_tien: boolean;
+}
+
+/** Một đầu dò gợi ý cho một chỉ định (đã lọc: bán được, không cần quản lý duyệt). */
+export interface DauDoGoiY {
+  service_price_id: string;
+  ten: string;
+  don_vi: string | null;
+  don_gia: number;
+}
+
+export interface DauDoDaChon {
+  dong_id: string;
+  service_price_id: string;
+  ten: string;
+  so_luong: number;
+  don_gia: number;
+  thanh_tien: number;
+  da_thu: boolean;
+}
+
+/** Đầu dò theo từng chỉ định của lượt (`GET /luot-kham/visits/{id}/dau-do`). */
+export interface DauDoChiDinhGoi {
+  visit_id: string;
+  duoc_sua: boolean;
+  chi_dinh: {
+    order_id: string;
+    ten: string;
+    chon_lam: boolean;
+    goi_y: DauDoGoiY[];
+    da_chon: DauDoDaChon | null;
+  }[];
 }
 
 export interface VatTuGoi {

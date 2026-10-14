@@ -486,6 +486,8 @@ export default function PhieuKhamLuot({
         }
       : undefined,
     choDien: choGhi,
+    // Đầu dò Bio chọn ở chỉ định CLS (G9, 14/10/2026).
+    dauDoLuot: visitId,
     clinicPatientId,
     onDoi: () => {
       void napKetQua();
