@@ -14,6 +14,7 @@ from clinicai.services.danh_sach_hoa_don_service import (
     xlsx_hoa_don,
 )
 from clinicai.services.excel_export import XLSX_MEDIA_TYPE
+from clinicai.services.hoa_don_misa_service import HoaDonMisaService
 from clinicai.services.theo_hang_hoa_service import (
     TheoHangHoaService,
     xlsx_theo_hang_hoa,
@@ -95,7 +96,7 @@ async def xuat_hoa_don(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    return await XuatHoaDonService(pool).xem(
+    data = await XuatHoaDonService(pool).xem(
         identity=identity,
         tu=tu,
         den=den,
@@ -104,7 +105,10 @@ async def xuat_hoa_don(
         che_do=che_do,
         ghi_giam_gia=ghi_giam_gia,
         ghi_de=_doc_ghi_de(ghi_de),
+        kem_dau_van_tay=True,
     )
+    # "Đã xuất MISA" / "có thay đổi sau khi xuất" của từng hoá đơn (G5c).
+    return await HoaDonMisaService(pool).gan_trang_thai(identity=identity, data=data)
 
 
 @router.get("/hoa-don/xuat/xlsx")

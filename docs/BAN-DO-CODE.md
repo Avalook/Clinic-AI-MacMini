@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 18:22. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 18:23. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -592,8 +592,8 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: XuatHoaDon.tsx, app/(dashboard)/form-ui.ts, app/(dashboard)/hoa-don/types.ts
 - gọi API Next: `/api/xuat-hoa-don`
 - gọi thẳng backend (server): `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
-- service: XuatHoaDonService.xem · xuat_hoa_don_service
-- test: test_thue_gtgt_db.py, test_sua_ho_so_khach_db.py, test_xuat_hoa_don.py
+- service: XuatHoaDonService.xem · HoaDonMisaService.gan_trang_thai · xuat_hoa_don_service
+- test: test_thue_gtgt_db.py, test_hoa_don_misa_db.py, test_sua_ho_so_khach_db.py, test_xuat_hoa_don.py
 
 ## 2. API Next → backend (129)
 
@@ -1559,12 +1559,12 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - màn dùng: /viec-can-xu-ly
 
 #### `/api/xuat-hoa-don` · `src/dashboard/app/api/xuat-hoa-don/route.ts`
-- GET `/api/v1/hoa-don/xuat` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don` → XuatHoaDonService.xem
+- GET `/api/v1/hoa-don/xuat` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don` → XuatHoaDonService.xem, HoaDonMisaService.gan_trang_thai
 - GET `/api/v1/hoa-don/xuat/xlsx` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don_excel` → xlsx_misa
-- test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_sua_ho_so_khach_db.py, src/tests/unit/test_xuat_hoa_don.py
+- test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_hoa_don_misa_db.py, src/tests/services/test_sua_ho_so_khach_db.py (+1)
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (193)
+## 3. Service → màn (194)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1649,6 +1649,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `ho_so_khach_doc` | `src/clinicai/services/ho_so_khach_doc.py` | — (chỉ API/worker) |
 | `ho_so_lam_sang_doc` | `src/clinicai/services/ho_so_lam_sang_doc.py` | /ban-kham, /ban-kham/[phong], /patient-list, /print/[appointmentId], /tu-van |
 | `HoaDonCongTyService` | `src/clinicai/services/hoa_don_cong_ty_service.py` | — (chỉ API/worker) |
+| `HoaDonMisaService` | `src/clinicai/services/hoa_don_misa_service.py` | /xuat-hoa-don |
 | `HoanTacService` | `src/clinicai/services/hoan_tac_service.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /phong/[ma], /print/phieu-thu/[id] (+6) |
 | `HoanTienService` | `src/clinicai/services/hoan_tien_service.py` | /pharmacy, /reception/checkout, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `HoSoKhamService` | `src/clinicai/services/ho_so_kham_service.py` | /customers |
@@ -1851,6 +1852,8 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `hen_goi_lai` | `20260809000005_trang_thai_cskh_suy_ra.sql` | 1 |
 | `hoa_don_cong_ty` | `20261014156000_hoa_don_cong_ty.sql` | 0 |
 | `hoa_don_cong_ty_lich_su` | `20261014156000_hoa_don_cong_ty.sql` | 0 |
+| `hoa_don_misa_xuat` | `20261014157000_hoa_don_misa_xuat.sql` | 0 |
+| `hoa_don_misa_xuat_dong` | `20261014157000_hoa_don_misa_xuat.sql` | 0 |
 | `idempotency_key` | `20260714000003_idempotency_key.sql` | 2 |
 | `inventory_txn` | `20260802000001_pharmacy_inventory.sql` | 4 |
 | `ket_qua_mau` | `20260923000004_mau_ket_qua.sql` | 0 |

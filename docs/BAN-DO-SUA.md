@@ -442,6 +442,15 @@ Chưa đặt thuế → xuất y như cũ. Test `T/unit/test_thue_gtgt.py` (bả
 → C=tên cty, D=địa chỉ cty, E=MST, F=người mua (trống nếu không điền), G=email cty, H/I trống (không SĐT/CCCD/địa chỉ/email cá nhân);
 hoá đơn khác giữ nguyên. Test `T/unit/test_hoa_don_cong_ty.py`, `T/services/test_hoa_don_cong_ty_db.py` (có bấm ngẫu nhiên 40×10).
 
+**Đánh dấu "đã xuất sang MISA" + "có thay đổi sau khi xuất" (G5c, 14/10)** — kế toán tải Excel xong bấm đánh dấu khoảng ngày:
+máy chủ DỰNG LẠI danh sách hoá đơn của khoảng (không tin danh sách từ trình duyệt), lưu mỗi hoá đơn một dòng
+(`hoa_don_misa_xuat_dong`) cùng hai dấu vân tay (`S/hoa_don_misa_doc.py::dau_van_tay`: người mua/công ty và nội dung —
+KHÔNG gồm thuế suất). Sau đó `/hoa-don/xuat` gắn `misa` cho từng hoá đơn (`S/hoa_don_misa_service.py::gan_trang_thai`:
+đã xuất lúc nào, có đổi không, lý do) + `so_da_xuat_misa` / `so_co_thay_doi_sau_xuat`. Bỏ đánh dấu = `huy_luc`
+(`PUT` khôi phục). Migration `20261014157000_hoa_don_misa_xuat.sql`. Router `R/hoa_don_misa.py`
+(`/hoa-don/misa-xuat` GET/POST, `/{id}` GET chi tiết · DELETE bỏ · PUT khôi phục); quyền lego `accounting.finance.full`.
+Ngày rác khi ghi → 422. Test `T/unit/test_hoa_don_misa.py`, `T/services/test_hoa_don_misa_db.py` (bấm ngẫu nhiên 20×10 khớp mô hình).
+
 Nút thu dùng chung `NhomThu` ở 2 quầy và Bán lẻ đổi thành **Tạo bill**; tiền mặt vẫn ghi thu,
 chuyển khoản vẫn chờ xác minh, nút xác minh **Đã nhận tiền** giữ nguyên.
 
