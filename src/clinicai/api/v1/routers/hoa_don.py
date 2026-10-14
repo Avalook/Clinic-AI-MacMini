@@ -13,6 +13,10 @@ from clinicai.services.danh_sach_hoa_don_service import (
     xlsx_hoa_don,
 )
 from clinicai.services.excel_export import XLSX_MEDIA_TYPE
+from clinicai.services.theo_hang_hoa_service import (
+    TheoHangHoaService,
+    xlsx_theo_hang_hoa,
+)
 from clinicai.services.xuat_hoa_don_service import XuatHoaDonService, xlsx_misa
 
 router = APIRouter()
@@ -84,6 +88,37 @@ async def xuat_hoa_don_excel(
     ten = f"hoa-don-gtgt-{data['tu']}-den-{data['den']}.xlsx"
     return Response(
         xlsx_misa(data["hoa_don"]),
+        media_type=XLSX_MEDIA_TYPE,
+        headers={
+            "Content-Disposition": f'attachment; filename="{ten}"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.get("/hoa-don/theo-hang-hoa")
+async def theo_hang_hoa(
+    tu: str | None = Query(None, max_length=40),
+    den: str | None = Query(None, max_length=40),
+    loai: str | None = Query(None, max_length=20),
+    co_so: str | None = Query(None, max_length=64),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thống kê theo mặt hàng trong kỳ (kế toán) — cùng cổng với Xuất hoá đơn."""
+    return await TheoHangHoaService(pool).xem(
+        identity=identity, tu=tu, den=den, loai=loai, co_so=co_so
+    )
+
+
+@router.get("/hoa-don/theo-hang-hoa/xlsx")
+async def theo_hang_hoa_excel(
+    data: dict[str, Any] = Depends(theo_hang_hoa),
+) -> Response:
+    ten = f"theo-hang-hoa-{data['tu']}-den-{data['den']}.xlsx"
+    return Response(
+        xlsx_theo_hang_hoa(data),
         media_type=XLSX_MEDIA_TYPE,
         headers={
             "Content-Disposition": f'attachment; filename="{ten}"',

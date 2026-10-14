@@ -29,6 +29,7 @@ import {
   PhoneCall,
   Route,
   FileSpreadsheet,
+  Calculator,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -221,6 +222,9 @@ export const NAV: NavItem[] = [
   { href: "/reports", label: "Báo cáo", icon: BarChart3 },
   { href: "/hoa-don", label: "Danh sách hoá đơn", icon: Receipt },
   { href: "/xuat-hoa-don", label: "Xuất hoá đơn", icon: FileSpreadsheet },
+  // Chỗ làm việc của kế toán (14/10/2026): lego "Kế toán" — theo hàng hoá, về sau
+  // thuế suất / hoá đơn công ty.
+  { href: "/ke-toan", label: "Kế toán", icon: Calculator },
   {
     href: "/audit-log",
     label: "Lịch sử thao tác",
@@ -809,6 +813,7 @@ export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly
       "/reports",
       "/hoa-don",
       "/xuat-hoa-don",
+      "/ke-toan",
       "/lich-do-ve",
       "/ops",
       "/audit-log",

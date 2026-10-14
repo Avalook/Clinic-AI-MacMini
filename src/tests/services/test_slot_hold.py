@@ -55,7 +55,8 @@ class TestWhoMayHold:
         from clinicai.permissions.catalogue import PRESET_TRUOC_MO_FULL
 
         co = {vai for vai, khoi in PRESET.items() if "dat_lich" in khoi}
-        assert co == set(PRESET) - {"PARTNER"}
+        # KE_TOAN (14/10/2026): gói riêng cho kế toán, không đặt lịch.
+        assert co == set(PRESET) - {"PARTNER", "KE_TOAN"}
         cu = {vai for vai, khoi in PRESET_TRUOC_MO_FULL.items() if "dat_lich" in khoi}
         assert cu == {r.value for r in HOLD_ROLES}
 

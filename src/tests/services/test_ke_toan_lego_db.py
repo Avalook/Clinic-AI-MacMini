@@ -16,6 +16,8 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import can
 from clinicai.permissions.catalogue import MAN, PRESET
+from clinicai.services.doi_hinh_thuc_service import QUYEN_DOI
+from clinicai.services.hoan_tien_service import co_quyen_hoan
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.report_access_service import SHIFTS, ReportAccessService
 from tests.services.test_luot_kham_service_db import CLINIC
@@ -89,6 +91,22 @@ async def test_goi_ke_toan_khong_thu_tien_may_chu_chan(
             idempotency_key=f"ke-toan-khong-thu-{kind}",
         )
     assert "quyền" in str(e.value).lower()
+
+
+async def test_goi_ke_toan_khong_hoan_doi_hinh_thuc_ghi_no(
+    pool: asyncpg.Pool,
+) -> None:
+    """Mọi lệnh tiền khác ngoài thu: hoàn · đổi hình thức · ghi nợ đều đòi quyền
+    của khối thu tiền / tiếp đón — gói Kế toán không có."""
+    ke_toan = await nguoi_theo_lego(pool, "CSKH", GOI_KE_TOAN)
+    async with pool.acquire() as conn:
+        assert not await co_quyen_hoan(conn, ke_toan)
+        assert not await co_quyen_hoan(conn, ke_toan, "dich_vu")
+        assert not await co_quyen_hoan(conn, ke_toan, "thuoc")
+        for quyen in QUYEN_DOI:
+            assert not await can(conn, ke_toan, quyen)
+        # Ghi nợ / huỷ nợ gác bằng quyền tiếp đón.
+        assert not await can(conn, ke_toan, "reception.checkin.perform")
 
 
 async def test_nhan_vien_mo_full_khong_tu_co_khoi_ke_toan(

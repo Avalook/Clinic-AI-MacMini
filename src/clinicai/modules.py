@@ -863,6 +863,11 @@ MODULE: dict[str, Module] = {
             quyen=["report.view", "ops.view", "audit.view", "giamsat.view"],
         ),
         Module(
+            ma="ke_toan",
+            ten="Kế toán — xem tài chính đầy đủ, hoá đơn, theo hàng hoá",
+            quyen=["accounting.finance.full"],
+        ),
+        Module(
             ma="lich_truc",
             ten="Lịch làm việc",
             # + đổi người trong ca (29/09/2026) và xếp lịch (01/10/2026), khối
