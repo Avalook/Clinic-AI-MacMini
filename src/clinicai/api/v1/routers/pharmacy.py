@@ -28,7 +28,12 @@ from clinicai.core.database import get_db_pool
 from clinicai.permissions.can import can
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.phieu_kham.khung import doc_ngay
-from clinicai.services import ban_thuoc_service, kho_thuoc_service, lo_thuoc_service
+from clinicai.services import (
+    ban_thuoc_service,
+    kho_thuoc_service,
+    lo_thuoc_service,
+    ma_vach_service,
+)
 from clinicai.services.ban_le_service import QUYEN_MO, BanLeService
 from clinicai.services.pharmacy_service import GIU_NGUYEN, PharmacyService
 
@@ -218,6 +223,87 @@ async def ton_kho(
 ) -> dict[str, Any]:
     """Tồn theo lô, kèm hạn dùng và cờ hết hạn."""
     return {"items": await PharmacyService(pool).ton_kho(identity=identity)}
+
+
+@router.get("/pharmacy/tra-ma")
+async def tra_ma(
+    ma: str = "",
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Một chuỗi quét (tem lô / mã vạch thuốc / mã vuông GS1 / mã hàng) → thuốc
+    hoặc lô, kèm gợi ý lô FEFO. Chỉ đọc; mã lạ trả `loai: "la"`, không lỗi."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await ma_vach_service.tra_ma(pool, identity=identity, ma=ma)
+    )
+    return kq
+
+
+class GanMaVachRequest(BaseModel):
+    drug_catalog_id: UUID
+    ma: str = Field(min_length=1, max_length=256)
+    nguon: str = "quet"
+
+
+@router.post("/pharmacy/gan-ma-vach")
+async def gan_ma_vach(
+    body: GanMaVachRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gắn mã vạch cho thuốc (người có quyền kho). Mã đã thuộc thuốc khác → 409."""
+    return await ma_vach_service.gan_ma(
+        pool,
+        identity=identity,
+        drug_catalog_id=str(body.drug_catalog_id),
+        ma=body.ma,
+        nguon=body.nguon,
+    )
+
+
+class GoMaVachRequest(BaseModel):
+    ma_vach_id: UUID
+
+
+@router.post("/pharmacy/go-ma-vach")
+async def go_ma_vach(
+    body: GoMaVachRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gỡ mã vạch gắn nhầm (hoàn tác của gắn mã) — ghi nhật ký."""
+    return await ma_vach_service.go_ma(
+        pool, identity=identity, ma_vach_id=str(body.ma_vach_id)
+    )
+
+
+@router.get("/pharmacy/tem-lo")
+async def tem_lo(
+    ids: str = "",
+    phieu: str = "",
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dữ liệu in tem: lô theo danh sách `ids` (cách nhau dấu phẩy) hoặc theo
+    phiếu nhập `phieu`. Id rác bị bỏ qua; tối đa 200 tem."""
+    lo_ids: list[str] = []
+    for x in ids.split(","):
+        try:
+            lo_ids.append(str(UUID(x.strip())))
+        except ValueError:
+            continue
+    try:
+        phieu_id: str | None = str(UUID(phieu.strip())) if phieu.strip() else None
+    except ValueError:
+        phieu_id = None
+    kq: dict[str, Any] = jsonable_encoder(
+        {
+            "items": await ma_vach_service.du_lieu_tem(
+                pool, identity=identity, lo_ids=lo_ids, phieu_kho_id=phieu_id
+            )
+        }
+    )
+    return kq
 
 
 @router.get("/pharmacy/cho-gan-lo")
