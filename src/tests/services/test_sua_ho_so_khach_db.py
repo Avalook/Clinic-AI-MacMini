@@ -323,12 +323,13 @@ async def test_xuat_hoa_don_doc_patient_email(pool: asyncpg.Pool) -> None:
         )
         VALUES (
             $1::uuid, $2::uuid, $3::uuid, 'dich_vu', 'exam',
-            'x', 'Khám tổng quát', 1, 'Lần', 200000, 200000, 'CLINIC'
+            $4, 'Khám tổng quát', 1, 'Lần', 200000, 200000, 'CLINIC'
         );
         """,
         manager.clinic_id,
         cycle,
         q.visit_id,
+        f"exam-{uuid.uuid4().hex[:12]}",
     )
 
     # Đặt email trực tiếp trên bảng patient
