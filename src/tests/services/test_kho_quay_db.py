@@ -380,7 +380,12 @@ async def test_khach_tra_thuoc_ve_quay_khong_ve_kho(co: Co) -> None:
         rx,
     )
     await svc.khach_tra_thuoc(
-        identity=co.ds, dispense_txn_id=txn, so_luong=2, ly_do="Khách trả"
+        identity=co.ds,
+        dispense_txn_id=txn,
+        so_luong=2,
+        ly_do="Khách trả",
+        ket_cuc_tien="GIU_LAI",
+        ly_do_tien="Kho/quầy — tiền giữ lại",
     )
     assert await _ton_noi(co, drug) == {"KHO": Decimal(5), "QUAY": Decimal(4)}
 
