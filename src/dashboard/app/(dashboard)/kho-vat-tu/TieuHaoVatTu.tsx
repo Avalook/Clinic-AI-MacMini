@@ -57,6 +57,26 @@ const gio = (iso: string | null) =>
       })
     : "—";
 
+async function docBaoCao(
+  ky: Ky,
+  tu: string,
+  den: string,
+): Promise<{ goi: GoiTieuHao } | { loi: string }> {
+  const q = new URLSearchParams({ ky });
+  if (ky === "tuy") {
+    q.set("tu", tu);
+    q.set("den", den);
+  }
+  try {
+    const r = await fetch(`/api/vat-tu-kho/tieu-hao?${q}`, { cache: "no-store" });
+    const d = (await r.json().catch(() => null)) as (GoiTieuHao & { error?: string }) | null;
+    if (!r.ok || !d?.items) return { loi: d?.error ?? "Không đọc được báo cáo tiêu hao." };
+    return { goi: d };
+  } catch {
+    return { loi: "Mất kết nối — chưa đọc được báo cáo tiêu hao." };
+  }
+}
+
 export default function TieuHaoVatTu() {
   const [ky, setKy] = useState<Ky>("tuan");
   const [tu, setTu] = useState("");
@@ -65,31 +85,24 @@ export default function TieuHaoVatTu() {
   const [goi, setGoi] = useState<GoiTieuHao | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
 
-  const tai = useCallback(async () => {
-    const q = new URLSearchParams({ ky });
-    if (ky === "tuy") {
-      q.set("tu", tu);
-      q.set("den", den);
-    }
-    try {
-      const r = await fetch(`/api/vat-tu-kho/tieu-hao?${q}`, { cache: "no-store" });
-      const d = (await r.json().catch(() => null)) as (GoiTieuHao & { error?: string }) | null;
-      if (!r.ok || !d?.items) {
-        setLoi(d?.error ?? "Không đọc được báo cáo tiêu hao.");
-        return;
-      }
+  const ap = useCallback((kq: { goi: GoiTieuHao } | { loi: string }) => {
+    if ("goi" in kq) {
       setLoi(null);
-      setGoi(d);
-    } catch {
-      setLoi("Mất kết nối — chưa đọc được báo cáo tiêu hao.");
-    }
-  }, [ky, tu, den]);
+      setGoi(kq.goi);
+    } else setLoi(kq.loi);
+  }, []);
 
   useEffect(() => {
-    void tai();
-  }, [tai]);
+    let huy = false;
+    void docBaoCao(ky, tu, den).then((kq) => {
+      if (!huy) ap(kq);
+    });
+    return () => {
+      huy = true;
+    };
+  }, [ky, tu, den, ap]);
   // Phiếu mới / hoàn tác ở tab khác → báo cáo cập nhật ngay.
-  useNgheBang(["vat_tu_txn"], () => void tai());
+  useNgheBang(["vat_tu_txn"], () => void docBaoCao(ky, tu, den).then(ap));
 
   return (
     <div className="flex flex-col gap-3">
