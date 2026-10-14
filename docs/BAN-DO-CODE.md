@@ -589,7 +589,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/xuat-hoa-don` — Xuất hoá đơn
 - page: `src/dashboard/app/(dashboard)/xuat-hoa-don/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
-- thành phần: XuatHoaDon.tsx, app/(dashboard)/form-ui.ts, app/(dashboard)/hoa-don/types.ts, LanXuatMisa.tsx
+- thành phần: XuatHoaDon.tsx, app/(dashboard)/form-ui.ts, app/(dashboard)/hoa-don/types.ts, app/(dashboard)/ke-toan/thue-suat.ts, LanXuatMisa.tsx
 - gọi API Next: `/api/xuat-hoa-don/misa`, `/api/xuat-hoa-don/misa/[id]`, `/api/xuat-hoa-don`
 - gọi thẳng backend (server): `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
 - service: HoaDonMisaService.{doc_danh_sach, danh_dau, doc_chi_tiet, huy_danh_dau, +2} · XuatHoaDonService.xem · xuat_hoa_don_service

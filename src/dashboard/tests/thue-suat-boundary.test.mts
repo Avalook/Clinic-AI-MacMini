@@ -34,7 +34,9 @@ test("tab Thuế suất: màn chỉ chọn và gửi; không tự chuẩn hoá /
   // Hoàn tác: sau mỗi lần đặt có nút Hoàn tác gửi lại giá trị cũ.
   assert.match(ui, /Hoàn tác/);
   // Mức hay dùng có đủ KCT / KKKNT và ô nhập % khác.
-  assert.match(ui, /"KCT"/);
-  assert.match(ui, /"KKKNT"/);
+  const muc = read("../app/(dashboard)/ke-toan/thue-suat.ts");
+  assert.match(muc, /\["KCT"/);
+  assert.match(muc, /\["KKKNT"/);
+  assert.match(ui, /MUC_THUE/);
   assert.match(ui, /Khác \(nhập %\)/);
 });

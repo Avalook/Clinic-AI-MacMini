@@ -432,6 +432,7 @@ Xuất: `S/xuat_hoa_don_service.py::dung_hoa_don` gán thuế suất dòng (sử
 `xlsx_misa` ghi K (thuế suất) / L (tiền thuế). Query `/hoa-don/xuat?che_do&ghi_giam_gia&ghi_de={"id dòng":"mã"}`.
 Chưa đặt thuế → xuất y như cũ. Test `T/unit/test_thue_gtgt.py` (bảng số tay), `T/services/test_thue_gtgt_db.py`.
 **Màn đặt thuế (C2):** `D/ke-toan/KeToan.tsx` (tab bar `ThanhTab`: Theo hàng hoá | Thuế suất) → `D/ke-toan/ThueSuat.tsx` (nhóm + tìm mặt hàng, hoàn tác) → `/api/ke-toan/thue-suat(/nhom/[nhom] | /mat-hang)` → `R/ke_toan.py`; nhãn thuế `D/ke-toan/thue-suat.ts` (`tenThueSuat`). FT `thue-suat-boundary.test.mts`.
+**Điều khiển thuế ở màn xuất (C2):** `D/xuat-hoa-don/XuatHoaDon.tsx` (`cheDo`, `ghiGiamGia`, `ghiDe` → query `che_do`/`ghi_giam_gia`/`ghi_de`; `DongHangGon` có ô sửa thuế từng dòng) → `D/api/xuat-hoa-don/route.ts` (chuyển tiếp 3 tham số) → `R/hoa_don.py::xuat_hoa_don`. Danh sách mức dùng chung `D/ke-toan/thue-suat.ts::MUC_THUE`. FT `xuat-hoa-don-thue-boundary.test.mts`.
 
 **Hoá đơn công ty (G5c, 14/10)** — khách lấy hoá đơn về công ty: tên + địa chỉ + MST (+ email nhận HĐ). Lưu THEO HOÁ ĐƠN
 (`hoa_don_cong_ty`, bản chụp theo `payment_cycle`) và ghi vào HỒ SƠ khách (`khach_cong_ty`, nhiều công ty/khách, dùng gần nhất
