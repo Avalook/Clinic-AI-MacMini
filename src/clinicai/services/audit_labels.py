@@ -123,6 +123,7 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.batch_updated": "Sửa số lô và hạn dùng",
     "pharmacy.batch_discarded": "Huỷ lô thuốc hết hạn",
     "pharmacy.batch_discard_undone": "Hoàn tác huỷ lô thuốc hết hạn",
+    "pharmacy.expiry_warning_updated": "Đổi số ngày cảnh báo hạn lô",
     "pharmacy.phieu_nhap": "Phiếu nhập kho",
     "pharmacy.kiem_kho": "Phiếu kiểm kho",
     "pharmacy.drug_mapped": "Xác định thuốc kho cho dòng đơn",
