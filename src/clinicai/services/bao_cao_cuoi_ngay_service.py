@@ -842,6 +842,23 @@ SELECT pc.payment_cycle_id::text AS id, pc.visit_id::text AS visit_id, pc.kind,
  LIMIT 5000
 """
 
+#: Lần chờ chuyển khoản bị HUỶ trong khoảng (G4d, R1) — không phải tiền đã
+#: thu nên không cộng vào số nào; ghi chú riêng để kế toán đối chiếu sao kê
+#: (huỷ nhầm khi tiền đã về thì sổ không còn dấu nào khác).
+_CK_HUY_SQL = """
+SELECT pc.kind, count(*) AS so_lan, coalesce(sum(pc.amount), 0) AS tong
+  FROM payment_cycle pc
+  LEFT JOIN visit v ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id
+  LEFT JOIN appointment ah
+    ON ah.id = v.appointment_id AND ah.clinic_id = v.clinic_id
+ WHERE pc.clinic_id = $1::uuid AND pc.status = 'CANCELLED'
+   AND (pc.closed_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date BETWEEN $2 AND $3
+   AND ($5::timestamptz IS NULL OR pc.closed_at >= $5)
+   AND ($6::timestamptz IS NULL OR pc.closed_at < $6)
+   AND ($4::uuid IS NULL OR coalesce(v.location_id, ah.location_id) = $4::uuid)
+ GROUP BY pc.kind
+"""
+
 _HOAN_SQL = """
 SELECT r.refund_id::text AS refund_id, r.visit_id::text AS visit_id, r.kind,
        r.amount, r.status, r.method, r.reason, r.created_at,
@@ -1060,6 +1077,7 @@ class BaoCaoCuoiNgayService:
             k5, k6 = (khung[0], khung[1]) if khung else (None, None)
             lan_thu = await conn.fetch(_LAN_THU_SQL, cid, a, b, cs, k5, k6)
             hoan = await conn.fetch(_HOAN_SQL, cid, a, b, cs, k5, k6)
+            ck_huy = await conn.fetch(_CK_HUY_SQL, cid, a, b, cs, k5, k6)
             canh_bao_neu_day(
                 "bao_cao_cuoi_ngay.lan_thu", len(lan_thu), _TRAN, tu=a, den=b
             )
@@ -1159,6 +1177,11 @@ class BaoCaoCuoiNgayService:
         )
         bc["khach_con_no"] = con_no
         bc["so_no_ky"] = so_no_ky
+        ck_huy_ds = [r for r in ck_huy if loai_loc is None or r["kind"] == loai_loc]
+        bc["ck_cho_da_huy"] = {
+            "so_lan": sum(int(r["so_lan"]) for r in ck_huy_ds),
+            "tong": sum(int(r["tong"]) for r in ck_huy_ds),
+        }
         bc["can_xu_ly"] = can_xu_ly
         bc["tien_thua"] = tien_thua
         bc["loai"] = loai_loc

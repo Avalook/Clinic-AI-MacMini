@@ -25,6 +25,7 @@ const MAU_SU_KIEN: Record<SuKien["loai"], string> = {
   BO_DICH_VU: "bg-warning-bg text-warning",
   HOAN_TIEN: "bg-success-bg text-success",
   HUY_PHIEU: "bg-danger-bg text-danger",
+  HUY_CHO_CK: "bg-warning-bg text-warning",
 };
 const TEN_HOAN: Record<string, string> = {
   PENDING: "chờ trả", COMPLETED: "đã trả", FAILED: "thất bại", CANCELLED: "đã huỷ yêu cầu",
@@ -61,15 +62,18 @@ function Phieu({ phieu: p, so }: { phieu: PhieuThu; so: number }) {
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h3 className="text-emph font-semibold">
         <span className="mr-2 rounded-control bg-ink px-2 py-0.5 text-meta text-white">Phiếu {so}</span>
-        Thu lúc <span className="tabular-nums">{gio(p.thu_luc)}</span> · {p.ma} · {p.kind === "thuoc" ? "Thuốc" : "Dịch vụ"}
+        {p.trang_thai === "CK_DA_HUY" ? "Chờ CK, huỷ lúc" : "Thu lúc"}{" "}
+        <span className="tabular-nums">{gio(p.trang_thai === "CK_DA_HUY" ? p.huy_luc : p.thu_luc)}</span> · {p.ma} · {p.kind === "thuoc" ? "Thuốc" : "Dịch vụ"}
       </h3>
       <span className="text-body font-semibold">{TRANG_THAI[p.trang_thai] ?? p.trang_thai}</span>
       <a className={buttonClass("secondary", "md")} href={`/print/phieu-thu/${encodeURIComponent(p.id)}`} target="_blank" rel="noopener noreferrer">Xem / in phiếu</a>
     </div>
-    {p.can_doi_soat ? <p className="mt-2 rounded-control bg-warning-bg p-2 text-warning">Phiếu cần đối soát: chuyển khoản về nhưng hoá đơn đã đổi, hoặc thuốc chưa ghi bán được.</p> : null}
+    {p.can_doi_soat ? <p className="mt-2 rounded-control bg-warning-bg p-2 text-warning">Phiếu cần đối soát: chuyển khoản về nhưng hoá đơn đã đổi, thuốc chưa ghi bán được, hoặc ngân hàng báo nhận khác số chuyển khoản.</p> : null}
+    {p.so_tien_thuc_nhan != null ? <p className="mt-2 text-meta text-ink">Ngân hàng báo nhận <span className="tabular-nums">{tien(p.so_tien_thuc_nhan)}</span>{p.doi_soat_ly_do?.includes("SO_TIEN_LECH") ? " — khác số chuyển khoản của phiếu" : ""}.</p> : null}
+    {p.trang_thai === "CK_DA_HUY" ? <p className="mt-2 rounded-control bg-warning-bg p-2 text-warning">Lần chờ chuyển khoản {tien(p.so_tien)} đã huỷ{p.nguoi_huy ? ` bởi ${p.nguoi_huy}` : ""}{p.ly_do_huy ? ` — “${p.ly_do_huy}”` : ""}. Chưa ghi là đã thu. Đối chiếu sao kê: nếu tiền đã về thì thu lại ở quầy bằng chuyển khoản rồi bấm “Đã nhận tiền”.</p> : null}
     {p.thu_trong_ky === false ? <p className="mt-2 text-meta text-ink-muted">Phiếu thu ngoài kỳ đang xem, có xử lý sau thanh toán trong kỳ.</p> : null}
     <dl className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-      <div><dt className="text-meta text-ink-muted">Tiền đã thu</dt><dd className="tabular-nums">{tien(p.so_tien)}</dd></div>
+      <div><dt className="text-meta text-ink-muted">{p.trang_thai === "CK_DA_HUY" ? "Số tiền lần chờ" : "Tiền đã thu"}</dt><dd className="tabular-nums">{tien(p.so_tien)}</dd></div>
       <div><dt className="text-meta text-ink-muted">Thực thu</dt><dd className="tabular-nums">{tien(p.thu_rong)}</dd></div>
       <div><dt className="text-meta text-ink-muted">Hình thức</dt><dd>{p.hinh_thuc ? tenHinhThuc(p.hinh_thuc) : "Không có dữ liệu"}</dd></div>
       <div><dt className="text-meta text-ink-muted">Người thu</dt><dd>{p.nguoi_thu || "Không có dữ liệu"}</dd></div>
@@ -89,7 +93,8 @@ function Phieu({ phieu: p, so }: { phieu: PhieuThu; so: number }) {
 
 export default function ChiTietHoaDon({ khach, onDong }: { khach: KhachHoaDon; onDong: () => void }) {
   // Phiếu 1, 2, 3… theo giờ BẤM THU (cũ trước) — người đối soát lần theo thứ tự.
-  const phieu = [...khach.phieu].sort((a, b) => (a.thu_luc ?? "").localeCompare(b.thu_luc ?? ""));
+  const moc = (p: PhieuThu) => p.thu_luc ?? p.huy_luc ?? "";
+  const phieu = [...khach.phieu].sort((a, b) => moc(a).localeCompare(moc(b)));
   const ton = khach.viec_ton ?? [];
   return <HopChiTiet tieuDe={`Hoá đơn · ${khach.ten}`} onDong={onDong}>
     <p className="mb-4 text-meta text-ink-muted">{khach.ma_bn || "—"} · {khach.so_dien_thoai || "—"} · {khach.so_phieu} phiếu</p>

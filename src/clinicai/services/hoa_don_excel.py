@@ -13,6 +13,7 @@ TRANG_THAI = {
     "CHO_HOAN": "Chờ hoàn",
     "HOAN_MOT_PHAN": "Hoàn một phần",
     "HOAN_TOAN_BO": "Hoàn toàn bộ",
+    "CK_DA_HUY": "Huỷ lần chờ CK",
     "DA_HUY": "Đã hủy",
     "HON_HOP": "Nhiều trạng thái",
 }

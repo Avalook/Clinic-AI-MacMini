@@ -14,6 +14,8 @@ export interface DongTien {
   tien_thu: TmCk;
   tra_lai: TmCk;
   hoan_cho: number;
+  /** Lần chờ CK đã huỷ trong kỳ (G4d, R1) — ghi chú, không cộng vào số nào. */
+  ck_cho_da_huy?: { so_lan: number; tong: number };
   no: number;
   giam_gia: number;
   no_thu_duoc: TmCk & { giam_gia: number };
@@ -131,6 +133,12 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false, loc }: {
         <MucDongTien nhan="Doanh thu thuần" tong={dt?.doanh_thu_thuan} tien={tien} />
         {dt && dt.hoan_cho > 0 ? (
           <p className="px-3 py-2 text-meta text-ink-muted">Còn {tien(dt.hoan_cho)} hoàn tiền đang chờ — chưa trừ vào Trả lại.</p>
+        ) : null}
+        {dt?.ck_cho_da_huy && dt.ck_cho_da_huy.so_lan > 0 ? (
+          <p className="px-3 py-2 text-meta text-warning">
+            {dt.ck_cho_da_huy.so_lan} lần chờ chuyển khoản đã huỷ ({tien(dt.ck_cho_da_huy.tong)}) — không tính là đã thu; đối chiếu sao kê ngân hàng.{" "}
+            <a href={linkHoaDon(loc, "ck_da_huy")} className="text-brand-700 underline-offset-2 hover:underline print:hidden">Xem</a>
+          </p>
         ) : null}
         {dt && !dt.khop ? (
           <p role="alert" className="px-3 py-2 text-meta text-danger">Các số dòng tiền không khớp công thức — báo kỹ thuật kiểm tra.</p>

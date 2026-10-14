@@ -180,6 +180,18 @@ def doc_phan_db(raw: object) -> list[dict[str, Any]]:
     return ra
 
 
+def so_tien_chuyen_khoan(
+    phan: Sequence[Mapping[str, Any]], method: object, tong: int
+) -> int:
+    """Phần tiền đi qua NGÂN HÀNG của một lần thu (G4d, R1) — số mà sao kê
+    phải thấy. Chia TM + CK thì chỉ phần CK; không rõ phần thì theo hình thức
+    chung của lần thu. Thuần."""
+    co = [p for p in phan if p.get("hinh_thuc")]
+    if not co:
+        return tong if chuan_hinh_thuc(method) == CHUYEN_KHOAN else 0
+    return sum(int(p.get("so_tien") or 0) for p in co if p["hinh_thuc"] == CHUYEN_KHOAN)
+
+
 def nhan_phan(phan: Sequence[Mapping[str, Any]]) -> str:
     """ "Tiền mặt" · "Tiền mặt 500.000đ + Chuyển khoản 200.000đ" · "" (không rõ)."""
     co = [p for p in phan if p.get("hinh_thuc")]

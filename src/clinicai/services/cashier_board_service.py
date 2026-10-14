@@ -48,7 +48,7 @@ from clinicai.services.doi_hinh_thuc_service import trang_thai_doi
 from clinicai.services.hoan_tac_service import tien_thua_cua_luot
 from clinicai.services.hoan_tien_service import hoan_cua_cac_lan_thu
 from clinicai.services.moc_kham_xong import kham_xong_sql
-from clinicai.services.phan_thu import doc_phan_db
+from clinicai.services.phan_thu import doc_phan_db, so_tien_chuyen_khoan
 from clinicai.services.so_sua_chi_dinh_service import da_bo_cua_cac_luot
 
 if TYPE_CHECKING:
@@ -626,6 +626,10 @@ class CashierBoardService:
                 "luc": r["created_at"].isoformat(),
                 # Chia TM + CK của lần chờ (01/10/2026) + ảnh chuyển khoản.
                 "phan": doc_phan_db(r["phan"]),
+                # Số sao kê phải thấy (G4d, R1) — ô "ngân hàng thật nhận" so với nó.
+                "so_tien_chuyen_khoan": so_tien_chuyen_khoan(
+                    doc_phan_db(r["phan"]), r["method"], int(r["amount"])
+                ),
                 "anh_ck": anh_cho.get(r["payment_cycle_id"], []),
             }
             for r in cho_rows

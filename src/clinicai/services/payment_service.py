@@ -81,7 +81,9 @@ from clinicai.services.phan_thu import (
     ap_phan,
     chuan_hinh_thuc,
     doc_phan,
+    doc_phan_db,
     hinh_thuc_chinh,
+    so_tien_chuyen_khoan,
 )
 from clinicai.services.service_selection_service import (
     QUYEN_CHON_DICH_VU,
@@ -144,10 +146,30 @@ CHO_XAC_MINH = "PENDING_VERIFICATION"
 KHONG_CON_KHOAN = "KHONG_CON_KHOAN"
 #: Hành động trong command_receipt của lệnh thu tiền dịch vụ.
 _THU_DICH_VU = "payment.record.dich_vu"
-# Mã nguyên nhân cần đối soát (CP6) — đúng hai mã DB chấp nhận
+# Mã nguyên nhân cần đối soát (CP6) — đúng các mã DB chấp nhận
 # (payment_cycle_doi_soat_ma_hop_le). Thêm mã = thêm vào CHECK cùng lúc.
 DOI_SOAT_HOA_DON_DOI = "HOA_DON_DOI"
 DOI_SOAT_CHUA_GHI_BAN = "CHUA_GHI_BAN"
+#: Ngân hàng báo nhận khác phần chuyển khoản của lần thu (G4d, R1).
+DOI_SOAT_SO_TIEN_LECH = "SO_TIEN_LECH"
+
+
+def doc_so_thuc_nhan(raw: object) -> int | None:
+    """Số tiền ngân hàng thật nhận người bấm gõ: trống → None (không khai);
+    số nguyên đồng ≥ 0; rác → ValidationError (tiền không đoán)."""
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return None
+    if isinstance(raw, bool):
+        raise ValidationError("Số tiền ngân hàng nhận phải là một con số.")
+    try:
+        so = int(str(raw).strip().replace(".", "").replace(",", ""))
+    except ValueError:
+        raise ValidationError("Số tiền ngân hàng nhận phải là một con số.") from None
+    if so < 0 or so > 10_000_000_000:
+        raise ValidationError("Số tiền ngân hàng nhận không hợp lệ.")
+    return so
+
+
 MIN_VOID_REASON_LENGTH = 5
 MAX_VOID_REASON_LENGTH = 500
 
@@ -1043,12 +1065,18 @@ class PaymentService:
         reference: object,
         identity: StaffIdentity,
         quay: str | None = None,
+        so_tien_thuc_nhan: object = None,
     ) -> dict[str, Any]:
         """Xác minh lần chuyển khoản/QR ĐÃ NHẬN TIỀN → PAID.
 
         Mã giao dịch ngân hàng là TUỲ CHỌN (Tuyền 24/09/2026: "không được bắt
         buộc điền mã mới cho thanh toán xong, open đi"). Có mã thì lưu làm bằng
         chứng; không có thì người bấm (`confirmed_by`) là dấu vết.
+
+        SỐ NGÂN HÀNG THẬT NHẬN (G4d, R1 — Tuyền chốt C 14/10): tuỳ chọn, không
+        chặn xác minh. Khác phần chuyển khoản của lần thu → vẫn ghi đã thu theo
+        hoá đơn, lưu số thật nhận + mã đối soát ``SO_TIEN_LECH``; người đối soát
+        quyết thu thêm / trả lại (máy không tự ghi nợ).
 
         GẮN VỚI ẢNH CHỤP CỦA LẦN THU (review CP2 #3): tiền khách chuyển là cho
         đúng hoá đơn đã chụp lúc tạo lần chờ, với đúng số tiền ấy. Hoá đơn hiện
@@ -1063,6 +1091,7 @@ class PaymentService:
         ma = (reference.strip() if isinstance(reference, str) else "") or None
         if ma is not None and len(ma) > 100:
             raise ValidationError("Mã giao dịch ngân hàng dài quá 100 ký tự.")
+        thuc_nhan = doc_so_thuc_nhan(so_tien_thuc_nhan)
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 lan, phan_lo = await self._khoa_lan_thu(
@@ -1139,6 +1168,20 @@ class PaymentService:
                     khong_ban_duoc += await _dong_da_dinh_chinh(
                         conn, identity.clinic_id, phan_lo
                     )
+                so_ck = so_tien_chuyen_khoan(
+                    doc_phan_db(
+                        await conn.fetchval(
+                            "SELECT phan_thu_hieu_luc($1::uuid, $2::uuid, $3, $4)",
+                            identity.clinic_id,
+                            payment_cycle_id,
+                            lan["method"],
+                            lan["amount"],
+                        )
+                    ),
+                    lan["method"],
+                    int(lan["amount"]),
+                )
+                lech_so = thuc_nhan is not None and thuc_nhan != so_ck
                 # CP6: mã NGUYÊN NHÂN, không chỉ cờ — lịch sử phải nói đúng vì
                 # sao lần thu này cần đối soát. DB ép cờ = có ít nhất một mã.
                 ly_do_doi_soat = [
@@ -1146,6 +1189,7 @@ class PaymentService:
                     for ma_ld, co in (
                         (DOI_SOAT_HOA_DON_DOI, lech),
                         (DOI_SOAT_CHUA_GHI_BAN, bool(khong_ban_duoc)),
+                        (DOI_SOAT_SO_TIEN_LECH, lech_so),
                     )
                     if co
                 ]
@@ -1167,7 +1211,7 @@ class PaymentService:
                     UPDATE payment_cycle
                         SET status = 'PAID', paid_at = now(), confirmed_by = $2::uuid,
                             reference = $3, payment_id = $4::uuid, can_doi_soat = $5,
-                            doi_soat_ly_do = $6::text[]
+                            doi_soat_ly_do = $6::text[], so_tien_thuc_nhan = $7
                       WHERE payment_cycle_id = $1::uuid
                         AND status = 'PENDING_VERIFICATION'
                     """,
@@ -1177,6 +1221,7 @@ class PaymentService:
                     payment_id,
                     can_doi_soat,
                     ly_do_doi_soat,
+                    thuc_nhan,
                 )
                 if kind == "dich_vu":
                     await _phat_da_thu_dich_vu(
@@ -1222,7 +1267,7 @@ class PaymentService:
                         method=lan["method"],
                         note="; ".join(khong_ban_duoc),
                     )
-                if lech:
+                if lech or lech_so:
                     await _log_payment_event(
                         conn,
                         event_type="payment.reconciliation_needed",
@@ -1233,12 +1278,20 @@ class PaymentService:
                         amount=int(lan["amount"]),
                         identity=identity,
                         method=lan["method"],
+                        note=(
+                            f"Ngân hàng nhận {thuc_nhan:,}đ, phần chuyển khoản"
+                            f" {so_ck:,}đ".replace(",", ".")
+                            if lech_so
+                            else None
+                        ),
                     )
         return {
             "payment_cycle_id": payment_cycle_id,
             "status": "PAID",
             "can_doi_soat": can_doi_soat,
             "doi_soat_ly_do": ly_do_doi_soat,
+            "so_tien_chuyen_khoan": so_ck,
+            "so_tien_thuc_nhan": thuc_nhan,
         }
 
     async def huy_cho_xac_minh(

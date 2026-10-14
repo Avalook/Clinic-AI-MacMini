@@ -73,6 +73,8 @@ def dong_tien(bao_cao: Mapping[str, Any]) -> dict[str, Any]:
         "tien_thu": tien_thu,
         "tra_lai": tra_lai,
         "hoan_cho": int(tong.get("hoan_cho") or 0),
+        # Lần chờ CK đã huỷ (G4d, R1): ghi chú như hoàn đang chờ — không cộng.
+        "ck_cho_da_huy": dict(bao_cao.get("ck_cho_da_huy") or {"so_lan": 0, "tong": 0}),
         "no": no,
         "giam_gia": giam_gia,
         "no_thu_duoc": no_thu,

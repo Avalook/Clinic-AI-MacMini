@@ -213,6 +213,8 @@ class XacMinhRequest(BaseModel):
     kind: PaymentKind
     #: Tuỳ chọn (24/09/2026) — thu QR/chuyển khoản xong không bắt nhập mã.
     reference: str | None = Field(default=None, max_length=100)
+    #: Tuỳ chọn (G4d, R1) — số ngân hàng báo nhận; lệch → cờ đối soát.
+    so_tien_thuc_nhan: int | None = Field(default=None, ge=0, le=10_000_000_000)
     quay: QuayThu | None = None
 
 
@@ -237,6 +239,7 @@ async def xac_minh_dien_tu(
         reference=body.reference,
         identity=identity,
         quay=body.quay,
+        so_tien_thuc_nhan=body.so_tien_thuc_nhan,
     )
     return {"ok": True, **kq}
 

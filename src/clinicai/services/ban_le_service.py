@@ -33,7 +33,7 @@ from clinicai.permissions.can import can
 from clinicai.schemas.patient import PatientCreateDTO
 from clinicai.services.audit import record_event
 from clinicai.services.bill_service import tinh_hoa_don
-from clinicai.services.phan_thu import doc_phan_db
+from clinicai.services.phan_thu import doc_phan_db, so_tien_chuyen_khoan
 
 #: Ai mở được lượt bán lẻ — có MỘT trong các lego này (hướng "MỞ HẾT").
 QUYEN_MO = ("pharmacy.dispense", "payment.medicine.collect", "payment.service.collect")
@@ -282,6 +282,9 @@ class BanLeService:
                 "phuong_thuc": lan["method"],
                 "luc": lan["created_at"].isoformat(),
                 "phan": doc_phan_db(lan["phan"]),
+                "so_tien_chuyen_khoan": so_tien_chuyen_khoan(
+                    doc_phan_db(lan["phan"]), lan["method"], int(lan["amount"])
+                ),
                 "anh_ck": [],
             }
         return {

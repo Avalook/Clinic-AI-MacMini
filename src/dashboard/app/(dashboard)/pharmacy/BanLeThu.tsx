@@ -209,7 +209,7 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
             mienPhi ? null : (chia?.anh ?? null),
           );
         }}
-        onXacMinh={(ma: string) =>
+        onXacMinh={(ma: string, soNhan: number | null) =>
           void gui(
             {
               action: "xac-minh",
@@ -218,6 +218,7 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
               kind: "thuoc",
               quay: "thuoc",
               reference: ma,
+              soTienThucNhan: soNhan,
             },
             "Đã xác minh — tiền thuốc đã thu, lượt bán lẻ đã tự đóng.",
           )

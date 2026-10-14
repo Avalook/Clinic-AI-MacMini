@@ -14,7 +14,7 @@ export interface PhieuHoan {
 /** Một việc làm tiền của phiếu thay đổi SAU khi bấm thu (máy chủ tính). */
 export interface SuKien {
   luc: string | null;
-  loai: "DOI_HINH_THUC" | "BO_DICH_VU" | "HOAN_TIEN" | "HUY_PHIEU";
+  loai: "DOI_HINH_THUC" | "BO_DICH_VU" | "HOAN_TIEN" | "HUY_PHIEU" | "HUY_CHO_CK";
   nguoi: string | null; mo_ta: string; ly_do: string | null; so_tien: number;
   trang_thai?: string; sau_giay?: number | null;
 }
@@ -28,6 +28,8 @@ export interface ViecTon {
 export interface PhieuThu {
   id: string; ma: string; visit_id: string; kind: string; trang_thai: string;
   thu_trong_ky?: boolean; can_doi_soat?: boolean;
+  /** Mã vì sao cần đối soát + số ngân hàng báo nhận lúc xác minh CK (G4d, R1). */
+  doi_soat_ly_do?: string[]; so_tien_thuc_nhan?: number | null;
   so_tien: number; da_hoan: number; cho_hoan: number; thu_rong: number;
   tong_truoc_giam: number; giam_gia: number; kieu_giam: "AMOUNT" | "PERCENT" | null;
   gia_tri_giam: number | null; ly_do_giam: string | null; nguoi_giam: string | null; giam_luc: string | null;
@@ -70,18 +72,20 @@ export const NHOM_HOA_DON: Record<string, string> = {
   doi_hinh_thuc: "Đổi hình thức thu",
   no_khach: "Khách còn nợ",
   no_phong_kham: "Phòng khám còn nợ khách",
+  ck_da_huy: "Huỷ lần chờ chuyển khoản",
 };
 export const TEN_LECH: Record<string, string> = {
   HUY: "huỷ", HOAN: "trả lại", DOI_HINH_THUC: "đổi hình thức", CAN_DOI_SOAT: "cần đối soát",
-  NO_KHACH: "khách nợ", NO_PHONG_KHAM: "nợ khách",
+  NO_KHACH: "khách nợ", NO_PHONG_KHAM: "nợ khách", HUY_CHO_CK: "huỷ lần chờ CK",
 };
 export const TRANG_THAI: Record<string, string> = {
   DA_THU: "Đã thu", CHO_HOAN: "Chờ hoàn", HOAN_MOT_PHAN: "Hoàn một phần",
-  HOAN_TOAN_BO: "Hoàn toàn bộ", DA_HUY: "Đã hủy", HON_HOP: "Nhiều trạng thái",
+  HOAN_TOAN_BO: "Hoàn toàn bộ", DA_HUY: "Đã hủy", CK_DA_HUY: "Huỷ lần chờ CK",
+  HON_HOP: "Nhiều trạng thái",
 };
 export const TEN_SU_KIEN: Record<SuKien["loai"], string> = {
   DOI_HINH_THUC: "Đổi hình thức", BO_DICH_VU: "Bỏ dịch vụ sau thu",
-  HOAN_TIEN: "Hoàn tiền", HUY_PHIEU: "Huỷ phiếu",
+  HOAN_TIEN: "Hoàn tiền", HUY_PHIEU: "Huỷ phiếu", HUY_CHO_CK: "Huỷ lần chờ CK",
 };
 export const tien = (n: number) => `${n.toLocaleString("vi-VN")}đ`;
 export function ngayGio(value: string | null) {

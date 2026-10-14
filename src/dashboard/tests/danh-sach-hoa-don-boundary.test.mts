@@ -11,7 +11,8 @@ test("Danh sách hoá đơn đứng ngay dưới Báo cáo và dùng cửa repor
 test("hai quầy cùng tạo bill, vẫn giữ xác minh tiền chuyển khoản", () => {
   const quay = read("../app/(dashboard)/thu-ngan/QuayThuNgan.tsx");
   assert.match(quay, /"Tạo bill"/);
-  assert.match(quay, /onXacMinh\(ma.trim\(\)\)/);
+  // Xác minh gửi kèm số ngân hàng thật nhận (G4d, R1) — tuỳ chọn, trống = null.
+  assert.match(quay, /onXacMinh\(ma\.trim\(\), soNhan === "" \? null : Number\(soNhan\)\)/);
   for (const p of ["dich-vu", "thuoc"]) assert.match(read(`../app/(dashboard)/thu-ngan/${p}/page.tsx`), /Tạo bill/);
   // Quầy dịch vụ (hoá đơn từng lượt) cùng chữ với quầy thuốc — không còn nút "Thu" (13/10/2026).
   const hoaDon = read("../app/(dashboard)/thu-ngan/HoaDonMot.tsx");

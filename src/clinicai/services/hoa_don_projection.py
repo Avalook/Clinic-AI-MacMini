@@ -92,12 +92,25 @@ def _su_kien(
                 "sau_giay": giay,
             }
         )
+    if row.get("status") == "CANCELLED":
+        ev.append(
+            {
+                "luc": _iso(row.get("closed_at")),
+                "loai": "HUY_CHO_CK",
+                "nguoi": row.get("nguoi_huy"),
+                "mo_ta": "Huỷ lần chờ chuyển khoản — chưa ghi thu",
+                "ly_do": row.get("close_reason"),
+                "so_tien": 0,
+            }
+        )
     return sorted(ev, key=lambda e: e["luc"] or "9999")
 
 
 def _state(status: Any, amount: int, returned: int, pending: int) -> str:
     if status == "VOIDED":
         return "DA_HUY"
+    if status == "CANCELLED":
+        return "CK_DA_HUY"
     if pending:
         return "CHO_HOAN"
     if returned > 0 and returned >= amount:
@@ -166,6 +179,9 @@ def _bill(
     amount = int(row["amount"])
     completed = sum(r["so_tien"] for r in rs if r["trang_thai"] == "COMPLETED")
     pending = sum(r["so_tien"] for r in rs if r["trang_thai"] == "PENDING")
+    # Lần chờ CK đã huỷ (G4d, R1): hiện để đối chiếu sao kê, KHÔNG phải tiền
+    # đã thu — mọi cột tiền = 0, số tiền lần chờ chỉ để đọc ("so_tien").
+    chua_thu = row["status"] == "CANCELLED"
     return {
         "id": row["id"],
         "ma": ma_phieu(row["id"]),
@@ -175,14 +191,17 @@ def _bill(
         "trang_thai_goc": row["status"],
         "so_tien": amount,
         **_discount(row),
-        "da_thu": amount,
+        **({"tong_truoc_giam": 0, "giam_gia": 0} if chua_thu else {}),
+        "da_thu": 0 if chua_thu else amount,
         "da_hoan": completed,
         "cho_hoan": pending,
         # Phiếu đã huỷ không còn tiền của phòng khám: thu ròng 0 — cùng định
         # nghĩa với báo cáo cuối ngày (thực thu = thu − huỷ − hoàn). Để nguyên
         # số tiền thì tổng thu ròng bị thổi lên đúng bằng tiền phiếu huỷ (staging
         # 12/10: 77.505.000 so với 74.250.000 của báo cáo).
-        "thu_rong": 0 if row["status"] == "VOIDED" else amount - completed,
+        "thu_rong": 0
+        if row["status"] in ("VOIDED", "CANCELLED")
+        else amount - completed,
         "hinh_thuc": row.get("method"),
         "lap_luc": _iso(row.get("created_at")),
         "thu_luc": _iso(row.get("paid_at")),
@@ -192,6 +211,12 @@ def _bill(
         "nguoi_huy": row.get("nguoi_huy"),
         "ly_do_huy": row.get("close_reason"),
         "can_doi_soat": bool(row.get("can_doi_soat")),
+        "doi_soat_ly_do": list(row.get("doi_soat_ly_do") or []),
+        "so_tien_thuc_nhan": (
+            int(row["so_tien_thuc_nhan"])
+            if row.get("so_tien_thuc_nhan") is not None
+            else None
+        ),
         "thu_trong_ky": bool(row.get("trong_ky")),
         "huy_trong_ky": bool(row.get("huy_trong_ky")),
         "dong": [_line(d) for d in my_lines],
@@ -228,6 +253,9 @@ def _customer(
                 else None,
                 "Có khoản hoàn thất bại"
                 if any(r["trang_thai"] == "FAILED" for r in p["hoan"])
+                else None,
+                "Có lần chờ chuyển khoản đã huỷ — đối chiếu sao kê"
+                if p["trang_thai"] == "CK_DA_HUY"
                 else None,
             )
             if message is not None
@@ -292,6 +320,7 @@ TEN_LECH: dict[str, str] = {
     "HOAN": "Có trả lại tiền",
     "DOI_HINH_THUC": "Đổi hình thức thu",
     "CAN_DOI_SOAT": "Cần đối soát",
+    "HUY_CHO_CK": "Huỷ lần chờ chuyển khoản",
     "NO_KHACH": "Khách còn nợ",
     "NO_PHONG_KHAM": "Phòng khám còn nợ khách",
 }
@@ -309,6 +338,7 @@ NHOM_LOC = frozenset(
         "doi_hinh_thuc",
         "no_khach",
         "no_phong_kham",
+        "ck_da_huy",
     }
 )
 
@@ -325,6 +355,7 @@ def lech_cua_phieu(
         "HOAN": bool(bill["hoan"]),
         "DOI_HINH_THUC": any(e.get("loai") == "DOI_HINH_THUC" for e in bill["su_kien"]),
         "CAN_DOI_SOAT": bool(bill["can_doi_soat"]),
+        "HUY_CHO_CK": bill["trang_thai"] == "CK_DA_HUY",
         "NO_KHACH": bool(viec & _VIEC_NO_KHACH),
         "NO_PHONG_KHAM": bool(viec & _VIEC_NO_PHONG_KHAM),
     }
@@ -343,6 +374,7 @@ def hop_nhom(bill: Mapping[str, Any], nhom: str | None) -> bool:
         "doi_hinh_thuc": "DOI_HINH_THUC" in lech,
         "no_khach": "NO_KHACH" in lech,
         "no_phong_kham": "NO_PHONG_KHAM" in lech,
+        "ck_da_huy": "HUY_CHO_CK" in lech,
     }.get(nhom, True)
 
 
@@ -450,7 +482,7 @@ def gom_hoa_don(
 
 
 TRANG_THAI_PHIEU = frozenset(
-    {"DA_THU", "CHO_HOAN", "HOAN_MOT_PHAN", "HOAN_TOAN_BO", "DA_HUY"}
+    {"DA_THU", "CHO_HOAN", "HOAN_MOT_PHAN", "HOAN_TOAN_BO", "DA_HUY", "CK_DA_HUY"}
 )
 
 

@@ -28,7 +28,8 @@ SELECT pc.payment_cycle_id::text id, pc.visit_id::text visit_id, pc.kind,
  pc.amount, pc.status, pc.created_at, pc.paid_at, pc.closed_at, pc.close_reason,
  pc.original_amount, pc.discount_amount, pc.discount_type, pc.discount_value,
  pc.discount_reason, discount_staff.full_name nguoi_giam,
- pc.can_doi_soat, p.clinic_patient_id::text patient_id, p.full_name ten,
+ pc.can_doi_soat, pc.doi_soat_ly_do, pc.so_tien_thuc_nhan,
+ p.clinic_patient_id::text patient_id, p.full_name ten,
  p.patient_code ma_bn, p.phone_primary so_dien_thoai,
  creator.full_name nguoi_lap, confirmer.full_name nguoi_thu, closer.full_name nguoi_huy,
  hinh_thuc_hieu_luc(pc.clinic_id,pc.payment_cycle_id,pc.method) method,
@@ -43,7 +44,10 @@ LEFT JOIN staff creator ON creator.id=pc.created_by
 LEFT JOIN staff confirmer ON confirmer.id=pc.confirmed_by
 LEFT JOIN staff closer ON closer.id=pc.closed_by
 LEFT JOIN staff discount_staff ON discount_staff.id=pc.discount_by
-WHERE pc.clinic_id=$1::uuid AND pc.paid_at IS NOT NULL
+-- Lần chờ chuyển khoản bị HUỶ (chưa từng thu) vẫn hiện (G4d, R1): huỷ nhầm
+-- khi tiền đã về thì sổ không còn dấu nào khác — kế toán đối chiếu sao kê ở đây.
+WHERE pc.clinic_id=$1::uuid
+ AND (pc.paid_at IS NOT NULL OR pc.status='CANCELLED')
  AND ($4::uuid IS NULL OR coalesce(v.location_id,a.location_id)=$4::uuid)
  AND ($5::text IS NULL OR pc.kind=$5)
  AND ((pc.paid_at >= $2 AND pc.paid_at < $3)
@@ -54,7 +58,7 @@ WHERE pc.clinic_id=$1::uuid AND pc.paid_at IS NOT NULL
        OR (r.status='PENDING' AND r.created_at >= $2 AND r.created_at < $3)
        OR (r.status IN ('FAILED','CANCELLED')
          AND r.closed_at >= $2 AND r.closed_at < $3))))
-ORDER BY pc.paid_at DESC,pc.payment_cycle_id
+ORDER BY coalesce(pc.paid_at,pc.closed_at) DESC,pc.payment_cycle_id
 """
 _REFUNDS = """
 SELECT r.refund_id::text id,r.payment_cycle_id::text cycle_id,r.amount,r.status,
