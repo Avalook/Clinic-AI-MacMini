@@ -29,3 +29,11 @@ ALTER TABLE public.drug_return ADD CONSTRAINT drug_return_ket_cuc_tien_hop_le CH
 
 CREATE INDEX IF NOT EXISTS idx_drug_return_prescription
     ON public.drug_return (clinic_id, prescription_id);
+
+-- Sổ nợ ghi lần trả bằng sự kiện riêng `medicine.returned` (khách thường trả vài
+-- giờ / vài ngày SAU check-out — sổ đã ghi xong lần về, vòng đối chiếu chỉ quét
+-- 48 giờ): thêm loại "Khách trả thuốc".
+ALTER TABLE public.so_no DROP CONSTRAINT IF EXISTS so_no_loai_check;
+ALTER TABLE public.so_no ADD CONSTRAINT so_no_loai_check CHECK (loai IN (
+    'DAU_KY', 'KHI_VE', 'MO_LAI_LUOT', 'GHI_NO', 'THU', 'HUY_PHIEU', 'HOAN_TIEN',
+    'DOI_CHI_DINH', 'TRA_THUOC', 'DOI_CHIEU'));

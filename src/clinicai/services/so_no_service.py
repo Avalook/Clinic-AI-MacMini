@@ -70,6 +70,8 @@ LOAI_THEO_SU_KIEN: dict[str, str] = {
     "visit.supply_changed": "DOI_CHI_DINH",
     "visit.exam_service_changed": "DOI_CHI_DINH",
     "medicine.dispensed": "DOI_CHI_DINH",
+    "medicine.returned": "TRA_THUOC",
+    "prescription.saved": "DOI_CHI_DINH",
 }
 
 #: Lượt đối chiếu định kỳ (worker su-kien): mỗi bao lâu một vòng.
@@ -432,6 +434,7 @@ NHAN_LOAI: dict[str, str] = {
     "HUY_PHIEU": "Huỷ phiếu sau khi khách về",
     "HOAN_TIEN": "Hoàn tiền",
     "DOI_CHI_DINH": "Dịch vụ / thuốc đổi sau khi khách về",
+    "TRA_THUOC": "Khách trả thuốc",
     "DOI_CHIEU": "Máy đối chiếu phát hiện",
 }
 

@@ -44,7 +44,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import hom_nay_vn, now_vn
 from clinicai.core.tran import canh_bao_neu_day
-from clinicai.events.catalogue import ThuocDaGiao
+from clinicai.events.catalogue import ThuocDaGiao, ThuocKhachTra
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
@@ -1830,6 +1830,25 @@ class PharmacyService:
                         "ket_cuc_tien": ket_cuc_tien,
                         "refund_id": hoan["refund_id"] if hoan else None,
                     },
+                )
+                # Sổ nợ + dòng thời gian nghe (G4d · R3): khách thường trả SAU
+                # check-out — sổ đã ghi xong lần về, vòng đối chiếu chỉ quét 48
+                # giờ. Không có sự kiện này thì "Giữ lại" không bao giờ vào sổ.
+                await emit_event(
+                    conn,
+                    ten="medicine.returned",
+                    clinic_id=identity.clinic_id,
+                    aggregate_id=xuat["prescription_id"],
+                    payload=ThuocKhachTra(
+                        visit_id=str(don["visit_id"]),
+                        prescription_id=xuat["prescription_id"],
+                        drug_return_id=str(tra_id),
+                        so_luong=str(luong),
+                        ket_cuc_tien=str(ket_cuc_tien),
+                        refund_id=str(hoan["refund_id"]) if hoan else None,
+                    ),
+                    boi=nguoi(identity),
+                    correlation_id=str(don["visit_id"]),
                 )
         return {
             "ok": True,

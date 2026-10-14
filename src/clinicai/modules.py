@@ -398,6 +398,7 @@ MODULE: dict[str, Module] = {
                 "cong_no.huy",
                 "cong_no.da_thu",
                 "medicine.dispensed",
+                "medicine.returned",
                 "result_file.uploaded",
                 "result_file.confirmed",
                 "result_file.revoked",
@@ -788,7 +789,11 @@ MODULE: dict[str, Module] = {
                 "RefuseLine",
                 "CloseLine",
             ],
-            phat=["medicine.dispensed", "medicine.counter_changed"],
+            phat=[
+                "medicine.dispensed",
+                "medicine.counter_changed",
+                "medicine.returned",
+            ],
             bang=["prescription_allocation", "inventory_txn"],
             quyen=["pharmacy.dispense", "pharmacy.view"],
         ),
@@ -834,6 +839,10 @@ MODULE: dict[str, Module] = {
                 "visit.supply_changed",
                 "visit.exam_service_changed",
                 "medicine.dispensed",
+                # G4d · R3: khách trả thuốc (thường SAU check-out) + đính chính
+                # dòng đơn đã thu.
+                "medicine.returned",
+                "prescription.saved",
             ],
             ben_nhan=["so_no"],
             bang=["so_no", "so_no_moc"],

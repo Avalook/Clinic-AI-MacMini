@@ -321,6 +321,21 @@ class ThuocDaGiao(PayloadSuKien):
     so_da_giao: str
 
 
+class ThuocKhachTra(PayloadSuKien):
+    """`medicine.returned` — khách mang thuốc đã nhận trả lại quầy (G4d · R3).
+
+    Tiền phần trả là ``ket_cuc_tien`` (HOAN / DOI có ``refund_id``; GIU_LAI vẫn
+    là nợ khách). Sổ nợ nghe để ghi ngay — khách thường trả SAU check-out, lúc
+    sổ đã ghi xong lần về."""
+
+    visit_id: str
+    prescription_id: str
+    drug_return_id: str
+    so_luong: str
+    ket_cuc_tien: str
+    refund_id: str | None = None
+
+
 # ── kết quả: tệp, xem, duyệt, gửi khách (nhóm 3) ──────────────────────────
 
 
@@ -1427,7 +1442,9 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Bác sĩ kê / sửa đơn thuốc",
             # Kê đơn từng KHÔNG phát sự kiện nào (bộ mô phỏng ngày khám,
             # 24/09/2026): kho thuốc, dòng thời gian không có dây để nghe.
-            consumers=[DONG_THOI_GIAN_LUOT],
+            # Sổ nợ nghe (G4d · R3): đính chính dòng ĐÃ THU chưa giao sau khi
+            # khách về = phòng khám nợ khách.
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
         ),
         SuKien(
             ten="prescription.consultant_marked",
@@ -1994,6 +2011,16 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="pharmacy",
             payload=ThuocDaGiao,
             nhan="Đã giao thuốc",
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
+            is_public=False,
+        ),
+        SuKien(
+            ten="medicine.returned",
+            version=1,
+            aggregate_type="prescription",
+            source_module="pharmacy",
+            payload=ThuocKhachTra,
+            nhan="Khách trả thuốc",
             consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
             is_public=False,
         ),

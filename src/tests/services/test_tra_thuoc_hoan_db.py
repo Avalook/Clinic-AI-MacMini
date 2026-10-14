@@ -18,6 +18,7 @@ Bất biến tiền thật (bài ngẫu nhiên): tiền thuốc đã thu − ti�
 
 from __future__ import annotations
 
+import json
 import random
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -73,6 +74,20 @@ async def _phai_tra_thuoc(q: Quay) -> int:
     return sum(
         int(d["so_tien"]) for d in sd.chi_tiet.get("PHAI_TRA", []) if d["loai"] == THUOC
     )
+
+
+async def _so_ghi_thuoc(q: Quay) -> int:
+    """Phần THUỐC trong số dư PHAI_TRA cuối của SỔ ĐÃ GHI (bảng so_no) — thứ
+    việc tồn / Khách còn nợ thật sự đọc; khác công thức sống `so_du_hien_tai`."""
+    ct = await q.pool.fetchval(
+        "SELECT chi_tiet FROM so_no WHERE visit_id = $1::uuid AND chieu = 'PHAI_TRA'"
+        " ORDER BY seq DESC LIMIT 1",
+        q.visit_id,
+    )
+    if ct is None:
+        return 0
+    ds = json.loads(ct) if isinstance(ct, str) else ct
+    return sum(int(d["so_tien"]) for d in ds if d.get("loai") == THUOC)
 
 
 async def _hoan_cua(q: Quay) -> list[tuple[str, str, int, str]]:
@@ -207,6 +222,51 @@ async def test_khong_co_lego_thu_thuoc_thi_hoan_bi_chan_tra_cung_khong_ghi(
         assert len(await _hoan_cua(q)) == 1
 
 
+async def test_tra_sau_khi_so_da_ghi_lan_ve_van_vao_so(q: Quay) -> None:
+    """Soát #430 (phiên điều phối 14/10): khách thường trả thuốc vài giờ / vài
+    ngày SAU check-out — lúc ấy sổ đã ghi xong sự kiện về. Lần trả phải tự
+    mang sự kiện riêng để sổ ghi, không trông vào vòng đối chiếu."""
+    rx, _, lo = await _san_sang(q, 10, 100)
+    await _thu(q)
+    await _giao(q, rx, lo, 10)
+    await _ve(q)
+    await chay_ben_nhan(q.pool, CONG_NO, SO_NO)  # sổ ghi xong lần về
+    assert await _so_ghi_thuoc(q) == 0
+    await _tra(q, await _xuat(q, rx), 4, "GIU_LAI", ly_do_tien="Trừ lần mua sau")
+    await chay_ben_nhan(q.pool, CONG_NO, SO_NO)
+    assert await _so_ghi_thuoc(q) == 4 * GIA
+    async with q.pool.acquire() as conn:
+        ton = [
+            t
+            for t in await DanhSachHoaDonService._viec_ton(conn, CLINIC, None, "thuoc")
+            if t.get("visit_id") == q.visit_id
+        ]
+    assert [(t["loai"], t["so_tien"]) for t in ton] == [("CHUA_TRA_LAI", 4 * GIA)]
+    loai = await q.pool.fetchval(
+        "SELECT loai FROM so_no WHERE visit_id = $1::uuid AND chieu = 'PHAI_TRA'"
+        " ORDER BY seq DESC LIMIT 1",
+        q.visit_id,
+    )
+    assert loai == "TRA_THUOC"
+
+
+async def test_tra_sau_48_gio_khong_can_vong_doi_chieu(q: Quay) -> None:
+    """Lượt đóng quá 48 giờ (ngoài cửa sổ vòng đối chiếu) — vẫn vào sổ."""
+    rx, _, lo = await _san_sang(q, 10, 100)
+    await _thu(q)
+    await _giao(q, rx, lo, 10)
+    await _ve(q)
+    await chay_ben_nhan(q.pool, CONG_NO, SO_NO)
+    await q.pool.execute(
+        "UPDATE visit SET closed_at = closed_at - interval '3 days',"
+        " created_at = created_at - interval '3 days' WHERE visit_id = $1::uuid",
+        q.visit_id,
+    )
+    await _tra(q, await _xuat(q, rx), 2, "GIU_LAI", ly_do_tien="Để lại")
+    await chay_ben_nhan(q.pool, CONG_NO, SO_NO)
+    assert await _so_ghi_thuoc(q) == 2 * GIA
+
+
 # ── T2: thu rồi chưa giao mà khách về ──────────────────────────────────────
 
 
@@ -296,9 +356,10 @@ async def test_bam_lon_xon_tien_thuoc_khop(q: Quay) -> None:
         except (ClinicAIBaseException, AssertionError):
             continue
         buoc.append(viec)
+        await chay_ben_nhan(q.pool, CONG_NO, SO_NO)  # như worker thật, sau mỗi bước
         if da_ve:
             thu, hoan, cam = await _tien(q)
-            no_khach = await _phai_tra_thuoc(q)
+            no_khach = await _so_ghi_thuoc(q)
             if thu - hoan != cam + no_khach:
                 lech.append(
                     f"{' → '.join(buoc)} ⇒ thu {thu:,} − hoàn {hoan:,}"
