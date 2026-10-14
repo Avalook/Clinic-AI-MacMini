@@ -41,6 +41,7 @@ router = APIRouter()
 # thu lego là mất quyền thêm nhân sự / tạo tài khoản / đặt lại mật khẩu ngay.
 _STAFF_MANAGEMENT_GUARD = cua_quyen("staff.manage")
 _TAI_KHOAN_GUARD = cua_quyen("account.manage")
+_STAFF_OR_ACCOUNT_GUARD = cua_quyen("staff.manage", "account.manage")
 
 
 @router.post(
@@ -97,7 +98,7 @@ async def danh_sach_tai_khoan(
     rows = await pool.fetch(
         """
         SELECT DISTINCT s.id::text AS id, s.full_name, s.short_name,
-               s.primary_department, s.employment_type, s.is_active,
+               s.primary_department, s.employment_type, m.is_active AS is_active,
                s.auth_user_id::text AS auth_user_id
           FROM staff s
           JOIN clinic_membership m ON m.staff_id = s.id
@@ -277,6 +278,54 @@ async def thu_hoi_tai_khoan(
     return await TaiKhoanService(pool, identity).thu_hoi(
         str(id), str(body.auth_user_id)
     )
+
+
+class KhoaNghiViecRequest(BaseModel):
+    go_ca_truc: bool = False
+
+
+@router.get("/staff/{id}/ca-truc-tuong-lai")
+async def lay_ca_truc_tuong_lai(
+    id: UUID,
+    identity: StaffIdentity = Depends(_STAFF_OR_ACCOUNT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> list[dict[str, Any]]:
+    """Danh sách ca trực tương lai (>= hôm nay) của nhân sự."""
+    service = StaffService(pool, identity.clinic_id, actor=identity)
+    return await service.ca_truc_tuong_lai(id)
+
+
+@router.post("/staff/{id}/khoa-nghi-viec")
+async def khoa_nghi_viec_staff(
+    id: UUID,
+    body: KhoaNghiViecRequest,
+    identity: StaffIdentity = Depends(_STAFF_OR_ACCOUNT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Khoá & nghỉ việc nhân sự (tuỳ chọn gỡ ca trực tương lai)."""
+    service = StaffService(pool, identity.clinic_id, actor=identity)
+    try:
+        return await service.deactivate(id, go_ca_truc=body.go_ca_truc)
+    except CoreResourceNotFoundError as exc:
+        raise NotFoundError(exc.message) from exc
+    except CoreValidationError as exc:
+        raise ValidationError(exc.message) from exc
+
+
+@router.post("/staff/{id}/mo-lai")
+async def mo_lai_staff(
+    id: UUID,
+    identity: StaffIdentity = Depends(_STAFF_OR_ACCOUNT_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Mở lại nhân sự đã bị khoá / nghỉ việc."""
+    service = StaffService(pool, identity.clinic_id, actor=identity)
+    try:
+        return await service.activate(id)
+    except CoreResourceNotFoundError as exc:
+        raise NotFoundError(exc.message) from exc
+    except CoreValidationError as exc:
+        raise ValidationError(exc.message) from exc
 
 
 # ── Quyền kiểu cũ (`staff_capability`) — ĐÃ NGHỈ 23/09/2026 ──────────────────
