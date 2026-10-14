@@ -12,10 +12,19 @@ import Button from "@/components/ui/Button";
 import { INPUT, LABEL } from "../../form-ui";
 import type { ThuocKho } from "./DanhMucKho";
 import { guiKho } from "./gui-kho";
+import OQuetMa, { type KetQuaQuet } from "./OQuetMa";
 
 const TRONG = { ten: "", so_lo: "", han: "", so_luong: "", don_vi: "", gia_nhap: "", ghi_chu: "" };
 
-export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: () => void }) {
+export default function NhapLo({
+  thuoc,
+  onXong,
+  ghiDuoc = true,
+}: {
+  thuoc: ThuocKho[];
+  onXong: () => void;
+  ghiDuoc?: boolean;
+}) {
   const router = useRouter();
   const [f, setF] = useState(TRONG);
   const [dang, setDang] = useState(false);
@@ -28,6 +37,28 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
     const t = dangDung.find((x) => x.ten === ten);
     // Chọn đúng thuốc → điền sẵn đơn vị lô đang có (29/09), chưa có lô thì đơn vị bán.
     setF((cu) => ({ ...cu, ten, don_vi: t && !cu.don_vi ? (t.don_vi_lo?.[0] ?? t.don_vi_ban ?? "") : cu.don_vi }));
+  };
+
+  const [baoQuet, setBaoQuet] = useState<string | null>(null);
+
+  // Quét hộp / tem → điền sẵn thuốc; mã vuông GS1 điền thêm số lô + hạn. Chỉ
+  // ĐIỀN SẴN — người bấm "Nhập vào kho" mới ghi.
+  const khiQuet = (kq: KetQuaQuet) => {
+    setBaoQuet(null);
+    if (kq.loai !== "thuoc" && kq.loai !== "tem") return;
+    const id = kq.loai === "thuoc" ? kq.thuoc.id : kq.lo.drug_catalog_id;
+    const t = dangDung.find((x) => x.id === id);
+    if (!t) {
+      setBaoQuet("Thuốc này đang tắt trong danh mục — bật lại ở Danh mục thuốc trước khi nhập.");
+      return;
+    }
+    doiTen(t.ten);
+    if (kq.loai === "tem") {
+      setF((cu) => ({ ...cu, ten: t.ten, so_lo: kq.lo.batch_code, han: kq.lo.expiry_date ?? cu.han, don_vi: kq.lo.unit }));
+      setBaoQuet(`Tem lô ${kq.lo.batch_code}: nhập thêm vào đúng lô này.`);
+    } else if (kq.gs1) {
+      setF((cu) => ({ ...cu, ten: t.ten, so_lo: kq.gs1?.so_lo ?? cu.so_lo, han: kq.gs1?.han ?? cu.han }));
+    }
   };
 
   const luu = async () => {
@@ -75,6 +106,16 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
       className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-card"
     >
       <h3 className="text-title text-ink">Nhập lô thuốc</h3>
+      <OQuetMa
+        thuoc={dangDung.map((t) => ({ id: t.id, ten: t.ten }))}
+        ghiDuoc={ghiDuoc}
+        onKetQua={khiQuet}
+      />
+      {baoQuet ? (
+        <p role="status" className="text-meta text-ink-soft">
+          {baoQuet}
+        </p>
+      ) : null}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block sm:col-span-2">
           <span className={LABEL}>Thuốc</span>

@@ -83,7 +83,7 @@ export default function KhoThuoc({
       ) : tab === "phieu_nhap" ? (
         <PhieuNhap thuoc={thuoc} ghiDuoc={ghiDuoc} />
       ) : tab === "kiem_kho" ? (
-        <KiemKho batches={batches} ghiDuoc={ghiDuoc} />
+        <KiemKho batches={batches} ghiDuoc={ghiDuoc} thuoc={thuoc} />
       ) : tab === "the_kho" ? (
         <TheKho thuoc={thuoc} chonId={theKhoId} onChon={setTheKhoId} />
       ) : tab === "xnt" ? (

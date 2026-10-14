@@ -30,6 +30,8 @@ interface Props {
   danhMuc: ThuocDanhMuc[];
   /** Người xem không có quyền ghi — câu "chưa có thao tác" không nói về giai đoạn. */
   chiXem?: boolean;
+  /** Lô chọn sẵn do quét hộp / tem (G3b) — chỉ ĐIỀN SẴN ô chọn, dược sĩ bấm Chọn lô. */
+  loQuet?: string | null;
 }
 
 const O_NHAP = `${INPUT} mt-1`;
@@ -44,7 +46,7 @@ function nhanLo(b: LoGoiY): string {
   );
 }
 
-export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
+export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null }: Props) {
   const router = useRouter();
   const tt = dong.thao_tac;
   const [thuocId, setThuocId] = useState(dong.drug_catalog_id ?? "");
@@ -55,7 +57,9 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
   // Rơi về lô đầu tiên khi chưa chọn: trình duyệt tô sẵn option đầu, nên giá
   // trị bên trong cũng phải là nó — không thì nút bị khoá mà không ai biết vì
   // sao (bấm thử 19/09: xác định thuốc xong, ô lô hiện X nhưng state còn rỗng).
-  const [loChonTay, setLoChon] = useState("");
+  const [loChonTay, setLoChon] = useState(
+    loQuet && dong.lo_goi_y.some((b) => b.drug_batch_id === loQuet) ? loQuet : "",
+  );
   const loChon = loChonTay || (dong.lo_goi_y[0]?.drug_batch_id ?? "");
   const [soChon, setSoChon] = useState(conCanLo > 0 ? String(conCanLo) : "");
   const [soGiao, setSoGiao] = useState<Record<string, string>>({});
