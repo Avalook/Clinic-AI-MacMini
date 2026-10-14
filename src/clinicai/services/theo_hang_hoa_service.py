@@ -79,19 +79,19 @@ def gom_theo_hang_hoa(
             hang["tien_sau_giam"] += int(d.get("thanh_tien") or 0)
             hang["so_dong"] += 1
     thu_tu = {n: i for i, n in enumerate(NHOM_THU_TU)}
-    hang = sorted(
+    ds = sorted(
         nhom.values(),
         key=lambda h: (thu_tu.get(h["nhom"], 99), h["ten"].casefold(), h["dvt"]),
     )
-    for h in hang:
+    for h in ds:
         sl = h["so_luong"]
         h["so_luong"] = int(sl) if float(sl).is_integer() else round(sl, 4)
     return {
-        "hang_hoa": hang,
-        "so_mat_hang": len(hang),
-        "tong_truoc_giam": sum(h["tien_truoc_giam"] for h in hang),
-        "tong_giam_gia": sum(h["giam_gia"] for h in hang),
-        "tong_sau_giam": sum(h["tien_sau_giam"] for h in hang),
+        "hang_hoa": ds,
+        "so_mat_hang": len(ds),
+        "tong_truoc_giam": sum(h["tien_truoc_giam"] for h in ds),
+        "tong_giam_gia": sum(h["giam_gia"] for h in ds),
+        "tong_sau_giam": sum(h["tien_sau_giam"] for h in ds),
     }
 
 
