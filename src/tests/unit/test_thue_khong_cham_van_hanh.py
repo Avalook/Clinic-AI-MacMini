@@ -1,7 +1,7 @@
 """K1 (Tuyền 14/10/2026): thuế KHÔNG chạm vận hành.
 
 Quầy thu, hoá đơn, báo cáo ngày không được đọc / ghi cột thuế. Chỉ ba nơi biết tới
-chúng: dịch vụ đặt thuế, dịch vụ xuất hoá đơn của kế toán, hàm thuần tách thuế (thue_gtgt).
+chúng: dịch vụ đặt thuế, dịch vụ xuất hoá đơn của kế toán, hàm thuần tách thuế.
 """
 
 from __future__ import annotations

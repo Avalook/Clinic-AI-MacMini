@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from clinicai.services.thue_gtgt import (
@@ -107,7 +109,7 @@ def test_uu_tien_dong_mat_hang_nhom() -> None:
 
 
 def test_gom_theo_thue_suat_va_dem_dong_chua_dat() -> None:
-    dong = [
+    dong: list[dict[str, Any]] = [
         {"id": "a", "thue_suat": "8"},
         {"id": "b", "thue_suat": None},
         {"id": "c", "thue_suat": "8%"},
