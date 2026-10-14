@@ -37,6 +37,7 @@ from clinicai.services.clinical_record_service import ClinicalRecordService
 from clinicai.services.payment_service import PaymentService
 from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
 from tests.services.test_tien_thuoc_cp1_db import Quay, _du_lo, tao_quay
+from tests.so_ck import so_ck
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -294,6 +295,7 @@ async def test_5_chuyen_khoan_qr_pending_roi_xac_minh_thanh_paid(q: Quay) -> Non
         kind="thuoc",
         payment_cycle_id=cycle_id,
         reference="BANK_REF_9999",
+        so_tien_thuc_nhan=await so_ck(q.pool, cycle_id),
     )
     assert res_paid["status"] == "PAID"
 
@@ -716,6 +718,7 @@ async def test_11_transfer_tao_khi_flag_1_co_allocation_doi_flag_0_xac_minh_van_
         kind="thuoc",
         payment_cycle_id=cycle_id,
         reference="REF_TRANSFER_OLD_CYCLE",
+        so_tien_thuc_nhan=await so_ck(q.pool, cycle_id),
     )
     assert res_paid["status"] == "PAID"
 
