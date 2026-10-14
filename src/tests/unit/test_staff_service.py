@@ -383,4 +383,3 @@ async def test_ca_truc_tuong_lai() -> None:
     assert len(shifts) == 1
     assert shifts[0]["shift"] == "SANG"
     assert shifts[0]["station"] == "T1_LETAN"
-

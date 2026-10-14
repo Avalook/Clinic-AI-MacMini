@@ -458,4 +458,3 @@ async def test_ghi_nhat_ky_doi_mat_khau_ca_nhan(
             ql.staff_id,
         )
         assert da_ghi >= 1
-

@@ -463,9 +463,7 @@ class StaffService:
                             self._actor.role.value if self._actor else "MANAGEMENT"
                         )
                         actor_vai_goc = (
-                            self._actor.vai_goc.value
-                            if self._actor
-                            else "MANAGEMENT"
+                            self._actor.vai_goc.value if self._actor else "MANAGEMENT"
                         )
                         await conn.execute(
                             """

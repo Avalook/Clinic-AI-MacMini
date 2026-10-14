@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { KeyRound, X } from "lucide-react";
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
-import { Button } from "../ui/Button";
+import Button from "@/components/ui/Button";
 
 const MIN_PASSWORD = 8;
 
