@@ -32,7 +32,7 @@ async def _bo(pool: asyncpg.Pool) -> tuple[Any, str, list[str]]:
             " VALUES ($1::uuid, $2, 'Gạc mô phỏng', 'vat_tu', 'cái')"
             " RETURNING id::text",
             CLINIC,
-            f"VT-{uuid.uuid4().hex}",
+            f"VT_TEST_{uuid.uuid4().hex}",
         )
         rooms = []
         for _ in range(2):
