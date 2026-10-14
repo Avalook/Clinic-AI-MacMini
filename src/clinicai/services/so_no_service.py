@@ -30,6 +30,7 @@ import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 import asyncpg
@@ -42,6 +43,8 @@ from clinicai.services.tien_thua_service import dong_tien_thua
 logger = structlog.get_logger(__name__)
 
 PHAI_THU = "PHAI_THU"
+#: Loại khoản "phòng khám nợ khách" từ thuốc (G4d · R3/T2).
+THUOC = "THUOC"
 PHAI_TRA = "PHAI_TRA"
 CHIEU = (PHAI_THU, PHAI_TRA)
 
@@ -67,6 +70,8 @@ LOAI_THEO_SU_KIEN: dict[str, str] = {
     "visit.supply_changed": "DOI_CHI_DINH",
     "visit.exam_service_changed": "DOI_CHI_DINH",
     "medicine.dispensed": "DOI_CHI_DINH",
+    "medicine.returned": "TRA_THUOC",
+    "prescription.saved": "DOI_CHI_DINH",
 }
 
 #: Lượt đối chiếu định kỳ (worker su-kien): mỗi bao lâu một vòng.
@@ -109,6 +114,46 @@ SELECT coalesce(c.original_amount, c.amount) AS goc
   FROM public.payment_cycle c
  WHERE c.clinic_id = $1::uuid AND c.visit_id = $2::uuid
    AND c.status = 'PENDING_VERIFICATION'
+"""
+
+#: THUỐC phòng khám nợ khách (G4d · R3 + T2, Tuyền chốt E/T2 14/10) — theo DÒNG
+#: ĐƠN (kể cả dòng đã gỡ vì đính chính — tiền vẫn nằm ở dòng cũ):
+#:   đã thu (lần thu PAID) − đã hoàn (đang chờ / xong) − đã giao + khách trả lại.
+#: > 0 = thu rồi chưa giao mà khách về, khách trả thuốc chọn "Giữ lại", hoặc dòng
+#: đã thu bị đính chính chưa giao. Lượt BÁN LẺ tự đóng lúc thu → chỉ tính từ hôm
+#: sau (cùng ngày khách còn đứng ở quầy chờ giao).
+_THUOC_PHAI_TRA_SQL = """
+WITH dong AS (
+    SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten,
+           sum(bl.quantity) AS da_thu, max(bl.unit_price) AS don_gia,
+           coalesce(sum(h.sl), 0) AS da_hoan
+      FROM public.payment_bill_line bl
+      JOIN public.payment_cycle c
+        ON c.clinic_id = bl.clinic_id AND c.payment_cycle_id = bl.payment_cycle_id
+      LEFT JOIN LATERAL (
+           SELECT sum(l.quantity) AS sl
+             FROM public.payment_refund_line l
+             JOIN public.payment_refund r
+               ON r.refund_id = l.refund_id AND r.clinic_id = l.clinic_id
+            WHERE l.clinic_id = bl.clinic_id AND l.payment_bill_line_id = bl.id
+              AND r.status IN ('PENDING', 'COMPLETED')) h ON true
+     WHERE bl.clinic_id = $1::uuid AND c.visit_id = $2::uuid AND c.status = 'PAID'
+       AND bl.source_type = 'prescription' AND bl.billing_owner = 'CLINIC'
+     GROUP BY bl.source_id
+)
+SELECT d.ten, d.don_gia,
+       d.da_thu - d.da_hoan - p.dispensed_qty
+         + coalesce((SELECT sum(t.returned_qty) FROM public.drug_return t
+                      WHERE t.clinic_id = $1::uuid
+                        AND t.prescription_id = p.id), 0) AS con
+  FROM dong d
+  JOIN public.prescription p
+       /* rx:gom-ca-lich-su: tiền thu ở dòng đã đính chính vẫn là nợ khách */
+    ON p.clinic_id = $1::uuid AND p.id::text = d.rx_id
+  JOIN public.visit v ON v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
+ WHERE NOT (coalesce(v.ban_le, false)
+            AND (v.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                = ($3 AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
 """
 
 _CUOI_SQL = """
@@ -197,6 +242,16 @@ async def so_du_hien_tai(
         con = (t["da_thu"] - t["da_hoan"]) if t else 0
         if con > 0:
             tra.append({"ten": r["ten"], "so_tien": int(con), "loai": "CHUA_LAM"})
+    for r in await conn.fetch(_THUOC_PHAI_TRA_SQL, clinic_id, visit_id, luc):
+        con_sl = Decimal(str(r["con"] or 0))
+        if con_sl > 0 and r["don_gia"] is not None:
+            tien_thuoc = int(
+                (con_sl * Decimal(str(r["don_gia"]))).quantize(
+                    Decimal(1), rounding=ROUND_HALF_UP
+                )
+            )
+            if tien_thuoc > 0:
+                tra.append({"ten": r["ten"], "so_tien": tien_thuoc, "loai": THUOC})
     sd.chi_tiet[PHAI_TRA] = tra
     sd.phai_tra = sum(int(d["so_tien"]) for d in tra)
     return sd, luot["clinic_patient_id"]
@@ -379,6 +434,7 @@ NHAN_LOAI: dict[str, str] = {
     "HUY_PHIEU": "Huỷ phiếu sau khi khách về",
     "HOAN_TIEN": "Hoàn tiền",
     "DOI_CHI_DINH": "Dịch vụ / thuốc đổi sau khi khách về",
+    "TRA_THUOC": "Khách trả thuốc",
     "DOI_CHIEU": "Máy đối chiếu phát hiện",
 }
 

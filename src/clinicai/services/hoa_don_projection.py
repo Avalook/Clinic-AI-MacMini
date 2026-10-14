@@ -554,6 +554,7 @@ def gom_viec_ton(
         k = luot.get(vid) or {}
         for d in t.get("dong", []):
             chua_lam = d.get("loai") == "CHUA_LAM"
+            thuoc = d.get("loai") == "THUOC"
             them(
                 "CHUA_LAM" if chua_lam else "CHUA_TRA_LAI",
                 k.get("luc"),
@@ -561,10 +562,13 @@ def gom_viec_ton(
                 so_tien=int(d["so_tien"]),
                 ma=None,
                 visit_id=vid,
-                kind="dich_vu",
+                kind="thuoc" if thuoc else "dich_vu",
                 mo_ta=(
                     f"{d['ten']} chưa làm — lượt đã đóng, khách đã về"
                     if chua_lam
+                    else f"Thuốc {d['ten']}: đã thu mà chưa giao / khách trả lại"
+                    " — phải trả khách"
+                    if thuoc
                     else f"Bỏ {d['ten']} sau khi đã thu"
                     if d.get("loai") != "KHONG_LAM"
                     else f"Không làm {d['ten']} sau khi đã thu"

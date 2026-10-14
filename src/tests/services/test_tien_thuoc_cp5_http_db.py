@@ -112,6 +112,8 @@ async def test_khach_tra_gui_lai_cung_khoa_chi_mot_lan_tra(
         "dispense_txn_id": await _xuat(q, rx),
         "so_luong": 1,
         "ly_do": "Khách dị ứng",
+        "ket_cuc_tien": "GIU_LAI",
+        "ly_do_tien": "Khách để lại, trừ lần mua sau",
     }
     khoa = "cp5-tra-" + uuid.uuid4().hex
     a = await _gui(api, q.duoc_si, "/pharmacy/khach-tra", body, khoa)

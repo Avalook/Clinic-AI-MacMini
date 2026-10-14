@@ -44,7 +44,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import hom_nay_vn, now_vn
 from clinicai.core.tran import canh_bao_neu_day
-from clinicai.events.catalogue import ThuocDaGiao
+from clinicai.events.catalogue import ThuocDaGiao, ThuocKhachTra
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
@@ -60,6 +60,8 @@ DIEU_CHINH = "ADJUST"
 HUY = "DISCARD"
 # CP5: thuốc khách trả đã quay lại quầy — vật lý tăng, CHƯA bán lại được.
 TRA_NHAN = "RETURN_RECEIVED"
+#: Kết cục TIỀN của một lần khách trả thuốc (G4d · R3, Tuyền chốt E 14/10).
+KET_CUC_TIEN = frozenset({"HOAN", "DOI", "GIU_LAI"})
 
 
 def _so(value: Any, *, ten: str, cho_0: bool = False) -> Decimal:
@@ -1708,19 +1710,39 @@ class PharmacyService:
         dispense_txn_id: str,
         so_luong: Any,
         ly_do: str,
+        ket_cuc_tien: object = None,
+        hinh_thuc: object = None,
+        ly_do_tien: object = None,
     ) -> dict[str, Any]:
         """Ghi nhận thuốc KHÁCH ĐÃ NHẬN rồi mang trả lại quầy.
 
-        Nghĩa của lệnh chỉ là "thuốc vật lý đã quay lại" — KHÔNG phải quyết định
-        bán lại / huỷ / cách ly (HOLD J1/J2), và KHÔNG tự hoàn tiền. Trỏ đúng
-        DISPENSE gốc; lô trả = lô đã xuất; tổng trả không vượt số đã xuất (DB
-        kiểm). Tồn vật lý tăng (`RETURN_RECEIVED`), nhưng phần trả chưa có
-        quyết định xử lý không vào lượng có thể bán.
+        Thuốc: "thuốc vật lý đã quay lại" — KHÔNG phải quyết định bán lại / huỷ /
+        cách ly (HOLD J1/J2). Trỏ đúng DISPENSE gốc; lô trả = lô đã xuất; tổng
+        trả không vượt số đã xuất (DB kiểm). Tồn vật lý tăng (`RETURN_RECEIVED`),
+        nhưng phần trả chưa có quyết định xử lý không vào lượng có thể bán.
+
+        TIỀN (G4d · R3 — Tuyền chốt E 14/10): BẮT chọn ``ket_cuc_tien``:
+          * ``HOAN`` — tạo khoản hoàn đúng phần trả (lệnh hoàn hiện có: máy tính
+            tiền = số lượng × đơn giá ảnh chụp), mặc định theo hình thức HIỆU LỰC
+            của lần thu gốc, ``hinh_thuc`` đổi được;
+          * ``DOI`` — đổi thuốc khác: tiền phần trả cũng hoàn ra (lý do "Đổi
+            thuốc"); đơn mới thu như thường — chênh lệch ra ở quầy;
+          * ``GIU_LAI`` — khách để lại tiền, bắt ghi ``ly_do_tien``: vẫn là nợ
+            khách (sổ PHAI_TRA) tới khi hoàn / dùng.
+        Trước đây lệnh không đụng tiền — hàng về kho, tiền không ra, không màn
+        nào báo. Cùng một giao dịch với lần trả: hoàn không được thì không trả.
         """
         luong = _so(so_luong, ten="Số lượng trả")
         ly = (ly_do or "").strip()
         if len(ly) < 3:
             raise ValidationError("Ghi lý do khách trả thuốc (tối thiểu 3 ký tự).")
+        if ket_cuc_tien not in KET_CUC_TIEN:
+            raise ValidationError(
+                "Chọn tiền của phần trả: hoàn tiền, đổi thuốc khác, hoặc giữ lại."
+            )
+        ly_tien = ly_do_tien.strip() if isinstance(ly_do_tien, str) else ""
+        if ket_cuc_tien == "GIU_LAI" and len(ly_tien) < 3:
+            raise ValidationError("Giữ lại tiền thì ghi lý do (tối thiểu 3 ký tự).")
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 xuat = await conn.fetchrow(
@@ -1760,14 +1782,31 @@ class PharmacyService:
                         f"Lần giao này xuất {so(Decimal(str(xuat['da_xuat'])))}, "
                         f"đã trả {so(da_tra)} — chỉ còn trả được {so(con)}."
                     )
+                hoan = (
+                    await _hoan_phan_tra(
+                        conn,
+                        identity=identity,
+                        prescription_id=xuat["prescription_id"],
+                        so_luong=luong,
+                        hinh_thuc=hinh_thuc,
+                        ly_do=(
+                            f"Đổi thuốc: {ly}"
+                            if ket_cuc_tien == "DOI"
+                            else f"Khách trả thuốc: {ly}"
+                        ),
+                    )
+                    if ket_cuc_tien in ("HOAN", "DOI")
+                    else None
+                )
                 tra_id = await conn.fetchval(
                     """
                     INSERT INTO public.drug_return
                         (clinic_id, visit_id, prescription_id,
                          original_dispense_txn_id, allocation_id, drug_batch_id,
-                         returned_qty, reason, returned_by)
+                         returned_qty, reason, returned_by,
+                         ket_cuc_tien, ly_do_tien, refund_id)
                     VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6::uuid,
-                            $7, $8, $9::uuid)
+                            $7, $8, $9::uuid, $10, $11, $12::uuid)
                     RETURNING id::text
                     """,
                     identity.clinic_id,
@@ -1779,6 +1818,9 @@ class PharmacyService:
                     luong,
                     ly,
                     identity.staff_id,
+                    ket_cuc_tien,
+                    ly_tien if ket_cuc_tien == "GIU_LAI" else None,
+                    hoan["refund_id"] if hoan else None,
                 )
                 await self._ghi_so(
                     conn,
@@ -1801,9 +1843,35 @@ class PharmacyService:
                         "original_dispense_txn_id": dispense_txn_id,
                         "drug_batch_id": xuat["drug_batch_id"],
                         "quantity": str(luong),
+                        "ket_cuc_tien": ket_cuc_tien,
+                        "refund_id": hoan["refund_id"] if hoan else None,
                     },
                 )
-        return {"ok": True, "drug_return_id": tra_id}
+                # Sổ nợ + dòng thời gian nghe (G4d · R3): khách thường trả SAU
+                # check-out — sổ đã ghi xong lần về, vòng đối chiếu chỉ quét 48
+                # giờ. Không có sự kiện này thì "Giữ lại" không bao giờ vào sổ.
+                await emit_event(
+                    conn,
+                    ten="medicine.returned",
+                    clinic_id=identity.clinic_id,
+                    aggregate_id=xuat["prescription_id"],
+                    payload=ThuocKhachTra(
+                        visit_id=str(don["visit_id"]),
+                        prescription_id=xuat["prescription_id"],
+                        drug_return_id=str(tra_id),
+                        so_luong=str(luong),
+                        ket_cuc_tien=str(ket_cuc_tien),
+                        refund_id=str(hoan["refund_id"]) if hoan else None,
+                    ),
+                    boi=nguoi(identity),
+                    correlation_id=str(don["visit_id"]),
+                )
+        return {
+            "ok": True,
+            "drug_return_id": tra_id,
+            "ket_cuc_tien": ket_cuc_tien,
+            "hoan": hoan,
+        }
 
     # ── Phân lô (contract tiền–thuốc CP3) ─────────────────────────────────
 
@@ -2499,6 +2567,73 @@ async def nhap_vao_lo(
         ref_id=ref_id,
     )
     return str(lo_id), txn_id
+
+
+async def _hoan_phan_tra(
+    conn: asyncpg.Connection,
+    *,
+    identity: StaffIdentity,
+    prescription_id: str,
+    so_luong: Decimal,
+    hinh_thuc: object,
+    ly_do: str,
+) -> dict[str, Any]:
+    """Khoản hoàn cho phần thuốc khách trả (G4d · R3), TRONG giao dịch của lần
+    trả. Dòng hoá đơn = dòng đơn này ở lần thu đã từng thu gần nhất; tiền do
+    lệnh hoàn hiện có tính (số lượng × đơn giá ảnh chụp, DB kiểm không vượt số
+    đã thu). Hình thức mặc định = hình thức HIỆU LỰC của lần thu ấy."""
+    from clinicai.services.hoan_tien_service import (
+        PHUONG_THUC,
+        _tao_trong,
+        co_quyen_hoan,
+    )
+
+    dong = await conn.fetchrow(
+        """
+        SELECT bl.id::text AS line_id, c.payment_cycle_id::text AS cycle_id,
+               c.visit_id::text AS visit_id, c.paid_at,
+               hinh_thuc_hieu_luc(c.clinic_id, c.payment_cycle_id, c.method)
+                   AS hinh_thuc
+          FROM public.payment_bill_line bl
+          JOIN public.payment_cycle c
+            ON c.clinic_id = bl.clinic_id AND c.payment_cycle_id = bl.payment_cycle_id
+         WHERE bl.clinic_id = $1::uuid AND bl.source_type = 'prescription'
+           AND bl.source_id = $2 AND bl.billing_owner = 'CLINIC'
+           AND c.status IN ('PAID', 'PENDING_VERIFICATION')
+         ORDER BY (c.paid_at IS NULL), c.paid_at DESC
+         LIMIT 1
+        """,
+        identity.clinic_id,
+        prescription_id,
+    )
+    if dong is None:
+        raise ConflictError(
+            "Không tìm thấy lần thu của dòng thuốc này — không hoàn được; chọn "
+            '"Giữ lại" (ghi lý do) rồi xử lý ở quầy thu.'
+        )
+    if dong["paid_at"] is None:
+        raise ConflictError(
+            "Tiền thuốc của dòng này còn CHỜ XÁC MINH chuyển khoản — xác minh xong"
+            ' mới hoàn được, hoặc chọn "Giữ lại" (ghi lý do).'
+        )
+    ht = hinh_thuc if hinh_thuc else dong["hinh_thuc"] or "CASH"
+    if ht not in PHUONG_THUC:
+        raise ValidationError(f"Hình thức hoàn không hợp lệ: {ht!r}")
+    if not await co_quyen_hoan(conn, identity, "thuoc", dong["visit_id"]):
+        raise ConflictError(
+            "Bạn chưa có lego Thu tiền thuốc nên không hoàn được — chọn"
+            ' "Giữ lại" (ghi lý do) hoặc nhờ thu ngân thuốc.'
+        )
+    return await _tao_trong(
+        conn,
+        identity=identity,
+        payment_cycle_id=dong["cycle_id"],
+        visit_id=dong["visit_id"],
+        kind="thuoc",
+        yeu_cau={dong["line_id"]: so_luong},
+        method=str(ht),
+        ly_do=ly_do,
+    )
 
 
 async def _log(
