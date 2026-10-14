@@ -15,6 +15,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const DOC: Record<string, (q: URLSearchParams) => string> = {
   ton: () => "/api/v1/vat-tu-kho/ton",
   "canh-bao": () => "/api/v1/vat-tu-kho/canh-bao",
+  "tieu-hao": (q) =>
+    `/api/v1/vat-tu-kho/tieu-hao?${new URLSearchParams({
+      ky: q.get("ky") ?? "",
+      tu: q.get("tu") ?? "",
+      den: q.get("den") ?? "",
+    })}`,
   phieu: (q) => `/api/v1/vat-tu-kho/phieu?${new URLSearchParams({ gioi_han: q.get("gioi_han") ?? "" })}`,
 };
 

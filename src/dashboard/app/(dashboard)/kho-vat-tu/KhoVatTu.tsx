@@ -2,7 +2,7 @@
 
 // KHO VẬT TƯ (G8a, 14/10/2026) — màn RIÊNG, không lẫn Kho thuốc. Cùng kiểu với
 // `pharmacy/inventory/KhoThuoc.tsx`: thanh tab, danh sách, nút từ `components/ui`.
-// Tab: Tồn theo nơi chứa · Phiếu · Danh mục (· Tiêu hao — lát sau).
+// Tab: Tồn theo nơi chứa · Phiếu · Tiêu hao · Danh mục.
 // Máy chủ quyết mọi luật; màn chỉ vẽ và gửi lệnh.
 
 import { useState } from "react";
@@ -12,9 +12,10 @@ import type { DongVatTu } from "../cashier/VatTuBangGia";
 import DanhMucVatTu from "./DanhMucVatTu";
 import DanhSachPhieuVatTu, { type PhieuVatTu } from "./DanhSachPhieuVatTu";
 import LapPhieuVatTu from "./LapPhieuVatTu";
+import TieuHaoVatTu from "./TieuHaoVatTu";
 import TonVatTu, { type DongTon, type NoiChua } from "./TonVatTu";
 
-type Tab = "ton" | "phieu" | "danh_muc";
+type Tab = "ton" | "phieu" | "tieu_hao" | "danh_muc";
 
 export default function KhoVatTu({
   ton,
@@ -49,11 +50,14 @@ export default function KhoVatTu({
         muc={[
           { ma: "ton", nhan: "Tồn theo nơi chứa", dem: canChuY > 0 ? canChuY : undefined },
           { ma: "phieu", nhan: "Phiếu" },
+          { ma: "tieu_hao", nhan: "Tiêu hao" },
           { ma: "danh_muc", nhan: `Danh mục (${vatTu.length})` },
         ]}
       />
       {tab === "danh_muc" ? (
         <DanhMucVatTu ds={vatTu} suaDuoc={suaGiaDuoc} />
+      ) : tab === "tieu_hao" ? (
+        <TieuHaoVatTu />
       ) : tab === "phieu" ? (
         <div className="flex flex-col gap-4">
           <LapPhieuVatTu noiChua={noiChua} vatTu={chon} />
