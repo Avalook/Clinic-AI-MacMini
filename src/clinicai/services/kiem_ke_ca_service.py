@@ -30,6 +30,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, doc_ngay_xem, hom_nay_vn
 from clinicai.core.shifts import CAC_CA, ca_cua_phut, ca_tu_settings, khung_chot_ca
+from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events import emit_event, nguoi
 from clinicai.events.catalogue import KiemKeLech
 from clinicai.services.pharmacy_service import (
@@ -402,6 +403,8 @@ async def giao_chua_gan_lo_theo_thuoc(
         """
         SELECT g.drug_catalog_id::text AS drug_catalog_id, sum(g.so_luong) AS so
           FROM public.thuoc_giao_chua_gan_lo g
+          /* rx:gom-ca-lich-su: thuốc ĐÃ giao phải tính dù dòng đơn sau đó bị bác sĩ
+             đính chính — kệ đã thiếu thuốc ấy */
           JOIN public.prescription p ON p.id = g.prescription_id
          WHERE g.clinic_id = $1::uuid AND g.drug_batch_id IS NULL
            AND g.drug_catalog_id IS NOT NULL
@@ -583,6 +586,7 @@ async def danh_sach(
             _co_so(identity),
             d,
         )
+    canh_bao_neu_day("kho.kiem_ke_ca", len(rows), 60, clinic_id=identity.clinic_id)
     return [dict(r) for r in rows]
 
 
