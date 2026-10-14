@@ -667,6 +667,7 @@ MODULE: dict[str, Module] = {
                 "result.corrected",
                 "lab_result.arrived",
                 "partner.order_received",
+                "pharmacy.expiry_checked",
             ],
             ben_nhan=["chuong_thong_bao"],
             bang=["day_nhan_thong_bao"],
