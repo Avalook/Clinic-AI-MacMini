@@ -14,8 +14,8 @@ from clinicai.services.bao_cao_cuoi_ngay_service import khung_ca
 from clinicai.services.cashier_board_service import doc_khoang_ngay
 from clinicai.services.co_so_bao_cao import doc_co_so
 from clinicai.services.hoa_don_excel import xlsx_hoa_don as xlsx_hoa_don
+from clinicai.services.hoa_don_projection import duong_doi_co_so, gom_viec_ton
 from clinicai.services.hoa_don_projection import gom_hoa_don as gom_hoa_don
-from clinicai.services.hoa_don_projection import gom_viec_ton
 from clinicai.services.hoan_tac_service import (
     tien_da_thu_cua_chi_dinh,
     tien_thua_cua_luot,
@@ -233,6 +233,33 @@ ORDER BY rl.created_at,bl.id
 """
 
 
+async def _gan_co_so(
+    conn: asyncpg.Connection, clinic_id: str, ton: list[dict[str, Any]]
+) -> None:
+    """Gắn cơ sở của lượt vào đích "Xử lý": quầy lọc theo cơ sở ĐANG CHỌN của người
+    dùng, lượt thuộc cơ sở khác sẽ ra "không có trong danh sách chờ thu" — màn cần
+    tên cơ sở + đường đổi cơ sở rồi quay lại đúng đích."""
+    dich = [t for t in ton if t.get("visit_id") and (t.get("xu_ly") or {}).get("href")]
+    if not dich:
+        return
+    rows = await conn.fetch(
+        "SELECT v.visit_id::text AS vid, l.id::text AS id, l.name AS ten"
+        " FROM public.visit v JOIN public.clinic_location l"
+        "   ON l.clinic_id = v.clinic_id"
+        "  AND l.id = public.co_so_cua_luot(v.clinic_id, v.visit_id)"
+        " WHERE v.clinic_id = $1::uuid AND v.visit_id::text = ANY($2::text[])",
+        clinic_id,
+        sorted({str(t["visit_id"]) for t in dich}),
+    )
+    co_so = {r["vid"]: {"id": r["id"], "ten": r["ten"]} for r in rows}
+    for t in dich:
+        x = t["xu_ly"]
+        cs = co_so.get(str(t["visit_id"]))
+        if cs:
+            x["co_so"] = cs
+            x["doi_co_so_href"] = duong_doi_co_so(str(x["href"]))
+
+
 class DanhSachHoaDonService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self.pool = pool
@@ -392,4 +419,6 @@ class DanhSachHoaDonService:
             for r in await doc_so_du_mo(conn, clinic_id, PHAI_TRA, co_so):
                 tra[r["visit_id"]] = {"tong": r["so_du"], "dong": r["chi_tiet"]}
                 luot[r["visit_id"]] = {**r, "luc": luc_that(r)}
-        return gom_viec_ton(hoan=hoan, ck=ck, no=no, tien_thua=tra, luot=luot)
+        ton = gom_viec_ton(hoan=hoan, ck=ck, no=no, tien_thua=tra, luot=luot)
+        await _gan_co_so(conn, clinic_id, ton)
+        return ton

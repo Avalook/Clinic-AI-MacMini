@@ -31,13 +31,21 @@ test("/hoa-don đọc tab + viec từ URL và lọc việc tồn theo nhóm máy
 test("việc tồn có nút Xử lý do máy chủ quyết đích; thiếu lego thì chữ nhắc, không nút", () => {
   const ds = read("../app/(dashboard)/hoa-don/DanhSachHoaDon.tsx");
   assert.match(ds, /function NutXuLy/);
-  assert.match(ds, /<NutXuLy v=\{v\} quyen=\{quyen\} \/>/);
+  assert.match(ds, /<NutXuLy v=\{v\} quyen=\{quyen\} nhieuCoSo=/);
   assert.match(ds, /coQuyen\(quyen, x\.lego\)/);
   assert.match(ds, /Nhờ người có quyền thu xử lý/);
   // Cả bảng desktop lẫn thẻ điện thoại đều có.
   assert.equal((ds.match(/<NutXuLy /g) ?? []).length, 2);
   // Màn không tự dựng link theo loại việc (luật nằm ở máy chủ).
   assert.doesNotMatch(ds, /\/thu-ngan\//);
+});
+
+test("nút Xử lý nhắc cơ sở của lượt + đường đổi cơ sở do máy chủ dựng (chỉ khi có nhiều cơ sở)", () => {
+  const ds = read("../app/(dashboard)/hoa-don/DanhSachHoaDon.tsx");
+  assert.match(ds, /nhieuCoSo=\{coSo\.length > 1\}/);
+  assert.match(ds, /x\.co_so && x\.doi_co_so_href/);
+  assert.match(ds, /href=\{x\.doi_co_so_href\}/);
+  assert.doesNotMatch(ds, /chon-co-so/); // đường do máy chủ dựng, màn không tự ghép
 });
 
 test("quầy thu không lặng lẽ nhảy sang khách khác khi lượt của liên kết không có trong hàng chờ", () => {

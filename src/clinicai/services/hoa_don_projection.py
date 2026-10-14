@@ -3,6 +3,7 @@
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
+from urllib.parse import quote
 
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.quay_thu_service import ma_phieu
@@ -500,6 +501,11 @@ LEGO_QUAY = {"dich_vu": "payment.service.collect", "thuoc": "payment.medicine.co
 LEGO_CHECK_OUT = "reception.checkin.perform"
 
 
+def duong_doi_co_so(href: str) -> str:
+    """Đường đổi cơ sở rồi quay lại đúng đích (`/chon-co-so?doi=1&next=…`)."""
+    return f"/chon-co-so?doi=1&next={quote(href, safe='')}"
+
+
 def duong_xu_ly(v: Mapping[str, Any]) -> dict[str, Any] | None:
     """Đích của nút "Xử lý" cho một dòng việc tồn. Thuần.
 
@@ -531,6 +537,14 @@ def duong_xu_ly(v: Mapping[str, Any]) -> dict[str, Any] | None:
                 "href": f"/reception/checkout?luot={vid}",
                 "nhan": "Mở lượt để xử lý",
                 "lego": LEGO_CHECK_OUT,
+            }
+        if quay == "thuoc":
+            # Tiền thuốc đã thu mà chưa giao / khách trả lại: hoàn ở QUẦY THUỐC
+            # (lần thu thuốc nằm trong "Giao dịch" của quầy ấy, lego thu thuốc).
+            return {
+                "href": f"/thu-ngan/thuoc?luot={vid}",
+                "nhan": "Hoàn tiền thuốc",
+                "lego": LEGO_QUAY["thuoc"],
             }
         return {
             "href": f"/thu-ngan/dich-vu?luot={vid}",

@@ -29,7 +29,11 @@ export interface ViecTon {
   /** Nhóm do máy chủ gắn: khách nợ phòng khám / phòng khám nợ khách. */
   nhom_no?: "no_khach" | "no_phong_kham" | null;
   /** Đích nút "Xử lý" — máy chủ quyết; `lego` chỉ để ẩn nút khi thiếu quyền. */
-  xu_ly?: { href?: string; nhan?: string; lego?: string; huong_dan?: string } | null;
+  xu_ly?: {
+    href?: string; nhan?: string; lego?: string; huong_dan?: string;
+    /** Cơ sở của lượt + đường đổi cơ sở quay lại đúng đích (quầy lọc theo cơ sở đang chọn). */
+    co_so?: { id: string; ten: string }; doi_co_so_href?: string;
+  } | null;
 }
 export interface PhieuThu {
   id: string; ma: string; visit_id: string; kind: string; trang_thai: string;
