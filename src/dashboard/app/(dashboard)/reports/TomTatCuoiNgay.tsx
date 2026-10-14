@@ -91,6 +91,15 @@ function linkHoaDon(loc: LocBaoCao | undefined, nhom?: string): string | undefin
   return `/hoa-don?${q}`;
 }
 
+/** Khoản NỢ không có phiếu thu (khách ghi nợ chưa trả đồng nào) → danh sách phiếu
+ *  rỗng; mở thẳng tab Việc tồn đã lọc đúng nhóm (G4a nối màn, 14/10/2026). */
+function linkViecTon(loc: LocBaoCao | undefined, nhom: "no_khach" | "no_phong_kham"): string | undefined {
+  if (!loc) return undefined;
+  const q = new URLSearchParams({ tab: "viec-ton", viec: nhom });
+  if (loc.co_so) q.set("co_so", loc.co_so);
+  return `/hoa-don?${q}`;
+}
+
 function Nhom({ ten, children }: { ten: string; children: React.ReactNode }) {
   return (
     <section>
@@ -126,7 +135,7 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false, loc }: {
         {/* Thực thu = Dòng tiền vào − Trả lại − Nợ − Giảm giá + Nợ thu được (máy chủ tính). */}
         <MucDongTien nhan="Dòng tiền vào" tong={dt?.dong_tien_vao} tmCk={dt?.tien_thu} href={linkHoaDon(loc)} tien={tien} />
         <MucDongTien nhan="Trả lại tiền khách hàng" tong={dt?.tra_lai.tong} tmCk={dt?.tra_lai} href={linkHoaDon(loc, "tra_lai")} tien={tien} />
-        <MucDongTien nhan="Nợ" tong={dt?.no} href={linkHoaDon(loc, "no_khach")} tien={tien} />
+        <MucDongTien nhan="Nợ" tong={dt?.no} href={linkViecTon(loc, "no_khach")} tien={tien} />
         <MucDongTien nhan="Giảm giá" tong={dt?.giam_gia} href={linkHoaDon(loc, "giam_gia")} tien={tien} />
         <MucDongTien nhan="Nợ thu được" tong={dt?.no_thu_duoc.tong} tmCk={dt?.no_thu_duoc} tien={tien} />
         <MucDongTien nhan="Thực thu" tong={dt?.thuc_thu.tong} tmCk={dt?.thuc_thu} href={linkHoaDon(loc)} tien={tien} noiBat />

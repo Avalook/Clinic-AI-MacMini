@@ -24,6 +24,12 @@ export interface ViecTon {
   patient_id: string | null; ten: string | null; ma_bn: string | null;
   so_tien: number; ma: string | null; visit_id: string | null; kind: string | null;
   mo_ta: string | null; nguoi: string | null;
+  /** Ngày THẬT của lượt (đóng, không thì tạo) — `luc` có thể là giờ dòng sổ. */
+  luot_ngay?: string | null; luot_con_mo?: boolean;
+  /** Nhóm do máy chủ gắn: khách nợ phòng khám / phòng khám nợ khách. */
+  nhom_no?: "no_khach" | "no_phong_kham" | null;
+  /** Đích nút "Xử lý" — máy chủ quyết; `lego` chỉ để ẩn nút khi thiếu quyền. */
+  xu_ly?: { href?: string; nhan?: string; lego?: string; huong_dan?: string } | null;
 }
 export interface PhieuThu {
   id: string; ma: string; visit_id: string; kind: string; trang_thai: string;

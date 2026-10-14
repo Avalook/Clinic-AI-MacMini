@@ -13,7 +13,7 @@
 // được). Màn không tự quyết gì: lượt nào tồn đọng, đóng được không, đều do máy
 // chủ trả lời.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -51,7 +51,15 @@ async function docTonDong(): Promise<LuotTon[] | null> {
   }
 }
 
-export default function LuotTonDong({ onDaDong }: { onDaDong?: () => void }) {
+export default function LuotTonDong({
+  onDaDong,
+  luotNoiBat,
+}: {
+  onDaDong?: () => void;
+  /** Lượt mở từ nút "Xử lý" của việc tồn (`?luot=`) — tô viền + cuộn tới. */
+  luotNoiBat?: string;
+}) {
+  const daCuon = useRef(false);
   const [ds, setDs] = useState<LuotTon[] | null>(null);
   const [docLoi, setDocLoi] = useState(false);
   const [dangHoi, setDangHoi] = useState<string | null>(null);
@@ -146,7 +154,19 @@ export default function LuotTonDong({ onDaDong }: { onDaDong?: () => void }) {
       </div>
       <ul className="max-h-[50vh] divide-y divide-line overflow-y-auto">
         {ds.map((l) => (
-          <li key={l.visit_id} className="space-y-2 px-4 py-3">
+          <li
+            key={l.visit_id}
+            id={`luot-ton-${l.visit_id}`}
+            ref={(el) => {
+              if (el && luotNoiBat === l.visit_id && !daCuon.current) {
+                daCuon.current = true;
+                el.scrollIntoView({ block: "center" });
+              }
+            }}
+            className={`space-y-2 px-4 py-3 ${
+              luotNoiBat === l.visit_id ? "bg-warning-bg ring-2 ring-warning" : ""
+            }`}
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate text-body font-semibold text-ink">

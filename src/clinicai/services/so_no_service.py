@@ -426,7 +426,7 @@ async def doc_so_no_ky(
 
 #: Vì sao lượt đang có số dư — khi lễ tân không ghi nợ (không có lý do người gõ).
 NHAN_LOAI: dict[str, str] = {
-    "DAU_KY": "Số dư lúc bật sổ",
+    "DAU_KY": "Nợ từ trước khi bật sổ",
     "KHI_VE": "Khách về khi còn khoản này",
     "MO_LAI_LUOT": "Mở lại lượt",
     "GHI_NO": "Ghi nợ",
@@ -451,6 +451,9 @@ WITH cuoi AS (
 SELECT c.id::text AS id, c.visit_id::text AS visit_id,
        c.clinic_patient_id::text AS patient_id, c.so_du, c.chi_tiet, c.loai,
        c.luc, p.full_name AS ten, p.patient_code AS ma_bn, s.full_name AS nguoi,
+       -- NGÀY THẬT của lượt (G4a nối màn, 14/10/2026): `c.luc` là giờ DÒNG SỔ — với
+       -- DAU_KY là mốc bật sổ, không phải tuổi khoản nợ ("1 giờ" gây hiểu lầm).
+       v.created_at AS luot_tao_luc, v.closed_at AS luot_dong_luc,
        k.id::text AS cong_no_id, k.ly_do AS ly_do_ghi_no,
        -- Đọc HIỆN TẠI, không lấy từ chi_tiet: huỷ lần chờ không đổi số dư nên
        -- sổ không có dòng mới — chi_tiet dòng cũ vẫn ghi "chờ CK".
@@ -459,6 +462,7 @@ SELECT c.id::text AS id, c.visit_id::text AS visit_id,
          WHERE pc.clinic_id = $1::uuid AND pc.visit_id = c.visit_id
            AND pc.status = 'PENDING_VERIFICATION')::bigint AS dang_cho_ck
   FROM cuoi c
+  LEFT JOIN public.visit v ON v.clinic_id = $1::uuid AND v.visit_id = c.visit_id
   LEFT JOIN public.patient p ON p.clinic_patient_id = c.clinic_patient_id
   LEFT JOIN public.staff s ON s.id = c.boi
   LEFT JOIN LATERAL (
@@ -476,7 +480,8 @@ async def doc_so_du_mo(
 ) -> list[dict[str, Any]]:
     """Các lượt đang có số dư ở ``chieu`` (mọi ngày, không hạn). Mỗi dòng: lượt,
     khách, ``so_du``, ``chi_tiet`` (các khoản), ``ly_do`` (lý do ghi nợ của lễ
-    tân nếu có, không thì vì sao sổ ghi), ``nguoi``, ``luc``, ``cong_no_id``."""
+    tân nếu có, không thì vì sao sổ ghi), ``nguoi``, ``luc`` (giờ dòng sổ),
+    ``luot_tao_luc`` / ``luot_dong_luc`` (ngày thật của lượt), ``cong_no_id``."""
     out: list[dict[str, Any]] = []
     for r in await conn.fetch(_SO_DU_MO_SQL, clinic_id, chieu, co_so):
         d = dict(r)

@@ -31,6 +31,10 @@ export default async function TrangHoaDon({
     nhom: mot("nhom"),
     hinh_thuc: mot("hinh_thuc"),
     loai: mot("loai"),
+    // Mở thẳng tab Việc tồn đã lọc (link "Nợ" ở báo cáo — lượt ghi nợ chưa thu
+    // đồng nào không có phiếu nên danh sách phiếu rỗng).
+    tab: mot("tab"),
+    viec: mot("viec"),
   };
   return <main className="page-in min-w-0 space-y-4 p-4 lg:p-5">
     <header><h1 className="text-title font-semibold text-ink">Danh sách hoá đơn</h1></header>
