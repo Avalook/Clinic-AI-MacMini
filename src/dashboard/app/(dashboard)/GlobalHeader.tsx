@@ -635,12 +635,7 @@ export default function GlobalHeader({
                   Đổi mật khẩu
                 </Button>
                 <form action={leaveAction}>
-                  <Button
-                    type="submit"
-                    variant="secondary"
-                    size="lg"
-                    className="w-full justify-start gap-2"
-                  >
+                  <Button type="submit" variant="secondary" size="lg" className="w-full justify-start gap-2">
                     <LogOut size={16} aria-hidden />
                     Thoát
                   </Button>
