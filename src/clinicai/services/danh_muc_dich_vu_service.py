@@ -137,6 +137,11 @@ def dong_vat_tu(r: Mapping[str, Any]) -> dict[str, Any]:
         "service_code": r["service_code"],
         "name": r["name"],
         "don_vi": r.get("don_vi"),
+        "loai_vat_tu": r.get("loai_vat_tu"),
+        "gia_nhap": _so(r.get("gia_nhap_vat_tu")),
+        "ma_vach": r.get("ma_vach_vat_tu"),
+        "kinh_doanh": bool(r.get("kinh_doanh_vat_tu")),
+        "can_duyet_nhap": bool(r.get("can_duyet_nhap_vat_tu")),
         "unit_price": _so(r.get("unit_price")),
         "active": bool(r.get("active")),
         "can_ql_duyet": bool(r.get("can_ql_duyet")),
@@ -152,7 +157,8 @@ async def doc_vat_tu(conn: asyncpg.Connection, clinic_id: str) -> list[dict[str,
     rows = await conn.fetch(
         """
         SELECT id, service_code, name, unit_price, active, don_vi,
-               can_ql_duyet, chon_nhanh
+               can_ql_duyet, chon_nhanh, loai_vat_tu, gia_nhap_vat_tu,
+               ma_vach_vat_tu, kinh_doanh_vat_tu, can_duyet_nhap_vat_tu
           FROM public.service_price
          WHERE clinic_id = $1::uuid AND "group" = 'vat_tu'
          ORDER BY chon_nhanh DESC, (unit_price IS NULL), name

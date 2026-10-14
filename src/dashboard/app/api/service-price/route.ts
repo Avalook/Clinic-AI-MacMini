@@ -141,6 +141,14 @@ export async function POST(request: Request) {
 }
 
 interface PatchBody {
+  loai_vat_tu?: unknown;
+  gia_nhap?: unknown;
+  don_vi?: unknown;
+  ma_vach?: unknown;
+  kinh_doanh?: unknown;
+  can_duyet_nhap?: unknown;
+  can_ql_duyet?: unknown;
+  chon_nhanh?: unknown;
   id?: string;
   unit_price?: unknown;
   name?: string;
@@ -176,6 +184,10 @@ export async function PATCH(request: Request) {
   if (nhom === undefined) return sai("Nhóm hàng không hợp lệ.");
 
   return proxyJsonToBackend("PATCH", `/api/v1/service-prices/${id}`, {
+    ...Object.fromEntries(([
+      "loai_vat_tu", "gia_nhap", "don_vi", "ma_vach", "kinh_doanh",
+      "can_duyet_nhap", "can_ql_duyet", "chon_nhanh",
+    ] as const).filter((key) => key in body).map((key) => [key, body[key]])),
     name: body.name ?? null,
     ...("unit_price" in body ? { unit_price: body.unit_price ?? null } : {}),
     active: typeof body.active === "boolean" ? body.active : null,

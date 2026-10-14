@@ -852,6 +852,15 @@ MODULE: dict[str, Module] = {
             bang=["so_no", "so_no_moc"],
             projection=["so_no_hai_chieu"],
         ),
+        # Kho VẬT TƯ (14/10/2026): sổ riêng, không dùng bảng thuốc. Tồn do trigger
+        # cộng trong chính giao dịch ghi sổ nên không cần bên nhận sự kiện.
+        Module(
+            ma="kho_vat_tu",
+            ten="Kho vật tư (phiếu kho, tồn theo nơi chứa, mức tối thiểu)",
+            lenh=["LapPhieuVatTu", "HoanPhieuVatTu", "DatMucToiThieuVatTu"],
+            bang=["vat_tu_phieu", "vat_tu_ton", "vat_tu_txn"],
+            quyen=["vat_tu.manage"],
+        ),
         # Lịch ĐIỀU TRỊ (07/10/2026): khách vào hàng → chỉ định sẵn đúng dịch vụ
         # đã đặt (một service_order bình thường).
         Module(

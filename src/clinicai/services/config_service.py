@@ -1758,8 +1758,12 @@ class PriceListService:
         billing_owner: str | None = None,
         nhom: str | None = None,
         nhom_provided: bool = False,
+        vat_tu: dict[str, Any] | None = None,
     ) -> None:
-        patch: dict[str, Any] = {}
+        from clinicai.services.vat_tu_danh_muc_service import patch_vat_tu
+
+        vt_patch = patch_vat_tu(vat_tu or {})
+        patch: dict[str, Any] = dict(vt_patch)
         if nhom_provided:
             # Nhóm hàng (01/10/2026) — gom danh mục chỉ định; rỗng = bỏ nhóm.
             patch["category"] = _nhom_hang(nhom)
@@ -1785,6 +1789,17 @@ class PriceListService:
             raise ValidationError("Không có gì để sửa")
 
         async with self._pool.acquire() as conn, conn.transaction():
+            if (
+                vt_patch
+                and await conn.fetchval(
+                    'SELECT "group" FROM service_price WHERE id=$1::uuid'
+                    " AND clinic_id=$2::uuid FOR UPDATE",
+                    price_id,
+                    identity.clinic_id,
+                )
+                != "vat_tu"
+            ):
+                raise ValidationError("Các cột vật tư chỉ sửa trên mặt hàng vật tư.")
             if node_code is not None:
                 patch["node_code"] = await self._phong_hop_le(
                     conn, identity.clinic_id, node_code

@@ -11,7 +11,7 @@ from uuid import UUID
 import asyncpg
 from fastapi import APIRouter, Depends, Query
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import (
@@ -160,6 +160,14 @@ class PriceCreateRequest(BaseModel):
 
 
 class PriceUpdateRequest(BaseModel):
+    loai_vat_tu: str | None = Field(default=None, max_length=16)
+    gia_nhap: Any = None
+    don_vi: str | None = Field(default=None, max_length=40)
+    ma_vach: str | None = Field(default=None, max_length=120)
+    kinh_doanh: StrictBool | None = None
+    can_duyet_nhap: StrictBool | None = None
+    can_ql_duyet: StrictBool | None = None
+    chon_nhanh: StrictBool | None = None
     name: str | None = Field(default=None, max_length=300)
     unit_price: float | str | None = None
     active: bool | None = None
@@ -517,6 +525,19 @@ async def update_price(
         billing_owner=body.billing_owner,
         nhom=body.nhom,
         nhom_provided="nhom" in body.model_fields_set,
+        vat_tu=body.model_dump(
+            include=body.model_fields_set
+            & {
+                "loai_vat_tu",
+                "gia_nhap",
+                "don_vi",
+                "ma_vach",
+                "kinh_doanh",
+                "can_duyet_nhap",
+                "can_ql_duyet",
+                "chon_nhanh",
+            }
+        ),
     )
     return {"ok": True}
 

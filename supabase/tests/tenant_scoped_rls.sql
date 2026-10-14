@@ -206,8 +206,10 @@ BEGIN
     -- nhóm cho kế toán — CHỈ SELECT).
     -- 114 → 115 (14/10/2026, G3b): drug_ma_vach (20261014135000, mã vạch → thuốc).
     -- 115 → 117 (14/10/2026, G6): kiem_ke_ca + kiem_ke_ca_dong (20261014170000).
-    IF scoped_count <> 117 THEN
-        RAISE EXCEPTION 'expected 117 tenant-scoped read policies, found %', scoped_count;
+    -- 117 → 120 (14/10/2026, G8a): vat_tu_phieu + vat_tu_ton + vat_tu_txn
+    -- (phiếu vật tư + tồn theo nơi chứa + sổ chỉ thêm).
+    IF scoped_count <> 120 THEN
+        RAISE EXCEPTION 'expected 120 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

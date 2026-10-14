@@ -8,6 +8,8 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf
 const quay = read("../app/(dashboard)/thu-ngan/QuayThuNgan.tsx");
 const vatTu = read("../app/(dashboard)/thu-ngan/VatTuQuay.tsx");
 const bangGia = read("../app/(dashboard)/cashier/VatTuBangGia.tsx");
+const thuocTinh = read("../app/(dashboard)/cashier/VatTuThuocTinh.tsx");
+const suaGia = read("../app/api/service-price/route.ts");
 const danhMuc = read("../app/(dashboard)/cashier/DanhMucDichVuPhong.tsx");
 const proxy = read("../app/api/luot-kham/route.ts");
 
@@ -61,7 +63,7 @@ test("khối Mua thêm vật tư chỉ ở quầy dịch vụ, không ở quầy
 });
 
 test("khối vật tư dùng thành phần chung, không tự vẽ nút / màu / style", () => {
-  for (const nguon of [vatTu, bangGia]) {
+  for (const nguon of [vatTu, bangGia, thuocTinh]) {
     assert.doesNotMatch(nguon, /<button/);
     assert.doesNotMatch(nguon, /style=\{\{/);
     assert.doesNotMatch(nguon, /#[0-9a-fA-F]{3,8}\b/);
@@ -74,6 +76,18 @@ test("khối vật tư dùng thành phần chung, không tự vẽ nút / màu /
   // Hàng cần quản lý duyệt không thêm thẳng: mở ô duyệt.
   assert.match(vatTu, /if \(m\.can_ql_duyet\)/);
   assert.match(vatTu, /ly_do_duyet: duyet\.lyDo/);
+});
+
+test("thuộc tính vật tư có đường gửi cho mọi cột, giữ false/null/rỗng", () => {
+  assert.match(bangGia, /<VatTuThuocTinh d=\{d\}/);
+  for (const cot of ["loai_vat_tu", "gia_nhap", "don_vi", "ma_vach", "kinh_doanh",
+    "can_duyet_nhap", "can_ql_duyet", "chon_nhanh"]) {
+    assert.ok(thuocTinh.includes(`"${cot}"`), `ô ${cot}`);
+    assert.ok(suaGia.includes(`"${cot}"`), `proxy ${cot}`);
+  }
+  assert.match(suaGia, /filter\(\(key\) => key in body\)/);
+  assert.match(thuocTinh, /onSua\(d\.id, patch,/);
+  assert.match(thuocTinh, /await onSua[\s\S]*setPatch\(\{\}\)/);
 });
 
 test("proxy chỉ cho đúng ba lệnh vật tư + một đường đọc", () => {
