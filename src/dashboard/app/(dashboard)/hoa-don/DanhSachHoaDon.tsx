@@ -15,7 +15,7 @@ import { khoangNhanh, type Khoang } from "@/lib/thanh-ngay";
 import { INPUT } from "../form-ui";
 import NgayTrucBaoCao, { type ReportCalendar } from "../reports/NgayTrucBaoCao";
 import ChiTietHoaDon from "./ChiTietHoaDon";
-import { TRANG_THAI, daTon, ngayGio, tien, type DanhSachData, type KhachHoaDon } from "./types";
+import { NHOM_HOA_DON, TEN_LECH, TRANG_THAI, daTon, ngayGio, tien, type DanhSachData, type KhachHoaDon } from "./types";
 
 type Tab = "khach" | "ton";
 
@@ -67,6 +67,9 @@ function TrangThai({ k }: { k: KhachHoaDon }) {
         </span>
       )}
       {k.co_phieu_huy ? <span className={`${CHIP} bg-surface-muted text-ink-soft`}>có phiếu huỷ</span> : null}
+      {[...new Set(k.phieu.flatMap(p => p.ten_lech ?? []))].filter(t => t !== "Huỷ phiếu").map(t => (
+        <span key={t} className={`${CHIP} bg-surface-muted text-ink-soft`}>{t.toLowerCase()}</span>
+      ))}
       {(k.canh_bao ?? []).filter(c => !c.startsWith("Phiếu huỷ")).map(c => (
         <span key={c} className={`${CHIP} bg-warning-bg text-warning`}>{c}</span>
       ))}
@@ -74,14 +77,22 @@ function TrangThai({ k }: { k: KhachHoaDon }) {
   );
 }
 
-export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
+/** Bộ lọc mở sẵn từ link (khối Dòng tiền của báo cáo cuối ngày). */
+export interface LocBanDau {
+  tu?: string; den?: string; ca?: string; co_so?: string;
+  nhom?: string; hinh_thuc?: string; loai?: string;
+}
+
+export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; banDau?: LocBanDau }) {
   const homNay = todayVn();
-  const [khoang, setKhoang] = useState<Khoang>({ tu: homNay, den: homNay });
+  const [khoang, setKhoang] = useState<Khoang>({ tu: banDau.tu ?? homNay, den: banDau.den ?? banDau.tu ?? homNay });
   const [tim, setTim] = useState("");
-  const [loai, setLoai] = useState("");
+  const [loai, setLoai] = useState(banDau.loai ?? "");
   const [trangThai, setTrangThai] = useState("");
-  const [ca, setCa] = useState("FULL");
-  const [coSoChon, setCoSoChon] = useState("");
+  const [ca, setCa] = useState(banDau.ca || "FULL");
+  const [coSoChon, setCoSoChon] = useState(banDau.co_so ?? "");
+  const [nhom, setNhom] = useState(banDau.nhom && banDau.nhom in NHOM_HOA_DON ? banDau.nhom : "");
+  const [hinhThuc, setHinhThuc] = useState(banDau.hinh_thuc ?? "");
   const [tab, setTab] = useState<Tab>("khach");
   const [access, setAccess] = useState<ReportCalendar | null>(null);
   const [data, setData] = useState<DanhSachData | null>(null);
@@ -96,6 +107,7 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
     tu, den, tim, loai, ca, co_so: coSoChon,
     trang_thai: canKiemTra ? "" : trangThai,
     can_kiem_tra: String(canKiemTra),
+    nhom, hinh_thuc: hinhThuc,
   });
 
   useEffect(() => {
@@ -170,6 +182,19 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
             <option value="thuoc">Thuốc</option>
           </select>
         </OLoc>
+        <OLoc ten="Nhóm hoá đơn">
+          <select aria-label="Nhóm hoá đơn" className={`${INPUT} w-full`} value={nhom} onChange={e => setNhom(e.target.value)}>
+            <option value="">Mọi hoá đơn</option>
+            {Object.entries(NHOM_HOA_DON).map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+          </select>
+        </OLoc>
+        <OLoc ten="Hình thức">
+          <select aria-label="Hình thức thu" className={`${INPUT} w-full`} value={hinhThuc} onChange={e => setHinhThuc(e.target.value)}>
+            <option value="">Tiền mặt và chuyển khoản</option>
+            <option value="CASH">Tiền mặt</option>
+            <option value="TRANSFER">Chuyển khoản</option>
+          </select>
+        </OLoc>
         <OLoc ten="Trạng thái">
           <select aria-label="Trạng thái" className={`${INPUT} w-full`} value={trangThai} onChange={e => setTrangThai(e.target.value)}>
             <option value="">Tất cả trạng thái</option>
@@ -185,6 +210,20 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
 
       {data ? (
         <>
+          {data.tong.dung_khong_dung ? (
+            <div className="flex flex-wrap items-center gap-2 text-body">
+              <button type="button" onClick={() => setNhom("dung")} className={`${CHIP} bg-success-bg text-success`}>
+                Đúng {data.tong.dung_khong_dung.dung} hoá đơn
+              </button>
+              <button type="button" onClick={() => setNhom("khong_dung")} className={`${CHIP} ${data.tong.dung_khong_dung.khong_dung ? "bg-warning-bg text-warning" : "bg-surface-muted text-ink-soft"}`}>
+                Không đúng {data.tong.dung_khong_dung.khong_dung} hoá đơn
+              </button>
+              {Object.entries(data.tong.dung_khong_dung.ly_do).filter(([, n]) => n > 0).map(([ma, n]) => (
+                <span key={ma} className="text-meta text-ink-muted">{TEN_LECH[ma] ?? ma} {n}</span>
+              ))}
+              {nhom ? <button type="button" onClick={() => setNhom("")} className="text-meta text-brand-700 underline-offset-2 hover:underline">Bỏ lọc nhóm</button> : null}
+            </div>
+          ) : null}
           <dl className="grid grid-cols-2 gap-4 rounded-card bg-surface p-4 ring-1 ring-hairline md:grid-cols-4">
             <SoTien ten="Tổng tiền hàng" so={tien(data.tong.tong_truoc_giam)} />
             <SoTien ten="Giảm giá" so={tien(data.tong.giam_gia)} />

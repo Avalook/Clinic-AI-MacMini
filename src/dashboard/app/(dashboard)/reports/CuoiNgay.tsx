@@ -341,7 +341,8 @@ export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { n
         </p>
       ) : null}
 
-      <TomTatCuoiNgay dayDu={dayDu} data={dangTai || loi || chuoiDaTai !== chuoi ? null : bc} dangTai={dangTai || (!loi && chuoiDaTai !== chuoi)} />
+      <TomTatCuoiNgay dayDu={dayDu} data={dangTai || loi || chuoiDaTai !== chuoi ? null : bc} dangTai={dangTai || (!loi && chuoiDaTai !== chuoi)}
+        loc={{ tu: khoang.tu, den: khoang.den, ...(ca && motNgay ? { ca } : {}), ...(coSoChon ? { co_so: coSoChon } : {}) }} />
 
 
     </section>

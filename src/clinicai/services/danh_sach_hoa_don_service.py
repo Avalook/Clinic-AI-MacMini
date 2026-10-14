@@ -216,7 +216,11 @@ class DanhSachHoaDonService:
         co_so: str | None = None,
         ca: str | None = None,
         can_kiem_tra: bool = False,
+        nhom: str | None = None,
+        hinh_thuc: str | None = None,
     ) -> dict[str, Any]:
+        """``nhom`` / ``hinh_thuc``: lọc phiếu (link từ khối Dòng tiền) — rác thì
+        không lọc (``hoa_don_projection.NHOM_LOC``)."""
         a, b = doc_khoang_ngay(tu, den)
         access, location = await ReportAccessService(self.pool).authorize(
             identity, tu=a.isoformat(), den=b.isoformat(), ca=ca, co_so=co_so
@@ -294,6 +298,8 @@ class DanhSachHoaDonService:
                 tim=tim,
                 trang_thai=trang_thai,
                 can_kiem_tra=can_kiem_tra,
+                nhom=nhom,
+                hinh_thuc=hinh_thuc,
                 doi_hinh_thuc=doi_ht,
                 tien_thua=tien_thua,
                 viec_ton=ton,

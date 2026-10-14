@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const input = new URL(request.url).searchParams;
   const q = new URLSearchParams();
-  for (const key of ["tu", "den", "tim", "loai", "trang_thai", "ca", "co_so", "can_kiem_tra"]) {
+  for (const key of ["tu", "den", "tim", "loai", "trang_thai", "ca", "co_so", "can_kiem_tra", "nhom", "hinh_thuc"]) {
     const value = input.get(key);
     if (value !== null) q.set(key, value.slice(0, key === "tim" ? 200 : 64));
   }

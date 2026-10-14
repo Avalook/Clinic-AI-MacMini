@@ -28,6 +28,8 @@ async def danh_sach_hoa_don(
     co_so: str | None = Query(None, max_length=64),
     ca: str | None = Query(None, max_length=10),
     can_kiem_tra: bool = Query(False),
+    nhom: str | None = Query(None, max_length=30),
+    hinh_thuc: str | None = Query(None, max_length=20),
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
@@ -41,6 +43,8 @@ async def danh_sach_hoa_don(
         co_so=co_so,
         ca=ca,
         can_kiem_tra=can_kiem_tra,
+        nhom=nhom,
+        hinh_thuc=hinh_thuc,
     )
 
 

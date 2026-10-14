@@ -284,6 +284,75 @@ def _period(customers: list[dict[str, Any]]) -> dict[str, int]:
     )
 
 
+#: Phiếu "không đúng" (Tuyền 14/10/2026: mọi thứ lệch đường chuẩn thu đủ → làm
+#: đủ → về) — mỗi lý do một mã. Giảm giá có lý do + người giảm là thao tác hợp lệ
+#: → không tính lệch, có bộ lọc riêng.
+TEN_LECH: dict[str, str] = {
+    "HUY": "Huỷ phiếu",
+    "HOAN": "Có trả lại tiền",
+    "DOI_HINH_THUC": "Đổi hình thức thu",
+    "CAN_DOI_SOAT": "Cần đối soát",
+    "NO_KHACH": "Khách còn nợ",
+    "NO_PHONG_KHAM": "Phòng khám còn nợ khách",
+}
+_VIEC_NO_KHACH = frozenset({"GHI_NO", "CK_CHUA_VE"})
+_VIEC_NO_PHONG_KHAM = frozenset(
+    {"CHUA_TRA_LAI", "CHUA_LAM", "HOAN_CHUA_XONG", "HOAN_THAT_BAI"}
+)
+#: Nhóm lọc của màn (``nhom``); rác = không lọc.
+NHOM_LOC = frozenset(
+    {
+        "dung",
+        "khong_dung",
+        "tra_lai",
+        "giam_gia",
+        "doi_hinh_thuc",
+        "no_khach",
+        "no_phong_kham",
+    }
+)
+
+
+def lech_cua_phieu(
+    bill: Mapping[str, Any], viec_luot: Mapping[str, set[str]]
+) -> list[str]:
+    """Các lý do phiếu lệch đường chuẩn (rỗng = phiếu đúng). Thuần.
+
+    ``viec_luot``: visit_id → các loại việc tồn còn mở của lượt."""
+    viec = viec_luot.get(str(bill.get("visit_id"))) or set()
+    co = {
+        "HUY": bill["trang_thai"] == "DA_HUY",
+        "HOAN": bool(bill["hoan"]),
+        "DOI_HINH_THUC": any(e.get("loai") == "DOI_HINH_THUC" for e in bill["su_kien"]),
+        "CAN_DOI_SOAT": bool(bill["can_doi_soat"]),
+        "NO_KHACH": bool(viec & _VIEC_NO_KHACH),
+        "NO_PHONG_KHAM": bool(viec & _VIEC_NO_PHONG_KHAM),
+    }
+    return [ma for ma in TEN_LECH if co[ma]]
+
+
+def hop_nhom(bill: Mapping[str, Any], nhom: str | None) -> bool:
+    """Phiếu có thuộc nhóm lọc không. Thuần."""
+    lech = bill["lech"]
+    return {
+        None: True,
+        "dung": not lech,
+        "khong_dung": bool(lech),
+        "tra_lai": "HUY" in lech or "HOAN" in lech,
+        "giam_gia": int(bill.get("giam_gia") or 0) > 0,
+        "doi_hinh_thuc": "DOI_HINH_THUC" in lech,
+        "no_khach": "NO_KHACH" in lech,
+        "no_phong_kham": "NO_PHONG_KHAM" in lech,
+    }.get(nhom, True)
+
+
+def hop_hinh_thuc(bill: Mapping[str, Any], hinh_thuc: str | None) -> bool:
+    if hinh_thuc not in ("CASH", "TRANSFER"):
+        return True
+    ht = "TRANSFER" if bill.get("hinh_thuc") in ("TRANSFER", "QR") else "CASH"
+    return ht == hinh_thuc
+
+
 def gom_hoa_don(
     receipts: list[dict[str, Any]],
     refunds: list[dict[str, Any]],
@@ -296,18 +365,42 @@ def gom_hoa_don(
     doi_hinh_thuc: Sequence[Mapping[str, Any]] = (),
     tien_thua: Mapping[str, Mapping[str, Any]] | None = None,
     viec_ton: Sequence[Mapping[str, Any]] = (),
+    nhom: str | None = None,
+    hinh_thuc: str | None = None,
 ) -> dict[str, Any]:
     """Group by patient; period movement is separate from bill lifetime.
 
     ``viec_ton`` là danh sách việc còn tồn của MỌI ngày (không theo kỳ) — trả
     nguyên để màn có tab riêng, và gắn vào khách tương ứng. ``trang_thai`` =
     ``CON_VIEC_TON`` lọc theo khách thay vì theo phiếu.
-    """
+
+    ``nhom`` / ``hinh_thuc`` (14/10/2026 — link từ khối Dòng tiền): lọc phiếu.
+    ``tong.dung_khong_dung`` đếm phiếu ĐÚNG / KHÔNG ĐÚNG + số phiếu từng lý do,
+    tính TRƯỚC khi lọc nhóm (để thấy cả hai phía)."""
     loc_phieu = trang_thai if trang_thai in TRANG_THAI_PHIEU else None
+    nhom = nhom if nhom in NHOM_LOC else None
+    viec_luot: dict[str, set[str]] = {}
+    for v in viec_ton:
+        if v.get("visit_id"):
+            viec_luot.setdefault(str(v["visit_id"]), set()).add(str(v["loai"]))
+    so_dung = so_khong_dung = 0
+    ly_do: dict[str, int] = {ma: 0 for ma in TEN_LECH}
     groups: dict[str, dict[str, Any]] = {}
     for row in receipts:
         bill = _bill(row, refunds, lines, refund_lines, doi_hinh_thuc)
         if loc_phieu and loc_phieu != bill["trang_thai"]:
+            continue
+        if not hop_hinh_thuc(bill, hinh_thuc):
+            continue
+        bill["lech"] = lech_cua_phieu(bill, viec_luot)
+        bill["ten_lech"] = [TEN_LECH[ma] for ma in bill["lech"]]
+        if bill["lech"]:
+            so_khong_dung += 1
+        else:
+            so_dung += 1
+        for ma in bill["lech"]:
+            ly_do[ma] += 1
+        if not hop_nhom(bill, nhom):
             continue
         key = row.get("patient_id") or row["id"]
         if key not in groups:
@@ -341,7 +434,15 @@ def gom_hoa_don(
     tong_khach["thu_rong"] = sum(int(g["thu_rong"]) for g in selected)
     tong_khach["so_khach_con_ton"] = sum(bool(g["viec_ton"]) for g in selected)
     return {
-        "tong": {**_period(selected), "so_viec_ton": len(viec_ton)},
+        "tong": {
+            **_period(selected),
+            "so_viec_ton": len(viec_ton),
+            "dung_khong_dung": {
+                "dung": so_dung,
+                "khong_dung": so_khong_dung,
+                "ly_do": ly_do,
+            },
+        },
         "tong_khach": tong_khach,
         "khach": selected,
         "viec_ton": list(viec_ton),

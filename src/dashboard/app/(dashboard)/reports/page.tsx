@@ -468,7 +468,7 @@ export default async function ReportsPage({
       </Section>
 
       <p className="text-xs text-ink-muted">
-        Doanh thu: xem tab “Cuối ngày”.
+        Dòng tiền: xem tab “Cuối ngày”.
       </p>
     </main>
   );

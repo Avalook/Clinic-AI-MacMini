@@ -6,11 +6,31 @@ interface KhoanCho {
 
 type Tien = { thu: number; huy: number; hoan: number; thuc_thu: number };
 
+type TmCk = { tong: number; tien_mat: number; chuyen_khoan: number };
+
+/** Khối Dòng tiền (14/10/2026) — mọi số do máy chủ tính (`tom_tat_tai_chinh_service`). */
+export interface DongTien {
+  dong_tien_vao: number;
+  tien_thu: TmCk;
+  tra_lai: TmCk;
+  hoan_cho: number;
+  no: number;
+  giam_gia: number;
+  no_thu_duoc: TmCk & { giam_gia: number };
+  thuc_thu: TmCk;
+  doanh_thu_thuan: number;
+  khop: boolean;
+}
+
 export interface TaiChinh {
  so_phieu_thu: number; doanh_thu: number; doanh_thu_thuan: number;
  thuc_thu: number; hoan_tien_mat: number; hoan_chuyen_khoan: number;
  giam_gia: number | null;
+ dong_tien?: DongTien;
 }
+
+/** Bộ lọc đang xem — để link sang danh sách hoá đơn giữ đúng ngày / ca / cơ sở. */
+export interface LocBaoCao { tu: string; den: string; ca?: string; co_so?: string }
 interface DuLieuTomTat {
  tai_chinh?: TaiChinh;
   tong: Tien & { so_phieu_thu: number; so_phieu_huy: number; so_phieu_hoan: number };
@@ -37,6 +57,38 @@ function Dong({ nhan, giaTri, noiBat = false }: {
   );
 }
 
+/** Một mục Dòng tiền: số tổng, dòng phụ TM / CK (nếu có), link danh sách hoá đơn. */
+function MucDongTien({ nhan, tong, tmCk, href, tien, noiBat = false }: {
+  nhan: string; tong?: number; tmCk?: TmCk; href?: string;
+  tien: (n?: number) => string; noiBat?: boolean;
+}) {
+  return (
+    <div className="border-b border-hairline px-3 py-3 last:border-b-0">
+      <div className="flex min-h-5 items-center justify-between gap-4">
+        <dt className="min-w-0 text-emph text-ink">{nhan}</dt>
+        <dd className={`shrink-0 text-right text-emph tabular-nums ${noiBat ? "font-semibold text-brand-700" : "text-ink"}`}>
+          {tien(tong)}
+        </dd>
+      </div>
+      {tmCk || href ? (
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-meta text-ink-muted">
+          {tmCk ? <span className="tabular-nums">Tiền mặt {tien(tmCk.tien_mat)} · Chuyển khoản {tien(tmCk.chuyen_khoan)}</span> : <span />}
+          {href ? <a href={href} className="text-brand-700 underline-offset-2 hover:underline print:hidden">Xem hoá đơn</a> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function linkHoaDon(loc: LocBaoCao | undefined, nhom?: string): string | undefined {
+  if (!loc) return undefined;
+  const q = new URLSearchParams({ tu: loc.tu, den: loc.den });
+  if (loc.ca) q.set("ca", loc.ca);
+  if (loc.co_so) q.set("co_so", loc.co_so);
+  if (nhom) q.set("nhom", nhom);
+  return `/hoa-don?${q}`;
+}
+
 function Nhom({ ten, children }: { ten: string; children: React.ReactNode }) {
   return (
     <section>
@@ -46,9 +98,10 @@ function Nhom({ ten, children }: { ten: string; children: React.ReactNode }) {
   );
 }
 
-export default function TomTatCuoiNgay({ data, dangTai, dayDu = false }: {
-  data: DuLieuTomTat | null; dangTai: boolean; dayDu?: boolean;
+export default function TomTatCuoiNgay({ data, dangTai, dayDu = false, loc }: {
+  data: DuLieuTomTat | null; dangTai: boolean; dayDu?: boolean; loc?: LocBaoCao;
 }) {
+  const dt = data?.tai_chinh?.dong_tien;
   const tien = (n?: number) => n == null ? (dangTai ? "…" : "—") : `${n.toLocaleString("vi-VN")}đ`;
   // Chỉ trình bày các nhóm máy chủ trả về; thiếu dữ liệu thì không giả thành 0.
   const hinhThuc = data?.theo_hinh_thuc.length
@@ -67,12 +120,26 @@ export default function TomTatCuoiNgay({ data, dangTai, dayDu = false }: {
       <Nhom ten="Phương thức thanh toán">
         {hinhThuc.map(o => <Dong key={o.ma} nhan={o.ten} giaTri={tien("thuc_thu" in o ? o.thuc_thu : undefined)} />)}
       </Nhom>
-      {dayDu ? <Nhom ten="Tài chính">
-        <Dong nhan="Doanh thu" giaTri={tien(data?.tai_chinh?.doanh_thu)} />
-        <Dong nhan="Hoàn tiền mặt" giaTri={tien(data?.tai_chinh?.hoan_tien_mat)} />
-        <Dong nhan="Hoàn chuyển khoản" giaTri={tien(data?.tai_chinh?.hoan_chuyen_khoan)} />
-        <Dong nhan="Giảm giá" giaTri={data?.tai_chinh?.giam_gia == null ? "Chưa có dữ liệu" : tien(data.tai_chinh.giam_gia)} />
-        <Dong nhan="Doanh thu thuần" giaTri={tien(data?.tai_chinh?.doanh_thu_thuan)} />
+      {dayDu ? <Nhom ten="Dòng tiền">
+        {/* Thực thu = Dòng tiền vào − Trả lại − Nợ − Giảm giá + Nợ thu được (máy chủ tính). */}
+        <MucDongTien nhan="Dòng tiền vào" tong={dt?.dong_tien_vao} tmCk={dt?.tien_thu} href={linkHoaDon(loc)} tien={tien} />
+        <MucDongTien nhan="Trả lại tiền khách hàng" tong={dt?.tra_lai.tong} tmCk={dt?.tra_lai} href={linkHoaDon(loc, "tra_lai")} tien={tien} />
+        <MucDongTien nhan="Nợ" tong={dt?.no} href={linkHoaDon(loc, "no_khach")} tien={tien} />
+        <MucDongTien nhan="Giảm giá" tong={dt?.giam_gia} href={linkHoaDon(loc, "giam_gia")} tien={tien} />
+        <MucDongTien nhan="Nợ thu được" tong={dt?.no_thu_duoc.tong} tmCk={dt?.no_thu_duoc} tien={tien} />
+        <MucDongTien nhan="Thực thu" tong={dt?.thuc_thu.tong} tmCk={dt?.thuc_thu} href={linkHoaDon(loc)} tien={tien} noiBat />
+        <MucDongTien nhan="Doanh thu thuần" tong={dt?.doanh_thu_thuan} tien={tien} />
+        {dt && dt.hoan_cho > 0 ? (
+          <p className="px-3 py-2 text-meta text-ink-muted">Còn {tien(dt.hoan_cho)} hoàn tiền đang chờ — chưa trừ vào Trả lại.</p>
+        ) : null}
+        {dt && !dt.khop ? (
+          <p role="alert" className="px-3 py-2 text-meta text-danger">Các số dòng tiền không khớp công thức — báo kỹ thuật kiểm tra.</p>
+        ) : null}
+        {dt ? (
+          <p className="px-3 py-2 text-meta text-ink-muted">
+            <a href={linkHoaDon(loc, "khong_dung")} className="text-brand-700 underline-offset-2 hover:underline print:hidden">Xem hoá đơn không đúng (huỷ, trả lại, đổi hình thức, còn nợ…)</a>
+          </p>
+        ) : null}
       </Nhom> : null}
       <Nhom ten="Phiếu thu">
         <Dong nhan="Phiếu thu" giaTri={data?.tong.so_phieu_thu == null ? dangTai ? "…" : "—" : data.tong.so_phieu_thu.toLocaleString("vi-VN")} />
