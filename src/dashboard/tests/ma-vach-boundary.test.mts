@@ -87,7 +87,10 @@ test("proxy chỉ cho đúng các đường mã vạch, tham số tra-ma đượ
 test("quầy: quét chỉ ĐIỀN SẴN lô, người bấm Chọn lô; lô hết hạn / huỷ không được điền", () => {
   const b = doc("app/(dashboard)/pharmacy/PharmacyBoard.tsx");
   assert.match(b, /kq\.lo\.trang_thai !== "ok"/);
-  assert.match(b, /kiểm số rồi bấm Chọn lô/);
+  assert.match(b, /kiểm số rồi bấm \$\{buoc\}/);
+  assert.match(b, /dong\.thao_tac\.giao_khong_lo \? "Giao thuốc \(giao đúng lô này\)" : "Chọn lô"/);
   const d = doc("app/(dashboard)/pharmacy/DongThuoc.tsx");
   assert.match(d, /loQuet && dong\.lo_goi_y\.some/);
+  // Đã thu, chưa phân lô: "Giao thuốc" gửi đúng lô vừa quét, không bỏ qua im lặng.
+  assert.match(d, /\.\.\.\(loGiaoQuet \? \{ drug_batch_id: loGiaoQuet\.drug_batch_id \} : \{\}\)/);
 });

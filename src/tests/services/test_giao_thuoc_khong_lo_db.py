@@ -107,6 +107,27 @@ async def test_da_chon_lo_nhung_lan_thu_khong_gan_lo_van_giao_khong_lo(
     await _giao_khong_lo(q, rx, 6)
 
 
+async def test_quet_lo_o_dong_giao_khong_lo_giao_thang_tu_lo_do_va_kho_tru_ngay(
+    q: Quay,
+) -> None:
+    """Bấm thật 14/10: quét tem lô rồi "Giao thuốc" ở dòng đã thu chưa phân lô —
+    trước đây màn bỏ qua lô vừa quét (giao không lô, kho chưa trừ, không có dòng
+    "Đã giao … Lô … Khách trả"). Nay giao kèm lô: kho trừ ngay, dòng xuất mang lô."""
+    rx, drug = await _dong_da_xac_dinh(q, 8)
+    await _thu(q)
+    lo = await _nhap_lo(q, drug, 30)
+    assert (await _dong(q, rx))["thao_tac"]["giao_khong_lo"] is True
+    await PharmacyService(q.pool).cap_phat(
+        identity=q.duoc_si, prescription_id=rx, drug_batch_id=lo, so_luong=3
+    )
+    assert await _ton(q, lo) == 27, "giao từ lô đã quét thì kho trừ ngay"
+    xuat = (await _dong(q, rx))["xuat"]
+    assert [float(x["so_luong"]) for x in xuat] == [3.0]
+    assert xuat[0]["batch_code"], "dòng xuất mang mã lô — đủ để khách trả theo lô"
+    # Không vào sổ "giao chưa gán lô" — lô đã rõ.
+    assert not [d for d in await _cho(q) if d["prescription_id"] == rx]
+
+
 async def test_dong_da_ban_theo_lo_thi_phai_giao_dung_lo(
     q: Quay, monkeypatch: pytest.MonkeyPatch
 ) -> None:

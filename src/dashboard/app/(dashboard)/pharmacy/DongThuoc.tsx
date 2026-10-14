@@ -62,6 +62,9 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
     loQuet && dong.lo_goi_y.some((b) => b.drug_batch_id === loQuet) ? loQuet : "",
   );
   const loChon = loChonTay || (dong.lo_goi_y[0]?.drug_batch_id ?? "");
+  // Lô vừa QUÉT (tem / mã vuông): giao không lô thì giao thẳng từ lô ấy — kho trừ
+  // ngay, dòng "Đã giao … Lô …" có đủ để khách trả; không thì chữ "điền sẵn lô" nói dối.
+  const loGiaoQuet = loQuet ? dong.lo_goi_y.find((b) => b.drug_batch_id === loQuet) : undefined;
   const [soChon, setSoChon] = useState(conCanLo > 0 ? String(conCanLo) : "");
   const [soGiao, setSoGiao] = useState<Record<string, string>>({});
   const [loDoi, setLoDoi] = useState<Record<string, string>>({});
@@ -418,12 +421,20 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
             variant="primary"
             disabled={dangGui || !soKhongLo}
             onClick={() =>
-              goi("dispense", { prescription_id: dong.id, so_luong: Number(soKhongLo) })
+              goi("dispense", {
+                prescription_id: dong.id,
+                so_luong: Number(soKhongLo),
+                ...(loGiaoQuet ? { drug_batch_id: loGiaoQuet.drug_batch_id } : {}),
+              })
             }
           >
             Giao thuốc
           </Button>
-          <span className="text-meta text-ink-muted">Chưa cần lô — gán lô sau ở Kho thuốc.</span>
+          <span className="text-meta text-ink-muted">
+            {loGiaoQuet
+              ? `Giao từ lô ${loGiaoQuet.batch_code} (đã quét) — kho trừ ngay.`
+              : "Chưa cần lô — gán lô sau ở Kho thuốc."}
+          </span>
         </div>
       ) : null}
 
