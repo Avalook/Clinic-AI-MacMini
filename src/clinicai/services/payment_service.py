@@ -1715,6 +1715,7 @@ async def _tu_ghi_no_sau_ve(
         identity=identity,
         visit_id=visit_id,
         ly_do=f"Huỷ phiếu sau khi khách đã về — chờ thu hoặc miễn: {ly_do}"[:500],
+        nguon="HUY_PHIEU",
     )
 
 

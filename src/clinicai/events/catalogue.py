@@ -1100,6 +1100,9 @@ class CongNoDaGhi(PayloadSuKien):
     so_tien: int
     so_khoan: int
     ly_do: str
+    #: Máy tự ghi thay người (G4d · D): ``HUY_PHIEU`` = huỷ phiếu sau khi khách
+    #: đã về. Sổ nợ ghi đúng "vì sao" dù sự kiện nào của cùng giao dịch tới trước.
+    nguon: str | None = None
 
 
 class CongNoDaHuy(PayloadSuKien):

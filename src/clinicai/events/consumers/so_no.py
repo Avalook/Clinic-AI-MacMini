@@ -22,6 +22,16 @@ from clinicai.events.worker import SuKienDaNhan, dang_ky
 from clinicai.services.so_no_service import LOAI_THEO_SU_KIEN, ghi_chenh_lech
 
 
+def _loai(su_kien: SuKienDaNhan) -> str:
+    """Vì sao số dư đổi. Ghi nợ máy TỰ ghi khi huỷ phiếu sau khi khách về (G4d ·
+    D) mang ``nguon`` = HUY_PHIEU: cùng giao dịch với ``payment.collection_undone``
+    mà worker không giữ thứ tự giữa hai sự kiện khác nguồn — sự kiện nào tới
+    trước thì dòng sổ cũng phải mang cùng một nhãn."""
+    if su_kien.event_type == "cong_no.ghi" and su_kien.payload.get("nguon"):
+        return str(su_kien.payload["nguon"])
+    return LOAI_THEO_SU_KIEN.get(su_kien.event_type, "DOI_CHIEU")
+
+
 async def ghi_so(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     if su_kien.la_phat_lai:
         return
@@ -35,7 +45,7 @@ async def ghi_so(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
         conn,
         clinic_id=su_kien.clinic_id,
         visit_id=str(visit_id),
-        loai=LOAI_THEO_SU_KIEN.get(su_kien.event_type, "DOI_CHIEU"),
+        loai=_loai(su_kien),
         luc=luc,
         su_kien_id=su_kien.event_id,
         su_kien_ten=su_kien.event_type,
