@@ -88,6 +88,13 @@ khách: `S/hanh_trinh_khach_service.py` `dong_dich_vu_kham`. Test: `T/services/t
 (`luu_thuoc`, `nhap_lo`), `S/kho_thuoc_service.py` (`tao_phieu_nhap`, `kiem_kho`,
 `xuat_nhap_ton`). Test: `T/services/test_kho_thuoc_danh_muc_db.py`, `T/services/test_kho_kiotviet_db.py`.
 
+**Mã vạch thuốc: quét hộp / tem lô, gắn mã, in tem (G3b)** — ô quét `D/pharmacy/inventory/OQuetMa.tsx`
+(máy quét USB = gõ nhanh + Enter; camera `CameraQuet.tsx` chỉ HTTPS) ở Phiếu nhập, Nhập lô, Kiểm kho
+và quầy `/pharmacy` (`PharmacyBoard.tsx` điền sẵn lô cho `DongThuoc.tsx`). Máy chủ: `S/ma_vach_service.py`
+(`tra_ma`, `gan_ma`, `go_ma`, `du_lieu_tem`), tách mã vuông GS1 `clinicai/core/gs1.py`, bảng `drug_ma_vach` +
+cột `drug_batch.ma_tem` (migration `20261014135000`). Trang in tem `D/print/tem-lo/` (Code 128 tự vẽ
+`D/lib/ma-vach.ts`). Test: `T/services/test_ma_vach_db.py`, `T/unit/test_gs1.py`, `D/tests/ma-vach-boundary.test.mts`.
+
 **Mẫu kết quả · biểu mẫu phiếu kết quả · gán mẫu cho dịch vụ**
 - Trên màn: `/settings/mau-ket-qua` (tab Gán mẫu · Sửa mẫu; xuất bản là dùng).
 - Code: `D/settings/mau-ket-qua/` (`MauKetQuaView.tsx`, `GanMau.tsx`, `TrinhSuaMau.tsx`)

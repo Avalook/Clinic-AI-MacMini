@@ -6,7 +6,7 @@ export type KetQuaKho = { ok: true; data: unknown } | { ok: false; loi: string }
 /** `khoa` = Idempotency-Key (phiếu nhập / kiểm kho bắt buộc): gửi lại cùng khoá
  *  = cùng phiếu, máy chủ không ghi sổ lần hai. */
 export async function guiKho(
-  thaoTac: "luu-thuoc" | "receive" | "adjust" | "discard" | "gan-lo" | "phieu-nhap" | "kiem-kho" | "sua-lo" | "huy-lo-het-han" | "hoan-huy-lo" | "so-ngay-canh-bao",
+  thaoTac: "luu-thuoc" | "receive" | "adjust" | "discard" | "gan-lo" | "phieu-nhap" | "kiem-kho" | "sua-lo" | "huy-lo-het-han" | "hoan-huy-lo" | "so-ngay-canh-bao" | "gan-ma-vach" | "go-ma-vach",
   duLieu: Record<string, unknown>,
   khoa?: string,
 ): Promise<KetQuaKho> {
@@ -29,6 +29,23 @@ export async function guiKho(
     return { ok: false, loi: d?.message ?? chiTiet ?? d?.error ?? "Máy chủ từ chối." };
   } catch {
     return { ok: false, loi: "Mất kết nối — CHƯA lưu." };
+  }
+}
+
+/** Đọc một đường GET của proxy `/api/pharmacy/[action]` (quét mã, dữ liệu tem). */
+export async function docKho<T>(
+  thaoTac: "tra-ma" | "tem-lo",
+  thamSo: Record<string, string>,
+): Promise<{ ok: true; data: T } | { ok: false; loi: string }> {
+  try {
+    const r = await fetch(`/api/pharmacy/${thaoTac}?${new URLSearchParams(thamSo)}`, {
+      cache: "no-store",
+    });
+    if (r.ok) return { ok: true, data: (await r.json()) as T };
+    const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
+    return { ok: false, loi: d?.message ?? d?.error ?? "Máy chủ từ chối." };
+  } catch {
+    return { ok: false, loi: "Mất kết nối — chưa tra được mã." };
   }
 }
 

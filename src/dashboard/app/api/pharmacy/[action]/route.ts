@@ -42,6 +42,9 @@ const ACTIONS: Record<string, string> = {
   "kiem-kho": "/api/v1/pharmacy/kiem-kho",
   // 30/09 (V8): khách chỉ đến mua thuốc — mở / lấy lại lượt Bán lẻ.
   "ban-le": "/api/v1/pharmacy/ban-le",
+  // 14/10 (G3b): gắn / gỡ mã vạch của thuốc (người có quyền kho).
+  "gan-ma-vach": "/api/v1/pharmacy/gan-ma-vach",
+  "go-ma-vach": "/api/v1/pharmacy/go-ma-vach",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -68,6 +71,13 @@ const DOC: Record<string, (q: URLSearchParams) => string | null> = {
     const id = q.get("id") ?? "";
     return UUID_RE.test(id) ? `/api/v1/pharmacy/ban-le/${id}` : null;
   },
+  // 14/10 (G3b): quét mã → thuốc / lô · dữ liệu in tem lô.
+  "tra-ma": (q) => `/api/v1/pharmacy/tra-ma?${new URLSearchParams({ ma: q.get("ma") ?? "" })}`,
+  "tem-lo": (q) =>
+    `/api/v1/pharmacy/tem-lo?${new URLSearchParams({
+      ids: q.get("ids") ?? "",
+      phieu: q.get("phieu") ?? "",
+    })}`,
 };
 
 export async function GET(

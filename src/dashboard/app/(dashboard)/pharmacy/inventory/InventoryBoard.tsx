@@ -254,6 +254,14 @@ export default function InventoryBoard({
                       <Chip tone={STATE_TONE[st]}>{STATE_LABEL[st]}</Chip>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-right">
+                      <a
+                        href={`/print/tem-lo?ids=${b.id}`}
+                        target="_blank"
+                        rel="noopener"
+                        className="inline-flex min-h-8 items-center rounded-control px-2 text-meta text-brand-700 hover:underline"
+                      >
+                        In tem
+                      </a>
                       {ghiDuoc ? (
                         <>
                       <Button type="button" size="sm" variant="ghost" onClick={() => {

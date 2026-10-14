@@ -7,7 +7,7 @@
 // cộng tồn qua sổ kho — ở đây chỉ gom ô nhập và hiện câu máy chủ trả.
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import { homNayVn } from "@/lib/validation";
@@ -15,6 +15,7 @@ import { INPUT, LABEL } from "../../form-ui";
 import DanhSachPhieu from "./DanhSachPhieu";
 import type { ThuocKho } from "./DanhMucKho";
 import { guiKho, tienVnd } from "./gui-kho";
+import OQuetMa, { type KetQuaQuet } from "./OQuetMa";
 
 interface Dong {
   k: number;
@@ -57,7 +58,54 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
+  // Phiếu vừa lưu — để mở trang in tem cho đúng các lô của phiếu.
+  const [phieuVuaLuu, setPhieuVuaLuu] = useState<string | null>(null);
   const [lanTai, setLanTai] = useState(0);
+
+  // Quét hộp / tem → điền một dòng. Thuốc đã có trong phiếu thì CHỈ nhảy tới
+  // dòng đó, không cộng số lượng: máy quét đọc dội hay quét nhầm thì phiếu
+  // không đổi số; số lượng gõ tay (một phiếu nhập thường ghi cả thùng).
+  const tieuDiem = useRef<number | null>(null);
+  const [baoQuet, setBaoQuet] = useState<string | null>(null);
+  // Mỗi lần quét tăng bộ đếm để vẽ lại (thông báo giống lần trước vẫn nhảy ô).
+  const [lanQuet, setLanQuet] = useState(0);
+  useEffect(() => {
+    if (tieuDiem.current === null) return;
+    document.getElementById(`pn-so-luong-${tieuDiem.current}`)?.focus();
+    tieuDiem.current = null;
+  }, [lanQuet]);
+
+  const khiQuet = (kq: KetQuaQuet) => {
+    setBaoQuet(null);
+    setLanQuet((n) => n + 1);
+    if (kq.loai !== "thuoc" && kq.loai !== "tem") return;
+    const id = kq.loai === "thuoc" ? kq.thuoc.id : kq.lo.drug_catalog_id;
+    const t = dangDung.find((x) => x.id === id);
+    if (!t) {
+      setBaoQuet("Thuốc này đang tắt trong danh mục — bật lại ở Danh mục thuốc trước khi nhập.");
+      return;
+    }
+    const lo = kq.loai === "tem" ? kq.lo : null;
+    const gs1 = kq.loai === "thuoc" ? kq.gs1 : undefined;
+    const dongSan = dong.find((d) => d.ten === t.ten && (!lo || d.so_lo === lo.batch_code));
+    if (dongSan) {
+      setBaoQuet(`${t.ten} đã có ở dòng ${dong.indexOf(dongSan) + 1} — nhập số lượng ở dòng đó.`);
+      tieuDiem.current = dongSan.k;
+      return;
+    }
+    const trong = dong.find((d) => !d.ten);
+    const moi = trong ?? dongMoi();
+    const dv = lo?.unit ?? t.don_vi_lo?.[0] ?? t.don_vi_ban ?? "";
+    const dien: Partial<Dong> = {
+      ten: t.ten,
+      don_vi: dv,
+      so_lo: lo?.batch_code ?? gs1?.so_lo ?? "",
+      han: lo?.expiry_date ?? gs1?.han ?? "",
+    };
+    if (trong) suaDong(trong.k, dien);
+    else setDong((ds) => [...ds, { ...moi, ...dien }]);
+    tieuDiem.current = moi.k;
+  };
 
   const suaDong = (k: number, doi: Partial<Dong>) =>
     setDong((ds) =>
@@ -98,6 +146,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
     setDang(true);
     setLoi(null);
     setBao(null);
+    setPhieuVuaLuu(null);
     const kq = await guiKho(
       "phieu-nhap",
       {
@@ -121,7 +170,9 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
       setLoi(kq.loi);
       return;
     }
-    const ma = (kq.data as { ma_phieu?: string } | null)?.ma_phieu;
+    const d = kq.data as { ma_phieu?: string; id?: string } | null;
+    const ma = d?.ma_phieu;
+    setPhieuVuaLuu(d?.id ?? null);
     setBao(`Đã lưu phiếu nhập ${ma ?? ""} — tồn đã cộng.`);
     setDong([dongMoi()]);
     setDau({ nha_cung_cap: "", so_hoa_don: "", ngay: homNayVn(), ghi_chu: "" });
@@ -157,6 +208,16 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
             {oDau("ghi_chu", "Ghi chú")}
           </div>
 
+          <OQuetMa
+            thuoc={dangDung.map((t) => ({ id: t.id, ten: t.ten }))}
+            ghiDuoc={ghiDuoc}
+            onKetQua={khiQuet}
+          />
+          {baoQuet ? (
+            <p role="status" className="text-meta text-ink-soft">
+              {baoQuet}
+            </p>
+          ) : null}
           <datalist id="phieu-nhap-thuoc">
             {dangDung.map((t) => (
               <option key={t.id} value={t.ten} />
@@ -201,6 +262,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                 <label className="block">
                   <span className={LABEL}>Số lượng</span>
                   <input
+                    id={`pn-so-luong-${d.k}`}
                     value={d.so_luong}
                     inputMode="decimal"
                     onChange={(e) => suaDong(d.k, { so_luong: e.target.value })}
@@ -273,7 +335,24 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
               {loi}
             </p>
           ) : null}
-          {bao ? <p className="text-meta text-success">{bao}</p> : null}
+          {bao ? (
+            <p className="text-meta text-success">
+              {bao}
+              {phieuVuaLuu ? (
+                <>
+                  {" "}
+                  <a
+                    href={`/print/tem-lo?phieu=${phieuVuaLuu}`}
+                    target="_blank"
+                    rel="noopener"
+                    className="font-medium text-brand-700 underline"
+                  >
+                    In tem lô của phiếu này
+                  </a>
+                </>
+              ) : null}
+            </p>
+          ) : null}
         </section>
       ) : null}
 

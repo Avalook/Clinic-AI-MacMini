@@ -19,6 +19,7 @@ import BanLeThu from "./BanLeThu";
 import DongThuoc, { CHAM } from "./DongThuoc";
 import KhachMuaThuoc from "./KhachMuaThuoc";
 import { INPUT } from "../form-ui";
+import OQuetMa, { NHAN_TRANG_THAI_LO, type KetQuaQuet } from "./inventory/OQuetMa";
 import { GIAI_DOAN, type LuotThuoc, type ManNhaThuoc } from "./ban-thuoc";
 
 type Tab = "dang_lam" | "xong";
@@ -39,6 +40,9 @@ export default function PharmacyBoard({
   const [tab, setTab] = useState<Tab>("dang_lam");
   const [tim, setTim] = useState("");
   const [xemLuot, setXemLuot] = useState<string | null>(null);
+  // Lô chọn sẵn do quét (G3b): dòng nào, lô nào. Chỉ điền sẵn ô chọn lô của dòng.
+  const [loQuet, setLoQuet] = useState<{ dongId: string; loId: string } | null>(null);
+  const [baoQuet, setBaoQuet] = useState<string | null>(null);
 
   const dem = useMemo(
     () => ({
@@ -60,6 +64,37 @@ export default function PharmacyBoard({
       );
   }, [man.luot, tab, tim]);
   const luot = man.luot.find((l) => l.visit_id === chon) ?? null;
+
+  const khiQuet = (kq: KetQuaQuet) => {
+    setLoQuet(null);
+    setBaoQuet(null);
+    if (!luot || (kq.loai !== "tem" && kq.loai !== "thuoc")) return;
+    const idThuoc = kq.loai === "tem" ? kq.lo.drug_catalog_id : kq.thuoc.id;
+    const dong = luot.dong.find((d) => d.drug_catalog_id === idThuoc && !d.closed);
+    if (!dong) {
+      setBaoQuet("Thuốc vừa quét không có trong đơn đang chọn.");
+      return;
+    }
+    let loId: string | undefined;
+    if (kq.loai === "tem") {
+      if (kq.lo.trang_thai !== "ok") {
+        setBaoQuet(`Lô ${kq.lo.batch_code} ${NHAN_TRANG_THAI_LO[kq.lo.trang_thai] ?? "không dùng được"}.`);
+        return;
+      }
+      loId = kq.lo.id;
+    } else {
+      // Mã vuông có số lô trùng một lô còn bán được thì lấy đúng lô đó; không thì
+      // lô FEFO đầu tiên (hạn gần nhất, lô chưa có hạn xếp cuối) — đổi được ở ô chọn.
+      loId = kq.lo_theo_ma?.trang_thai === "ok" ? kq.lo_theo_ma.id : kq.goi_y_lo[0]?.id;
+    }
+    if (!loId || !dong.lo_goi_y.some((b) => b.drug_batch_id === loId)) {
+      setBaoQuet(`Không có lô còn bán được của ${dong.drug_name_raw ?? "thuốc này"} dùng cho dòng đơn này.`);
+      return;
+    }
+    setLoQuet({ dongId: dong.id, loId });
+    const lo = dong.lo_goi_y.find((b) => b.drug_batch_id === loId);
+    setBaoQuet(`Đã điền lô ${lo?.batch_code ?? ""} cho ${dong.drug_name_raw ?? "thuốc"} — kiểm số rồi bấm Chọn lô.`);
+  };
 
   return (
     <div className="flex h-full flex-col gap-4 p-4">
@@ -179,6 +214,24 @@ export default function PharmacyBoard({
               {luot.ban_le && man.duoc_mo_ban_le ? (
                 <BanLeThu key={luot.visit_id} visitId={luot.visit_id} />
               ) : null}
+              {man.co_quyen_ghi && luot.dong.length > 0 ? (
+                <div className="space-y-1">
+                  <OQuetMa
+                    nhan="Quét hộp thuốc / tem lô để chọn lô"
+                    thuoc={man.danh_muc.map((t) => ({
+                      id: t.id,
+                      ten: `${t.name_base}${t.variant ? ` (${t.variant})` : ""}`,
+                    }))}
+                    ghiDuoc={man.co_quyen_ghi}
+                    onKetQua={khiQuet}
+                  />
+                  {baoQuet ? (
+                    <p role="status" className="text-meta text-ink-soft">
+                      {baoQuet}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               {luot.dong.map((d) => (
                 // Khoá theo trạng thái của dòng: mỗi lần ghi xong (xác định
                 // thuốc, chọn lô, giao…) dòng dựng lại với ô nhập mới — số còn
@@ -192,7 +245,9 @@ export default function PharmacyBoard({
                     d.da_chon,
                     d.dispensed_qty,
                     d.phan_lo.map((p) => `${p.allocation_id}:${p.handed_over_qty}`).join(","),
+                    loQuet?.dongId === d.id ? loQuet.loId : "",
                   ].join("|")}
+                  loQuet={loQuet?.dongId === d.id ? loQuet.loId : null}
                   dong={d}
                   danhMuc={man.danh_muc}
                   chiXem={!man.co_quyen_ghi}
