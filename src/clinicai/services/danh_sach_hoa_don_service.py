@@ -12,7 +12,7 @@ from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.bao_cao_cuoi_ngay_service import khung_ca
 from clinicai.services.cashier_board_service import doc_khoang_ngay
-from clinicai.services.co_so_bao_cao import doc_co_so
+from clinicai.services.co_so_bao_cao import doc_co_so, doc_co_so_ngung, sql_loc_ton
 from clinicai.services.hoa_don_excel import xlsx_hoa_don as xlsx_hoa_don
 from clinicai.services.hoa_don_projection import gom_hoa_don as gom_hoa_don
 from clinicai.services.hoa_don_projection import gom_viec_ton
@@ -127,7 +127,10 @@ _KHACH_CUA_LUOT = """
  LEFT JOIN patient p ON p.clinic_patient_id=v.clinic_patient_id
   AND p.clinic_id=v.clinic_id
 """
-_LOC = "($2::uuid IS NULL OR coalesce(v.location_id,a.location_id)=$2::uuid)"
+_CO_SO_LUOT = "coalesce(v.location_id,a.location_id)"
+#: Không chọn cơ sở → KHÔNG đếm khoản của cơ sở đã ngừng hoạt động (14/10/2026);
+#: chọn đúng cơ sở ngừng thì vẫn thấy. Chỉ ẩn khỏi màn tồn đọng, sổ không đổi.
+_LOC = sql_loc_ton("$2", _CO_SO_LUOT)
 _KHACH_PC = _KHACH_CUA_LUOT.format(luot="pc.visit_id", clinic="pc.clinic_id")
 _TON_HOAN = f"""
 SELECT r.refund_id::text refund_id, r.visit_id::text visit_id, r.kind, r.amount,
@@ -164,7 +167,9 @@ WHERE o.clinic_id=$1::uuid
  AND o.exec_status IN ('authorized','assigned','in_progress')
  AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
  AND (v.closed_at IS NOT NULL OR v.created_at < $4)
- AND o.created_at >= now() - interval '90 days' AND {_LOC}
+ AND o.created_at >= now() - interval '90 days'
+ -- Gắn vào hoá đơn của kỳ (lịch sử) → KHÔNG bỏ cơ sở ngừng; chỉ lọc khi chọn cơ sở.
+ AND ($2::uuid IS NULL OR {_CO_SO_LUOT}=$2::uuid)
  AND ($3::text IS NULL OR $3='dich_vu')
  AND ($5::text[] IS NULL OR o.visit_id::text = ANY($5::text[]))
 """
@@ -317,12 +322,20 @@ class DanhSachHoaDonService:
                 doc_co_so(location),
                 loai if loai in ("thuoc", "dich_vu") else None,
             )
+            # Cơ sở đã ngừng KHÔNG tính vào việc tồn khi không chọn cơ sở — màn
+            # ghi một dòng trung tính để không ai tưởng mất số.
+            ngung = (
+                await doc_co_so_ngung(conn, identity.clinic_id)
+                if doc_co_so(location) is None
+                else []
+            )
         return {
             "tu": a.isoformat(),
             "den": b.isoformat(),
             "access": access,
             "ca": ca,
             "co_so": location,
+            "co_so_ngung": ngung,
             **gom_hoa_don(
                 rows,
                 refunds,

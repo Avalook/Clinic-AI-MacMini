@@ -57,6 +57,8 @@ export interface KhachHoaDon {
 }
 export interface DanhSachData {
   tu: string; den: string; access: ReportAccess;
+  /** Cơ sở đã ngừng hoạt động — không tính vào Việc còn tồn khi không chọn cơ sở (rỗng khi đã chọn cơ sở). */
+  co_so_ngung?: { id: string; ten: string }[];
   tong: {
     tong_truoc_giam: number; giam_gia: number; da_thu: number; da_hoan: number; cho_hoan: number;
     thu_rong: number; so_phieu: number; so_khach: number;

@@ -35,6 +35,7 @@ from typing import Any
 import asyncpg
 import structlog
 
+from clinicai.services.co_so_bao_cao import sql_cua_co_so_ngung
 from clinicai.services.cong_no_service import no_khi_ve
 from clinicai.services.hoan_tac_service import tien_da_thu_cua_chi_dinh
 from clinicai.services.tien_thua_service import dong_tien_thua
@@ -383,7 +384,8 @@ NHAN_LOAI: dict[str, str] = {
 }
 
 #: Số dư CUỐI còn > 0 của từng lượt ở một chiều, mới nhất trước.
-_SO_DU_MO_SQL = """
+_SO_DU_MO_SQL = (
+    """
 WITH cuoi AS (
     SELECT DISTINCT ON (n.visit_id)
            n.id, n.visit_id, n.clinic_patient_id, n.so_du, n.chi_tiet, n.loai,
@@ -415,19 +417,33 @@ SELECT c.id::text AS id, c.visit_id::text AS visit_id,
         ORDER BY ghi_luc DESC LIMIT 1) k ON true
  WHERE c.so_du > 0
    AND ($3::uuid IS NULL OR public.co_so_cua_luot($1::uuid, c.visit_id) = $3::uuid)
+   -- Không chọn cơ sở → không đếm lượt của cơ sở NGỪNG (14/10/2026); sổ không đổi.
+   AND ($3::uuid IS NOT NULL OR NOT $4::boolean OR NOT """
+    + sql_cua_co_so_ngung("$1", "public.co_so_cua_luot($1::uuid, c.visit_id)")
+    + """)
  ORDER BY c.luc DESC
 """
+)
 
 
 async def doc_so_du_mo(
-    conn: asyncpg.Connection, clinic_id: str, chieu: str, co_so: str | None = None
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    chieu: str,
+    co_so: str | None = None,
+    *,
+    bo_co_so_ngung: bool = True,
 ) -> list[dict[str, Any]]:
     """Các lượt đang có số dư ở ``chieu`` (mọi ngày, không hạn). Mỗi dòng: lượt,
     khách, ``so_du``, ``chi_tiet`` (các khoản), ``ly_do`` (lý do ghi nợ của lễ
     tân nếu có, không thì vì sao sổ ghi), ``nguoi``, ``luc`` (giờ dòng sổ),
-    ``luot_tao_luc`` / ``luot_dong_luc`` (ngày thật của lượt), ``cong_no_id``."""
+    ``luot_tao_luc`` / ``luot_dong_luc`` (ngày thật của lượt), ``cong_no_id``.
+
+    ``co_so`` rỗng + ``bo_co_so_ngung`` (mặc định): không đếm lượt của cơ sở đã
+    NGỪNG hoạt động — chỉ ẩn khỏi màn tồn đọng, sổ không đổi; chọn đúng cơ sở
+    ngừng thì vẫn đọc đủ."""
     out: list[dict[str, Any]] = []
-    for r in await conn.fetch(_SO_DU_MO_SQL, clinic_id, chieu, co_so):
+    for r in await conn.fetch(_SO_DU_MO_SQL, clinic_id, chieu, co_so, bo_co_so_ngung):
         d = dict(r)
         ct = d["chi_tiet"]
         d["chi_tiet"] = json.loads(ct) if isinstance(ct, str) else list(ct or [])

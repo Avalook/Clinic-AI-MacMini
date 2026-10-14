@@ -7,6 +7,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.core.clock import now_vn
+from clinicai.services.co_so_bao_cao import sql_loc_ton
 from clinicai.services.cong_no_service import doc_khach_con_no
 from clinicai.services.tien_thua_service import dong_tien_thua, giu_lai_dang_co
 
@@ -17,9 +18,11 @@ _JOIN = """
  LEFT JOIN public.patient p
    ON p.clinic_patient_id = v.clinic_patient_id AND p.clinic_id = v.clinic_id
 """
-_LOC = """
- t.clinic_id = $1::uuid AND ($2::uuid IS NULL OR
- coalesce(v.location_id, a.location_id) = $2::uuid)
+# Việc CÒN CHỜ (tính tới hiện tại): không chọn cơ sở → bỏ cơ sở đã ngừng hoạt động
+# (14/10/2026); chọn đúng cơ sở ngừng thì vẫn thấy. Sổ / hoá đơn không đổi.
+_CO_SO_LUOT = "coalesce(v.location_id, a.location_id)"
+_LOC = f"""
+ t.clinic_id = $1::uuid AND {sql_loc_ton("$2", _CO_SO_LUOT)}
  AND ($3::text IS NULL OR t.kind = $3)
 """
 
@@ -90,8 +93,9 @@ async def _thua(
               LEFT JOIN public.patient p
                 ON p.clinic_patient_id = v.clinic_patient_id
                AND p.clinic_id = v.clinic_id
-             WHERE v.clinic_id = $1::uuid AND ($2::uuid IS NULL OR
-                   coalesce(v.location_id, a.location_id) = $2::uuid)
+             WHERE v.clinic_id = $1::uuid AND """
+            + sql_loc_ton("$2", _CO_SO_LUOT)
+            + """
              ORDER BY v.created_at, v.visit_id""",
             cid,
             cs,
