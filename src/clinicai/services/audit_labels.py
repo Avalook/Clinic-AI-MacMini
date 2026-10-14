@@ -78,6 +78,8 @@ EVENT_LABELS: dict[str, str] = {
     # ── Luật đặt lịch & cấu hình ────────────────────────────────────────────
     "clinic_settings.booking_policy_updated": "Sửa luật đặt lịch",
     "clinic_settings.report_access_updated": "Đổi thiết lập báo cáo",
+    "accounting.tax_group_set": "Đặt thuế GTGT theo nhóm hàng",
+    "accounting.tax_item_set": "Đặt thuế GTGT cho mặt hàng",
     "report.view": "Xem báo cáo",
     "clinic_settings.feature_mode_updated": "Đổi chế độ phòng khám",
     "booking_override.doctor_created": "Thêm luật cho bác sĩ",
