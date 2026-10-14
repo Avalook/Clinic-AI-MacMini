@@ -167,7 +167,12 @@ async def test_tv_chi_goi_khach_cua_co_so_minh(pool: asyncpg.Pool) -> None:  # n
     assert len(mot["items"]) == dem[ca.loc]
     # Không truyền cơ sở → như cũ (cả phòng khám) — gồm cả lịch cơ sở kia.
     tat_ca = await svc.board(clinic_id=CLINIC, start=tu, end=den)
-    assert len(tat_ca["items"]) >= dem[ca.loc] + dem[khac] > len(mot["items"])
+    # Bảng TV cắt ở MAX_ROWS dòng: DB test chung có nhiều lịch hẹn của bài khác
+    # chạy song song (14/10: 65 + 139 > 200 làm bài đỏ chập chờn).
+    from clinicai.services.display_board_service import MAX_ROWS
+
+    assert len(tat_ca["items"]) >= min(MAX_ROWS, dem[ca.loc] + dem[khac])
+    assert dem[ca.loc] + dem[khac] > len(mot["items"])
     assert hen  # hai lịch hẹn đã tạo
 
 
