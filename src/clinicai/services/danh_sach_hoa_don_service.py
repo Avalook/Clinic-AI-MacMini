@@ -311,6 +311,20 @@ class DanhSachHoaDonService:
                     )
                 )[0],
             )
+            # Mỗi khoản "chưa trả lại" kèm NGÀY của lượt nó thuộc về (giờ VN) — màn
+            # chi tiết ghi "lượt ngày dd/mm" để khoản của lượt khác ngày không mồ côi.
+            ngay_luot = {
+                r["visit_id"]: _ngay_vn(r["created_at"])
+                for r in await conn.fetch(
+                    "SELECT visit_id::text AS visit_id, created_at FROM public.visit"
+                    " WHERE clinic_id = $1::uuid AND visit_id::text = ANY($2::text[])",
+                    identity.clinic_id,
+                    list(tien_thua),
+                )
+            }
+            for vid, muc in tien_thua.items():
+                for d in muc["dong"]:
+                    d["luot_ngay"] = ngay_luot.get(vid)
             ton = await self._viec_ton(
                 conn,
                 identity.clinic_id,

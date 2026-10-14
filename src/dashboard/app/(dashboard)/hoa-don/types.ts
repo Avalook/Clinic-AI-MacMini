@@ -51,6 +51,8 @@ export interface KhachHoaDon {
   da_thu: number; da_hoan: number; cho_hoan: number; thu_rong: number;
   tong_truoc_giam: number; giam_gia: number;
   da_thu_dich_vu?: number; da_thu_thuoc?: number; chua_tra_lai?: number;
+  /** Từng khoản "chưa trả lại" — máy chủ gom; `luot_ngay` = ngày (VN) của lượt giữ khoản. */
+  tien_thua?: { ten: string; so_tien: number; loai: string; ly_do?: string | null; visit_id: string; luot_ngay?: string | null }[];
   viec_ton?: ViecTon[]; co_phieu_huy?: boolean;
   so_phieu: number; trang_thai: string; phieu: PhieuThu[];
   can_doi_soat?: boolean; canh_bao?: string[];

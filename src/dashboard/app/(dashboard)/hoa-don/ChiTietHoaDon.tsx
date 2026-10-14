@@ -100,6 +100,16 @@ function Phieu({ phieu: p, so }: { phieu: PhieuThu; so: number }) {
   </section>;
 }
 
+/** Vì sao còn tiền chưa trả lại — chữ trung tính, mã do máy chủ gắn. */
+const LY_DO_THUA: Record<string, string> = {
+  BO_CHI_DINH: "Chỉ định đã bỏ sau khi thu",
+  KHONG_LAM: "Không làm sau khi thu",
+  BO_DICH_VU_KHAM: "Bỏ dịch vụ khám sau khi thu",
+  CHUA_LAM: "Đã thu, khách về mà chưa làm xong",
+};
+/** "2026-10-13" → "13/10". */
+const ngayDM = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+
 export default function ChiTietHoaDon({ khach, onDong }: { khach: KhachHoaDon; onDong: () => void }) {
   // Phiếu 1, 2, 3… theo giờ BẤM THU (cũ trước) — người đối soát lần theo thứ tự.
   const moc = (p: PhieuThu) => p.thu_luc ?? p.huy_luc ?? "";
@@ -111,6 +121,18 @@ export default function ChiTietHoaDon({ khach, onDong }: { khach: KhachHoaDon; o
       {([["Tổng tiền hàng", khach.tong_truoc_giam], ["Giảm giá", khach.giam_gia], ["Tiền đã thu", khach.da_thu], ["Thực thu", khach.thu_rong]] as const).map(([ten, so]) => <div key={ten}><dt className="text-meta text-ink-muted">{ten}</dt><dd className="tabular-nums font-semibold">{tien(so)}</dd></div>)}
       {(khach.chua_tra_lai ?? 0) > 0 ? <div><dt className="text-meta text-ink-muted">Chưa trả lại khách</dt><dd className="tabular-nums font-semibold">{tien(khach.chua_tra_lai ?? 0)}</dd></div> : null}
     </dl>
+    {(khach.tien_thua ?? []).length || (khach.cho_hoan ?? 0) > 0 ? <div className="mb-4 rounded-control bg-surface-muted p-3">
+      <b>Chưa trả lại khách</b>
+      <ul className="mt-1">
+        {(khach.tien_thua ?? []).map((d, i) => <li key={i} className="flex flex-wrap justify-between gap-2 py-1 text-body">
+          <span>{d.ten} <span className="text-meta text-ink-muted">· {LY_DO_THUA[d.loai] ?? "Tiền thu chưa dùng"}{d.ly_do ? ` (${d.ly_do})` : ""}{d.luot_ngay ? ` · lượt ngày ${ngayDM(d.luot_ngay)}` : ""}</span></span>
+          <span className="tabular-nums">{tien(d.so_tien)}</span>
+        </li>)}
+        {(khach.cho_hoan ?? 0) > 0 ? <li className="flex flex-wrap justify-between gap-2 py-1 text-body">
+          <span>Khoản hoàn đang chờ xử lý</span><span className="tabular-nums">{tien(khach.cho_hoan)}</span>
+        </li> : null}
+      </ul>
+    </div> : null}
     {ton.length ? <div className="mb-4 rounded-control bg-surface-muted p-3">
       <b>Việc còn tồn</b>
       <ul className="mt-1">{ton.map((v, i) => <li key={i} className="flex flex-wrap justify-between gap-2 py-1 text-body">
