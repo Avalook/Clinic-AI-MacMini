@@ -1564,7 +1564,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_sua_ho_so_khach_db.py, src/tests/unit/test_xuat_hoa_don.py
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (192)
+## 3. Service → màn (193)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1648,6 +1648,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `ho_so_dich_vu` | `src/clinicai/services/ho_so_dich_vu.py` | /ban-kham, /ban-kham/[phong], /customers, /patient-list, /print/phieu-kham/[visitId], /tu-van |
 | `ho_so_khach_doc` | `src/clinicai/services/ho_so_khach_doc.py` | — (chỉ API/worker) |
 | `ho_so_lam_sang_doc` | `src/clinicai/services/ho_so_lam_sang_doc.py` | /ban-kham, /ban-kham/[phong], /patient-list, /print/[appointmentId], /tu-van |
+| `HoaDonCongTyService` | `src/clinicai/services/hoa_don_cong_ty_service.py` | — (chỉ API/worker) |
 | `HoanTacService` | `src/clinicai/services/hoan_tac_service.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /phong/[ma], /print/phieu-thu/[id] (+6) |
 | `HoanTienService` | `src/clinicai/services/hoan_tien_service.py` | /pharmacy, /reception/checkout, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `HoSoKhamService` | `src/clinicai/services/ho_so_kham_service.py` | /customers |
@@ -1848,9 +1849,12 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `ghi_chu_khach` | `20260927000003_ghi_chu_khach.sql` | 0 |
 | `hen_gio` | `20260923000008_hen_gio.sql` | 1 |
 | `hen_goi_lai` | `20260809000005_trang_thai_cskh_suy_ra.sql` | 1 |
+| `hoa_don_cong_ty` | `20261014156000_hoa_don_cong_ty.sql` | 0 |
+| `hoa_don_cong_ty_lich_su` | `20261014156000_hoa_don_cong_ty.sql` | 0 |
 | `idempotency_key` | `20260714000003_idempotency_key.sql` | 2 |
 | `inventory_txn` | `20260802000001_pharmacy_inventory.sql` | 4 |
 | `ket_qua_mau` | `20260923000004_mau_ket_qua.sql` | 0 |
+| `khach_cong_ty` | `20261014156000_hoa_don_cong_ty.sql` | 0 |
 | `kiem_ke_ca` | `20261014170000_kiem_ke_ca.sql` | 0 |
 | `kiem_ke_ca_dong` | `20261014170000_kiem_ke_ca.sql` | 0 |
 | `ky_nang` | `20260928000093_ky_nang.sql` | 0 |

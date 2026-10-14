@@ -208,8 +208,10 @@ BEGIN
     -- 115 → 117 (14/10/2026, G6): kiem_ke_ca + kiem_ke_ca_dong (20261014170000).
     -- 117 → 120 (14/10/2026, G8a): vat_tu_phieu + vat_tu_ton + vat_tu_txn
     -- (phiếu vật tư + tồn theo nơi chứa + sổ chỉ thêm).
-    IF scoped_count <> 120 THEN
-        RAISE EXCEPTION 'expected 120 tenant-scoped read policies, found %', scoped_count;
+    -- 120 → 123 (14/10/2026, G5c): khach_cong_ty + hoa_don_cong_ty +
+    -- hoa_don_cong_ty_lich_su (20261014156000, hoá đơn công ty — CHỈ SELECT).
+    IF scoped_count <> 123 THEN
+        RAISE EXCEPTION 'expected 123 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
