@@ -194,9 +194,9 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/kho-vat-tu` — Kho vật tư
 - page: `src/dashboard/app/(dashboard)/kho-vat-tu/page.tsx` · quyền: lego `kho_vat_tu` (Kho vật tư · mặc định: Mọi người (QL chỉnh mức tối thiểu))
-- thành phần: app/(dashboard)/cashier/VatTuBangGia.tsx, KhoVatTu.tsx, TonVatTu.tsx, app/(dashboard)/cashier/VatTuThuocTinh.tsx, DanhMucVatTu.tsx, gui-vat-tu.ts
+- thành phần: app/(dashboard)/cashier/VatTuBangGia.tsx, DanhSachPhieuVatTu.tsx, KhoVatTu.tsx, TonVatTu.tsx, app/(dashboard)/cashier/VatTuThuocTinh.tsx, DanhMucVatTu.tsx, LapPhieuVatTu.tsx, gui-vat-tu.ts
 - gọi API Next: `/api/vat-tu-kho/[action]`, `/api/service-price`
-- gọi thẳng backend (server): `/api/v1/vat-tu-kho/ton`
+- gọi thẳng backend (server): `/api/v1/vat-tu-kho/ton`, `/api/v1/vat-tu-kho/phieu`
 - service: vat_tu_kho_service.{doc_ton, tao_phieu, hoan_phieu} · vat_tu_kho_man_service.{doc_noi_chua, doc_vat_tu_chon, doc_phieu, dat_muc_toi_thieu} · DanhMucDichVuService.doc · PriceListService.{phong_lam, add, update, remove}
 - test: test_vat_tu_kho_man_db.py, test_danh_muc_dich_vu_chuan_db.py, test_vat_tu_danh_muc_db.py, test_vat_tu_kho_db.py, test_gia_thuoc_hai_nguon_khop_db.py (+1)
 
