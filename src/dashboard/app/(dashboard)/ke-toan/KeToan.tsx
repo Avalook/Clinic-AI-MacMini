@@ -8,12 +8,15 @@
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { buttonClass } from "@/components/ui/Button";
+import ThanhTab from "@/components/ui/ThanhTab";
 import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
 import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
 import { todayVn } from "@/lib/roster";
 import { khoangNhanh, type Khoang } from "@/lib/thanh-ngay";
 import { INPUT } from "../form-ui";
 import { tien } from "../hoa-don/types";
+import ThueSuat from "./ThueSuat";
+import { tenThueSuat } from "./thue-suat";
 
 type Hang = {
   nhom: string; ma: string; ten: string; dvt: string; so_luong: number;
@@ -23,6 +26,8 @@ type Hang = {
 type Data = {
   tu: string; den: string; so_hoa_don: number; hang_hoa: Hang[]; so_mat_hang: number;
   tong_truoc_giam: number; tong_giam_gia: number; tong_sau_giam: number;
+  /** Số dòng hàng chưa có thuế suất + tổng thuế đã tách — máy chủ tính. */
+  dong_chua_thue: number; tong_thue: number;
 };
 
 const TEN_NHOM: Record<string, string> = { DICH_VU: "Dịch vụ", THUOC: "Thuốc", VAT_TU: "Vật tư" };
@@ -36,7 +41,13 @@ function OLoc({ ten, children }: { ten: string; children: ReactNode }) {
   );
 }
 
+const TAB = [
+  { ma: "hang_hoa", nhan: "Theo hàng hoá" },
+  { ma: "thue", nhan: "Thuế suất" },
+] as const;
+
 export default function KeToan({ coSo }: { coSo: CoSo[] }) {
+  const [tab, setTab] = useState<(typeof TAB)[number]["ma"]>("hang_hoa");
   const homNay = todayVn();
   const [khoang, setKhoang] = useState<Khoang>({ tu: homNay, den: homNay });
   const [loai, setLoai] = useState("");
@@ -67,6 +78,9 @@ export default function KeToan({ coSo }: { coSo: CoSo[] }) {
 
   return (
     <div className="min-w-0 space-y-4">
+      <ThanhTab muc={TAB} chon={tab} onChon={setTab} nhan="Kế toán" />
+      {tab === "thue" ? <ThueSuat /> : null}
+      <div className={tab === "thue" ? "hidden" : "min-w-0 space-y-4"}>
       <div className="flex flex-wrap items-center gap-2 text-body">
         <span className="rounded-chip bg-info-bg px-3 py-1 text-meta font-semibold text-info">Theo hàng hoá</span>
         <Link href="/xuat-hoa-don" className="rounded-chip px-3 py-1 text-meta text-ink-muted ring-1 ring-hairline hover:text-ink">Xuất hoá đơn →</Link>
@@ -111,12 +125,19 @@ export default function KeToan({ coSo }: { coSo: CoSo[] }) {
 
       {data ? (
         <>
-          <dl className="grid grid-cols-2 gap-4 rounded-card bg-surface p-4 ring-1 ring-hairline sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-4 rounded-card bg-surface p-4 ring-1 ring-hairline sm:grid-cols-5">
             <div><dt className="text-meta text-ink-muted">Số mặt hàng</dt><dd className="tabular-nums text-emph font-semibold text-ink">{data.so_mat_hang}</dd></div>
             <div><dt className="text-meta text-ink-muted">Trước giảm</dt><dd className="tabular-nums text-emph font-semibold text-ink">{tien(data.tong_truoc_giam)}</dd></div>
             <div><dt className="text-meta text-ink-muted">Giảm giá</dt><dd className="tabular-nums text-emph font-semibold text-ink">{tien(data.tong_giam_gia)}</dd></div>
             <div><dt className="text-meta text-ink-muted">Sau giảm (thực thu)</dt><dd className="tabular-nums text-emph font-semibold text-ink">{tien(data.tong_sau_giam)}</dd></div>
+            <div><dt className="text-meta text-ink-muted">Tiền thuế (đã tách)</dt><dd className="tabular-nums text-emph font-semibold text-ink">{tien(data.tong_thue)}</dd></div>
           </dl>
+          {data.dong_chua_thue > 0 ? (
+            <p role="status" className="rounded-control bg-info-bg p-3 text-body text-info">
+              {data.dong_chua_thue} dòng hàng chưa có thuế suất — cột thuế để trống.{" "}
+              <button type="button" className="font-semibold underline" onClick={() => setTab("thue")}>Đặt thuế suất</button>
+            </p>
+          ) : null}
 
           {!coHang ? <p className="rounded-card bg-surface p-4 text-body text-ink-muted ring-1 ring-hairline">Không có phiếu thu trong phạm vi đã chọn.</p> : null}
           {coHang ? (
@@ -140,7 +161,7 @@ export default function KeToan({ coSo }: { coSo: CoSo[] }) {
                       <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{tien(h.tien_truoc_giam)}</td>
                       <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{h.giam_gia ? tien(h.giam_gia) : "—"}</td>
                       <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums font-semibold">{tien(h.tien_sau_giam)}</td>
-                      <td className="px-3 py-2 text-right text-ink-muted">{h.thue_suat ?? "—"}</td>
+                      <td className="px-3 py-2 text-right text-ink-muted">{tenThueSuat(h.thue_suat) || "—"}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-ink-muted">{h.tien_thue === null ? "—" : tien(h.tien_thue)}</td>
                     </tr>
                   ))}
@@ -162,6 +183,7 @@ export default function KeToan({ coSo }: { coSo: CoSo[] }) {
           </div>
         </>
       ) : null}
+      </div>
     </div>
   );
 }
