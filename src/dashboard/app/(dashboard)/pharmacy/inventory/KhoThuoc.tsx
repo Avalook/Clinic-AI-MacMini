@@ -11,6 +11,7 @@ import { useState } from "react";
 import ThanhTab from "@/components/ui/ThanhTab";
 import KhachMuaThuoc from "../KhachMuaThuoc";
 import ChoGanLo, { type DongChoGanLo } from "./ChoGanLo";
+import ChuyenKho from "./ChuyenKho";
 import DanhMucKho, { type ThuocKho } from "./DanhMucKho";
 import InventoryBoard, { type CauHinhHan, type InvBatch } from "./InventoryBoard";
 import KiemKho from "./KiemKho";
@@ -18,7 +19,7 @@ import PhieuNhap from "./PhieuNhap";
 import TheKho from "./TheKho";
 import XuatNhapTon from "./XuatNhapTon";
 
-type Tab = "danh_muc" | "ton" | "cho_gan_lo" | "phieu_nhap" | "kiem_kho" | "the_kho" | "xnt";
+type Tab = "danh_muc" | "ton" | "cho_gan_lo" | "phieu_nhap" | "chuyen_kho" | "kiem_kho" | "the_kho" | "xnt";
 
 export default function KhoThuoc({
   batches,
@@ -27,6 +28,8 @@ export default function KhoThuoc({
   ghiDuoc = false,
   moBanLe = false,
   cauHinhHan,
+  tachKhoQuay = false,
+  suaTachDuoc = false,
 }: {
   batches: InvBatch[];
   thuoc: ThuocKho[];
@@ -37,6 +40,10 @@ export default function KhoThuoc({
   /** V8: được mở lượt "Khách mua thuốc" — máy chủ quyết (lego nhà thuốc / thu tiền). */
   moBanLe?: boolean;
   cauHinhHan?: CauHinhHan;
+  /** G7: cơ sở bật tách kho / quầy (mặc định tắt = một kho như cũ). */
+  tachKhoQuay?: boolean;
+  /** G7: được bật / tắt tách (`config.clinic.manage`) — chỉ ẩn / hiện nút. */
+  suaTachDuoc?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("danh_muc");
   const [theKhoId, setTheKhoId] = useState<string | null>(null);
@@ -71,6 +78,7 @@ export default function KhoThuoc({
             nhac: choGanLo.length > 0,
           },
           { ma: "phieu_nhap", nhan: "Phiếu nhập" },
+          { ma: "chuyen_kho", nhan: "Chuyển kho" },
           { ma: "kiem_kho", nhan: "Kiểm kho" },
           { ma: "the_kho", nhan: "Thẻ kho" },
           { ma: "xnt", nhan: "Xuất nhập tồn" },
@@ -82,6 +90,8 @@ export default function KhoThuoc({
         <ChoGanLo dong={choGanLo} />
       ) : tab === "phieu_nhap" ? (
         <PhieuNhap thuoc={thuoc} ghiDuoc={ghiDuoc} />
+      ) : tab === "chuyen_kho" ? (
+        <ChuyenKho batches={batches} tachKhoQuay={tachKhoQuay} suaTachDuoc={suaTachDuoc} ghiDuoc={ghiDuoc} />
       ) : tab === "kiem_kho" ? (
         <KiemKho batches={batches} ghiDuoc={ghiDuoc} thuoc={thuoc} />
       ) : tab === "the_kho" ? (
@@ -89,7 +99,7 @@ export default function KhoThuoc({
       ) : tab === "xnt" ? (
         <XuatNhapTon onXemThe={xemThe} />
       ) : (
-        <InventoryBoard batches={batches} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} cauHinhHan={cauHinhHan} />
+        <InventoryBoard batches={batches} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} cauHinhHan={cauHinhHan} tachKhoQuay={tachKhoQuay} />
       )}
     </div>
   );

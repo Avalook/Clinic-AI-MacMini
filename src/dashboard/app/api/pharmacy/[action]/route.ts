@@ -45,6 +45,11 @@ const ACTIONS: Record<string, string> = {
   // 14/10 (G3b): gắn / gỡ mã vạch của thuốc (người có quyền kho).
   "gan-ma-vach": "/api/v1/pharmacy/gan-ma-vach",
   "go-ma-vach": "/api/v1/pharmacy/go-ma-vach",
+  // 14/10 (G7): tách KHO / QUẦY — phiếu chuyển (bắt buộc Idempotency-Key), hoàn tác,
+  // bật / tắt tách theo cơ sở (máy chủ kiểm `config.clinic.manage`).
+  "chuyen-kho": "/api/v1/pharmacy/chuyen-kho",
+  "hoan-tac-chuyen-kho": "/api/v1/pharmacy/hoan-tac-chuyen-kho",
+  "tach-kho-quay": "/api/v1/pharmacy/tach-kho-quay",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

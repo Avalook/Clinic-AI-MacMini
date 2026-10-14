@@ -29,12 +29,14 @@ interface LoTon {
   trang_thai_han: ExpiryState;
   canh_bao_han: boolean;
   huy_lo_txn_id: string | null;
+  // 14/10 (G7): lô nằm ở KHO hay QUẦY (cơ sở không tách thì mọi lô là QUAY).
+  noi_chua: "KHO" | "QUAY";
 }
 
 export default async function PharmacyInventoryPage() {
   await requireNavAccess("/pharmacy/inventory");
-  const [data, dm, cho, quyen, cauHinhHan] = await Promise.all([
-    fetchFromBackend<{ items: LoTon[] }>("/api/v1/pharmacy/inventory"),
+  const [data, dm, cho, quyen, cauHinhHan, tach] = await Promise.all([
+    fetchFromBackend<{ items: LoTon[]; tach_kho_quay?: boolean }>("/api/v1/pharmacy/inventory"),
     fetchFromBackend<{ items: ThuocKho[] }>("/api/v1/pharmacy/danh-muc"),
     // 28/09: thuốc đã giao chưa gán lô — đọc hỏng thì tab rỗng, không chặn màn.
     fetchFromBackend<{ dong: DongChoGanLo[] }>("/api/v1/pharmacy/cho-gan-lo"),
@@ -42,6 +44,8 @@ export default async function PharmacyInventoryPage() {
     // chỉ để ẨN nút; máy chủ vẫn tự kiểm ở mọi lệnh.
     quyenCuaToi(),
     fetchFromBackend<CauHinhHan>("/api/v1/pharmacy/so-ngay-canh-bao"),
+    // G7: công tắc tách kho / quầy + người này có sửa được không (máy chủ quyết).
+    fetchFromBackend<{ tach_kho_quay: boolean; sua_duoc: boolean }>("/api/v1/pharmacy/tach-kho-quay"),
   ]);
   if (!data || !dm) {
     return (
@@ -78,6 +82,8 @@ export default async function PharmacyInventoryPage() {
       ghiDuoc={quyen.has("pharmacy.dispense")}
       moBanLe={QUYEN_BAN_LE.some((q) => quyen.has(q))}
       cauHinhHan={cauHinhHan ?? undefined}
+      tachKhoQuay={data.tach_kho_quay === true}
+      suaTachDuoc={tach?.sua_duoc === true}
     />
   );
 }
