@@ -15,6 +15,7 @@ import { useCallback, useEffect, useState } from "react";
 import SoLuot from "@/components/ui/SoLuot";
 import StatCard, { StatRow } from "@/components/ui/StatCard";
 import Chip from "@/components/ui/Chip";
+import { gopDoc } from "@/lib/doc-gop";
 import { todayVn } from "@/lib/roster";
 import { tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
 
@@ -124,9 +125,16 @@ export default function LichSuThu({ quay = "dich_vu", ngay, ca, coSo, restricted
   const tai = useCallback(async () => {
     setLoi(null);
     try {
-      const r = await fetch(`/api/cashier?xem=lich-su&${chuoi}`, { cache: "no-store" });
-      const d = (await r.json().catch(() => null)) as (GoiLichSu & { message?: string; error?: string }) | null;
-      if (!r.ok || !d) { setLoi(d?.message ?? d?.error ?? "Không đọc được lịch sử thu."); setGoi(null); }
+      const url = `/api/cashier?xem=lich-su&${chuoi}`;
+      // Một lượt đọc một lúc cho mỗi đường dẫn (`lib/doc-gop`).
+      const { ok, d } = await gopDoc(url, async () => {
+        const r = await fetch(url, { cache: "no-store" });
+        return {
+          ok: r.ok,
+          d: (await r.json().catch(() => null)) as (GoiLichSu & { message?: string; error?: string }) | null,
+        };
+      });
+      if (!ok || !d) { setLoi(d?.message ?? d?.error ?? "Không đọc được lịch sử thu."); setGoi(null); }
       else setGoi(d);
     } catch { setLoi("Mất kết nối tới máy chủ."); setGoi(null); }
   }, [chuoi]);
@@ -135,7 +143,7 @@ export default function LichSuThu({ quay = "dich_vu", ngay, ca, coSo, restricted
     const t = setTimeout(() => void tai(), 250);
     return () => clearTimeout(t);
   }, [tai]);
-  useNgheBang(BANG_LICH_SU, () => void tai());
+  useNgheBang(BANG_LICH_SU, tai);
 
   const nhieuNgay = tu !== den;
 

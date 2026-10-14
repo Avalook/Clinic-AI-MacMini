@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { gopDoc } from "@/lib/doc-gop";
 import { useNgheBang } from "../dung-nghe-bang";
 
 import { nhanPhan, tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
@@ -120,8 +121,12 @@ export default function GiaoDich({
 
   useEffect(() => {
     let huy = false;
-    void fetch(`/api/cashier?xem=giao-dich&kind=${quay}&tu=${hoi.tu}&den=${hoi.den}&${scope}`, { cache: "no-store" })
-      .then(async (r) => ({ ok: r.ok, d: await r.json().catch(() => null) }))
+    const url = `/api/cashier?xem=giao-dich&kind=${quay}&tu=${hoi.tu}&den=${hoi.den}&${scope}`;
+    // Một lượt đọc một lúc cho mỗi đường dẫn (`lib/doc-gop`).
+    void gopDoc(url, async () => {
+      const r = await fetch(url, { cache: "no-store" });
+      return { ok: r.ok, d: await r.json().catch(() => null) };
+    })
       .then(({ ok, d }) => {
         if (huy) return;
         setKq(

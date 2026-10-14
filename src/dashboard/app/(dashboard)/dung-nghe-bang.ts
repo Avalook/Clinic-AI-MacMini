@@ -22,7 +22,9 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 
+import { taoMotLuot } from "../../lib/mot-luot";
 import {
+  NHIP_NGHE_TIN,
   SU_KIEN_BANG,
   taoNhipLamMoi,
   trangThaiDong,
@@ -30,11 +32,20 @@ import {
 } from "../../lib/nhip-lam-moi";
 
 /**
- * Gọi `khiDoi` (đã gộp nhịp 250ms) khi một trong các `bang` đổi, hoặc khi có
- * tin không rõ bảng (`null`). Tên bảng là tên trong Postgres — bảng ấy phải có
- * trigger `trg_notify_*`, nếu không thì nghe mãi cũng im.
+ * Gọi `khiDoi` (đã gộp nhịp 250ms, lệch ngẫu nhiên 0–400ms) khi một trong các
+ * `bang` đổi, hoặc khi có tin không rõ bảng (`null`). Tên bảng là tên trong
+ * Postgres — bảng ấy phải có trigger `trg_notify_*`, nếu không thì nghe mãi cũng im.
+ *
+ * MỘT LƯỢT MỘT LÚC (14/10/2026). `khiDoi` trả lời hứa (vd. `() => tai()` với `tai`
+ * là hàm async) thì hook chờ nó xong mới chạy lượt kế: tin tới trong lúc đang tải
+ * chỉ để lại ĐÚNG MỘT lượt nối đuôi — không mở lượt thứ hai song song. Trả `void`
+ * (vd. tăng một bộ đếm cho effect) thì hành vi y như cũ; muốn gộp lượt tải ở
+ * trường hợp ấy thì gộp ở chỗ đọc (`lib/doc-gop`).
  */
-export function useNgheBang(bang: readonly string[], khiDoi: () => void): void {
+export function useNgheBang(
+  bang: readonly string[],
+  khiDoi: () => void | Promise<unknown>,
+): void {
   // Qua ref: `khiDoi` thường là hàm khai trong thân component, mỗi lượt render
   // một bản mới. Đưa thẳng vào deps là gỡ/gắn lại tay nghe ở mỗi lượt render.
   const khiDoiRef = useRef(khiDoi);
@@ -47,11 +58,17 @@ export function useNgheBang(bang: readonly string[], khiDoi: () => void): void {
 
   useEffect(() => {
     const can = new Set(khoa.split(","));
+    const motLuot = taoMotLuot();
     const nhip = taoNhipLamMoi({
-      lamMoi: () => khiDoiRef.current(),
+      lamMoi: () => {
+        motLuot(async () => {
+          await khiDoiRef.current();
+        }).catch((loi) => console.error("[nghe-bang] lượt tải lại lỗi:", loi));
+      },
       dangAn: () => document.visibilityState === "hidden",
       hen: (fn, ms) => setTimeout(fn, ms),
       huy: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+      ...NHIP_NGHE_TIN,
     });
     const nghe = (ev: Event) => {
       const t = (ev as CustomEvent<string | null>).detail;

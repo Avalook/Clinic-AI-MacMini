@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useDoiCa } from "../dung-doi-ca";
+import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 import { ngayNgan } from "@/lib/thanh-ngay";
 
 export interface NgayTrucDong {
@@ -47,8 +48,10 @@ export function useNgayTruc(quay: "dich_vu" | "thuoc", ngay: string) {
         if (!controller.signal.aborted) { setLoi(e instanceof Error ? e.message : "Không đọc được ngày trực."); setDs(null); }
       });
     tai();
-    const timer = setInterval(tai, 30_000);
-    return () => { controller.abort(); clearInterval(timer); };
+    // Tab ẩn thì huỷ hẳn nhịp (bản `setInterval` trần vẫn hỏi cả lúc ẩn). Hiện lại
+    // thì chuông ca (`doiCa`) đã làm effect này chạy lại — không hỏi thêm.
+    const goNhip = nhipKhiHien(tai, 30_000, { hoiKhiHien: false });
+    return () => { controller.abort(); goNhip(); };
   }, [quay, doiCa]);
   const xemThem = async () => {
     if (!ds?.next_cursor || them) return;
