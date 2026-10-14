@@ -28,9 +28,9 @@ test("G3a-B: render thật với lối KhoThuoc hiện Sửa/huỷ/hoàn đúng 
     if (path === "next/navigation") return { useRouter: () => ({ refresh() {} }) };
     if (path === "./gui-kho") return { tienVnd: String };
     if (path === "../../form-ui") return {};
-    if (path === "@/components/ui/Button") return (p: { children: React.ReactNode }) => React.createElement("button", {}, p.children);
-    if (path === "@/components/ui/Chip") return (p: { children: React.ReactNode }) => React.createElement("span", {}, p.children);
-    if (path === "./NhapLo") return () => null;
+    if (path === "@/components/ui/Button") return function MockButton(p: { children: React.ReactNode }) { return React.createElement("button", {}, p.children); };
+    if (path === "@/components/ui/Chip") return function MockChip(p: { children: React.ReactNode }) { return React.createElement("span", {}, p.children); };
+    if (path === "./NhapLo") return function MockNhapLo() { return null; };
     return require(path);
   } });
   assert.ok(exports.default);
