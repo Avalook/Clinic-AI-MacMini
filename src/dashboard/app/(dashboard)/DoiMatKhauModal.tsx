@@ -174,12 +174,13 @@ export function DoiMatKhauModal({ open, onClose, staffName }: Props) {
               htmlFor="old-password"
               className="mb-1 block text-xs font-medium text-ink"
             >
-              Mật khẩu hiện tại <span className="text-danger">*</span>
+              Mật khẩu hiện tại
             </label>
             <input
               id="old-password"
               type="password"
               autoFocus
+              aria-required="true"
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
               disabled={busy}
@@ -194,11 +195,12 @@ export function DoiMatKhauModal({ open, onClose, staffName }: Props) {
               htmlFor="new-password"
               className="mb-1 block text-xs font-medium text-ink"
             >
-              Mật khẩu mới <span className="text-danger">*</span>
+              Mật khẩu mới
             </label>
             <input
               id="new-password"
               type="password"
+              aria-required="true"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               disabled={busy}
@@ -213,11 +215,12 @@ export function DoiMatKhauModal({ open, onClose, staffName }: Props) {
               htmlFor="confirm-password"
               className="mb-1 block text-xs font-medium text-ink"
             >
-              Nhập lại mật khẩu mới <span className="text-danger">*</span>
+              Nhập lại mật khẩu mới
             </label>
             <input
               id="confirm-password"
               type="password"
+              aria-required="true"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               disabled={busy}
