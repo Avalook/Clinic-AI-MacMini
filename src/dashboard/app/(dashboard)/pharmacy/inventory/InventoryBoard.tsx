@@ -66,12 +66,14 @@ const STATE_TONE: Record<ExpiryState, "success" | "warning" | "danger" | "neutra
 
 type ThaoTacLo = { id: string; loai: "adjust" | "discard" | "sua-lo" | "huy-lo-het-han"; so_luong: string; ly_do: string; batch_code?: string; expiry_date?: string; khoa?: string };
 
+export interface CauHinhHan { so_ngay_sap_het_han: number; sua_canh_bao_duoc: boolean }
 
 export default function InventoryBoard({
   batches,
   thuoc,
   ghiDuoc = false,
   onXemThe,
+  cauHinhHan,
 }: {
   batches: InvBatch[];
   thuoc: ThuocKho[];
@@ -79,6 +81,7 @@ export default function InventoryBoard({
   ghiDuoc?: boolean;
   /** Bấm tên thuốc → tab Thẻ kho. */
   onXemThe?: (id: string) => void;
+  cauHinhHan?: CauHinhHan;
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<"all" | ExpiryState>("all");
@@ -87,8 +90,9 @@ export default function InventoryBoard({
   const [lo, setLo] = useState<ThaoTacLo | null>(null);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  const [ngay, setNgay] = useState(String(cauHinhHan?.so_ngay_sap_het_han ?? ""));
 
-  const guiThem = async (action: "hoan-huy-lo", data: Record<string, unknown>) => {
+  const guiThem = async (action: "hoan-huy-lo" | "so-ngay-canh-bao", data: Record<string, unknown>) => {
     setDang(true);
     setLoi(null);
     const kq = await guiKho(action, data);
@@ -150,6 +154,12 @@ export default function InventoryBoard({
 
   return (
     <div className="flex flex-col gap-4">
+      {cauHinhHan?.sua_canh_bao_duoc ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="block"><span className="mb-1 block text-meta text-ink-soft">Cảnh báo trước hạn (số ngày)</span><input value={ngay} inputMode="numeric" onChange={(e) => setNgay(e.target.value)} className={`${INPUT} sm:w-40`} /></label>
+          <Button type="button" variant="secondary" disabled={dang || !ngay.trim()} onClick={() => void guiThem("so-ngay-canh-bao", { so_ngay: ngay })}>Lưu cảnh báo</Button>
+        </div>
+      ) : null}
       {loi ? <p role="alert" className="text-meta text-danger">{loi}</p> : null}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {the(batches.length, "Lô thuốc")}

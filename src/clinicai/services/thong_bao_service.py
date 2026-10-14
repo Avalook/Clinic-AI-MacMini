@@ -314,6 +314,8 @@ class ThongBaoService:
                        t.da_doc_luc,
                        t.nguon,
                        s.full_name AS nguoi_goi,
+                       CASE WHEN t.nguon = 'lo_thuoc_han'
+                            THEN 'Hệ thống — hạn lô' END AS nhan_nguon,
                        -- Thông báo "chỉ định bị bỏ": nút DUY NHẤT là Hoàn tác
                        -- dòng sổ ấy (máy chủ nói có hoàn tác được không).
                        CASE WHEN t.nguon = 'bo_chi_dinh'

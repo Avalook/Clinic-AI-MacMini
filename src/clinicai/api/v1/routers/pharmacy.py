@@ -25,6 +25,7 @@ from clinicai.api.idempotency import (
 )
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.can import can
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.phieu_kham.khung import doc_ngay
 from clinicai.services import ban_thuoc_service, kho_thuoc_service, lo_thuoc_service
@@ -39,6 +40,34 @@ router = APIRouter()
 # 20260924000013): cấp khối trên màn Phân quyền là có hiệu lực ngay.
 _DOC = cua_quyen("pharmacy.view", "pharmacy.dispense")
 _GHI = cua_quyen("pharmacy.dispense")
+
+
+class SoNgayCanhBaoRequest(BaseModel):
+    so_ngay: int = Field(ge=0, le=365000)
+
+
+@router.get("/pharmacy/so-ngay-canh-bao")
+async def so_ngay_canh_bao(
+    identity: StaffIdentity = Depends(_DOC), pool: asyncpg.Pool = Depends(get_db_pool)
+) -> dict[str, Any]:
+    async with pool.acquire() as conn:
+        return {
+            "so_ngay_sap_het_han": await lo_thuoc_service.so_ngay_canh_bao(
+                conn, identity.clinic_id
+            ),
+            "sua_canh_bao_duoc": await can(conn, identity, "config.clinic.manage"),
+        }
+
+
+@router.post("/pharmacy/so-ngay-canh-bao")
+async def doi_canh_bao(
+    body: SoNgayCanhBaoRequest,
+    identity: StaffIdentity = Depends(cua_quyen("config.clinic.manage")),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await lo_thuoc_service.doi_canh_bao(
+        pool, identity=identity, so_ngay=body.so_ngay
+    )
 
 
 class SuaLoRequest(BaseModel):

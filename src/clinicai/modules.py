@@ -788,7 +788,11 @@ MODULE: dict[str, Module] = {
                 "RefuseLine",
                 "CloseLine",
             ],
-            phat=["medicine.dispensed", "medicine.counter_changed"],
+            phat=[
+                "medicine.dispensed",
+                "medicine.counter_changed",
+                "pharmacy.expiry_checked",
+            ],
             bang=["prescription_allocation", "inventory_txn"],
             quyen=["pharmacy.dispense", "pharmacy.view"],
         ),

@@ -88,8 +88,6 @@ def _so_chu(v: Any) -> str | None:
 #: Không gửi ô ấy = giữ giá trị cũ (khác với gửi rỗng = xoá).
 GIU_NGUYEN: Any = object()
 
-#: Lô còn tồn mà hạn dùng còn ≤ ngần này ngày → cảnh báo sắp hết hạn (Tuyền 29/09).
-NGAY_SAP_HET_HAN = 60
 
 #: Luật cũ "nhà thuốc đợi Khám xong" — OFF từ 24/09/2026 (xem `_bat_buoc_kham_xong`).
 _CHO_KHAM_XONG = False
@@ -239,6 +237,9 @@ class PharmacyService:
         cơ sở (08/10/2026).
         """
         async with self._pool.acquire() as conn:
+            from clinicai.services.lo_thuoc_service import so_ngay_canh_bao
+
+            nguong_han = await so_ngay_canh_bao(conn, identity.clinic_id)
             rows = await conn.fetch(
                 """
                 SELECT b.id::text,
@@ -275,7 +276,7 @@ class PharmacyService:
                 """,
                 identity.clinic_id,
                 hom_nay_vn(),
-                NGAY_SAP_HET_HAN,
+                nguong_han,
                 identity.location_id,
             )
         # Cảnh báo hạn chỉ cho lô CÒN thuốc trên kệ — lô đã hết sạch là lịch sử.
@@ -298,6 +299,9 @@ class PharmacyService:
         khám; tồn / lô chỉ của kho cơ sở đang làm (08/10/2026).
         """
         async with self._pool.acquire() as conn:
+            from clinicai.services.lo_thuoc_service import so_ngay_canh_bao
+
+            nguong_han = await so_ngay_canh_bao(conn, identity.clinic_id)
             rows = await conn.fetch(
                 """
                 SELECT c.id::text, c.name_raw AS ten, c.ma_hang, c.unit_price AS gia,
@@ -359,7 +363,7 @@ class PharmacyService:
                 """,
                 identity.clinic_id,
                 hom_nay_vn(),
-                NGAY_SAP_HET_HAN,
+                nguong_han,
                 identity.location_id,
             )
         return [

@@ -17,6 +17,7 @@ const ACTIONS: Record<string, string> = {
   "sua-lo": "/api/v1/pharmacy/sua-lo",
   "huy-lo-het-han": "/api/v1/pharmacy/huy-lo-het-han",
   "hoan-huy-lo": "/api/v1/pharmacy/hoan-huy-lo",
+  "so-ngay-canh-bao": "/api/v1/pharmacy/so-ngay-canh-bao",
   receive: "/api/v1/pharmacy/receive",
   dispense: "/api/v1/pharmacy/dispense",
   refuse: "/api/v1/pharmacy/refuse",
@@ -48,6 +49,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /** Đường ĐỌC cho phép (29/09/2026 — kho kiểu KiotViet) → đường backend. Tham
  *  số chỉ chuyển nguyên văn; máy chủ đọc lại (ngày rác → hôm nay). */
 const DOC: Record<string, (q: URLSearchParams) => string | null> = {
+  "so-ngay-canh-bao": () => "/api/v1/pharmacy/so-ngay-canh-bao",
   "the-kho": (q) => {
     const id = q.get("id") ?? "";
     return UUID_RE.test(id) ? `/api/v1/pharmacy/the-kho/${id}` : null;

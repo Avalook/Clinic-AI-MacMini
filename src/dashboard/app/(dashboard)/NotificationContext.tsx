@@ -1,5 +1,7 @@
 "use client";
 
+import { chiTietThongBao } from "../../lib/chi-tiet-thong-bao";
+
 // Phát hiện thông báo lịch làm việc CHẠY NỀN toàn app (gắn Provider ở layout) để
 // dù đang ở trang nào cũng biết khi ca của mình được duyệt / từ chối. State chia
 // sẻ qua context cho 2 nơi tiêu thụ:
@@ -139,6 +141,7 @@ export function NotificationProvider({
             tao_luc: string;
             duong_dan: string | null;
             nguoi_goi: string | null;
+            nhan_nguon?: string | null;
             da_doc_luc: string | null;
             chi_hoan_tac?: boolean;
             hoan_tac_so_id?: string | null;
@@ -155,10 +158,7 @@ export function NotificationProvider({
             daDoc: Boolean(t.da_doc_luc),
             title: t.tieu_de,
             duongDan: t.duong_dan,
-            detail:
-              // "Chỉ định bị bỏ": câu máy chủ đã nêu tên người bỏ — không
-              // thêm "X gọi ·" (đó là khuôn của trưởng ca gọi bộ phận).
-              (t.nguoi_goi && !t.chi_hoan_tac ? `${t.nguoi_goi} gọi · ` : "") + t.noi_dung,
+            detail: chiTietThongBao(t),
             at: new Date(t.tao_luc).toLocaleTimeString("vi-VN", {
               hour: "2-digit",
               minute: "2-digit",

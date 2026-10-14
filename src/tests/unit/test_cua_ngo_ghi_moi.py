@@ -148,7 +148,7 @@ class TestDuongDoc:
 
     @pytest.mark.asyncio
     async def test_ton_kho_bao_luon_lo_het_han(self) -> None:
-        conn = _Conn([{"id": "b1", "het_han": True}])
+        conn = _Conn(60, [{"id": "b1", "het_han": True}])
         ra = await PharmacyService(_PoolCo(conn)).ton_kho(identity=_identity())
         assert ra[0]["het_han"] is True
         assert any("expiry_date" in sql for sql in conn.da_chay)

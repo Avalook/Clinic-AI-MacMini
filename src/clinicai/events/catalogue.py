@@ -1199,9 +1199,25 @@ class LuotMoLai(PayloadSuKien):
     ly_do: str | None = None
 
 
+class HanLoDaKiem(PayloadSuKien):
+    ngay: date
+    sap_het_han: int
+    het_han: int
+
+
 DANH_MUC: dict[str, SuKien] = {
     su_kien.ten: su_kien
     for su_kien in (
+        SuKien(
+            ten="pharmacy.expiry_checked",
+            version=1,
+            aggregate_type="clinic",
+            source_module="pharmacy",
+            payload=HanLoDaKiem,
+            nhan="Kiểm hạn lô thuốc hằng ngày",
+            consumers=[CHUONG],
+            is_public=False,
+        ),
         SuKien(
             ten="service_order.required_changed",
             version=1,

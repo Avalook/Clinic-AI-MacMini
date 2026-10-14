@@ -9,7 +9,7 @@ import { requireNavAccess } from "../../../../lib/clinic-session";
 import { QUYEN_BAN_LE, quyenCuaToi } from "../../../../lib/quyen-cua-toi";
 import type { DongChoGanLo } from "./ChoGanLo";
 import type { ThuocKho } from "./DanhMucKho";
-import type { ExpiryState } from "./InventoryBoard";
+import type { CauHinhHan, ExpiryState } from "./InventoryBoard";
 import KhoThuoc from "./KhoThuoc";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,7 @@ interface LoTon {
 
 export default async function PharmacyInventoryPage() {
   await requireNavAccess("/pharmacy/inventory");
-  const [data, dm, cho, quyen] = await Promise.all([
+  const [data, dm, cho, quyen, cauHinhHan] = await Promise.all([
     fetchFromBackend<{ items: LoTon[] }>("/api/v1/pharmacy/inventory"),
     fetchFromBackend<{ items: ThuocKho[] }>("/api/v1/pharmacy/danh-muc"),
     // 28/09: thuốc đã giao chưa gán lô — đọc hỏng thì tab rỗng, không chặn màn.
@@ -41,6 +41,7 @@ export default async function PharmacyInventoryPage() {
     // Ghi kho (nhập, kiểm, điều chỉnh, sửa danh mục) = `pharmacy.dispense` —
     // chỉ để ẨN nút; máy chủ vẫn tự kiểm ở mọi lệnh.
     quyenCuaToi(),
+    fetchFromBackend<CauHinhHan>("/api/v1/pharmacy/so-ngay-canh-bao"),
   ]);
   if (!data || !dm) {
     return (
@@ -76,6 +77,7 @@ export default async function PharmacyInventoryPage() {
       choGanLo={choGanLo}
       ghiDuoc={quyen.has("pharmacy.dispense")}
       moBanLe={QUYEN_BAN_LE.some((q) => quyen.has(q))}
+      cauHinhHan={cauHinhHan ?? undefined}
     />
   );
 }

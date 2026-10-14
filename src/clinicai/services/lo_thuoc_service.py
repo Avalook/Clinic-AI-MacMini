@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
 from typing import Any
 
@@ -11,6 +12,48 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import hom_nay_vn
 from clinicai.phieu_kham.khung import doc_ngay
+
+
+async def so_ngay_canh_bao(conn: Any, clinic_id: str) -> int:
+    raw = await conn.fetchval(
+        "SELECT settings->>'pharmacy_expiry_warning_days' FROM clinic WHERE "
+        "id=$1::uuid",
+        clinic_id,
+    )
+    try:
+        value = int(raw)
+        return value if 0 <= value <= 365000 else 60
+    except (TypeError, ValueError, OverflowError):
+        return 60
+
+
+async def doi_canh_bao(
+    pool: asyncpg.Pool, *, identity: StaffIdentity, so_ngay: int
+) -> dict[str, Any]:
+    from clinicai.services.pharmacy_service import ghi_nhat_ky
+
+    async with pool.acquire() as conn, conn.transaction():
+        await conn.fetchrow(
+            "SELECT id FROM clinic WHERE id=$1::uuid FOR UPDATE", identity.clinic_id
+        )
+        cu = await so_ngay_canh_bao(conn, identity.clinic_id)
+        await conn.execute(
+            "UPDATE clinic SET "
+            "settings=jsonb_set(coalesce(settings,'{}'::jsonb),"
+            "'{pharmacy_expiry_warning_days}',$2::jsonb) "
+            "WHERE id=$1::uuid",
+            identity.clinic_id,
+            json.dumps(so_ngay),
+        )
+        await ghi_nhat_ky(
+            conn,
+            identity=identity,
+            event_type="pharmacy.expiry_warning_updated",
+            aggregate_type="clinic",
+            aggregate_id=identity.clinic_id,
+            payload={"before": cu, "after": so_ngay},
+        )
+    return {"ok": True, "so_ngay_sap_het_han": so_ngay}
 
 
 async def _lo(conn: asyncpg.Connection, identity: StaffIdentity, lo_id: str) -> Any:
