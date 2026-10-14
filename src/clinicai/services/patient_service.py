@@ -29,7 +29,7 @@ logger = structlog.get_logger()
 
 # Ten digits, leading zero, a plausible Vietnamese prefix. Enforced server-side
 # because the form is not the only caller.
-PHONE_RE = re.compile(r"^0(2|3|5|7|8|9)\d{8}$")
+PHONE_RE = re.compile(r"^0(3|5|7|8|9)\d{8}$")
 
 
 def validate_phone(value: str | None, label: str) -> None:
@@ -37,7 +37,7 @@ def validate_phone(value: str | None, label: str) -> None:
     phone = (value or "").strip()
     if phone and not PHONE_RE.match(phone):
         raise ValidationError(
-            f"{label} không hợp lệ (10 số, bắt đầu bằng 0; đầu số 02/03/05/07/08/09)."
+            f"{label} không hợp lệ (10 số, bắt đầu bằng 0; đầu số 03/05/07/08/09)."
         )
 
 
@@ -65,7 +65,10 @@ _INSERT_COLUMNS = (
     "address_detail",
     "van_de_di_kham",
     "linh_vuc",
+    "email",
 )
+
+_UPDATE_COLUMNS = frozenset(_INSERT_COLUMNS)
 
 
 def _generate_patient_code(attempt: int = 0) -> str:
@@ -455,10 +458,17 @@ class PatientService:
         ``identity`` is required: there is no caller without a tenant any
         more, and making it optional is what kept the guessing fallback alive.
         """
-        updates = data.model_dump(exclude_none=True)
+        updates = data.model_dump(exclude_unset=True)
         # `sua_luc` là thẻ khoá lạc quan, KHÔNG phải cột — lấy ra trước khi dựng
         # câu SET, nếu không nó sẽ thành `sua_luc = $n` và câu lệnh nổ.
         sua_luc = updates.pop("sua_luc", None)
+
+        # SET động — kiểm cột tồn tại
+        unknown_cols = set(updates.keys()) - _UPDATE_COLUMNS
+        if unknown_cols:
+            cols_str = ", ".join(sorted(unknown_cols))
+            raise ValidationError(f"Không thể cập nhật các trường: {cols_str}")
+
         if not updates:
             raise ValidationError("No fields to update")
 
@@ -466,7 +476,7 @@ class PatientService:
             ("phone_primary", "SĐT chính"),
             ("phone_secondary", "SĐT người nhà"),
         ):
-            if updates.get(column):
+            if column in updates and updates.get(column):
                 validate_phone(str(updates[column]), label)
 
         # Build dynamic SET clause

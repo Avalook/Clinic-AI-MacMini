@@ -1,11 +1,11 @@
 // Quy tắc nhập liệu CỨNG dùng chung (client form + server API), 1 nguồn sự thật.
-//   - SĐT: số VN 10 chữ số, BẮT ĐẦU BẰNG 0, đầu số hợp lệ (cố định 02; di động
+//   - SĐT: số VN 10 chữ số, BẮT ĐẦU BẰNG 0, đầu số hợp lệ (di động
 //     03/05/07/08/09). Không có số mở đầu bằng 1/2/4/6 hay thiếu số 0.
 //   - CCCD: 12 chữ số; 3 số đầu là mã tỉnh (001–096).
 // Trường rỗng = hợp lệ (các trường này tuỳ chọn); chỉ chặn khi CÓ nhập mà sai.
 
-// 0 + (2 cố định | 3,5,7,8,9 di động) + 8 chữ số.
-export const PHONE_RE = /^0[235789]\d{8}$/;
+// 0 + (3,5,7,8,9 di động) + 8 chữ số.
+export const PHONE_RE = /^0[35789]\d{8}$/;
 export const CCCD_RE = /^\d{12}$/;
 
 /** Bỏ mọi ký tự không phải chữ số (dùng cho onChange ép "số viết liền"). */
@@ -56,7 +56,7 @@ export function phoneError(v: string | null | undefined): string | null {
   if (t.length !== 10) return "Số điện thoại phải gồm đúng 10 chữ số.";
   if (t[0] !== "0") return "Số điện thoại Việt Nam phải bắt đầu bằng số 0.";
   if (!PHONE_RE.test(t))
-    return "Đầu số không hợp lệ (di động 03/05/07/08/09, cố định 02).";
+    return "Đầu số không hợp lệ (di động 03/05/07/08/09).";
   return null;
 }
 

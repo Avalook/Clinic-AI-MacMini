@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 09:02. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 12:00. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -570,7 +570,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/xuat-hoa-don`
 - gọi thẳng backend (server): `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
 - service: XuatHoaDonService.xem · xuat_hoa_don_service
-- test: test_xuat_hoa_don_db.py, test_xuat_hoa_don.py
+- test: test_xuat_hoa_don_db.py, test_sua_ho_so_khach_db.py, test_xuat_hoa_don.py
 
 ## 2. API Next → backend (122)
 
@@ -1132,7 +1132,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 #### `/api/patients` · `src/dashboard/app/api/patients/route.ts`
 - POST `/api/v1/patients` → `src/clinicai/api/v1/patients.py:create_patient` → PatientService.create_patient
 - PATCH `/api/v1/patients/{id:uuid}` → `src/clinicai/api/v1/patients.py:update_patient` → PatientService.update_patient
-- test: src/tests/unit/test_patient_service.py, src/tests/api/test_patients_api.py, src/tests/integration/test_patient_integration.py
+- test: src/tests/unit/test_patient_service.py, src/tests/integration/test_patient_integration.py, src/tests/services/test_sua_ho_so_khach_db.py
 - màn dùng: /appointments, /ban-kham, /ban-kham/[phong], /customers, /patient-list, /patients/new (+1)
 
 #### `/api/patients/[id]/uu-tien` · `src/dashboard/app/api/patients/[id]/uu-tien/route.ts`
@@ -1472,7 +1472,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 #### `/api/xuat-hoa-don` · `src/dashboard/app/api/xuat-hoa-don/route.ts`
 - GET `/api/v1/hoa-don/xuat` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don` → XuatHoaDonService.xem
 - GET `/api/v1/hoa-don/xuat/xlsx` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don_excel` → xlsx_misa
-- test: src/tests/services/test_xuat_hoa_don_db.py, src/tests/unit/test_xuat_hoa_don.py
+- test: src/tests/services/test_xuat_hoa_don_db.py, src/tests/services/test_sua_ho_so_khach_db.py, src/tests/unit/test_xuat_hoa_don.py
 - màn dùng: /xuat-hoa-don
 
 ## 3. Service → màn (181)
@@ -1778,7 +1778,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `node_definition_version` | `20260730000005_workflow_kernel.sql` | 0 |
 | `node_dependency` | `20260730000005_workflow_kernel.sql` | 0 |
 | `owner_feedback` | `20260801000004_owner_feedback.sql` | 0 |
-| `patient` | `20260714000001_baseline_schema.sql` | 5 |
+| `patient` | `20260714000001_baseline_schema.sql` | 6 |
 | `patient_contact_channel` | `20260801000003_adopt_prod_only_tables.sql` | 0 |
 | `patient_link` | `20260804000020_patient_link_consent.sql` | 0 |
 | `patient_medical_profile` | `20260714000001_baseline_schema.sql` | 0 |

@@ -80,10 +80,11 @@ SELECT pc.payment_cycle_id::text id,
      nullif(btrim(p.ward_name), ''), nullif(btrim(p.province_name), '')), ''))
    dia_chi,
  nullif(btrim(p.national_id_number), '') cccd,
- (SELECT c.channel_value FROM patient_contact_channel c
-   WHERE c.clinic_id=p.clinic_id AND c.clinic_patient_id=p.clinic_patient_id
-     AND c.channel_type='EMAIL'
-   ORDER BY c.is_primary DESC, c.created_at DESC LIMIT 1) email
+ coalesce(nullif(btrim(p.email), ''),
+   (SELECT c.channel_value FROM patient_contact_channel c
+     WHERE c.clinic_id=p.clinic_id AND c.clinic_patient_id=p.clinic_patient_id
+       AND c.channel_type='EMAIL'
+     ORDER BY c.is_primary DESC, c.created_at DESC LIMIT 1)) email
 FROM payment_cycle pc
 JOIN visit v ON v.visit_id=pc.visit_id AND v.clinic_id=pc.clinic_id
 LEFT JOIN patient p ON p.clinic_patient_id=v.clinic_patient_id

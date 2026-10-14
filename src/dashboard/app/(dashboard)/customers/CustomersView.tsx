@@ -177,6 +177,8 @@ export interface CustomerRow {
   birth_year: number | null;
   phone_primary: string | null;
   phone_secondary: string | null;
+  national_id_number?: string | null;
+  email?: string | null;
   gender: string | null;
   ethnicity: string | null;
   nationality: string | null;
@@ -2101,6 +2103,8 @@ export default function CustomersView({
                         date_of_birth: selected.date_of_birth,
                         phone_primary: selected.phone_primary,
                         phone_secondary: selected.phone_secondary,
+                        national_id_number: selected.national_id_number,
+                        email: selected.email,
                         gender: selected.gender,
                         ethnicity: selected.ethnicity,
                         nationality: selected.nationality,
