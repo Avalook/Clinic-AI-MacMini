@@ -927,7 +927,7 @@ def _lego(
     return Man(ma, ten, cac_duong[0], khoi, mac_dinh_cho, cac_duong, khoi_theo_phong)
 
 
-# THỨ TỰ = thứ tự thanh bên. Màn quản lý hiện 21 dòng, mỗi dòng một công tắc.
+# THỨ TỰ = thứ tự thanh bên. Màn quản lý hiện 22 dòng, mỗi dòng một công tắc.
 MAN: dict[str, Man] = {
     m.ma: m
     for m in (
@@ -1060,6 +1060,13 @@ MAN: dict[str, Man] = {
         # bảng giá dịch vụ.
         _lego(
             "bang_gia", "Bảng giá", ["/cashier/dich-vu"], ["bang_gia"], "Thu ngân, QL"
+        ),
+        _lego(
+            "kho_vat_tu",
+            "Kho vật tư",
+            ["/kho-vat-tu"],
+            ["kho_vat_tu"],
+            "Mọi người (QL chỉnh mức tối thiểu)",
         ),
         _lego(
             "bao_cao",

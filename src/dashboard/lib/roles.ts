@@ -410,6 +410,8 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/pharmacy/history": ["PHARMACIST", "MANAGEMENT"],
   "/pharmacy/consult": ["PHARMACIST", "MANAGEMENT"],
   "/pharmacy/inventory": ["RECEPTION", "PHARMACIST", "MANAGEMENT"],
+  // Kho vật tư (G8a, 14/10/2026): cửa chính là LEGO `kho_vat_tu`; vai chỉ là đường rơi khi máy chủ im.
+  "/kho-vat-tu": ["RECEPTION", "PHARMACIST", "TRUONG_CA", "MANAGEMENT"],
   // MỌI vai trò tự đăng ký ca của mình (thu ngân, điều dưỡng... cũng cần); Quản
   // lý + Trưởng ca xếp cả bảng. Ca tự đăng ký vào trạng thái chờ duyệt (xem
   // /api/roster).
@@ -640,6 +642,7 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/pharmacy/consult": ["pharmacy.view", "pharmacy.dispense"],
   "/schedule": ["roster.view"], // 15 Lịch làm việc
   "/cashier/dich-vu": ["price.service.manage"], // 16 Bảng giá (dịch vụ)
+  "/kho-vat-tu": ["vat_tu.manage"], // Kho vật tư (G8a)
   "/hoa-don": ["report.view"],
   "/xuat-hoa-don": ["report.view"],
   "/reports": ["report.view"], // 17 Báo cáo

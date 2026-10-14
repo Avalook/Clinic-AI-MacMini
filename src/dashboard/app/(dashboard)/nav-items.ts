@@ -31,6 +31,7 @@ import {
   FileSpreadsheet,
   Calculator,
   Trash2,
+  Boxes,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -197,6 +198,8 @@ export const NAV: NavItem[] = [
     label: "Kho thuốc",
     icon: ClipboardList,
   },
+  // Kho vật tư (G8a, 14/10/2026) — kho riêng, không lẫn kho thuốc (`vat_tu.manage`).
+  { href: "/kho-vat-tu", label: "Kho vật tư", icon: Boxes },
   {
     href: "/pharmacy/history",
     label: "Lịch sử bàn giao",
@@ -793,7 +796,7 @@ export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly
     ten: "Khách hàng",
     hrefs: ["/appointments", "/appointments/cho-xep-bac-si", "/customers", "/nhac-tai-kham", "/patient-list", "/patients/new"],
   },
-  { ma: "thuoc", ten: "Nhà thuốc", hrefs: ["/pharmacy", "/pharmacy/inventory", "/pharmacy/history", "/pharmacy/consult"] },
+  { ma: "thuoc", ten: "Nhà thuốc", hrefs: ["/pharmacy", "/pharmacy/inventory", "/kho-vat-tu", "/pharmacy/history", "/pharmacy/consult"] },
   { ma: "dieu-hanh", ten: "Điều hành", hrefs: ["/truong-ca", "/truong-ca/tv", "/truong-ca/lich-su", "/schedule"] },
   {
     ma: "quan-tri",

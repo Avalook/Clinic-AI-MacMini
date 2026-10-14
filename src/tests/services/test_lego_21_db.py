@@ -41,8 +41,8 @@ async def _co(
 
 
 def test_21_lego_theo_thu_tu_thanh_ben() -> None:
-    # 21 lego của 25/09 + "Kế toán" (14/10/2026, G5a) = 22.
-    assert len(MAN) == 22
+    # 21 lego của 25/09 + "Kế toán" (G5a) + "Kho vật tư" (G8a) = 23.
+    assert len(MAN) == 23
     assert list(MAN)[:3] == ["tiep_don", "do_sinh_hieu", "tu_van"]
     assert list(MAN)[-1] == "doi_tac"
     # Lego 19 chỉ nằm trong gói mẫu Quản lý.
