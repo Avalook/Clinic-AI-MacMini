@@ -29,6 +29,7 @@
 
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 
+import DauDoChiDinh from "./DauDoChiDinh";
 import KhungTep from "../KhungTep";
 import AnhKetQua, { tepXem } from "../AnhKetQua";
 import PhieuKetQua from "../PhieuKetQua";
@@ -202,8 +203,12 @@ export default function KetQuaChiDinh({
   onDoiBatBuoc,
   onBoChiDinh,
   dieuTri,
+  dauDoLuot,
 }: {
   ds: ChiDinhVaKetQua[];
+  /** Mã lượt — có thì vẽ khối "Đầu dò kèm chỉ định" (Bio chọn ở chỉ định CLS,
+   *  G9 14/10/2026) trên danh sách thẻ. Thẻ điều trị không có đầu dò. */
+  dauDoLuot?: string;
   /** Thẻ CHỈ ĐỊNH ĐIỀU TRỊ (khối 3): một thẻ mỗi chỉ định, phần điều trị do
    *  `KhoiDieuTri` vẽ — `chip` thay chip trạng thái một trục (null = giữ chip
    *  này), `than` = làm tại bàn khám + phiếu 2 ô. Phiếu nằm sẵn trong thẻ nên
@@ -503,6 +508,14 @@ export default function KetQuaChiDinh({
               return `${tenLan(lanXem)} · ${gui ? `gửi ${fmtTime(gui)}` : "chưa gửi"} · ${dsHien.length} chỉ định`;
             })()}
           </p>
+        ) : null}
+        {dauDoLuot && !dieuTri && !chiXem ? (
+          <DauDoChiDinh
+            visitId={dauDoLuot}
+            orderIds={dsHien.map((d) => d.service_order_id)}
+            choGhi={choDien}
+            onDoi={onDoi}
+          />
         ) : null}
         <ul className="space-y-2">{dsHien.map((d) => theChiDinh(d))}</ul>
       </div>

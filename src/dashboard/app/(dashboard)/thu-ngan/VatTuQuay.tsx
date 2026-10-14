@@ -51,6 +51,8 @@ export default function VatTuQuay({
   const [loi, setLoi] = useState<string | null>(null);
   const [duyet, setDuyet] = useState<DuyetMo | null>(null);
   const [nhapSl, setNhapSl] = useState<Record<string, string>>({});
+  // Bỏ dòng đi kèm chỉ định (đầu dò bác sĩ chọn): bắt ghi lý do (G9, 14/10/2026).
+  const [boMo, setBoMo] = useState<{ id: string; lyDo: string } | null>(null);
 
   const nap = useCallback(async () => {
     const kq = await docBang<VatTuGoi>("vat-tu", { luot: visitId });
@@ -282,6 +284,12 @@ export default function VatTuQuay({
                     {d.don_vi ? ` / ${d.don_vi}` : ""}
                     {d.nguoi_duyet ? ` · QL duyệt: ${d.nguoi_duyet}` : ""}
                   </span>
+                  {d.order_id ? (
+                    <span className="block text-meta text-ink-muted">
+                      Bác sĩ chọn ở chỉ định{d.ten_chi_dinh ? `: ${d.ten_chi_dinh}` : ""}
+                      {d.tinh_tien ? "" : " · khách không làm dịch vụ này nên không tính tiền"}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="flex items-center gap-1">
                   <Button
@@ -330,12 +338,45 @@ export default function VatTuQuay({
                     size="sm"
                     variant="danger"
                     disabled={khoa}
-                    onClick={() => void gui("vat-tu-bo", d.id, {})}
+                    onClick={() =>
+                      d.order_id ? setBoMo({ id: d.id, lyDo: "" }) : void gui("vat-tu-bo", d.id, {})
+                    }
                     aria-label={`Bỏ ${d.ten}`}
                   >
                     Bỏ
                   </Button>
                 )}
+                {boMo?.id === d.id ? (
+                  <div role="group" aria-label={`Lý do bỏ ${d.ten}`} className="basis-full space-y-2">
+                    <label className="block">
+                      <span className="mb-1 block text-meta font-medium text-ink-soft">
+                        Lý do bỏ đầu dò bác sĩ đã chọn (5–500 ký tự)
+                      </span>
+                      <input
+                        value={boMo.lyDo}
+                        onChange={(e) => setBoMo({ id: d.id, lyDo: e.target.value })}
+                        maxLength={500}
+                        className={INPUT}
+                        placeholder="VD: khách không mua đầu dò"
+                      />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="danger"
+                        disabled={dangGui || boMo.lyDo.trim().length < 5}
+                        onClick={async () => {
+                          if (await gui("vat-tu-bo", d.id, { ly_do: boMo.lyDo.trim() })) setBoMo(null);
+                        }}
+                      >
+                        Xác nhận bỏ
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={() => setBoMo(null)}>
+                        Giữ lại
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </li>
             );
           })}

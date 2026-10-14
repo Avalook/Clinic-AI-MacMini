@@ -181,6 +181,8 @@ export default function PhieuKham({
     /** Nút Hoàn tác chỉ định ở thẻ từng chỉ định (01/10/2026) — lệnh máy chủ
      *  của đúng chỉ định ấy. Không truyền = không có nút (chỉ xem). */
     onBoChiDinh?: (orderId: string) => (duLieu: DuLieuHoanTac) => Promise<KetQuaHoanTac>;
+    /** Mã lượt — vẽ khối "Đầu dò kèm chỉ định" (Bio chọn ở chỉ định, G9). */
+    dauDoLuot?: string;
   };
   /** Mã dịch vụ thủ thuật — thẻ của chúng ở khối 3 (chỉ định điều trị đã tách
    *  trước theo cờ `dieu_tri`, xem `phanChiDinh`). */

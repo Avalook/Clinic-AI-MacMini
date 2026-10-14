@@ -83,6 +83,9 @@ const THAO_TAC: Record<string, (id: string) => string> = {
   "vat-tu-them": (id) => `/api/v1/luot-kham/visits/${id}/vat-tu`,
   "vat-tu-so-luong": (id) => `/api/v1/luot-kham/vat-tu/${id}`,
   "vat-tu-bo": (id) => `/api/v1/luot-kham/vat-tu/${id}/bo`,
+  // 14/10 (G9): đầu dò Bio chọn ở CHỈ ĐỊNH CLS — id là CHỈ ĐỊNH; thân
+  // { service_price_id | null, so_luong }.
+  "dau-do-chon": (id) => `/api/v1/luot-kham/orders/${id}/dau-do`,
   // 28/09: tick dịch vụ khám theo mã KiotViet (tiền khám) — id là LƯỢT.
   "phi-kham": (id) => `/api/v1/luot-kham/visits/${id}/phi-kham`,
   // 30/09 tối: tick / bỏ tick "Làm trước – thu sau" — id là LƯỢT. Bật = máy
@@ -135,6 +138,11 @@ function duongDoc(url: URL): string | null {
   if (xem === "vat-tu") {
     const luot = url.searchParams.get("luot") ?? "";
     return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/vat-tu` : null;
+  }
+  // Đầu dò Bio gợi ý + đã chọn theo từng chỉ định của một lượt (G9, 14/10/2026).
+  if (xem === "dau-do") {
+    const luot = url.searchParams.get("luot") ?? "";
+    return UUID_RE.test(luot) ? `/api/v1/luot-kham/visits/${luot}/dau-do` : null;
   }
   // Tick "Làm trước – thu sau" + cờ bấm được của một lượt (30/09/2026 tối).
   if (xem === "lam-truoc-thu-sau") {
