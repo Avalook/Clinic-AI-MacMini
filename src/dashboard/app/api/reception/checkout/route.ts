@@ -63,8 +63,16 @@ export async function POST(request: Request) {
     huy_giu_lai_tien_thua: "/api/v1/reception/checkout/huy-giu-lai-tien-thua",
   };
   if (typeof hanhDong === "string" && hanhDong in DUONG_TIEN_THUA) {
-    const { visit_id, ly_do } = body as { visit_id?: unknown; ly_do?: unknown };
-    return proxyJsonToBackend("POST", DUONG_TIEN_THUA[hanhDong], { visit_id, ly_do });
+    const { visit_id, ly_do, hinh_thuc } = body as {
+      visit_id?: unknown;
+      ly_do?: unknown;
+      hinh_thuc?: unknown;
+    };
+    return proxyJsonToBackend(
+      "POST",
+      DUONG_TIEN_THUA[hanhDong],
+      hanhDong === "hoan_tien_thua" ? { visit_id, ly_do, hinh_thuc } : { visit_id, ly_do },
+    );
   }
   if (hanhDong === "ghi_no" || hanhDong === "huy_ghi_no") {
     const { visit_id, ly_do } = body as { visit_id?: unknown; ly_do?: unknown };

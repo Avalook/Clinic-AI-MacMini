@@ -34,9 +34,8 @@ import LieuTrinhQuay from "./LieuTrinhQuay";
 import { useNgheBang } from "../dung-nghe-bang";
 import { taoMotLuot } from "@/lib/mot-luot";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
-import Button from "@/components/ui/Button";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
-import { loiDocDuoc } from "@/lib/loi-doc-duoc";
+import NutHoanTienThua from "../_lam-viec/NutHoanTienThua";
 import SoLuot from "@/components/ui/SoLuot";
 import { nhanPhan, tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
 import { gio, nhanLamTruocThuSau, type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
@@ -971,28 +970,6 @@ function TienThuaKhoi({
   visitId: string;
   onDoi: () => void;
 }) {
-  const [dang, setDang] = useState(false);
-  const [loi, setLoi] = useState<string | null>(null);
-  // HOÀN TIỀN THỪA (06/10/2026, E2b): máy hoàn ĐÚNG số còn thừa (tiền mặt) —
-  // không gõ số. Ai có lego Thu tiền dịch vụ; máy chủ kiểm lại.
-  const hoan = async () => {
-    setDang(true);
-    setLoi(null);
-    try {
-      const r = await fetch("/api/reception/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hanh_dong: "hoan_tien_thua", visit_id: visitId }),
-      });
-      const d = (await r.json().catch(() => null)) as { ok?: boolean } | null;
-      if (!r.ok || !d?.ok) setLoi(loiDocDuoc(d, `Chưa hoàn được (HTTP ${r.status}).`));
-      else onDoi();
-    } catch {
-      setLoi("Mất kết nối — chưa hoàn.");
-    } finally {
-      setDang(false);
-    }
-  };
   return (
     <div className="border-b border-line bg-warning-bg px-4 py-3">
       <p className="text-body font-semibold text-warning">
@@ -1019,19 +996,13 @@ function TienThuaKhoi({
           </li>
         ))}
       </ul>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" variant="primary" disabled={dang} onClick={() => void hoan()}>
-          {dang ? "Đang hoàn…" : `Hoàn tiền thừa ${tien(tt.tong)} (tiền mặt)`}
-        </Button>
-        {loi ? (
-          <span role="alert" className="text-meta text-danger">
-            {loi}
-          </span>
-        ) : null}
+      <div className="mt-2">
+        {/* HOÀN TIỀN THỪA (E2b; G4d R6): máy hoàn ĐÚNG số còn thừa, mặc định
+            theo hình thức khách đã trả, đổi được. Máy chủ kiểm lego lại. */}
+        <NutHoanTienThua visitId={visitId} tong={tt.tong} nhan="Hoàn tiền thừa" onDoi={onDoi} />
       </div>
       <p className="mt-1 text-meta text-ink-muted">
-        Máy hoàn đúng số còn thừa của từng dòng. Hoàn chuyển khoản: tab “Đã thanh toán hôm nay”.
-        Khách không lấy lại: lúc check-out chọn “Giữ lại” và ghi lý do. Máy không tự trừ tiền
+        Máy hoàn đúng số còn thừa của từng dòng. Khách không lấy lại: lúc check-out chọn “Giữ lại” và ghi lý do. Máy không tự trừ tiền
         thừa vào dịch vụ khác — thu dịch vụ mới đủ số, rồi hoàn khoản thừa.
       </p>
     </div>

@@ -6,7 +6,8 @@ check-out không hỏi, báo cáo không có, sang hôm sau là mất dấu (E2)
 
 Nay:
   * **Hoàn tiền thừa** (`hoan_tien_thua`): quầy bấm một nút, máy hoàn ĐÚNG số
-    còn thừa của từng dòng hoá đơn (tiền mặt) — không gõ số tuỳ ý. Ai có lego
+    còn thừa của từng dòng hoá đơn, mặc định theo hình thức khách đã trả của
+    lần thu gốc (đổi được) — không gõ số tuỳ ý. Ai có lego
     Thu tiền dịch vụ làm được (E2b, thay luật tạm chỉ Quản lý).
   * **Giữ lại** (`giu_lai` / `huy_giu_lai`): khách không lấy lại (đổi sang dịch
     vụ khác lần sau, gửi lại…) — ghi lý do, ai, lúc nào; hoàn tác được tới khi
@@ -35,7 +36,8 @@ from clinicai.api.identity import StaffIdentity
 _DONG_THUA_SQL = """
 WITH dong AS (
     SELECT bl.id::text AS line_id, bl.visit_id::text AS line_visit_id,
-           bl.payment_cycle_id::text AS payment_cycle_id, bl.source_type,
+           bl.payment_cycle_id::text AS payment_cycle_id, c.method AS hinh_thuc,
+           bl.source_type,
            bl.source_id, bl.name_snapshot, bl.quantity, bl.line_total,
            CASE WHEN bl.source_type = 'service_order' THEN bl.source_id
                 WHEN bl.source_type = 'phu_thu' THEN (
@@ -94,6 +96,7 @@ async def dong_tien_thua(
                 "line_id": d["line_id"],
                 "line_visit_id": d["line_visit_id"],
                 "payment_cycle_id": d["payment_cycle_id"],
+                "hinh_thuc": d["hinh_thuc"],
                 "source_type": d["source_type"],
                 "order_id": d["order_id"],
                 "ten": d["name_snapshot"],
@@ -155,8 +158,15 @@ def tom_tat_khi_ve(
     tăng thêm — bỏ thêm chỉ định — thì hỏi lại)."""
     tong = sum(int(d["so_tien"]) for d in dong)
     phu = giu is not None and int(giu["so_tien"]) >= tong
+    # Hoàn mặc định theo hình thức khách đã trả (G4d, R6): hộp check-out ghi
+    # rõ "hoàn X tiền mặt · Y chuyển khoản" trước khi bấm.
+    theo_hinh_thuc: dict[str, int] = {}
+    for d in dong:
+        ht = str(d.get("hinh_thuc") or "CASH")
+        theo_hinh_thuc[ht] = theo_hinh_thuc.get(ht, 0) + int(d["so_tien"])
     return {
         "tong": tong,
+        "theo_hinh_thuc": theo_hinh_thuc,
         "dong": [
             {
                 "ten": d["ten"],

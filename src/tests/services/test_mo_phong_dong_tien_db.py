@@ -35,7 +35,11 @@ from clinicai.services.hoan_tac_service import HoanTacService, tien_da_thu_cua_c
 from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.service_execution_service import ServiceExecutionService
-from clinicai.services.tien_thua_service import TienThuaService, dong_tien_thua
+from clinicai.services.tien_thua_service import (
+    TienThuaService,
+    dong_tien_thua,
+    tien_thua_khi_ve,
+)
 from tests.chay_nguoi_dua_tin import chay_ben_nhan, chay_hanh_trinh
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
@@ -200,7 +204,7 @@ async def _so_hien(conn: asyncpg.Connection, visit: str) -> tuple[int, int]:
     return no, tra
 
 
-async def _lech(pool: asyncpg.Pool, visit: str, kiem_ket: bool = True) -> list[str]:  # noqa: F811
+async def _lech(pool: asyncpg.Pool, visit: str) -> list[str]:  # noqa: F811
     """Các bất biến bị vỡ của lượt (rỗng = sổ khớp). Chỉ xét lượt ĐÃ VỀ."""
     # Như worker thật: công nợ + sổ nợ chạy ngay sau mỗi bước.
     await chay_ben_nhan(pool, CONG_NO, SO_NO)
@@ -226,7 +230,7 @@ async def _lech(pool: asyncpg.Pool, visit: str, kiem_ket: bool = True) -> list[s
         out.append(f"B1 khách nợ {thu_that:,}đ, màn hiện {thu_hien:,}đ")
     if tra_that != tra_hien:
         out.append(f"B2 phòng khám nợ khách {tra_that:,}đ, màn hiện {tra_hien:,}đ")
-    if ket and kiem_ket:
+    if ket:
         out.append(f"B3 {ket} lần hoàn TIỀN MẶT cho tiền khách trả chuyển khoản")
     return out
 
@@ -353,9 +357,8 @@ async def test_r4_da_thu_chua_lam_qua_90_ngay(pool: asyncpg.Pool) -> None:  # no
     assert await _lech(pool, v) == []
 
 
-@pytest.mark.xfail(strict=True, reason="R6 — hoàn tiền thừa luôn tiền mặt (G4d)")
-async def test_r6_hoan_tien_thua_tien_mat_cho_khoan_ck(pool: asyncpg.Pool) -> None:  # noqa: F811
-    ca = await _dung(pool)
+async def _ck_da_ve_roi_bo(pool: asyncpg.Pool, ca: Ca) -> str:  # noqa: F811
+    """Khách trả CK 300k (đã xác minh) rồi bỏ chỉ định → thừa 300k."""
     v, o = await _luot(pool, ca)
     cid = await _thu(pool, ca, v, method="TRANSFER")
     await PaymentService(pool).xac_minh_dien_tu(
@@ -368,9 +371,47 @@ async def test_r6_hoan_tien_thua_tien_mat_cho_khoan_ck(pool: asyncpg.Pool) -> No
     await HoanTacService(pool).huy_chi_dinh(
         order_id=o, identity=ca.bac_si, xac_nhan=True, ly_do="Khách đổi ý"
     )
-    await HoanTienService(pool).hoan_tien_thua(identity=ca.thu_ngan, visit_id=v)
+    return v
+
+
+async def _hoan_cua(pool: asyncpg.Pool, visit: str) -> str:  # noqa: F811
+    """ "HÌNH THỨC:TRẠNG THÁI" của khoản hoàn (duy nhất) của lượt."""
+    return str(
+        await pool.fetchval(
+            "SELECT method || ':' || status FROM payment_refund"
+            " WHERE visit_id = $1::uuid",
+            visit,
+        )
+    )
+
+
+async def test_r6_hoan_tien_thua_theo_hinh_thuc_goc(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """R6 (G4d): khách trả CK → hoàn thừa mặc định CK (khoản chờ), két không lệch."""
+    ca = await _dung(pool)
+    v = await _ck_da_ve_roi_bo(pool, ca)
+    async with pool.acquire() as conn:
+        tt = await tien_thua_khi_ve(conn, CLINIC, v)
+    assert tt["theo_hinh_thuc"] == {"TRANSFER": 300_000}
+    kq = await HoanTienService(pool).hoan_tien_thua(identity=ca.thu_ngan, visit_id=v)
+    assert kq["theo_hinh_thuc"] == {"TRANSFER": 300_000}
+    assert await _hoan_cua(pool, v) == "TRANSFER:PENDING"
     await _ve(pool, ca, v)
     assert await _lech(pool, v) == []
+
+
+async def test_r6_nguoi_bam_doi_hinh_thuc_hoan(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Khách trả CK nhưng muốn nhận tiền mặt: người bấm chọn → ghi đúng TM."""
+    ca = await _dung(pool)
+    v = await _ck_da_ve_roi_bo(pool, ca)
+    with pytest.raises(ClinicAIBaseException):
+        await HoanTienService(pool).hoan_tien_thua(
+            identity=ca.thu_ngan, visit_id=v, method="VANG"
+        )
+    kq = await HoanTienService(pool).hoan_tien_thua(
+        identity=ca.thu_ngan, visit_id=v, method="CASH"
+    )
+    assert kq["theo_hinh_thuc"] == {"CASH": 300_000}
+    assert await _hoan_cua(pool, v) == "CASH:COMPLETED"
 
 
 # ── bấm lộn xộn như người thật ─────────────────────────────────────────────
@@ -442,8 +483,7 @@ async def test_bam_lon_xon_khong_lech(pool: asyncpg.Pool) -> None:  # noqa: F811
                 continue
             chay[ten] += 1
             da_lam.append(ten)
-            # B3 (R6 hoàn tiền mặt cho khoản CK) bật lại khi G4d sửa xong.
-            vo = await _lech(pool, v, kiem_ket=False)
+            vo = await _lech(pool, v)
             so_lan_kiem += 1
             if vo:
                 lech.append(f"hạt {hat}: {' → '.join(da_lam)} ⇒ {'; '.join(vo)}")
