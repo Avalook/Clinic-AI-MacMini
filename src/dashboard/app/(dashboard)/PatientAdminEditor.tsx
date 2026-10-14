@@ -17,6 +17,7 @@ import { INPUT, LABEL } from "./form-ui";
 import DateField from "./DateField";
 import { linhVucLabel } from "../../lib/linh-vuc";
 import { nhanLoi } from "../../lib/loi-api";
+import CongTyKhach from "./CongTyKhach";
 
 export interface PatientAdmin {
   clinic_patient_id: string;
@@ -282,6 +283,7 @@ export default function PatientAdminEditor({
             <Row label="Vấn đề đi khám" value={cur.van_de_di_kham} />
           )}
         </dl>
+        <CongTyKhach clinicPatientId={cur.clinic_patient_id} />
         <div className="flex items-center gap-2">
           <button
             onClick={startEdit}

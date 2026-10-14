@@ -8,43 +8,24 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
-import ONhap from "@/components/ui/ONhap";
+import FormCongTy, { CONG_TY_TRONG, sangForm, type CongTy } from "./FormCongTy";
 
-type CongTy = {
-  id?: string;
-  ten_cong_ty: string; dia_chi_cong_ty: string; ma_so_thue: string;
-  email_nhan_hd: string; nguoi_mua: string;
-};
 type GoiY = CongTy & { id: string };
-type Doc = { cong_ty: CongTy | null; cong_ty_da_bo: CongTy | null; da_bo: boolean; goi_y: GoiY[] };
+/** Bản chụp đang ghi / vừa bỏ — `khach_cong_ty_id` trỏ tới công ty trong hồ sơ khách. */
+type BanChup = CongTy & { khach_cong_ty_id: string | null };
+type Doc = { cong_ty: BanChup | null; cong_ty_da_bo: BanChup | null; da_bo: boolean; goi_y: GoiY[] };
 type LichSu = {
   hanh_dong: string; sua_luc: string; sua_boi_ten: string | null;
   cu_ten: string; moi_ten: string; cu_ma_so_thue: string; moi_ma_so_thue: string;
 };
 
-const TRONG: CongTy = { ten_cong_ty: "", dia_chi_cong_ty: "", ma_so_thue: "", email_nhan_hd: "", nguoi_mua: "" };
 const TEN_HANH_DONG: Record<string, string> = { ghi: "Ghi công ty", sua: "Sửa", bo: "Bỏ chọn", lai: "Chọn lại" };
-const O: { k: keyof CongTy; ten: string; goiY?: string }[] = [
-  { k: "ten_cong_ty", ten: "Tên công ty" },
-  { k: "ma_so_thue", ten: "Mã số thuế", goiY: "10 số, hoặc 10 số-001" },
-  { k: "dia_chi_cong_ty", ten: "Địa chỉ công ty" },
-  { k: "email_nhan_hd", ten: "Email nhận hoá đơn" },
-  { k: "nguoi_mua", ten: "Người mua (không bắt buộc)", goiY: "Để trống thì ô người mua trong file cũng để trống" },
-];
-
-function sangForm(c: CongTy): CongTy {
-  return {
-    ten_cong_ty: c.ten_cong_ty, dia_chi_cong_ty: c.dia_chi_cong_ty, ma_so_thue: c.ma_so_thue,
-    email_nhan_hd: c.email_nhan_hd, nguoi_mua: c.nguoi_mua,
-  };
-}
-
 export default function CongTyHoaDon({ paymentCycleId }: { paymentCycleId: string }) {
   const goc = `/api/hoa-don/cong-ty/phieu/${encodeURIComponent(paymentCycleId)}`;
   const [doc, setDoc] = useState<Doc | null>(null);
   const [khongQuyen, setKhongQuyen] = useState(false);
   const [mo, setMo] = useState(false);
-  const [form, setForm] = useState<CongTy>(TRONG);
+  const [form, setForm] = useState<CongTy>(CONG_TY_TRONG);
   const [khachCtId, setKhachCtId] = useState<string | null>(null);
   const [dangLuu, setDangLuu] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
@@ -73,9 +54,10 @@ export default function CongTyHoaDon({ paymentCycleId }: { paymentCycleId: strin
   const dangChon = doc?.cong_ty ?? null;
   const moForm = () => {
     // Điền sẵn: công ty đang ghi → công ty vừa bỏ → công ty khách dùng lần trước.
-    const nguon = dangChon ?? doc?.cong_ty_da_bo ?? doc?.goi_y[0] ?? null;
-    setForm(nguon ? sangForm(nguon) : TRONG);
-    setKhachCtId(nguon && "id" in nguon && !dangChon ? (nguon.id ?? null) : null);
+    const ban = dangChon ?? doc?.cong_ty_da_bo ?? null;
+    const goiY = doc?.goi_y[0] ?? null;
+    setForm(ban ? sangForm(ban) : goiY ? sangForm(goiY) : CONG_TY_TRONG);
+    setKhachCtId(ban ? ban.khach_cong_ty_id : (goiY?.id ?? null));
     setLoi(null); setNhac(null); setMo(true);
   };
   const chonGoiY = (g: GoiY) => { setForm(sangForm(g)); setKhachCtId(g.id); };
@@ -140,20 +122,7 @@ export default function CongTyHoaDon({ paymentCycleId }: { paymentCycleId: strin
               ))}
             </div>
           ) : null}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {O.map(o => (
-              <label key={o.k} className="min-w-0 space-y-1 text-meta text-ink-muted">
-                <span className="block">{o.ten}</span>
-                <ONhap
-                  className="w-full"
-                  aria-label={o.ten}
-                  value={form[o.k] ?? ""}
-                  onChange={e => setForm({ ...form, [o.k]: e.target.value })}
-                />
-                {o.goiY ? <span className="block text-meta text-ink-faint">{o.goiY}</span> : null}
-              </label>
-            ))}
-          </div>
+          <FormCongTy form={form} onDoi={setForm} />
           <div className="flex flex-wrap gap-2">
             <Button variant="primary" disabled={dangLuu || !form.ten_cong_ty.trim()}
               onClick={() => void goi("PUT", { ...form, khach_cong_ty_id: khachCtId })}>
