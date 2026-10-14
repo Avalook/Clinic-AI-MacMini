@@ -358,7 +358,7 @@ async def test_lo_con_han_hoac_chua_han_bo_han_duoc(
         q.pool,
         identity=q.duoc_si,
         drug_batch_id=batch,
-        batch_code="BO-HAN",
+        batch_code=f"BO-HAN-{uuid.uuid4()}",
         expiry_date=raw,
     )
     assert (
