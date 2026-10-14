@@ -64,6 +64,27 @@ export interface CongCuNhip {
   huy: (h: Hen) => void;
   /** Gộp nhịp bao lâu. Mặc định 250ms. */
   tre?: number;
+  /**
+   * LỆCH NGẪU NHIÊN cộng thêm vào nhịp gộp, 0..jitter ms (mặc định 0 = không lệch).
+   *
+   * VÌ SAO (đo prod 14/10/2026). CPU dashboard + api + db vọt ĐỒNG LOẠT rồi tụt
+   * về ~0 trong vài giây: một tin tới, mọi tab đang mở cùng nổ hẹn 250ms ở CÙNG
+   * tích tắc và cùng hỏi lại. Lệch ngẫu nhiên rải đỉnh ấy ra — tổng số lượt hỏi
+   * không đổi, nhưng không còn dồn vào một giây.
+   */
+  jitter?: number;
+  /**
+   * Trần chờ tính từ tin ĐẦU của một chuỗi tin liền nhau (mặc định: không trần).
+   *
+   * Debounce thuần cứ có tin mới là hẹn lại từ đầu — dòng tin đều đặn dưới 250ms
+   * một tin thì lượt làm mới không bao giờ nổ, màn đứng hình. Có trần thì chờ tối
+   * đa `choToiDa` (+ `jitter`) kể từ tin đầu rồi làm mới, tin còn chảy tiếp cũng vậy.
+   */
+  choToiDa?: number;
+  /** Đồng hồ (ms). Mặc định `Date.now`; test tiêm đồng hồ giả. */
+  bayGio?: () => number;
+  /** Số ngẫu nhiên [0,1). Mặc định `Math.random`; test tiêm số cố định. */
+  rand?: () => number;
 }
 
 export interface Nhip {
@@ -89,7 +110,12 @@ export const TRE_MAC_DINH = 250;
  */
 export function taoNhipLamMoi(cong: CongCuNhip): Nhip {
   const tre = cong.tre ?? TRE_MAC_DINH;
+  const jitter = cong.jitter ?? 0;
+  const bayGio = cong.bayGio ?? Date.now;
+  const rand = cong.rand ?? Math.random;
   let hen: Hen | null = null;
+  // Giờ của tin ĐẦU trong chuỗi đang chờ; chỉ có nghĩa khi `hen !== null`.
+  let dauChuoi = 0;
 
   function huyHen() {
     if (hen !== null) {
@@ -105,23 +131,108 @@ export function taoNhipLamMoi(cong: CongCuNhip): Nhip {
       // mới một lượt bất kể có bỏ lỡ gì hay không. Giữ thêm một cuốn sổ nợ ở
       // đây là giữ một thứ luôn luôn đúng — tức vô dụng.
       if (cong.dangAn()) return;
+      const bay = bayGio();
+      let cho = tre;
+      if (hen === null) {
+        dauChuoi = bay;
+      } else if (cong.choToiDa !== undefined) {
+        const daCho = bay - dauChuoi;
+        // Quá trần thì GIỮ NGUYÊN hẹn đang chạy — hẹn lại là dời nó thêm một
+        // lượt lệch ngẫu nhiên, và dòng tin chảy mãi sẽ dời mãi.
+        if (daCho >= cong.choToiDa) return;
+        cho = Math.min(tre, cong.choToiDa - daCho);
+      }
       huyHen();
+      const lech = jitter > 0 ? Math.floor(rand() * (jitter + 1)) : 0;
       hen = cong.hen(() => {
         hen = null;
         // Kiểm lại lúc nổ: 250ms vừa qua người ta có thể đã chuyển tab.
         if (cong.dangAn()) return;
         cong.lamMoi();
-      }, tre);
+      }, cho + lech);
     },
 
     batKip() {
       if (cong.dangAn()) return;
       // KHÔNG gộp nhịp ở đây. Người ta vừa nhìn vào màn hình; 250ms nữa mới
-      // thấy số đúng là 250ms nhìn vào số sai.
+      // thấy số đúng là 250ms nhìn vào số sai. Cũng không lệch ngẫu nhiên: đây
+      // là một tab vừa được nhìn, không phải mười tab cùng nhận một tin.
       huyHen();
       cong.lamMoi();
     },
 
+    dung: huyHen,
+  };
+}
+
+/**
+ * Nhịp mặc định cho người NGHE TIN (`useNgheBang`, `RealtimeRefresher`): gộp
+ * 250ms, trần 600ms kể từ tin đầu, lệch thêm 0–400ms. Xấu nhất ~1 giây từ lúc có
+ * thay đổi thật tới lúc màn hỏi lại — đủ để người đứng quầy không thấy độ trễ.
+ */
+export const NHIP_NGHE_TIN = { choToiDa: 600, jitter: 400 } as const;
+
+export interface CongCuNoiLai {
+  /** Đóng dòng hỏng và mở dòng mới. */
+  moLai: () => void;
+  hen: (fn: () => void, ms: number) => Hen;
+  huy: (h: Hen) => void;
+  /** Số ngẫu nhiên [0,1). Mặc định `Math.random`. */
+  rand?: () => number;
+  /** Chờ lần đầu (ms). Mặc định 2s. */
+  coSoMs?: number;
+  /** Trần chờ (ms). Mặc định 60s. */
+  tranMs?: number;
+}
+
+export interface NoiLai {
+  /** Dòng vừa hỏng hẳn — hẹn nối lại, mỗi lần hỏng liên tiếp chờ gấp đôi. */
+  loi: () => void;
+  /** Dòng vừa mở được — quên các lần hỏng trước. */
+  thanhCong: () => void;
+  /** Gỡ: huỷ hẹn (tab ẩn, rời màn). */
+  dung: () => void;
+}
+
+/**
+ * Nối lại dòng SSE hỏng HẲN, chờ gấp đôi mỗi lần, có trần, có lệch ngẫu nhiên.
+ *
+ * EventSource chỉ tự nối lại khi mất MẠNG (readyState quay về CONNECTING). Khi máy
+ * chủ trả 4xx/5xx hoặc sai content-type — đúng lúc đang deploy, hay API quá tải
+ * trả 502 — nó BỎ CUỘC (CLOSED) và không nối nữa: màn mất tin tức thời tới lần
+ * đổi tab kế. Hàm này bịt lỗ ấy, mà không quay vòng nối-lại-mỗi-3-giây đúng lúc
+ * máy chủ đang khổ: 2s → 4s → 8s … tối đa 60s, mỗi lần chỉ chờ nửa tới đủ thời
+ * lượng (`rand`) để các máy không nối lại cùng tích tắc.
+ */
+export function taoNoiLai(cong: CongCuNoiLai): NoiLai {
+  const coSo = cong.coSoMs ?? 2_000;
+  const tran = cong.tranMs ?? 60_000;
+  const rand = cong.rand ?? Math.random;
+  let soLanHong = 0;
+  let hen: Hen | null = null;
+
+  function huyHen() {
+    if (hen !== null) {
+      cong.huy(hen);
+      hen = null;
+    }
+  }
+
+  return {
+    loi() {
+      // Đã hẹn rồi thì thôi: `error` có thể bắn liền mấy lần cho cùng một lần hỏng.
+      if (hen !== null) return;
+      const thoiLuong = Math.min(tran, coSo * 2 ** Math.min(soLanHong, 16));
+      soLanHong += 1;
+      const cho = Math.round(thoiLuong / 2 + rand() * (thoiLuong / 2));
+      hen = cong.hen(() => {
+        hen = null;
+        cong.moLai();
+      }, cho);
+    },
+    thanhCong() {
+      soLanHong = 0;
+    },
     dung: huyHen,
   };
 }
@@ -263,6 +374,29 @@ export function taoKhoTrangThai<T>(dau: T): KhoTrangThai<T> {
 
 /** Bản dùng chung cho cả tab. `RealtimeRefresher` là người GHI duy nhất. */
 export const trangThaiDong = taoKhoTrangThai<TrangThaiDong>("dang-noi");
+
+/** Khi dòng SSE đang `song`, nhịp hỏi dự phòng của chuông chỉ hỏi thật nếu đã
+ *  chừng này ms không có lượt hỏi nào (tin tức thời đã lo phần còn lại). */
+export const POLL_DU_PHONG_KHI_SONG_MS = 90_000;
+
+/**
+ * Nhịp hỏi dự phòng (20s) tới hạn — có hỏi thật không?
+ *
+ * VÌ SAO (đo prod 14/10/2026). Chuông thông báo và "ca của tôi" hỏi mỗi 20 giây
+ * ở MỌI tab đang hiện, kể cả khi dòng SSE đang chở tin đúng bảng ấy: 1.239 +
+ * 1.112 lượt trong 30 phút (~9% tải) cho dữ liệu hầu như không đổi. Dòng `song`
+ * thì tin mới tới ngay, nhịp chỉ còn là lưới an toàn nên thưa đi. Dòng không
+ * `song` (đang nối, đã rớt) thì giữ nhịp 20s như cũ — lúc ấy nhịp mới là nguồn tin.
+ *
+ * `daQuaMs`: từ lượt hỏi gần nhất (do bất kỳ nguồn nào) tới giờ.
+ */
+export function canHoiDuPhong(
+  dong: TrangThaiDong,
+  daQuaMs: number,
+  thuaMs: number = POLL_DU_PHONG_KHI_SONG_MS,
+): boolean {
+  return dong !== "song" || daQuaMs >= thuaMs;
+}
 
 /** Lỗi dòng bao lâu mới báo "mất kết nối". EventSource tự nối lại sau ~3 giây;
  *  báo ngay mỗi lần chớp là dạy người ta lờ đi lời báo thật. */

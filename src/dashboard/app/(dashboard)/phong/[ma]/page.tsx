@@ -12,7 +12,6 @@
 
 import { requireNavAccess } from "@/lib/clinic-session";
 
-import LiveBoardSync from "../../LiveBoardSync";
 import PhongDichVu from "./PhongDichVu";
 
 export const dynamic = "force-dynamic";
@@ -29,11 +28,8 @@ export default async function PhongPage({
   const { ma } = await params;
   await requireNavAccess(`/phong/${ma}`);
   return (
-    <>
-      <LiveBoardSync />
-      <main className="page-in p-4 xl:p-6">
-        <PhongDichVu ma={decodeURIComponent(ma)} />
-      </main>
-    </>
+    <main className="page-in p-4 xl:p-6">
+      <PhongDichVu ma={decodeURIComponent(ma)} />
+    </main>
   );
 }

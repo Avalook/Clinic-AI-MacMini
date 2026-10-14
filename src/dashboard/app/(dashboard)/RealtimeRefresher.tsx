@@ -56,18 +56,22 @@
 // Bật HTTP/2 (cần HTTPS + tên miền) sẽ xoá hẳn giới hạn 6 kết nối. Chuyện đó
 // KHÔNG làm phần này thừa: nó cắt việc thừa, không chỉ né một giới hạn.
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import { SU_KIEN_DOI_CA } from "./dung-doi-ca";
 import {
   AN_HAN_ROT_MS,
   moDongTheoHien,
+  NHIP_NGHE_TIN,
   SU_KIEN_BANG,
   taoNhipLamMoi,
+  taoNoiLai,
   trangThaiDong,
+  type Nhip,
 } from "../../lib/nhip-lam-moi";
 import { nhipKhiHien, taoGopBatKip } from "../../lib/nhip-khi-hien";
+import { canDungLaiTrang, laManTuTai } from "../../lib/man-tu-tai";
 
 // Lưới an toàn cho lúc dòng sự kiện rớt. EventSource tự nối lại (trình duyệt
 // lo), nên nhịp này chỉ để phòng trường hợp cả dòng lẫn lần nối lại đều hỏng —
@@ -146,15 +150,28 @@ export default function RealtimeRefresher({
 }) {
   const router = useRouter();
 
+  // Hai nhịp cho effect giờ đổi quyền bên dưới dùng. Qua ref để effect ấy không
+  // phải gỡ-gắn dòng SSE mỗi lần `lamMoiQuyenLuc` đổi.
+  const nhipRef = useRef<{ nhip: Nhip; chuongCa: Nhip } | null>(null);
+
+  // DÒNG SSE KHÔNG PHỤ THUỘC `lamMoiQuyenLuc` (14/10/2026). Prop ấy lấy từ cuộc gọi
+  // `/phan-quyen/toi` ở layout; lúc máy chủ quá tải cuộc gọi hỏng → prop thành
+  // `undefined` → effect cũ gỡ rồi mở lại EventSource đúng lúc máy chủ đang khổ,
+  // và mỗi lần mở lại kéo theo một đợt làm mới.
   useEffect(() => {
     const dangAn = () => document.visibilityState === "hidden";
+    // Đọc route lúc cần, KHÔNG đưa vào deps: đổi trang mà gỡ-gắn lại dòng SSE là
+    // mở lại một kết nối cho mỗi lần bấm menu.
+    const dangOManTuTai = () => laManTuTai(window.location.pathname);
 
-    // Nhịp dựng lại trang.
+    // Nhịp dựng lại trang. Lệch ngẫu nhiên + trần chờ: mười tab nhận cùng một tin
+    // không cùng nổ ở một tích tắc (`NHIP_NGHE_TIN`).
     const nhip = taoNhipLamMoi({
       lamMoi: () => router.refresh(),
       dangAn,
       hen: (fn, ms) => setTimeout(fn, ms),
       huy: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+      ...NHIP_NGHE_TIN,
     });
 
     // CHUÔNG CA TRỰC — cho dữ liệu client-fetch mà router.refresh không với
@@ -166,22 +183,16 @@ export default function RealtimeRefresher({
       hen: (fn, ms) => setTimeout(fn, ms),
       huy: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
     });
-
-    // Máy chủ quyết định giờ đổi quyền; dùng chung nhịp gộp của toàn app.
-    const lucDoiQuyen = lamMoiQuyenLuc ? Date.parse(lamMoiQuyenLuc) : NaN;
-    const timerQuyen = Number.isFinite(lucDoiQuyen) && lucDoiQuyen > Date.now()
-      ? setTimeout(() => {
-          chuongCa.nhan();
-          nhip.nhan();
-        }, Math.min(lucDoiQuyen - Date.now() + 100, 2_147_483_647))
-      : undefined;
+    nhipRef.current = { nhip, chuongCa };
 
     // QUAY LẠI TAB = MỘT LẦN BẮT KỊP, tối đa một lần mỗi 2 giây (30/09/2026).
     // Người lướt A → B → A trong một giây làm A hiện lại hai lần; lần sau được
     // HOÃN tới cuối cửa sổ chứ không vứt — quãng mù dù ngắn vẫn phải bắt kịp.
     const batKip = taoGopBatKip({
       viec: () => {
-        nhip.batKip();
+        // Màn tự tải không dựng lại trang: phần server của nó không có dữ liệu sống,
+        // còn phần client nhận tin `null` ngay dưới đây và tự hỏi lại.
+        if (!dangOManTuTai()) nhip.batKip();
         chuongCa.batKip();
         // Màn tự fetch (chuông, trưởng ca, check-out…) cũng mù suốt quãng ẩn,
         // và router.refresh() không với tới state của chúng. `null` = "không
@@ -207,38 +218,60 @@ export default function RealtimeRefresher({
 
     const goDong = moDongTheoHien({
       moDong: (nhanTin) => {
-        const es = new EventSource("/api/events/stream");
+        // Dòng hỏng HẲN (máy chủ trả 4xx/5xx, sai content-type) thì EventSource bỏ
+        // cuộc và không nối nữa — mình nối lại, chờ gấp đôi mỗi lần, có trần
+        // (`taoNoiLai`). Mất mạng thì trình duyệt tự nối: không viết thêm vòng
+        // thứ hai chạy song song với vòng của nó.
+        let es: EventSource | null = null;
         // TÌNH TRẠNG DÒNG cho các chỉ báo (xem `trangThaiDong`). Lỗi chưa báo
         // ngay: EventSource tự nối lại sau vài giây, và một lần chớp không
         // đáng một dòng chữ vàng "mất kết nối".
         let henRot: ReturnType<typeof setTimeout> | undefined;
-        trangThaiDong.dat("dang-noi");
-        es.addEventListener("open", () => {
-          clearTimeout(henRot);
-          henRot = undefined;
-          trangThaiDong.dat("song");
+        const noiLai = taoNoiLai({
+          moLai: () => mo(true),
+          hen: (fn, ms) => setTimeout(fn, ms),
+          huy: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
         });
-        es.addEventListener("error", () => {
-          if (henRot !== undefined) return;
-          henRot = setTimeout(() => trangThaiDong.dat("rot"), AN_HAN_ROT_MS);
-        });
-        es.addEventListener("change", (ev) => {
-          try {
-            const { t } = JSON.parse((ev as MessageEvent<string>).data) as {
-              t?: string;
-            };
-            nhanTin(t ?? null);
-          } catch {
-            // Tin méo thì cứ làm mới — thà thừa một lượt render còn hơn bỏ sót
-            // một thay đổi và để người dùng nhìn dữ liệu cũ.
-            nhanTin(null);
-          }
-        });
-        // KHÔNG tự nối lại ở đây: EventSource đã tự làm, và viết thêm một vòng
-        // nối lại của mình sẽ chạy song song với vòng của trình duyệt.
+
+        function mo(laNoiLai: boolean) {
+          es?.close();
+          const e = new EventSource("/api/events/stream");
+          es = e;
+          trangThaiDong.dat("dang-noi");
+          e.addEventListener("open", () => {
+            clearTimeout(henRot);
+            henRot = undefined;
+            noiLai.thanhCong();
+            trangThaiDong.dat("song");
+            // Quãng dòng hỏng là quãng mù: bắt kịp một lượt.
+            if (laNoiLai) nhanTin(null);
+          });
+          e.addEventListener("error", () => {
+            if (henRot === undefined) {
+              henRot = setTimeout(() => trangThaiDong.dat("rot"), AN_HAN_ROT_MS);
+            }
+            if (e.readyState === EventSource.CLOSED) noiLai.loi();
+          });
+          e.addEventListener("change", (ev) => {
+            try {
+              const { t } = JSON.parse((ev as MessageEvent<string>).data) as {
+                t?: string;
+              };
+              nhanTin(t ?? null);
+            } catch {
+              // Tin méo thì cứ làm mới — thà thừa một lượt render còn hơn bỏ sót
+              // một thay đổi và để người dùng nhìn dữ liệu cũ.
+              nhanTin(null);
+            }
+          });
+        }
+        mo(false);
+
         return () => {
+          noiLai.dung();
           clearTimeout(henRot);
-          es.close();
+          es?.close();
+          es = null;
           trangThaiDong.dat("dang-noi");
         };
       },
@@ -250,7 +283,7 @@ export default function RealtimeRefresher({
       },
 
       xuLy: (t) => {
-        if (t === null || wanted.has(t)) nhip.nhan();
+        if (canDungLaiTrang(window.location.pathname, t, wanted)) nhip.nhan();
         if (t === "work_roster") chuongCa.nhan();
         // Phát tiếp cho các màn muốn tự xử lý một bảng cụ thể mà KHÔNG dựng lại
         // cả trang (màn Đặt lịch nghe `slot_hold`). Trước đây mỗi màn như vậy
@@ -270,17 +303,36 @@ export default function RealtimeRefresher({
     });
 
     // Tab ẩn thì huỷ hẳn nhịp; hiện lại thì `batKip` ở trên đã làm mới rồi.
-    const goPoll = nhipKhiHien(() => nhip.nhan(), POLL_MS, { hoiKhiHien: false });
+    // Màn tự tải thì không dựng trang theo nhịp: dữ liệu của nó có nhịp riêng.
+    const goPoll = nhipKhiHien(
+      () => {
+        if (!dangOManTuTai()) nhip.nhan();
+      },
+      POLL_MS,
+      { hoiKhiHien: false },
+    );
 
     return () => {
-      clearTimeout(timerQuyen);
+      nhipRef.current = null;
       goPoll();
       goDong();
       batKip.dung();
       nhip.dung();
       chuongCa.dung();
     };
-  }, [router, tables, lamMoiQuyenLuc]);
+  }, [router, tables]);
+
+  // Đến giờ đổi ca / đổi quyền: làm mới menu + phạm vi quầy, kể cả ở màn tự tải.
+  useEffect(() => {
+    const lucDoiQuyen = lamMoiQuyenLuc ? Date.parse(lamMoiQuyenLuc) : NaN;
+    const timerQuyen = Number.isFinite(lucDoiQuyen) && lucDoiQuyen > Date.now()
+      ? setTimeout(() => {
+          nhipRef.current?.chuongCa.nhan();
+          nhipRef.current?.nhip.nhan();
+        }, Math.min(lucDoiQuyen - Date.now() + 100, 2_147_483_647))
+      : undefined;
+    return () => clearTimeout(timerQuyen);
+  }, [lamMoiQuyenLuc]);
 
   return null;
 }

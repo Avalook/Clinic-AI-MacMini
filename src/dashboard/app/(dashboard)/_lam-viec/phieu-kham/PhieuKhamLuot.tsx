@@ -22,9 +22,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import BaoLoiCanhNut from "@/components/ui/BaoLoiCanhNut";
 import Button, { buttonClass } from "@/components/ui/Button";
 import { congTuLuu, type ClinicalCompletionGate } from "@/lib/clinical-completion";
-import { SU_KIEN_BANG, SU_KIEN_THAI_KY } from "@/lib/nhip-lam-moi";
+import { gopDoc } from "@/lib/doc-gop";
+import { SU_KIEN_THAI_KY } from "@/lib/nhip-lam-moi";
 import { LOI_MAT_KET_NOI, nenThuLai, type KetQuaGui, type TrangThaiLuu } from "@/lib/tu-luu";
 import { useTuLuu } from "@/lib/use-tu-luu";
+
+import { useNgheBang } from "../../dung-nghe-bang";
 import {
   donTuDong,
   docKhoi1,
@@ -74,12 +77,15 @@ interface ThamChieuDu extends ThamChieu {
 
 const CHO_LUU_DON_MS = 1500;
 /** Bảng mà đổi thì danh sách chỉ định + kết quả có thể đổi. */
-const BANG_KET_QUA = new Set(["service_order", "form_instance", "tep_ket_qua"]);
+const BANG_KET_QUA = ["service_order", "form_instance", "tep_ket_qua"] as const;
 
 async function doc<T>(url: string): Promise<T | null> {
-  const r = await fetch(url, { cache: "no-store" }).catch(() => null);
-  if (!r || !r.ok) return null;
-  return (await r.json().catch(() => null)) as T | null;
+  // Một lượt đọc một lúc cho mỗi đường dẫn (`lib/doc-gop`) — kết quả dùng chung, chỉ đọc.
+  return gopDoc(url, async () => {
+    const r = await fetch(url, { cache: "no-store" }).catch(() => null);
+    if (!r || !r.ok) return null;
+    return (await r.json().catch(() => null)) as T | null;
+  });
 }
 
 async function ghi(
@@ -238,47 +244,20 @@ export default function PhieuKhamLuot({
   // SỐ LƯỢNG DO QUẦY THU THUỐC ĐIỀN (C14, 01/10/2026): bác sĩ vội để trống, quầy
   // điền lúc thu — màn kê đơn đang mở tự hiện số ấy + nhãn "SL do thu ngân điền".
   // Chỉ gộp dòng bác sĩ còn để trống (`gopSoLuongQuayDien`) — không đè chữ đang gõ.
-  useEffect(() => {
-    let hen: ReturnType<typeof setTimeout> | undefined;
-    const khiBangDoi = (ev: Event) => {
-      const bang = (ev as CustomEvent<string | null>).detail;
-      if (bang !== null && bang !== "prescription") return;
-      if (document.visibilityState === "hidden") return;
-      clearTimeout(hen);
-      hen = setTimeout(() => {
-        void napDon().then((may) => {
-          if (!may) return;
-          const gop = gopSoLuongQuayDien(donRef.current, may);
-          if (gop) datDon(gop);
-        });
-      }, 400);
-    };
-    window.addEventListener(SU_KIEN_BANG, khiBangDoi);
-    return () => {
-      clearTimeout(hen);
-      window.removeEventListener(SU_KIEN_BANG, khiBangDoi);
-    };
-  }, [napDon, datDon]);
+  // Nghe qua `useNgheBang` (gộp nhịp + lệch ngẫu nhiên + một lượt một lúc + tab ẩn
+  // không tải) thay cho bản tự hẹn giờ 400ms — 14/10/2026.
+  useNgheBang(["prescription"], async () => {
+    const may = await napDon();
+    if (!may) return;
+    const gop = gopSoLuongQuayDien(donRef.current, may);
+    if (gop) datDon(gop);
+  });
 
   // KẾT QUẢ TỰ HIỆN (lát 4, 26/09/2026). Màn này tự fetch nên `router.refresh`
   // không với tới — nghe chung dòng tin của RealtimeRefresher (không mở kết nối
   // riêng). CHỈ nạp lại danh sách chỉ định + kết quả (chỉ đọc); phiếu đang gõ
   // KHÔNG nạp lại để không đè chữ người đang nhập.
-  useEffect(() => {
-    let hen: ReturnType<typeof setTimeout> | undefined;
-    const khiBangDoi = (ev: Event) => {
-      const bang = (ev as CustomEvent<string | null>).detail;
-      if (bang !== null && !BANG_KET_QUA.has(bang)) return;
-      if (document.visibilityState === "hidden") return;
-      clearTimeout(hen);
-      hen = setTimeout(() => void napKetQua(), 250);
-    };
-    window.addEventListener(SU_KIEN_BANG, khiBangDoi);
-    return () => {
-      clearTimeout(hen);
-      window.removeEventListener(SU_KIEN_BANG, khiBangDoi);
-    };
-  }, [napKetQua]);
+  useNgheBang(BANG_KET_QUA, napKetQua);
 
   const onLuu = useCallback(
     async (goi: Record<string, ONhap>, keepalive: boolean): Promise<KetQuaLuu> => {

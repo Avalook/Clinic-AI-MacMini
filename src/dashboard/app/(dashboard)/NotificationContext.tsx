@@ -25,7 +25,9 @@ import {
   fmtDayMonth,
   type Shift,
 } from "../../lib/roster";
+import { taoMotLuot } from "../../lib/mot-luot";
 import { nhipKhiHien } from "../../lib/nhip-khi-hien";
+import { canHoiDuPhong, trangThaiDong } from "../../lib/nhip-lam-moi";
 
 const POLL_MS = 20_000;
 const TRANSIENT_MS = 7000;
@@ -126,7 +128,12 @@ export function NotificationProvider({
   // poll gọi lại được nó. Nay `danhDauDaXuLy` cần đúng việc ấy khi máy chủ từ
   // chối: bỏ một dòng khỏi màn rồi mới biết là không đóng được thì phải trả nó
   // về ngay, không đợi 20 giây.
-  const docThongBao = useCallback(async () => {
+  // MỘT LƯỢT MỘT LÚC (14/10/2026): tin `thong_bao`, nhịp dự phòng và lần hiện lại
+  // tab có thể chồng nhau — chồng thì chỉ để lại đúng một lượt nối đuôi.
+  const [motLuotTB] = useState(taoMotLuot);
+  const lanTBCuoi = useRef(0);
+  const docThongBao = useCallback(() => motLuotTB(async () => {
+      lanTBCuoi.current = Date.now();
       try {
         const res = await fetch("/api/thong-bao", { cache: "no-store" });
         if (!res.ok) return;
@@ -168,7 +175,7 @@ export function NotificationProvider({
       } catch {
         /* mạng chập — lần poll sau thử lại */
       }
-  }, []);
+  }), [motLuotTB]);
 
   // TAB ĐANG ẨN THÌ KHÔNG HỎI (21/08/2026).
   //
@@ -185,9 +192,16 @@ export function NotificationProvider({
   // chỉ bỏ lượt.
   useEffect(() => {
     const first = setTimeout(() => void docThongBao(), 0);
-    const goNhip = nhipKhiHien(() => void docThongBao(), POLL_MS, {
-      hoiKhiHien: false,
-    });
+    // Dòng SSE đang sống thì tin `thong_bao` tới ngay; nhịp chỉ là lưới thưa.
+    const goNhip = nhipKhiHien(
+      () => {
+        if (canHoiDuPhong(trangThaiDong.doc(), Date.now() - lanTBCuoi.current)) {
+          void docThongBao();
+        }
+      },
+      POLL_MS,
+      { hoiKhiHien: false },
+    );
     return () => {
       clearTimeout(first);
       goNhip();
@@ -199,7 +213,7 @@ export function NotificationProvider({
   // `thong_bao` bắn tin qua trigger `trg_notify_thong_bao` (migration
   // 20260927000002); tin chỉ có tên bảng + phòng khám, nội dung vẫn đọc qua API
   // có kiểm người nhận. Nhịp 20 giây ở trên giữ làm lưới an toàn.
-  useNgheBang(BANG_THONG_BAO, () => void docThongBao());
+  useNgheBang(BANG_THONG_BAO, docThongBao);
 
   // shownKeys = các quyết định ĐÃ ghi nhận ("id:status"). LƯU localStorage theo
   // staffId để thông báo SỐNG SÓT reload/đổi vai và bắt được cả quyết định xảy ra
@@ -287,7 +301,9 @@ export function NotificationProvider({
       }, TRANSIENT_MS);
     }
 
+    let lanCaCuoi = 0;
     async function poll() {
+      lanCaCuoi = Date.now();
       if (!hydratedOnce) {
         hydrateFromStore();
         hydratedOnce = true;
@@ -318,7 +334,15 @@ export function NotificationProvider({
     // Tab ẩn thì im hẳn (bản trước hỏi /api/roster mỗi 20 giây cả khi ẩn). Hiện
     // lại thì không hỏi ở đây: `RealtimeRefresher` rung `SU_KIEN_DOI_CA` trong
     // lần bắt kịp, và tay nghe `khiDoiCa` ngay dưới đã hỏi lại một lần.
-    const goNhip = nhipKhiHien(() => void poll(), POLL_MS, { hoiKhiHien: false });
+    const goNhip = nhipKhiHien(
+      () => {
+        // Chuông "ca trực vừa đổi" (SSE) đã gọi `poll` ngay khi có tin; nhịp này
+        // chỉ là lưới an toàn nên thưa đi khi dòng đang sống.
+        if (canHoiDuPhong(trangThaiDong.doc(), Date.now() - lanCaCuoi)) void poll();
+      },
+      POLL_MS,
+      { hoiKhiHien: false },
+    );
 
     // QUYẾT ĐỊNH CA của mình: nghe chuông "ca trực vừa đổi" (SU_KIEN_DOI_CA) do
     // RealtimeRefresher rung khi bảng `work_roster` bắn tin qua dòng SSE chung —
@@ -329,7 +353,8 @@ export function NotificationProvider({
     // staff_id — đường ấy chết từ lâu (Postgres từ chối plugin wal2json) nên
     // chuông chỉ sống nhờ nhịp 20 giây. Trang cũng không cần tự refresh ở đây:
     // `work_roster` nằm trong LIVE_TABLES, RealtimeRefresher đã làm việc đó.
-    const khiDoiCa = () => void poll();
+    const motLuotCa = taoMotLuot();
+    const khiDoiCa = () => void motLuotCa(poll);
     window.addEventListener(SU_KIEN_DOI_CA, khiDoiCa);
 
     return () => {

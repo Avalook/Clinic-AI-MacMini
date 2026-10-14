@@ -7,6 +7,7 @@
 // Chỉ là ống dẫn: thứ tự hàng chờ, ai được bấm gì, kết quả phiên khám là gì…
 // đều do máy chủ quyết. Tệp này không chứa luật nào.
 
+import { gopDoc } from "@/lib/doc-gop";
 import { nhanLoi } from "@/lib/loi-api";
 
 export type TrangThaiHang =
@@ -189,16 +190,20 @@ export async function docBang<T>(
   const q = new URLSearchParams(thamSo);
   if (xem) q.set("xem", xem);
   const qs = q.toString();
-  try {
-    const r = await fetch(`/api/luot-kham${qs ? `?${qs}` : ""}`, {
-      cache: "no-store",
-    });
-    const d = await r.json().catch(() => null);
-    if (!r.ok) return { ok: false, loi: nhanLoi(d, "Không đọc được dữ liệu.") };
-    return { ok: true, data: d as T };
-  } catch {
-    return { ok: false, loi: "Mất kết nối tới máy chủ." };
-  }
+  const url = `/api/luot-kham${qs ? `?${qs}` : ""}`;
+  // MỘT LƯỢT ĐỌC MỘT LÚC cho mỗi đường dẫn (14/10/2026, `lib/doc-gop`): nhiều chỗ
+  // trên màn cùng nghe một tin rồi cùng hỏi lại không còn nhân lên thành nhiều
+  // truy vấn song song. Kết quả dùng chung — coi là chỉ-đọc.
+  return gopDoc(url, async (): Promise<KetQuaDoc<T>> => {
+    try {
+      const r = await fetch(url, { cache: "no-store" });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) return { ok: false, loi: nhanLoi(d, "Không đọc được dữ liệu.") };
+      return { ok: true, data: d as T };
+    } catch {
+      return { ok: false, loi: "Mất kết nối tới máy chủ." };
+    }
+  });
 }
 
 // Khoá gửi lại đặt ở MỨC MODULE: gọi Date.now/Math.random trong thân component
