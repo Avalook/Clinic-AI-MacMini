@@ -310,7 +310,7 @@ async def man_nha_thuoc(
         lo_rows = await conn.fetch(
             """
             SELECT id::text, drug_catalog_id::text, batch_code, expiry_date, unit,
-                   quantity_on_hand, location_id::text AS co_so_id,
+                   ma_tem, quantity_on_hand, location_id::text AS co_so_id,
                    public.drug_batch_kha_dung($1::uuid, id) AS co_the_phan_lo
               FROM public.drug_batch
              WHERE clinic_id = $1::uuid AND drug_catalog_id = ANY($2::uuid[])
@@ -636,6 +636,7 @@ def _dong(
                 {
                     "drug_batch_id": b["id"],
                     "batch_code": b["batch_code"],
+                    "ma_tem": b.get("ma_tem"),
                     "expiry_date": b["expiry_date"],
                     "unit": b["unit"],
                     "ton_vat_ly": _so(b["quantity_on_hand"]),

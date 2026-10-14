@@ -248,6 +248,7 @@ class PharmacyService:
                        c.variant,
                        c.group_label,
                        b.batch_code,
+                       b.ma_tem,
                        b.expiry_date,
                        b.quantity_on_hand,
                        b.unit,
