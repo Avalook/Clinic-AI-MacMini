@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 15:35. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 15:54. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -285,11 +285,11 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/pharmacy/inventory` — Kho thuốc
 - page: `src/dashboard/app/(dashboard)/pharmacy/inventory/page.tsx` · quyền: lego `kho_thuoc` (Kho thuốc · mặc định: Dược sĩ (+ lễ tân))
-- thành phần: ChoGanLo.tsx, DanhMucKho.tsx, InventoryBoard.tsx, KhoThuoc.tsx, app/(dashboard)/form-ui.ts, app/(dashboard)/pharmacy/KhachMuaThuoc.tsx, ChuyenKho.tsx, KiemKho.tsx (+5)
-- gọi API Next: `/api/pharmacy/[action]`
+- thành phần: ChoGanLo.tsx, DanhMucKho.tsx, InventoryBoard.tsx, KhoThuoc.tsx, app/(dashboard)/form-ui.ts, app/(dashboard)/pharmacy/KhachMuaThuoc.tsx, ChuyenKho.tsx, KiemKeCa.tsx (+6)
+- gọi API Next: `/api/pharmacy/kiem-ke-ca`, `/api/pharmacy/[action]`
 - gọi thẳng backend (server): `/api/v1/pharmacy/inventory`, `/api/v1/pharmacy/danh-muc`, `/api/v1/pharmacy/cho-gan-lo`, `/api/v1/pharmacy/so-ngay-canh-bao`, `/api/v1/pharmacy/tach-kho-quay`
-- service: lo_thuoc_service.{sua_lo, huy_lo, hoan_huy_lo, so_ngay_canh_bao, +1} · can · PharmacyService.{nhap_lo, cap_phat, tu_choi, chot, +14} · kho_thuoc_service.{tao_phieu_nhap, kiem_kho, chuyen_kho, hoan_tac_chuyen, +4} · BanLeService.{mo_luot, tim_khach, doc} · ma_vach_service.{gan_ma, go_ma, tra_ma, du_lieu_tem} (+2 service)
-- test: test_kho_quay_db.py, test_kho_kiotviet_db.py, test_ma_vach_db.py, test_sua_huy_lo_db.py, test_cua_ngo_ghi_moi.py (+18)
+- service: kiem_ke_ca_service.{nhac_thieu_kiem, danh_sach, mo_phieu} · lo_thuoc_service.{sua_lo, huy_lo, hoan_huy_lo, so_ngay_canh_bao, +1} · can · PharmacyService.{nhap_lo, cap_phat, tu_choi, chot, +14} · kho_thuoc_service.{tao_phieu_nhap, kiem_kho, chuyen_kho, hoan_tac_chuyen, +4} · BanLeService.{mo_luot, tim_khach, doc} (+3 service)
+- test: test_kho_quay_db.py, test_kho_kiotviet_db.py, test_kiem_ke_ca_db.py, test_ma_vach_db.py, test_sua_huy_lo_db.py (+18)
 
 ### `/phong` — Phòng dịch vụ
 - page: `src/dashboard/app/(dashboard)/phong/page.tsx` · quyền: lego `phong` (Phòng dịch vụ · mặc định: BS siêu âm / thủ thuật + Điều dưỡng)
@@ -579,7 +579,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: XuatHoaDonService.xem · xuat_hoa_don_service
 - test: test_xuat_hoa_don_db.py, test_xuat_hoa_don.py
 
-## 2. API Next → backend (122)
+## 2. API Next → backend (125)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -1247,6 +1247,27 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_kho_quay_db.py, src/tests/services/test_kho_kiotviet_db.py, src/tests/services/test_ma_vach_db.py (+20)
 - màn dùng: /pharmacy, /pharmacy/inventory, /print/tem-lo
 
+#### `/api/pharmacy/kiem-ke-ca` · `src/dashboard/app/api/pharmacy/kiem-ke-ca/route.ts`
+- GET `/api/v1/pharmacy/kiem-ke-ca/nhac` → `src/clinicai/api/v1/routers/pharmacy.py:nhac_kiem_ke_ca` → kiem_ke_ca_service.nhac_thieu_kiem
+- GET `/api/v1/pharmacy/kiem-ke-ca` → `src/clinicai/api/v1/routers/pharmacy.py:ds_kiem_ke_ca` → kiem_ke_ca_service.danh_sach
+- POST `/api/v1/pharmacy/kiem-ke-ca` → `src/clinicai/api/v1/routers/pharmacy.py:mo_kiem_ke_ca` → kiem_ke_ca_service.mo_phieu
+- test: src/tests/services/test_kiem_ke_ca_db.py
+- màn dùng: /pharmacy/inventory
+
+#### `/api/pharmacy/kiem-ke-ca/[id]` · `src/dashboard/app/api/pharmacy/kiem-ke-ca/[id]/route.ts`
+- GET `/api/v1/pharmacy/kiem-ke-ca/{phieu_id}` → `src/clinicai/api/v1/routers/pharmacy.py:doc_kiem_ke_ca` → kiem_ke_ca_service.doc_phieu
+- test: src/tests/services/test_kiem_ke_ca_db.py
+- màn dùng: (không màn nào gọi thấy được ?)
+
+#### `/api/pharmacy/kiem-ke-ca/[id]/[buoc]` · `src/dashboard/app/api/pharmacy/kiem-ke-ca/[id]/[buoc]/route.ts`
+- POST `/api/v1/pharmacy/kiem-ke-ca/{phieu_id}/chot` → `src/clinicai/api/v1/routers/pharmacy.py:chot_kiem_ke_ca` → kiem_ke_ca_service.chot
+- POST `/api/v1/pharmacy/kiem-ke-ca/{phieu_id}/dem` → `src/clinicai/api/v1/routers/pharmacy.py:luu_dem_kiem_ke_ca` → kiem_ke_ca_service.luu_dem
+- POST `/api/v1/pharmacy/kiem-ke-ca/{phieu_id}/dieu-chinh` → `src/clinicai/api/v1/routers/pharmacy.py:dieu_chinh_kiem_ke_ca` → kiem_ke_ca_service.dieu_chinh_theo_kiem_ke
+- POST `/api/v1/pharmacy/kiem-ke-ca/{phieu_id}/dung-so-cuoi-ca-truoc` → `src/clinicai/api/v1/routers/pharmacy.py:dung_so_cuoi_ca_truoc` → kiem_ke_ca_service.dung_so_cuoi_ca_truoc
+- POST `/api/v1/pharmacy/kiem-ke-ca/{phieu_id}/hoan-tac-dieu-chinh` → `src/clinicai/api/v1/routers/pharmacy.py:hoan_tac_dieu_chinh_kiem_ke_ca` → kiem_ke_ca_service.hoan_tac_dieu_chinh
+- test: src/tests/services/test_kiem_ke_ca_db.py
+- màn dùng: (không màn nào gọi thấy được ?)
+
 #### `/api/phieu` · `src/dashboard/app/api/phieu/route.ts`
 - [luu] POST `/api/v1/phieu/{phieu_id}/luu` → `src/clinicai/api/v1/routers/phieu.py:luu_nhap` → FormEngineService.luu_nhap
 - [hoan-tat] POST `/api/v1/phieu/{phieu_id}/hoan-tat` → `src/clinicai/api/v1/routers/phieu.py:hoan_tat` → FormEngineService.hoan_tat
@@ -1585,7 +1606,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `kho_thuoc_service` | `src/clinicai/services/kho_thuoc_service.py` | /pharmacy, /pharmacy/inventory, /print/tem-lo |
 | `KHOI` | `src/clinicai/permissions/catalogue.py` | /phan-quyen |
 | `khung` | `src/clinicai/phieu_kham/khung.py` | /ban-kham, /ban-kham/[phong], /patient-list, /pharmacy, /print/ket-qua-luot/[visitId], /print/phieu-kham/[visitId], /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su (+3) |
-| `kiem_ke_ca_service` | `src/clinicai/services/kiem_ke_ca_service.py` | — (chỉ API/worker) |
+| `kiem_ke_ca_service` | `src/clinicai/services/kiem_ke_ca_service.py` | /pharmacy/inventory |
 | `KyNangService` | `src/clinicai/services/ky_nang_service.py` | /phan-quyen |
 | `lab_triage` | `src/clinicai/graphs/lab_triage/__init__.py` | — (chỉ API/worker) |
 | `LabSafetyService` | `src/clinicai/services/lab_safety_service.py` | — (chỉ API/worker) |
