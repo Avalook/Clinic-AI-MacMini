@@ -42,14 +42,27 @@ export default function CameraQuet({
           BarcodeFormat.DATA_MATRIX,
           BarcodeFormat.QR_CODE,
         ]);
-        const doc = new BrowserMultiFormatReader(hints);
+        // Mã vuông (QR / DataMatrix) cần ảnh nét và nhiều điểm ảnh hơn mã vạch 1 chiều:
+        // đọc kỹ (TRY_HARDER), camera SAU, độ phân giải cao, thử lại nhanh.
+        hints.set(DecodeHintType.TRY_HARDER, true);
+        const doc = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 60 });
         if (huy || !video.current) return;
-        const dk = await doc.decodeFromVideoDevice(undefined, video.current, (kq) => {
-          if (kq) {
-            dung?.();
-            onMa(kq.getText());
-          }
-        });
+        const dk = await doc.decodeFromConstraints(
+          {
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            },
+          },
+          video.current,
+          (kq) => {
+            if (kq) {
+              dung?.();
+              onMa(kq.getText());
+            }
+          },
+        );
         dung = () => dk.stop();
         if (huy) dk.stop();
       } catch {
