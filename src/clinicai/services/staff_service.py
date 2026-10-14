@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import datetime
+import json
+from typing import Any
 from uuid import UUID
 
 import asyncpg
@@ -381,11 +383,160 @@ class StaffService:
             effective_primary_department=membership_role,
         )
 
-    async def deactivate(self, staff_id: UUID) -> None:
+    async def ca_truc_tuong_lai(self, staff_id: UUID) -> list[dict[str, Any]]:
+        """Lấy danh sách ca trực tương lai (từ hôm nay trở đi) của nhân viên."""
+        query = """
+            SELECT id::text AS id, work_date, shift, station,
+                   coalesce(status, 'APPROVED') AS status
+            FROM public.work_roster
+            WHERE clinic_id = $1 AND staff_id = $2
+              AND work_date >= CURRENT_DATE
+            ORDER BY work_date, shift;
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query, self._clinic_id, staff_id)
+            return [
+                {
+                    "id": str(r["id"]),
+                    "work_date": r["work_date"].isoformat(),
+                    "shift": r["shift"],
+                    "station": r["station"],
+                    "status": r["status"],
+                }
+                for r in rows
+            ]
+
+    async def deactivate(
+        self, staff_id: UUID, *, go_ca_truc: bool = False
+    ) -> dict[str, Any]:
         """Deactivate only the acting clinic's membership."""
+        if self._actor is not None and str(self._actor.staff_id) == str(staff_id):
+            raise ValidationError("Không thể tự khoá tài khoản của chính mình.")
+
         query = """
             UPDATE clinic_membership
             SET is_active = FALSE, updated_at = $2
+            WHERE clinic_id = $1 AND staff_id = $3
+            RETURNING staff_id;
+        """
+        so_ca_go = 0
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    query,
+                    self._clinic_id,
+                    datetime.datetime.now(tz=datetime.timezone.utc),
+                    staff_id,
+                )
+                if row is None:
+                    raise ResourceNotFoundError(f"Staff {staff_id} not found")
+
+                if go_ca_truc:
+                    ca_rows = await conn.fetch(
+                        """
+                        SELECT id, work_date, shift, station, staff_id
+                        FROM public.work_roster
+                        WHERE clinic_id = $1 AND staff_id = $2
+                          AND work_date >= CURRENT_DATE
+                        """,
+                        self._clinic_id,
+                        staff_id,
+                    )
+                    from clinicai.services.config_service import (
+                        RosterService,
+                        la_ca_kham_bac_si,
+                    )
+
+                    roster_service = RosterService(self._pool)
+                    for ca in ca_rows:
+                        roster_id = str(ca["id"])
+                        await conn.execute(
+                            "DELETE FROM public.work_roster "
+                            "WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                            ca["id"],
+                            self._clinic_id,
+                        )
+                        actor_staff_id = (
+                            str(self._actor.staff_id) if self._actor else str(staff_id)
+                        )
+                        actor_role = (
+                            self._actor.role.value if self._actor else "MANAGEMENT"
+                        )
+                        actor_vai_goc = (
+                            self._actor.vai_goc.value
+                            if self._actor
+                            else "MANAGEMENT"
+                        )
+                        await conn.execute(
+                            """
+                            INSERT INTO public.event_log
+                                (clinic_id, event_type, aggregate_type, aggregate_id,
+                                 payload, metadata, source, event_published)
+                            VALUES ($1::uuid, 'roster.shift_removed', 'work_roster',
+                                    $2::uuid, $3::jsonb, $4::jsonb, 'api:staff',
+                                    FALSE)
+                            """,
+                            self._clinic_id,
+                            ca["id"],
+                            json.dumps(
+                                {
+                                    "staff_id": str(staff_id),
+                                    "work_date": ca["work_date"].isoformat(),
+                                    "station": ca["station"],
+                                    "ly_do": "khoa_nghi_viec",
+                                }
+                            ),
+                            json.dumps(
+                                {
+                                    "clinic_role": actor_role,
+                                    "vai_tai_khoan": actor_vai_goc,
+                                    "clinic_staff_id": actor_staff_id,
+                                    "origin": "api:staff",
+                                }
+                            ),
+                        )
+                        if self._actor and la_ca_kham_bac_si(ca["station"]):
+                            await roster_service._go_lich_ngoai_ca(
+                                conn,
+                                identity=self._actor,
+                                staff_id=str(staff_id),
+                                work_date=ca["work_date"],
+                                loai_tru_id=roster_id,
+                                dry_run=False,
+                                ly_do="ca_truc_bi_go_do_khoa_nghi_viec",
+                            )
+                        so_ca_go += 1
+
+                await self._deactivate_global_if_orphaned(conn, staff_id)
+                await giu_nguoi_cap_quyen(conn, str(self._clinic_id))
+                await self._audit(
+                    conn,
+                    event_type="staff.deactivated",
+                    staff_id=str(staff_id),
+                    payload={
+                        "staff_id": str(staff_id),
+                        "clinic_id": str(self._clinic_id),
+                        "go_ca_truc": go_ca_truc,
+                        "so_ca_go": so_ca_go,
+                    },
+                )
+
+        # Người vừa bị gỡ khỏi phòng khám phải mất quyền NGAY, không phải sau TTL.
+        invalidate_identity_cache()
+
+        logger.info(
+            "staff_deactivated",
+            staff_id=str(staff_id),
+            clinic_id=str(self._clinic_id),
+            so_ca_go=so_ca_go,
+        )
+        return {"ok": True, "so_ca_go": so_ca_go}
+
+    async def activate(self, staff_id: UUID) -> dict[str, Any]:
+        """Activate the acting clinic's membership and global staff record."""
+        query = """
+            UPDATE clinic_membership
+            SET is_active = TRUE, updated_at = $2
             WHERE clinic_id = $1 AND staff_id = $3
             RETURNING staff_id;
         """
@@ -397,30 +548,35 @@ class StaffService:
                     datetime.datetime.now(tz=datetime.timezone.utc),
                     staff_id,
                 )
-                if row is not None:
-                    await self._deactivate_global_if_orphaned(conn, staff_id)
-                    await giu_nguoi_cap_quyen(conn, str(self._clinic_id))
-                    await self._audit(
-                        conn,
-                        event_type="staff.deactivated",
-                        staff_id=str(staff_id),
-                        payload={
-                            "staff_id": str(staff_id),
-                            "clinic_id": str(self._clinic_id),
-                        },
-                    )
+                if row is None:
+                    raise ResourceNotFoundError(f"Staff {staff_id} not found")
 
-        if row is None:
-            raise ResourceNotFoundError(f"Staff {staff_id} not found")
+                await conn.execute(
+                    """
+                    UPDATE staff
+                    SET is_active = TRUE, updated_at = NOW()
+                    WHERE id = $1
+                    """,
+                    staff_id,
+                )
+                await self._audit(
+                    conn,
+                    event_type="staff.activated",
+                    staff_id=str(staff_id),
+                    payload={
+                        "staff_id": str(staff_id),
+                        "clinic_id": str(self._clinic_id),
+                    },
+                )
 
-        # Người vừa bị gỡ khỏi phòng khám phải mất quyền NGAY, không phải sau TTL.
         invalidate_identity_cache()
 
         logger.info(
-            "staff_deactivated",
+            "staff_activated",
             staff_id=str(staff_id),
             clinic_id=str(self._clinic_id),
         )
+        return {"ok": True}
 
     @staticmethod
     async def _deactivate_global_if_orphaned(

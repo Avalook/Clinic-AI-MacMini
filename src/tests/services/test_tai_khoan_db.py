@@ -249,3 +249,213 @@ async def test_khong_co_quyen_account_manage_thi_403(
     )
     assert r.status_code == 403
     assert (await _khoa(pool, sid))["auth_user_id"] == uid
+
+
+@pytest.mark.asyncio
+async def test_tu_thu_hoi_tai_khoan_bi_chan(
+    pool: asyncpg.Pool, http: httpx.AsyncClient
+) -> None:
+    """Chặn tự thu hồi tài khoản của chính mình."""
+    ql = await _quan_ly(pool, ["nhan_su"])
+    HIEN_TAI["ai"] = ql
+    async with pool.acquire() as conn:
+        # Nối tài khoản cho chính QL
+        uid = ql.auth_user_id
+        await conn.execute("INSERT INTO auth.users (id) VALUES ($1::uuid)", uid)
+        await conn.execute(
+            "UPDATE staff SET auth_user_id = $1::uuid WHERE id = $2::uuid",
+            uid,
+            ql.staff_id,
+        )
+
+    r = await http.post(
+        f"/api/v1/staff/{ql.staff_id}/tai-khoan/thu-hoi",
+        json={"auth_user_id": uid},
+    )
+    assert r.status_code == 409
+    assert "Không thể tự thu hồi tài khoản của chính mình" in r.text
+
+
+@pytest.mark.asyncio
+async def test_tu_khoa_chinh_minh_bi_chan(
+    pool: asyncpg.Pool, http: httpx.AsyncClient
+) -> None:
+    """Chặn tự khoá tài khoản của chính mình."""
+    ql = await _quan_ly(pool, ["nhan_su"])
+    HIEN_TAI["ai"] = ql
+
+    r = await http.post(
+        f"/api/v1/staff/{ql.staff_id}/khoa-nghi-viec",
+        json={"go_ca_truc": False},
+    )
+    assert r.status_code == 422
+    assert "Không thể tự khoá tài khoản của chính mình" in r.text
+
+
+@pytest.mark.asyncio
+async def test_khoa_nguoi_cap_quyen_cuoi_cung_bi_chan(
+    pool: asyncpg.Pool, http: httpx.AsyncClient
+) -> None:
+    """Chặn khoá người cuối cùng còn quyền cấp quyền trong phòng khám."""
+    ql = await _quan_ly(pool, ["nhan_su"])
+    HIEN_TAI["ai"] = ql
+
+    async with pool.acquire() as conn:
+        # Tạo nhân viên khác và là người DUY NHẤT có permission.manage
+        sid, _ = await _nhan_vien(conn, noi=False)
+        # Thu hết permission.manage của mọi người khác trong phòng khám
+        await conn.execute(
+            "DELETE FROM capability_grant "
+            "WHERE clinic_id = $1::uuid AND capability = 'permission.manage'",
+            CLINIC,
+        )
+        # Cấp permission.manage duy nhất cho sid
+        await conn.execute(
+            "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
+            " VALUES ($1::uuid, $2::uuid, 'permission.manage', 'nhan_su')",
+            CLINIC,
+            sid,
+        )
+        cache.quen(CLINIC)
+
+    r = await http.post(
+        f"/api/v1/staff/{sid}/khoa-nghi-viec",
+        json={"go_ca_truc": False},
+    )
+    assert r.status_code == 409
+    assert "ít nhất một người" in r.text
+
+
+@pytest.mark.asyncio
+async def test_khoa_nghi_viec_va_mo_lai(
+    pool: asyncpg.Pool, http: httpx.AsyncClient
+) -> None:
+    """Khoá & nghỉ việc nhân sự, sau đó mở lại thành công."""
+    HIEN_TAI["ai"] = await _quan_ly(pool, ["nhan_su"])
+    async with pool.acquire() as conn:
+        sid, uid = await _nhan_vien(conn)
+
+    # 1. Khoá
+    r = await http.post(
+        f"/api/v1/staff/{sid}/khoa-nghi-viec",
+        json={"go_ca_truc": False},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["ok"] is True
+
+    # Kiểm tra trạng thái trong DB
+    async with pool.acquire() as conn:
+        m_active = await conn.fetchval(
+            "SELECT is_active FROM clinic_membership "
+            "WHERE clinic_id = $1::uuid AND staff_id = $2::uuid",
+            CLINIC,
+            sid,
+        )
+        s_active = await conn.fetchval(
+            "SELECT is_active FROM staff WHERE id = $1::uuid",
+            sid,
+        )
+        assert m_active is False
+        assert s_active is False
+
+    # 2. Mở lại
+    r = await http.post(f"/api/v1/staff/{sid}/mo-lai")
+    assert r.status_code == 200, r.text
+    assert r.json()["ok"] is True
+
+    # Kiểm tra trạng thái đã bật lại
+    async with pool.acquire() as conn:
+        m_active = await conn.fetchval(
+            "SELECT is_active FROM clinic_membership "
+            "WHERE clinic_id = $1::uuid AND staff_id = $2::uuid",
+            CLINIC,
+            sid,
+        )
+        s_active = await conn.fetchval(
+            "SELECT is_active FROM staff WHERE id = $1::uuid",
+            sid,
+        )
+        assert m_active is True
+        assert s_active is True
+
+
+@pytest.mark.asyncio
+async def test_khoa_nghi_viec_go_ca_truc_tuong_lai(
+    pool: asyncpg.Pool, http: httpx.AsyncClient
+) -> None:
+    """Khoá nhân viên và chọn gỡ ca trực tương lai."""
+    HIEN_TAI["ai"] = await _quan_ly(pool, ["nhan_su"])
+    async with pool.acquire() as conn:
+        sid, uid = await _nhan_vien(conn)
+        # Thêm ca trực tương lai vào work_roster
+        await conn.execute(
+            """
+            INSERT INTO public.work_roster
+                (clinic_id, week_start, work_date, shift, station,
+                 staff_id, staff_name, status)
+            VALUES
+                ($1::uuid, CURRENT_DATE, CURRENT_DATE + interval '1 day',
+                 'SANG', 'T1_LETAN', $2::uuid, 'Nhân viên test', 'APPROVED')
+            """,
+            CLINIC,
+            sid,
+        )
+
+    # Kiểm tra ca trực tương lai qua endpoint
+    r = await http.get(f"/api/v1/staff/{sid}/ca-truc-tuong-lai")
+    assert r.status_code == 200
+    shifts = r.json()
+    assert len(shifts) >= 1
+
+    # Khoá với go_ca_truc = True
+    r = await http.post(
+        f"/api/v1/staff/{sid}/khoa-nghi-viec",
+        json={"go_ca_truc": True},
+    )
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+    assert r.json()["so_ca_go"] >= 1
+
+    # Ca trực tương lai đã biến mất khỏi work_roster
+    async with pool.acquire() as conn:
+        con_ca = await conn.fetchval(
+            "SELECT COUNT(*) FROM public.work_roster "
+            "WHERE clinic_id = $1::uuid AND staff_id = $2::uuid "
+            "  AND work_date >= CURRENT_DATE",
+            CLINIC,
+            sid,
+        )
+        assert con_ca == 0
+        # Có sự kiện roster.shift_removed trong event_log
+        da_ghi = await conn.fetchval(
+            "SELECT COUNT(*) FROM public.event_log "
+            "WHERE clinic_id = $1::uuid AND event_type = 'roster.shift_removed' "
+            "  AND payload->>'staff_id' = $2",
+            CLINIC,
+            sid,
+        )
+        assert da_ghi >= 1
+
+
+@pytest.mark.asyncio
+async def test_ghi_nhat_ky_doi_mat_khau_ca_nhan(
+    pool: asyncpg.Pool, http: httpx.AsyncClient
+) -> None:
+    """Nhân sự bất kỳ tự đổi mật khẩu cá nhân thành công ghi nhật ký."""
+    HIEN_TAI["ai"] = ql = await _quan_ly(pool, [])
+    r = await http.post("/api/v1/staff/nhat-ky-doi-mat-khau-ca-nhan")
+    assert r.status_code == 201
+    assert r.json()["ok"] is True
+
+    # Kiểm tra event_log
+    async with pool.acquire() as conn:
+        da_ghi = await conn.fetchval(
+            "SELECT COUNT(*) FROM public.event_log "
+            "WHERE clinic_id = $1::uuid "
+            "  AND event_type = 'staff.account_doi_mat_khau_ca_nhan' "
+            "  AND aggregate_id = $2",
+            CLINIC,
+            ql.staff_id,
+        )
+        assert da_ghi >= 1
+

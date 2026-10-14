@@ -29,6 +29,7 @@ KHONG_TIM_THAY = "Nhân viên không tồn tại trong phòng khám hiện tại
 DA_CO_TAI_KHOAN = "Nhân viên này đã được nối với tài khoản khác."
 CHUA_CO_TAI_KHOAN = "Nhân viên này chưa có tài khoản đăng nhập."
 DA_DOI = "Tài khoản đã thay đổi; tải lại trang rồi thử lại."
+KHONG_THE_TU_THU_HOI = "Không thể tự thu hồi tài khoản của chính mình."
 
 # Nhân viên của phòng khám người gọi. `staff` không có clinic_id — phạm vi đi
 # qua clinic_membership còn hiệu lực (cùng luật route Next cũ dùng).
@@ -124,6 +125,11 @@ class TaiKhoanService:
         `auth_user_id` là tài khoản màn hình đang thấy: khác hiện tại (ai đó vừa
         gỡ/tạo lại ở tab khác) thì 409, không gỡ nhầm tài khoản mới.
         """
+        if str(staff_id) == str(self._ai.staff_id) or (
+            self._ai.auth_user_id and str(auth_user_id) == str(self._ai.auth_user_id)
+        ):
+            raise ConflictError(KHONG_THE_TU_THU_HOI)
+
         async with self._pool.acquire() as conn, conn.transaction():
             row = await conn.fetchrow(
                 f"""

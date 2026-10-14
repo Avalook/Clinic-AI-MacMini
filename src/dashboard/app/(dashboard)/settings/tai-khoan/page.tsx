@@ -121,14 +121,27 @@ export default async function ThietLapTaiKhoanPage() {
               )}
               {/* Nút thao tác: quản lý tài khoản hoặc tạo tài khoản */}
               {r.auth_user_id ? (
-                <AccountActions staffId={r.id} staffName={r.full_name} />
+                <AccountActions
+                  staffId={r.id}
+                  staffName={r.full_name}
+                  isActive={r.is_active}
+                  hasAuthUser={true}
+                />
               ) : (
-                <Link
-                  href="/settings/new-user"
-                  className="text-xs text-brand-600 hover:underline"
-                >
-                  Tạo tài khoản
-                </Link>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`/settings/new-user?staff=${r.id}`}
+                    className="text-xs text-brand-600 hover:underline"
+                  >
+                    Tạo tài khoản
+                  </Link>
+                  <AccountActions
+                    staffId={r.id}
+                    staffName={r.full_name}
+                    isActive={r.is_active}
+                    hasAuthUser={false}
+                  />
+                </div>
               )}
             </div>
           </li>
@@ -211,14 +224,27 @@ export default async function ThietLapTaiKhoanPage() {
                 {/* Cột thao tác */}
                 <td className={TD}>
                   {r.auth_user_id ? (
-                    <AccountActions staffId={r.id} staffName={r.full_name} />
+                    <AccountActions
+                      staffId={r.id}
+                      staffName={r.full_name}
+                      isActive={r.is_active}
+                      hasAuthUser={true}
+                    />
                   ) : (
-                    <Link
-                      href="/settings/new-user"
-                      className="text-xs text-brand-600 hover:underline"
-                    >
-                      Tạo tài khoản
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/settings/new-user?staff=${r.id}`}
+                        className="text-xs text-brand-600 hover:underline"
+                      >
+                        Tạo tài khoản
+                      </Link>
+                      <AccountActions
+                        staffId={r.id}
+                        staffName={r.full_name}
+                        isActive={r.is_active}
+                        hasAuthUser={false}
+                      />
+                    </div>
                   )}
                 </td>
               </tr>

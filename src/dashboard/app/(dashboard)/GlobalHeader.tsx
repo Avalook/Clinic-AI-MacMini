@@ -10,6 +10,7 @@ import {
   ChevronRight,
   CheckCircle2,
   AlertCircle,
+  KeyRound,
   LogOut,
   MapPin,
 } from "lucide-react";
@@ -21,6 +22,7 @@ import { NAV, navLabelFor } from "./nav-items";
 import { NHOM_CONG_VIEC } from "./nav-items";
 import TimNhanh from "./TimNhanh";
 import { useNotifications } from "./NotificationContext";
+import { DoiMatKhauModal } from "./DoiMatKhauModal";
 
 interface GlobalHeaderProps {
   identity: string;
@@ -94,6 +96,7 @@ export default function GlobalHeader({
   const [notifOpen, setNotifOpen] = useState(false);
   // Thẻ tên → ô nhỏ có nút Thoát (27/09/2026, đợt 3).
   const [theTenOpen, setTheTenOpen] = useState(false);
+  const [doiMatKhauOpen, setDoiMatKhauOpen] = useState(false);
 
   // Click Outside Listener
   useEffect(() => {
@@ -617,16 +620,41 @@ export default function GlobalHeader({
               <p className="truncate text-emph font-semibold text-ink">{staffName}</p>
               <p className="text-meta text-ink-muted">{ROLE_LABEL[role]}</p>
               <p className="mt-0.5 text-meta text-ink-muted">{identity}</p>
-              <form action={leaveAction} className="mt-3 border-t border-line pt-3">
-                <Button type="submit" variant="secondary" size="lg" className="w-full">
-                  <LogOut size={16} aria-hidden />
-                  Thoát
+              <div className="mt-3 space-y-2 border-t border-line pt-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="lg"
+                  className="w-full justify-start gap-2"
+                  onClick={() => {
+                    setTheTenOpen(false);
+                    setDoiMatKhauOpen(true);
+                  }}
+                >
+                  <KeyRound size={16} aria-hidden />
+                  Đổi mật khẩu
                 </Button>
-              </form>
+                <form action={leaveAction}>
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    size="lg"
+                    className="w-full justify-start gap-2"
+                  >
+                    <LogOut size={16} aria-hidden />
+                    Thoát
+                  </Button>
+                </form>
+              </div>
             </div>
           )}
         </div>
       </div>
+      <DoiMatKhauModal
+        open={doiMatKhauOpen}
+        onClose={() => setDoiMatKhauOpen(false)}
+        staffName={staffName}
+      />
     </header>
   );
 }
