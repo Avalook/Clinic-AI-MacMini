@@ -16,7 +16,7 @@ import asyncpg
 from fastapi import APIRouter, Depends
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from clinicai.api.idempotency import (
     IdempotencyGuard,
@@ -26,6 +26,7 @@ from clinicai.api.idempotency import (
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.phieu_kham.khung import doc_ngay
 from clinicai.services import ban_thuoc_service, kho_thuoc_service
 from clinicai.services.ban_le_service import QUYEN_MO, BanLeService
 from clinicai.services.pharmacy_service import GIU_NGUYEN, PharmacyService
@@ -404,12 +405,17 @@ async def kiem_kho(
 class NhapLoRequest(BaseModel):
     drug_catalog_id: UUID
     so_luong: float = Field(gt=0)
-    # Cả ba BẮT BUỘC: `drug_batch` khai NOT NULL. Xem PharmacyService.nhap_lo.
+    # Số lô và đơn vị bắt buộc; hạn có thể bổ sung sau.
     batch_code: str = Field(min_length=1, max_length=100)
-    expiry_date: date
+    expiry_date: date | None = None
     unit: str = Field(min_length=1, max_length=50)
     cost_price: float | None = Field(default=None, ge=0)
     ly_do: str | None = Field(default=None, max_length=500)
+
+    @field_validator("expiry_date", mode="before")
+    @classmethod
+    def doc_han_dung(cls, value: Any) -> date | None:
+        return value if isinstance(value, date) else doc_ngay(value)
 
 
 @router.post("/pharmacy/receive", status_code=201)
