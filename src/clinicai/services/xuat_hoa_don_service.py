@@ -28,6 +28,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.danh_sach_hoa_don_service import DanhSachHoaDonService
+from clinicai.services.hoa_don_cong_ty_service import doc_cong_ty_cho_phieu
 from clinicai.services.hoa_don_excel import HINH_THUC
 from clinicai.services.thue_gtgt import (
     CHE_DO_MOT,
@@ -78,13 +79,6 @@ GOI_Y: tuple[tuple[str, str], ...] = (
     ("P1:P1100", "Nhập Đơn giá\n"),
     ("Q1:Q1100", "Nhập Thành tiền\n"),
 )
-
-_THEM_CONG_TY = """
-SELECT payment_cycle_id::text AS id,
- ten_cong_ty, dia_chi_cong_ty, ma_so_thue, email_nhan_hd
-FROM public.hoa_don_cong_ty
-WHERE clinic_id=$1::uuid AND payment_cycle_id=ANY($2::uuid[])
-"""
 
 _THEM_DONG = """
 SELECT bl.id::text id, bl.unit, bl.source_type,
@@ -248,25 +242,39 @@ def dung_hoa_don(
             )
         if cho_hoan:
             ghi_chu.append(f"Đang chờ hoàn {cho_hoan:,}đ".replace(",", "."))
-        # HĐ công ty: điền C/D/E từ bảng hoa_don_cong_ty; H/I (SĐT/CCCD) để trống.
+        # HĐ công ty (Q15/Q19): đơn vị mua = công ty; CHỈ địa chỉ + email của công
+        # ty — không đưa SĐT / CCCD / địa chỉ / email cá nhân của khách vào file.
+        # Ô "người mua" để trống trừ khi người ghi có điền.
         la_hd_cong_ty = bool(ct.get("ten_cong_ty"))
         out.append(
             {
                 "stt": len(out) + 1,
+                "payment_cycle_id": p["id"],
                 "ma_phieu": p.get("ma"),
                 "kind": p.get("kind"),
                 "ngay": _ngay(p.get("thu_luc")),
                 "ten_khach": k.get("ten") or "",
                 "ma_bn": k.get("ma_bn"),
-                "dia_chi": kh.get("dia_chi") or "",
-                "ma_so_thue": ct.get("ma_so_thue") or "",
-                "nguoi_mua": k.get("ten") or "",
-                "email": kh.get("email") or "",
-                # HĐ công ty: cột C/D/E từ bảng; H/I trống (không ghi SĐT/CCCD)
+                "la_hd_cong_ty": la_hd_cong_ty,
                 "ten_cong_ty": ct.get("ten_cong_ty") or "",
                 "dia_chi_cong_ty": ct.get("dia_chi_cong_ty") or "",
-                "la_hd_cong_ty": la_hd_cong_ty,
-                "so_dien_thoai": "" if la_hd_cong_ty else (k.get("so_dien_thoai") or ""),
+                "dia_chi": (
+                    ct.get("dia_chi_cong_ty") or ""
+                    if la_hd_cong_ty
+                    else kh.get("dia_chi") or ""
+                ),
+                "ma_so_thue": ct.get("ma_so_thue") or "",
+                "nguoi_mua": (
+                    ct.get("nguoi_mua") or "" if la_hd_cong_ty else k.get("ten") or ""
+                ),
+                "email": (
+                    ct.get("email_nhan_hd") or ""
+                    if la_hd_cong_ty
+                    else kh.get("email") or ""
+                ),
+                "so_dien_thoai": ""
+                if la_hd_cong_ty
+                else (k.get("so_dien_thoai") or ""),
                 "cccd": "" if la_hd_cong_ty else (kh.get("cccd") or ""),
                 "hinh_thuc": HINH_THUC.get(str(p.get("hinh_thuc") or ""), ""),
                 "dong": dong,
@@ -308,19 +316,19 @@ def xlsx_misa(hoa_don: Sequence[Mapping[str, Any]]) -> bytes:
     for hd in hoa_don:
         for i, d in enumerate(hd["dong"]):
             dau = i == 0
-            # HĐ công ty: C=tên cty, D=địa chỉ cty, E=MST; H/I để trống (không ghi SĐT/CCCD).
+            # HĐ công ty: C=tên cty, D=địa chỉ cty, E=MST, H/I (SĐT/CCCD) trống —
+            # `dung_hoa_don` đã chọn đúng giá trị cho từng loại, ở đây chỉ chép.
             la_ct = hd.get("la_hd_cong_ty")
             van_ban = {
                 1: str(hd["stt"]),
                 2: hd["ngay"],
                 3: hd["ten_cong_ty"] if la_ct else hd["ten_khach"],
-                4: hd["dia_chi_cong_ty"] if la_ct else hd["dia_chi"],
-                5: hd["ma_so_thue"] if la_ct else "",
+                4: hd["dia_chi"],
+                5: hd["ma_so_thue"],
                 6: hd["nguoi_mua"],
                 7: hd["email"],
-                # cột 8 = SĐT, 9 = CCCD — trống với HĐ công ty
-                8: "" if la_ct else hd.get("so_dien_thoai", ""),
-                9: "" if la_ct else hd.get("cccd", ""),
+                8: hd.get("so_dien_thoai", ""),
+                9: hd.get("cccd", ""),
                 10: hd["hinh_thuc"],
             }
             for c in range(1, 18):
@@ -387,10 +395,7 @@ class XuatHoaDonService:
                 r["nhom"]: r["thue_suat_ma"]
                 for r in await conn.fetch(_THUE_NHOM, identity.clinic_id)
             }
-            them_cong_ty = {
-                r["id"]: dict(r)
-                for r in await conn.fetch(_THEM_CONG_TY, identity.clinic_id, ids)
-            }
+            them_cong_ty = await doc_cong_ty_cho_phieu(conn, identity.clinic_id, ids)
         goc = dung_hoa_don(
             data["khach"], them_dong, them_khach, thue_nhom, ghi_de, them_cong_ty
         )

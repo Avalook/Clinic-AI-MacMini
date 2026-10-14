@@ -202,8 +202,10 @@ BEGIN
     -- chiều theo lượt — CHỈ SELECT).
     -- 112 → 113 (14/10/2026): thue_suat_nhom (20261014155000, thuế GTGT theo
     -- nhóm cho kế toán — CHỈ SELECT).
-    IF scoped_count <> 113 THEN
-        RAISE EXCEPTION 'expected 113 tenant-scoped read policies, found %', scoped_count;
+    -- 113 → 116 (14/10/2026): khach_cong_ty + hoa_don_cong_ty +
+    -- hoa_don_cong_ty_lich_su (20261014156000, hoá đơn công ty — CHỈ SELECT).
+    IF scoped_count <> 116 THEN
+        RAISE EXCEPTION 'expected 116 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

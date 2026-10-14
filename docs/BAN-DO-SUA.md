@@ -398,6 +398,16 @@ Xuất: `S/xuat_hoa_don_service.py::dung_hoa_don` gán thuế suất dòng (sử
 `xlsx_misa` ghi K (thuế suất) / L (tiền thuế). Query `/hoa-don/xuat?che_do&ghi_giam_gia&ghi_de={"id dòng":"mã"}`.
 Chưa đặt thuế → xuất y như cũ. Test `T/unit/test_thue_gtgt.py` (bảng số tay), `T/services/test_thue_gtgt_db.py`.
 
+**Hoá đơn công ty (G5c, 14/10)** — khách lấy hoá đơn về công ty: tên + địa chỉ + MST (+ email nhận HĐ). Lưu THEO HOÁ ĐƠN
+(`hoa_don_cong_ty`, bản chụp theo `payment_cycle`) và ghi vào HỒ SƠ khách (`khach_cong_ty`, nhiều công ty/khách, dùng gần nhất
+đứng đầu = điền sẵn lần trước); sửa hồ sơ KHÔNG đổi bản chụp; sửa/bỏ bản chụp ghi `hoa_don_cong_ty_lich_su`; gỡ khỏi hồ sơ = ẩn
+(`an_luc`), bỏ chọn = `bo_luc` (hoàn tác = ghi lại). Migration `20261014156000_hoa_don_cong_ty.sql`. Luật: `S/hoa_don_cong_ty_service.py`
+(MST sai dạng chỉ NHẮC — `nhac_mst`, vẫn lưu; ghi rác 422, đọc rác → rỗng) ← `R/hoa_don_cong_ty.py` (`/hoa-don/cong-ty/khach/{id}`,
+`/hoa-don/cong-ty/an/{id}`, `/hoa-don/cong-ty/phieu/{payment_cycle_id}` (+ `/lich-su`)). Cửa = một trong các quyền
+`QUYEN_CONG_TY` (Lễ tân/CSKH/Thu ngân/Kế toán — lego, không vai). Xuất: `S/xuat_hoa_don_service.py::dung_hoa_don` — hoá đơn công ty
+→ C=tên cty, D=địa chỉ cty, E=MST, F=người mua (trống nếu không điền), G=email cty, H/I trống (không SĐT/CCCD/địa chỉ/email cá nhân);
+hoá đơn khác giữ nguyên. Test `T/unit/test_hoa_don_cong_ty.py`, `T/services/test_hoa_don_cong_ty_db.py` (có bấm ngẫu nhiên 40×10).
+
 Nút thu dùng chung `NhomThu` ở 2 quầy và Bán lẻ đổi thành **Tạo bill**; tiền mặt vẫn ghi thu,
 chuyển khoản vẫn chờ xác minh, nút xác minh **Đã nhận tiền** giữ nguyên.
 
