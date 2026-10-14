@@ -37,14 +37,19 @@ from clinicai.services.report_access_service import (
     ngay_hop_le,
 )
 
-#: Khoá CÒN HIỆU LỰC phủ thời điểm ``$3`` ở cơ sở ``$2`` mà chốt TRƯỚC ``$4`` —
-#: dùng chung cho báo cáo (huỷ sau chốt) và test.
+#: Ca của giờ thu ``{luc}`` (cơ sở ``{co_so}``) ĐÃ CHỐT TRƯỚC giờ huỷ ``{moc}`` và
+#: chưa mở khoá cho tới lúc huỷ. Xét theo TRẠNG THÁI TẠI GIỜ HUỶ, không theo
+#: trạng thái hiện tại (soát #431, 14/10): khoản huỷ đã chuyển sang ca đang làm
+#: thì ở yên đó dù ca cũ được mở khoá sau này — nếu không, ca cũ nhận lại khoản
+#: huỷ trong khi bản chụp ca kia vẫn mang nó (hai bản cùng trừ một phiếu).
+#: Huỷ xảy ra LÚC đang mở khoá (chốt ← mở ← huỷ) thì thuộc ca gốc như chưa từng chốt.
+#: Một ca có thể chốt-mở-chốt nhiều lần: chỉ cần MỘT lần chốt phủ giờ huỷ.
 KHOA_TRUOC_SQL = """
 EXISTS (SELECT 1 FROM public.chot_so_ca k
          WHERE k.clinic_id = {clinic} AND k.location_id = {co_so}
-           AND k.mo_luc IS NULL
            AND k.tu_luc <= {luc} AND {luc} < k.den_luc
-           AND k.chot_luc < {moc})
+           AND k.chot_luc < {moc}
+           AND (k.mo_luc IS NULL OR k.mo_luc > {moc}))
 """
 
 _KHOA_SQL = """

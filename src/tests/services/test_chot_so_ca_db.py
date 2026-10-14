@@ -223,3 +223,96 @@ async def test_postgres_cam_sua_so_chup_va_xoa(pool: asyncpg.Pool) -> None:  # n
         )
     with pytest.raises(asyncpg.InsufficientPrivilegeError):
         await pool.execute("DELETE FROM chot_so_ca WHERE id = $1::uuid", k["id"])
+
+
+async def _lui_gio_thu(pool: asyncpg.Pool, visit: str, so_ngay: int) -> None:  # noqa: F811
+    """Lùi GIỜ THU của lượt về `so_ngay` ngày trước — dựng "thu hôm qua, huỷ hôm
+    nay" mà không đổi giờ ca của phòng khám (DB test dùng chung giữa các bài
+    chạy song song). Postgres cấm sửa phiếu đã PAID, nên chỉ phiên này bỏ trigger."""
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("SET LOCAL session_replication_role = replica")
+            for bang in ("payment_cycle", "payment"):
+                await conn.execute(
+                    f"UPDATE {bang} SET paid_at = paid_at - make_interval(days => $2)"
+                    " WHERE visit_id = $1::uuid AND paid_at IS NOT NULL",
+                    visit,
+                    so_ngay,
+                )
+
+
+async def _bc_ngay(
+    pool: asyncpg.Pool,  # noqa: F811
+    ql: StaffIdentity,
+    cs: str,
+    tu: date,
+    den: date,
+    **kw: object,
+) -> dict[str, Any]:
+    return await BaoCaoCuoiNgayService(pool).bao_cao(
+        identity=ql, tu=tu.isoformat(), den=den.isoformat(), co_so=cs, **kw
+    )
+
+
+async def test_mo_khoa_ca_cu_khong_keo_khoan_huy_ve_lai_ca_cu(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Soát #431 (phiên điều phối): khoản huỷ đã chuyển sang ca đang làm thì ở
+    YÊN đó, dù sau này ca cũ được mở khoá. Nếu không: hai bản chụp cùng trừ
+    một phiếu, cộng các ca ≠ cả ngày.
+
+    Thu hôm qua 300k → chốt ca hôm qua → huỷ HÔM NAY → chốt ca hôm nay (chụp
+    có huỷ) → mở khoá ca hôm qua → huỷ phải vẫn ở hôm nay, đúng một lần."""
+    ca = await _dung(pool)
+    ql = _ql(ca)
+    cs = await _co_so_rieng(pool)
+    ma = await _ca_bay_gio(pool)
+    hom_nay = now_vn().date()
+    hom_qua = hom_nay - timedelta(days=1)
+    v = await _luot_o(pool, ca, cs)
+    await _lui_gio_thu(pool, v, 1)
+    svc = ChotSoCaService(pool)
+    chot_qua = await svc.chot(identity=ql, ngay=hom_qua.isoformat(), ca=ma, co_so=cs)
+    await _huy_phieu(pool, ca, v)
+    chot_nay = await svc.chot(identity=ql, ngay=hom_nay.isoformat(), ca=ma, co_so=cs)
+    assert (await _bc_ngay(pool, ql, cs, hom_nay, hom_nay, ca=ma))["tong"]["huy"] == (
+        300_000
+    )
+    await svc.mo_khoa(
+        identity=ql, chot_id=chot_qua["id"], ly_do="Sửa một việc khác của ca hôm qua"
+    )
+    # Ca hôm qua (số sống, đã mở khoá): phiếu vẫn là đã thu, KHÔNG bị trừ lùi.
+    qua = await _bc_ngay(pool, ql, cs, hom_qua, hom_qua, ca=ma)
+    assert (qua["tong"]["thu"], qua["tong"]["huy"]) == (300_000, 0)
+    # Ca hôm nay (bản chụp đã chốt): huỷ đúng một lần.
+    nay = await _bc_ngay(pool, ql, cs, hom_nay, hom_nay, ca=ma)
+    assert nay["chot"]["id"] == chot_nay["id"] and nay["tong"]["huy"] == 300_000
+    # Cộng hai ca = cả khoảng hai ngày: huỷ 1 lần, không 2.
+    ca_ca = await _bc_ngay(pool, ql, cs, hom_qua, hom_nay)
+    assert ca_ca["tong"]["huy"] == 300_000
+    assert qua["tong"]["huy"] + nay["tong"]["huy"] == ca_ca["tong"]["huy"]
+    # Chốt lại ca hôm qua → bản chụp mới KHÔNG trừ phiếu ấy.
+    await svc.chot(identity=ql, ngay=hom_qua.isoformat(), ca=ma, co_so=cs)
+    qua2 = await _bc_ngay(pool, ql, cs, hom_qua, hom_qua, ca=ma)
+    assert qua2["tong"]["huy"] == 0 and qua2["chot"] is not None
+    assert qua2["sau_chot"]["huy"] == 0
+
+
+async def test_huy_trong_luc_ca_dang_mo_khoa_ve_ca_goc(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Huỷ xảy ra LÚC ca đang mở khoá thì thuộc ca gốc (như chưa từng chốt)."""
+    ca = await _dung(pool)
+    ql = _ql(ca)
+    cs = await _co_so_rieng(pool)
+    ma = await _ca_bay_gio(pool)
+    hom_nay = now_vn().date()
+    hom_qua = hom_nay - timedelta(days=1)
+    v = await _luot_o(pool, ca, cs)
+    await _lui_gio_thu(pool, v, 1)
+    svc = ChotSoCaService(pool)
+    chot = await svc.chot(identity=ql, ngay=hom_qua.isoformat(), ca=ma, co_so=cs)
+    await svc.mo_khoa(identity=ql, chot_id=chot["id"], ly_do="Cần sửa sổ hôm qua")
+    await _huy_phieu(pool, ca, v)  # huỷ khi ca hôm qua ĐANG MỞ KHOÁ
+    qua = await _bc_ngay(pool, ql, cs, hom_qua, hom_qua, ca=ma)
+    assert (qua["tong"]["thu"], qua["tong"]["huy"]) == (300_000, 300_000)
+    nay = await _bc_ngay(pool, ql, cs, hom_nay, hom_nay, ca=ma)
+    assert nay["tong"]["huy"] == 0 and nay["dieu_chinh_ca_truoc"]["so_phieu"] == 0
