@@ -175,6 +175,26 @@ class VatTuDaDoi(PayloadSuKien):
     ly_do: str | None = None
 
 
+class VatTuNhapChoDuyet(PayloadSuKien):
+    """`vat_tu.nhap_cho_duyet` — một phiếu NHẬP vật tư có dòng "cần duyệt nhập" vừa
+    thành yêu cầu chờ người có lego Duyệt vật tư (G8b, 14/10/2026). Chưa chạm sổ."""
+
+    yeu_cau_id: str
+    ma_yeu_cau: str
+    location_id: str
+    so_dong: int
+
+
+class VatTuNhapDaQuyet(PayloadSuKien):
+    """`vat_tu.nhap_da_quyet` — yêu cầu nhập vật tư được quyết MỘT lần: `hanh_dong` =
+    'DUYET' (kèm `phieu_id` phiếu NHẬP thật) | 'TU_CHOI' | 'RUT_LAI'."""
+
+    yeu_cau_id: str
+    ma_yeu_cau: str
+    hanh_dong: str
+    phieu_id: str | None = None
+
+
 class LieuTrinhDaTao(PayloadSuKien):
     """`lieu_trinh.created` — bác sĩ / ĐD / TKYK đề xuất một liệu trình điều trị
     nhiều buổi (08/10/2026). Có `service_order_id` = chỉ định hôm nay là buổi 1;
@@ -1338,6 +1358,24 @@ DANH_MUC: dict[str, SuKien] = {
             payload=VatTuDaDoi,
             nhan="Bán thêm vật tư",
             consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
+            is_public=False,
+        ),
+        SuKien(
+            ten="vat_tu.nhap_cho_duyet",
+            version=1,
+            aggregate_type="vat_tu_nhap",
+            source_module="kho_vat_tu",
+            payload=VatTuNhapChoDuyet,
+            nhan="Phiếu nhập vật tư chờ duyệt",
+            is_public=False,
+        ),
+        SuKien(
+            ten="vat_tu.nhap_da_quyet",
+            version=1,
+            aggregate_type="vat_tu_nhap",
+            source_module="kho_vat_tu",
+            payload=VatTuNhapDaQuyet,
+            nhan="Phiếu nhập vật tư được duyệt / từ chối / rút lại",
             is_public=False,
         ),
         SuKien(

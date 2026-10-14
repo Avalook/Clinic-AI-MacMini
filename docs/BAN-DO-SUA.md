@@ -490,6 +490,14 @@ cột `luot_vat_tu.ly_do_ban`, `VatTuService.them(ly_do_ban=)`, luôn ghi khi c�
 `vat_tu_bat_ly_do_ban` (`S/day_noi.py`, mặc định TẮT) BẬT thì dòng MỚI ở quầy phải có. Màn: `D/thu-ngan/VatTuQuay.tsx`.
 Test: `T/services/test_vat_tu_duyet_db.py` (D1–D4 + bấm ngẫu nhiên cấp/thu lego, bật/tắt dây, bán, bỏ), FT `duyet-vat-tu-boundary.test.mts`.
 
+**Phiếu NHẬP vật tư chờ duyệt (14/10/2026, G8b-2)** — mặt hàng có cờ "cần duyệt nhập" (`can_duyet_nhap_vat_tu`, đặt ở danh mục vật tư):
+`S/vat_tu_kho_service.py` `tao_phieu` (NHẬP) gọi `S/vat_tu_nhap_duyet_service.py` `xu_ly_nhap_can_duyet` — phiếu có ít nhất một dòng như vậy
+KHÔNG ghi sổ mà thành YÊU CẦU ở bảng `vat_tu_nhap_cho_duyet` (migration 20261014200100; nội dung bất biến, giá nhập chụp lúc xin; cả phiếu chờ,
+không ghi nửa phiếu). Người có lego Duyệt vật tư `duyet` → lập phiếu NHẬP thật đúng số; `tu_choi` (bắt lý do); người lập / người có lego `rut_lai`;
+người có lego tự lập = tự duyệt; quyết MỘT lần; hoàn tác nhập đã duyệt = `hoan_phieu` như mọi phiếu. Route `R/vat_tu_nhap_duyet.py`:
+`GET /vat-tu-kho/cho-duyet`, `POST …/{id}/duyet|tu-choi|rut-lai`. Sự kiện `vat_tu.nhap_cho_duyet`, `vat_tu.nhap_da_quyet`. CHƯA có màn: nút
+Duyệt / Từ chối / Rút lại + danh sách chờ gắn vào `/kho-vat-tu` khi phiên màn G8a gộp (không sửa màn đó ở G8b). Test: `T/services/test_vat_tu_nhap_duyet_db.py`.
+
 **Liệu trình ở quầy thu dịch vụ — trả trước k buổi (08/10/2026, C1)** — khối "Liệu trình" của
 khách đang thu `D/thu-ngan/LieuTrinhQuay.tsx` ([Trả trước … buổi] / [Trả hết]) → `/api/lieu-trinh`
 (`xem=quay`, `thao_tac=tra-truoc`) → `S/lieu_trinh_tien.py` (`quay`, `dat_tra_truoc`); [Bỏ] dòng trả
