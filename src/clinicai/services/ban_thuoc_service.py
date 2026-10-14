@@ -314,8 +314,9 @@ async def man_nha_thuoc(
                    public.drug_batch_kha_dung($1::uuid, id) AS co_the_phan_lo
               FROM public.drug_batch
              WHERE clinic_id = $1::uuid AND drug_catalog_id = ANY($2::uuid[])
-               AND expiry_date >= $3 AND location_id = ANY($4::uuid[])
-             ORDER BY expiry_date, batch_code
+               AND (expiry_date IS NULL OR expiry_date >= $3)
+               AND location_id = ANY($4::uuid[])
+             ORDER BY expiry_date NULLS LAST, batch_code
             """,
             identity.clinic_id,
             thuoc_ids,
@@ -339,8 +340,9 @@ async def man_nha_thuoc(
                   JOIN public.drug_catalog c
                     ON c.id = b.drug_catalog_id AND c.clinic_id = b.clinic_id
                  WHERE b.clinic_id = $1::uuid AND b.quantity_on_hand > 0
-                   AND b.expiry_date >= $2 AND b.location_id = ANY($3::uuid[])
-                 ORDER BY b.expiry_date, b.batch_code
+                   AND (b.expiry_date IS NULL OR b.expiry_date >= $2)
+                   AND b.location_id = ANY($3::uuid[])
+                 ORDER BY b.expiry_date NULLS LAST, b.batch_code
                 """,
                 identity.clinic_id,
                 hom_nay,

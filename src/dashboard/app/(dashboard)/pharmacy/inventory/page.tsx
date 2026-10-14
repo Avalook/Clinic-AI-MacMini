@@ -9,7 +9,7 @@ import { requireNavAccess } from "../../../../lib/clinic-session";
 import { QUYEN_BAN_LE, quyenCuaToi } from "../../../../lib/quyen-cua-toi";
 import type { DongChoGanLo } from "./ChoGanLo";
 import type { ThuocKho } from "./DanhMucKho";
-import type { ExpiryState } from "./InventoryBoard";
+import type { CauHinhHan, ExpiryState } from "./InventoryBoard";
 import KhoThuoc from "./KhoThuoc";
 
 export const dynamic = "force-dynamic";
@@ -19,9 +19,8 @@ interface LoTon {
   drug_catalog_id: string | null;
   name_base: string | null;
   variant: string | null;
-  // Bốn cột NOT NULL ở `drug_batch` (xem PharmacyService.nhap_lo).
   batch_code: string;
-  expiry_date: string;
+  expiry_date: string | null;
   quantity_on_hand: number;
   unit: string;
   cost_price: number | null;
@@ -29,11 +28,12 @@ interface LoTon {
   // 29/09/2026: máy chủ tính hạn theo ngày VN — màn không tự đếm ngày.
   trang_thai_han: ExpiryState;
   canh_bao_han: boolean;
+  huy_lo_txn_id: string | null;
 }
 
 export default async function PharmacyInventoryPage() {
   await requireNavAccess("/pharmacy/inventory");
-  const [data, dm, cho, quyen] = await Promise.all([
+  const [data, dm, cho, quyen, cauHinhHan] = await Promise.all([
     fetchFromBackend<{ items: LoTon[] }>("/api/v1/pharmacy/inventory"),
     fetchFromBackend<{ items: ThuocKho[] }>("/api/v1/pharmacy/danh-muc"),
     // 28/09: thuốc đã giao chưa gán lô — đọc hỏng thì tab rỗng, không chặn màn.
@@ -41,6 +41,7 @@ export default async function PharmacyInventoryPage() {
     // Ghi kho (nhập, kiểm, điều chỉnh, sửa danh mục) = `pharmacy.dispense` —
     // chỉ để ẨN nút; máy chủ vẫn tự kiểm ở mọi lệnh.
     quyenCuaToi(),
+    fetchFromBackend<CauHinhHan>("/api/v1/pharmacy/so-ngay-canh-bao"),
   ]);
   if (!data || !dm) {
     return (
@@ -51,7 +52,7 @@ export default async function PharmacyInventoryPage() {
     );
   }
   const batches = [...data.items]
-    .sort((a, b) => a.expiry_date.localeCompare(b.expiry_date))
+    .sort((a, b) => (a.expiry_date ?? "9999").localeCompare(b.expiry_date ?? "9999"))
     .map(({ name_base, variant, ...b }) => ({
       ...b,
       quantity_on_hand: Number(b.quantity_on_hand),
@@ -76,6 +77,7 @@ export default async function PharmacyInventoryPage() {
       choGanLo={choGanLo}
       ghiDuoc={quyen.has("pharmacy.dispense")}
       moBanLe={QUYEN_BAN_LE.some((q) => quyen.has(q))}
+      cauHinhHan={cauHinhHan ?? undefined}
     />
   );
 }

@@ -13,10 +13,10 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from clinicai.api.idempotency import (
     IdempotencyGuard,
@@ -25,8 +25,10 @@ from clinicai.api.idempotency import (
 )
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.can import can
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services import ban_thuoc_service, kho_thuoc_service
+from clinicai.phieu_kham.khung import doc_ngay
+from clinicai.services import ban_thuoc_service, kho_thuoc_service, lo_thuoc_service
 from clinicai.services.ban_le_service import QUYEN_MO, BanLeService
 from clinicai.services.pharmacy_service import GIU_NGUYEN, PharmacyService
 
@@ -38,6 +40,91 @@ router = APIRouter()
 # 20260924000013): cấp khối trên màn Phân quyền là có hiệu lực ngay.
 _DOC = cua_quyen("pharmacy.view", "pharmacy.dispense")
 _GHI = cua_quyen("pharmacy.dispense")
+
+
+class SoNgayCanhBaoRequest(BaseModel):
+    so_ngay: int = Field(ge=0, le=365000)
+
+
+@router.get("/pharmacy/so-ngay-canh-bao")
+async def so_ngay_canh_bao(
+    identity: StaffIdentity = Depends(_DOC), pool: asyncpg.Pool = Depends(get_db_pool)
+) -> dict[str, Any]:
+    async with pool.acquire() as conn:
+        return {
+            "so_ngay_sap_het_han": await lo_thuoc_service.so_ngay_canh_bao(
+                conn, identity.clinic_id
+            ),
+            "sua_canh_bao_duoc": await can(conn, identity, "config.clinic.manage"),
+        }
+
+
+@router.post("/pharmacy/so-ngay-canh-bao")
+async def doi_canh_bao(
+    body: SoNgayCanhBaoRequest,
+    identity: StaffIdentity = Depends(cua_quyen("config.clinic.manage")),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await lo_thuoc_service.doi_canh_bao(
+        pool, identity=identity, so_ngay=body.so_ngay
+    )
+
+
+class SuaLoRequest(BaseModel):
+    drug_batch_id: UUID
+    batch_code: str = Field(min_length=1, max_length=100)
+    expiry_date: Any = None
+
+
+@router.post("/pharmacy/sua-lo")
+async def sua_lo(
+    body: SuaLoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await lo_thuoc_service.sua_lo(
+        pool,
+        identity=identity,
+        drug_batch_id=str(body.drug_batch_id),
+        batch_code=body.batch_code,
+        expiry_date=body.expiry_date,
+    )
+
+
+class HuyLoHetHanRequest(BaseModel):
+    drug_batch_id: UUID
+    ly_do: str = Field(min_length=1, max_length=1000)
+
+
+@router.post("/pharmacy/huy-lo-het-han")
+async def huy_lo_het_han(
+    body: HuyLoHetHanRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    khoa: UUID = Header(alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await lo_thuoc_service.huy_lo(
+        pool,
+        identity=identity,
+        drug_batch_id=str(body.drug_batch_id),
+        ly_do=body.ly_do,
+        khoa_gui=str(khoa),
+    )
+
+
+class HoanHuyLoRequest(BaseModel):
+    inventory_txn_id: UUID
+
+
+@router.post("/pharmacy/hoan-huy-lo")
+async def hoan_huy_lo(
+    body: HoanHuyLoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await lo_thuoc_service.hoan_huy_lo(
+        pool, identity=identity, inventory_txn_id=str(body.inventory_txn_id)
+    )
 
 
 @router.get("/pharmacy/queue")
@@ -404,12 +491,17 @@ async def kiem_kho(
 class NhapLoRequest(BaseModel):
     drug_catalog_id: UUID
     so_luong: float = Field(gt=0)
-    # Cả ba BẮT BUỘC: `drug_batch` khai NOT NULL. Xem PharmacyService.nhap_lo.
+    # Số lô và đơn vị bắt buộc; hạn có thể bổ sung sau.
     batch_code: str = Field(min_length=1, max_length=100)
-    expiry_date: date
+    expiry_date: date | None = None
     unit: str = Field(min_length=1, max_length=50)
     cost_price: float | None = Field(default=None, ge=0)
     ly_do: str | None = Field(default=None, max_length=500)
+
+    @field_validator("expiry_date", mode="before")
+    @classmethod
+    def doc_han_dung(cls, value: Any) -> date | None:
+        return value if isinstance(value, date) else doc_ngay(value)
 
 
 @router.post("/pharmacy/receive", status_code=201)

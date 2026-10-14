@@ -12,7 +12,7 @@ import ThanhTab from "@/components/ui/ThanhTab";
 import KhachMuaThuoc from "../KhachMuaThuoc";
 import ChoGanLo, { type DongChoGanLo } from "./ChoGanLo";
 import DanhMucKho, { type ThuocKho } from "./DanhMucKho";
-import InventoryBoard, { type InvBatch } from "./InventoryBoard";
+import InventoryBoard, { type CauHinhHan, type InvBatch } from "./InventoryBoard";
 import KiemKho from "./KiemKho";
 import PhieuNhap from "./PhieuNhap";
 import TheKho from "./TheKho";
@@ -26,6 +26,7 @@ export default function KhoThuoc({
   choGanLo = [],
   ghiDuoc = false,
   moBanLe = false,
+  cauHinhHan,
 }: {
   batches: InvBatch[];
   thuoc: ThuocKho[];
@@ -35,6 +36,7 @@ export default function KhoThuoc({
   ghiDuoc?: boolean;
   /** V8: được mở lượt "Khách mua thuốc" — máy chủ quyết (lego nhà thuốc / thu tiền). */
   moBanLe?: boolean;
+  cauHinhHan?: CauHinhHan;
 }) {
   const [tab, setTab] = useState<Tab>("danh_muc");
   const [theKhoId, setTheKhoId] = useState<string | null>(null);
@@ -87,7 +89,7 @@ export default function KhoThuoc({
       ) : tab === "xnt" ? (
         <XuatNhapTon onXemThe={xemThe} />
       ) : (
-        <InventoryBoard batches={batches} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} />
+        <InventoryBoard batches={batches} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} cauHinhHan={cauHinhHan} />
       )}
     </div>
   );

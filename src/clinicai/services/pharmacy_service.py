@@ -88,8 +88,6 @@ def _so_chu(v: Any) -> str | None:
 #: Không gửi ô ấy = giữ giá trị cũ (khác với gửi rỗng = xoá).
 GIU_NGUYEN: Any = object()
 
-#: Lô còn tồn mà hạn dùng còn ≤ ngần này ngày → cảnh báo sắp hết hạn (Tuyền 29/09).
-NGAY_SAP_HET_HAN = 60
 
 #: Luật cũ "nhà thuốc đợi Khám xong" — OFF từ 24/09/2026 (xem `_bat_buoc_kham_xong`).
 _CHO_KHAM_XONG = False
@@ -239,6 +237,9 @@ class PharmacyService:
         cơ sở (08/10/2026).
         """
         async with self._pool.acquire() as conn:
+            from clinicai.services.lo_thuoc_service import so_ngay_canh_bao
+
+            nguong_han = await so_ngay_canh_bao(conn, identity.clinic_id)
             rows = await conn.fetch(
                 """
                 SELECT b.id::text,
@@ -252,8 +253,19 @@ class PharmacyService:
                        b.unit,
                        b.cost_price,
                        b.received_at,
-                       (b.expiry_date < $2::date) AS het_han,
-                       CASE WHEN b.expiry_date < $2::date THEN 'het_han'
+                       (SELECT t.id::text FROM public.inventory_txn t
+                         WHERE t.drug_batch_id = b.id AND t.clinic_id = b.clinic_id
+                           AND t.txn_type = 'DISCARD'
+                           AND t.ref_type = 'expired_batch'
+                           AND NOT EXISTS (
+                               SELECT 1 FROM public.inventory_txn r
+                                WHERE r.ref_type = 'discard_undo'
+                                  AND r.ref_id = t.id AND r.clinic_id = t.clinic_id)
+                         ORDER BY t.performed_at DESC, t.id DESC LIMIT 1
+                       ) AS huy_lo_txn_id,
+                       coalesce(b.expiry_date < $2::date, false) AS het_han,
+                       CASE WHEN b.expiry_date IS NULL THEN 'chua_co_han'
+                            WHEN b.expiry_date < $2::date THEN 'het_han'
                             WHEN b.expiry_date <= $2::date + $3::int THEN 'sap_het_han'
                             ELSE 'con_han' END AS trang_thai_han
                   FROM public.drug_batch b
@@ -264,7 +276,7 @@ class PharmacyService:
                 """,
                 identity.clinic_id,
                 hom_nay_vn(),
-                NGAY_SAP_HET_HAN,
+                nguong_han,
                 identity.location_id,
             )
         # Cảnh báo hạn chỉ cho lô CÒN thuốc trên kệ — lô đã hết sạch là lịch sử.
@@ -273,7 +285,7 @@ class PharmacyService:
         return [
             {
                 **d,
-                "canh_bao_han": d.get("trang_thai_han", "con_han") != "con_han"
+                "canh_bao_han": d.get("trang_thai_han") in ("het_han", "sap_het_han")
                 and (d.get("quantity_on_hand") or 0) > 0,
             }
             for d in ds
@@ -287,6 +299,9 @@ class PharmacyService:
         khám; tồn / lô chỉ của kho cơ sở đang làm (08/10/2026).
         """
         async with self._pool.acquire() as conn:
+            from clinicai.services.lo_thuoc_service import so_ngay_canh_bao
+
+            nguong_han = await so_ngay_canh_bao(conn, identity.clinic_id)
             rows = await conn.fetch(
                 """
                 SELECT c.id::text, c.name_raw AS ten, c.ma_hang, c.unit_price AS gia,
@@ -348,7 +363,7 @@ class PharmacyService:
                 """,
                 identity.clinic_id,
                 hom_nay_vn(),
-                NGAY_SAP_HET_HAN,
+                nguong_han,
                 identity.location_id,
             )
         return [
@@ -474,10 +489,8 @@ class PharmacyService:
     ) -> dict[str, Any]:
         """Nhập một lô vào kho. Tạo lô nếu chưa có, rồi ghi một dòng RECEIVE.
 
-        SỐ LÔ, HẠN DÙNG VÀ ĐƠN VỊ ĐỀU BẮT BUỘC — `drug_batch` khai cả ba là
-        NOT NULL. Không phải thủ tục giấy tờ: thuốc không có hạn dùng trong sổ
-        là thuốc không ai biết khi nào phải bỏ, và một lô không có số thì lúc
-        thu hồi không tra ra được đã cấp cho ai.
+        Số lô và đơn vị bắt buộc; hạn dùng được bổ sung sau.
+        Số lô để tra khi cần thu hồi.
 
         Tồn kho KHÔNG được cộng thẳng vào `drug_batch`: trigger
         `inventory_txn_apply` làm việc đó từ dòng sổ. Cộng tay ở đây sẽ cho ra
@@ -691,9 +704,9 @@ class PharmacyService:
             identity.clinic_id,
         )
         if lo["expiry_date"] is not None and lo["expiry_date"] < now_vn().date():
-            raise ValidationError(
+            raise ConflictError(
                 f"Lô này hết hạn ngày {lo['expiry_date']:%d/%m/%Y} — không giao "
-                "được. Cần xử lý đổi/trả (chưa có trong bản này)."
+                "được. Đổi lô hoặc hoàn phần chưa giao."
             )
         if Decimal(str(lo["quantity_on_hand"] or 0)) < luong:
             raise ConflictError(
@@ -900,7 +913,8 @@ class PharmacyService:
                  WHERE b.clinic_id = $1::uuid
                    AND b.drug_catalog_id = ANY($2::uuid[])
                    AND b.quantity_on_hand > 0
-                   AND (b.expiry_date IS NULL OR b.expiry_date >= CURRENT_DATE)
+                   AND (b.expiry_date IS NULL OR b.expiry_date >=
+                        (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
                  ORDER BY b.expiry_date NULLS LAST, b.batch_code
                 """,
                 identity.clinic_id,
@@ -992,8 +1006,10 @@ class PharmacyService:
                     f"Thuốc giao theo đơn vị {g['unit']}, lô theo đơn vị "
                     f"{lo['unit'] or 'chưa xác định'} — chọn lô cùng đơn vị."
                 )
-            if lo["expiry_date"] is not None and lo["expiry_date"] < date.today():
-                raise ValidationError("Lô này đã hết hạn — chọn lô khác.")
+            if lo["expiry_date"] is not None and lo["expiry_date"] < now_vn().date():
+                raise ConflictError(
+                    "Lô này đã hết hạn — đổi lô hoặc hoàn phần chưa giao."
+                )
             luong = Decimal(str(g["so_luong"]))
             if Decimal(str(lo["quantity_on_hand"] or 0)) < luong:
                 raise ValidationError(
@@ -1110,8 +1126,8 @@ class PharmacyService:
                 f"Lô này chỉ còn {ton} {lo['name_base'] or ''}".rstrip()
                 + f" — không đủ để cấp {luong}. Chọn lô khác hoặc nhập thêm."
             )
-        if lo["expiry_date"] is not None and lo["expiry_date"] < date.today():
-            raise ValidationError(
+        if lo["expiry_date"] is not None and lo["expiry_date"] < now_vn().date():
+            raise ConflictError(
                 f"Lô này hết hạn ngày {lo['expiry_date']:%d/%m/%Y} — "
                 "không cấp được. Huỷ lô rồi chọn lô khác."
             )
@@ -2102,7 +2118,7 @@ class PharmacyService:
                 "không tự quy đổi hộp, vỉ, viên."
             )
         if lo["expiry_date"] is not None and lo["expiry_date"] < now_vn().date():
-            raise ValidationError(
+            raise ConflictError(
                 f"Lô {lo['batch_code']} hết hạn ngày {lo['expiry_date']:%d/%m/%Y}."
             )
         kd = Decimal(str(lo["kha_dung"] or 0)) + them_giu
@@ -2368,8 +2384,8 @@ _SQL_GHI_SO = """
 
 def kiem_dong_nhap(
     *, so_luong: Any, batch_code: str | None, expiry_date: date | None, unit: str | None
-) -> tuple[Decimal, str, str, date]:
-    """Luật một dòng nhập kho (số lô, hạn, đơn vị bắt buộc; số lượng > 0) —
+) -> tuple[Decimal, str, str, date | None]:
+    """Luật một dòng nhập kho (số lô, đơn vị bắt buộc; số lượng > 0) —
     dùng chung cho `receive` và phiếu nhập nhiều dòng."""
     ma_lo = (batch_code or "").strip()
     don_vi = (unit or "").strip()
@@ -2377,9 +2393,8 @@ def kiem_dong_nhap(
         raise ValidationError("Nhập số lô — không có số lô thì không thu hồi được.")
     if not don_vi:
         raise ValidationError("Nhập đơn vị (viên, vỉ, hộp, ống…).")
-    if expiry_date is None:
-        raise ValidationError("Nhập hạn dùng của lô.")
-    return _so(so_luong, ten="Số lượng nhập"), ma_lo, don_vi, expiry_date
+    han = expiry_date if isinstance(expiry_date, date) else None
+    return _so(so_luong, ten="Số lượng nhập"), ma_lo, don_vi, han
 
 
 async def nhap_vao_lo(
@@ -2389,7 +2404,7 @@ async def nhap_vao_lo(
     drug_catalog_id: str,
     so_luong: Decimal,
     batch_code: str,
-    expiry_date: date,
+    expiry_date: date | None,
     unit: str,
     cost_price: Any,
     ly_do: str | None,
@@ -2435,9 +2450,15 @@ async def nhap_vao_lo(
                 "Kiểm tra lại số lô trên vỏ hộp."
             )
         if lo["expiry_date"] != expiry_date:
+            han_cu = (
+                lo["expiry_date"].strftime("%d/%m/%Y")
+                if lo["expiry_date"]
+                else "chưa có hạn"
+            )
             raise ConflictError(
                 f"Số lô {batch_code} đã có trong kho với hạn dùng "
-                f"{lo['expiry_date']:%d/%m/%Y}, khác hạn vừa nhập. Kiểm tra lại."
+                f"{han_cu}, "
+                "khác hạn vừa nhập. Kiểm tra lại."
             )
         lo_id = lo["id"]
         if cost_price is not None:

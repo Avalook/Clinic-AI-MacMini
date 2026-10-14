@@ -223,7 +223,7 @@ async def test_lo_sai_thuoc_bi_tu_choi(q: Quay) -> None:
 async def test_lo_het_han_bi_tu_choi(q: Quay) -> None:
     rx, drug = await _dong_da_xac_dinh(q, 10)
     cu = await _nhap_lo(q, drug, 100, han=date.today() - timedelta(days=1))
-    with pytest.raises(ValidationError, match="hết hạn"):
+    with pytest.raises(ConflictError, match="hết hạn"):
         await _chon(q, rx, cu, 10)
 
 
@@ -441,7 +441,7 @@ async def test_lo_het_han_trong_luc_cho_van_ghi_da_thu_va_can_doi_soat(
         )
         == 1
     )
-    with pytest.raises(ValidationError):
+    with pytest.raises(ConflictError):
         await _giao(q, rx, lo, 1)
 
 

@@ -33,6 +33,7 @@ class DayNhan:
 
 #: Mặc định khi phòng khám chưa chỉnh (cùng giá trị migration đã gieo).
 MAC_DINH: dict[str, DayNhan] = {
+    "pharmacy.expiry_checked": DayNhan(["PHARMACIST", "MANAGEMENT"], False),
     "result_file.uploaded": DayNhan(["CSKH", "TKYK", "NURSE_ULTRASOUND"], True),
     # Tệp đối tác được xác nhận HỢP LỆ (23/09 khuya): bác sĩ chính đọc, CSKH gửi.
     "result_file.confirmed": DayNhan(["CSKH"], True),
@@ -144,6 +145,21 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
         return
     day = await day_nhan(conn, su_kien.clinic_id, su_kien.event_type)
     if day is None or not day.bat:
+        return
+    if su_kien.event_type == "pharmacy.expiry_checked":
+        for vai in day.vai:
+            await ghi_chuong_vai(
+                conn,
+                clinic_id=su_kien.clinic_id,
+                vai=vai,
+                tieu_de="Hạn dùng lô thuốc",
+                noi_dung=f"{su_kien.payload['sap_het_han']} lô sắp hết hạn; "
+                f"{su_kien.payload['het_han']} lô đã hết hạn còn tồn.",
+                nguon="lo_thuoc_han",
+                nguon_id=str(su_kien.payload["ngay"]),
+                duong_dan="/pharmacy/inventory",
+                nguoi_goi=None,
+            )
         return
     # `thong_bao.nguoi_goi_staff_id` bắt buộc: người gây ra sự kiện (người tải
     # tệp, người hoàn tất phiếu). Sự kiện hệ thống không réo chuông.
@@ -257,7 +273,7 @@ async def ghi_chuong_vai(
     nguon: str,
     nguon_id: str,
     duong_dan: str | None,
-    nguoi_goi: str,
+    nguoi_goi: str | None,
     muc_do: str = "THUONG",
 ) -> None:
     """Một chuông cho CẢ VAI. Việc đang mở cùng nguồn thì không tạo thêm."""

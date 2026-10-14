@@ -19,7 +19,7 @@ export type GiaiDoan =
 export interface LoGoiY {
   drug_batch_id: string;
   batch_code: string;
-  expiry_date: string;
+  expiry_date: string | null;
   unit: string;
   /** Thuốc trên kệ. */
   ton_vat_ly: number;
@@ -31,7 +31,7 @@ export interface PhanLo {
   allocation_id: string;
   drug_batch_id: string;
   batch_code: string;
-  expiry_date: string;
+  expiry_date: string | null;
   quantity: number;
   handed_over_qty: number;
   con_giao: number;
@@ -180,5 +180,7 @@ export const fmtSo = (n: number | null | undefined) =>
     : new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 }).format(n);
 
 /** Ngày dạng "YYYY-MM-DD" (hạn dùng) — nửa đêm UTC là 07:00 giờ VN, cùng ngày. */
-export const fmtNgay = (iso: string) =>
-  new Date(iso).toLocaleDateString("vi-VN", { timeZone: VN_TZ });
+export const fmtNgay = (iso: string | null) =>
+  !iso || Number.isNaN(Date.parse(iso))
+    ? "—"
+    : new Date(iso).toLocaleDateString("vi-VN", { timeZone: VN_TZ });
