@@ -317,3 +317,17 @@ async def test_ck_cho_xac_minh_chua_giao_duoc_nen_chua_tra_duoc(q: Quay) -> None
     await _thu(q, "TRANSFER")
     with pytest.raises(ConflictError, match="thu tiền thuốc trước"):
         await _giao(q, rx, lo, 4)
+
+
+async def test_lo_het_han_khach_tra_ve_van_nhan_va_hoan(q: Quay) -> None:
+    """G3a chặn BÁN / GIAO lô hết hạn — trả về vẫn phải nhận (thuốc vật lý đã
+    quay lại) và tiền vẫn hoàn; lô ấy không bán lại được (luật G3a)."""
+    rx, _, lo = await _san_sang(q, 10, 100)
+    await _thu(q)
+    await _giao(q, rx, lo, 5)
+    await q.pool.execute(
+        "UPDATE drug_batch SET expiry_date = current_date - 1 WHERE id = $1::uuid", lo
+    )
+    kq = await _tra(q, await _xuat(q, rx), 2, "HOAN")
+    assert kq["hoan"]["amount"] == 2 * GIA
+    assert await _so_tra(q) == 1
