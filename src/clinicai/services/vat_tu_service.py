@@ -11,6 +11,10 @@ giá chốt lúc thêm, số lượng 1..99, bỏ = đóng dấu. Tiền vào ho
 (dòng ``vat_tu`` của `payment_bill_line`) — KHÔNG phải tiền thuốc: quầy thuốc
 không thêm / không thu được (cùng cửa quyền thu dịch vụ với món kèm).
 
+Dòng ĐI KÈM CHỈ ĐỊNH (``order_id``): đầu dò Bio bác sĩ chọn ở chỉ định CLS —
+`bio_chi_dinh_service.py` (G9, 14/10/2026). Quầy thấy dòng ấy, bỏ thì bắt ghi lý do;
+tiền theo chỉ định (huỷ / khách không làm thì không tính).
+
 Hàng ``can_ql_duyet`` (vòng Mirena — đã nằm trong giá dịch vụ đặt vòng, chỉ bán
 khi sự cố cần vòng thứ 2): mỗi lần thêm phải có QUẢN LÝ duyệt + lý do. Quản lý
 tự thêm thì chính họ là người duyệt; nhân sự khác chọn quản lý đã duyệt (một
@@ -76,11 +80,23 @@ SELECT sp.id::text AS id, sp.name, sp.don_vi, sp.unit_price, sp.active,
 _DONG_SQL = """
 SELECT v.id::text AS id, v.service_price_id::text AS service_price_id, v.ten,
        v.don_vi, v.don_gia, v.so_luong, v.duyet_ly_do,
+       v.order_id::text AS order_id, o.service_name AS ten_chi_dinh,
        sd.full_name AS nguoi_duyet,
-       {da_thu} AS da_thu
+       {da_thu} AS da_thu,
+       -- Vật tư đi kèm chỉ định (đầu dò Bio, G9): chỉ tính khi khách làm dịch vụ.
+       (v.order_id IS NULL
+        OR o.selection_status IS DISTINCT FROM 'NOT_SELECTED') AS chon_lam
   FROM public.luot_vat_tu v
+  LEFT JOIN public.service_order o
+    ON o.id = v.order_id AND o.clinic_id = v.clinic_id
   LEFT JOIN public.staff sd ON sd.id = v.duyet_boi
  WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid AND v.bo_luc IS NULL
+   -- Chỉ định đã huỷ / không làm → Bio đi kèm ẨN (khôi phục thì hiện lại);
+   -- riêng dòng ĐÃ THU luôn hiện để quầy còn thấy khoản đã nhận.
+   AND (v.order_id IS NULL OR {da_thu}
+        OR (o.exec_status NOT IN ('draft', 'cancelled', 'not_performed')
+            AND coalesce(o.execution_status, 'PENDING')
+                NOT IN ('CANCELLED', 'NOT_PERFORMED')))
  ORDER BY v.chon_luc, v.id
 """
 
@@ -111,6 +127,21 @@ def _ly_do_duyet(raw: Any) -> str:
     if not 5 <= len(ly) <= 500:
         raise ValidationError(
             "Hàng này cần quản lý duyệt — ghi lý do duyệt (5 đến 500 ký tự)."
+        )
+    return ly
+
+
+def _ly_do_bo(raw: Any, *, bat_buoc: bool) -> str | None:
+    """Lý do bỏ dòng vật tư. Dòng đi kèm chỉ định: BẮT BUỘC (5–500 ký tự).
+    Dòng quầy: bỏ trống được; đã gửi thì phải hợp lệ — không ghi rác."""
+    ly = raw.strip() if isinstance(raw, str) else ""
+    if not ly and not bat_buoc and raw in (None, ""):
+        return None
+    if not 5 <= len(ly) <= 500:
+        raise ValidationError(
+            "Đầu dò do bác sĩ chọn ở chỉ định — ghi lý do bỏ (5 đến 500 ký tự)."
+            if bat_buoc
+            else "Lý do bỏ từ 5 đến 500 ký tự."
         )
     return ly
 
@@ -174,6 +205,7 @@ async def _doc(
         clinic_id,
         visit_id,
     ):
+        da_thu = bool(r["da_thu"])
         dong.append(
             {
                 "id": r["id"],
@@ -183,15 +215,20 @@ async def _doc(
                 "don_gia": int(r["don_gia"]),
                 "so_luong": int(r["so_luong"]),
                 "thanh_tien": int(r["don_gia"]) * int(r["so_luong"]),
-                "da_thu": bool(r["da_thu"]),
+                "da_thu": da_thu,
                 "nguoi_duyet": r["nguoi_duyet"],
                 "ly_do_duyet": r["duyet_ly_do"],
+                # Đi kèm chỉ định (G9): bác sĩ chọn ở chỉ định CLS; bỏ thì bắt lý do.
+                "order_id": r["order_id"],
+                "ten_chi_dinh": r["ten_chi_dinh"],
+                # Khách không làm dịch vụ ấy → dòng hiện nhưng KHÔNG tính tiền.
+                "tinh_tien": bool(r["chon_lam"]) or da_thu,
             }
         )
     return {
         "danh_muc": danh_muc,
         "dong": dong,
-        "tong": sum(d["thanh_tien"] for d in dong),
+        "tong": sum(d["thanh_tien"] for d in dong if d["tinh_tien"]),
     }
 
 
@@ -298,7 +335,10 @@ class VatTuService:
                 f" {_DA_THU} AS da_thu"
                 " FROM public.luot_vat_tu v"
                 " WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid"
-                "   AND v.service_price_id = $3::uuid AND v.bo_luc IS NULL",
+                "   AND v.service_price_id = $3::uuid AND v.bo_luc IS NULL"
+                # Dòng đi kèm chỉ định (Bio bác sĩ chọn, G9) là dòng RIÊNG — quầy
+                # bấm thêm không cộng vào đó, không nuốt nó.
+                "   AND v.order_id IS NULL",
                 cid,
                 vid,
                 spid,
@@ -347,7 +387,7 @@ class VatTuService:
                     duyet[1] if duyet else None,
                 )
                 hanh_dong = "sua"
-            await self._ghi_su_kien(
+            await ghi_su_kien_vat_tu(
                 conn,
                 identity,
                 vid,
@@ -368,6 +408,7 @@ class VatTuService:
             "SELECT v.id::text AS id, v.visit_id::text AS visit_id,"
             " v.service_price_id::text AS spid, v.ten, v.don_gia, v.so_luong,"
             " (v.duyet_boi IS NOT NULL) AS co_duyet,"
+            " v.order_id::text AS order_id,"
             f" {_DA_THU} AS da_thu"
             " FROM public.luot_vat_tu v"
             " WHERE v.clinic_id = $1::uuid AND v.id = $2::uuid AND v.bo_luc IS NULL"
@@ -401,7 +442,7 @@ class VatTuService:
                     did,
                     sl,
                 )
-                await self._ghi_su_kien(
+                await ghi_su_kien_vat_tu(
                     conn,
                     identity,
                     r["visit_id"],
@@ -412,15 +453,24 @@ class VatTuService:
                     sl,
                     Decimal(str(r["don_gia"])),
                     bool(r["co_duyet"]),
+                    order_id=r["order_id"],
                 )
             return await _doc(conn, identity.clinic_id, r["visit_id"])
 
-    async def bo(self, *, dong_id: str, identity: StaffIdentity) -> dict[str, Any]:
-        """Bỏ một dòng vật tư chưa thu khỏi hoá đơn (đóng dấu, không xoá)."""
+    async def bo(
+        self, *, dong_id: str, ly_do: Any = None, identity: StaffIdentity
+    ) -> dict[str, Any]:
+        """Bỏ một dòng vật tư chưa thu khỏi hoá đơn (đóng dấu, không xoá).
+
+        Dòng ĐI KÈM CHỈ ĐỊNH (đầu dò Bio bác sĩ chọn, G9 14/10/2026) bỏ ở quầy
+        thì BẮT ghi lý do (khách không mua nữa…); dòng quầy tự thêm bỏ như cũ,
+        lý do tuỳ chọn nhưng đã gửi thì phải hợp lệ (5 đến 500 ký tự).
+        """
         did = _uuid(dong_id, "Mã dòng vật tư không hợp lệ.")
         async with self._pool.acquire() as conn, conn.transaction():
             await self._cong(conn, identity)
             r = await self._dong_song(conn, identity, did)
+            ly = _ly_do_bo(ly_do, bat_buoc=r["order_id"] is not None)
             await khoa_luot(
                 conn, identity.clinic_id, r["visit_id"], cho_phep_da_ky=True
             )
@@ -429,12 +479,13 @@ class VatTuService:
                     f"“{r['ten']}” đã thu tiền — hoàn tác lần thu trước khi bỏ."
                 )
             await conn.execute(
-                "UPDATE public.luot_vat_tu SET bo_luc = now(), bo_boi = $2::uuid"
-                " WHERE id = $1::uuid",
+                "UPDATE public.luot_vat_tu SET bo_luc = now(), bo_boi = $2::uuid,"
+                " bo_ly_do = $3 WHERE id = $1::uuid",
                 did,
                 identity.staff_id,
+                ly,
             )
-            await self._ghi_su_kien(
+            await ghi_su_kien_vat_tu(
                 conn,
                 identity,
                 r["visit_id"],
@@ -445,58 +496,73 @@ class VatTuService:
                 int(r["so_luong"]),
                 Decimal(str(r["don_gia"])),
                 bool(r["co_duyet"]),
+                order_id=r["order_id"],
+                ly_do=ly,
             )
             return await _doc(conn, identity.clinic_id, r["visit_id"])
 
-    async def _ghi_su_kien(
-        self,
-        conn: asyncpg.Connection,
-        identity: StaffIdentity,
-        visit_id: str,
-        dong_id: str,
-        service_price_id: str,
-        ten: str,
-        hanh_dong: str,
-        so_luong: int,
-        don_gia: Decimal,
-        can_duyet: bool,
-    ) -> None:
-        """Sổ sự kiện (domain_event — các màn nghe) + nhật ký thao tác (event_log),
-        CÙNG giao dịch với thay đổi dòng."""
-        await emit_event(
-            conn,
-            ten="visit.supply_changed",
-            clinic_id=identity.clinic_id,
-            aggregate_id=visit_id,
-            so_ke_tiep=True,
-            payload=VatTuDaDoi(
-                visit_id=visit_id,
-                luot_vat_tu_id=dong_id,
-                service_price_id=service_price_id,
-                ten=ten,
-                hanh_dong=hanh_dong,
-                so_luong=so_luong,
-                don_gia=int(don_gia),
-                can_ql_duyet=can_duyet,
-            ),
-            boi=nguoi(identity),
-            correlation_id=visit_id,
-        )
-        await record_event(
-            conn,
-            event_type="visit.supply_changed",
-            aggregate_type="visit",
-            aggregate_id=visit_id,
-            identity=identity,
-            origin="api:vat-tu",
-            payload={
-                "luot_vat_tu_id": dong_id,
-                "hanh_dong": hanh_dong,
-                "so_luong": so_luong,
-                "don_gia": str(don_gia),
-            },
-            correlation_id=visit_id,
-        )
+
+async def ghi_su_kien_vat_tu(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    visit_id: str,
+    dong_id: str,
+    service_price_id: str,
+    ten: str,
+    hanh_dong: str,
+    so_luong: int,
+    don_gia: Decimal,
+    can_duyet: bool,
+    *,
+    order_id: str | None = None,
+    ly_do: str | None = None,
+) -> None:
+    """Sổ sự kiện (domain_event — các màn nghe) + nhật ký thao tác (event_log),
+    CÙNG giao dịch với thay đổi dòng. Dùng chung với `BioChiDinhService`."""
+    await emit_event(
+        conn,
+        ten="visit.supply_changed",
+        clinic_id=identity.clinic_id,
+        aggregate_id=visit_id,
+        so_ke_tiep=True,
+        payload=VatTuDaDoi(
+            visit_id=visit_id,
+            luot_vat_tu_id=dong_id,
+            service_price_id=service_price_id,
+            ten=ten,
+            hanh_dong=hanh_dong,
+            so_luong=so_luong,
+            don_gia=int(don_gia),
+            can_ql_duyet=can_duyet,
+            service_order_id=order_id,
+            ly_do=ly_do,
+        ),
+        boi=nguoi(identity),
+        correlation_id=visit_id,
+    )
+    await record_event(
+        conn,
+        event_type="visit.supply_changed",
+        aggregate_type="visit",
+        aggregate_id=visit_id,
+        identity=identity,
+        origin="api:vat-tu",
+        payload={
+            "luot_vat_tu_id": dong_id,
+            "hanh_dong": hanh_dong,
+            "so_luong": so_luong,
+            "don_gia": str(don_gia),
+            **({"service_order_id": order_id} if order_id else {}),
+            **({"ly_do": ly_do} if ly_do else {}),
+        },
+        correlation_id=visit_id,
+    )
 
 
-__all__ = ["QUYEN_VAT_TU", "VatTuService", "ly_do_khong_ban"]
+__all__ = [
+    "QUYEN_VAT_TU",
+    "SO_LUONG_TOI_DA",
+    "VatTuService",
+    "ghi_su_kien_vat_tu",
+    "ly_do_khong_ban",
+]

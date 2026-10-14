@@ -150,7 +150,8 @@ class LamThemDaBo(PayloadSuKien):
 
 class VatTuDaDoi(PayloadSuKien):
     """`visit.supply_changed` — thêm / đổi số lượng / bỏ một vật tư khách mua thêm
-    ở quầy Thu tiền dịch vụ (Tuyền 01/10/2026, C13). Tiền vật tư là tiền DỊCH VỤ:
+    ở quầy Thu tiền dịch vụ (Tuyền 01/10/2026, C13) hoặc đầu dò Bio bác sĩ chọn
+    ở chỉ định (`service_order_id`, G9 14/10/2026). Tiền vật tư là tiền DỊCH VỤ:
     quầy thu và các màn nghe `luot_vat_tu` đọc lại hoá đơn. `hanh_dong` = 'them'
     | 'sua' | 'bo'. Không có tên khách — chỉ mã lượt + mặt hàng."""
 
@@ -163,6 +164,11 @@ class VatTuDaDoi(PayloadSuKien):
     don_gia: int
     #: Hàng phải có quản lý duyệt (vòng Mirena thứ 2…).
     can_ql_duyet: bool = False
+    #: Vật tư ĐI KÈM CHỈ ĐỊNH (đầu dò Bio bác sĩ chọn ở chỉ định CLS, G9
+    #: 14/10/2026); None = dòng thêm ở quầy theo lượt.
+    service_order_id: str | None = None
+    #: Lý do bỏ (quầy bỏ Bio do bác sĩ chọn thì bắt ghi).
+    ly_do: str | None = None
 
 
 class LieuTrinhDaTao(PayloadSuKien):
