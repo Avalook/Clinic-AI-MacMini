@@ -76,6 +76,8 @@ PHAI_CO = (
     "report.view",
     "booking.manage",
 )
+#: Bốn khối chỉ Quản lý giữ TẠI THỜI ĐIỂM migration mở full (30/09/2026).
+BON_KHOI_0930 = frozenset({"quan_tri_quyen", "nhan_su", "cai_dat", "danh_muc"})
 CHI_QUAN_LY = tuple(q.ma for q in QUYEN.values() if q.khoi in KHOI_CHI_QUAN_LY)
 
 
@@ -172,22 +174,16 @@ async def test_migration_cap_bu_nguoi_cu_va_tat_quyen_theo_lich(kb: KichBan) -> 
             )
             raise _RollbackError
     # Khối NỘI BỘ đội vận hành (09/10/2026): trigger DB bỏ qua, không lọt.
-    # `ke_toan` (14/10/2026) ra đời SAU migration này: bản 30/09 chỉ biết bốn khối
-    # Quản lý nên chạy lại NÓ vẫn phát khối kế toán. Trên prod nó không bao giờ
-    # chạy lại (sổ migration); khối kế toán không vào mở-full được bảo đảm bằng
-    # `KHOI_CHI_QUAN_LY` + bài `test_moi_vai_noi_bo_du_lego_tru_bon_khoi_quan_ly`.
-    sau_mo_full = {"ke_toan"}
-    so_khoi_mo = (
-        {q.khoi for q in QUYEN.values()}
-        - (KHOI_CHI_QUAN_LY - sau_mo_full)
-        - KHOI_NOI_BO
-    )
+    # Migration 30/09 loại ĐÚNG bốn khối ấy (đông cứng); khối chỉ-Quản-lý thêm SAU
+    # đó (vd Duyệt vật tư, G8b) nó không biết — chạy lại nó thì được cấp bù, nên
+    # phép so tính theo bốn khối của thời điểm migration, không theo KHOI_CHI_QUAN_LY.
+    so_khoi_mo = {q.khoi for q in QUYEN.values()} - BON_KHOI_0930 - KHOI_NOI_BO
     assert ket_qua["khoi"] == so_khoi_mo
     assert ket_qua["day"] in (False, "false")
     assert ket_qua["so_dong"] == sum(
         1
         for q in QUYEN.values()
-        if q.khoi not in (KHOI_CHI_QUAN_LY - sau_mo_full) and q.khoi not in KHOI_NOI_BO
+        if q.khoi not in BON_KHOI_0930 and q.khoi not in KHOI_NOI_BO
     )
 
 

@@ -53,6 +53,8 @@ export default function VatTuQuay({
   const [nhapSl, setNhapSl] = useState<Record<string, string>>({});
   // Bỏ dòng đi kèm chỉ định (đầu dò bác sĩ chọn): bắt ghi lý do (G9, 14/10/2026).
   const [boMo, setBoMo] = useState<{ id: string; lyDo: string } | null>(null);
+  // Nguyên nhân bán thêm (G8b) — gửi kèm mỗi lần thêm ở quầy; dây BẬT thì bắt buộc.
+  const [lyDoBan, setLyDoBan] = useState("");
 
   const nap = useCallback(async () => {
     const kq = await docBang<VatTuGoi>("vat-tu", { luot: visitId });
@@ -96,6 +98,11 @@ export default function VatTuQuay({
   if (!goi) return loi ? <p className="text-meta text-danger">{loi}</p> : null;
 
   const sua = goi.duoc_sua && !dangGui;
+  // Dây BẬT mà chưa gõ nguyên nhân: nút thêm khoá, trừ mặt hàng đã có dòng
+  // (bấm nữa = cộng dồn, dòng ấy đã có nguyên nhân). Máy chủ vẫn ép lại.
+  const thieuLyDo = goi.bat_ly_do_ban && lyDoBan.trim().length < 5;
+  const daCoDong = (id: string) => goi.dong.some((d) => d.service_price_id === id && !d.order_id);
+  const khongThem = (m: VatTuMuc) => !sua || !m.ban_duoc || (thieuLyDo && !daCoDong(m.id));
   const nhanh = goi.danh_muc.filter((m) => m.chon_nhanh);
   const ketQua = timVatTu(goi.danh_muc, tim);
 
@@ -105,7 +112,11 @@ export default function VatTuQuay({
       setDuyet({ muc: m, quanLy: "", lyDo: "" });
       return;
     }
-    const ok = await gui("vat-tu-them", visitId, { service_price_id: m.id, so_luong: 1 });
+    const ok = await gui("vat-tu-them", visitId, {
+      service_price_id: m.id,
+      so_luong: 1,
+      ...(lyDoBan.trim() ? { ly_do_ban: lyDoBan.trim() } : {}),
+    });
     if (ok) setTim("");
   }
 
@@ -116,6 +127,7 @@ export default function VatTuQuay({
       so_luong: 1,
       ...(duyet.quanLy ? { duyet_boi: duyet.quanLy } : {}),
       ly_do_duyet: duyet.lyDo,
+      ...(lyDoBan.trim() ? { ly_do_ban: lyDoBan.trim() } : {}),
     });
     if (ok) {
       setDuyet(null);
@@ -137,6 +149,23 @@ export default function VatTuQuay({
         <span className="text-meta text-ink-muted">Tiền vật tư thu cùng hoá đơn dịch vụ</span>
       </div>
 
+      {goi.duoc_sua ? (
+        <label className="block">
+          <span className="mb-1 block text-meta font-medium text-ink-soft">
+            Nguyên nhân bán thêm
+            {goi.bat_ly_do_ban ? " (bắt buộc, 5–500 ký tự)" : " (5–500 ký tự, nên ghi)"}
+          </span>
+          <input
+            value={lyDoBan}
+            onChange={(e) => setLyDoBan(e.target.value)}
+            maxLength={500}
+            className={INPUT}
+            disabled={dangGui}
+            placeholder="VD: khách yêu cầu thêm · dịch vụ cần thêm vật tư · thay vật tư hỏng"
+          />
+        </label>
+      ) : null}
+
       {goi.duoc_sua && nhanh.length > 0 ? (
         <div className="space-y-1">
           {nhanh.some((m) => m.goi_y) ? (
@@ -151,7 +180,7 @@ export default function VatTuQuay({
                 type="button"
                 size="lg"
                 variant={m.goi_y ? "soft" : "secondary"}
-                disabled={!sua || !m.ban_duoc}
+                disabled={khongThem(m)}
                 onClick={() => void them(m)}
                 aria-label={`Thêm ${m.ten}`}
               >
@@ -188,8 +217,8 @@ export default function VatTuQuay({
                       {!m.ban_duoc ? (
                         <span className="block text-meta text-ink-muted">{m.ly_do_khong_ban}</span>
                       ) : m.can_ql_duyet ? (
-                        <span className="block text-meta text-warning">
-                          Thường không bán — cần quản lý duyệt
+                        <span className="block text-meta text-ink-muted">
+                          Thường không bán — cần người có quyền duyệt
                         </span>
                       ) : null}
                     </span>
@@ -200,7 +229,7 @@ export default function VatTuQuay({
                       type="button"
                       size="sm"
                       variant="secondary"
-                      disabled={!sua || !m.ban_duoc}
+                      disabled={khongThem(m)}
                       onClick={() => void them(m)}
                       aria-label={`Thêm ${m.ten}`}
                     >
@@ -219,22 +248,22 @@ export default function VatTuQuay({
       )}
 
       {duyet ? (
-        <div role="group" aria-label="Quản lý duyệt bán" className="space-y-2 rounded-control bg-warning-bg px-3 py-2">
-          <p className="text-body text-warning">
+        <div role="group" aria-label="Người duyệt bán" className="space-y-2 rounded-control bg-surface-sunken px-3 py-2">
+          <p className="text-body text-ink">
             <b>{duyet.muc.ten}</b> thường không bán (đã nằm trong giá dịch vụ). Chỉ bán khi sự cố cần cái thứ hai —
-            phải có quản lý duyệt.
+            phải có người có quyền duyệt (Trưởng ca / Quản lý).
           </p>
           {goi.la_quan_ly ? (
-            <p className="text-meta text-ink-soft">Bạn là quản lý — bạn duyệt bán dòng này.</p>
+            <p className="text-meta text-ink-soft">Bạn có quyền duyệt vật tư — bạn duyệt bán dòng này.</p>
           ) : (
             <label className="block">
-              <span className="mb-1 block text-meta font-medium text-ink-soft">Quản lý đã duyệt</span>
+              <span className="mb-1 block text-meta font-medium text-ink-soft">Người đã duyệt</span>
               <select
                 value={duyet.quanLy}
                 onChange={(e) => setDuyet({ ...duyet, quanLy: e.target.value })}
                 className={INPUT}
               >
-                <option value="">Chọn quản lý…</option>
+                <option value="">Chọn người duyệt…</option>
                 {goi.quan_ly.map((q) => (
                   <option key={q.id} value={q.id}>
                     {q.ten}
@@ -282,8 +311,11 @@ export default function VatTuQuay({
                   <span className="block text-meta text-ink-muted">
                     {tien(d.don_gia)}
                     {d.don_vi ? ` / ${d.don_vi}` : ""}
-                    {d.nguoi_duyet ? ` · QL duyệt: ${d.nguoi_duyet}` : ""}
+                    {d.nguoi_duyet ? ` · người duyệt: ${d.nguoi_duyet}` : ""}
                   </span>
+                  {d.ly_do_ban ? (
+                    <span className="block text-meta text-ink-muted">Nguyên nhân: {d.ly_do_ban}</span>
+                  ) : null}
                   {d.order_id ? (
                     <span className="block text-meta text-ink-muted">
                       Bác sĩ chọn ở chỉ định{d.ten_chi_dinh ? `: ${d.ten_chi_dinh}` : ""}

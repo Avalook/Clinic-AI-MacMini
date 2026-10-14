@@ -37,6 +37,8 @@ export interface VatTuDong {
   da_thu: boolean;
   nguoi_duyet: string | null;
   ly_do_duyet: string | null;
+  /** Nguyên nhân bán thêm (G8b); null = chưa ghi. */
+  ly_do_ban: string | null;
   /** Đi kèm CHỈ ĐỊNH (đầu dò Bio bác sĩ chọn, G9 14/10/2026); null = quầy tự thêm. */
   order_id: string | null;
   ten_chi_dinh: string | null;
@@ -80,8 +82,12 @@ export interface VatTuGoi {
   dong: VatTuDong[];
   tong: number;
   duoc_sua: boolean;
+  /** Người xem CÓ lego "Duyệt vật tư" (tự duyệt được) — tên khoá giữ từ bản cũ. */
   la_quan_ly: boolean;
+  /** Người chọn được làm người duyệt (có lego "Duyệt vật tư"). */
   quan_ly: { id: string; ten: string }[];
+  /** Dây `vat_tu_bat_ly_do_ban`: BẬT thì dòng mới ở quầy phải có nguyên nhân. */
+  bat_ly_do_ban: boolean;
 }
 
 /** Số mặt hàng hiện dưới ô tìm. */

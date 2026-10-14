@@ -107,6 +107,18 @@ DAY: dict[str, Day] = {
             "bat_tat",
         ),
         Day(
+            "vat_tu_bat_ly_do_ban",
+            # G8b (14/10/2026): "bán thêm bắt ghi nguyên nhân" (Tuyền chốt 2e).
+            # Nguyên nhân LUÔN được ghi khi có gửi; dây này chỉ quyết có BẮT
+            # không. TẮT mặc định = quầy bấm nhanh như cũ, không vướng — bật khi
+            # phòng khám muốn mọi dòng "Mua thêm vật tư" đều có nguyên nhân. Đầu
+            # dò bác sĩ chọn ở chỉ định (G9) không bao giờ đòi.
+            "Bán thêm vật tư ở quầy thu: BẮT ghi nguyên nhân bán thêm (TẮT = tuỳ"
+            " chọn, vẫn ghi nếu có)",
+            False,
+            "bat_tat",
+        ),
+        Day(
             "h6_bao_cskh_khi_ve_con_viec",
             "Khách về mà còn việc dở (kết quả chưa về / chưa ai xem) → báo CSKH",
             True,
