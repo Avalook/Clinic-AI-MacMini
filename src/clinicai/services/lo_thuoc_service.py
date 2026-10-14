@@ -97,11 +97,17 @@ async def sua_lo(
         ):
             raise ConflictError("Lô đã hết hạn — nhập hạn mới hoặc bấm Huỷ lô hết hạn")
         try:
+            # Một lô có thể có hai hàng KHO / QUẦY (G7): sửa số lô / hạn là sửa
+            # cả hai, một câu UPDATE — hai hàng cùng số lô luôn là cùng một lô.
             await conn.execute(
-                "UPDATE drug_batch SET batch_code=$2, expiry_date=$3 WHERE id=$1::uuid",
-                drug_batch_id,
+                "UPDATE drug_batch SET batch_code=$1, expiry_date=$2"
+                " WHERE clinic_id=$3::uuid AND location_id=$4::uuid"
+                " AND batch_code=$5",
                 ma,
                 han,
+                identity.clinic_id,
+                identity.location_id,
+                lo["batch_code"],
             )
         except asyncpg.UniqueViolationError as exc:
             raise ConflictError(

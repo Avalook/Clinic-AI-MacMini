@@ -430,6 +430,8 @@ async def exclusion_violation_handler(
     # lệ. Trần theo số đếm phải là trigger, và nó đã có: enforce_slot_capacity.
     known = {
         "lo_het_han": "Lô này đã hết hạn — đổi lô hoặc hoàn phần chưa giao.",
+        "lo_o_kho": "Lô này đang ở KHO — chuyển sang quầy rồi mới bán / giao.",
+        "lo_het_han_quay": "Lô đã hết hạn — không chuyển ra quầy.",
         "slot_override_no_overlap": (
             "Đã có một điều chỉnh khác phủ khung giờ này — sửa hoặc xoá nó trước."
         ),

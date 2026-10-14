@@ -95,6 +95,13 @@ và quầy `/pharmacy` (`PharmacyBoard.tsx` điền sẵn lô cho `DongThuoc.tsx
 cột `drug_batch.ma_tem` (migration `20261014135000`). Trang in tem `D/print/tem-lo/` (Code 128 tự vẽ
 `D/lib/ma-vach.ts`). Test: `T/services/test_ma_vach_db.py`, `T/unit/test_gs1.py`, `D/tests/ma-vach-boundary.test.mts`.
 
+**Tách KHO / QUẦY trong một cơ sở (G7)** — công tắc theo cơ sở `clinic_location.tach_kho_quay` (mặc định TẮT =
+một kho như cũ). Mỗi lô tối đa hai hàng `drug_batch` (`noi_chua` KHO / QUAY, cùng số lô + mã tem); nhập đi vào KHO,
+bán / giao / nhận trả CHỈ ở QUẦY (trigger `gac_ban_tu_quay` + kiểm ở `pharmacy_service._kiem_lo`,
+`gan_lo_da_giao`, `_cap_phat_cu`), phiếu chuyển `S/kho_thuoc_service.py` (`chuyen_kho`, `hoan_tac_chuyen`,
+`dat_tach_kho_quay`) — migration `20261014160000`. Quầy hết mà kho còn: `ban_thuoc_service` trả `kho_con` cho từng
+dòng đơn. Test: `T/services/test_kho_quay_db.py` (bấm ngẫu nhiên 40×10).
+
 **Mẫu kết quả · biểu mẫu phiếu kết quả · gán mẫu cho dịch vụ**
 - Trên màn: `/settings/mau-ket-qua` (tab Gán mẫu · Sửa mẫu; xuất bản là dùng).
 - Code: `D/settings/mau-ket-qua/` (`MauKetQuaView.tsx`, `GanMau.tsx`, `TrinhSuaMau.tsx`)

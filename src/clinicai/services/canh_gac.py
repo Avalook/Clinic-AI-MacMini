@@ -189,9 +189,10 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
     for cid in await conn.fetch("SELECT id::text FROM clinic"):
         ngay = await so_ngay_canh_bao(conn, cid["id"])
         lo = await conn.fetchrow(
-            "SELECT count(*) FILTER "
+            "SELECT count(DISTINCT (location_id, batch_code)) FILTER "
             "(WHERE expiry_date BETWEEN $2 AND $2+$3::int) AS sap,"
-            " count(*) FILTER (WHERE expiry_date < $2) AS het FROM drug_batch"
+            " count(DISTINCT (location_id, batch_code)) FILTER"
+            " (WHERE expiry_date < $2) AS het FROM drug_batch"
             " WHERE clinic_id=$1::uuid AND quantity_on_hand>0",
             cid["id"],
             hom_nay_vn(),

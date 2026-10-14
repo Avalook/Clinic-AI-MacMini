@@ -68,7 +68,8 @@ def trang_thai_lo(
 
 _CAU_LO = f"""
     SELECT b.id::text, b.batch_code, b.expiry_date, b.quantity_on_hand, b.unit,
-           b.ma_tem, b.drug_catalog_id::text, b.location_id::text AS co_so_id,
+           b.ma_tem, b.noi_chua, b.drug_catalog_id::text,
+           b.location_id::text AS co_so_id,
            c.name_base AS ten_thuoc, {_DA_HUY} AS da_huy
       FROM public.drug_batch b
       JOIN public.drug_catalog c
@@ -85,6 +86,8 @@ def _lo_ra(r: Any, identity: StaffIdentity) -> dict[str, Any]:
         "quantity_on_hand": r["quantity_on_hand"],
         "unit": r["unit"],
         "ma_tem": r["ma_tem"],
+        "noi_chua": r["noi_chua"],
+        "kho_con": None,
         "drug_catalog_id": r["drug_catalog_id"],
         "ten_thuoc": r["ten_thuoc"],
         "trang_thai": trang_thai_lo(
@@ -106,6 +109,7 @@ async def goi_y_lo(
         + """
      WHERE b.clinic_id = $1::uuid AND b.location_id = $2::uuid
        AND b.drug_catalog_id = $3::uuid AND b.quantity_on_hand > 0
+       AND b.noi_chua = 'QUAY'
        AND (b.expiry_date IS NULL OR b.expiry_date >= $4)
      ORDER BY b.expiry_date NULLS LAST, b.batch_code
         """,
@@ -163,14 +167,30 @@ async def tra_ma(
         return {"loai": "rong"}
     async with pool.acquire() as conn:
         if _TEM.match(chu.upper()):
-            r = await conn.fetchrow(
-                _CAU_LO + " WHERE b.clinic_id = $1::uuid AND b.ma_tem = $2",
+            # Một lô có thể có hai hàng KHO / QUẦY dùng chung mã tem (G7): ưu
+            # tiên hàng QUẦY của cơ sở đang làm — nơi bán — rồi mới tới KHO.
+            rows = await conn.fetch(
+                _CAU_LO + " WHERE b.clinic_id = $1::uuid AND b.ma_tem = $2"
+                " ORDER BY (b.location_id = $3::uuid) DESC,"
+                " (b.noi_chua = 'QUAY') DESC",
                 identity.clinic_id,
                 chu.upper(),
+                identity.location_id,
             )
-            if r is None:
+            if not rows:
                 return {"loai": "la", "ma": chu.upper()}
-            return {"loai": "tem", "lo": _lo_ra(r, identity)}
+            lo = _lo_ra(rows[0], identity)
+            if lo["noi_chua"] == "QUAY":
+                lo["kho_con"] = next(
+                    (
+                        x["quantity_on_hand"]
+                        for x in rows[1:]
+                        if x["noi_chua"] == "KHO"
+                        and x["co_so_id"] == rows[0]["co_so_id"]
+                    ),
+                    None,
+                )
+            return {"loai": "tem", "lo": lo}
         gs1 = tach_gs1(chu)
         tra = gs1.gtin if gs1 else chu
         thuoc = await _thuoc_theo_ma(conn, identity, tra)
@@ -200,7 +220,8 @@ async def tra_ma(
                 lo = await conn.fetchrow(
                     _CAU_LO
                     + " WHERE b.clinic_id = $1::uuid AND b.location_id = $2::uuid"
-                    " AND b.drug_catalog_id = $3::uuid AND b.batch_code = $4",
+                    " AND b.drug_catalog_id = $3::uuid AND b.batch_code = $4"
+                    " ORDER BY (b.noi_chua = 'QUAY') DESC LIMIT 1",
                     identity.clinic_id,
                     identity.location_id,
                     thuoc["id"],
