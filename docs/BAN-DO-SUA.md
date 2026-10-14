@@ -402,7 +402,16 @@ Quầy bỏ dòng đi kèm chỉ định bắt ghi lý do (`VatTuService.bo(ly_d
 `HoanTacService.huy_chi_dinh` nhắc khoản Bio (không tự thành tiền thừa); hoàn tác bỏ chỉ định sau hoàn tiền (chỉ định
 MỚI) → Bio chưa thu đi theo (`so_sua_chi_dinh_service._chi_dinh_moi_thay` → `chuyen_bio_chua_thu`).
 Test: `T/services/test_bio_chi_dinh_db.py` (bất biến B1–B5 + bấm ngẫu nhiên 40×10 có bên nhận sự kiện xen giữa),
-FT `dau-do-chi-dinh-boundary.test.mts`. Luật duyệt trigger `luot_vat_tu_gac` KHÔNG đổi ở đây (G8b).
+FT `dau-do-chi-dinh-boundary.test.mts`. Luật duyệt trigger `luot_vat_tu_gac` KHÔNG đổi ở G9.
+
+**Ai duyệt vật tư cần duyệt + nguyên nhân bán thêm (14/10/2026, G8b — Notion recap 12/10 mục 3.3, Tuyền Q11)** — người duyệt là
+LEGO, không phải vai: khối `duyet_vat_tu` / quyền `vat_tu.approve` (`P/catalogue.py`, nằm trong `KHOI_CHI_QUAN_LY` — KHÔNG "mở full";
+migration 20261014200000 cấp bù cho tài khoản Quản lý + Trưởng ca đang có; tài khoản Trưởng ca MỚI do Quản lý cấp ở `/phan-quyen`).
+`S/vat_tu_service.py` (`_NGUOI_DUYET_SQL`, `_nguoi_duyet`, `doc` → `quan_ly` / `la_quan_ly` giữ tên khoá cũ cho màn) và trigger
+`luot_vat_tu_gac` (CHỈ đổi điều kiện người duyệt: có `vat_tu.approve` trong `v_quyen_thuc_te`, đang làm việc). Nguyên nhân bán thêm:
+cột `luot_vat_tu.ly_do_ban`, `VatTuService.them(ly_do_ban=)`, luôn ghi khi có gửi (5–500 ký tự, rác → 422); dây nối
+`vat_tu_bat_ly_do_ban` (`S/day_noi.py`, mặc định TẮT) BẬT thì dòng MỚI ở quầy phải có. Màn: `D/thu-ngan/VatTuQuay.tsx`.
+Test: `T/services/test_vat_tu_duyet_db.py` (D1–D4 + bấm ngẫu nhiên cấp/thu lego, bật/tắt dây, bán, bỏ), FT `duyet-vat-tu-boundary.test.mts`.
 
 **Liệu trình ở quầy thu dịch vụ — trả trước k buổi (08/10/2026, C1)** — khối "Liệu trình" của
 khách đang thu `D/thu-ngan/LieuTrinhQuay.tsx` ([Trả trước … buổi] / [Trả hết]) → `/api/lieu-trinh`

@@ -102,7 +102,7 @@ export default function VatTuBangGia({
                       <p className="flex flex-wrap items-center gap-1 text-meta text-ink-faint">
                         {d.don_vi ? <span>{d.don_vi}</span> : null}
                         {d.chon_nhanh ? <Chip tone="brand">Chọn nhanh</Chip> : null}
-                        {d.can_ql_duyet ? <Chip tone="warning">Cần QL duyệt</Chip> : null}
+                        {d.can_ql_duyet ? <Chip tone="neutral">Cần duyệt bán</Chip> : null}
                         {!d.ban_duoc ? <Chip tone="neutral">{d.ly_do_khong_ban}</Chip> : null}
                       </p>
                     </div>

@@ -246,6 +246,17 @@ KHOI: dict[str, KhoiCongViec] = {
             "supplies",
             "Phiếu kho, kiểm đếm, mức tối thiểu, báo cáo tiêu hao vật tư",
         ),
+        # 14/10/2026 (G8b) — người DUYỆT vật tư cần duyệt (vòng Mirena…, phiếu
+        # nhập chờ duyệt). Trước: vai Quản lý viết cứng ở Python + trigger. Nay là
+        # lego: mặc định chỉ Quản lý (như cũ), Quản lý cấp thêm cho Trưởng ca ở màn
+        # Phân quyền. KHÔNG nằm trong "mở full" — mở cho mọi người thì "duyệt" vô nghĩa.
+        KhoiCongViec(
+            "duyet_vat_tu",
+            "Duyệt vật tư",
+            "supplies",
+            "Duyệt bán thêm / nhập vật tư thuộc loại cần duyệt — mặc định Quản lý,"
+            " Quản lý cấp thêm cho Trưởng ca",
+        ),
         KhoiCongViec("bao_cao", "Báo cáo", "report", "Báo cáo, lịch đổ về"),
         KhoiCongViec(
             "cai_dat",
@@ -605,6 +616,13 @@ QUYEN: dict[str, Quyen] = {
             MucRuiRo.VAN_HANH,
         ),
         Quyen(
+            "vat_tu.approve",
+            "Duyệt bán thêm / nhập vật tư thuộc loại cần duyệt",
+            "duyet_vat_tu",
+            "supplies",
+            MucRuiRo.TIEN,
+        ),
+        Quyen(
             "report.view",
             "Xem báo cáo",
             "bao_cao",
@@ -849,7 +867,7 @@ PRESET_TRUOC_MO_FULL: dict[str, tuple[str, ...]] = {
 
 #: Khối CHỈ Quản lý có (không mở cho mọi người).
 KHOI_CHI_QUAN_LY: frozenset[str] = frozenset(
-    {"quan_tri_quyen", "nhan_su", "cai_dat", "danh_muc"}
+    {"quan_tri_quyen", "nhan_su", "cai_dat", "danh_muc", "duyet_vat_tu"}
 )
 
 #: Khối mở cho MỌI nhân sự nội bộ.

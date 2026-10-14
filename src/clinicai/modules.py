@@ -113,6 +113,8 @@ MODULE: dict[str, Module] = {
             lenh=["AddSupplyToBill", "SetSupplyQuantity", "RemoveSupply"],
             phat=["visit.supply_changed"],
             bang=["luot_vat_tu", "vat_tu_goi_y"],
+            # Người duyệt hàng cần duyệt (G8b, 14/10/2026) — lego, không theo vai.
+            quyen=["vat_tu.approve"],
         ),
         Module(
             ma="lieu_trinh",

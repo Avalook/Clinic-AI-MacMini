@@ -465,6 +465,8 @@ class VatTuThemBody(BaseModel):
     #: Hàng cần quản lý duyệt (Mirena): quản lý đã duyệt + lý do.
     duyet_boi: UUID | None = None
     ly_do_duyet: str | None = Field(default=None, max_length=500)
+    #: Nguyên nhân bán thêm (G8b) — bắt buộc khi dây `vat_tu_bat_ly_do_ban` BẬT.
+    ly_do_ban: str | None = Field(default=None, max_length=500)
 
 
 class VatTuSoLuongBody(BaseModel):
@@ -500,6 +502,7 @@ async def them_vat_tu(
         cong_don=body.cong_don,
         duyet_boi=str(body.duyet_boi) if body.duyet_boi else None,
         ly_do_duyet=body.ly_do_duyet,
+        ly_do_ban=body.ly_do_ban,
         identity=identity,
     )
 
