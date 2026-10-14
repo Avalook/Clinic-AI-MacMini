@@ -34,6 +34,7 @@ from decimal import Decimal
 from typing import Any
 
 import asyncpg
+import structlog
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
@@ -49,6 +50,8 @@ from clinicai.services.phan_thu import (
     nhan_phan,
     phan_mot_hinh_thuc,
 )
+
+logger = structlog.get_logger(__name__)
 
 #: Hai hình thức (01/10/2026): QR cũ cộng vào Chuyển khoản. Một lần thu chia
 #: TM + CK cộng ĐÚNG từng phần vào từng dòng hình thức.
@@ -1198,6 +1201,16 @@ class BaoCaoCuoiNgayService:
         from clinicai.services.tom_tat_tai_chinh_service import tom_tat_tai_chinh
 
         bc["tai_chinh"] = tom_tat_tai_chinh(bc)
+        if not bc["tai_chinh"]["dong_tien"]["khop"]:
+            # Lỗi của MÁY, không phải việc của người dùng cuối (Tuyền 14/10: không
+            # hiện "báo kỹ thuật" lên màn) — ghi nhật ký cho người vận hành.
+            logger.warning(
+                "dong_tien_khong_khop",
+                tu=a.isoformat(),
+                den=b.isoformat(),
+                co_so=cs,
+                ca=khung[2]["ma"] if khung else None,
+            )
         bc["co_so"] = cs
         bc["ten_co_so"] = next((c["ten"] for c in ds_co_so if c["id"] == cs), None)
         # Đầu / chân báo cáo kiểu KiotViet: "Chi nhánh: …" + địa chỉ từng cơ sở.

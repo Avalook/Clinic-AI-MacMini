@@ -51,6 +51,27 @@ async function docTonDong(): Promise<LuotTon[] | null> {
   }
 }
 
+/** Lượt của liên kết `?luot=` không nằm trong danh sách tồn đọng (vd lượt cũ hơn hôm
+ *  qua, hoặc đã đóng): hỏi máy chủ đúng lượt ấy. `null` = không tìm thấy. */
+async function docMotLuot(
+  id: string,
+): Promise<(LuotTon & { already_closed?: boolean }) | null> {
+  try {
+    const r = await fetch(`/api/reception/checkout?visit_id=${encodeURIComponent(id)}`, {
+      cache: "no-store",
+    });
+    const d = (await r.json().catch(() => null)) as
+      | (LuotTon & { ok?: boolean; already_closed?: boolean })
+      | null;
+    if (!r.ok || !d || d.ok === false || !d.visit_id) return null;
+    return d;
+  } catch {
+    return null;
+  }
+}
+
+type LuotRieng = { loai: "mo"; luot: LuotTon } | { loai: "da_dong" | "khong_thay" };
+
 export default function LuotTonDong({
   onDaDong,
   luotNoiBat,
@@ -67,6 +88,8 @@ export default function LuotTonDong({
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
+  const [rieng, setRieng] = useState<LuotRieng | null>(null);
+  const daHoiRieng = useRef(false);
 
   const nhan = useCallback((kq: LuotTon[] | null) => {
     if (kq === null) {
@@ -89,6 +112,18 @@ export default function LuotTonDong({
     };
   }, [nhan]);
   useNgheBang(BANG, () => void tai());
+
+  // Lượt từ liên kết mà danh sách tồn đọng không có → hỏi đúng lượt ấy, một lần.
+  useEffect(() => {
+    if (!luotNoiBat || ds === null || daHoiRieng.current) return;
+    daHoiRieng.current = true;
+    if (ds.some((l) => l.visit_id === luotNoiBat)) return;
+    void docMotLuot(luotNoiBat).then((l) => {
+      if (!l) setRieng({ loai: "khong_thay" });
+      else if (l.already_closed) setRieng({ loai: "da_dong" });
+      else setRieng({ loai: "mo", luot: l });
+    });
+  }, [luotNoiBat, ds]);
 
   async function dong(l: LuotTon) {
     const ly = lyDo.trim();
@@ -114,6 +149,7 @@ export default function LuotTonDong({
         setLoi(d.message ?? d.error ?? `Không đóng được lượt (lỗi ${r.status}).`);
         return;
       }
+      if (rieng?.loai === "mo" && rieng.luot.visit_id === l.visit_id) setRieng({ loai: "da_dong" });
       setBao(`Đã đóng lượt của ${l.patient_name ?? "khách"} — ghi là khách về giữa chừng.`);
       setDangHoi(null);
       setLyDo("");
@@ -133,27 +169,42 @@ export default function LuotTonDong({
       </p>
     );
   }
-  if (!ds || ds.length === 0) return null;
+  if (!ds) return null;
+  const hang = rieng?.loai === "mo" ? [rieng.luot, ...ds] : ds;
+  const dongNeutral =
+    rieng?.loai === "da_dong"
+      ? "Lượt này đã đóng."
+      : rieng?.loai === "khong_thay"
+        ? "Không tìm thấy lượt này."
+        : null;
+  if (hang.length === 0) {
+    return dongNeutral || bao ? (
+      <p role="status" className="text-meta text-ink-muted">
+        {bao ?? dongNeutral}
+      </p>
+    ) : null;
+  }
 
   return (
     <section
       aria-label="Lượt tồn đọng từ hôm trước"
-      className="min-w-0 rounded-card border border-warning bg-surface shadow-card"
+      className="min-w-0 rounded-card border border-line bg-surface shadow-card"
     >
       <div className="border-b border-line px-4 py-3">
         <h2 className="flex flex-wrap items-center gap-2 text-emph font-semibold text-ink">
           Lượt tồn đọng từ hôm trước
-          <Chip tone="warning">{ds.length}</Chip>
+          <Chip>{hang.length}</Chip>
         </h2>
         <p className="mt-1 text-meta text-ink-muted">
           Check-in từ những ngày trước, còn mở, chưa check-out. Khách đã về thì
           đóng lượt và ghi lý do — hết lượt ở đây là hết cảnh báo &ldquo;lượt
           treo&rdquo;.
         </p>
-        {bao ? <p className="mt-1 text-meta text-success">{bao}</p> : null}
+        {bao ? <p className="mt-1 text-meta text-ink-muted">{bao}</p> : null}
+        {dongNeutral ? <p className="mt-1 text-meta text-ink-muted">{dongNeutral}</p> : null}
       </div>
       <ul className="max-h-[50vh] divide-y divide-line overflow-y-auto">
-        {ds.map((l) => (
+        {hang.map((l) => (
           <li
             key={l.visit_id}
             id={`luot-ton-${l.visit_id}`}
@@ -164,7 +215,7 @@ export default function LuotTonDong({
               }
             }}
             className={`space-y-2 px-4 py-3 ${
-              luotNoiBat === l.visit_id ? "bg-warning-bg ring-2 ring-warning" : ""
+              luotNoiBat === l.visit_id ? "bg-surface-muted" : ""
             }`}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">

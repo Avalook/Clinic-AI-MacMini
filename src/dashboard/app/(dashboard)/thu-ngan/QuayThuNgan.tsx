@@ -628,13 +628,8 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
         </p>
       ) : null}
       {luotUrlLac ? (
-        <p
-          role="alert"
-          className="rounded-control border border-warning bg-warning-bg px-3 py-2 text-meta text-warning"
-        >
-          Khách bạn mở từ liên kết hiện không nằm trong danh sách chờ thu của quầy này (đã xử lý
-          xong, thuộc quầy hoặc cơ sở khác, hoặc ngoài ca đang trực). Máy KHÔNG tự chọn khách khác —
-          chọn đúng khách trong danh sách bên dưới nếu có.
+        <p role="status" className="text-meta text-ink-muted">
+          Khách này không có trong danh sách chờ thu — chọn khách ở dưới.
         </p>
       ) : null}
       {xong ? (
