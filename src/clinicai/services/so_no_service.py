@@ -145,7 +145,9 @@ SELECT d.ten, d.don_gia,
                       WHERE t.clinic_id = $1::uuid
                         AND t.prescription_id = p.id), 0) AS con
   FROM dong d
-  JOIN public.prescription p ON p.clinic_id = $1::uuid AND p.id::text = d.rx_id
+  JOIN public.prescription p
+       /* rx:gom-ca-lich-su: tiền thu ở dòng đã đính chính vẫn là nợ khách */
+    ON p.clinic_id = $1::uuid AND p.id::text = d.rx_id
   JOIN public.visit v ON v.clinic_id = $1::uuid AND v.visit_id = $2::uuid
  WHERE NOT (coalesce(v.ban_le, false)
             AND (v.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
