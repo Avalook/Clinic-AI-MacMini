@@ -106,6 +106,18 @@ chip KHO/QUẦY ở `InventoryBoard.tsx` (prop `tachKhoQuay`), nút "Kho còn N 
 `D/pharmacy/KhoConChuyenQuay.tsx` (gắn trong `DongThuoc.tsx`); proxy `chuyen-kho` / `hoan-tac-chuyen-kho` /
 `tach-kho-quay` ở `D/app/api/pharmacy/[action]/route.ts`. Test: `D/tests/kho-quay-giao-dien-boundary.test.mts`.
 
+**Kiểm kê đầu / cuối ca ở QUẦY + cột tồn của "Báo cáo hàng hoá" (G6)** — phiếu `kiem_ke_ca` (+ `_dong`),
+migration `20261014170000`: NHÁP → CHỐT (chốt ghi tồn máy ở quầy TẠI GIỜ CHỐT + lệch = đếm − tồn máy, KHÔNG tự sửa
+tồn), đầu/cuối ca một phiếu mỗi ca (UNIQUE từng phần ở Postgres), đột xuất nhiều phiếu, kiểm một phần tự nhận ra.
+"Điều chỉnh theo kiểm kê" là bước riêng ghi `ADJUST` (`ref_type 'kiem_ke_ca'`, có lý do), hoàn tác bằng ADJUST ngược.
+Service `S/kiem_ke_ca_service.py` (`mo_phieu`, `luu_dem`, `dung_so_cuoi_ca_truoc`, `chot`, `dieu_chinh_theo_kiem_ke`,
+`hoan_tac_dieu_chinh`, `nhac_thieu_kiem`; thuần: `khung_moc`, `tinh_xnt_dong`, `ghep_ton_ca`), 9 route `/pharmacy/kiem-ke-ca…`
+ở `S/../routers/pharmacy.py`. Báo cáo: MỘT chỗ gắn ở `bao_cao_cuoi_ngay_service.py` (`ghep_vao_bao_cao` sau
+`gom_hang_hoa`) thêm khối `kho` vào mỗi dòng thuốc — số thu cũ (SL bán theo thu, doanh thu) KHÔNG đổi; `kho.theo_don_vi[]`
+= Tồn đầu · Nhập · SL bán (= số GIAO) · SL trả · khác · Tồn cuối · Kiểm kê · Lệch · đã thu chưa giao. Chuông lệch:
+sự kiện `pharmacy.stocktake_mismatch` → `chuong.py` (người nhận ở `day_nhan_thong_bao`, quản lý chỉnh).
+Test: `T/services/test_kiem_ke_ca_db.py` (bấm ngẫu nhiên 40×10), `T/unit/test_xnt_theo_ca.py`.
+
 **Mẫu kết quả · biểu mẫu phiếu kết quả · gán mẫu cho dịch vụ**
 - Trên màn: `/settings/mau-ket-qua` (tab Gán mẫu · Sửa mẫu; xuất bản là dùng).
 - Code: `D/settings/mau-ket-qua/` (`MauKetQuaView.tsx`, `GanMau.tsx`, `TrinhSuaMau.tsx`)

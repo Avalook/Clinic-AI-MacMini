@@ -34,6 +34,9 @@ class DayNhan:
 #: Mặc định khi phòng khám chưa chỉnh (cùng giá trị migration đã gieo).
 MAC_DINH: dict[str, DayNhan] = {
     "pharmacy.expiry_checked": DayNhan(["PHARMACIST", "MANAGEMENT"], False),
+    "pharmacy.stocktake_mismatch": DayNhan(
+        ["PHARMACIST", "MANAGEMENT", "TRUONG_CA"], False
+    ),
     "result_file.uploaded": DayNhan(["CSKH", "TKYK", "NURSE_ULTRASOUND"], True),
     # Tệp đối tác được xác nhận HỢP LỆ (23/09 khuya): bác sĩ chính đọc, CSKH gửi.
     "result_file.confirmed": DayNhan(["CSKH"], True),
@@ -159,6 +162,22 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
                 nguon_id=str(su_kien.payload["ngay"]),
                 duong_dan="/pharmacy/inventory",
                 nguoi_goi=None,
+            )
+        return
+    if su_kien.event_type == "pharmacy.stocktake_mismatch" and su_kien.actor_staff_id:
+        for vai in day.vai:
+            await ghi_chuong_vai(
+                conn,
+                clinic_id=su_kien.clinic_id,
+                vai=vai,
+                tieu_de="Kiểm kê quầy thuốc có lệch",
+                noi_dung=f"Phiếu kiểm {su_kien.payload['loai']} ca "
+                f"{su_kien.payload['ca']} ({su_kien.payload['ngay']}): "
+                f"{su_kien.payload['so_dong_lech']} thuốc lệch giữa số đếm và tồn máy.",
+                nguon="kiem_ke_ca",
+                nguon_id=str(su_kien.aggregate_id),
+                duong_dan="/pharmacy/inventory",
+                nguoi_goi=su_kien.actor_staff_id,
             )
         return
     # `thong_bao.nguoi_goi_staff_id` bắt buộc: người gây ra sự kiện (người tải

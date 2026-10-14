@@ -1227,6 +1227,15 @@ class HanLoDaKiem(PayloadSuKien):
     het_han: int
 
 
+class KiemKeLech(PayloadSuKien):
+    """Phiếu kiểm kê ca ở quầy vừa chốt mà có thuốc lệch (G6, 14/10/2026)."""
+
+    ngay: date
+    ca: str
+    loai: str
+    so_dong_lech: int
+
+
 DANH_MUC: dict[str, SuKien] = {
     su_kien.ten: su_kien
     for su_kien in (
@@ -1237,6 +1246,16 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="pharmacy",
             payload=HanLoDaKiem,
             nhan="Kiểm hạn lô thuốc hằng ngày",
+            consumers=[CHUONG],
+            is_public=False,
+        ),
+        SuKien(
+            ten="pharmacy.stocktake_mismatch",
+            version=1,
+            aggregate_type="kiem_ke_ca",
+            source_module="pharmacy",
+            payload=KiemKeLech,
+            nhan="Kiểm kê ca ở quầy có thuốc lệch",
             consumers=[CHUONG],
             is_public=False,
         ),

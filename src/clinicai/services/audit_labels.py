@@ -131,6 +131,10 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.chuyen_kho": "Chuyển thuốc giữa kho và quầy",
     "pharmacy.chuyen_kho_hoan_tac": "Hoàn tác phiếu chuyển kho",
     "pharmacy.tach_kho_quay_doi": "Bật / tắt tách kho và quầy",
+    "pharmacy.kiem_ke_ca_mo": "Mở phiếu kiểm kê ca ở quầy thuốc",
+    "pharmacy.kiem_ke_ca_chot": "Chốt phiếu kiểm kê ca ở quầy thuốc",
+    "pharmacy.kiem_ke_ca_dieu_chinh": "Điều chỉnh tồn quầy theo kiểm kê",
+    "pharmacy.kiem_ke_ca_hoan_tac": "Hoàn tác điều chỉnh theo kiểm kê",
     "pharmacy.phieu_nhap": "Phiếu nhập kho",
     "pharmacy.kiem_kho": "Phiếu kiểm kho",
     "pharmacy.drug_mapped": "Xác định thuốc kho cho dòng đơn",
@@ -458,6 +462,7 @@ AGGREGATE_LABELS: dict[str, str] = {
     "drug_catalog": "Thuốc trong danh mục",
     "clinic_location": "Cơ sở",
     "phieu_kho": "Phiếu kho",
+    "kiem_ke_ca": "Phiếu kiểm kê ca",
     "prescription": "Đơn thuốc",
     "ultrasound_record": "Phiếu siêu âm",
 }
