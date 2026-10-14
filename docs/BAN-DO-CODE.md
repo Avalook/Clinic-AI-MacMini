@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 17:29. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 17:45. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -167,10 +167,10 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 ### `/hoa-don` — Danh sách hoá đơn
 - page: `src/dashboard/app/(dashboard)/hoa-don/page.tsx` · quyền: lego `bao_cao` (Báo cáo · mặc định: Quản lý)
 - thành phần: DanhSachHoaDon.tsx, app/(dashboard)/form-ui.ts, ChiTietHoaDon.tsx, types.ts, app/(dashboard)/reports/NgayTrucBaoCao.tsx
-- gọi API Next: `/api/hoa-don`, `/api/reports/access`
+- gọi API Next: `/api/hoa-don/cong-ty/phieu/[id]`, `/api/hoa-don`, `/api/reports/access`
 - gọi thẳng backend (server): `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
-- service: DanhSachHoaDonService.xem · danh_sach_hoa_don_service · ReportAccessService.access
-- test: test_ck_thuc_nhan_va_huy_cho_db.py, test_danh_sach_hoa_don.py, test_danh_sach_hoa_don_db.py, test_danh_sach_hoa_don_viec_ton_db.py, test_ke_toan_lego_db.py (+1)
+- service: HoaDonCongTyService.{doc_hoa_don, ghi_hoa_don, bo_hoa_don} · DanhSachHoaDonService.xem · danh_sach_hoa_don_service · ReportAccessService.access
+- test: test_hoa_don_cong_ty_db.py, test_ck_thuc_nhan_va_huy_cho_db.py, test_danh_sach_hoa_don.py, test_danh_sach_hoa_don_db.py, test_danh_sach_hoa_don_viec_ton_db.py (+3)
 
 ### `/home` — Trang chủ
 - page: `src/dashboard/app/(dashboard)/home/page.tsx` · quyền: ?
@@ -580,7 +580,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: XuatHoaDonService.xem · HoaDonMisaService.gan_trang_thai · xuat_hoa_don_service
 - test: test_thue_gtgt_db.py, test_hoa_don_misa_db.py, test_sua_ho_so_khach_db.py, test_xuat_hoa_don.py
 
-## 2. API Next → backend (123)
+## 2. API Next → backend (125)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -961,6 +961,18 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/hoa-don/xlsx` → `src/clinicai/api/v1/routers/hoa_don.py:danh_sach_hoa_don_excel` → xlsx_hoa_don
 - test: src/tests/services/test_ck_thuc_nhan_va_huy_cho_db.py, src/tests/services/test_danh_sach_hoa_don_db.py, src/tests/services/test_danh_sach_hoa_don_viec_ton_db.py (+1)
 - màn dùng: /hoa-don
+
+#### `/api/hoa-don/cong-ty/phieu/[id]` · `src/dashboard/app/api/hoa-don/cong-ty/phieu/[id]/route.ts`
+- GET `/api/v1/hoa-don/cong-ty/phieu/{payment_cycle_id}` → `src/clinicai/api/v1/routers/hoa_don_cong_ty.py:doc_cong_ty_hoa_don` → HoaDonCongTyService.doc_hoa_don
+- PUT `/api/v1/hoa-don/cong-ty/phieu/{payment_cycle_id}` → `src/clinicai/api/v1/routers/hoa_don_cong_ty.py:ghi_cong_ty_hoa_don` → HoaDonCongTyService.ghi_hoa_don
+- DELETE `/api/v1/hoa-don/cong-ty/phieu/{payment_cycle_id}` → `src/clinicai/api/v1/routers/hoa_don_cong_ty.py:bo_cong_ty_hoa_don` → HoaDonCongTyService.bo_hoa_don
+- test: src/tests/services/test_hoa_don_cong_ty_db.py, src/tests/services/test_hoa_don_misa_db.py
+- màn dùng: /hoa-don
+
+#### `/api/hoa-don/cong-ty/phieu/[id]/lich-su` · `src/dashboard/app/api/hoa-don/cong-ty/phieu/[id]/lich-su/route.ts`
+- GET `/api/v1/hoa-don/cong-ty/phieu/{payment_cycle_id}/lich-su` → `src/clinicai/api/v1/routers/hoa_don_cong_ty.py:lich_su_cong_ty_hoa_don` → HoaDonCongTyService.doc_lich_su
+- test: src/tests/services/test_hoa_don_cong_ty_db.py
+- màn dùng: (không màn nào gọi thấy được ?)
 
 #### `/api/lab-result` · `src/dashboard/app/api/lab-result/route.ts`
 - POST `/api/v1/lab/orders` → `src/clinicai/api/v1/routers/lab.py:order_lab_test` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
@@ -1572,7 +1584,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `ho_so_dich_vu` | `src/clinicai/services/ho_so_dich_vu.py` | /ban-kham, /ban-kham/[phong], /customers, /patient-list, /print/phieu-kham/[visitId], /tu-van |
 | `ho_so_khach_doc` | `src/clinicai/services/ho_so_khach_doc.py` | — (chỉ API/worker) |
 | `ho_so_lam_sang_doc` | `src/clinicai/services/ho_so_lam_sang_doc.py` | /ban-kham, /ban-kham/[phong], /patient-list, /print/[appointmentId], /tu-van |
-| `HoaDonCongTyService` | `src/clinicai/services/hoa_don_cong_ty_service.py` | — (chỉ API/worker) |
+| `HoaDonCongTyService` | `src/clinicai/services/hoa_don_cong_ty_service.py` | /hoa-don |
 | `HoaDonMisaService` | `src/clinicai/services/hoa_don_misa_service.py` | /xuat-hoa-don |
 | `HoanTacService` | `src/clinicai/services/hoan_tac_service.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /phong/[ma], /print/phieu-thu/[id] (+6) |
 | `HoanTienService` | `src/clinicai/services/hoan_tien_service.py` | /pharmacy, /reception/checkout, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |

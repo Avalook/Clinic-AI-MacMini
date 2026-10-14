@@ -18,6 +18,8 @@ type DongHang = { ten: string; dvt: string; so_luong: number; don_gia: number; t
 type HoaDon = {
   stt: number; ma_phieu: string; kind: string; ngay: string; ten_khach: string; ma_bn: string | null;
   so_dien_thoai: string; hinh_thuc: string; dong: DongHang[]; tong: number; ghi_chu: string[];
+  /** Hoá đơn công ty (G5c): tên + MST của công ty thay cho thông tin khách cá nhân. */
+  la_hd_cong_ty: boolean; ten_cong_ty: string; ma_so_thue: string;
 };
 type XuatData = { tu: string; den: string; hoa_don: HoaDon[]; so_hoa_don: number; so_dong: number; tong: number };
 
@@ -40,6 +42,14 @@ function DongHangGon({ dong }: { dong: DongHang[] }) {
       ))}
     </ul>
   );
+}
+
+/** Hoá đơn công ty chỉ hiện tên công ty + MST — không SĐT / mã khách cá nhân. */
+function KhachHang({ h }: { h: HoaDon }) {
+  if (h.la_hd_cong_ty) {
+    return <>{h.ten_cong_ty}<span className="block text-meta text-ink-muted">Công ty · MST {h.ma_so_thue || "—"}</span></>;
+  }
+  return <>{h.ten_khach || "—"}<span className="block text-meta text-ink-muted">{h.ma_bn || "—"} · {h.so_dien_thoai || "—"}</span></>;
 }
 
 function GhiChu({ h }: { h: HoaDon }) {
@@ -146,7 +156,7 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
                     <tr key={h.ma_phieu} className="border-t border-hairline align-top">
                       <td className="px-3 py-3 text-right tabular-nums">{h.stt}</td>
                       <td className="whitespace-nowrap px-3 py-3 tabular-nums">{h.ngay}<span className="block text-meta text-ink-muted">{h.ma_phieu}</span></td>
-                      <td className="px-3 py-3">{h.ten_khach || "—"}<span className="block text-meta text-ink-muted">{h.ma_bn || "—"} · {h.so_dien_thoai || "—"}</span></td>
+                      <td className="px-3 py-3"><KhachHang h={h} /></td>
                       <td className="whitespace-nowrap px-3 py-3">{h.hinh_thuc || "—"}</td>
                       <td className="px-3 py-3"><DongHangGon dong={h.dong} /></td>
                       <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(h.tong)}</td>
@@ -161,7 +171,7 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
             {ds.map(h => (
               <div key={h.ma_phieu} className="rounded-card bg-surface p-4 ring-1 ring-hairline">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <span className="text-emph font-semibold text-ink">{h.stt}. {h.ten_khach || "—"}</span>
+                  <span className="text-emph font-semibold text-ink">{h.stt}. {h.la_hd_cong_ty ? h.ten_cong_ty : h.ten_khach || "—"}</span>
                   <span className="tabular-nums text-emph font-semibold text-ink">{tien(h.tong)}</span>
                 </div>
                 <p className="text-meta text-ink-muted">{h.ngay} · {h.ma_phieu} · {h.hinh_thuc || "—"}</p>

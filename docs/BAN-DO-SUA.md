@@ -406,7 +406,7 @@ Chưa đặt thuế → xuất y như cũ. Test `T/unit/test_thue_gtgt.py` (bả
 `/hoa-don/cong-ty/an/{id}`, `/hoa-don/cong-ty/phieu/{payment_cycle_id}` (+ `/lich-su`)). Cửa = một trong các quyền
 `QUYEN_CONG_TY` (Lễ tân/CSKH/Thu ngân/Kế toán — lego, không vai). Xuất: `S/xuat_hoa_don_service.py::dung_hoa_don` — hoá đơn công ty
 → C=tên cty, D=địa chỉ cty, E=MST, F=người mua (trống nếu không điền), G=email cty, H/I trống (không SĐT/CCCD/địa chỉ/email cá nhân);
-hoá đơn khác giữ nguyên. Test `T/unit/test_hoa_don_cong_ty.py`, `T/services/test_hoa_don_cong_ty_db.py` (có bấm ngẫu nhiên 40×10).
+hoá đơn khác giữ nguyên. **Màn:** `D/hoa-don/CongTyHoaDon.tsx` (gắn vào từng phiếu ở `ChiTietHoaDon.tsx`) → `/api/hoa-don/cong-ty/phieu/[id]` (+ `/lich-su`); xem trước xuất hoá đơn (`D/xuat-hoa-don/XuatHoaDon.tsx::KhachHang`) hiện công ty thay cho khách cá nhân. Test `T/unit/test_hoa_don_cong_ty.py`, `T/services/test_hoa_don_cong_ty_db.py` (có bấm ngẫu nhiên 40×10), FT `hoa-don-cong-ty-boundary.test.mts`.
 
 **Đánh dấu "đã xuất sang MISA" + "có thay đổi sau khi xuất" (G5c, 14/10)** — kế toán tải Excel xong bấm đánh dấu khoảng ngày:
 máy chủ DỰNG LẠI danh sách hoá đơn của khoảng (không tin danh sách từ trình duyệt), lưu mỗi hoá đơn một dòng

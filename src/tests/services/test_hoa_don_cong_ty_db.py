@@ -187,6 +187,8 @@ async def test_sua_ban_chup_ghi_lich_su_bo_va_ghi_lai(pool: asyncpg.Pool) -> Non
     await svc.bo_hoa_don(identity=manager, payment_cycle_id=c)
     doc = await svc.doc_hoa_don(identity=manager, payment_cycle_id=c)
     assert doc["cong_ty"] is None and doc["da_bo"] is True
+    # Công ty vừa bỏ vẫn đọc được để "Chọn lại" điền sẵn đúng nó (hoàn tác).
+    assert doc["cong_ty_da_bo"]["ten_cong_ty"] == CT_A["ten_cong_ty"]
     assert not (await _xuat(pool, manager, [c]))[c]["la_hd_cong_ty"]
     # Bỏ lần hai: im lặng, không thêm lịch sử.
     await svc.bo_hoa_don(identity=manager, payment_cycle_id=c)

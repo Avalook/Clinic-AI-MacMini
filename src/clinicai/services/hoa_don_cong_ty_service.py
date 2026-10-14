@@ -331,9 +331,12 @@ class HoaDonCongTyService:
                 cid,
             )
         hoat_dong = row is not None and row["bo_luc"] is None
+        da_bo = row is not None and row["bo_luc"] is not None
         return {
             "cong_ty": dict(row) if hoat_dong and row else None,
-            "da_bo": row is not None and row["bo_luc"] is not None,
+            "da_bo": da_bo,
+            # Công ty vừa bỏ chọn — để màn "Chọn lại" (hoàn tác) điền sẵn đúng nó.
+            "cong_ty_da_bo": dict(row) if da_bo and row else None,
             "goi_y": [dict(r) for r in goi_y],
         }
 
