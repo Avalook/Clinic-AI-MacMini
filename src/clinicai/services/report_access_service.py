@@ -12,6 +12,7 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import SafetyGateError, ValidationError
 from clinicai.core.ma_vi_tri import ma_mau
+from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
 
 DEFAULT_SETTINGS = {
@@ -130,6 +131,10 @@ class ReportAccessService:
     async def access(self, identity: StaffIdentity, ngay: str | None) -> dict[str, Any]:
         manager = self.quan_ly(identity)
         async with self.pool.acquire() as conn:
+            # Kế toán (14/10/2026): quyền THEO LEGO, không theo vai. Có thì xem
+            # tài chính đầy đủ mọi ca / mọi cơ sở không cần lịch trực; KHÔNG
+            # thành `quan_ly` (cài đặt báo cáo vẫn chỉ Quản lý).
+            ke_toan = await can(conn, identity, "accounting.finance.full")
             settings = doc_thiet_lap(
                 await conn.fetchval(
                     "SELECT settings FROM clinic WHERE id=$1::uuid", identity.clinic_id
@@ -179,7 +184,7 @@ class ReportAccessService:
         head = pham_vi_lich([dict(r) for r in rows], head=True)
         staff = pham_vi_lich([dict(r) for r in rows], head=False)
         # Explicit report.view cannot bypass roster scope for non-managers.
-        unrestricted = manager
+        unrestricted = manager or ke_toan
         scopes = head if head else staff
         financial = unrestricted or bool(head)
         grouped: dict[str, list[dict[str, Any]]] = {}
@@ -205,7 +210,8 @@ class ReportAccessService:
             "ngay_truc": [d for d in calendar if d["co_so_theo_ca"]],
             "tai_chinh": financial,
             "legacy": unrestricted,
-            "tai_chinh_day_du": financial and settings["tai_chinh_day_du"],
+            "tai_chinh_day_du": financial and (settings["tai_chinh_day_du"] or ke_toan),
+            "ke_toan": ke_toan,
             "cac_ca": list(SHIFTS) if unrestricted else list(scopes),
             "co_so_ids": sorted(
                 {loc for locations in scopes.values() for loc in locations}

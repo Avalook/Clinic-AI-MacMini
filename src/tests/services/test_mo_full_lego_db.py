@@ -172,13 +172,22 @@ async def test_migration_cap_bu_nguoi_cu_va_tat_quyen_theo_lich(kb: KichBan) -> 
             )
             raise _RollbackError
     # Khối NỘI BỘ đội vận hành (09/10/2026): trigger DB bỏ qua, không lọt.
-    so_khoi_mo = {q.khoi for q in QUYEN.values()} - KHOI_CHI_QUAN_LY - KHOI_NOI_BO
+    # `ke_toan` (14/10/2026) ra đời SAU migration này: bản 30/09 chỉ biết bốn khối
+    # Quản lý nên chạy lại NÓ vẫn phát khối kế toán. Trên prod nó không bao giờ
+    # chạy lại (sổ migration); khối kế toán không vào mở-full được bảo đảm bằng
+    # `KHOI_CHI_QUAN_LY` + bài `test_moi_vai_noi_bo_du_lego_tru_bon_khoi_quan_ly`.
+    sau_mo_full = {"ke_toan"}
+    so_khoi_mo = (
+        {q.khoi for q in QUYEN.values()}
+        - (KHOI_CHI_QUAN_LY - sau_mo_full)
+        - KHOI_NOI_BO
+    )
     assert ket_qua["khoi"] == so_khoi_mo
     assert ket_qua["day"] in (False, "false")
     assert ket_qua["so_dong"] == sum(
         1
         for q in QUYEN.values()
-        if q.khoi not in KHOI_CHI_QUAN_LY and q.khoi not in KHOI_NOI_BO
+        if q.khoi not in (KHOI_CHI_QUAN_LY - sau_mo_full) and q.khoi not in KHOI_NOI_BO
     )
 
 
