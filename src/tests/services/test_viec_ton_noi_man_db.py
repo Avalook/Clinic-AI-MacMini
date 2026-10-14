@@ -82,9 +82,6 @@ async def test_ghi_no_co_nut_thu_no_ve_dung_quay_va_khach(pool: asyncpg.Pool) ->
         "nhan": "Thu nợ / miễn",
         "lego": "payment.service.collect",
     }
-    # Cơ sở của lượt + đường đổi cơ sở quay lại đúng đích.
-    assert t["xu_ly"]["co_so"]["ten"]
-    assert t["xu_ly"]["doi_co_so_href"].startswith("/chon-co-so?doi=1&next=%2Fthu-ngan")
     # Ngày thật của lượt, không phải giờ dòng sổ.
     assert t["luot_ngay"] is not None and t["luot_con_mo"] is False
 

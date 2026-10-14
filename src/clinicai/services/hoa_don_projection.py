@@ -3,7 +3,6 @@
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
-from urllib.parse import quote
 
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.quay_thu_service import ma_phieu
@@ -499,11 +498,6 @@ def _ngay_vn(v: Any) -> str | None:
 #: (màn chỉ dùng để ẨN nút — máy chủ vẫn tự kiểm ở mọi lệnh).
 LEGO_QUAY = {"dich_vu": "payment.service.collect", "thuoc": "payment.medicine.collect"}
 LEGO_CHECK_OUT = "reception.checkin.perform"
-
-
-def duong_doi_co_so(href: str) -> str:
-    """Đường đổi cơ sở rồi quay lại đúng đích (`/chon-co-so?doi=1&next=…`)."""
-    return f"/chon-co-so?doi=1&next={quote(href, safe='')}"
 
 
 def duong_xu_ly(v: Mapping[str, Any]) -> dict[str, Any] | None:

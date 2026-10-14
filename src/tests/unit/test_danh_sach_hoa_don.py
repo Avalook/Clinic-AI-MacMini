@@ -417,12 +417,6 @@ def test_duong_xu_ly_theo_loai_viec_ton() -> None:
     assert thuoc is not None and thuoc["href"] == "/thu-ngan/thuoc?luot=v1"
     assert thuoc["nhan"] == "Hoàn tiền thuốc"
     assert thuoc["lego"] == "payment.medicine.collect"
-    from clinicai.services.hoa_don_projection import duong_doi_co_so
-
-    assert (
-        duong_doi_co_so("/thu-ngan/dich-vu?luot=v1")
-        == "/chon-co-so?doi=1&next=%2Fthu-ngan%2Fdich-vu%3Fluot%3Dv1"
-    )
     mo = duong_xu_ly(dict(base, loai="CHUA_TRA_LAI", luot_con_mo=True))
     assert mo is not None and mo["href"] == "/reception/checkout?luot=v1"
     assert mo["lego"] == "reception.checkin.perform"

@@ -56,7 +56,7 @@ const CHIP = "inline-block rounded-chip px-2 py-0.5 text-meta font-medium";
 /** Việc tồn là tiền phòng khám đang nợ khách → tô đỏ. */
 /** Nút "Xử lý" của một việc tồn: đích do MÁY CHỦ quyết (`xu_ly`); màn chỉ vẽ.
  *  Thiếu lego của màn đích → chữ nhắc thay vì nút (máy chủ vẫn tự kiểm quyền). */
-function NutXuLy({ v, quyen, nhieuCoSo }: { v: ViecTon; quyen: readonly string[] | null; nhieuCoSo: boolean }) {
+function NutXuLy({ v, quyen }: { v: ViecTon; quyen: readonly string[] | null }) {
   const x = v.xu_ly;
   if (!x) return null;
   if (!x.href) return <p className="max-w-xs text-meta text-ink-muted">{x.huong_dan}</p>;
@@ -67,13 +67,6 @@ function NutXuLy({ v, quyen, nhieuCoSo }: { v: ViecTon; quyen: readonly string[]
     <div className="space-y-1">
       <Link href={x.href} className={buttonClass("secondary", "sm")}>{x.nhan ?? "Xử lý"}</Link>
       {x.huong_dan ? <p className="max-w-xs text-meta text-ink-muted">{x.huong_dan}</p> : null}
-      {nhieuCoSo && x.co_so && x.doi_co_so_href ? (
-        <p className="max-w-xs text-meta text-ink-muted">
-          Lượt thuộc cơ sở {x.co_so.ten} —{" "}
-          <Link href={x.doi_co_so_href} className="underline underline-offset-2">đổi cơ sở</Link>
-          {" "}nếu quầy không thấy khách
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -383,7 +376,7 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
                             </td>
                             <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(v.so_tien)}</td>
                             <td className="px-3 py-3 whitespace-nowrap">{daTon(v.luc)}</td>
-                            <td className="px-3 py-3"><NutXuLy v={v} quyen={quyen} nhieuCoSo={coSo.length > 1} /></td>
+                            <td className="px-3 py-3"><NutXuLy v={v} quyen={quyen} /></td>
                           </tr>
                         );
                       })}
@@ -399,7 +392,7 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
                       <b className="tabular-nums">{tien(v.so_tien)}</b>
                     </div>
                     <p className="mt-1 text-meta text-ink-muted">{v.ten ?? "—"} · {daTon(v.luc)}{v.mo_ta ? ` · ${v.mo_ta}` : ""}</p>
-                    <div className="mt-2"><NutXuLy v={v} quyen={quyen} nhieuCoSo={coSo.length > 1} /></div>
+                    <div className="mt-2"><NutXuLy v={v} quyen={quyen} /></div>
                   </article>
                 ))}
               </div>
