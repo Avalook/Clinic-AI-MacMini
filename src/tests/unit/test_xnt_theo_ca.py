@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -92,13 +93,13 @@ def _xnt(drug: str, **kw: Decimal) -> dict:  # type: ignore[type-arg]
 
 
 def test_ghep_giu_nguyen_so_tien_va_them_khoi_kho() -> None:
-    thuoc = {
+    thuoc: dict[str, Any] = {
         "tong": {"doanh_thu": 100},
         "dong": [
             {"khoa": "A", "ten": "A", "sl_ban": 5.0, "doanh_thu": 100, "sl_tra": 0.0}
         ],
     }
-    kiem = {
+    kiem: dict[tuple[str, str, str], dict[str, Any]] = {
         ("A", "viên", "CUOI"): {"dem": D(8), "phieu_id": "p1", "don_vi_hien": "viên"}
     }
     ghep_ton_ca(
