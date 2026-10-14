@@ -196,4 +196,4 @@ Nằm trong đợt 14/10 (`docs/KE-HOACH-DONG-TIEN-KHO-KE-TOAN-1410.md`); xong t
 
 - Nhân viên **tự đổi mật khẩu**; nút **"Khoá & nghỉ việc"** gộp một lần; **chặn tự gỡ tài khoản của mình**.
 - Sửa **đầy đủ hồ sơ khách** (địa chỉ, CCCD, email).
-- Vai **Kế toán** và thuế GTGT theo dịch vụ.
+- Gói mẫu lego **Kế toán** (Quản lý cấp cho từng tài khoản) và thuế GTGT theo dịch vụ.
