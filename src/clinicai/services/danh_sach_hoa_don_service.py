@@ -321,7 +321,12 @@ class DanhSachHoaDonService:
         hạn ngày, gồm cả nợ không ai bấm "Ghi nợ" (huỷ phiếu sau khi về, bấm Xong
         muộn…). Phần chuyển khoản đang chờ đã có dòng "CK chưa về" riêng → dòng
         nợ chỉ còn phần chưa chuyển (không hiện cùng một số hai lần)."""
-        from clinicai.services.so_no_service import PHAI_THU, PHAI_TRA, doc_so_du_mo
+        from clinicai.services.so_no_service import (
+            PHAI_THU,
+            PHAI_TRA,
+            THUOC,
+            doc_so_du_mo,
+        )
 
         args = (clinic_id, co_so, loai)
         hoan = [dict(r) for r in await conn.fetch(_TON_HOAN, *args)]
@@ -354,8 +359,18 @@ class DanhSachHoaDonService:
                 )
         tra: dict[str, dict[str, Any]] = {}
         luot: dict[str, dict[str, Any]] = {}
-        if loai in (None, "dich_vu"):
-            for r in await doc_so_du_mo(conn, clinic_id, PHAI_TRA, co_so):
-                tra[r["visit_id"]] = {"tong": r["so_du"], "dong": r["chi_tiet"]}
+        # PHAI_TRA gồm cả thuốc (G4d · R3/T2: đã thu chưa giao, khách trả giữ
+        # lại, dòng đã thu bị đính chính) — lọc một loại thì chỉ giữ khoản của nó.
+        for r in await doc_so_du_mo(conn, clinic_id, PHAI_TRA, co_so):
+            dong = [
+                x
+                for x in r["chi_tiet"]
+                if loai is None or (x.get("loai") == THUOC) == (loai == "thuoc")
+            ]
+            if dong:
+                tra[r["visit_id"]] = {
+                    "tong": sum(int(x.get("so_tien") or 0) for x in dong),
+                    "dong": dong,
+                }
                 luot[r["visit_id"]] = r
         return gom_viec_ton(hoan=hoan, ck=ck, no=no, tien_thua=tra, luot=luot)

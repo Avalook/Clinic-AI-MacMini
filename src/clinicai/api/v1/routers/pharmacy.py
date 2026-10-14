@@ -724,6 +724,11 @@ class KhachTraRequest(BaseModel):
     dispense_txn_id: UUID
     so_luong: float = Field(gt=0)
     ly_do: str
+    #: G4d · R3 (Tuyền chốt E): HOAN | DOI | GIU_LAI — bắt buộc, máy chủ báo câu
+    #: tiếng Việt khi thiếu. Hình thức hoàn bỏ trống = theo lần thu gốc.
+    ket_cuc_tien: str | None = None
+    hinh_thuc: str | None = None
+    ly_do_tien: str | None = Field(default=None, max_length=500)
 
 
 @router.post("/pharmacy/khach-tra")
@@ -733,7 +738,8 @@ async def khach_tra_thuoc(
     pool: asyncpg.Pool = Depends(get_db_pool),
     idem: IdempotencyGuard = Depends(idempotency_guard),
 ) -> dict[str, Any]:
-    """Ghi nhận thuốc khách trả lại quầy (CP5) — chưa quyết xử lý (HOLD J1/J2).
+    """Ghi nhận thuốc khách trả lại quầy (CP5) — thuốc chưa quyết xử lý (HOLD
+    J1/J2); TIỀN phần trả bắt chọn hoàn / đổi / giữ lại (G4d · R3).
 
     CHỐNG GỬI TRÙNG (review CP5 P1-A): trả nhiều lần là hợp lệ, DB chỉ chặn tổng
     trả ≤ số đã giao — nên gửi lại sau khi mất phản hồi sẽ thành "khách trả
@@ -749,6 +755,9 @@ async def khach_tra_thuoc(
                 dispense_txn_id=str(body.dispense_txn_id),
                 so_luong=body.so_luong,
                 ly_do=body.ly_do,
+                ket_cuc_tien=body.ket_cuc_tien,
+                hinh_thuc=body.hinh_thuc,
+                ly_do_tien=body.ly_do_tien,
             )
         )
         await idem.save(pool, kq, status_code=200)

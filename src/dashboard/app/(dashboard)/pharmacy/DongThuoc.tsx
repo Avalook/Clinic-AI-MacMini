@@ -13,6 +13,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
+import OChon from "@/components/ui/OChon";
 import { INPUT } from "../form-ui";
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
 import {
@@ -65,6 +66,10 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
   const [soKhongLo, setSoKhongLo] = useState(conGiao > 0 ? String(conGiao) : "");
   const [lyDo, setLyDo] = useState("");
   const [soTra, setSoTra] = useState<Record<string, string>>({});
+  // Tiền phần khách trả (G4d · R3, Tuyền chốt E): BẮT chọn — máy chủ quyết số tiền.
+  const [ketCuc, setKetCuc] = useState<Record<string, string>>({});
+  const [hinhThucHoan, setHinhThucHoan] = useState<Record<string, string>>({});
+  const [lyDoGiu, setLyDoGiu] = useState<Record<string, string>>({});
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
 
@@ -447,7 +452,7 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
         </div>
       ) : null}
 
-      {/* ── CP5: đã giao → khách trả thuốc (chỉ ghi nhận, chưa quyết xử lý) ── */}
+      {/* ── CP5: đã giao → khách trả thuốc (thuốc chưa quyết xử lý; tiền bắt chọn — R3) ── */}
       {dong.xuat.length > 0 ? (
         <div>
           <span className={NHAN}>Đã giao</span>
@@ -474,15 +479,68 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
                         className={O_NHAP}
                       />
                     </label>
+                    <label className={`${NHAN} w-44`}>
+                      Tiền phần trả
+                      <OChon
+                        value={ketCuc[x.dispense_txn_id] ?? ""}
+                        onChange={(e) =>
+                          setKetCuc((s) => ({ ...s, [x.dispense_txn_id]: e.target.value }))
+                        }
+                        aria-label="Tiền phần khách trả"
+                      >
+                        <option value="">Chọn…</option>
+                        <option value="HOAN">Hoàn tiền</option>
+                        <option value="DOI">Đổi thuốc khác</option>
+                        <option value="GIU_LAI">Giữ lại tiền</option>
+                      </OChon>
+                    </label>
+                    {ketCuc[x.dispense_txn_id] === "HOAN" || ketCuc[x.dispense_txn_id] === "DOI" ? (
+                      <label className={`${NHAN} w-44`}>
+                        Hình thức hoàn
+                        <OChon
+                          value={hinhThucHoan[x.dispense_txn_id] ?? ""}
+                          onChange={(e) =>
+                            setHinhThucHoan((s) => ({ ...s, [x.dispense_txn_id]: e.target.value }))
+                          }
+                          aria-label="Hình thức hoàn tiền thuốc trả"
+                        >
+                          <option value="">Như khách đã trả</option>
+                          <option value="CASH">Tiền mặt</option>
+                          <option value="TRANSFER">Chuyển khoản</option>
+                        </OChon>
+                      </label>
+                    ) : null}
+                    {ketCuc[x.dispense_txn_id] === "GIU_LAI" ? (
+                      <label className={`${NHAN} min-w-48 flex-1`}>
+                        Vì sao giữ lại tiền
+                        <input
+                          value={lyDoGiu[x.dispense_txn_id] ?? ""}
+                          onChange={(e) =>
+                            setLyDoGiu((s) => ({ ...s, [x.dispense_txn_id]: e.target.value }))
+                          }
+                          maxLength={500}
+                          placeholder="vd: khách để lại trừ lần mua sau"
+                          className={O_NHAP}
+                        />
+                      </label>
+                    ) : null}
                     <Button className={CHAM}
                       disabled={
-                        dangGui || !soTra[x.dispense_txn_id] || lyDo.trim().length < 3
+                        dangGui ||
+                        !soTra[x.dispense_txn_id] ||
+                        lyDo.trim().length < 3 ||
+                        !ketCuc[x.dispense_txn_id] ||
+                        (ketCuc[x.dispense_txn_id] === "GIU_LAI" &&
+                          (lyDoGiu[x.dispense_txn_id] ?? "").trim().length < 3)
                       }
                       onClick={() =>
                         goi("khach-tra", {
                           dispense_txn_id: x.dispense_txn_id,
                           so_luong: Number(soTra[x.dispense_txn_id]),
                           ly_do: lyDo,
+                          ket_cuc_tien: ketCuc[x.dispense_txn_id],
+                          hinh_thuc: hinhThucHoan[x.dispense_txn_id] || null,
+                          ly_do_tien: lyDoGiu[x.dispense_txn_id] ?? null,
                         })
                       }
                     >
@@ -496,7 +554,9 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
           {dong.xuat.some((x) => x.da_tra > 0) ? (
             <p className="mt-1 text-meta text-ink-faint">
               Thuốc khách trả đã về quầy nhưng CHƯA bán lại được — chờ quyết định xử lý của phòng
-              khám. Ghi nhận khách trả không tự hoàn tiền.
+              khám. Tiền phần trả theo lựa chọn lúc ghi nhận: hoàn tiền / đổi thuốc (tạo khoản
+              hoàn, chuyển khoản là khoản “Chờ chuyển”) hoặc giữ lại (vẫn là tiền phòng khám nợ
+              khách).
             </p>
           ) : null}
         </div>
