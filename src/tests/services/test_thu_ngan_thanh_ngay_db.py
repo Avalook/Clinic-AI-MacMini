@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import date, datetime, timedelta
+from typing import Any
 
 import asyncpg
 import pytest
@@ -205,3 +206,89 @@ async def test_more_than_300_candidates_keep_old_unpaid_and_day_candidates(
             assert q.visit_id not in {v["visit_id"] for v in selected_day["visits"]}
         finally:
             await transaction.rollback()
+
+
+async def _tap_hom_nay(conn: asyncpg.Connection, q: Any) -> set[str]:
+    _today, start, end = khoang_ngay_xem(None)
+    value = await conn.fetchval(
+        _SQL,
+        q.thu_ngan.clinic_id,
+        start,
+        end,
+        True,
+        q.thu_ngan.location_id or None,
+    )
+    raw = json.loads(value) if isinstance(value, str) else value
+    return {v["visit_id"] for v in raw["visits"]}
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_luot_cu_da_ve_chi_con_khi_ton_that_trong_han(
+    pool: asyncpg.Pool,
+) -> None:
+    """Bảng thu hôm nay không kéo cả lịch sử (prod 13/10: 7.539 lượt, 40s).
+
+    Lượt CHƯA VỀ giữ mọi tuổi; lượt ĐÃ VỀ chỉ hiện khi còn chỉ định chưa thu
+    trong 30 ngày, hoặc chỉ có đơn thuốc chưa mua trong 7 ngày.
+    """
+    q, _sa, _soi, _hpv = await _kich_ban(pool)
+    _today, start, _end = khoang_ngay_xem(None)
+
+    def luc(ngay: int) -> datetime:
+        return start - timedelta(days=ngay) + timedelta(hours=10)
+
+    async with pool.acquire() as conn:
+        tx = conn.transaction()
+        await tx.start()
+        try:
+            # Vế chỉ định chưa thu — dùng chính lượt của kịch bản.
+            async def chi_dinh(ngay: int, da_ve: bool) -> bool:
+                await conn.execute(
+                    "UPDATE visit SET created_at=$2, closed_at=$3"
+                    " WHERE visit_id=$1::uuid",
+                    q.visit_id,
+                    luc(ngay),
+                    luc(ngay) + timedelta(hours=1) if da_ve else None,
+                )
+                return q.visit_id in await _tap_hom_nay(conn, q)
+
+            assert await chi_dinh(100, da_ve=False), "chưa về: giữ mọi tuổi"
+            assert await chi_dinh(20, da_ve=True), "đã về, tồn thật ≤ 30 ngày"
+            assert not await chi_dinh(45, da_ve=True), "đã về, quá 30 ngày: lịch sử"
+
+            # Vế đơn thuốc chưa mua — lượt tổng hợp, mỗi lượt một đơn.
+            async def don_thuoc(ngay: int, da_ve: bool) -> str:
+                vid = await conn.fetchval(
+                    "INSERT INTO visit(clinic_id,clinic_patient_id,location_id,"
+                    "created_at,closed_at) SELECT clinic_id,clinic_patient_id,"
+                    "location_id,$2,$3 FROM visit WHERE visit_id=$1::uuid"
+                    " RETURNING visit_id::text",
+                    q.visit_id,
+                    luc(ngay),
+                    luc(ngay) + timedelta(hours=1) if da_ve else None,
+                )
+                await conn.execute(
+                    "INSERT INTO prescription(clinic_id,source_ref,visit_id,"
+                    "clinic_patient_id,drug_name_raw,quantity,quantity_num,unit)"
+                    " SELECT clinic_id,$2,visit_id,clinic_patient_id,'thuoc thu',"
+                    "'1 viên',1,'viên' FROM visit WHERE visit_id=$1::uuid",
+                    vid,
+                    f"test-rx-{uuid.uuid4().hex}",
+                )
+                return str(vid)
+
+            # Dời lượt kịch bản về hôm qua, chưa về → vẫn hiện, không ảnh hưởng.
+            tap_truoc = await _tap_hom_nay(conn, q)
+            rx_ve_3 = await don_thuoc(3, da_ve=True)
+            rx_ve_10 = await don_thuoc(10, da_ve=True)
+            rx_ve_90 = await don_thuoc(90, da_ve=True)
+            rx_mo_90 = await don_thuoc(90, da_ve=False)
+            tap = await _tap_hom_nay(conn, q)
+            assert rx_ve_3 in tap, "đã về 3 ngày, còn đơn thuốc chưa mua"
+            assert rx_ve_10 not in tap, "đã về quá 7 ngày, chỉ còn đơn thuốc"
+            assert rx_ve_90 not in tap, "lịch sử đã đóng không kéo vào bảng"
+            assert rx_mo_90 in tap, "chưa về thì giữ mọi tuổi"
+            assert tap - tap_truoc == {rx_ve_3, rx_mo_90}
+        finally:
+            await tx.rollback()

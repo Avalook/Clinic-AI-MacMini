@@ -92,6 +92,45 @@ def clean_name(s: str | None) -> str:
     return _LINK_SPACED.sub("", s or "").strip()
 
 
+#: LƯỢT CŨ CÒN TỒN Ở QUẦY (chỉ khi xem HÔM NAY). Đo trên prod 13/10/2026: bỏ
+#: `LIMIT 300` mà lấy MỌI lượt cũ có đơn thuốc chưa mua thì kéo 7.539 lượt vào
+#: bảng — 7.208 lượt đã đóng từ trước 30 ngày (lịch sử Notion / khách không mua
+#: thuốc) — JSON 17 MB, mỗi lần tải ~40s. Khách tồn THẬT (chỉ định chưa thu, CK
+#: chưa về) chỉ ~55 lượt. Luật: lượt CHƯA VỀ giữ mọi tuổi (đang kẹt ở quầy);
+#: lượt ĐÃ VỀ chỉ còn hiện khi tồn thật trong CU_DA_VE_SO_NGAY ngày, còn "chỉ có
+#: đơn thuốc chưa mua" thì CU_DON_THUOC_SO_NGAY ngày (khách ghé mua lại hôm sau).
+#: Nợ đã ghi có đường riêng (`cong_no`), không phụ thuộc các luật này.
+CU_DA_VE_SO_NGAY = 30
+CU_DON_THUOC_SO_NGAY = 7
+#: Chặn cứng cho vế "đã về" để lỗi dữ liệu không làm bảng nổ lần nữa; vượt thì
+#: `board()` ghi cảnh báo (xem `CU_TRAN_CANH_BAO`).
+CU_DA_VE_TRAN = 400
+CU_TRAN_CANH_BAO = 600
+_LUOT_CU_DA_VE = (
+    "(old.closed_at IS NOT NULL OR old.status IN ('FINALIZED','AMENDED','INCOMPLETE'))"
+)
+_CU_CHI_DINH = """EXISTS(SELECT 1 FROM public.service_order so
+                   WHERE so.clinic_id=old.clinic_id AND so.visit_id=old.visit_id
+                     AND so.selection_status IN ('PENDING','SELECTED')
+                     AND so.exec_status NOT IN ('draft','cancelled')
+                     AND NOT EXISTS(SELECT 1 FROM public.payment_bill_line bl
+                       JOIN public.payment_cycle pc ON pc.clinic_id=bl.clinic_id
+                         AND pc.payment_cycle_id=bl.payment_cycle_id
+                       WHERE bl.clinic_id=so.clinic_id
+                         AND bl.source_type='service_order'
+                         AND bl.source_id=so.id::text
+                         AND pc.status IN ('PAID','PENDING_VERIFICATION')))"""
+_CU_DON_THUOC = """EXISTS(SELECT 1 FROM public.prescription rx
+                   WHERE rx.clinic_id=old.clinic_id AND rx.visit_id=old.visit_id
+                     AND rx.removed_at IS NULL
+                     AND NOT EXISTS(SELECT 1 FROM public.payment_cycle pc
+                       WHERE pc.clinic_id=old.clinic_id AND pc.visit_id=old.visit_id
+                         AND pc.kind='thuoc'
+                         AND pc.status IN ('PAID','PENDING_VERIFICATION')))"""
+_CU_CK_CHUA_VE = """EXISTS(SELECT 1 FROM public.payment_cycle pc
+                   WHERE pc.clinic_id=old.clinic_id AND pc.visit_id=old.visit_id
+                     AND pc.status='PENDING_VERIFICATION')"""
+
 # Một câu, một vòng mạng. Sáu tập dữ liệu gói trong một JSON.
 _SQL = (
     """
@@ -165,28 +204,41 @@ WITH v AS (
             UNION ALL
             SELECT old.visit_id FROM public.visit old
              WHERE $4::boolean AND old.clinic_id=$1::uuid AND old.created_at<$2
-               AND (
-                 EXISTS(SELECT 1 FROM public.service_order so
-                   WHERE so.clinic_id=old.clinic_id AND so.visit_id=old.visit_id
-                     AND so.selection_status IN ('PENDING','SELECTED')
-                     AND so.exec_status NOT IN ('draft','cancelled')
-                     AND NOT EXISTS(SELECT 1 FROM public.payment_bill_line bl
-                       JOIN public.payment_cycle pc ON pc.clinic_id=bl.clinic_id
-                         AND pc.payment_cycle_id=bl.payment_cycle_id
-                       WHERE bl.clinic_id=so.clinic_id
-                         AND bl.source_type='service_order'
-                         AND bl.source_id=so.id::text
-                         AND pc.status IN ('PAID','PENDING_VERIFICATION')))
-                 OR EXISTS(SELECT 1 FROM public.prescription rx
-                   WHERE rx.clinic_id=old.clinic_id AND rx.visit_id=old.visit_id
-                     AND rx.removed_at IS NULL
-                     AND NOT EXISTS(SELECT 1 FROM public.payment_cycle pc
-                       WHERE pc.clinic_id=old.clinic_id AND pc.visit_id=old.visit_id
-                         AND pc.kind='thuoc'
-                         AND pc.status IN ('PAID','PENDING_VERIFICATION')))
-                 OR EXISTS(SELECT 1 FROM public.payment_cycle pc
-                   WHERE pc.clinic_id=old.clinic_id AND pc.visit_id=old.visit_id
-                     AND pc.status='PENDING_VERIFICATION')))
+               AND NOT """
+    + _LUOT_CU_DA_VE
+    + """
+               AND ("""
+    + _CU_CHI_DINH
+    + """ OR """
+    + _CU_DON_THUOC
+    + """
+                 OR """
+    + _CU_CK_CHUA_VE
+    + """)
+            UNION ALL
+            (SELECT old.visit_id FROM public.visit old
+              WHERE $4::boolean AND old.clinic_id=$1::uuid AND old.created_at<$2
+                AND old.created_at >= $2 - interval '"""
+    + str(CU_DA_VE_SO_NGAY)
+    + """ days'
+                AND """
+    + _LUOT_CU_DA_VE
+    + """
+                AND ("""
+    + _CU_CHI_DINH
+    + """ OR """
+    + _CU_CK_CHUA_VE
+    + """
+                 OR ("""
+    + _CU_DON_THUOC
+    + """
+                     AND old.created_at >= $2
+                         - interval '"""
+    + str(CU_DON_THUOC_SO_NGAY)
+    + """ days'))
+              ORDER BY old.created_at DESC LIMIT """
+    + str(CU_DA_VE_TRAN)
+    + """))
        -- CƠ SỞ ĐANG ĐỨNG ($5, 08/10/2026): chỉ khách của cơ sở ấy. Lượt chưa
        -- biết cơ sở vẫn hiện; $5 NULL (danh tính không mang cơ sở) = không lọc.
        AND coalesce(vi.location_id, a.location_id, $5::uuid)
@@ -520,6 +572,8 @@ class CashierBoardService:
             identity.location_id or None,
         )
         raw = json.loads(row) if isinstance(row, str) else row
+        if len(raw.get("visits") or []) > CU_TRAN_CANH_BAO:
+            logger.warning("cashier_board_tap_ung_vien_lon", so_luot=len(raw["visits"]))
 
         out = build_rows(raw, want_svc=want_svc, want_rx=want_rx)
         out["ngay"] = ngay_xem.isoformat()
