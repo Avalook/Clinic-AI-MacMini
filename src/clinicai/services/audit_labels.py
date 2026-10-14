@@ -159,6 +159,7 @@ EVENT_LABELS: dict[str, str] = {
     "ultrasound.assigned": "Giao bác sĩ thực hiện siêu âm",
     "staff.account_tao": "Tạo tài khoản đăng nhập nhân sự",
     "staff.account_doi_mat_khau": "Đặt lại mật khẩu nhân sự",
+    "staff.account_doi_mat_khau_ca_nhan": "Tự đổi mật khẩu cá nhân",
     "staff.account_doi_ten_dang_nhap": "Đổi tên đăng nhập nhân sự",
     "staff.account_thu_hoi": "Thu hồi tài khoản đăng nhập nhân sự",
     "patient_link.created": "Liên kết hai bệnh nhân",
@@ -233,6 +234,7 @@ EVENT_LABELS: dict[str, str] = {
     "staff.created": "Tạo nhân sự",
     "staff.updated": "Sửa thông tin nhân sự",
     "staff.deactivated": "Ngưng hoạt động nhân sự",
+    "staff.activated": "Mở lại hoạt động nhân sự",
     "staff.capability_granted": "Cấp quyền năng lực nhân sự",
     "staff.capability_revoked": "Thu hồi quyền năng lực nhân sự",
     # ── Luồng khám lát 1 (20260911000001) ────────────────────────────────

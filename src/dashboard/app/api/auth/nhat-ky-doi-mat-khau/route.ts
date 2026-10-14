@@ -5,7 +5,7 @@ import { proxyJsonToBackend } from "../../../../lib/backend-proxy";
 export async function POST() {
   const res = await proxyJsonToBackend(
     "POST",
-    "/api/v1/staff/nhat-ky-doi-mat-khau-ca-nhan",
+    "/api/v1/me/nhat-ky-doi-mat-khau",
     {},
   );
   if (!res.ok) {

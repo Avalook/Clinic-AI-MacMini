@@ -280,28 +280,6 @@ async def thu_hoi_tai_khoan(
     )
 
 
-@router.post("/staff/nhat-ky-doi-mat-khau-ca-nhan", status_code=status.HTTP_201_CREATED)
-async def ghi_nhat_ky_doi_mat_khau_ca_nhan(
-    identity: StaffIdentity = Depends(get_current_identity),
-    pool: asyncpg.Pool = Depends(get_db_pool),
-) -> dict[str, object]:
-    """Nhân sự tự đổi mật khẩu cá nhân — ghi nhật ký (không lưu mật khẩu)."""
-    async with pool.acquire() as conn, conn.transaction():
-        await record_event(
-            conn,
-            event_type="staff.account_doi_mat_khau_ca_nhan",
-            aggregate_type="staff",
-            aggregate_id=str(identity.staff_id),
-            identity=identity,
-            origin="api:staff-account",
-            payload={
-                "staff_id": str(identity.staff_id),
-                "hanh_dong": "doi_mat_khau_ca_nhan",
-            },
-        )
-    return {"ok": True}
-
-
 class KhoaNghiViecRequest(BaseModel):
     go_ca_truc: bool = False
 

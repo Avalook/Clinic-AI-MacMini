@@ -303,16 +303,19 @@ async def test_khoa_nguoi_cap_quyen_cuoi_cung_bi_chan(
     async with pool.acquire() as conn:
         # Tạo nhân viên khác và là người DUY NHẤT có permission.manage
         sid, _ = await _nhan_vien(conn, noi=False)
-        # Thu hết permission.manage của mọi người khác trong phòng khám
-        await conn.execute(
-            "DELETE FROM capability_grant "
-            "WHERE clinic_id = $1::uuid AND capability = 'permission.manage'",
-            CLINIC,
-        )
-        # Cấp permission.manage duy nhất cho sid
+        # Cấp permission.manage cho sid trước
         await conn.execute(
             "INSERT INTO capability_grant (clinic_id, staff_id, capability, tu_khoi)"
             " VALUES ($1::uuid, $2::uuid, 'permission.manage', 'nhan_su')",
+            CLINIC,
+            sid,
+        )
+        # Sau đó thu hết permission.manage của mọi người khác trong phòng khám
+        await conn.execute(
+            "DELETE FROM capability_grant "
+            "WHERE clinic_id = $1::uuid "
+            "  AND capability = 'permission.manage' "
+            "  AND staff_id != $2::uuid",
             CLINIC,
             sid,
         )
@@ -443,7 +446,7 @@ async def test_ghi_nhat_ky_doi_mat_khau_ca_nhan(
 ) -> None:
     """Nhân sự bất kỳ tự đổi mật khẩu cá nhân thành công ghi nhật ký."""
     HIEN_TAI["ai"] = ql = await _quan_ly(pool, [])
-    r = await http.post("/api/v1/staff/nhat-ky-doi-mat-khau-ca-nhan")
+    r = await http.post("/api/v1/me/nhat-ky-doi-mat-khau")
     assert r.status_code == 201
     assert r.json()["ok"] is True
 

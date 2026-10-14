@@ -366,7 +366,7 @@ export default function AccountActions({
               <p className="font-medium text-danger">
                 {staffName} còn {futureShifts.length} ca trực sắp tới:
               </p>
-              <ul className="max-h-24 overflow-y-auto space-y-1 rounded bg-surface p-1.5 border border-line font-mono text-[11px] text-ink-soft">
+              <ul className="max-h-24 overflow-y-auto space-y-1 rounded bg-surface p-1.5 border border-line font-mono text-meta text-ink-soft">
                 {futureShifts.map((s) => (
                   <li key={s.id}>
                     • {s.work_date} · Ca {s.shift} · Vị trí {s.station}
