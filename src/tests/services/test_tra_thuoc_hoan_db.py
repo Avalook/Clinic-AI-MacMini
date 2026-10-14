@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import random
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -262,6 +262,14 @@ async def test_tra_sau_48_gio_khong_can_vong_doi_chieu(q: Quay) -> None:
         " created_at = created_at - interval '3 days' WHERE visit_id = $1::uuid",
         q.visit_id,
     )
+    async with q.pool.acquire() as conn, conn.transaction():
+        # Lần thu cũng lùi theo (vẫn TRƯỚC lúc đóng lượt); trigger chặn sửa lần PAID.
+        await conn.execute("SET LOCAL session_replication_role = replica")
+        await conn.execute(
+            "UPDATE payment_cycle SET paid_at = paid_at - interval '3 days',"
+            " created_at = created_at - interval '3 days' WHERE visit_id = $1::uuid",
+            q.visit_id,
+        )
     await _tra(q, await _xuat(q, rx), 2, "GIU_LAI", ly_do_tien="Để lại")
     await chay_ben_nhan(q.pool, CONG_NO, SO_NO)
     assert await _so_ghi_thuoc(q) == 2 * GIA
@@ -279,6 +287,60 @@ async def test_t2_thu_chua_giao_khach_ve_la_no_khach_giao_sau_het(q: Quay) -> No
     await _giao(q, rx, lo, 6)
     assert await _phai_tra_thuoc(q) == 4 * GIA
     await _giao(q, rx, lo, 4)
+    assert await _phai_tra_thuoc(q) == 0
+
+
+async def _viec_ton_thuoc(q: Quay) -> list[tuple[str, int]]:
+    async with q.pool.acquire() as conn:
+        return [
+            (t["loai"], t["so_tien"])
+            for t in await DanhSachHoaDonService._viec_ton(conn, CLINIC, None, "thuoc")
+            if t.get("visit_id") == q.visit_id
+        ]
+
+
+async def test_thu_thuoc_chua_giao_luot_dang_mo_khong_ra_viec_ton(q: Quay) -> None:
+    """Báo động giả (14/10, nghi trên staging): thu tiền thuốc xong, GIAO sau vài
+    phút — lượt còn MỞ thì sổ nợ và việc tồn không được báo "phải trả khách"."""
+    rx, _, lo = await _san_sang(q, 10, 100)
+    await _thu(q)
+    await chay_ben_nhan(q.pool, CONG_NO, SO_NO)
+    assert await _so_ghi_thuoc(q) == 0
+    assert await _viec_ton_thuoc(q) == []
+    await _giao(q, rx, lo, 10)
+    await chay_ben_nhan(q.pool, CONG_NO, SO_NO)
+    assert await _viec_ton_thuoc(q) == []
+
+
+async def test_thu_thuoc_chua_giao_khach_ve_truoc_moi_la_viec_ton(q: Quay) -> None:
+    rx, _, lo = await _san_sang(q, 10, 100)
+    await _thu(q)
+    await _ve(q)
+    await chay_ben_nhan(q.pool, CONG_NO, SO_NO)
+    assert await _viec_ton_thuoc(q) == [("CHUA_TRA_LAI", 10 * GIA)]
+    await _giao(q, rx, lo, 10)
+    await chay_ben_nhan(q.pool, CONG_NO, SO_NO)
+    assert await _viec_ton_thuoc(q) == []
+
+
+async def test_dong_luot_truoc_roi_thu_thuoc_cung_ngay_khong_bao_dong_qua_dem_moi_no(
+    q: Quay,
+) -> None:
+    """Check-out trước, khách quay lại quầy mua thuốc: cùng ngày = đang đứng chờ
+    giao (không báo); qua nửa đêm mà vẫn chưa giao → nợ khách thật."""
+    rx, _, lo = await _san_sang(q, 10, 100)
+    await _ve(q)
+    await _thu(q)
+    await chay_ben_nhan(q.pool, CONG_NO, SO_NO)
+    assert await _phai_tra_thuoc(q) == 0
+    assert await _so_ghi_thuoc(q) == 0
+    assert await _viec_ton_thuoc(q) == []
+    async with q.pool.acquire() as conn:
+        sd, _ = await so_du_hien_tai(
+            conn, CLINIC, q.visit_id, datetime.now(UTC) + timedelta(days=1)
+        )
+    assert sum(int(d["so_tien"]) for d in sd.chi_tiet["PHAI_TRA"]) == 10 * GIA
+    await _giao(q, rx, lo, 10)
     assert await _phai_tra_thuoc(q) == 0
 
 
@@ -316,6 +378,18 @@ async def _tien(q: Quay) -> tuple[int, int, int]:
         )
     )
     return thu, hoan, int(cam * GIA)
+
+
+async def _co_thu_sau_dong(q: Quay) -> bool:
+    return bool(
+        await q.pool.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM payment_cycle c JOIN visit v"
+            " ON v.visit_id = c.visit_id WHERE c.visit_id = $1::uuid"
+            " AND c.kind = 'thuoc'"
+            " AND coalesce(c.paid_at, c.created_at) > v.closed_at)",
+            q.visit_id,
+        )
+    )
 
 
 async def test_bam_lon_xon_tien_thuoc_khop(q: Quay) -> None:
@@ -357,7 +431,9 @@ async def test_bam_lon_xon_tien_thuoc_khop(q: Quay) -> None:
             continue
         buoc.append(viec)
         await chay_ben_nhan(q.pool, CONG_NO, SO_NO)  # như worker thật, sau mỗi bước
-        if da_ve:
+        # Lần thu SAU khi đóng lượt (cùng ngày) được miễn khỏi nợ khách — bất biến
+        # tiền không áp; có test riêng (dong_luot_truoc_roi_thu_thuoc_cung_ngay).
+        if da_ve and not await _co_thu_sau_dong(q):
             thu, hoan, cam = await _tien(q)
             no_khach = await _so_ghi_thuoc(q)
             if thu - hoan != cam + no_khach:

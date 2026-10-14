@@ -121,7 +121,9 @@ SELECT coalesce(c.original_amount, c.amount) AS goc
 #:   đã thu (lần thu PAID) − đã hoàn (đang chờ / xong) − đã giao + khách trả lại.
 #: > 0 = thu rồi chưa giao mà khách về, khách trả thuốc chọn "Giữ lại", hoặc dòng
 #: đã thu bị đính chính chưa giao. Lượt BÁN LẺ tự đóng lúc thu → chỉ tính từ hôm
-#: sau (cùng ngày khách còn đứng ở quầy chờ giao).
+#: sau (cùng ngày khách còn đứng ở quầy chờ giao). Cùng luật cho lần thu thuốc
+#: xảy ra SAU khi lượt đã đóng và CÙNG ngày với `$3` (check-out trước, quay lại
+#: quầy mua thuốc sau — Tuyền 14/10: không báo động giả); qua ngày vẫn là nợ thật.
 _THUOC_PHAI_TRA_SQL = """
 WITH dong AS (
     SELECT bl.source_id AS rx_id, max(bl.name_snapshot) AS ten,
@@ -137,8 +139,15 @@ WITH dong AS (
                ON r.refund_id = l.refund_id AND r.clinic_id = l.clinic_id
             WHERE l.clinic_id = bl.clinic_id AND l.payment_bill_line_id = bl.id
               AND r.status IN ('PENDING', 'COMPLETED')) h ON true
+      JOIN public.visit vt
+        ON vt.clinic_id = c.clinic_id AND vt.visit_id = c.visit_id
      WHERE bl.clinic_id = $1::uuid AND c.visit_id = $2::uuid AND c.status = 'PAID'
        AND bl.source_type = 'prescription' AND bl.billing_owner = 'CLINIC'
+       AND NOT (vt.closed_at IS NOT NULL
+                AND coalesce(c.paid_at, c.created_at) > vt.closed_at
+                AND (coalesce(c.paid_at, c.created_at)
+                       AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                    = ($3 AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
      GROUP BY bl.source_id
 )
 SELECT d.ten, d.don_gia,
