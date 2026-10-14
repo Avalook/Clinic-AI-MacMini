@@ -27,6 +27,7 @@ from clinicai.services.phi_kham_service import PhiKhamService
 from clinicai.services.service_selection_service import ServiceSelectionService
 from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
 from tests.services.test_tien_thuoc_cp1_db import Quay, _gia_dv, tao_quay
+from tests.so_ck import so_ck
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -297,6 +298,7 @@ async def test_xac_minh_phi_kham_cu_khong_lech_khi_tick_them(q: Quay) -> None:
         kind="dich_vu",
         reference="FT-PHI-KHAM-1",
         identity=q.thu_ngan,
+        so_tien_thuc_nhan=await so_ck(q.pool, cho),
     )
     assert kq["can_doi_soat"] is False
     assert _nguon(await _hd(q)) == {("exam", f"exam-{q.visit_id}-selected-{b}")}
@@ -526,6 +528,7 @@ async def test_xac_minh_lan_cho_cu_khong_lech_vi_chi_dinh_moi(q: Quay) -> None:
         kind="dich_vu",
         reference="FT123456",
         identity=q.thu_ngan,
+        so_tien_thuc_nhan=await so_ck(q.pool, cho),
     )
     assert kq["status"] == "PAID"
     assert kq["can_doi_soat"] is False and kq["doi_soat_ly_do"] == []
@@ -553,6 +556,7 @@ async def test_xac_minh_van_bat_doi_soat_khi_chinh_nguon_da_chup_doi_gia(
         kind="dich_vu",
         reference="FT654321",
         identity=q.thu_ngan,
+        so_tien_thuc_nhan=await so_ck(q.pool, cho),
     )
     # Tiền thật vẫn ghi đã thu theo ảnh chụp; chỉ bật đối soát như luật cũ.
     assert kq["status"] == "PAID"

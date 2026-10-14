@@ -10,6 +10,7 @@ from clinicai.services.cashier_scope_service import CashierScopeService
 from clinicai.services.quay_thu_service import QuayThuService
 from tests.services.test_tien_thuoc_cp1_db import tao_quay
 from tests.services.test_tien_thuoc_cp3_db import _san_sang, _thu
+from tests.so_ck import so_ck
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 
@@ -223,6 +224,7 @@ async def test_confirmation_actor_and_original_both_see_receipt(
         kind="thuoc",
         reference="Scope confirmation",
         identity=q.duoc_si,
+        so_tien_thuc_nhan=await so_ck(pool, pending["payment_cycle_id"]),
     )
     row = await pool.fetchrow(
         "SELECT created_by::text,confirmed_by::text,created_at,paid_at "

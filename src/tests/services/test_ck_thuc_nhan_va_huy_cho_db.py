@@ -2,7 +2,8 @@
 
     scripts/test-nhanh.sh src/tests/services/test_ck_thuc_nhan_va_huy_cho_db.py
 
-* Xác minh CK nhập số ngân hàng THẬT nhận (tuỳ chọn): khớp → như cũ; lệch →
+* Xác minh CK BẮT XÁC NHẬN số ngân hàng THẬT nhận (màn điền sẵn phần CK;
+  thiếu → 422, lần chờ còn nguyên; mã giao dịch vẫn tuỳ chọn): khớp → như cũ; lệch →
   vẫn ghi đã thu theo hoá đơn, bật đối soát ``SO_TIEN_LECH``, giữ số thật nhận
   (bất biến ở Postgres).
 * Lần chờ CK bị HUỶ (nhân viên tưởng chưa về) vẫn hiện ở danh sách hoá đơn và
@@ -78,17 +79,26 @@ async def test_xac_minh_khop_so_khong_doi_soat(pool: asyncpg.Pool) -> None:  # n
     )
 
 
-async def test_xac_minh_khong_khai_so_nhu_cu(pool: asyncpg.Pool) -> None:  # noqa: F811
+async def test_xac_minh_thieu_so_bi_tu_choi(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Tuyền chốt C: bắt xác nhận số — thiếu (hay ô trống) → 422, lần chờ còn
+    nguyên; gửi lại cho lần ĐÃ xác minh không kèm số vẫn thành công như cũ."""
     ca = await _dung(pool)
     v, _o = await _luot(pool, ca)
     await _thu(pool, ca, v, method="TRANSFER")
-    await _xac_minh(pool, ca, v, None)
+    for trong in (None, "  "):
+        with pytest.raises(ValidationError, match="ngân hàng thật nhận"):
+            await _xac_minh(pool, ca, v, trong)
+    assert (await _lan(pool, v))["status"] == "PENDING_VERIFICATION"
+    await _xac_minh(pool, ca, v, 300_000)
     lan = await _lan(pool, v)
-    assert (lan["status"], lan["so_tien_thuc_nhan"], lan["can_doi_soat"]) == (
-        "PAID",
-        None,
-        False,
+    gui_lai = await PaymentService(pool).xac_minh_dien_tu(
+        payment_cycle_id=lan["id"],
+        visit_id=v,
+        kind="dich_vu",
+        reference=None,
+        identity=ca.thu_ngan,
     )
+    assert gui_lai["status"] == "PAID" and gui_lai.get("da_xac_minh_tu_truoc")
 
 
 async def test_xac_minh_lech_so_van_thu_va_bat_doi_soat(pool: asyncpg.Pool) -> None:  # noqa: F811

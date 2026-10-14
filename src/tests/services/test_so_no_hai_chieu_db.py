@@ -50,6 +50,7 @@ from tests.services.test_mo_phong_dong_tien_db import (
 )
 from tests.services.test_thu_tien_xep_phong_mang_sang_db import _don, _dung, _khoa
 from tests.services.test_thu_truoc_lam_truoc_tick_db import day_thu_truoc
+from tests.so_ck import so_ck
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
@@ -156,6 +157,7 @@ async def test_tra_no_bang_ck_chi_giam_luc_xac_minh(pool: asyncpg.Pool) -> None:
         kind="dich_vu",
         reference="FT999",
         identity=ca.thu_ngan,
+        so_tien_thuc_nhan=await so_ck(pool, cid),
     )
     assert (await _so(pool, v))[-1] == ("PHAI_THU", -300_000, 0, "THU")
 

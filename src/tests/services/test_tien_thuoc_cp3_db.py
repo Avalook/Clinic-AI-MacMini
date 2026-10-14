@@ -33,6 +33,7 @@ from tests.services.test_tien_thuoc_cp1_db import (
     q,  # noqa: F401
     tao_quay,
 )
+from tests.so_ck import so_ck
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -130,6 +131,7 @@ async def _xac_minh(q: Quay, cycle: str, ma: str = "FT123456") -> dict[str, Any]
         kind="thuoc",
         reference=ma,
         identity=q.thu_ngan,
+        so_tien_thuc_nhan=await so_ck(q.pool, cycle),
     )
 
 

@@ -31,6 +31,7 @@ from clinicai.events.catalogue import CONG_NO, SO_NO
 from clinicai.services.checkout_service import CheckoutService
 from clinicai.services.cong_no_service import CongNoService, no_khi_ve
 from clinicai.services.danh_sach_hoa_don_service import DanhSachHoaDonService
+from clinicai.services.doi_hinh_thuc_service import DoiHinhThucService
 from clinicai.services.hoan_tac_service import HoanTacService, tien_da_thu_cua_chi_dinh
 from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.payment_service import PaymentService
@@ -56,6 +57,7 @@ from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
     _khoa,
 )
 from tests.services.test_thu_truoc_lam_truoc_tick_db import day_thu_truoc
+from tests.so_ck import so_ck
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
@@ -222,7 +224,8 @@ async def _lech(pool: asyncpg.Pool, visit: str) -> list[str]:  # noqa: F811
             "SELECT count(*) FROM payment_refund r JOIN payment_cycle c"
             "  ON c.payment_cycle_id = r.payment_cycle_id"
             " WHERE r.visit_id = $1::uuid AND r.method = 'CASH'"
-            "   AND c.method IN ('TRANSFER', 'QR')",
+            "   AND hinh_thuc_hieu_luc(c.clinic_id, c.payment_cycle_id, c.method)"
+            "       IN ('TRANSFER', 'QR')",
             visit,
         )
     out = []
@@ -367,6 +370,7 @@ async def _ck_da_ve_roi_bo(pool: asyncpg.Pool, ca: Ca) -> str:  # noqa: F811
         kind="dich_vu",
         reference="FT123",
         identity=ca.thu_ngan,
+        so_tien_thuc_nhan=await so_ck(pool, cid),
     )
     await HoanTacService(pool).huy_chi_dinh(
         order_id=o, identity=ca.bac_si, xac_nhan=True, ly_do="Khách đổi ý"
@@ -394,6 +398,32 @@ async def test_r6_hoan_tien_thua_theo_hinh_thuc_goc(pool: asyncpg.Pool) -> None:
     assert tt["theo_hinh_thuc"] == {"TRANSFER": 300_000}
     kq = await HoanTienService(pool).hoan_tien_thua(identity=ca.thu_ngan, visit_id=v)
     assert kq["theo_hinh_thuc"] == {"TRANSFER": 300_000}
+    assert await _hoan_cua(pool, v) == "TRANSFER:PENDING"
+    await _ve(pool, ca, v)
+    assert await _lech(pool, v) == []
+
+
+async def test_r6_hoan_theo_hinh_thuc_sau_khi_doi(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Quầy bấm nhầm TM rồi "Đổi hình thức" sang CK → hoàn thừa mặc định CK
+    (hình thức HIỆU LỰC), không phải TM lúc bấm thu."""
+    ca = await _dung(pool)
+    v, o = await _luot(pool, ca)
+    cid = await _thu(pool, ca, v, method="CASH")
+    await DoiHinhThucService(pool).doi(
+        identity=ca.thu_ngan,
+        payment_cycle_id=cid,
+        hinh_thuc="TRANSFER",
+        hinh_thuc_cu="CASH",
+        reference=None,
+        ly_do="Khách chuyển khoản, bấm nhầm tiền mặt",
+    )
+    await HoanTacService(pool).huy_chi_dinh(
+        order_id=o, identity=ca.bac_si, xac_nhan=True, ly_do="Khách đổi ý"
+    )
+    async with pool.acquire() as conn:
+        tt = await tien_thua_khi_ve(conn, CLINIC, v)
+    assert tt["theo_hinh_thuc"] == {"TRANSFER": 300_000}
+    await HoanTienService(pool).hoan_tien_thua(identity=ca.thu_ngan, visit_id=v)
     assert await _hoan_cua(pool, v) == "TRANSFER:PENDING"
     await _ve(pool, ca, v)
     assert await _lech(pool, v) == []
@@ -450,6 +480,7 @@ async def _xac_minh(pool: asyncpg.Pool, ca: Ca, visit: str) -> None:  # noqa: F8
         kind="dich_vu",
         reference=None,
         identity=ca.thu_ngan,
+        so_tien_thuc_nhan=await so_ck(pool, cid),
     )
 
 

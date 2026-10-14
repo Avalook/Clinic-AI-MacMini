@@ -36,7 +36,11 @@ from clinicai.api.identity import StaffIdentity
 _DONG_THUA_SQL = """
 WITH dong AS (
     SELECT bl.id::text AS line_id, bl.visit_id::text AS line_visit_id,
-           bl.payment_cycle_id::text AS payment_cycle_id, c.method AS hinh_thuc,
+           bl.payment_cycle_id::text AS payment_cycle_id,
+           -- Hình thức HIỆU LỰC (sau "Đổi hình thức"), không phải lúc bấm thu:
+           -- thu nhầm TM rồi đổi sang CK thì hoàn mặc định phải là CK.
+           hinh_thuc_hieu_luc(c.clinic_id, c.payment_cycle_id, c.method)
+               AS hinh_thuc,
            bl.source_type,
            bl.source_id, bl.name_snapshot, bl.quantity, bl.line_total,
            CASE WHEN bl.source_type = 'service_order' THEN bl.source_id

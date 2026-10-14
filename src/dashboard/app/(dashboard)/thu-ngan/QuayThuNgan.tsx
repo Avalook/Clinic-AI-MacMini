@@ -523,7 +523,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
 
   /** "Đã nhận tiền" của lần chờ xác minh — cũng là lúc tiền đã đủ. */
   const xacMinh = useCallback(
-    async (l: Luot, kind: "dich_vu" | "thuoc", ma: string, soNhan: number | null) => {
+    async (l: Luot, kind: "dich_vu" | "thuoc", ma: string, soNhan: number) => {
       const cau = `Đã xác minh — khoản này đã thu (${l.full_name ?? "khách"}).`;
       const ok = await gui(
         `${l.visit_id}:${kind}`,
@@ -1094,21 +1094,24 @@ export function NhomThu({
   cho: ChoXacMinh | undefined;
   dangThu: boolean;
   onThu: (hd: HoaDon, chia: KetQuaChia | null, giam?: GiamGiaResult) => void;
-  /** `soNhan`: số ngân hàng báo nhận (G4d, R1) — trống = không khai. */
-  onXacMinh: (ma: string, soNhan: number | null) => void;
+  /** `soNhan`: số ngân hàng thật nhận thu ngân đã xác nhận (G4d, R1 — bắt buộc). */
+  onXacMinh: (ma: string, soNhan: number) => void;
   /** Sau hoàn tác / thêm ảnh: tải lại (kèm câu báo nếu có). */
   onDoi: (cau?: string) => void;
 }) {
   const [chia, setChia] = useState<KetQuaChia | null>(null);
   const [giamGia, setGiamGia] = useState<GiamGiaResult | null>(null);
   const [ma, setMa] = useState("");
-  const [soNhan, setSoNhan] = useState("");
+  // null = chưa sửa → hiện số máy chủ điền sẵn (phần chuyển khoản của lần chờ).
+  const [soNhan, setSoNhan] = useState<string | null>(null);
   const tongGoc = hd?.tong ?? 0;
   const tongSauGiam = giamGia ? giamGia.tongSauGiam : tongGoc;
   const mienPhi = tongSauGiam === 0 && !!giamGia?.params;
   if (cho) {
     // CHỜ XÁC MINH: bấm "Đã nhận tiền" là xong. Mã giao dịch TUỲ CHỌN (Tuyền
     // 24/09/2026: "không được bắt buộc điền mã mới cho thanh toán xong, open đi").
+    // Số ngân hàng thật nhận BẮT XÁC NHẬN (Tuyền chốt C 14/10): điền sẵn.
+    const soNhanHien = soNhan ?? String(cho.so_tien_chuyen_khoan ?? cho.so_tien);
     return (
       <div className="border-b border-line px-4 py-3 last:border-b-0">
         <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
@@ -1126,28 +1129,32 @@ export function NhomThu({
             aria-label="Mã giao dịch ngân hàng (không bắt buộc)"
             className="min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink"
           />
-          {/* SỐ NGÂN HÀNG THẬT NHẬN (G4d, R1): tuỳ chọn, không chặn. Khác số
-              chuyển khoản → máy chủ vẫn ghi đã thu và bật cờ cần đối soát. */}
-          <input
-            value={soNhan}
-            onChange={(e) => setSoNhan(e.target.value.replace(/[^\d]/g, ""))}
-            inputMode="numeric"
-            placeholder={`Ngân hàng nhận (${tien(cho.so_tien_chuyen_khoan ?? cho.so_tien)})`}
-            aria-label="Số tiền ngân hàng thật nhận (không bắt buộc)"
-            className="min-h-10 w-48 rounded-control border border-line bg-surface px-3 text-right text-sm tabular-nums text-ink"
-          />
+          {/* SỐ NGÂN HÀNG THẬT NHẬN (G4d, R1): điền sẵn phần chuyển khoản, thu
+              ngân xác nhận hoặc sửa. Khác số chuyển khoản → máy chủ vẫn ghi đã
+              thu và bật cờ cần đối soát. */}
+          <label className="flex items-center gap-1 text-meta text-ink-muted">
+            Ngân hàng nhận
+            <input
+              value={soNhanHien}
+              onChange={(e) => setSoNhan(e.target.value.replace(/[^\d]/g, ""))}
+              inputMode="numeric"
+              placeholder="Số tiền"
+              aria-label="Số tiền ngân hàng thật nhận"
+              className="min-h-10 w-36 rounded-control border border-line bg-surface px-3 text-right text-sm tabular-nums text-ink"
+            />
+          </label>
           <button
             type="button"
-            disabled={dangThu}
-            onClick={() => onXacMinh(ma.trim(), soNhan === "" ? null : Number(soNhan))}
+            disabled={dangThu || soNhanHien === ""}
+            onClick={() => onXacMinh(ma.trim(), Number(soNhanHien))}
             className="inline-flex min-h-10 items-center rounded-control border border-brand-500 bg-brand-500 px-4 text-sm font-semibold text-white disabled:opacity-50"
           >
             Đã nhận tiền
           </button>
         </div>
         <p className="mt-1 text-meta text-ink-muted">
-          Ghi số ngân hàng báo nhận nếu có. Khác số chuyển khoản thì vẫn ghi đã thu, phiếu được
-          đánh dấu cần đối soát.
+          Đã điền sẵn số chuyển khoản — xác nhận, hoặc sửa theo số ngân hàng báo. Khác số chuyển
+          khoản thì vẫn ghi đã thu, phiếu được đánh dấu cần đối soát.
         </p>
         <AnhChuyenKhoan cycleId={cho.payment_cycle_id} ds={cho.anh_ck} onDoi={() => onDoi()} />
         {/* Khách không chuyển / chuyển sai / ghi nhầm hình thức → HOÀN TÁC (lý do

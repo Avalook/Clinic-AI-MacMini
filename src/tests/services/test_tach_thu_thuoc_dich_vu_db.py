@@ -31,6 +31,7 @@ from tests.services.test_tien_thuoc_cp1_db import tao_quay
 from tests.services.test_tien_thuoc_cp2_db import _thu_pt
 from tests.services.test_tien_thuoc_cp3_db import _san_sang
 from tests.services.test_tien_thuoc_cp3_db import _thu as _thu_thuoc
+from tests.so_ck import so_ck
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 
@@ -98,6 +99,7 @@ async def test_moi_lenh_thu_cheo_bi_chan_khong_ghi_gi(
             reference="FT1",
             identity=q.thu_ngan,
             quay="thuoc",
+            so_tien_thuc_nhan=await so_ck(pool, ck["payment_cycle_id"]),
         )
     with pytest.raises(QuayKhongThuLoaiNayError):
         await svc.huy_cho_xac_minh(
@@ -123,6 +125,7 @@ async def test_moi_lenh_thu_cheo_bi_chan_khong_ghi_gi(
         reference="FT1",
         identity=q.thu_ngan,
         quay="dich_vu",
+        so_tien_thuc_nhan=await so_ck(pool, ck["payment_cycle_id"]),
     )
     assert xm["status"] == "PAID"
     with pytest.raises(QuayKhongThuLoaiNayError):

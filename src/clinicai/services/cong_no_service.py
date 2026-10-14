@@ -426,6 +426,7 @@ async def ghi_no_trong(
     identity: StaffIdentity,
     visit_id: str,
     ly_do: str,
+    nguon: str | None = None,
 ) -> dict[str, Any] | None:
     """Thân lệnh Ghi nợ, TRONG giao dịch của người gọi (``ly_do`` đã chuẩn).
     Không còn khoản nào chưa thu → ``None``. Dùng chung cho nút "Ghi nợ" và
@@ -481,6 +482,7 @@ async def ghi_no_trong(
             so_tien=no.tong,
             so_khoan=len(no.dong),
             ly_do=ly_do,
+            nguon=nguon,
         ),
         boi=nguoi(identity),
         correlation_id=visit_id,
