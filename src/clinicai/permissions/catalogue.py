@@ -237,6 +237,15 @@ KHOI: dict[str, KhoiCongViec] = {
             "lich_lam_viec", "Lịch làm việc", "roster", "Xem lịch làm việc, ca trực"
         ),
         KhoiCongViec("bang_gia", "Bảng giá dịch vụ", "catalogue", "Sửa giá dịch vụ"),
+        # 14/10/2026 — Kho vật tư là màn RIÊNG, không suy từ Kho thuốc: sổ, tồn,
+        # mức tối thiểu, báo cáo tiêu hao nằm ở bảng vat_tu_* (migration
+        # 20261014181100).
+        KhoiCongViec(
+            "kho_vat_tu",
+            "Kho vật tư",
+            "supplies",
+            "Phiếu kho, kiểm đếm, mức tối thiểu, báo cáo tiêu hao vật tư",
+        ),
         KhoiCongViec("bao_cao", "Báo cáo", "report", "Báo cáo, lịch đổ về"),
         KhoiCongViec(
             "cai_dat",
@@ -589,6 +598,13 @@ QUYEN: dict[str, Quyen] = {
             MucRuiRo.TIEN,
         ),
         Quyen(
+            "vat_tu.manage",
+            "Kho vật tư: phiếu kho, kiểm đếm, mức tối thiểu, báo cáo tiêu hao",
+            "kho_vat_tu",
+            "supplies",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
             "report.view",
             "Xem báo cáo",
             "bao_cao",
@@ -881,7 +897,7 @@ def _lego(
     return Man(ma, ten, cac_duong[0], khoi, mac_dinh_cho, cac_duong, khoi_theo_phong)
 
 
-# THỨ TỰ = thứ tự thanh bên. Màn quản lý hiện 21 dòng, mỗi dòng một công tắc.
+# THỨ TỰ = thứ tự thanh bên. Màn quản lý hiện 22 dòng, mỗi dòng một công tắc.
 MAN: dict[str, Man] = {
     m.ma: m
     for m in (
@@ -1014,6 +1030,13 @@ MAN: dict[str, Man] = {
         # bảng giá dịch vụ.
         _lego(
             "bang_gia", "Bảng giá", ["/cashier/dich-vu"], ["bang_gia"], "Thu ngân, QL"
+        ),
+        _lego(
+            "kho_vat_tu",
+            "Kho vật tư",
+            ["/kho-vat-tu"],
+            ["kho_vat_tu"],
+            "Mọi người (QL chỉnh mức tối thiểu)",
         ),
         _lego(
             "bao_cao",

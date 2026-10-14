@@ -41,7 +41,8 @@ async def _co(
 
 
 def test_21_lego_theo_thu_tu_thanh_ben() -> None:
-    assert len(MAN) == 21
+    # 22 = +kho_vat_tu (G8a); gộp với G5a ke_toan thì cộng thêm khi gộp nhánh.
+    assert len(MAN) == 22
     assert list(MAN)[:3] == ["tiep_don", "do_sinh_hieu", "tu_van"]
     assert list(MAN)[-1] == "doi_tac"
     # Lego 19 chỉ nằm trong gói mẫu Quản lý.

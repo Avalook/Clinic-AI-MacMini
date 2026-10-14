@@ -69,7 +69,10 @@ def _dong(loai: str, d: dict[str, Any]) -> dict[str, Any]:
         "tu": tu,
         "den": den,
         "so": _so(d.get("so_luong"), cho_0=loai in {"KIEM", "DIEU_CHINH"}),
-        "gia": _so(d.get("gia_nhap", 0), cho_0=True, le=0),
+        # None = người lập không gõ giá → lấy giá danh mục tại LÚC lập (bản chụp).
+        "gia": None
+        if d.get("gia_nhap") in (None, "")
+        else _so(d["gia_nhap"], cho_0=True, le=0),
     }
 
 
@@ -224,7 +227,18 @@ async def tao_phieu(
             return cu
         p = await _mo_phieu(conn, identity, loai, khoa, ghi_chu)
         for d in ds:
-            vt, so, gia = d["vat_tu_id"], d["so"], d["gia"]
+            vt, so = d["vat_tu_id"], d["so"]
+            gia = d["gia"]
+            if gia is None:
+                gia = Decimal(
+                    await conn.fetchval(
+                        "SELECT coalesce(gia_nhap_vat_tu,0) FROM service_price"
+                        " WHERE id=$1::uuid AND clinic_id=$2::uuid",
+                        vt,
+                        identity.clinic_id,
+                    )
+                    or 0
+                )
             if loai in {"XUAT_PHONG", "TRA_KHO", "CHUYEN_PHONG"}:
                 tu = await _ton(conn, identity, vt, d["tu"])
                 den = await _ton(conn, identity, vt, d["den"])
