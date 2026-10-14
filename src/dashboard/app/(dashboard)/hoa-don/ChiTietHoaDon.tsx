@@ -3,6 +3,7 @@
 import HopChiTiet from "@/components/ui/HopChiTiet";
 import { tenHinhThuc } from "@/lib/hinh-thuc-thu";
 import { buttonClass } from "@/components/ui/Button";
+import CongTyHoaDon from "./CongTyHoaDon";
 import {
   TEN_SU_KIEN, TRANG_THAI, daTon, gio, ngayGio, tien,
   type DongHoaDon, type KhachHoaDon, type PhieuThu, type SuKien,
@@ -92,6 +93,7 @@ function Phieu({ phieu: p, so }: { phieu: PhieuThu; so: number }) {
       <span className="block text-meta text-ink-muted">Lý do: {p.ly_do_giam || "Không có dữ liệu"} · {p.nguoi_giam || "—"} · {ngayGio(p.giam_luc)}</span>
     </p> : null}
     <SauKhiThu su={p.su_kien ?? []} />
+    {p.trang_thai !== "DA_HUY" && p.trang_thai !== "CK_DA_HUY" ? <CongTyHoaDon paymentCycleId={p.id} /> : null}
     <h4 className="mt-4 text-meta font-semibold text-ink-muted">Dòng trên phiếu gốc</h4>
     <DongChiTiet dong={p.dong} />
     {p.hoan.length ? <div className="mt-2 flex flex-wrap gap-2">
