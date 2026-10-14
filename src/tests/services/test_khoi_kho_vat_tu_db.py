@@ -8,7 +8,7 @@ import pytest
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import can
-from clinicai.permissions.catalogue import KHOI_MO_FULL, PRESET, QUYEN
+from clinicai.permissions.catalogue import KHOI_MO_FULL, MAN, PRESET, QUYEN
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.permission_service import PermissionService
 from tests.services.test_permission_db import (  # noqa: F401
@@ -26,6 +26,14 @@ def test_khoi_kho_vat_tu_trong_catalogue() -> None:
     # Đối tác tuyệt đối không có; mọi vai nội bộ khác theo khối mở full.
     assert PRESET["PARTNER"] == ["doi_tac"]
     assert all("kho_vat_tu" in ks for v, ks in PRESET.items() if v != "PARTNER")
+
+
+def test_lego_kho_vat_tu_tren_thanh_ben() -> None:
+    """Màn `/kho-vat-tu` là một lego riêng, đứng trước `doi_tac` (lego cuối)."""
+    man = MAN["kho_vat_tu"]
+    assert man.duong == "/kho-vat-tu"
+    assert list(man.khoi) == ["kho_vat_tu"]
+    assert list(MAN)[-1] == "doi_tac"
 
 
 async def test_cap_thu_khoi_kho_vat_tu_co_hieu_luc_ngay(
