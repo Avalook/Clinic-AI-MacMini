@@ -239,7 +239,9 @@ Mẫu Excel kiểm kê thuốc + vật tư đầu/cuối ca (anh Thắng) · tà
 (Gom từ memory + phiên 14/10. Xong mục nào thì gạch.)
 - [ ] Trả lời nốt câu ở mục 2 chưa chốt (xem 2b — vòng 1 đã trả lời Q5 Q8 Q12 Q14 Q16 Q19 Q20 Q21).
 - [ ] G7 tách kho/quầy: làm sau G6 nhưng BẮT BUỘC (Tuyền 14/10) — đừng để rơi.
-- [ ] Commit tệp kế hoạch: 2 lần bị auto mode chặn 14/10 (rebase vướng `.agents/skills/len-prod/SKILL.md` chưa theo dõi, trùng y hệt bản trên main) — commit khi bàn xong.
+- [x] Commit tệp kế hoạch (PR #419). Worktree này còn `.agents/skills/len-prod/SKILL.md` chưa theo dõi — y hệt bản trên main, cố ý để nguyên.
+- [ ] Merge #420 → #421 → #422 (đúng thứ tự) → staging một đợt → Tuyền bấm theo kịch bản #421, #422.
+- [ ] Bố cục báo cáo gọn trên điện thoại (#397 đã đóng) — làm lại trên nền số mới nếu quản lý cần.
 - [ ] Nhãn "Đang ghi nợ" + dòng thời gian "thu 0đ, giảm X" (#415) chưa ai bấm thử ở 375/1280 — đã lên prod 14/10.
 - [ ] PR #410 (ô Giảm giá ở báo cáo) nền cũ, xung đột 5 file báo cáo với main → rebase hoặc đóng (G4 sẽ thay phần này).
 - [ ] PR chưa vào đợt nào: #397 #393 #389 #388 #387 #372 #370 #364 — quyết vào đợt 14/10 hay đóng.
