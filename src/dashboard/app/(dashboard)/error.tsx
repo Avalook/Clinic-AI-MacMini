@@ -21,6 +21,8 @@
 import { useEffect } from "react";
 import { AlertTriangle, RotateCw, Home } from "lucide-react";
 
+import { baoLoiTrinhDuyet } from "@/lib/bao-loi-trinh-duyet";
+
 export default function DashboardError({
   error,
   unstable_retry,
@@ -33,15 +35,14 @@ export default function DashboardError({
     // kho gom lỗi tự dựng là Pha 1 của docs/KE-HOACH-THEO-DOI-LOI.md.
     console.error("[dashboard] lỗi khi dựng trang:", error);
     // Gửi về KHO LỖI (27/09/2026) — /ops tab "Lỗi & cảnh báo". Hỏng thì im.
-    void fetch("/api/loi", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        vi_tri: window.location.pathname,
-        kieu: error.name || "Error",
-        thong_diep: `${error.message}${error.digest ? ` (digest ${error.digest})` : ""}`,
-      }),
-    }).catch(() => undefined);
+    // Chặn báo trùng (`lib/bao-loi-trinh-duyet`): "Thử lại" lúc máy chủ quá tải là
+    // một tràng báo giống hệt nhau đổ vào chính máy chủ đang khổ — lần đầu gửi,
+    // lần trùng được đếm và tóm tắt.
+    baoLoiTrinhDuyet({
+      vi_tri: window.location.pathname,
+      kieu: error.name || "Error",
+      thong_diep: `${error.message}${error.digest ? ` (digest ${error.digest})` : ""}`,
+    });
   }, [error]);
 
   return (
