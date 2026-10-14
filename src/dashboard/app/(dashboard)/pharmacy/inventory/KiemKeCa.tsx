@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import type { InvBatch } from "./InventoryBoard";
 import { soKho } from "./gui-kho";
@@ -116,6 +117,9 @@ export default function KiemKeCa({
   const [ketQuaDC, setKetQuaDC] = useState<string | null>(null);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  // Mã phiếu đang hỏi "Chốt kiểm kê?" (xác nhận TẠI CHỖ, không dùng hộp của trình
+  // duyệt). Lưu mã phiếu để đổi / mở phiếu khác tự tắt câu hỏi, không cần effect.
+  const [hoiChot, setHoiChot] = useState<string | null>(null);
 
   const taiDs = useCallback(async (n: string) => {
     const r = await goi<{ items: TomTat[] }>("GET", `${URL_GOC}?ngay=${n}`);
@@ -425,10 +429,28 @@ export default function KiemKeCa({
               >
                 Lưu nháp
               </Button>
-              <Button type="button" size="sm" variant="primary" disabled={dang} onClick={() => void chot()}>
+              <Button
+                type="button"
+                size="sm"
+                variant="primary"
+                disabled={dang || hoiChot === phieu.id}
+                onClick={() => setHoiChot(phieu.id)}
+              >
                 Chốt kiểm kê
               </Button>
             </div>
+          ) : null}
+          {!daChot && ghiDuoc && hoiChot === phieu.id ? (
+            <XacNhanTaiCho
+              cau="Chốt kiểm kê? Sau khi chốt không sửa số đếm; lệch (nếu có) sẽ báo, bạn điều chỉnh hoặc hoàn tác sau."
+              nhanDongY="Chốt"
+              dangGui={dang}
+              onDongY={() => {
+                setHoiChot(null);
+                void chot();
+              }}
+              onThoi={() => setHoiChot(null)}
+            />
           ) : null}
 
           <div className={`${TBL_WRAP} overflow-x-auto`}>

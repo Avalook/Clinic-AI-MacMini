@@ -34,6 +34,7 @@ const Chip = (p: { children?: React.ReactNode }) => React.createElement("span", 
 const MOCK = {
   "@/components/ui/Button": Nut,
   "@/components/ui/Chip": Chip,
+  "@/components/ui/XacNhanTaiCho": (p: { cau?: string }) => React.createElement("div", { role: "alertdialog" }, p.cau),
   "../../form-ui": { INPUT: "i", TBL_DIV: "d", TBL_HEAD: "h", TBL_WRAP: "w" },
   "./gui-kho": { soKho: (n: unknown) => String(n ?? 0) },
 };
@@ -75,6 +76,19 @@ test("KiemKeCa: người không có quyền ghi chỉ xem — không nút mở p
   const xem = renderToStaticMarkup(React.createElement(Kiem, { batches, ghiDuoc: false }));
   assert.doesNotMatch(xem, /Mở \/ tiếp tục phiếu/);
   assert.doesNotMatch(doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx"), /window\.confirm/);
+});
+
+test("Chốt kiểm kê phải qua xác nhận TẠI CHỖ (XacNhanTaiCho), nút Chốt không gọi chốt ngay", () => {
+  const nguon = doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx");
+  assert.match(nguon, /import XacNhanTaiCho from "@\/components\/ui\/XacNhanTaiCho"/);
+  assert.match(nguon, /Chốt kiểm kê\? Sau khi chốt không sửa số đếm; lệch \(nếu có\) sẽ báo, bạn điều chỉnh hoặc hoàn tác sau\./);
+  assert.match(nguon, /nhanDongY="Chốt"/);
+  // Nút "Chốt kiểm kê" chỉ mở câu hỏi; chỉ [Chốt] trong dải mới gọi chot().
+  assert.match(nguon, /onClick=\{\(\) => setHoiChot\(phieu\.id\)\}/);
+  assert.doesNotMatch(nguon, /onClick=\{\(\) => void chot\(\)\}/);
+  assert.match(nguon, /onDongY=\{\(\) => \{\s*setHoiChot\(null\);\s*void chot\(\);\s*\}\}/);
+  assert.match(nguon, /onThoi=\{\(\) => setHoiChot\(null\)\}/);
+  assert.doesNotMatch(nguon, /window\.confirm/);
 });
 
 const dong = (kho: unknown) => ({
