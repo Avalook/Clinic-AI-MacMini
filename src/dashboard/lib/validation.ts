@@ -1,5 +1,5 @@
 // Quy tắc nhập liệu CỨNG dùng chung (client form + server API), 1 nguồn sự thật.
-//   - SĐT: số VN 10 chữ số, BẮT ĐẦU BẰNG 0, đầu số hợp lệ (cố định 02; di động
+//   - SĐT: số VN 10 chữ số, BẮT ĐẦU BẰNG 0, đầu số hợp lệ (di động
 //     03/05/07/08/09). Không có số mở đầu bằng 1/2/4/6 hay thiếu số 0.
 //   - CCCD: 12 chữ số; 3 số đầu là mã tỉnh (001–096).
 // Trường rỗng = hợp lệ (các trường này tuỳ chọn); chỉ chặn khi CÓ nhập mà sai.

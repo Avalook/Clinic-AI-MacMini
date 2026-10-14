@@ -63,7 +63,8 @@ COT_KENH_DOI_HUY = """
 _COT = (
     """
     p.clinic_patient_id::text AS clinic_patient_id, p.patient_code, p.full_name,
-    p.date_of_birth, p.birth_year, p.phone_primary, p.phone_secondary, p.gender,
+    p.date_of_birth, p.birth_year, p.phone_primary, p.phone_secondary,
+    p.national_id_number, p.email, p.gender,
     p.ethnicity, p.nationality, p.occupation, p.patient_objection, p.address,
     p.guardian_name, p.location_id::text AS location_id, p.created_at,
     p.van_de_di_kham, p.linh_vuc, p.updated_at, p.uu_tien, p.uu_tien_ly_do,

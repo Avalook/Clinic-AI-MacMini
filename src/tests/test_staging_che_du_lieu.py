@@ -121,9 +121,10 @@ async def _gieo(c: asyncpg.Connection) -> dict[str, str]:
         """INSERT INTO patient (patient_code, full_name, location_id, clinic_id,
                phone_primary, phone_secondary, national_id_number, date_of_birth,
                address, address_detail, guardian_name, patient_objection,
-               van_de_di_kham)
+               van_de_di_kham, email)
            VALUES ($1, $2, $3, $4, $5, $6, $7, DATE '1990-05-17',
-               '12 Phố Thật, Hà Nội', '12 Phố Thật', $8, 'Không muốn gọi điện', $9)
+               '12 Phố Thật, Hà Nội', '12 Phố Thật', $8, 'Không muốn gọi điện',
+               $9, 'that@gmail.com')
            RETURNING clinic_patient_id::text""",
         f"BN-CHE-{uuid.uuid4().hex[:6]}",
         TEN_THAT,
@@ -259,6 +260,7 @@ async def test_che_sach_dinh_danh_khach(conn: asyncpg.Connection) -> None:
     assert "Đau bụng" in p["van_de_di_kham"]  # nội dung khám giữ lại
     assert SDT_THAT not in (p["sdt_tim_kiem"] or "")  # trigger tính lại từ số giả
     assert "khach" in p["full_name_unaccent"]
+    assert p["email"] != "that@gmail.com" and p["email"].endswith("@vi-du.invalid")
 
     k = await conn.fetchrow(
         "SELECT * FROM patient_next_of_kin WHERE clinic_patient_id = $1::uuid",

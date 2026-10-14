@@ -136,6 +136,7 @@ SELECT count(*) AS ho_so,
 _COT_HO_SO = f"""
        p.clinic_patient_id::text AS clinic_patient_id, p.patient_code,
        p.full_name, p.date_of_birth, p.phone_primary, p.phone_secondary,
+       p.national_id_number, p.email,
        p.gender, p.ethnicity, p.nationality, p.occupation, p.patient_objection,
        p.address, p.guardian_name, tr.luc AS hoat_dong_gan_nhat,
        coalesce((

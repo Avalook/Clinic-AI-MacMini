@@ -70,6 +70,7 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('patient', 'sdt_tim_kiem', 'giu'),         -- trigger tính lại từ SĐT đã che
     ('patient', 'ward_name', 'giu'),
     ('patient', 'province_name', 'giu'),
+    ('patient', 'email', 'rieng'),
     ('patient_next_of_kin', 'full_name', 'rieng'),
     ('patient_next_of_kin', 'phone', 'rieng'),
     ('patient_next_of_kin', 'zalo_id', 'rieng'),
@@ -459,7 +460,9 @@ UPDATE public.patient p SET
         ELSE '(đã che)' END,
     occupation = pg_temp.che_chu(p.occupation),
     van_de_di_kham = pg_temp.che_chu(p.van_de_di_kham),
-    uu_tien_ly_do = pg_temp.che_chu(p.uu_tien_ly_do)
+    uu_tien_ly_do = pg_temp.che_chu(p.uu_tien_ly_do),
+    email = CASE WHEN p.email IS NULL THEN NULL
+                 ELSE 'khach' || lpad(c.n::text, 4, '0') || '@vi-du.invalid' END
 FROM _che_khach c WHERE c.id = p.clinic_patient_id;
 
 -- ── Che theo danh sách (một UPDATE mỗi bảng) ────────────────────────────────
