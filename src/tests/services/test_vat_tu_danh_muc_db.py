@@ -73,9 +73,14 @@ async def test_cot_vat_tu_khong_sua_dich_vu(pool: asyncpg.Pool) -> None:
     await pool.execute(
         "UPDATE service_price SET \"group\"='dich_vu' WHERE id=$1::uuid", vt
     )
-    with pytest.raises(ValidationError):
-        await PriceListService(pool).update(
-            price_id=vt, identity=identity, vat_tu={"chon_nhanh": True}
+    try:
+        with pytest.raises(ValidationError):
+            await PriceListService(pool).update(
+                price_id=vt, identity=identity, vat_tu={"chon_nhanh": True}
+            )
+    finally:
+        await pool.execute(
+            "UPDATE service_price SET \"group\"='vat_tu' WHERE id=$1::uuid", vt
         )
 
 
