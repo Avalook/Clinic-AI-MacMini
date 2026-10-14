@@ -252,6 +252,16 @@ class PharmacyService:
                        b.unit,
                        b.cost_price,
                        b.received_at,
+                       (SELECT t.id::text FROM public.inventory_txn t
+                         WHERE t.drug_batch_id = b.id AND t.clinic_id = b.clinic_id
+                           AND t.txn_type = 'DISCARD'
+                           AND t.ref_type = 'expired_batch'
+                           AND NOT EXISTS (
+                               SELECT 1 FROM public.inventory_txn r
+                                WHERE r.ref_type = 'discard_undo'
+                                  AND r.ref_id = t.id AND r.clinic_id = t.clinic_id)
+                         ORDER BY t.performed_at DESC, t.id DESC LIMIT 1
+                       ) AS huy_lo_txn_id,
                        coalesce(b.expiry_date < $2::date, false) AS het_han,
                        CASE WHEN b.expiry_date IS NULL THEN 'chua_co_han'
                             WHEN b.expiry_date < $2::date THEN 'het_han'

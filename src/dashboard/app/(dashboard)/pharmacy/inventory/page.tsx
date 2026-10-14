@@ -28,6 +28,7 @@ interface LoTon {
   // 29/09/2026: máy chủ tính hạn theo ngày VN — màn không tự đếm ngày.
   trang_thai_han: ExpiryState;
   canh_bao_han: boolean;
+  huy_lo_txn_id: string | null;
 }
 
 export default async function PharmacyInventoryPage() {

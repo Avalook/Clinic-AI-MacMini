@@ -13,7 +13,7 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
 from pydantic import BaseModel, Field, field_validator
@@ -27,7 +27,7 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.phieu_kham.khung import doc_ngay
-from clinicai.services import ban_thuoc_service, kho_thuoc_service
+from clinicai.services import ban_thuoc_service, kho_thuoc_service, lo_thuoc_service
 from clinicai.services.ban_le_service import QUYEN_MO, BanLeService
 from clinicai.services.pharmacy_service import GIU_NGUYEN, PharmacyService
 
@@ -39,6 +39,63 @@ router = APIRouter()
 # 20260924000013): cấp khối trên màn Phân quyền là có hiệu lực ngay.
 _DOC = cua_quyen("pharmacy.view", "pharmacy.dispense")
 _GHI = cua_quyen("pharmacy.dispense")
+
+
+class SuaLoRequest(BaseModel):
+    drug_batch_id: UUID
+    batch_code: str = Field(min_length=1, max_length=100)
+    expiry_date: Any = None
+
+
+@router.post("/pharmacy/sua-lo")
+async def sua_lo(
+    body: SuaLoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await lo_thuoc_service.sua_lo(
+        pool,
+        identity=identity,
+        drug_batch_id=str(body.drug_batch_id),
+        batch_code=body.batch_code,
+        expiry_date=body.expiry_date,
+    )
+
+
+class HuyLoHetHanRequest(BaseModel):
+    drug_batch_id: UUID
+    ly_do: str = Field(min_length=1, max_length=1000)
+
+
+@router.post("/pharmacy/huy-lo-het-han")
+async def huy_lo_het_han(
+    body: HuyLoHetHanRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    khoa: UUID = Header(alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await lo_thuoc_service.huy_lo(
+        pool,
+        identity=identity,
+        drug_batch_id=str(body.drug_batch_id),
+        ly_do=body.ly_do,
+        khoa_gui=str(khoa),
+    )
+
+
+class HoanHuyLoRequest(BaseModel):
+    inventory_txn_id: UUID
+
+
+@router.post("/pharmacy/hoan-huy-lo")
+async def hoan_huy_lo(
+    body: HoanHuyLoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await lo_thuoc_service.hoan_huy_lo(
+        pool, identity=identity, inventory_txn_id=str(body.inventory_txn_id)
+    )
 
 
 @router.get("/pharmacy/queue")

@@ -6,7 +6,7 @@ export type KetQuaKho = { ok: true; data: unknown } | { ok: false; loi: string }
 /** `khoa` = Idempotency-Key (phiếu nhập / kiểm kho bắt buộc): gửi lại cùng khoá
  *  = cùng phiếu, máy chủ không ghi sổ lần hai. */
 export async function guiKho(
-  thaoTac: "luu-thuoc" | "receive" | "adjust" | "discard" | "gan-lo" | "phieu-nhap" | "kiem-kho",
+  thaoTac: "luu-thuoc" | "receive" | "adjust" | "discard" | "gan-lo" | "phieu-nhap" | "kiem-kho" | "sua-lo" | "huy-lo-het-han" | "hoan-huy-lo" | "so-ngay-canh-bao",
   duLieu: Record<string, unknown>,
   khoa?: string,
 ): Promise<KetQuaKho> {

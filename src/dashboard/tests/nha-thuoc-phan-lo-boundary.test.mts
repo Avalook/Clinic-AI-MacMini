@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import test from "node:test";
 import { runInNewContext } from "node:vm";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
 
 // Màn Nhà thuốc sau contract tiền–thuốc CP4 (19/09/2026). Bốn điều dễ hỏng
@@ -13,6 +16,37 @@ const board = doc("app/(dashboard)/pharmacy/PharmacyBoard.tsx");
 const dong = doc("app/(dashboard)/pharmacy/DongThuoc.tsx");
 const kieu = doc("app/(dashboard)/pharmacy/ban-thuoc.ts");
 const proxy = doc("app/api/pharmacy/[action]/route.ts");
+
+test("G3a-B: render thật với lối KhoThuoc hiện Sửa/huỷ/hoàn đúng quyền", () => {
+  const source = doc("app/(dashboard)/pharmacy/inventory/InventoryBoard.tsx");
+  const exports: { default?: React.ComponentType<Record<string, unknown>> } = {};
+  const require = createRequire(import.meta.url);
+  const code = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
+  }).outputText;
+  runInNewContext(code, { exports, require: (path: string) => {
+    if (path === "next/navigation") return { useRouter: () => ({ refresh() {} }) };
+    if (path === "./gui-kho") return { tienVnd: String };
+    if (path === "../../form-ui") return {};
+    if (path === "@/components/ui/Button") return (p: { children: React.ReactNode }) => React.createElement("button", {}, p.children);
+    if (path === "@/components/ui/Chip") return (p: { children: React.ReactNode }) => React.createElement("span", {}, p.children);
+    if (path === "./NhapLo") return () => null;
+    return require(path);
+  } });
+  assert.ok(exports.default);
+  const props = {
+    batches: [{ id: "lo", drug_catalog_id: "thuoc", batch_code: "A", expiry_date: "2020-01-01", quantity_on_hand: 10, unit: "viên", cost_price: null, trang_thai_han: "het_han", canh_bao_han: true, huy_lo_txn_id: "txn", drug: { name_base: "Thuốc" } }],
+    thuoc: [], onXemThe() {}, ghiDuoc: true,
+  };
+  const html = renderToStaticMarkup(React.createElement(exports.default, props));
+  assert.match(html, />Sửa lô<\/button>/);
+  assert.match(html, />Huỷ lô hết hạn<\/button>/);
+  assert.match(html, />Hoàn huỷ lô<\/button>/);
+  const readOnly = renderToStaticMarkup(React.createElement(exports.default, {
+    ...props, ghiDuoc: false,
+  }));
+  assert.doesNotMatch(readOnly, /Sửa lô|Huỷ lô hết hạn|Hoàn huỷ lô/);
+});
 
 test("G3a: formatter ngày không vẽ epoch hay Invalid Date cho NULL/rác", () => {
   const exports: { fmtNgay?: (iso: string | null) => string } = {};
@@ -37,6 +71,18 @@ test("G3a: hai lối nhập không ép hạn, kho nhận NULL và chưa có hạ
   assert.match(kho, /chua_co_han: "neutral"/);
   assert.match(trangKho, /expiry_date: string \| null/);
   assert.doesNotMatch(trangKho, /a\.expiry_date\.localeCompare/);
+});
+
+test("G3a: sửa, huỷ hết hạn và hoàn huỷ giữ nút Huỷ cũ và đủ proxy", () => {
+  const kho = doc("app/(dashboard)/pharmacy/inventory/InventoryBoard.tsx");
+  for (const action of ["sua-lo", "huy-lo-het-han", "hoan-huy-lo"]) {
+    assert.match(kho, new RegExp(action));
+    assert.match(proxy, new RegExp(`"${action}":`));
+  }
+  assert.match(kho, /Sửa lô/);
+  assert.match(kho, /Huỷ lô hết hạn/);
+  assert.match(kho, /loai: "discard"/);
+  assert.doesNotMatch(kho, /window\.confirm/);
 });
 
 test("màn đọc qua máy chủ, không đọc thẳng Supabase", () => {

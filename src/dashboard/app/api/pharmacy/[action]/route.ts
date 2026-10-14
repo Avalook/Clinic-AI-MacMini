@@ -14,6 +14,9 @@ import { getCallerAuthHeaders, proxyJsonToBackend } from "../../../../lib/backen
 
 /** Thao tác cho phép → đường backend. */
 const ACTIONS: Record<string, string> = {
+  "sua-lo": "/api/v1/pharmacy/sua-lo",
+  "huy-lo-het-han": "/api/v1/pharmacy/huy-lo-het-han",
+  "hoan-huy-lo": "/api/v1/pharmacy/hoan-huy-lo",
   receive: "/api/v1/pharmacy/receive",
   dispense: "/api/v1/pharmacy/dispense",
   refuse: "/api/v1/pharmacy/refuse",
