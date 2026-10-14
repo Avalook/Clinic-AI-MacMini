@@ -1153,6 +1153,8 @@ class FormEngineService:
             ServiceExecutionService,
         )
 
+        dong_o_quay = False
+        lan = None
         async with self._pool.acquire() as conn:
             don = await conn.fetchrow(
                 "SELECT execution_status, execution_revision, nguon_lam_them"
@@ -1170,19 +1172,24 @@ class FormEngineService:
                 and don["nguon_lam_them"]
                 and (don["execution_status"] or "PENDING") == "PENDING"
             ):
-                from clinicai.services.lam_them_dong_dich_vu import dong_tai_quay
-
-                return await dong_tai_quay(
-                    self._pool, order_id=service_order_id, identity=identity
-                )
-            if don is None or don["execution_status"] != "IN_PROGRESS":
+                dong_o_quay = True
+            elif don is None or don["execution_status"] != "IN_PROGRESS":
                 return {"da_dong": False, "vi_sao": "khong_dang_lam"}
-            lan = await conn.fetchval(
-                "SELECT id::text FROM service_execution_attempt"
-                " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
-                "   AND status = 'IN_PROGRESS'",
-                identity.clinic_id,
-                service_order_id,
+            else:
+                lan = await conn.fetchval(
+                    "SELECT id::text FROM service_execution_attempt"
+                    " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+                    "   AND status = 'IN_PROGRESS'",
+                    identity.clinic_id,
+                    service_order_id,
+                )
+        if dong_o_quay:
+            # SAU khi trả kết nối: `dong_tai_quay` tự mượn kết nối — gọi lồng là
+            # giữ một + chờ một, bể kín thì treo (14/10/2026).
+            from clinicai.services.lam_them_dong_dich_vu import dong_tai_quay
+
+            return await dong_tai_quay(
+                self._pool, order_id=service_order_id, identity=identity
             )
         if lan is None:
             return {"da_dong": False, "vi_sao": "khong_co_lan_lam_dang_chay"}

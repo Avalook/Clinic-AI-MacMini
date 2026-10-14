@@ -45,6 +45,11 @@ services:
   api:
     <<: *staging-bao-ve
     mem_limit: ${API_MEMORY_LIMIT:-384m}
+    environment:
+      # Bể kết nối API: prod mặc định 20 (core/database.py), staging ghim 10 vì
+      # Postgres staging chỉ có max_connections=60 + RAM 384m. Muốn thử 20 trên
+      # staging thì đặt POOL_MAX_SIZE=20 trong .env.staging (kiểm số kết nối trước).
+      POOL_MAX_SIZE: ${POOL_MAX_SIZE:-10}
 
   su-kien:
     <<: *staging-bao-ve

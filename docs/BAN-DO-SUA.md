@@ -783,6 +783,14 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   sổ tay `docs/VAN-HANH-MAY-CHU.md`. CI: `scripts/ci-may.sh`; chạy test: `docs/CHAY-TEST.md`.
 - Lỗi & cảnh báo: màn `/ops` (tab Lỗi & cảnh báo, Nhật ký vận hành) → kho lỗi
   `S/kho_loi.py`, canh gác `S/canh_gac.py`, nhật ký `S/nhat_ky_van_hanh.py`.
+- **API chậm / nghi cạn bể kết nối (14/10/2026):** log container `api` có dòng
+  `request_cham` (mỗi request ≥ 500ms), `api_nhip_phut` (mỗi phút), `pool_cho_lau`/
+  `pool_day`/`pool_ban_keo_dai`; `/ops/pool` (số tức thời) + cảnh báo `POOL_API_DAY` ở
+  `/ops`. Code: `src/clinicai/core/quan_sat.py` (đo), `S/canh_gac_pool.py` (vòng nền +
+  cảnh báo), `TimingMiddleware` ở `src/clinicai/api/middleware.py`; trần bể
+  `POOL_MAX_SIZE` ở `src/clinicai/core/database.py`. Test: `T/core/test_quan_sat.py`,
+  `T/services/test_quan_sat_pool_db.py`. Bẫy: **không mượn kết nối thứ hai khi đang giữ
+  một** (truyền `conn`, đừng truyền `pool` xuống hàm con).
 - Sao lưu kéo về Mac: `cat ~/Projects/ClinicAI-Backups/TRANG-THAI.txt` phải "BÌNH THƯỜNG".
 - Lịch sử Notion: schema `lich_su_notion` NGOÀI `public` — bản 15 phút không lấy; bản
   đêm lấy thành `*_lich_su_notion.sql.gz` (`BACKUP_LICH_SU_NOTION=1` ở `clinicai-backup.service`).

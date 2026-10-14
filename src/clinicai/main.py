@@ -92,14 +92,15 @@ from clinicai.api.v1.routers.voice import router as voice_router
 from clinicai.api.v1.routers.work_items import router as work_items_router
 from clinicai.api.v1.routers.xem_luot import router as xem_luot_router
 from clinicai.core.change_broker import ChangeBroker
-from clinicai.core.database import close_pool, create_pool
+from clinicai.core.database import close_pool, create_pool, doc_pool_max_size_api
 from clinicai.core.exceptions import ClinicAIBaseException
 from clinicai.core.logging import setup_logging
+from clinicai.core.quan_sat import gan_do_pool
 from clinicai.core.sentry import init_sentry
 from clinicai.llm.anthropic_client import AnthropicClient
 from clinicai.orchestrator.checkpointer import make_checkpointer
 from clinicai.orchestrator.service import OrchestratorService
-from clinicai.services import canh_gac_kho_tep
+from clinicai.services import canh_gac_kho_tep, canh_gac_pool
 from clinicai.services.kho_loi import ghi_loi
 from clinicai.voice.transcribe import PhoWhisperTranscriber
 
@@ -126,7 +127,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 "TẠM THỜI. Tắt bằng MO_QUYEN_TAM_THOI=0 rồi dựng lại container."
             ),
         )
-    app.state.db_pool = await create_pool()
+    app.state.db_pool = await create_pool(max_size=doc_pool_max_size_api())
+    # ĐO BỂ KẾT NỐI (14/10/2026): thời gian chờ mượn + số người chờ (vòng nền ở
+    # dưới ghi mỗi phút một dòng `api_nhip_phut` + cảnh báo `POOL_API_DAY`).
+    gan_do_pool(app.state.db_pool)
     # Bộ nhận thay đổi cho màn hình (thay Supabase Realtime). Nó tự nối lại khi
     # rớt và KHÔNG được phép làm chết app khi database chưa sẵn sàng — mất nó
     # thì màn hình rơi về nhịp làm mới dự phòng, chứ không ai đăng nhập hỏng.
@@ -137,6 +141,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     do_kho: asyncio.Task[None] | None = None
     if canh_gac_kho_tep.bat():
         do_kho = asyncio.create_task(canh_gac_kho_tep.chay_nen(app.state.db_pool))
+    do_pool: asyncio.Task[None] | None = None
+    if canh_gac_pool.bat():
+        do_pool = asyncio.create_task(canh_gac_pool.chay_nen(app.state.db_pool))
     try:
         async with AsyncExitStack() as stack:
             checkpointer = await stack.enter_async_context(make_checkpointer())
@@ -176,6 +183,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         if do_kho is not None:
             do_kho.cancel()
+        if do_pool is not None:
+            do_pool.cancel()
+            # Chờ nó đóng bể phụ xong rồi mới đóng bể chính.
+            await asyncio.gather(do_pool, return_exceptions=True)
         await app.state.change_broker.stop()
         await close_pool(app.state.db_pool)
 
