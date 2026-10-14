@@ -221,8 +221,8 @@ export default function BaoCaoHangHoa({ coSo = [], access, ngay }: { ngay?: stri
         </article>
       ) : null}
       <p className="text-meta text-ink-muted print:hidden">
-        Thuốc: mã hàng là mã KiotViet; dịch vụ: mã của hệ thống. Chưa có cột Tồn đầu / Tồn cuối — quầy bán
-        chưa trừ kho nên số tồn máy chưa đúng.
+        Thuốc: mã hàng là mã KiotViet; dịch vụ: mã của hệ thống. Cột tồn kho (Tồn đầu, Nhập, Tồn cuối…) chỉ có ở
+        bảng thuốc và có trong tệp Excel / CSV xuất ra; tồn theo sổ kho.
       </p>
     </section>
   );

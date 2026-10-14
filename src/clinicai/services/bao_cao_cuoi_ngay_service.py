@@ -743,10 +743,57 @@ def csv_bao_cao(bc: Mapping[str, Any]) -> str:
     return "﻿" + buf.getvalue()
 
 
+#: Khuôn có tồn kho (bảng THUỐC khi máy chủ gắn `co_ton`) — ĐÚNG thứ tự cột trên màn
+#: `BangHangHoa.tsx`: tồn theo SỔ KHO, tiền theo tiền thu (không đổi).
+TIEU_DE_CO_TON = [
+    "Mã hàng",
+    "Tên hàng",
+    "Tồn đầu",
+    "Nhập trong ca",
+    "SL bán",
+    "SL trả",
+    "Tồn cuối ca",
+    "Kiểm kê",
+    "Lệch",
+    "Đã thu chưa giao",
+    "Doanh thu",
+    "GT trả",
+    "Doanh thu thuần",
+]
+
+
+def dong_co_ton(hh: Mapping[str, Any]) -> list[list[Any]]:
+    """Dòng xuất cho khuôn có tồn: mỗi (mặt hàng, đơn vị lô) một dòng — nhiều đơn
+    vị thì tiền chỉ ở dòng ĐẦU (tổng không bị nhân đôi). Không có khối kho → các
+    cột tồn để trống, SL bán / trả lấy theo tiền thu như màn."""
+    rows: list[list[Any]] = []
+    for m in hh["dong"]:
+        ten = m["ten"] + (f" ({m['don_vi']})" if m.get("don_vi") else "")
+        ds = (m.get("kho") or {}).get("theo_don_vi") or []
+        tien = [m["doanh_thu"], m["gia_tri_tra"], m["doanh_thu_thuan"]]
+        if not ds:
+            rows.append(
+                [m.get("ma"), ten, None, None, m["sl_ban"], m["sl_tra"]]
+                + [None, None, None, None]
+                + tien
+            )
+            continue
+        for i, t in enumerate(ds):
+            ten_dong = ten if len(ds) == 1 else f"{m['ten']} — {t['don_vi']}"
+            rows.append(
+                [m.get("ma") if i == 0 else None, ten_dong]
+                + [t["ton_dau"], t["nhap"], t["sl_ban"], t["sl_tra"], t["ton_cuoi"]]
+                + [t["kiem_ke"], t["lech"], t["da_thu_chua_giao"]]
+                + (tien if i == 0 else [None, None, None])
+            )
+    return rows
+
+
 def csv_hang_hoa(bc: Mapping[str, Any], loai: Any) -> str:
     """Khuôn "Báo cáo cuối ngày về hàng hóa" của KiotViet (tệp quầy thuốc gửi
-    08/10/2026) — để nhân viên quen tay. ``loai`` rác → thuốc. Tồn đầu / tồn
-    cuối CHƯA có: nhà thuốc bán chưa trừ kho nên số tồn máy chưa đúng."""
+    08/10/2026) — để nhân viên quen tay. ``loai`` rác → thuốc. Bảng thuốc có khối
+    tồn kho (`co_ton`) thì thêm cột Tồn đầu · Nhập trong ca · SL bán · SL trả · Tồn
+    cuối ca · Kiểm kê · Lệch · Đã thu chưa giao, đúng thứ tự như màn."""
     loai_ = loai if loai in TEN_LOAI else "thuoc"
     hh = (bc.get("hang_hoa") or {}).get(loai_) or {"tong": {}, "dong": []}
     t = hh["tong"]
@@ -765,6 +812,21 @@ def csv_hang_hoa(bc: Mapping[str, Any], loai: Any) -> str:
     )
     w.writerow(["Chi nhánh: " + _o(bc.get("ten_co_so") or "Tất cả cơ sở")])
     w.writerow([])
+    if hh.get("co_ton"):
+        w.writerow(TIEU_DE_CO_TON)
+        w.writerow(
+            ["", f"SL mặt hàng: {t.get('so_mat_hang', 0)}"]
+            + [""] * 8
+            + [t.get("doanh_thu", 0), t.get("gia_tri_tra", 0)]
+            + [t.get("doanh_thu_thuan", 0)]
+        )
+        for r in dong_co_ton(hh):
+            w.writerow(
+                [_o(r[0]), _o(r[1])]
+                + [_sl(x) for x in r[2:10]]
+                + ["" if x is None else x for x in r[10:]]
+            )
+        return "\ufeff" + buf.getvalue()
     w.writerow(
         ["Mã hàng", "Tên hàng", "SL bán", "Doanh thu", "SL trả", "Giá trị trả"]
         + ["Doanh thu thuần"]
