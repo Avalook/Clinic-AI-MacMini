@@ -39,6 +39,8 @@ export interface InvBatch {
   /** Còn thuốc trên kệ VÀ sắp hết hạn / hết hạn (máy chủ tính). */
   canh_bao_han: boolean;
   huy_lo_txn_id: string | null;
+  /** G7: nơi chứa — chỉ có nghĩa khi cơ sở bật tách kho / quầy. */
+  noi_chua?: "KHO" | "QUAY";
   drug: InvDrug | null;
 }
 
@@ -74,11 +76,14 @@ export default function InventoryBoard({
   ghiDuoc = false,
   onXemThe,
   cauHinhHan,
+  tachKhoQuay = false,
 }: {
   batches: InvBatch[];
   thuoc: ThuocKho[];
   /** Có quyền ghi kho — chỉ ẩn/hiện nút, máy chủ tự kiểm. */
   ghiDuoc?: boolean;
+  /** G7: cơ sở bật tách kho / quầy → mỗi dòng lô có chip KHO / QUẦY. */
+  tachKhoQuay?: boolean;
   /** Bấm tên thuốc → tab Thẻ kho. */
   onXemThe?: (id: string) => void;
   cauHinhHan?: CauHinhHan;
@@ -202,6 +207,7 @@ export default function InventoryBoard({
             <tr>
               <th className="px-3 py-2">Thuốc</th>
               <th className="px-3 py-2">Mã lô</th>
+              {tachKhoQuay ? <th className="px-3 py-2">Nơi chứa</th> : null}
               <th className="px-3 py-2">Hạn dùng</th>
               <th className="px-3 py-2 text-right">Tồn</th>
               <th className="px-3 py-2">Đơn vị</th>
@@ -213,7 +219,7 @@ export default function InventoryBoard({
           <tbody className={TBL_DIV}>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-ink-muted">
+                <td colSpan={9} className="px-3 py-6 text-center text-ink-muted">
                   Chưa có lô thuốc nào — bấm [+ Nhập lô] để nhập.
                 </td>
               </tr>
@@ -242,6 +248,13 @@ export default function InventoryBoard({
                       )}
                     </td>
                     <td className="px-3 py-2 text-ink-muted">{b.batch_code}</td>
+                    {tachKhoQuay ? (
+                      <td className="px-3 py-2">
+                        <Chip tone={b.noi_chua === "KHO" ? "neutral" : "success"}>
+                          {b.noi_chua === "KHO" ? "KHO" : "QUẦY"}
+                        </Chip>
+                      </td>
+                    ) : null}
                     <td className="px-3 py-2 text-ink-muted">{fmtDate(b.expiry_date)}</td>
                     <td className="px-3 py-2 text-right font-semibold tabular-nums text-ink">
                       {fmtQty(b.quantity_on_hand)}
@@ -308,7 +321,7 @@ export default function InventoryBoard({
                 return [
                   hang,
                   <tr key={`${b.id}-thao-tac`} className="bg-surface-muted">
-                    <td colSpan={8} className="px-3 py-3">
+                    <td colSpan={9} className="px-3 py-3">
                       <div className="flex flex-wrap items-end gap-2">
                         {lo.loai === "sua-lo" ? (
                           <>

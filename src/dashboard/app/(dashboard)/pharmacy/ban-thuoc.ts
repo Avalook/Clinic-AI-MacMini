@@ -27,6 +27,15 @@ export interface LoGoiY {
   co_the_phan_lo: number;
 }
 
+/** Lô còn ở KHO (chưa ra quầy) — chỉ có khi cơ sở bật tách kho / quầy (G7). */
+export interface LoKhoCon {
+  drug_batch_id: string;
+  batch_code: string;
+  expiry_date: string | null;
+  unit: string;
+  ton: number;
+}
+
 export interface PhanLo {
   allocation_id: string;
   drug_batch_id: string;
@@ -71,6 +80,8 @@ export interface DongDon {
   da_chon: number;
   phan_lo: PhanLo[];
   lo_goi_y: LoGoiY[];
+  /** Lô thuốc này còn ở kho (tách kho / quầy) — để hiện "chuyển sang quầy?". */
+  kho_con?: LoKhoCon[];
   xuat: LanGiao[];
   /** Đã bán mà chưa giao (mọi lần thu). */
   chua_giao: number;

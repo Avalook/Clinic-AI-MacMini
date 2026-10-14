@@ -16,6 +16,7 @@ import Button from "@/components/ui/Button";
 import OChon from "@/components/ui/OChon";
 import { INPUT } from "../form-ui";
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
+import KhoConChuyenQuay from "./KhoConChuyenQuay";
 import {
   NHAN_CAP,
   fmtNgay,
@@ -335,6 +336,15 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
         </div>
       ) : null}
 
+      {/* ── Tách kho / quầy (G7): quầy hết lô mà kho còn → chuyển ngay tại đây ── */}
+      {tt.chon_lo && (dong.kho_con?.length ?? 0) > 0 && dong.lo_goi_y.length === 0 ? (
+        <KhoConChuyenQuay
+          khoCon={dong.kho_con ?? []}
+          can={conCanLo}
+          tenThuoc={dong.drug_name_raw ?? "thuốc"}
+          chiXem={chiXem}
+        />
+      ) : null}
       {/* ── Chọn lô ── */}
       {tt.chon_lo ? (
         dong.lo_goi_y.length === 0 ? (
