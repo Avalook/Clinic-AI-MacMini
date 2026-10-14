@@ -78,6 +78,8 @@ EVENT_LABELS: dict[str, str] = {
     # ── Luật đặt lịch & cấu hình ────────────────────────────────────────────
     "clinic_settings.booking_policy_updated": "Sửa luật đặt lịch",
     "clinic_settings.report_access_updated": "Đổi thiết lập báo cáo",
+    "accounting.tax_group_set": "Đặt thuế GTGT theo nhóm hàng",
+    "accounting.tax_item_set": "Đặt thuế GTGT cho mặt hàng",
     "report.view": "Xem báo cáo",
     "clinic_settings.feature_mode_updated": "Đổi chế độ phòng khám",
     "booking_override.doctor_created": "Thêm luật cho bác sĩ",
@@ -335,6 +337,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:tu-van": "Bàn khám tư vấn — nội dung tư vấn",
     "api:phu-thu": "Quầy thu dịch vụ — món kèm (đầu dò)",
     "api:vat-tu": "Quầy thu dịch vụ — mua thêm vật tư",
+    "api:ke-toan-thue": "Kế toán — đặt thuế suất GTGT",
     "api:payment-doi-hinh-thuc": "Quầy thu — đổi hình thức thu (TM/CK/QR)",
     "api:phi-kham": "Bàn khám / quầy thu — chọn dịch vụ khám",
     "api:lam-truoc-thu-sau": "Bàn khám / quầy thu — tick Làm trước – thu sau",

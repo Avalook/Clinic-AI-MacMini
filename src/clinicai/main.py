@@ -53,6 +53,7 @@ from clinicai.api.v1.routers.hoa_don import router as hoa_don_router
 from clinicai.api.v1.routers.hoan_tac import router as hoan_tac_router
 from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.identity import router as identity_router
+from clinicai.api.v1.routers.ke_toan import router as ke_toan_router
 from clinicai.api.v1.routers.lab import router as lab_router
 from clinicai.api.v1.routers.lam_them_tai_quay import router as lam_them_router
 from clinicai.api.v1.routers.lieu_trinh import router as lieu_trinh_router
@@ -285,6 +286,9 @@ app.include_router(
 )
 app.include_router(
     hoa_don_router, prefix="/api/v1", tags=["hoa-don"], dependencies=_GUARDED
+)
+app.include_router(
+    ke_toan_router, prefix="/api/v1", tags=["ke-toan"], dependencies=_GUARDED
 )
 app.include_router(
     audit_log_router, prefix="/api/v1", tags=["audit-log"], dependencies=_GUARDED

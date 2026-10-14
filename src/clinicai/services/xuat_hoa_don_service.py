@@ -29,6 +29,12 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.danh_sach_hoa_don_service import DanhSachHoaDonService
 from clinicai.services.hoa_don_excel import HINH_THUC
+from clinicai.services.thue_gtgt import (
+    CHE_DO_MOT,
+    CHE_DO_TACH,
+    ap_thue_hoa_don,
+    nguon_thue_suat,
+)
 
 MAU = Path(__file__).parent / "mau" / "hoa_don_gtgt_1_thue_suat.xlsx"
 #: Hàng tiêu đề cột trong TỆP MẪU (dòng 1–8 phía trên là chữ hướng dẫn — bỏ).
@@ -75,13 +81,23 @@ GOI_Y: tuple[tuple[str, str], ...] = (
 
 _THEM_DONG = """
 SELECT bl.id::text id, bl.unit, bl.source_type,
- coalesce(nullif(btrim(dc.ma_hang), ''), nullif(btrim(o.service_code), '')) ma
+ coalesce(nullif(btrim(dc.ma_hang), ''), nullif(btrim(o.service_code), '')) ma,
+ -- Thuế suất theo MẶT HÀNG (kế toán đặt): thuốc → drug_catalog; dịch vụ →
+ -- service_price cùng mã; vật tư bán thêm → service_price của dòng vật tư.
+ coalesce(dc.thue_suat_ma, sp_dv.thue_suat_ma, sp_vt.thue_suat_ma) thue_mh
 FROM payment_bill_line bl
 LEFT JOIN drug_catalog dc ON dc.id=bl.drug_catalog_id AND dc.clinic_id=bl.clinic_id
 LEFT JOIN service_order o ON bl.source_type='service_order'
  AND o.clinic_id=bl.clinic_id AND o.id::text=bl.source_id
+LEFT JOIN service_price sp_dv ON sp_dv.clinic_id=bl.clinic_id
+ AND sp_dv."group"='dich_vu' AND sp_dv.service_code=o.service_code
+LEFT JOIN luot_vat_tu lv ON bl.source_type='vat_tu'
+ AND lv.clinic_id=bl.clinic_id AND lv.id::text=bl.source_id
+LEFT JOIN service_price sp_vt ON sp_vt.id=lv.service_price_id
+ AND sp_vt.clinic_id=bl.clinic_id
 WHERE bl.clinic_id=$1::uuid AND bl.payment_cycle_id=ANY($2::uuid[])
 """
+_THUE_NHOM = "SELECT nhom, thue_suat_ma FROM thue_suat_nhom WHERE clinic_id=$1::uuid"
 _THEM_KHACH = """
 SELECT pc.payment_cycle_id::text id,
  coalesce(nullif(btrim(p.address), ''),
@@ -131,6 +147,8 @@ def dung_hoa_don(
     khach: Sequence[Mapping[str, Any]],
     them_dong: Mapping[str, Mapping[str, Any]],
     them_khach: Mapping[str, Mapping[str, Any]],
+    thue_nhom: Mapping[str, str] | None = None,
+    ghi_de: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Phiếu thu trong kỳ → danh sách hoá đơn theo giờ thu. Hàm thuần.
 
@@ -138,6 +156,9 @@ def dung_hoa_don(
     đã hoàn xong trừ đúng số tiền / số lượng hoàn; còn 0 thì bỏ dòng; phiếu
     không còn dòng nào thì bỏ phiếu. Hoàn đang chờ chưa trừ — ghi chú để kế
     toán xem lại.
+
+    Mỗi dòng mang `thue_suat` / `thue_nguon` (kế toán đặt: sửa tay dòng > mặt
+    hàng > nhóm; rỗng = chưa đặt). Chưa đặt gì thì số tiền không đổi.
     """
     phieu = [
         (k, p)
@@ -180,14 +201,22 @@ def dung_hoa_don(
             giam = int(d.get("giam_gia") or 0)
             if giam and tien != goc:
                 giam = _tron_dong(Decimal(giam) * tien / goc)
+            nhom = _NHOM_THEO_NGUON.get(
+                str(them.get("source_type") or ""), NHOM_DICH_VU
+            )
+            thue, nguon_thue = nguon_thue_suat(
+                dong=(ghi_de or {}).get(d["id"]),
+                mat_hang=them.get("thue_mh"),
+                nhom=(thue_nhom or {}).get(nhom),
+            )
             dong.append(
                 {
                     "id": d["id"],
                     "ten": str(d.get("ten") or ""),
                     "ma": str(them.get("ma") or ""),
-                    "nhom": _NHOM_THEO_NGUON.get(
-                        str(them.get("source_type") or ""), NHOM_DICH_VU
-                    ),
+                    "nhom": nhom,
+                    "thue_suat": thue,
+                    "thue_nguon": nguon_thue,
                     "dvt": dvt,
                     "so_luong": _so(sl),
                     "don_gia": _don_gia(tien, sl),
@@ -283,6 +312,12 @@ def xlsx_misa(hoa_don: Sequence[Mapping[str, Any]]) -> bytes:
                 # số thứ tự lặp ở mọi dòng để phần mềm gom dòng vào đúng hoá đơn.
                 if v and (dau or c == 1):
                     _chu(ws.cell(r, c), str(v))
+            k = str(hd.get("thue_suat_ma") or "")
+            if dau and k:
+                # Mẫu tính thuế bằng công thức trên ô K → con số phải là SỐ.
+                ws.cell(r, 11).value = int(k) if k.isdigit() else k
+            if dau and hd.get("tien_thue") is not None:
+                ws.cell(r, 12).value = hd["tien_thue"]
             _chu(ws.cell(r, 13), d["ten"])
             if d["dvt"]:
                 _chu(ws.cell(r, 14), d["dvt"])
@@ -304,7 +339,7 @@ class XuatHoaDonService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self.pool = pool
 
-    async def xem(
+    async def doc_goc(
         self,
         *,
         identity: StaffIdentity,
@@ -312,8 +347,11 @@ class XuatHoaDonService:
         den: str | None = None,
         loai: str | None = None,
         co_so: str | None = None,
-    ) -> dict[str, Any]:
-        """Cùng cổng quyền / phạm vi với Danh sách hoá đơn (không tự dựng luật)."""
+        ghi_de: Mapping[str, str] | None = None,
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        """(phạm vi, hoá đơn GỐC — số tiền gồm thuế, chưa tách). Cùng cổng quyền /
+        phạm vi với Danh sách hoá đơn (không tự dựng luật). Màn "Theo hàng hoá" đọc
+        từ đây để số của nó không bao giờ bị tách thuế làm lệch."""
         data = await DanhSachHoaDonService(self.pool).xem(
             identity=identity, tu=tu, den=den, loai=loai, co_so=co_so
         )
@@ -327,7 +365,42 @@ class XuatHoaDonService:
                 r["id"]: dict(r)
                 for r in await conn.fetch(_THEM_KHACH, identity.clinic_id, ids)
             }
-        hoa_don = dung_hoa_don(data["khach"], them_dong, them_khach)
+            thue_nhom = {
+                r["nhom"]: r["thue_suat_ma"]
+                for r in await conn.fetch(_THUE_NHOM, identity.clinic_id)
+            }
+        goc = dung_hoa_don(data["khach"], them_dong, them_khach, thue_nhom, ghi_de)
+        return data, goc
+
+    async def xem(
+        self,
+        *,
+        identity: StaffIdentity,
+        tu: str | None = None,
+        den: str | None = None,
+        loai: str | None = None,
+        co_so: str | None = None,
+        che_do: str | None = None,
+        ghi_giam_gia: bool = False,
+        ghi_de: Mapping[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """`che_do` (khi một phiếu có nhiều thuế suất): "tach" (mặc định) = mỗi thuế
+        suất một hoá đơn, "mot" = một hoá đơn. `ghi_giam_gia` = K2 (dòng giá gốc +
+        dòng chiết khấu). `ghi_de` = sửa tay thuế suất từng dòng {id dòng: mã}.
+        Rác ở các tham số này → bỏ qua, không ném."""
+        data, goc = await self.doc_goc(
+            identity=identity, tu=tu, den=den, loai=loai, co_so=co_so, ghi_de=ghi_de
+        )
+        mode = CHE_DO_MOT if che_do == CHE_DO_MOT else CHE_DO_TACH
+        hoa_don = [
+            hd
+            for h in goc
+            for hd in ap_thue_hoa_don(h, che_do=mode, ghi_giam_gia=bool(ghi_giam_gia))
+        ]
+        # Tách thuế suất sinh nhiều hoá đơn từ một phiếu: số thứ tự (cột A) phải
+        # duy nhất, phần mềm hoá đơn gom dòng theo nó.
+        for i, hd in enumerate(hoa_don, 1):
+            hd["stt"] = i
         return {
             "tu": data["tu"],
             "den": data["den"],
@@ -336,4 +409,10 @@ class XuatHoaDonService:
             "so_hoa_don": len(hoa_don),
             "so_dong": sum(len(h["dong"]) for h in hoa_don),
             "tong": sum(h["tong"] for h in hoa_don),
+            "tien_thue": sum(int(h["tien_thue"] or 0) for h in hoa_don),
+            "dong_chua_thue": sum(
+                1 for h in goc for d in h["dong"] if d["thue_suat"] is None
+            ),
+            "che_do": mode,
+            "ghi_giam_gia": bool(ghi_giam_gia),
         }

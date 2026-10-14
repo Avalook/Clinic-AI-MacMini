@@ -876,7 +876,7 @@ MODULE: dict[str, Module] = {
         Module(
             ma="ke_toan",
             ten="Kế toán — xem tài chính đầy đủ, hoá đơn, theo hàng hoá",
-            quyen=["accounting.finance.full"],
+            quyen=["accounting.finance.full", "accounting.tax.manage"],
         ),
         Module(
             ma="lich_truc",
