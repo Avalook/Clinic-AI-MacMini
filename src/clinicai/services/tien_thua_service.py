@@ -25,6 +25,7 @@ from __future__ import annotations
 from collections import defaultdict
 from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 import asyncpg
 
@@ -33,8 +34,54 @@ from clinicai.api.identity import StaffIdentity
 
 #: Dòng hoá đơn ĐÃ THU còn tiền thừa — theo lượt của CHỈ ĐỊNH (mang sang vẫn
 #: là của lượt đang giữ chỉ định) hoặc theo lượt của dòng tiền khám.
+#:
+#: ĐI TỪ LƯỢT HỎI rồi mới tới dòng hoá đơn (14/10/2026): bản cũ dựng cả bảng
+#: dòng hoá đơn ĐÃ THU của phòng khám rồi mới lọc theo lượt ở cuối (điều kiện
+#: nằm trên `o.visit_id::text` và `OR` hai nhánh nên không đẩy xuống được),
+#: lại nối `service_order` bằng `o.id::text = …` (ép kiểu → không dùng được
+#: chỉ mục) — mỗi lần quét + sắp xếp ~35k chỉ định, 171 ms × 67k lần ở prod.
+#: Nay mỗi nhánh bắt đầu từ lượt (`idx_service_order_visit`,
+#: `idx_payment_bill_line_visit`) và nối dòng hoá đơn bằng
+#: `idx_payment_bill_line_nguon`. Ba nhánh loại trừ
+#: nhau theo `source_type` nên `UNION ALL` không đổi tập dòng. KẾT QUẢ Y HỆT bản
+#: cũ (test `test_tien_thua_dong_tuong_duong_db`).
 _DONG_THUA_SQL = """
-WITH dong AS (
+WITH nguon AS (
+    -- (1) chỉ định đã huỷ / không làm của các lượt hỏi → dòng hoá đơn của nó
+    SELECT bl.id AS line_pk, o.id::text AS order_id, o.visit_id::text AS visit_id,
+           o.exec_status, o.cancel_reason, o.not_performed_reason
+      FROM public.service_order o
+      JOIN public.payment_bill_line bl
+        ON bl.clinic_id = o.clinic_id AND bl.source_type = 'service_order'
+       AND bl.source_id = o.id::text
+     WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
+       AND o.exec_status IN ('cancelled', 'not_performed')
+    UNION ALL
+    -- (2) như (1) nhưng dòng là PHỤ THU gắn vào chỉ định
+    SELECT bl.id, o.id::text, o.visit_id::text,
+           o.exec_status, o.cancel_reason, o.not_performed_reason
+      FROM public.service_order o
+      JOIN public.luot_phu_thu p
+        ON p.clinic_id = o.clinic_id AND p.service_order_id = o.id
+      JOIN public.payment_bill_line bl
+        ON bl.clinic_id = p.clinic_id AND bl.source_type = 'phu_thu'
+       AND bl.source_id = p.id::text
+     WHERE o.clinic_id = $1::uuid AND o.visit_id = ANY($2::uuid[])
+       AND o.exec_status IN ('cancelled', 'not_performed')
+    UNION ALL
+    -- (3) tiền DỊCH VỤ KHÁM đã thu mà nay bỏ tick
+    SELECT bl.id, NULL, NULL, NULL, NULL, NULL
+      FROM public.payment_bill_line bl
+     WHERE bl.clinic_id = $1::uuid AND bl.source_type = 'exam'
+       AND bl.visit_id = ANY($2::uuid[])
+       AND bl.source_id LIKE 'exam-%-selected-%'
+       AND NOT EXISTS (
+           SELECT 1 FROM public.luot_phi_kham k
+            WHERE k.clinic_id = $1::uuid AND k.visit_id = bl.visit_id
+              AND k.bo_luc IS NULL
+              AND bl.source_id = 'exam-' || k.visit_id::text || '-selected-'
+                                 || k.service_price_id::text)
+), dong AS (
     SELECT bl.id::text AS line_id, bl.visit_id::text AS line_visit_id,
            bl.payment_cycle_id::text AS payment_cycle_id,
            -- Hình thức HIỆU LỰC (sau "Đổi hình thức"), không phải lúc bấm thu:
@@ -43,13 +90,12 @@ WITH dong AS (
                AS hinh_thuc,
            bl.source_type,
            bl.source_id, bl.name_snapshot, bl.quantity, bl.line_total,
-           CASE WHEN bl.source_type = 'service_order' THEN bl.source_id
-                WHEN bl.source_type = 'phu_thu' THEN (
-                    SELECT p.service_order_id::text FROM public.luot_phu_thu p
-                     WHERE p.clinic_id = bl.clinic_id AND p.id::text = bl.source_id)
-           END AS order_id,
-           coalesce(h.sl, 0) AS da_hoan_sl, coalesce(h.tien, 0) AS da_hoan
-      FROM public.payment_bill_line bl
+           n.order_id,
+           coalesce(h.sl, 0) AS da_hoan_sl, coalesce(h.tien, 0) AS da_hoan,
+           coalesce(n.visit_id, bl.visit_id::text) AS visit_id,
+           n.exec_status, n.cancel_reason, n.not_performed_reason
+      FROM nguon n
+      JOIN public.payment_bill_line bl ON bl.id = n.line_pk
       JOIN public.payment_cycle c
         ON c.clinic_id = bl.clinic_id AND c.payment_cycle_id = bl.payment_cycle_id
       LEFT JOIN LATERAL (
@@ -63,37 +109,36 @@ WITH dong AS (
        AND bl.billing_owner = 'CLINIC' AND bl.kind = 'dich_vu'
        AND bl.source_type IN ('service_order', 'phu_thu', 'exam')
 )
-SELECT d.*, coalesce(o.visit_id::text, d.line_visit_id) AS visit_id,
-       o.exec_status, o.cancel_reason, o.not_performed_reason
+SELECT d.*
   FROM dong d
-  LEFT JOIN public.service_order o
-    ON o.clinic_id = $1::uuid AND o.id::text = d.order_id
  WHERE d.line_total - d.da_hoan > 0
-   AND (
-        (d.source_type IN ('service_order', 'phu_thu')
-         AND o.exec_status IN ('cancelled', 'not_performed')
-         AND o.visit_id::text = ANY($2::text[]))
-     OR (d.source_type = 'exam' AND d.line_visit_id = ANY($2::text[])
-         AND d.source_id LIKE 'exam-%-selected-%'
-         AND NOT EXISTS (
-             SELECT 1 FROM public.luot_phi_kham k
-              WHERE k.clinic_id = $1::uuid AND k.visit_id::text = d.line_visit_id
-                AND k.bo_luc IS NULL
-                AND d.source_id = 'exam-' || k.visit_id::text || '-selected-'
-                                  || k.service_price_id::text))
-   )
  ORDER BY d.line_visit_id, d.payment_cycle_id, d.line_id
 """
+
+
+def _uuid_chuan(visit_ids: list[str]) -> list[str]:
+    """Chỉ giữ chuỗi đúng dạng uuid thường (``str(UUID(s)) == s``) — đúng tập
+    có thể khớp phép so chuỗi ``visit_id::text`` của bản cũ. Rác bị bỏ, không ném."""
+    out: list[str] = []
+    for v in visit_ids:
+        s = str(v)
+        try:
+            if str(UUID(s)) == s:
+                out.append(s)
+        except ValueError:
+            continue
+    return out
 
 
 async def dong_tien_thua(
     conn: asyncpg.Connection, clinic_id: str, visit_ids: list[str]
 ) -> dict[str, list[dict[str, Any]]]:
     """Lượt → các DÒNG HOÁ ĐƠN còn tiền thừa (đủ để hoàn đúng từng dòng)."""
-    if not visit_ids:
+    ids = _uuid_chuan(visit_ids)
+    if not ids:
         return {}
     out: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for r in await conn.fetch(_DONG_THUA_SQL, clinic_id, [str(v) for v in visit_ids]):
+    for r in await conn.fetch(_DONG_THUA_SQL, clinic_id, ids):
         d = dict(r)
         out[d["visit_id"]].append(
             {
