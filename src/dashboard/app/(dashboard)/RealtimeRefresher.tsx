@@ -125,6 +125,8 @@ const LIVE_TABLES = [
   "lieu_trinh_lich_su",
   "lieu_trinh_buoi",
   "lieu_trinh_tra_truoc",
+  // Kiểm kê ca ở quầy thuốc (G6, 14/10/2026) — trigger ở 20261014170000.
+  "kiem_ke_ca",
   // CỐ Ý KHÔNG CÓ `thong_bao` (27/09/2026): chuông tự hỏi lại danh sách của nó
   // qua `useNgheBang` — dựng lại cả trang cho mỗi cuộc gọi của trưởng ca là
   // việc thừa. Cùng lý do `slot_hold` không nằm đây.

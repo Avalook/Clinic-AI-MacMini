@@ -14,12 +14,13 @@ import ChoGanLo, { type DongChoGanLo } from "./ChoGanLo";
 import ChuyenKho from "./ChuyenKho";
 import DanhMucKho, { type ThuocKho } from "./DanhMucKho";
 import InventoryBoard, { type CauHinhHan, type InvBatch } from "./InventoryBoard";
+import KiemKeCa from "./KiemKeCa";
 import KiemKho from "./KiemKho";
 import PhieuNhap from "./PhieuNhap";
 import TheKho from "./TheKho";
 import XuatNhapTon from "./XuatNhapTon";
 
-type Tab = "danh_muc" | "ton" | "cho_gan_lo" | "phieu_nhap" | "chuyen_kho" | "kiem_kho" | "the_kho" | "xnt";
+type Tab = "danh_muc" | "ton" | "cho_gan_lo" | "phieu_nhap" | "chuyen_kho" | "kiem_ke_ca" | "kiem_kho" | "the_kho" | "xnt";
 
 export default function KhoThuoc({
   batches,
@@ -79,6 +80,7 @@ export default function KhoThuoc({
           },
           { ma: "phieu_nhap", nhan: "Phiếu nhập" },
           { ma: "chuyen_kho", nhan: "Chuyển kho" },
+          { ma: "kiem_ke_ca", nhan: "Kiểm kê ca" },
           { ma: "kiem_kho", nhan: "Kiểm kho" },
           { ma: "the_kho", nhan: "Thẻ kho" },
           { ma: "xnt", nhan: "Xuất nhập tồn" },
@@ -92,6 +94,8 @@ export default function KhoThuoc({
         <PhieuNhap thuoc={thuoc} ghiDuoc={ghiDuoc} />
       ) : tab === "chuyen_kho" ? (
         <ChuyenKho batches={batches} tachKhoQuay={tachKhoQuay} suaTachDuoc={suaTachDuoc} ghiDuoc={ghiDuoc} />
+      ) : tab === "kiem_ke_ca" ? (
+        <KiemKeCa batches={batches} ghiDuoc={ghiDuoc} />
       ) : tab === "kiem_kho" ? (
         <KiemKho batches={batches} ghiDuoc={ghiDuoc} thuoc={thuoc} />
       ) : tab === "the_kho" ? (

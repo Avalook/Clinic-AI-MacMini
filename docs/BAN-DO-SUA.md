@@ -117,6 +117,10 @@ Service `S/kiem_ke_ca_service.py` (`mo_phieu`, `luu_dem`, `dung_so_cuoi_ca_truoc
 = Tồn đầu · Nhập · SL bán (= số GIAO) · SL trả · khác · Tồn cuối · Kiểm kê · Lệch · đã thu chưa giao. Chuông lệch:
 sự kiện `pharmacy.stocktake_mismatch` → `chuong.py` (người nhận ở `day_nhan_thong_bao`, quản lý chỉnh).
 Test: `T/services/test_kiem_ke_ca_db.py` (bấm ngẫu nhiên 40×10), `T/unit/test_xnt_theo_ca.py`.
+Giao diện: tab "Kiểm kê ca" ở Kho thuốc `D/pharmacy/inventory/KiemKeCa.tsx` (đếm mù → chốt → lệch → điều chỉnh / hoàn tác,
+nhắc thiếu kiểm); proxy `D/app/api/pharmacy/kiem-ke-ca/**` (danh sách trắng bước ghi); cột tồn ở `/reports?tab=hang-hoa`
+→ `D/reports/BangHangHoa.tsx` (`BangCoTon`, chỉ khi máy chủ trả `co_ton`; bản in = `window.print()`, Excel/CSV chưa có cột tồn).
+FT: `D/tests/kiem-ke-ca-boundary.test.mts`.
 
 **Mẫu kết quả · biểu mẫu phiếu kết quả · gán mẫu cho dịch vụ**
 - Trên màn: `/settings/mau-ket-qua` (tab Gán mẫu · Sửa mẫu; xuất bản là dùng).
