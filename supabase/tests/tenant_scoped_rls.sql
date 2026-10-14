@@ -198,8 +198,9 @@ BEGIN
     -- (20261008100000, liệu trình điều trị nhiều buổi — CHỈ SELECT).
     -- 109 → 110 (08/10/2026): lieu_trinh_tra_truoc (20261008110000, trả trước
     -- k buổi liệu trình vào hoá đơn dịch vụ).
-    IF scoped_count <> 110 THEN
-        RAISE EXCEPTION 'expected 110 tenant-scoped read policies, found %', scoped_count;
+    -- G8a: phiếu vật tư + tồn theo nơi chứa + sổ chỉ thêm.
+    IF scoped_count <> 113 THEN
+        RAISE EXCEPTION 'expected 113 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
