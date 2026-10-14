@@ -23,10 +23,9 @@ export async function GET(request: Request) {
     if (v) tham.set(k, v);
   }
   const duoi = tham.toString() ? `?${tham}` : "";
-  const path = q.get("nhac")
-    ? `/api/v1/pharmacy/kiem-ke-ca/nhac${duoi}`
-    : `/api/v1/pharmacy/kiem-ke-ca${duoi}`;
-  return proxyJsonToBackend("GET", path, undefined);
+  // Hai đường cố định (không ghép chuỗi trong mẫu) để test lệch-đường-dẫn đọc được.
+  const goc = q.get("nhac") ? "/api/v1/pharmacy/kiem-ke-ca/nhac" : "/api/v1/pharmacy/kiem-ke-ca";
+  return proxyJsonToBackend("GET", goc + duoi, undefined);
 }
 
 export async function POST(request: Request) {
