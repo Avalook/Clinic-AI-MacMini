@@ -98,6 +98,11 @@ BEGIN
     END IF;
     SELECT noi_chua, expiry_date INTO lo FROM public.drug_batch
      WHERE id = NEW.drug_batch_id AND clinic_id = NEW.clinic_id;
+    -- Không thấy lô (sai phòng khám / không tồn tại): để khoá ngoại và
+    -- `inventory_txn_apply` từ chối bằng đúng câu của chúng, không đè bằng câu này.
+    IF NOT FOUND THEN
+        RETURN NEW;
+    END IF;
     IF NEW.txn_type = 'CHUYEN_VAO' THEN
         IF lo.noi_chua = 'QUAY'
            AND lo.expiry_date < (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date THEN
