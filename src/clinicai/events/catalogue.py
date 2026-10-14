@@ -73,6 +73,10 @@ DOI_TAC_NHAN_VIEC = "doi_tac_nhan_viec"
 #: Khối CÔNG NỢ (01/10/2026): nghe "đã thu tiền" → lượt có khoản ghi nợ mà nay
 #: hết nợ thì khoản ấy chuyển ĐÃ THU (`events/consumers/cong_no.py`).
 CONG_NO = "cong_no"
+#: SỔ NỢ HAI CHIỀU (14/10/2026): mọi sự kiện làm đổi "khách nợ phòng khám" /
+#: "phòng khám nợ khách" của lượt đã về → tính lại số dư, ghi phần chênh
+#: (`events/consumers/so_no.py`).
+SO_NO = "so_no"
 #: Lịch ĐIỀU TRỊ (07/10/2026): khách đã vào hàng → sinh sẵn chỉ định đúng dịch vụ
 #: đã đặt (`events/consumers/dieu_tri.py`). Không xếp phòng, không thu tiền khám.
 DIEU_TRI_SINH_CHI_DINH = "dieu_tri_sinh_chi_dinh"
@@ -1274,7 +1278,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="vat_tu",
             payload=VatTuDaDoi,
             nhan="Bán thêm vật tư",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
             is_public=False,
         ),
         SuKien(
@@ -1284,7 +1288,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="phi_kham",
             payload=DichVuKhamDaDoi,
             nhan="Chọn dịch vụ khám",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
             is_public=False,
         ),
         SuKien(
@@ -1390,7 +1394,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuDaBatDau,
             nhan="Bắt đầu làm dịch vụ",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -1481,6 +1485,7 @@ DANH_MUC: dict[str, SuKien] = {
                 DOI_TAC_NHAN_VIEC,
                 CHUONG_NHAN_CHEO,
                 LIEU_TRINH_SAP_HET,
+                SO_NO,
             ],
             theo_thu_tu=True,
         ),
@@ -1493,7 +1498,7 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Không làm dịch vụ",
             # Hai bên nghe, độc lập nhau: một bên vẽ hành trình, một bên mở việc
             # đối soát tiền. Bên này hỏng không chặn bên kia.
-            consumers=[DONG_THOI_GIAN_LUOT, TRACH_NHIEM_DICH_VU, VONG_DOC],
+            consumers=[DONG_THOI_GIAN_LUOT, TRACH_NHIEM_DICH_VU, VONG_DOC, SO_NO],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -1535,7 +1540,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuDaHuyBatDau,
             nhan="Huỷ bắt đầu nhầm",
-            consumers=[DONG_THOI_GIAN_LUOT, CHUONG_NHAN_CHEO],
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG_NHAN_CHEO, SO_NO],
             theo_thu_tu=True,
         ),
         # ── Hoàn tác (01/10/2026) — chỉ lên dòng thời gian: mỗi lệnh hoàn tác
@@ -1548,7 +1553,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="execution",
             payload=DichVuHoanTacXong,
             nhan="Hoàn tác “Xong” dịch vụ",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -1568,7 +1573,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="service_order",
             payload=ChiDinhDaHuy,
             nhan="Bỏ chỉ định",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
         ),
         SuKien(
             ten="service_order.restored",
@@ -1579,7 +1584,7 @@ DANH_MUC: dict[str, SuKien] = {
             nhan="Hoàn tác bỏ chỉ định",
             # HÀNH TRÌNH: chỉ định vừa quay lại đi đúng cửa làm như lúc khách
             # vừa chốt (đã thu → xếp phòng ngay).
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, SO_NO],
         ),
         SuKien(
             ten="consultation.reopened",
@@ -1597,7 +1602,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="reception",
             payload=LuotMoLai,
             nhan="Hoàn tác check-out — mở lại lượt",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
         ),
         SuKien(
             # Đối tượng là PHIẾU, không phải chỉ định. Hai module cùng đánh số
@@ -1694,7 +1699,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="service_order",
             payload=ChiDinhMangSang,
             nhan="Mang chỉ định từ lượt trước sang",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
             theo_thu_tu=True,
         ),
         # ── nhóm 3: kết quả ──
@@ -1857,7 +1862,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="reception",
             payload=KhachDaVe,
             nhan="Khách đã về (check-out)",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, SO_NO],
         ),
         SuKien(
             ten="visit.left_early",
@@ -1866,7 +1871,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="reception",
             payload=KhachBoVeGiuaChung,
             nhan="Khách bỏ về giữa chừng",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, SO_NO],
         ),
         SuKien(
             ten="payment.refunded",
@@ -1875,7 +1880,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="payment",
             payload=DaHoanTien,
             nhan="Đã hoàn tiền",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
             is_public=False,
         ),
         SuKien(
@@ -1954,7 +1959,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="payment",
             payload=TienThuocDaThu,
             nhan="Đã thu tiền thuốc",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, CONG_NO],
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, CONG_NO, SO_NO],
             is_public=False,
         ),
         SuKien(
@@ -1975,7 +1980,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="payment",
             payload=LanThuDaHoanTac,
             nhan="Hoàn tác lần thu",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
             # Tiền là chuyện nội bộ (như payment.*): AI/Zalo không nghe.
             is_public=False,
         ),
@@ -1986,7 +1991,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="pharmacy",
             payload=ThuocDaGiao,
             nhan="Đã giao thuốc",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
             is_public=False,
         ),
         SuKien(
@@ -1997,7 +2002,13 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="payment",
             payload=TienDichVuDaThu,
             nhan="Đã thu tiền dịch vụ",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, DOI_TAC_NHAN_VIEC, CONG_NO],
+            consumers=[
+                DONG_THOI_GIAN_LUOT,
+                HANH_TRINH,
+                DOI_TAC_NHAN_VIEC,
+                CONG_NO,
+                SO_NO,
+            ],
             is_public=False,
         ),
         SuKien(
@@ -2007,7 +2018,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="cong_no",
             payload=CongNoDaGhi,
             nhan="Ghi nợ khi khách về",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
             # Tiền là chuyện nội bộ (như payment.*).
             is_public=False,
         ),
@@ -2018,7 +2029,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="cong_no",
             payload=CongNoDaHuy,
             nhan="Huỷ ghi nợ",
-            consumers=[DONG_THOI_GIAN_LUOT],
+            consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
             is_public=False,
         ),
         SuKien(

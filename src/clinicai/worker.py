@@ -270,10 +270,16 @@ async def _run_su_kien() -> None:
     # BỘ CANH GÁC (27/09/2026) ghép vào vòng này, mỗi phút một lượt — xem
     # services/canh_gac.py. Chỉ tiến trình giao MỌI bên nhận mới canh (chạy tay
     # một bên nhận để gỡ lỗi thì không mở cảnh báo trùng).
-    from clinicai.services import agent_giam_sat, agent_tom_tat, canh_gac
+    from clinicai.services import agent_giam_sat, agent_tom_tat, canh_gac, so_no_service
 
     canh = not chi_dinh
     lan_canh = 0.0
+    # SỔ NỢ (14/10/2026): ghi số dư đầu kỳ cho lượt cũ (mỗi phút một lô tới
+    # khi xong), rồi đối chiếu định kỳ bắt thay đổi không phát sự kiện (hoàn
+    # tiền xong / thất bại). Cùng điều kiện với canh gác.
+    lan_dau_ky = 0.0
+    dau_ky_con = True
+    lan_doi_chieu = 0.0
     # AGENT GIÁM SÁT (09/10/2026, shadow): cùng điều kiện, cùng nhịp với canh
     # gác — canh gác trông HẠ TẦNG, agent trông VẬN HÀNH. Xem
     # services/agent_giam_sat.py; tắt bằng dữ liệu (`agent_cau_hinh`).
@@ -300,6 +306,18 @@ async def _run_su_kien() -> None:
                 if canh and time.monotonic() - lan_canh >= canh_gac.NHIP_GIAY:
                     lan_canh = time.monotonic()
                     await canh_gac.mot_vong(pool)
+                if (
+                    canh
+                    and dau_ky_con
+                    and time.monotonic() - lan_dau_ky >= so_no_service.NHIP_DAU_KY_GIAY
+                ):
+                    lan_dau_ky = time.monotonic()
+                    dau_ky_con = bool(
+                        (await so_no_service.dau_ky_mot_vong(pool))["con"]
+                    )
+                if canh and time.monotonic() - lan_doi_chieu >= so_no_service.NHIP_GIAY:
+                    lan_doi_chieu = time.monotonic()
+                    await so_no_service.doi_chieu_mot_vong(pool)
                 if canh and time.monotonic() - lan_agent >= agent_giam_sat.NHIP_GIAY:
                     lan_agent = time.monotonic()
                     await agent_giam_sat.mot_vong(pool)

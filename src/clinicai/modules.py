@@ -807,6 +807,38 @@ MODULE: dict[str, Module] = {
             bang=["cong_no"],
             projection=["khach_con_no"],
         ),
+        # SỔ NỢ HAI CHIỀU (14/10/2026): một chỗ ghi duy nhất cho "khách nợ phòng
+        # khám" / "phòng khám nợ khách" của lượt đã về. Chỉ ĐỌC luật của các khối
+        # khác (no_khi_ve, tiền thừa), không có lệnh của riêng mình.
+        Module(
+            ma="so_no",
+            ten="Sổ nợ hai chiều (phải thu / phải trả theo lượt)",
+            nghe=[
+                "visit.checked_out",
+                "visit.left_early",
+                "visit.reopened",
+                "cong_no.ghi",
+                "cong_no.huy",
+                "payment.service_collected",
+                "payment.medicine_collected",
+                "payment.collection_undone",
+                "payment.refunded",
+                "service_order.cancelled",
+                "service_order.restored",
+                "service_order.carried_over",
+                "service.started",
+                "service.completed",
+                "service.not_performed",
+                "service.start_cancelled",
+                "service.completion_undone",
+                "visit.supply_changed",
+                "visit.exam_service_changed",
+                "medicine.dispensed",
+            ],
+            ben_nhan=["so_no"],
+            bang=["so_no", "so_no_moc"],
+            projection=["so_no_hai_chieu"],
+        ),
         # Lịch ĐIỀU TRỊ (07/10/2026): khách vào hàng → chỉ định sẵn đúng dịch vụ
         # đã đặt (một service_order bình thường).
         Module(
