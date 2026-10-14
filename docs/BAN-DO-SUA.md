@@ -388,6 +388,16 @@ Gói Kế toán KHÔNG có `thu_tien_dv`/`thu_tien_thuoc` → thu/hoàn/đổi h
 dùng lại `XuatHoaDonService.xem`. Test `T/services/test_ke_toan_lego_db.py`, `test_theo_hang_hoa_db.py`,
 `T/unit/test_theo_hang_hoa.py`, FT `ke-toan-boundary.test.mts`.
 
+**Thuế GTGT cho kế toán (G5b, 14/10) — backend; màn đặt thuế CHƯA có (giao Codex)** — giá đã gồm thuế, tách ngược
+khi xuất (K1); KHÔNG chạm vận hành (`T/unit/test_thue_khong_cham_van_hanh.py` khoá: chỉ `thue_suat_service`,
+`xuat_hoa_don_service`, `thue_gtgt` biết cột thuế). Cột `service_price.thue_suat_ma`, `drug_catalog.thue_suat_ma`,
+bảng `thue_suat_nhom` (migration `20261014155000_thue_gtgt.sql`, hàm `thue_suat_hop_le`); quyền đặt
+`accounting.tax.manage`. Đặt: `S/thue_suat_service.py` ← `R/ke_toan.py` (`GET/PUT /ke-toan/thue-suat…`).
+Xuất: `S/xuat_hoa_don_service.py::dung_hoa_don` gán thuế suất dòng (sửa tay > mặt hàng > nhóm) →
+`S/thue_gtgt.py::ap_thue_hoa_don` (tách theo thuế suất `che_do=tach` | một hoá đơn `mot`; K2 `ghi_giam_gia`) →
+`xlsx_misa` ghi K (thuế suất) / L (tiền thuế). Query `/hoa-don/xuat?che_do&ghi_giam_gia&ghi_de={"id dòng":"mã"}`.
+Chưa đặt thuế → xuất y như cũ. Test `T/unit/test_thue_gtgt.py` (bảng số tay), `T/services/test_thue_gtgt_db.py`.
+
 Nút thu dùng chung `NhomThu` ở 2 quầy và Bán lẻ đổi thành **Tạo bill**; tiền mặt vẫn ghi thu,
 chuyển khoản vẫn chờ xác minh, nút xác minh **Đã nhận tiền** giữ nguyên.
 

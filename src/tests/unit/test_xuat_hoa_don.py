@@ -118,6 +118,8 @@ def test_moi_phieu_mot_hoa_don_theo_gio_thu_bo_huy_va_ngoai_ky() -> None:
             "ten": "Thuốc X",
             "ma": "TX01",
             "nhom": "THUOC",
+            "thue_suat": None,
+            "thue_nguon": None,
             "dvt": "Hộp",
             "so_luong": 2,
             "don_gia": 45000,
@@ -155,6 +157,8 @@ def test_tru_dong_da_hoan_xong_va_ghi_chu_hoan_cho() -> None:
             "ten": "Thuốc",
             "ma": "",
             "nhom": "DICH_VU",
+            "thue_suat": None,
+            "thue_nguon": None,
             "dvt": "",
             "so_luong": 2,
             "don_gia": 30000,
@@ -190,6 +194,40 @@ def test_dong_co_giam_gia_ghi_truoc_giam_va_hoan_mot_phan_theo_ti_le() -> None:
     # Hoàn 1/4 dòng: còn 150.000 sau giảm → giảm còn lại 40.000 × 150/200 = 30.000.
     assert (b["thanh_tien"], b["giam_gia"], b["truoc_giam"]) == (150000, 30000, 180000)
     assert hd["tong"] == 420000
+
+
+def test_thue_suat_dong_uu_tien_hon_mat_hang_hon_nhom() -> None:
+    """Q16: sửa tay dòng > mặt hàng > nhóm > trống; số tiền KHÔNG đổi ở bước này."""
+    p = _phieu(
+        "t1",
+        "2026-10-12T08:00:00+07:00",
+        [
+            _dong("a", "Siêu âm", 1, 100000),
+            _dong("b", "Thuốc B", 1, 20000),
+            _dong("c", "Thuốc C", 1, 30000),
+            _dong("d", "Khám", 1, 40000),
+        ],
+    )
+    them = {
+        "a": {"source_type": "service_order", "thue_mh": "8"},
+        "b": {"source_type": "prescription", "thue_mh": "KCT"},
+        "c": {"source_type": "prescription"},
+        "d": {"source_type": "exam"},
+    }
+    (hd,) = dung_hoa_don(
+        [{"ten": "T", "phieu": [p]}],
+        them,
+        {},
+        thue_nhom={"THUOC": "5"},
+        ghi_de={"a": "10", "d": "rác"},
+    )
+    assert [(d["thue_suat"], d["thue_nguon"]) for d in hd["dong"]] == [
+        ("10", "dong"),  # sửa tay thắng thuế mặt hàng 8
+        ("KCT", "mat_hang"),  # mặt hàng thắng nhóm Thuốc 5
+        ("5", "nhom"),  # chỉ có nhóm
+        (None, None),  # ô gõ rác không che, nhóm Dịch vụ chưa đặt → trống
+    ]
+    assert [d["thanh_tien"] for d in hd["dong"]] == [100000, 20000, 30000, 40000]
 
 
 def test_hoan_het_thi_bo_phieu_va_ngay_rac_khong_nem() -> None:

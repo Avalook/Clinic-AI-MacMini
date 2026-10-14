@@ -613,6 +613,13 @@ QUYEN: dict[str, Quyen] = {
             MucRuiRo.TIEN,
         ),
         Quyen(
+            "accounting.tax.manage",
+            "Đặt thuế suất GTGT (nhóm, mặt hàng)",
+            "ke_toan",
+            "accounting",
+            MucRuiRo.TIEN,
+        ),
+        Quyen(
             "config.clinic.manage",
             "Cài đặt phòng khám (luật đặt lịch, cấu trúc, lịch trực)",
             "cai_dat",

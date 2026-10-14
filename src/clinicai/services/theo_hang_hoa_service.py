@@ -18,6 +18,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font
 
 from clinicai.api.identity import StaffIdentity
+from clinicai.services.thue_gtgt import chuan_hoa_thue_suat, tach_thue
 from clinicai.services.xuat_hoa_don_service import (
     NHOM_DICH_VU,
     NHOM_THUOC,
@@ -47,9 +48,13 @@ def gom_theo_hang_hoa(
 
     Một mặt hàng = (nhóm, mã nếu có — không thì tên đã chuẩn hoá, ĐVT). Cùng mã
     mà tên khác nhau (đổi tên giữa kỳ) gộp một dòng, giữ tên gặp ĐẦU TIÊN.
-    Cột thuế để trống ở G5a: `thue_suat`/`tien_thue` = None.
+    Thuế (G5b): `thue_suat` = thuế suất chung của mặt hàng ("Nhiều" nếu các dòng
+    khác nhau, None nếu chưa đặt); `tien_thue` = thuế tách ngược trên tổng SAU giảm
+    của từng thuế suất (dòng chưa đặt không có thuế). Thuế KHÔNG đổi các cột tiền.
     """
     nhom: dict[tuple[str, str, str], dict[str, Any]] = {}
+    gom_thue: dict[tuple[str, str, str], dict[str | None, int]] = {}
+    chua_thue = 0
     for hd in hoa_don:
         for d in hd.get("dong") or []:
             ma = str(d.get("ma") or "")
@@ -78,6 +83,20 @@ def gom_theo_hang_hoa(
             hang["giam_gia"] += int(d.get("giam_gia") or 0)
             hang["tien_sau_giam"] += int(d.get("thanh_tien") or 0)
             hang["so_dong"] += 1
+            ma_thue = chuan_hoa_thue_suat(d.get("thue_suat"))
+            chua_thue += ma_thue is None
+            theo_thue = gom_thue.setdefault(khoa, {})
+            theo_thue[ma_thue] = theo_thue.get(ma_thue, 0) + int(
+                d.get("thanh_tien") or 0
+            )
+    for khoa, hang in nhom.items():
+        theo_thue = gom_thue[khoa]
+        co = [m for m in theo_thue if m is not None]
+        if co:
+            hang["thue_suat"] = (
+                co[0] if len(co) == 1 and None not in theo_thue else "Nhiều"
+            )
+            hang["tien_thue"] = sum(tach_thue(theo_thue[m], m)[1] for m in co)
     thu_tu = {n: i for i, n in enumerate(NHOM_THU_TU)}
     ds = sorted(
         nhom.values(),
@@ -92,6 +111,8 @@ def gom_theo_hang_hoa(
         "tong_truoc_giam": sum(h["tien_truoc_giam"] for h in ds),
         "tong_giam_gia": sum(h["giam_gia"] for h in ds),
         "tong_sau_giam": sum(h["tien_sau_giam"] for h in ds),
+        "tong_thue": sum(int(h["tien_thue"] or 0) for h in ds),
+        "dong_chua_thue": chua_thue,
     }
 
 
@@ -109,15 +130,15 @@ class TheoHangHoaService:
         co_so: str | None = None,
     ) -> dict[str, Any]:
         """Cùng cổng quyền / phạm vi với Xuất hoá đơn (không tự dựng luật)."""
-        data = await XuatHoaDonService(self.pool).xem(
+        data, goc = await XuatHoaDonService(self.pool).doc_goc(
             identity=identity, tu=tu, den=den, loai=loai, co_so=co_so
         )
         return {
             "tu": data["tu"],
             "den": data["den"],
             "co_so": data.get("co_so"),
-            "so_hoa_don": data["so_hoa_don"],
-            **gom_theo_hang_hoa(data["hoa_don"]),
+            "so_hoa_don": len(goc),
+            **gom_theo_hang_hoa(goc),
         }
 
 
@@ -171,7 +192,7 @@ def xlsx_theo_hang_hoa(data: Mapping[str, Any]) -> bytes:
             data["tong_giam_gia"],
             data["tong_sau_giam"],
             "",
-            "",
+            data.get("tong_thue") or "",
         ]
     )
     for c in ws[ws.max_row]:
