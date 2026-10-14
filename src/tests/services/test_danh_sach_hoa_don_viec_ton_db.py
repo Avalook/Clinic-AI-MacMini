@@ -13,10 +13,12 @@ import pytest
 
 from clinicai.api.identity import ClinicRole
 from clinicai.core.clock import now_vn
+from clinicai.services.cong_no_service import no_khi_ve
 from clinicai.services.danh_sach_hoa_don_service import DanhSachHoaDonService
 from clinicai.services.hoan_tien_service import HoanTienService
 from tests.services.test_giam_gia_db import _thu
 from tests.services.test_quay_thu_mot_hoa_don_db import _kich_ban
+from tests.services.test_so_no_hai_chieu_db import so_lai
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -24,6 +26,15 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 def _cua_luot(data: dict[str, Any], visit_id: str) -> list[dict[str, Any]]:
     return [v for v in data["viec_ton"] if v["visit_id"] == visit_id]
+
+
+#: "Đã làm" phải có phòng (CHECK service_order_room_when_assigned) — lấy một
+#: phòng có sẵn của phòng khám.
+_DA_LAM = (
+    "UPDATE service_order SET exec_status='performed', room_id=(SELECT id FROM"
+    " clinic_room WHERE clinic_id=service_order.clinic_id ORDER BY id LIMIT 1)"
+    " WHERE id=$1::uuid"
+)
 
 
 async def test_bo_dich_vu_sau_thu_thanh_chua_tra_lai_roi_tu_het_khi_hoan(
@@ -39,6 +50,14 @@ async def test_bo_dich_vu_sau_thu_thanh_chua_tra_lai_roi_tu_het_khi_hoan(
     ql = replace(q.thu_ngan, role=ClinicRole.MANAGEMENT)
     svc = DanhSachHoaDonService(pool)
     ngay = now_vn().date().isoformat()
+    # Việc tồn đọc SỔ NỢ (14/10/2026): tiền thừa là nợ khách khi khách đã về —
+    # lúc còn ở phòng khám quầy thu tự hiện hộp tiền thừa + check-out chặn.
+    # SÂ đã làm → chỉ còn Soi bị bỏ (không lẫn "đã thu chưa làm" khi đóng lượt).
+    await pool.execute(_DA_LAM, sa)
+    await pool.execute(
+        "UPDATE visit SET closed_at=now() WHERE visit_id=$1::uuid", q.visit_id
+    )
+    await so_lai(pool, q.visit_id)
 
     data = await svc.xem(identity=ql, tu=ngay, den=ngay, tim=f"TT-{q.duoi}")
     [khach] = data["khach"]
@@ -61,6 +80,7 @@ async def test_bo_dich_vu_sau_thu_thanh_chua_tra_lai_roi_tu_het_khi_hoan(
 
     # Quầy bấm "Hoàn tiền thừa" (nút có sẵn) → việc tồn tự hết.
     await HoanTienService(pool).hoan_tien_thua(identity=ql, visit_id=q.visit_id)
+    await so_lai(pool, q.visit_id)
     sau = await svc.xem(identity=ql, tu=ngay, den=ngay, tim=f"TT-{q.duoi}")
     [khach2] = sau["khach"]
     assert khach2["chua_tra_lai"] == 0
@@ -72,7 +92,8 @@ async def test_bo_dich_vu_sau_thu_thanh_chua_tra_lai_roi_tu_het_khi_hoan(
 async def test_ck_chua_ve_va_ghi_no_la_viec_ton_moi_ngay(pool: asyncpg.Pool) -> None:
     q, sa, soi, hpv = await _kich_ban(pool)
     await _thu(q, sa, soi, hpv, method="TRANSFER")  # CK → chờ xác minh
-    q2, *_ = await _kich_ban(pool)
+    q2, sa2, *_ = await _kich_ban(pool)
+    await pool.execute(_DA_LAM, sa2)
     await pool.execute(
         "INSERT INTO cong_no (clinic_id, visit_id, clinic_patient_id, so_tien,"
         " ly_do, ghi_boi) SELECT $1::uuid, $2::uuid, v.clinic_patient_id, 400000,"
@@ -81,6 +102,14 @@ async def test_ck_chua_ve_va_ghi_no_la_viec_ton_moi_ngay(pool: asyncpg.Pool) -> 
         q2.visit_id,
         q2.thu_ngan.staff_id,
     )
+    await pool.execute(
+        "UPDATE visit SET closed_at=now() WHERE visit_id=$1::uuid", q2.visit_id
+    )
+    await so_lai(pool, q2.visit_id)
+    async with pool.acquire() as conn:
+        no_that = (
+            await no_khi_ve(conn, clinic_id=q2.thu_ngan.clinic_id, visit_id=q2.visit_id)
+        ).tong
     ql = replace(q.thu_ngan, role=ClinicRole.MANAGEMENT)
     svc = DanhSachHoaDonService(pool)
     # Việc tồn không theo ô ngày: xem một ngày rất cũ vẫn thấy.
@@ -90,21 +119,12 @@ async def test_ck_chua_ve_va_ghi_no_la_viec_ton_moi_ngay(pool: asyncpg.Pool) -> 
     assert ck[0]["ten_loai"] == "Chuyển khoản chưa về" and ck[0]["ma"]
     no = _cua_luot(data, q2.visit_id)
     assert [(v["loai"], v["so_tien"], v["mo_ta"]) for v in no] == [
-        ("GHI_NO", 400_000, "quên ví")
+        ("GHI_NO", no_that, "quên ví")
     ]
     assert data["tong"]["so_viec_ton"] == len(data["viec_ton"])
     # Lọc loại hoá đơn "thuốc": CK dịch vụ và ghi nợ (cấp lượt) không hiện.
     thuoc = await svc.xem(identity=ql, tu="2026-01-01", den="2026-01-01", loai="thuoc")
     assert not _cua_luot(thuoc, q.visit_id) and not _cua_luot(thuoc, q2.visit_id)
-
-
-#: "Đã làm" phải có phòng (CHECK service_order_room_when_assigned) — lấy một
-#: phòng có sẵn của phòng khám.
-_DA_LAM = (
-    "UPDATE service_order SET exec_status='performed', room_id=(SELECT id FROM"
-    " clinic_room WHERE clinic_id=service_order.clinic_id ORDER BY id LIMIT 1)"
-    " WHERE id=$1::uuid"
-)
 
 
 async def test_da_thu_khach_ve_chua_lam_la_chua_tra_lai(pool: asyncpg.Pool) -> None:
@@ -126,6 +146,7 @@ async def test_da_thu_khach_ve_chua_lam_la_chua_tra_lai(pool: asyncpg.Pool) -> N
     await pool.execute(
         "UPDATE visit SET closed_at=now() WHERE visit_id=$1::uuid", q.visit_id
     )
+    await so_lai(pool, q.visit_id)
     ve = await svc.xem(identity=ql, tu=ngay, den=ngay, tim=f"TT-{q.duoi}")
     ton = [v for v in _cua_luot(ve, q.visit_id) if v["loai"] == "CHUA_LAM"]
     assert [(v["so_tien"], v["ten_loai"]) for v in ton] == [
@@ -138,6 +159,7 @@ async def test_da_thu_khach_ve_chua_lam_la_chua_tra_lai(pool: asyncpg.Pool) -> N
 
     # Khách quay lại làm → tự hết.
     await pool.execute(_DA_LAM, sa)
+    await so_lai(pool, q.visit_id)
     sau = await svc.xem(identity=ql, tu=ngay, den=ngay, tim=f"TT-{q.duoi}")
     assert not _cua_luot(sau, q.visit_id)
     assert sau["khach"][0]["chua_tra_lai"] == 0

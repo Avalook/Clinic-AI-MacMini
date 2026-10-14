@@ -353,18 +353,6 @@ async def doc_no_dang_mo(
     }
 
 
-#: Lọc khoản nợ theo cơ sở của lượt ($2 rỗng = mọi cơ sở). Hằng cố định, không
-#: ghép đầu vào người dùng vào chuỗi SQL.
-_NO_CO_SO_JOIN = """
-          LEFT JOIN public.visit nv
-            ON nv.visit_id = n.visit_id AND nv.clinic_id = n.clinic_id
-          LEFT JOIN public.appointment na
-            ON na.id = nv.appointment_id AND na.clinic_id = nv.clinic_id"""
-_NO_CO_SO_LOC = (
-    "($2::uuid IS NULL OR coalesce(nv.location_id, na.location_id) = $2::uuid)"
-)
-
-
 async def doc_khach_con_no(
     conn: asyncpg.Connection,
     clinic_id: str,
@@ -372,64 +360,37 @@ async def doc_khach_con_no(
     kem_ds: bool = True,
     location_id: str | None = None,
 ) -> dict[str, Any]:
-    """ "Khách còn nợ: n — x đ" — mọi khoản đã ghi nợ còn CHƯA THU.
+    """ "Khách còn nợ: n — x đ" — số dư PHẢI THU của SỔ NỢ (14/10/2026): mọi
+    lượt đã về còn nợ, kể cả không ai bấm "Ghi nợ" (huỷ phiếu sau khi về, bấm
+    Xong muộn, CK chờ xác minh…); trả một phần thì giảm ngay. Không hạn ngày.
 
-    Tổng đếm bằng SQL (không bị trần danh sách cắt); ``kem_ds`` thêm danh sách
-    truy thu (mới nhất trước, tối đa ``_TRAN_DS`` dòng, ``bi_cat`` nói ra).
-    ``location_id`` (08/10/2026): chỉ khoản nợ của lượt thuộc cơ sở ấy (cơ sở
-    của lượt = ``coalesce(visit.location_id, appointment.location_id)``).
+    ``kem_ds`` thêm danh sách truy thu (mới nhất trước, tối đa ``_TRAN_DS`` dòng,
+    ``bi_cat`` nói ra; tổng không bị cắt). ``location_id``: chỉ lượt của cơ sở
+    ấy. ``id`` của dòng = khoản ghi nợ của lễ tân nếu có, không thì dòng sổ.
     """
-    tong = await conn.fetchrow(
-        f"""
-        SELECT count(DISTINCT n.clinic_patient_id) AS so_khach,
-               count(*) AS so_luot, coalesce(sum(n.so_tien), 0) AS so_tien
-          FROM public.cong_no n
-          {_NO_CO_SO_JOIN}
-         WHERE n.clinic_id = $1::uuid AND n.trang_thai = 'CHUA_THU'
-           AND {_NO_CO_SO_LOC}
-        """,
-        clinic_id,
-        location_id,
-    )
+    from clinicai.services.so_no_service import PHAI_THU, doc_so_du_mo
+
+    rows = await doc_so_du_mo(conn, clinic_id, PHAI_THU, location_id)
     out: dict[str, Any] = {
-        "so_khach": int(tong["so_khach"] or 0) if tong else 0,
-        "so_luot": int(tong["so_luot"] or 0) if tong else 0,
-        "so_tien": int(tong["so_tien"] or 0) if tong else 0,
+        "so_khach": len({r["patient_id"] for r in rows}),
+        "so_luot": len(rows),
+        "so_tien": sum(r["so_du"] for r in rows),
     }
     if not kem_ds:
         return out
-    rows = await conn.fetch(
-        f"""
-        SELECT n.id::text AS id, n.visit_id::text AS visit_id,
-               n.so_tien, n.ly_do, n.ghi_luc,
-               p.full_name AS khach, p.patient_code AS ma_bn,
-               s.full_name AS nguoi_ghi
-          FROM public.cong_no n
-          LEFT JOIN public.patient p ON p.clinic_patient_id = n.clinic_patient_id
-          LEFT JOIN public.staff s ON s.id = n.ghi_boi
-          {_NO_CO_SO_JOIN}
-         WHERE n.clinic_id = $1::uuid AND n.trang_thai = 'CHUA_THU'
-           AND {_NO_CO_SO_LOC}
-         ORDER BY n.ghi_luc DESC
-         LIMIT $3
-        """,
-        clinic_id,
-        location_id,
-        _TRAN_DS,
-    )
     out["bi_cat"] = canh_bao_neu_day("cong_no.khach_con_no", len(rows), _TRAN_DS)
     out["ds"] = [
         {
-            "id": r["id"],
+            "id": r["cong_no_id"] or r["id"],
             "visit_id": r["visit_id"],
-            "khach": r["khach"],
+            "khach": r["ten"],
             "ma_bn": r["ma_bn"],
-            "so_tien": int(r["so_tien"]),
+            "so_tien": r["so_du"],
             "ly_do": r["ly_do"],
-            "nguoi_ghi": r["nguoi_ghi"],
-            "luc": r["ghi_luc"].isoformat(),
+            "nguoi_ghi": r["nguoi"],
+            "luc": r["luc"].isoformat(),
         }
-        for r in rows
+        for r in rows[:_TRAN_DS]
     ]
     return out
 

@@ -1095,6 +1095,22 @@ class BaoCaoCuoiNgayService:
                 conn, cid, co_so=cs, loai=loai_loc, con_no=con_no
             )
             ds_co_so = await doc_ds_co_so(conn, cid)
+            # Sổ nợ hai chiều của CÙNG khoảng (14/10/2026) cho khối Dòng tiền —
+            # tính chung dịch vụ + thuốc nên báo cáo lọc một loại thì bỏ.
+            from clinicai.services.so_no_service import doc_so_no_ky
+
+            so_no_ky = (
+                await doc_so_no_ky(
+                    conn,
+                    cid,
+                    tu_luc=k5 or datetime.combine(a, time(0), CLINIC_TZ),
+                    den_luc=k6
+                    or datetime.combine(b + timedelta(days=1), time(0), CLINIC_TZ),
+                    co_so=cs,
+                )
+                if loai_loc is None
+                else None
+            )
             # Tiền thừa (06/10/2026, E2c): đã hoàn / giữ lại / còn treo — tiền
             # DỊCH VỤ, báo cáo quầy thuốc không có.
             from clinicai.services.tien_thua_service import bao_cao_tien_thua
@@ -1142,6 +1158,7 @@ class BaoCaoCuoiNgayService:
             so_luot_khong_chon_dich_vu_kham=sum(luot_khong_chon.values()),
         )
         bc["khach_con_no"] = con_no
+        bc["so_no_ky"] = so_no_ky
         bc["can_xu_ly"] = can_xu_ly
         bc["tien_thua"] = tien_thua
         bc["loai"] = loai_loc

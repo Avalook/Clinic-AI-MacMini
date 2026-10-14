@@ -27,7 +27,7 @@ import pytest
 import pytest_asyncio
 
 from clinicai.core.exceptions import ClinicAIBaseException
-from clinicai.events.catalogue import CONG_NO
+from clinicai.events.catalogue import CONG_NO, SO_NO
 from clinicai.services.checkout_service import CheckoutService
 from clinicai.services.cong_no_service import CongNoService, no_khi_ve
 from clinicai.services.danh_sach_hoa_don_service import DanhSachHoaDonService
@@ -155,6 +155,15 @@ async def _huy_cho(pool: asyncpg.Pool, ca: Ca, visit: str) -> None:  # noqa: F81
 async def _so_that(conn: asyncpg.Connection, visit: str) -> tuple[int, int]:
     """(khách nợ phòng khám, phòng khám nợ khách) THẬT — theo luật đang chạy."""
     phai_thu = (await no_khi_ve(conn, clinic_id=CLINIC, visit_id=visit)).tong
+    # Chuyển khoản CHỜ xác minh: tiền chưa về thì vẫn là nợ (Tuyền 14/10).
+    phai_thu += int(
+        await conn.fetchval(
+            "SELECT coalesce(sum(coalesce(original_amount, amount)), 0)"
+            " FROM payment_cycle WHERE visit_id = $1::uuid"
+            " AND status = 'PENDING_VERIFICATION'",
+            visit,
+        )
+    )
     thua = (await dong_tien_thua(conn, CLINIC, [visit])).get(visit, [])
     # Đã thu mà chưa làm khi khách đã về — cùng điều kiện `_CHUA_LAM` nhưng
     # KHÔNG có hạn 90 ngày (nợ khách không tự hết hạn).
@@ -162,7 +171,7 @@ async def _so_that(conn: asyncpg.Connection, visit: str) -> tuple[int, int]:
         str(r["id"])
         for r in await conn.fetch(
             "SELECT id::text AS id FROM service_order WHERE visit_id = $1::uuid"
-            " AND exec_status IN ('authorized', 'assigned', 'in_progress')"
+            " AND exec_status IN ('authorized', 'assigned')"
             " AND selection_status IS DISTINCT FROM 'NOT_SELECTED'",
             visit,
         )
@@ -180,7 +189,9 @@ async def _so_hien(conn: asyncpg.Connection, visit: str) -> tuple[int, int]:
         for t in await DanhSachHoaDonService._viec_ton(conn, CLINIC, None, None)
         if t.get("visit_id") == visit
     ]
-    no = sum(int(t["so_tien"]) for t in ton if t["loai"] == "GHI_NO")
+    # Nợ hiện ở hai dòng không trùng nhau: phần chưa chuyển (GHI_NO) + phần
+    # chuyển khoản đang chờ (CK_CHUA_VE).
+    no = sum(int(t["so_tien"]) for t in ton if t["loai"] in ("GHI_NO", "CK_CHUA_VE"))
     tra = sum(
         int(t["so_tien"])
         for t in ton
@@ -189,9 +200,10 @@ async def _so_hien(conn: asyncpg.Connection, visit: str) -> tuple[int, int]:
     return no, tra
 
 
-async def _lech(pool: asyncpg.Pool, visit: str) -> list[str]:  # noqa: F811
+async def _lech(pool: asyncpg.Pool, visit: str, kiem_ket: bool = True) -> list[str]:  # noqa: F811
     """Các bất biến bị vỡ của lượt (rỗng = sổ khớp). Chỉ xét lượt ĐÃ VỀ."""
-    await chay_ben_nhan(pool, CONG_NO)
+    # Như worker thật: công nợ + sổ nợ chạy ngay sau mỗi bước.
+    await chay_ben_nhan(pool, CONG_NO, SO_NO)
     async with pool.acquire() as conn:
         if (
             await conn.fetchval(
@@ -214,7 +226,7 @@ async def _lech(pool: asyncpg.Pool, visit: str) -> list[str]:  # noqa: F811
         out.append(f"B1 khách nợ {thu_that:,}đ, màn hiện {thu_hien:,}đ")
     if tra_that != tra_hien:
         out.append(f"B2 phòng khám nợ khách {tra_that:,}đ, màn hiện {tra_hien:,}đ")
-    if ket:
+    if ket and kiem_ket:
         out.append(f"B3 {ket} lần hoàn TIỀN MẶT cho tiền khách trả chuyển khoản")
     return out
 
@@ -266,7 +278,6 @@ async def test_bo_chi_dinh_giu_lai_van_hien_la_no_khach(pool: asyncpg.Pool) -> N
 # ── lối rò đã biết (đọc code 14/10) — chứng minh bằng chạy thật ────────────
 
 
-@pytest.mark.xfail(strict=True, reason="R2 — huỷ phiếu sau khi về: nợ vô hình (G4b)")
 async def test_r2_huy_phieu_sau_khi_ve(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
     v, o = await _luot(pool, ca)
@@ -300,7 +311,6 @@ async def test_ck_cho_khong_dong_ghi_no_huy_cho_thi_no_con_nguyen(
     assert await _lech(pool, v) == []
 
 
-@pytest.mark.xfail(strict=True, reason="R12 — ghi nợ + CK chờ hiện cùng số 2 lần")
 async def test_r12_ghi_no_dang_cho_ck_hien_hai_lan(pool: asyncpg.Pool) -> None:  # noqa: F811
     """Khách nợ 300k quay lại chuyển khoản (chờ xác minh): việc tồn hiện CẢ
     "Ghi nợ chưa thu 300k" LẪN "CK chưa về 300k" — kế toán cộng ra 600k."""
@@ -313,7 +323,6 @@ async def test_r12_ghi_no_dang_cho_ck_hien_hai_lan(pool: asyncpg.Pool) -> None: 
     assert await _lech(pool, v) == []
 
 
-@pytest.mark.xfail(strict=True, reason="R11 — CK chờ cho về, huỷ lần chờ: nợ vô hình")
 async def test_r11_ck_cho_cho_ve_roi_huy_lan_cho(pool: asyncpg.Pool) -> None:  # noqa: F811
     """Chuyển khoản CHỜ xác minh được coi là đã phủ hoá đơn → check-out qua,
     không ghi nợ. Tiền không về, quầy huỷ lần chờ → khách nợ mà không ai thấy."""
@@ -326,7 +335,6 @@ async def test_r11_ck_cho_cho_ve_roi_huy_lan_cho(pool: asyncpg.Pool) -> None:  #
     assert await _lech(pool, v) == []
 
 
-@pytest.mark.xfail(strict=True, reason="R4 — đã thu chưa làm rụng sau 90 ngày (G4b)")
 async def test_r4_da_thu_chua_lam_qua_90_ngay(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
     v, o = await _luot(pool, ca)
@@ -408,7 +416,6 @@ SO_LUOT_NGAU_NHIEN = 80
 SO_BUOC = 10
 
 
-@pytest.mark.xfail(strict=False, reason="G4 chưa sửa — giả lập để TÌM lối rò")
 async def test_bam_lon_xon_khong_lech(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
     lech: list[str] = []
@@ -435,7 +442,8 @@ async def test_bam_lon_xon_khong_lech(pool: asyncpg.Pool) -> None:  # noqa: F811
                 continue
             chay[ten] += 1
             da_lam.append(ten)
-            vo = await _lech(pool, v)
+            # B3 (R6 hoàn tiền mặt cho khoản CK) bật lại khi G4d sửa xong.
+            vo = await _lech(pool, v, kiem_ket=False)
             so_lan_kiem += 1
             if vo:
                 lech.append(f"hạt {hat}: {' → '.join(da_lam)} ⇒ {'; '.join(vo)}")

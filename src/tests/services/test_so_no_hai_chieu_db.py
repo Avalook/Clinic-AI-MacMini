@@ -30,6 +30,7 @@ from clinicai.services.so_no_service import (
     chenh_lech,
     dau_ky_mot_vong,
     doi_chieu_mot_vong,
+    ghi_chenh_lech,
     so_du_hien_tai,
 )
 from clinicai.services.tien_thua_service import TienThuaService
@@ -57,6 +58,19 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 async def _lam_truoc_thu_sau(pool: asyncpg.Pool) -> AsyncIterator[None]:  # noqa: F811
     async with day_thu_truoc(pool, False):
         yield
+
+
+async def so_lai(pool: asyncpg.Pool, visit: str) -> None:  # noqa: F811
+    """Đối chiếu lại sổ của MỘT lượt — việc lượt đối chiếu định kỳ làm cho thay
+    đổi không phát sự kiện (bài kiểm sửa DB bằng SQL thẳng dùng cái này)."""
+    async with pool.acquire() as conn, conn.transaction():
+        await ghi_chenh_lech(
+            conn,
+            clinic_id=CLINIC,
+            visit_id=visit,
+            loai="DOI_CHIEU",
+            luc=await conn.fetchval("SELECT now()"),
+        )
 
 
 async def _so(pool: asyncpg.Pool, visit: str) -> list[tuple[str, int, int, str]]:  # noqa: F811

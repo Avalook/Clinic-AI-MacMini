@@ -117,15 +117,6 @@ LEFT JOIN staff s ON s.id=pc.created_by
 WHERE pc.clinic_id=$1::uuid AND pc.status='PENDING_VERIFICATION' AND {_LOC}
  AND ($3::text IS NULL OR pc.kind=$3)
 """
-_TON_NO = f"""
-SELECT n.id::text id, n.visit_id::text visit_id, n.so_tien, n.ly_do, n.ghi_luc,
- s.full_name nguoi, p.clinic_patient_id::text patient_id, p.full_name ten,
- p.patient_code ma_bn
-FROM cong_no n {_KHACH_CUA_LUOT.format(luot="n.visit_id", clinic="n.clinic_id")}
-LEFT JOIN staff s ON s.id=n.ghi_boi
-WHERE n.clinic_id=$1::uuid AND n.trang_thai='CHUA_THU' AND {_LOC}
- AND $3::text IS NULL
-"""
 #: ĐÃ THU nhưng KHÁCH VỀ CHƯA LÀM (Tuyền 13/10, Khách 8763): dịch vụ đã thu vẫn
 #: ở trạng thái chờ / đã xếp / đang làm khi lượt đã đóng (check-out) hoặc là lượt
 #: của ngày trước. Không ai bấm "bỏ" / "không làm" nên tiền thừa không bắt được.
@@ -198,22 +189,6 @@ def _gop_thua(
         muc["dong"].extend(v["dong"])
     return out
 
-
-#: Tiền thừa chỉ dò trong lượt có thu dịch vụ 90 ngày gần nhất — đủ cho việc
-#: tồn thật, không quét cả lịch sử mỗi lần mở màn.
-TIEN_THUA_SO_NGAY = 90
-_TON_THUA_LUOT = f"""
-SELECT v.visit_id::text visit_id, p.clinic_patient_id::text patient_id,
- p.full_name ten, p.patient_code ma_bn,
- coalesce(max(o.updated_at), max(pc.paid_at)) luc
-FROM payment_cycle pc {_KHACH_PC}
-LEFT JOIN service_order o ON o.clinic_id=v.clinic_id AND o.visit_id=v.visit_id
- AND o.exec_status IN ('cancelled','not_performed')
-WHERE pc.clinic_id=$1::uuid AND pc.kind='dich_vu' AND pc.status='PAID'
- AND pc.paid_at >= now() - interval '{TIEN_THUA_SO_NGAY} days' AND {_LOC}
- AND ($3::text IS NULL OR $3='dich_vu')
-GROUP BY v.visit_id, p.clinic_patient_id, p.full_name, p.patient_code
-"""
 
 _REFUND_LINES = """
 SELECT rl.refund_id::text refund_id,bl.name_snapshot ten,rl.quantity so_luong,
@@ -329,17 +304,48 @@ class DanhSachHoaDonService:
     async def _viec_ton(
         conn: asyncpg.Connection, clinic_id: str, co_so: str | None, loai: str | None
     ) -> list[dict[str, Any]]:
-        """Việc còn tồn của mọi ngày: hoàn đang chờ, CK chưa về, ghi nợ chưa
-        thu, tiền thừa chưa trả. Quầy / CSKH xử lý bằng nút có sẵn thì tự hết."""
+        """Việc còn tồn của mọi ngày: hoàn đang chờ, CK chưa về, khách còn nợ,
+        phòng khám còn nợ khách. Quầy / CSKH xử lý bằng nút có sẵn thì tự hết.
+
+        Nợ hai chiều đọc từ SỔ NỢ (14/10/2026) — mọi lượt đã về còn số dư, không
+        hạn ngày, gồm cả nợ không ai bấm "Ghi nợ" (huỷ phiếu sau khi về, bấm Xong
+        muộn…). Phần chuyển khoản đang chờ đã có dòng "CK chưa về" riêng → dòng
+        nợ chỉ còn phần chưa chuyển (không hiện cùng một số hai lần)."""
+        from clinicai.services.so_no_service import PHAI_THU, PHAI_TRA, doc_so_du_mo
+
         args = (clinic_id, co_so, loai)
         hoan = [dict(r) for r in await conn.fetch(_TON_HOAN, *args)]
         ck = [dict(r) for r in await conn.fetch(_TON_CK, *args)]
-        no = [dict(r) for r in await conn.fetch(_TON_NO, *args)]
-        luot = {r["visit_id"]: dict(r) for r in await conn.fetch(_TON_THUA_LUOT, *args)}
-        thua = await tien_thua_cua_luot(conn, clinic_id, sorted(luot))
-        chua_lam, luot_cl = await _chua_lam(conn, clinic_id, co_so, loai)
-        for k, v in luot_cl.items():
-            luot.setdefault(k, v)
-        return gom_viec_ton(
-            hoan=hoan, ck=ck, no=no, tien_thua=_gop_thua(thua, chua_lam), luot=luot
-        )
+
+        def hop_loai(x: dict[str, Any]) -> bool:
+            if loai is None:
+                return True
+            la_thuoc = x.get("loai") == "prescription"
+            return la_thuoc if loai == "thuoc" else not la_thuoc
+
+        no: list[dict[str, Any]] = []
+        for r in await doc_so_du_mo(conn, clinic_id, PHAI_THU, co_so):
+            # Phần CK đang chờ (đọc hiện tại) đã có dòng "CK chưa về" riêng.
+            con = r["so_du"] - r["dang_cho_ck"]
+            if loai is not None:
+                # Lọc một loại: tỉ lệ theo các khoản của dòng sổ cuối.
+                ds = [x for x in r["chi_tiet"] if x.get("loai") != "CK_CHO"]
+                tong = sum(int(x.get("so_tien") or 0) for x in ds)
+                hop = sum(int(x.get("so_tien") or 0) for x in ds if hop_loai(x))
+                con = con * hop // tong if tong > 0 else 0
+            if con > 0:
+                no.append(
+                    {
+                        **r,
+                        "id": r["cong_no_id"] or r["id"],
+                        "so_tien": con,
+                        "ghi_luc": r["luc"],
+                    }
+                )
+        tra: dict[str, dict[str, Any]] = {}
+        luot: dict[str, dict[str, Any]] = {}
+        if loai in (None, "dich_vu"):
+            for r in await doc_so_du_mo(conn, clinic_id, PHAI_TRA, co_so):
+                tra[r["visit_id"]] = {"tong": r["so_du"], "dong": r["chi_tiet"]}
+                luot[r["visit_id"]] = r
+        return gom_viec_ton(hoan=hoan, ck=ck, no=no, tien_thua=tra, luot=luot)

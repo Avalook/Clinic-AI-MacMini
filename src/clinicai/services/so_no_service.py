@@ -27,6 +27,7 @@ chiều (14/10/2026): chưa thu thì là nợ, đã thu thì không phải nợ 
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -244,6 +245,194 @@ async def ghi_chenh_lech(
         )
         if rid is not None:
             out.append({"id": rid, "chieu": chieu, "so_tien": so, "so_du": sau})
+    return out
+
+
+# ── đọc sổ cho báo cáo ─────────────────────────────────────────────────────
+
+#: Dòng sổ trong kỳ; dòng THU kèm lần thu đã đóng nợ (để tách TM / CK).
+_KY_SQL = """
+SELECT n.chieu, n.loai, n.so_tien, c.amount AS lan_thu_tien, c.method AS lan_thu_ht,
+       (SELECT coalesce(jsonb_agg(jsonb_build_object(
+                   'hinh_thuc', p.hinh_thuc, 'so_tien', p.so_tien)), '[]'::jsonb)
+          FROM public.payment_cycle_phan p
+         WHERE p.clinic_id = c.clinic_id AND p.cycle_id = c.payment_cycle_id) AS phan
+  FROM public.so_no n
+  LEFT JOIN public.domain_event e
+    ON n.loai = 'THU' AND e.event_id = n.su_kien_id
+  LEFT JOIN public.payment_cycle c
+    ON c.clinic_id = n.clinic_id AND c.payment_cycle_id = e.aggregate_id
+ WHERE n.clinic_id = $1::uuid AND n.luc >= $2 AND n.luc < $3
+   AND ($4::uuid IS NULL
+        OR public.co_so_cua_luot(n.clinic_id, n.visit_id) = $4::uuid)
+"""
+
+#: Tổng số dư cuối của mọi lượt tính tới một mốc (đầu kỳ / cuối kỳ).
+_SO_DU_TOI_SQL = """
+SELECT chieu, coalesce(sum(so_du), 0)::bigint AS so_du
+  FROM (SELECT DISTINCT ON (visit_id, chieu) chieu, so_du
+          FROM public.so_no
+         WHERE clinic_id = $1::uuid AND luc < $2
+           AND ($3::uuid IS NULL
+                OR public.co_so_cua_luot(clinic_id, visit_id) = $3::uuid)
+         ORDER BY visit_id, chieu, seq DESC) x
+ GROUP BY chieu
+"""
+
+
+def _so(v: Any) -> int:
+    try:
+        return int(v or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _phan_tien(dong: Mapping[str, Any]) -> tuple[int, int]:
+    """(tiền mặt, chuyển khoản) của lần thu đã đóng nợ, tính trên phần tiền đổ
+    vào nợ (không quá số nợ giảm). Phần còn lại của số nợ giảm là giảm giá."""
+    giam_no = -_so(dong.get("so_tien"))
+    tien = min(giam_no, _so(dong.get("lan_thu_tien")))
+    if tien <= 0:
+        return 0, 0
+    phan = dong.get("phan") or []
+    if isinstance(phan, str):
+        phan = json.loads(phan)
+    tm = sum(_so(p.get("so_tien")) for p in phan if p.get("hinh_thuc") == "CASH")
+    ck = sum(_so(p.get("so_tien")) for p in phan if p.get("hinh_thuc") != "CASH")
+    if tm + ck <= 0:
+        return (tien, 0) if dong.get("lan_thu_ht") == "CASH" else (0, tien)
+    tm_vao = tien * tm // (tm + ck)
+    return tm_vao, tien - tm_vao
+
+
+def gom_so_no_ky(dong: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
+    """Cộng các dòng sổ trong kỳ. Thuần.
+
+    PHAI_THU: ``phat_sinh`` (tăng, trừ đầu kỳ) · ``dieu_chinh`` (giảm không phải
+    do thu: bỏ chỉ định sau khi về, huỷ ghi nợ, mở lại lượt…) · ``thu`` (giảm do
+    lần thu: tổng / tiền mặt / chuyển khoản / phần giảm giá). PHAI_TRA:
+    ``phat_sinh`` · ``giam`` (hoàn, làm bù, điều chỉnh). ``dau_ky``: số dư ghi lúc
+    bật sổ trong kỳ (chỉ để biết, không là phát sinh)."""
+    out: dict[str, Any] = {
+        PHAI_THU: {
+            "phat_sinh": 0,
+            "dieu_chinh": 0,
+            "thu": {"tong": 0, "tien_mat": 0, "chuyen_khoan": 0, "giam_gia": 0},
+            "dau_ky": 0,
+        },
+        PHAI_TRA: {"phat_sinh": 0, "giam": 0, "dau_ky": 0},
+    }
+    for d in dong:
+        chieu = d.get("chieu")
+        so = _so(d.get("so_tien"))
+        if chieu not in out or so == 0:
+            continue
+        o = out[chieu]
+        if d.get("loai") == "DAU_KY":
+            o["dau_ky"] += so
+        elif so > 0:
+            o["phat_sinh"] += so
+        elif chieu == PHAI_TRA:
+            o["giam"] += -so
+        elif d.get("loai") == "THU":
+            tm, ck = _phan_tien(d)
+            t = o["thu"]
+            t["tong"] += -so
+            t["tien_mat"] += tm
+            t["chuyen_khoan"] += ck
+            t["giam_gia"] += -so - tm - ck
+        else:
+            o["dieu_chinh"] += -so
+    return out
+
+
+async def doc_so_no_ky(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    *,
+    tu_luc: datetime,
+    den_luc: datetime,
+    co_so: str | None = None,
+) -> dict[str, Any]:
+    """Sổ nợ của kỳ [tu_luc, den_luc): phát sinh / giảm theo loại + số dư đầu,
+    cuối kỳ mỗi chiều. Đầu + phát sinh − giảm (+ đầu kỳ bật sổ) = cuối."""
+    ky = gom_so_no_ky(
+        dict(r) for r in await conn.fetch(_KY_SQL, clinic_id, tu_luc, den_luc, co_so)
+    )
+    for ten, moc in (("so_du_dau", tu_luc), ("so_du_cuoi", den_luc)):
+        so_du = {
+            r["chieu"]: int(r["so_du"])
+            for r in await conn.fetch(_SO_DU_TOI_SQL, clinic_id, moc, co_so)
+        }
+        for chieu in CHIEU:
+            ky[chieu][ten] = so_du.get(chieu, 0)
+    return ky
+
+
+#: Vì sao lượt đang có số dư — khi lễ tân không ghi nợ (không có lý do người gõ).
+NHAN_LOAI: dict[str, str] = {
+    "DAU_KY": "Số dư lúc bật sổ",
+    "KHI_VE": "Khách về khi còn khoản này",
+    "MO_LAI_LUOT": "Mở lại lượt",
+    "GHI_NO": "Ghi nợ",
+    "THU": "Thu còn thiếu",
+    "HUY_PHIEU": "Huỷ phiếu sau khi khách về",
+    "HOAN_TIEN": "Hoàn tiền",
+    "DOI_CHI_DINH": "Dịch vụ / thuốc đổi sau khi khách về",
+    "DOI_CHIEU": "Máy đối chiếu phát hiện",
+}
+
+#: Số dư CUỐI còn > 0 của từng lượt ở một chiều, mới nhất trước.
+_SO_DU_MO_SQL = """
+WITH cuoi AS (
+    SELECT DISTINCT ON (n.visit_id)
+           n.id, n.visit_id, n.clinic_patient_id, n.so_du, n.chi_tiet, n.loai,
+           n.luc, n.boi
+      FROM public.so_no n
+     WHERE n.clinic_id = $1::uuid AND n.chieu = $2
+     ORDER BY n.visit_id, n.seq DESC
+)
+SELECT c.id::text AS id, c.visit_id::text AS visit_id,
+       c.clinic_patient_id::text AS patient_id, c.so_du, c.chi_tiet, c.loai,
+       c.luc, p.full_name AS ten, p.patient_code AS ma_bn, s.full_name AS nguoi,
+       k.id::text AS cong_no_id, k.ly_do AS ly_do_ghi_no,
+       -- Đọc HIỆN TẠI, không lấy từ chi_tiet: huỷ lần chờ không đổi số dư nên
+       -- sổ không có dòng mới — chi_tiet dòng cũ vẫn ghi "chờ CK".
+       (SELECT coalesce(sum(coalesce(pc.original_amount, pc.amount)), 0)
+          FROM public.payment_cycle pc
+         WHERE pc.clinic_id = $1::uuid AND pc.visit_id = c.visit_id
+           AND pc.status = 'PENDING_VERIFICATION')::bigint AS dang_cho_ck
+  FROM cuoi c
+  LEFT JOIN public.patient p ON p.clinic_patient_id = c.clinic_patient_id
+  LEFT JOIN public.staff s ON s.id = c.boi
+  LEFT JOIN LATERAL (
+       SELECT id, ly_do FROM public.cong_no
+        WHERE clinic_id = $1::uuid AND visit_id = c.visit_id
+        ORDER BY ghi_luc DESC LIMIT 1) k ON true
+ WHERE c.so_du > 0
+   AND ($3::uuid IS NULL OR public.co_so_cua_luot($1::uuid, c.visit_id) = $3::uuid)
+ ORDER BY c.luc DESC
+"""
+
+
+async def doc_so_du_mo(
+    conn: asyncpg.Connection, clinic_id: str, chieu: str, co_so: str | None = None
+) -> list[dict[str, Any]]:
+    """Các lượt đang có số dư ở ``chieu`` (mọi ngày, không hạn). Mỗi dòng: lượt,
+    khách, ``so_du``, ``chi_tiet`` (các khoản), ``ly_do`` (lý do ghi nợ của lễ
+    tân nếu có, không thì vì sao sổ ghi), ``nguoi``, ``luc``, ``cong_no_id``."""
+    out: list[dict[str, Any]] = []
+    for r in await conn.fetch(_SO_DU_MO_SQL, clinic_id, chieu, co_so):
+        d = dict(r)
+        ct = d["chi_tiet"]
+        d["chi_tiet"] = json.loads(ct) if isinstance(ct, str) else list(ct or [])
+        d["so_du"] = int(d["so_du"])
+        d["dang_cho_ck"] = int(d["dang_cho_ck"] or 0) if chieu == PHAI_THU else 0
+        ly_do = d.pop("ly_do_ghi_no") or NHAN_LOAI.get(str(d["loai"]), str(d["loai"]))
+        if d["dang_cho_ck"]:
+            ly_do = f"{ly_do} — đã chuyển khoản, chờ xác minh"
+        d["ly_do"] = ly_do
+        out.append(d)
     return out
 
 
