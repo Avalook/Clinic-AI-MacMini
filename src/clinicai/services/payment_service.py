@@ -1073,10 +1073,12 @@ class PaymentService:
         buộc điền mã mới cho thanh toán xong, open đi"). Có mã thì lưu làm bằng
         chứng; không có thì người bấm (`confirmed_by`) là dấu vết.
 
-        SỐ NGÂN HÀNG THẬT NHẬN (G4d, R1 — Tuyền chốt C 14/10): tuỳ chọn, không
-        chặn xác minh. Khác phần chuyển khoản của lần thu → vẫn ghi đã thu theo
-        hoá đơn, lưu số thật nhận + mã đối soát ``SO_TIEN_LECH``; người đối soát
-        quyết thu thêm / trả lại (máy không tự ghi nợ).
+        SỐ NGÂN HÀNG THẬT NHẬN (G4d, R1 — Tuyền chốt C 14/10): BẮT XÁC NHẬN —
+        màn điền sẵn phần chuyển khoản, thu ngân xác nhận hoặc sửa theo ngân
+        hàng báo; thiếu → 422 (sau các kiểm quầy / loại / trạng thái; gửi lại
+        cho lần đã xác minh vẫn như cũ). Khác phần chuyển khoản → vẫn ghi đã
+        thu theo hoá đơn, lưu số thật nhận + mã đối soát ``SO_TIEN_LECH``;
+        người đối soát quyết thu thêm / trả lại (máy không tự ghi nợ).
 
         GẮN VỚI ẢNH CHỤP CỦA LẦN THU (review CP2 #3): tiền khách chuyển là cho
         đúng hoá đơn đã chụp lúc tạo lần chờ, với đúng số tiền ấy. Hoá đơn hiện
@@ -1118,6 +1120,13 @@ class PaymentService:
                     raise ConflictError(
                         "Lần thu này không còn chờ xác minh (đã huỷ) — "
                         "không xác minh được."
+                    )
+                if thuc_nhan is None:
+                    # Tuyền chốt C (14/10): BẮT XÁC NHẬN số ngân hàng thật nhận —
+                    # màn điền sẵn phần chuyển khoản, thu ngân xác nhận hoặc sửa.
+                    raise ValidationError(
+                        "Nhập số tiền ngân hàng thật nhận (đã điền sẵn phần"
+                        " chuyển khoản — xác nhận hoặc sửa theo ngân hàng báo)."
                     )
                 patient_id = await conn.fetchval(
                     "SELECT clinic_patient_id::text FROM visit"

@@ -209,7 +209,7 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
             mienPhi ? null : (chia?.anh ?? null),
           );
         }}
-        onXacMinh={(ma: string, soNhan: number | null) =>
+        onXacMinh={(ma: string, soNhan: number) =>
           void gui(
             {
               action: "xac-minh",

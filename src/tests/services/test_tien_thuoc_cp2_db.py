@@ -36,6 +36,7 @@ from tests.services.test_tien_thuoc_cp1_db import (
     _thuoc,
     q,  # noqa: F401
 )
+from tests.so_ck import so_ck
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -322,6 +323,7 @@ async def _xm(q: Quay, cycle: str, ma: str) -> dict[str, Any]:
         kind="dich_vu",
         reference=ma,
         identity=q.thu_ngan,
+        so_tien_thuc_nhan=await so_ck(q.pool, cycle),
     )
 
 
@@ -499,6 +501,7 @@ async def test_lenh_nham_lan_thu_cua_luot_khac_bi_tu_choi(q: Quay) -> None:
             kind="thuoc",  # đúng lần thu nhưng sai loại
             reference="FT1",
             identity=q.thu_ngan,
+            so_tien_thuc_nhan=await so_ck(q.pool, a),
         )
 
 

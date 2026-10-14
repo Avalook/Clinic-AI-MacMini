@@ -25,6 +25,7 @@ from clinicai.services.payment_service import PaymentService
 from clinicai.services.quay_thuoc_service import QuayThuocService
 from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
 from tests.services.test_tien_thuoc_cp1_db import Quay, _thuoc, q  # noqa: F401
+from tests.so_ck import so_ck
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -159,6 +160,7 @@ async def test_chuyen_khoan_chi_dong_luot_khi_xac_minh(q: Quay) -> None:
         kind="thuoc",
         reference=None,
         identity=q.thu_ngan,
+        so_tien_thuc_nhan=await so_ck(q.pool, cho["payment_cycle_id"]),
     )
     assert (
         await q.pool.fetchval(

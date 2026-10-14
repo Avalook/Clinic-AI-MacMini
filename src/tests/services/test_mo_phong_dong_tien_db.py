@@ -57,6 +57,7 @@ from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
     _khoa,
 )
 from tests.services.test_thu_truoc_lam_truoc_tick_db import day_thu_truoc
+from tests.so_ck import so_ck
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
@@ -369,6 +370,7 @@ async def _ck_da_ve_roi_bo(pool: asyncpg.Pool, ca: Ca) -> str:  # noqa: F811
         kind="dich_vu",
         reference="FT123",
         identity=ca.thu_ngan,
+        so_tien_thuc_nhan=await so_ck(pool, cid),
     )
     await HoanTacService(pool).huy_chi_dinh(
         order_id=o, identity=ca.bac_si, xac_nhan=True, ly_do="Khách đổi ý"
@@ -478,6 +480,7 @@ async def _xac_minh(pool: asyncpg.Pool, ca: Ca, visit: str) -> None:  # noqa: F8
         kind="dich_vu",
         reference=None,
         identity=ca.thu_ngan,
+        so_tien_thuc_nhan=await so_ck(pool, cid),
     )
 
 
