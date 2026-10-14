@@ -79,6 +79,9 @@ from clinicai.api.v1.routers.thu_ky import router as thu_ky_router
 from clinicai.api.v1.routers.tools import router as tools_router
 from clinicai.api.v1.routers.ultrasound import router as ultrasound_router
 from clinicai.api.v1.routers.vat_tu_kho import router as vat_tu_kho_router
+from clinicai.api.v1.routers.vat_tu_nhap_duyet import (
+    router as vat_tu_nhap_duyet_router,
+)
 from clinicai.api.v1.routers.visit_progress import (
     router as visit_progress_router,
 )
@@ -377,6 +380,12 @@ app.include_router(
 )
 app.include_router(
     vat_tu_kho_router, prefix="/api/v1", tags=["vat-tu-kho"], dependencies=_GUARDED
+)
+app.include_router(
+    vat_tu_nhap_duyet_router,
+    prefix="/api/v1",
+    tags=["vat-tu-kho"],
+    dependencies=_GUARDED,
 )
 app.include_router(
     booking_router, prefix="/api/v1", tags=["booking"], dependencies=_GUARDED
