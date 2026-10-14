@@ -130,6 +130,8 @@ async def test_bam_ngau_nhien_40_luot_10_buoc(q: Quay, seed: int) -> None:
                         dispense_txn_id=xuat,
                         so_luong=1,
                         ly_do="Khách trả mô phỏng",
+                        ket_cuc_tien="GIU_LAI",
+                        ly_do_tien="Mô phỏng kho — tiền giữ lại",
                     )
             elif lenh == "kiem":
                 kq = await kho.kiem_kho(
