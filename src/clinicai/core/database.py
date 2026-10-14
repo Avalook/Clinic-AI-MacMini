@@ -10,10 +10,24 @@ from fastapi import Request
 
 logger = structlog.get_logger()
 
-# App giữ sẵn tối thiểu 2, tối đa 10 kết nối tới Postgres.
+# App giữ sẵn tối thiểu 2 kết nối tới Postgres.
 POOL_MIN_SIZE = 2
 # Request mượn kết nối từ bể rồi trả lại, không mở/đóng mỗi lần.
-POOL_MAX_SIZE = 10
+#
+# API: mặc định 20, đặt lại bằng biến môi trường `POOL_MAX_SIZE` (14/10/2026,
+# nâng từ 10 sau sự cố tối 12/10 nghi cạn bể — một tiến trình uvicorn, 14 req/s,
+# nhiều request giữ kết nối hàng trăm ms). Bể chỉ mở thêm kết nối khi có người
+# chờ nên trần cao không tốn gì lúc rảnh. NGÂN SÁCH KẾT NỐI Postgres
+# (max_connections=100; staging 60) — API này + checkpointer 10 + broker 1 +
+# GoTrue 10 + PostgREST 10 + Realtime ~10 + su-kien/day-tep + quản trị — tính
+# trong thân PR; đổi số này phải tính lại. Staging ghim 10 ở docker-compose.staging.yml.
+POOL_MAX_SIZE = 20
+# Các worker (su-kien, day-tep, relay…) làm việc tuần tự, dùng 1–3 kết nối:
+# giữ trần cũ 10, không theo biến của API (cùng env_file nên biến ấy cũng hiện
+# trong container của chúng).
+WORKER_POOL_MAX_SIZE = 10
+#: Giá trị `POOL_MAX_SIZE` ngoài khoảng này bị coi là gõ nhầm → dùng mặc định.
+POOL_MAX_SIZE_KHOANG = (2, 60)
 # Mỗi câu SQL quá 15 giây sẽ bị huỷ, tránh truy vấn chạy mãi.
 COMMAND_TIMEOUT = 15
 STARTUP_RETRIES = 3
@@ -45,12 +59,39 @@ def normalize_dsn(dsn: str) -> str:
 _normalize_dsn = normalize_dsn
 
 
-async def create_pool() -> asyncpg.Pool:
+def doc_pool_max_size_api(env: str | None = None) -> int:
+    """Trần kết nối của API: biến môi trường `POOL_MAX_SIZE`, không có thì mặc định 20.
+
+    Rỗng / không phải số / ngoài `POOL_MAX_SIZE_KHOANG` → mặc định, kèm một dòng
+    cảnh báo. Không ném: gõ nhầm biến môi trường không được làm API không dậy nổi.
+    """
+    tho = os.environ.get("POOL_MAX_SIZE", "") if env is None else env
+    tho = tho.strip()
+    if not tho:
+        return POOL_MAX_SIZE
+    lo, hi = POOL_MAX_SIZE_KHOANG
+    try:
+        so = int(tho)
+    except ValueError:
+        so = -1
+    if not lo <= so <= hi:
+        logger.warning(
+            "pool_max_size_khong_hop_le", gia_tri=tho[:20], dung_mac_dinh=POOL_MAX_SIZE
+        )
+        return POOL_MAX_SIZE
+    return so
+
+
+async def create_pool(max_size: int | None = None) -> asyncpg.Pool:
     """Create the asyncpg connection pool from DATABASE_URL env var.
+
+    `max_size` None = trần của worker (`WORKER_POOL_MAX_SIZE`); API truyền
+    `doc_pool_max_size_api()`.
 
     Retries up to STARTUP_RETRIES times with backoff if Supabase is
     temporarily unreachable during container boot (avoids crash loop).
     """
+    max_size = WORKER_POOL_MAX_SIZE if max_size is None else max_size
     dsn = _normalize_dsn(os.environ["DATABASE_URL"])
     last_error: Exception | None = None
 
@@ -59,14 +100,14 @@ async def create_pool() -> asyncpg.Pool:
             pool = await asyncpg.create_pool(
                 dsn=dsn,
                 min_size=POOL_MIN_SIZE,
-                max_size=POOL_MAX_SIZE,
+                max_size=max_size,
                 command_timeout=COMMAND_TIMEOUT,
                 server_settings=SERVER_SETTINGS,
             )
             logger.info(
                 "DB pool ready",
                 min_size=POOL_MIN_SIZE,
-                max_size=POOL_MAX_SIZE,
+                max_size=max_size,
                 command_timeout=COMMAND_TIMEOUT,
                 attempt=attempt,
             )

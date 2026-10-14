@@ -63,7 +63,10 @@ async def doi_lich_phong(
         return
     if await can(conn, identity, "dispatch.manage"):
         return
-    dang_dung = await doc_vi_tri_hien_hanh(pool, identity.clinic_id, identity.staff_id)
+    # Đưa `conn` đang giữ, KHÔNG đưa `pool`: mượn kết nối thứ hai khi đang giữ
+    # kết nối thứ nhất là cách bể kín thành treo (tham số `pool` giữ để chỗ gọi
+    # không đổi).
+    dang_dung = await doc_vi_tri_hien_hanh(conn, identity.clinic_id, identity.staff_id)
     ma_phong = [
         r["code"]
         for r in await conn.fetch(

@@ -47,6 +47,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from clinicai.core.quan_sat import quan_sat
 from clinicai.core.telemetry import route_template, telemetry
 from clinicai.services.media_service import MAX_BYTES_KET_QUA_UPLOAD
 
@@ -242,6 +243,10 @@ class TimingMiddleware(BaseHTTPMiddleware):
 
     Only the route template is stored — see core/telemetry for why an actual
     path must never end up in a debugging buffer.
+
+    14/10/2026: thêm log dòng riêng cho request chậm (>= 500ms) + gom theo phút
+    (`core/quan_sat`). Thời gian đo tới lúc có header phản hồi — luồng SSE
+    (`/events/stream`) trả header ngay nên không bị tính là "chậm vô tận".
     """
 
     async def dispatch(
@@ -251,6 +256,7 @@ class TimingMiddleware(BaseHTTPMiddleware):
         status = 500
         kind = ""
         detail = ""
+        quan_sat.request_bat_dau()
         try:
             response = await call_next(request)
             status = response.status_code
@@ -263,12 +269,27 @@ class TimingMiddleware(BaseHTTPMiddleware):
             detail = str(exc)
             raise
         finally:
+            ms = (time.perf_counter() - started) * 1000.0
+            route = route_template(request)
             telemetry.record(
-                route=route_template(request),
+                route=route,
                 method=request.method,
                 status=status,
-                duration_ms=(time.perf_counter() - started) * 1000.0,
+                duration_ms=ms,
                 request_id=current_request_id(),
                 kind=kind,
                 detail=detail,
             )
+            if quan_sat.request_xong(
+                route=route, method=request.method, status=status, ms=ms
+            ):
+                # `path=` GHI ĐÈ `path` mà RequestIdMiddleware đã bind vào log
+                # (đường dẫn thật, có mã khách) bằng MẪU đường dẫn — Luật 8.2.
+                logger.warning(
+                    "request_cham",
+                    method=request.method,
+                    path=route,
+                    status=status,
+                    ms=round(ms, 1),
+                    request_id=current_request_id(),
+                )

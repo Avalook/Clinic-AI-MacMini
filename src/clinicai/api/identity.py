@@ -981,7 +981,7 @@ def vi_tri_dang_trong_ca(
 
 
 async def doc_vi_tri_hien_hanh(
-    pool: asyncpg.Pool,
+    pool: asyncpg.Pool | asyncpg.Connection,
     clinic_id: str,
     staff_id: str,
     *,
@@ -992,6 +992,11 @@ async def doc_vi_tri_hien_hanh(
 
     Thứ tự: ca sớm trước, rồi thứ tự vị trí trong lịch; vai đầu là "vai chính"
     quyết định màn hình (lib/clinic-session.ts).
+
+    `pool` nhận cả KẾT NỐI: nơi đã giữ một kết nối (``doi_lich_phong``) phải đưa
+    kết nối ấy vào, không đưa bể — đưa bể là mượn kết nối THỨ HAI trong khi vẫn
+    giữ kết nối thứ nhất, và khi bể kín thì mọi request giữ một + chờ một → treo
+    (14/10/2026, nghi góp vào sự cố tối 12/10).
     """
     bay_gio = now_vn()
     ngay = hom_nay or bay_gio.date()
