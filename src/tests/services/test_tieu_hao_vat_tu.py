@@ -12,7 +12,8 @@ def test_tieu_hao_va_gia_tri() -> None:
         "so_luong": Decimal(11),
         "gia_tri": Decimal(33000),
     }
-    assert tinh_tieu_hao(2, 0, 0, 5, 100)["so_luong"] == -3
+    am = tinh_tieu_hao(2, 0, 0, 5, 100)
+    assert am is not None and am["so_luong"] == -3
 
 
 @pytest.mark.parametrize(
