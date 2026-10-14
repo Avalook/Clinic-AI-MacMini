@@ -82,3 +82,12 @@ test("không hộp vàng/đỏ cho việc bình thường: nợ, huỷ, CK đã 
   const ton = read("../app/(dashboard)/reception/checkout/LuotTonDong.tsx");
   assert.doesNotMatch(ton, /border-warning|bg-warning-bg|tone="warning"/);
 });
+
+test("chi tiết khách liệt kê từng khoản chưa trả lại bằng chữ trung tính, ghi ngày lượt", () => {
+  const ct = read("../app/(dashboard)/hoa-don/ChiTietHoaDon.tsx");
+  assert.match(ct, /khach\.tien_thua \?\? \[\]/);
+  assert.match(ct, /lượt ngày \$\{ngayDM\(d\.luot_ngay\)\}/);
+  assert.match(ct, /CHUA_LAM: "Đã thu, khách về mà chưa làm xong"/);
+  assert.match(ct, /Khoản hoàn đang chờ xử lý/);
+  assert.doesNotMatch(ct, /bg-warning-bg|bg-danger-bg|text-danger|text-warning/);
+});

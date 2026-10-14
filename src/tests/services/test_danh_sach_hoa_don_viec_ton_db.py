@@ -156,6 +156,16 @@ async def test_da_thu_khach_ve_chua_lam_la_chua_tra_lai(pool: asyncpg.Pool) -> N
     [khach] = ve["khach"]
     assert khach["chua_tra_lai"] == 250_000
     assert khach["viec_ton"] == _cua_luot(ve, q.visit_id)
+    # Chi tiết khách liệt kê TỪNG khoản chưa trả lại: tên · số tiền · loại · ngày lượt
+    # (lượt khác ngày vẫn ghi rõ nó thuộc lượt nào) — tổng = các khoản + hoàn chờ.
+    [muc] = khach["tien_thua"]
+    assert (muc["so_tien"], muc["loai"], muc["visit_id"]) == (
+        250_000,
+        "CHUA_LAM",
+        q.visit_id,
+    )
+    assert muc["ten"] and muc["luot_ngay"] == ngay
+    assert sum(d["so_tien"] for d in khach["tien_thua"]) + khach["cho_hoan"] == 250_000
 
     # Khách quay lại làm → tự hết.
     await pool.execute(_DA_LAM, sa)
