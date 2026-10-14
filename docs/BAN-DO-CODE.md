@@ -275,7 +275,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/pharmacy/[action]`, `/api/payment`, `/api/payment/anh-ck`, `/api/quay-thuoc`, `/api/nhac-viec`, `/api/cashier`, `/api/cskh/ket-qua`, `/api/phieu-kham`, `/api/luot-kham`
 - gọi thẳng backend (server): `/api/v1/pharmacy/ban-thuoc`
 - service: lo_thuoc_service.{sua_lo, huy_lo, hoan_huy_lo, so_ngay_canh_bao, +1} · can · PharmacyService.{nhap_lo, cap_phat, tu_choi, chot, +12} · kho_thuoc_service.{tao_phieu_nhap, kiem_kho, the_kho, xuat_nhap_ton} · BanLeService.{mo_luot, tim_khach, doc} · ma_vach_service.{gan_ma, go_ma, tra_ma, du_lieu_tem} (+30 service)
-- test: test_kho_kiotviet_db.py, test_payment_access.py, test_phieu_kham_db.py, test_ban_le_thuoc_db.py, test_cashier_scope_db.py (+84)
+- test: test_kho_quay_db.py, test_kho_kiotviet_db.py, test_payment_access.py, test_phieu_kham_db.py, test_ban_le_thuoc_db.py (+83)
 
 ### `/pharmacy/consult` — Tư vấn dùng thuốc
 - page: `src/dashboard/app/(dashboard)/pharmacy/consult/page.tsx` · quyền: lego `kho_thuoc` (Kho thuốc · mặc định: Dược sĩ (+ lễ tân))
@@ -296,8 +296,8 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: ChoGanLo.tsx, DanhMucKho.tsx, InventoryBoard.tsx, KhoThuoc.tsx, app/(dashboard)/form-ui.ts, app/(dashboard)/pharmacy/KhachMuaThuoc.tsx, KiemKho.tsx, NhapLo.tsx (+4)
 - gọi API Next: `/api/pharmacy/[action]`
 - gọi thẳng backend (server): `/api/v1/pharmacy/inventory`, `/api/v1/pharmacy/danh-muc`, `/api/v1/pharmacy/cho-gan-lo`, `/api/v1/pharmacy/so-ngay-canh-bao`
-- service: lo_thuoc_service.{sua_lo, huy_lo, hoan_huy_lo, so_ngay_canh_bao, +1} · can · PharmacyService.{nhap_lo, cap_phat, tu_choi, chot, +14} · kho_thuoc_service.{tao_phieu_nhap, kiem_kho, the_kho, xuat_nhap_ton, +1} · BanLeService.{mo_luot, tim_khach, doc} · ma_vach_service.{gan_ma, go_ma, tra_ma, du_lieu_tem} (+1 service)
-- test: test_kho_kiotviet_db.py, test_kho_theo_co_so_db.py, test_ma_vach_db.py, test_sua_huy_lo_db.py, test_mo_phong_kho_thuoc_db.py (+17)
+- service: lo_thuoc_service.{sua_lo, huy_lo, hoan_huy_lo, so_ngay_canh_bao, +1} · can · PharmacyService.{nhap_lo, cap_phat, tu_choi, chot, +14} · kho_thuoc_service.{tao_phieu_nhap, kiem_kho, the_kho, xuat_nhap_ton, +1} · BanLeService.{mo_luot, tim_khach, doc} · ma_vach_service.{gan_ma, go_ma, tra_ma, du_lieu_tem} (+2 service)
+- test: test_kho_quay_db.py, test_kho_kiotviet_db.py, test_ma_vach_db.py, test_sua_huy_lo_db.py, test_cua_ngo_ghi_moi.py (+17)
 
 ### `/phong` — Phòng dịch vụ
 - page: `src/dashboard/app/(dashboard)/phong/page.tsx` · quyền: lego `phong` (Phòng dịch vụ · mặc định: BS siêu âm / thủ thuật + Điều dưỡng)
@@ -370,7 +370,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: InTemLo.tsx, app/(dashboard)/pharmacy/ban-thuoc.ts, app/(dashboard)/pharmacy/inventory/OQuetMa.tsx, app/(dashboard)/pharmacy/inventory/gui-kho.ts
 - gọi API Next: `/api/pharmacy/[action]`
 - service: lo_thuoc_service.{sua_lo, huy_lo, hoan_huy_lo, so_ngay_canh_bao, +1} · can · PharmacyService.{nhap_lo, dieu_chinh, huy, danh_muc, +2} · kho_thuoc_service.{tao_phieu_nhap, kiem_kho, the_kho, xuat_nhap_ton} · ma_vach_service.{gan_ma, go_ma, tra_ma, du_lieu_tem} · BanLeService.doc (+1 service)
-- test: test_kho_kiotviet_db.py, test_ma_vach_db.py, test_sua_huy_lo_db.py, test_kho_theo_co_so_db.py, test_mo_phong_kho_thuoc_db.py (+9)
+- test: test_kho_kiotviet_db.py, test_kho_quay_db.py, test_ma_vach_db.py, test_sua_huy_lo_db.py, test_cau_hinh_han_lo_db.py (+9)
 
 ### `/queue`
 - page: `src/dashboard/app/(dashboard)/queue/page.tsx` · quyền: ?
@@ -1248,7 +1248,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [tra-ma] GET `/api/v1/pharmacy/tra-ma` → `src/clinicai/api/v1/routers/pharmacy.py:tra_ma` → ma_vach_service.tra_ma
 - [tem-lo] GET `/api/v1/pharmacy/tem-lo` → `src/clinicai/api/v1/routers/pharmacy.py:tem_lo` → ma_vach_service.du_lieu_tem
 - GET `/api/v1/pharmacy/xuat-nhap-ton.xlsx` → `src/clinicai/api/v1/routers/pharmacy.py:xuat_nhap_ton_xlsx` → kho_thuoc_service.xuat_nhap_ton, xlsx_inventory
-- test: src/tests/services/test_kho_kiotviet_db.py, src/tests/services/test_ma_vach_db.py, src/tests/services/test_kho_theo_co_so_db.py (+19)
+- test: src/tests/services/test_kho_quay_db.py, src/tests/services/test_kho_kiotviet_db.py, src/tests/services/test_ma_vach_db.py (+18)
 - màn dùng: /pharmacy, /pharmacy/inventory, /print/tem-lo
 
 #### `/api/phieu` · `src/dashboard/app/api/phieu/route.ts`
@@ -1511,7 +1511,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_sua_ho_so_khach_db.py, src/tests/unit/test_xuat_hoa_don.py
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (187)
+## 3. Service → màn (188)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1641,6 +1641,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `PaymentService` | `src/clinicai/services/payment_service.py` | /pharmacy, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `PermissionService` | `src/clinicai/services/permission_service.py` | /phan-quyen |
 | `PhanHoiKhachService` | `src/clinicai/services/phan_hoi_khach_service.py` | /customers |
+| `pharmacy_service` | `src/clinicai/services/pharmacy_service.py` | /pharmacy/inventory |
 | `PharmacyService` | `src/clinicai/services/pharmacy_service.py` | /pharmacy, /pharmacy/consult, /pharmacy/history, /pharmacy/inventory, /print/tem-lo |
 | `PhieuKhamService` | `src/clinicai/services/phieu_kham_service.py` | /ban-kham, /ban-kham/[phong], /patient-list, /pharmacy, /print/[appointmentId], /print/ket-qua-luot/[visitId], /print/phieu-kham/[visitId], /thu-ngan/dich-vu (+4) |
 | `PhiKhamService` | `src/clinicai/services/phi_kham_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+11) |
@@ -1747,7 +1748,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `care_episode` | `20260714000001_baseline_schema.sql` | 0 |
 | `chot_so_ca` | `20261014149000_chot_so_ca.sql` | 0 |
 | `clinic` | `20260730000003_multi_tenant_foundation.sql` | 2 |
-| `clinic_location` | `20260714000001_baseline_schema.sql` | 3 |
+| `clinic_location` | `20260714000001_baseline_schema.sql` | 4 |
 | `clinic_membership` | `20260730000003_multi_tenant_foundation.sql` | 3 |
 | `clinic_room` | `20260804000001_dispatch_rooms.sql` | 4 |
 | `clinic_room_node` | `20260804000013_room_serves_many_nodes.sql` | 1 |
@@ -1774,7 +1775,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `doi_tac_nhan_viec` | `20260925000009_doi_tac_nhan_viec.sql` | 3 |
 | `doi_tac_thanh_toan` | `20260928000091_doi_tac_tu_thu_tien.sql` | 0 |
 | `domain_event` | `20260923000001_domain_event.sql` | 1 |
-| `drug_batch` | `20260802000001_pharmacy_inventory.sql` | 4 |
+| `drug_batch` | `20260802000001_pharmacy_inventory.sql` | 5 |
 | `drug_catalog` | `20260714000001_baseline_schema.sql` | 5 |
 | `drug_ma_vach` | `20261014135000_ma_vach.sql` | 0 |
 | `drug_return` | `20260919000004_tien_thuoc_cp5_hoan_tra.sql` | 1 |
@@ -1791,7 +1792,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `hen_gio` | `20260923000008_hen_gio.sql` | 1 |
 | `hen_goi_lai` | `20260809000005_trang_thai_cskh_suy_ra.sql` | 1 |
 | `idempotency_key` | `20260714000003_idempotency_key.sql` | 2 |
-| `inventory_txn` | `20260802000001_pharmacy_inventory.sql` | 3 |
+| `inventory_txn` | `20260802000001_pharmacy_inventory.sql` | 4 |
 | `ket_qua_mau` | `20260923000004_mau_ket_qua.sql` | 0 |
 | `ky_nang` | `20260928000093_ky_nang.sql` | 0 |
 | `lab_result` | `20260714000001_baseline_schema.sql` | 0 |
@@ -1839,8 +1840,8 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `phan_hoi_khach` | `20260809000007_hanh_trinh_cskh_bam_duoc_het.sql` | 0 |
 | `phieu_kham_lich_su` | `20260925000018_phieu_kham_lich_su.sql` | 0 |
 | `phieu_kham_luot` | `20260924000008_phieu_kham_luot.sql` | 0 |
-| `phieu_kho` | `20260929960000_kho_kieu_kiotviet.sql` | 1 |
-| `phieu_kho_dong` | `20260929960000_kho_kieu_kiotviet.sql` | 0 |
+| `phieu_kho` | `20260929960000_kho_kieu_kiotviet.sql` | 2 |
+| `phieu_kho_dong` | `20260929960000_kho_kieu_kiotviet.sql` | 1 |
 | `phu_thu_mau` | `20260928000099_phu_thu_kem_dich_vu.sql` | 0 |
 | `pos_outbox` | `20260730000007_pos_outbox.sql` | 0 |
 | `pregnancy` | `20260714000001_baseline_schema.sql` | 1 |

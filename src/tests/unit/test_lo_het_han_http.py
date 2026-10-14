@@ -73,3 +73,17 @@ def test_nhap_lo_giu_han_hop_le(han: object) -> None:
     assert body.expiry_date == (
         date.fromisoformat(han) if isinstance(han, str) else han
     )
+
+
+@pytest.mark.parametrize(
+    ("ten", "cau"),
+    [
+        ("lo_o_kho", "đang ở KHO"),
+        ("lo_het_han_quay", "không chuyển ra quầy"),
+    ],
+)
+async def test_sql_chan_kho_quay_tra_409_dung_cau(ten: str, cau: str) -> None:
+    exc = asyncpg.ExclusionViolationError.new({"C": "23P01", "M": "x", "n": ten})
+    response = await exclusion_violation_handler(Request({"type": "http"}), exc)
+    assert response.status_code == 409
+    assert cau in str(json.loads(bytes(response.body)))

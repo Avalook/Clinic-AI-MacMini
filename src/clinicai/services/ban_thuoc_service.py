@@ -315,6 +315,24 @@ async def man_nha_thuoc(
               FROM public.drug_batch
              WHERE clinic_id = $1::uuid AND drug_catalog_id = ANY($2::uuid[])
                AND (expiry_date IS NULL OR expiry_date >= $3)
+               AND location_id = ANY($4::uuid[]) AND noi_chua = 'QUAY'
+             ORDER BY expiry_date NULLS LAST, batch_code
+            """,
+            identity.clinic_id,
+            thuoc_ids,
+            hom_nay,
+            co_so_ids,
+        )
+        # G7: hàng còn ở KHO (chưa ra quầy) — quầy hết mà kho còn thì nói ra để
+        # người có quyền chuyển ngay tại màn (luật open), không bán từ kho.
+        kho_rows = await conn.fetch(
+            """
+            SELECT id::text, drug_catalog_id::text, batch_code, expiry_date, unit,
+                   quantity_on_hand, location_id::text AS co_so_id
+              FROM public.drug_batch
+             WHERE clinic_id = $1::uuid AND drug_catalog_id = ANY($2::uuid[])
+               AND noi_chua = 'KHO' AND quantity_on_hand > 0
+               AND (expiry_date IS NULL OR expiry_date >= $3)
                AND location_id = ANY($4::uuid[])
              ORDER BY expiry_date NULLS LAST, batch_code
             """,
@@ -341,7 +359,7 @@ async def man_nha_thuoc(
                     ON c.id = b.drug_catalog_id AND c.clinic_id = b.clinic_id
                  WHERE b.clinic_id = $1::uuid AND b.quantity_on_hand > 0
                    AND (b.expiry_date IS NULL OR b.expiry_date >= $2)
-                   AND b.location_id = ANY($3::uuid[])
+                   AND b.location_id = ANY($3::uuid[]) AND b.noi_chua = 'QUAY'
                  ORDER BY b.expiry_date NULLS LAST, b.batch_code
                 """,
                 identity.clinic_id,
@@ -452,6 +470,10 @@ async def man_nha_thuoc(
     for b in lo_rows:
         lo_theo_thuoc.setdefault(b["drug_catalog_id"], []).append(b)
 
+    kho_theo_thuoc: dict[str, list[asyncpg.Record]] = {}
+    for b in kho_rows:
+        kho_theo_thuoc.setdefault(b["drug_catalog_id"], []).append(b)
+
     luot: dict[str, dict[str, Any]] = {}
     for r in dong:
         vid = r["visit_id"]
@@ -507,19 +529,31 @@ async def man_nha_thuoc(
                     else Decimal(0)
                 ),
             }
-            g["dong"].append(
-                _dong(
-                    r,
-                    gd,
-                    lt,
-                    pl_theo_dong,
-                    lo_theo_thuoc,
-                    lo_cu,
-                    co_quyen_ghi,
-                    them,
-                    co_so=_co_so(r, identity),
-                )
+            d = _dong(
+                r,
+                gd,
+                lt,
+                pl_theo_dong,
+                lo_theo_thuoc,
+                lo_cu,
+                co_quyen_ghi,
+                them,
+                co_so=_co_so(r, identity),
             )
+            dv = _don_vi(r["unit"])
+            d["kho_con"] = [
+                {
+                    "drug_batch_id": b["id"],
+                    "batch_code": b["batch_code"],
+                    "expiry_date": b["expiry_date"],
+                    "unit": b["unit"],
+                    "ton": _so(b["quantity_on_hand"]),
+                }
+                for b in kho_theo_thuoc.get(r["drug_catalog_id"] or "", [])
+                if b["co_so_id"] == _co_so(r, identity)
+                and (not dv or _don_vi(b["unit"]) == dv)
+            ]
+            g["dong"].append(d)
     # Lượt bán lẻ chưa có dòng đơn: vẫn hiện (giai đoạn "chờ thu"), lên đầu.
     ban_le_trong = [
         {

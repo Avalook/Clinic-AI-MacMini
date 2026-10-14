@@ -41,10 +41,20 @@ from clinicai.services.pharmacy_service import (
     ghi_nhat_ky,
     kiem_dong_nhap,
     nhap_vao_lo,
+    tach_kho_quay_bat,
 )
 
 #: Loại dòng sổ đổi tồn VẬT LÝ (khác SALE / SALE_REVERSAL).
-LOAI_VAT_LY = ("RECEIVE", "DISPENSE", "ADJUST", "DISCARD", "RETURN_RECEIVED")
+LOAI_VAT_LY = (
+    "RECEIVE",
+    "DISPENSE",
+    "ADJUST",
+    "DISCARD",
+    "RETURN_RECEIVED",
+    # G7: chuyển KHO ↔ QUẦY — đổi tồn từng HÀNG, tổng hai hàng của lô không đổi.
+    "CHUYEN_RA",
+    "CHUYEN_VAO",
+)
 
 #: Khoảng XNT dài nhất (ngày) — một năm là đủ cho báo cáo quý / năm.
 XNT_TOI_DA_NGAY = 366
@@ -52,7 +62,7 @@ XNT_TOI_DA_NGAY = 366
 #: Số dòng tối đa một phiếu.
 PHIEU_TOI_DA_DONG = 200
 
-_TIEN_TO = {"NHAP": "PN", "KIEM": "KK"}
+_TIEN_TO = {"NHAP": "PN", "KIEM": "KK", "CHUYEN": "CK"}
 
 
 # ── Hàm thuần ────────────────────────────────────────────────────────────
@@ -171,6 +181,8 @@ async def the_kho(
                    CASE
                        WHEN tinh.ref_type = 'phieu_kho' AND pk.loai = 'KIEM'
                            THEN 'Kiểm kho'
+                       WHEN tinh.txn_type = 'CHUYEN_RA' THEN 'Chuyển kho (ra)'
+                       WHEN tinh.txn_type = 'CHUYEN_VAO' THEN 'Chuyển kho (vào)'
                        WHEN tinh.ref_type = 'phieu_kho' THEN 'Nhập hàng'
                        WHEN tinh.txn_type = 'RECEIVE' THEN 'Nhập hàng'
                        WHEN tinh.txn_type = 'DISPENSE' THEN 'Bán / giao thuốc'
@@ -302,13 +314,17 @@ async def danh_sach_phieu(
             """
             SELECT pk.id::text, pk.ma_phieu, pk.loai, pk.nha_cung_cap, pk.so_hoa_don,
                    pk.ngay_chung_tu, pk.ghi_chu, pk.tao_luc, s.full_name AS nguoi_tao,
+                   pk.huong, pk.ly_do, pk.hoan_tac_cua::text,
+                   EXISTS (SELECT 1 FROM public.phieu_kho h
+                            WHERE h.hoan_tac_cua = pk.id) AS da_hoan_tac,
                    coalesce((
                        SELECT jsonb_agg(jsonb_build_object(
                                   'stt', d.stt, 'ten', c.name_raw,
                                   'so_lo', b.batch_code, 'han_dung', b.expiry_date,
                                   'don_vi', b.unit, 'so_luong', d.so_luong,
                                   'gia_nhap', d.gia_nhap, 'ton_may', d.ton_may,
-                                  'thuc_te', d.thuc_te, 'lech', d.lech)
+                                  'thuc_te', d.thuc_te, 'lech', d.lech,
+                                  'noi_chua', b.noi_chua)
                               ORDER BY d.stt)
                          FROM public.phieu_kho_dong d
                          JOIN public.drug_catalog c ON c.id = d.drug_catalog_id
@@ -365,6 +381,9 @@ async def _mo_phieu(
     so_hoa_don: str | None = None,
     ngay_chung_tu: date | None = None,
     ghi_chu: str | None = None,
+    huong: str | None = None,
+    ly_do: str | None = None,
+    hoan_tac_cua: str | None = None,
 ) -> tuple[str, str]:
     """Tạo đầu phiếu với mã kế tiếp CỦA KHO CƠ SỞ đang làm — `PN-HN-0001`:
     mỗi cơ sở một dãy số, mã cơ sở (`clinic_location.code`) nằm trong mã nên
@@ -395,8 +414,9 @@ async def _mo_phieu(
         """
         INSERT INTO phieu_kho
             (clinic_id, location_id, loai, ma_phieu, nha_cung_cap, so_hoa_don,
-             ngay_chung_tu, ghi_chu, tao_boi, khoa_gui)
-        VALUES ($1::uuid, $10::uuid, $2, $3, $4, $5, $6, $7, $8::uuid, $9)
+             ngay_chung_tu, ghi_chu, tao_boi, khoa_gui, huong, ly_do, hoan_tac_cua)
+        VALUES ($1::uuid, $10::uuid, $2, $3, $4, $5, $6, $7, $8::uuid, $9,
+                $11, $12, $13::uuid)
         RETURNING id::text
         """,
         identity.clinic_id,
@@ -409,6 +429,9 @@ async def _mo_phieu(
         identity.staff_id,
         khoa_gui,
         identity.location_id,
+        huong,
+        ly_do,
+        hoan_tac_cua,
     )
     return str(phieu_id), ma
 
@@ -689,4 +712,412 @@ async def kiem_kho(
         "loai": "KIEM",
         "gui_lai": False,
         "dong": ket_qua,
+    }
+
+
+# ── Tách KHO / QUẦY (G7, 14/10/2026) ─────────────────────────────────────
+
+
+async def tach_kho_quay_dang_bat(pool: asyncpg.Pool, identity: StaffIdentity) -> bool:
+    """Như `tach_kho_quay_bat` nhưng nhận pool — cho test và chỗ không có conn."""
+    async with pool.acquire() as conn:
+        return await tach_kho_quay_bat(conn, identity)
+
+
+async def dat_tach_kho_quay(
+    pool: asyncpg.Pool, *, identity: StaffIdentity, bat: bool
+) -> dict[str, Any]:
+    """Bật / tắt tách kho-quầy cho CƠ SỞ đang làm. Bật không đổi dữ liệu nào:
+    lô hiện có đã là hàng QUẦY, quầy bán bằng đúng tồn đang có; từ đó nhập đi
+    vào KHO. Tắt chỉ khi KHO đã hết hàng — không để thuốc nằm ở nơi bán không
+    tới."""
+    async with pool.acquire() as conn, conn.transaction():
+        cu = await conn.fetchval(
+            "SELECT tach_kho_quay FROM public.clinic_location"
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+            identity.location_id,
+            identity.clinic_id,
+        )
+        if cu is None:
+            raise NotFoundError("Không xác định được cơ sở đang làm — đăng nhập lại.")
+        if bool(cu) == bat:
+            return {"ok": True, "tach_kho_quay": bat, "doi": False}
+        if not bat:
+            con = await conn.fetchrow(
+                "SELECT count(*) AS lo, coalesce(sum(quantity_on_hand), 0) AS ton"
+                " FROM public.drug_batch WHERE clinic_id = $1::uuid"
+                " AND location_id = $2::uuid AND noi_chua = 'KHO'"
+                " AND quantity_on_hand > 0",
+                identity.clinic_id,
+                identity.location_id,
+            )
+            if con and con["lo"] > 0:
+                raise ConflictError(
+                    f"Kho còn {con['lo']} lô có hàng — chuyển hết sang quầy rồi mới "
+                    "tắt tách kho / quầy."
+                )
+        await conn.execute(
+            "UPDATE public.clinic_location SET tach_kho_quay = $3"
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            identity.location_id,
+            identity.clinic_id,
+            bat,
+        )
+        await ghi_nhat_ky(
+            conn,
+            identity=identity,
+            event_type="pharmacy.tach_kho_quay_doi",
+            aggregate_type="clinic_location",
+            aggregate_id=identity.location_id,
+            payload={"before": bool(cu), "after": bat},
+        )
+    return {"ok": True, "tach_kho_quay": bat, "doi": True}
+
+
+_NOI = {"KHO_QUAY": ("KHO", "QUAY"), "QUAY_KHO": ("QUAY", "KHO")}
+_TEN_NOI = {"KHO": "kho", "QUAY": "quầy"}
+
+
+async def _chuyen_cac_dong(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    *,
+    huong: str,
+    dong: list[tuple[str, Decimal, str | None]],
+    phieu_id: str,
+    ma: str,
+    ly_do: str,
+) -> list[dict[str, Any]]:
+    """Ghi các dòng chuyển (nguồn, số lượng, đích hoặc None = hàng cùng lô ở nơi
+    kia, tạo nếu chưa có) vào phiếu `phieu_id` — trong giao dịch của người gọi."""
+    noi_nguon, noi_dich = _NOI[huong]
+    # Khoá MỌI hàng của các lô liên quan một lượt, theo id: hai người chuyển
+    # ngược chiều cùng một lô không khoá chéo nhau.
+    ma_lo = await conn.fetch(
+        "SELECT DISTINCT batch_code FROM public.drug_batch"
+        " WHERE clinic_id = $1::uuid AND location_id = $2::uuid"
+        " AND id = ANY($3::uuid[])",
+        identity.clinic_id,
+        identity.location_id,
+        [d[0] for d in dong],
+    )
+    if len(ma_lo) == 0:
+        raise NotFoundError("Không tìm thấy lô này trong kho của cơ sở đang làm.")
+    hang = {
+        r["id"]: r
+        for r in await conn.fetch(
+            """
+            SELECT id::text, drug_catalog_id::text, batch_code, expiry_date, unit,
+                   quantity_on_hand, noi_chua, ma_tem, cost_price, received_at,
+                   CASE WHEN noi_chua = 'QUAY'
+                        THEN public.drug_batch_kha_dung(clinic_id, id)
+                        ELSE quantity_on_hand END AS kha_dung
+              FROM public.drug_batch
+             WHERE clinic_id = $1::uuid AND location_id = $2::uuid
+               AND batch_code = ANY($3::text[])
+             ORDER BY id
+             FOR UPDATE
+            """,
+            identity.clinic_id,
+            identity.location_id,
+            [r["batch_code"] for r in ma_lo],
+        )
+    }
+    ra: list[dict[str, Any]] = []
+    for stt, (nguon_id, luong, dich_id) in enumerate(dong, start=1):
+        nguon = hang.get(nguon_id)
+        if nguon is None:
+            raise NotFoundError(
+                f"Dòng {stt}: không tìm thấy lô này trong kho của cơ sở đang làm."
+            )
+        if nguon["noi_chua"] != noi_nguon:
+            raise ValidationError(
+                f"Dòng {stt}: chuyển từ {noi_nguon} phải chọn hàng đang ở {noi_nguon}."
+            )
+        if (
+            noi_dich == "QUAY"
+            and nguon["expiry_date"] is not None
+            and nguon["expiry_date"] < hom_nay_vn()
+        ):
+            raise ConflictError(
+                f"Dòng {stt}: lô {nguon['batch_code']} đã hết hạn — không chuyển ra "
+                "quầy. Huỷ lô hết hạn ở Tồn theo lô."
+            )
+        kha = Decimal(str(nguon["kha_dung"] or 0))
+        if luong > kha:
+            raise ConflictError(
+                f"Dòng {stt}: {_TEN_NOI[noi_nguon]} chỉ còn {_so_chu_so(kha)} "
+                f"{nguon['unit']} có thể rút của lô {nguon['batch_code']} — không đủ "
+                f"{_so_chu_so(luong)}."
+                + (
+                    " (phần đã bán chưa giao ở quầy không rút lại được)"
+                    if noi_nguon == "QUAY"
+                    else ""
+                )
+            )
+        dich = hang.get(dich_id) if dich_id else None
+        if dich is None:
+            dich = next(
+                (
+                    h
+                    for h in hang.values()
+                    if h["batch_code"] == nguon["batch_code"]
+                    and h["noi_chua"] == noi_dich
+                ),
+                None,
+            )
+        if dich is None:
+            moi = await conn.fetchval(
+                """
+                INSERT INTO public.drug_batch
+                    (clinic_id, location_id, drug_catalog_id, batch_code, expiry_date,
+                     quantity_on_hand, unit, cost_price, received_at, noi_chua, ma_tem)
+                VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, 0, $6, $7, $8, $9, $10)
+                RETURNING id::text
+                """,
+                identity.clinic_id,
+                identity.location_id,
+                nguon["drug_catalog_id"],
+                nguon["batch_code"],
+                nguon["expiry_date"],
+                nguon["unit"],
+                nguon["cost_price"],
+                nguon["received_at"],
+                noi_dich,
+                nguon["ma_tem"],
+            )
+            dich_ra = str(moi)
+        else:
+            dich_ra = dich["id"]
+        txn_ra = await PharmacyService._ghi_so_trong(
+            conn,
+            identity=identity,
+            drug_batch_id=nguon_id,
+            txn_type="CHUYEN_RA",
+            quantity=-luong,
+            reason=ly_do or f"Chuyển kho {ma}",
+            ref_type="phieu_kho",
+            ref_id=phieu_id,
+        )
+        txn_vao = await PharmacyService._ghi_so_trong(
+            conn,
+            identity=identity,
+            drug_batch_id=dich_ra,
+            txn_type="CHUYEN_VAO",
+            quantity=luong,
+            reason=ly_do or f"Chuyển kho {ma}",
+            ref_type="phieu_kho",
+            ref_id=phieu_id,
+        )
+        await conn.execute(
+            """
+            INSERT INTO phieu_kho_dong
+                (clinic_id, phieu_kho_id, loai, stt, drug_catalog_id, drug_batch_id,
+                 so_luong, inventory_txn_id, drug_batch_nguon_id,
+                 inventory_txn_nguon_id)
+            VALUES ($1::uuid, $2::uuid, 'CHUYEN', $3, $4::uuid, $5::uuid, $6,
+                    $7::uuid, $8::uuid, $9::uuid)
+            """,
+            identity.clinic_id,
+            phieu_id,
+            stt,
+            nguon["drug_catalog_id"],
+            dich_ra,
+            luong,
+            txn_vao,
+            nguon_id,
+            txn_ra,
+        )
+        ra.append(
+            {
+                "drug_batch_nguon_id": nguon_id,
+                "drug_batch_dich_id": dich_ra,
+                "so_luong": luong,
+            }
+        )
+    return ra
+
+
+def _so_chu_so(v: Decimal) -> str:
+    return f"{v.normalize():f}"
+
+
+async def _gui_lai_hoac(
+    pool: asyncpg.Pool, identity: StaffIdentity, khoa: str
+) -> dict[str, Any] | None:
+    async with pool.acquire() as conn:
+        return await _phieu_da_co(conn, identity, khoa)
+
+
+async def chuyen_kho(
+    pool: asyncpg.Pool,
+    *,
+    identity: StaffIdentity,
+    khoa_gui: str | None,
+    huong: str,
+    ly_do: Any = None,
+    dong: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Phiếu chuyển KHO → QUẦY (hoặc QUẦY → KHO): hai dòng sổ đối ứng cho mỗi
+    dòng, MỘT giao dịch — dòng nào hỏng thì cả phiếu không vào. Ai làm, lúc nào,
+    lý do (không bắt điền) nằm trên phiếu; hoàn tác bằng `hoan_tac_chuyen`."""
+    khoa = _khoa(khoa_gui)
+    if huong not in _NOI:
+        raise ValidationError("Chuyển theo chiều KHO → QUẦY hoặc QUẦY → KHO.")
+    if not dong:
+        raise ValidationError("Chọn ít nhất một lô để chuyển.")
+    if len(dong) > PHIEU_TOI_DA_DONG:
+        raise ValidationError(f"Một phiếu tối đa {PHIEU_TOI_DA_DONG} dòng.")
+    sach: list[tuple[str, Decimal, str | None]] = []
+    thay: set[str] = set()
+    for i, d in enumerate(dong, start=1):
+        lo = str(d.get("drug_batch_id") or "").strip()
+        if not lo:
+            raise ValidationError(f"Dòng {i}: chưa chọn lô.")
+        if lo in thay:
+            raise ValidationError(f"Dòng {i}: lô này đã có trong phiếu.")
+        thay.add(lo)
+        sach.append(
+            (lo, _so(d.get("so_luong"), ten=f"Dòng {i}: số lượng chuyển"), None)
+        )
+    ly = _chu(ly_do, 1000)
+    try:
+        cu = await _gui_lai_hoac(pool, identity, khoa)
+        if cu is not None:
+            return cu
+        async with pool.acquire() as conn, conn.transaction():
+            if not await tach_kho_quay_bat(conn, identity):
+                raise ConflictError(
+                    "Cơ sở này chưa bật tách kho / quầy — bật ở cấu hình Kho thuốc "
+                    "trước khi chuyển."
+                )
+            phieu_id, ma = await _mo_phieu(
+                conn, identity, loai="CHUYEN", khoa_gui=khoa, huong=huong, ly_do=ly
+            )
+            ra = await _chuyen_cac_dong(
+                conn,
+                identity,
+                huong=huong,
+                dong=sach,
+                phieu_id=phieu_id,
+                ma=ma,
+                ly_do=ly or "",
+            )
+            await ghi_nhat_ky(
+                conn,
+                identity=identity,
+                event_type="pharmacy.chuyen_kho",
+                aggregate_type="phieu_kho",
+                aggregate_id=phieu_id,
+                payload={"ma_phieu": ma, "huong": huong, "so_dong": len(ra)},
+            )
+    except asyncpg.UniqueViolationError as exc:
+        if getattr(exc, "constraint_name", "") != "uq_phieu_kho_khoa":
+            raise
+        cu = await _gui_lai_hoac(pool, identity, khoa)
+        if cu is None:
+            raise
+        return cu
+    return {
+        "ok": True,
+        "id": phieu_id,
+        "ma_phieu": ma,
+        "loai": "CHUYEN",
+        "gui_lai": False,
+        "dong": ra,
+    }
+
+
+async def hoan_tac_chuyen(
+    pool: asyncpg.Pool,
+    *,
+    identity: StaffIdentity,
+    khoa_gui: str | None,
+    phieu_id: str,
+) -> dict[str, Any]:
+    """Hoàn tác một phiếu chuyển bằng phiếu chuyển NGƯỢC (sổ chỉ thêm). Mỗi phiếu
+    hoàn tác được MỘT lần (ép ở Postgres); quầy đã bán bớt thì rút lại phần còn
+    được, hết thì nói rõ không rút được."""
+    khoa = _khoa(khoa_gui)
+    try:
+        cu = await _gui_lai_hoac(pool, identity, khoa)
+        if cu is not None:
+            return cu
+        async with pool.acquire() as conn, conn.transaction():
+            goc = await conn.fetchrow(
+                "SELECT id::text, ma_phieu, huong FROM public.phieu_kho"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid"
+                " AND location_id = $3::uuid AND loai = 'CHUYEN' FOR UPDATE",
+                phieu_id,
+                identity.clinic_id,
+                identity.location_id,
+            )
+            if goc is None:
+                raise NotFoundError("Không tìm thấy phiếu chuyển kho này.")
+            if await conn.fetchval(
+                "SELECT 1 FROM public.phieu_kho WHERE hoan_tac_cua = $1::uuid",
+                phieu_id,
+            ):
+                raise ConflictError(f"Phiếu {goc['ma_phieu']} đã hoàn tác rồi.")
+            if not await tach_kho_quay_bat(conn, identity):
+                raise ConflictError(
+                    "Cơ sở này chưa bật tách kho / quầy — không hoàn tác được."
+                )
+            dong = [
+                (r["dich"], Decimal(str(r["so_luong"])), r["nguon"])
+                for r in await conn.fetch(
+                    "SELECT drug_batch_id::text AS dich,"
+                    " drug_batch_nguon_id::text AS nguon, so_luong"
+                    " FROM public.phieu_kho_dong WHERE phieu_kho_id = $1::uuid"
+                    " ORDER BY stt",
+                    phieu_id,
+                )
+            ]
+            nguoc = "QUAY_KHO" if goc["huong"] == "KHO_QUAY" else "KHO_QUAY"
+            hoan_id, ma = await _mo_phieu(
+                conn,
+                identity,
+                loai="CHUYEN",
+                khoa_gui=khoa,
+                huong=nguoc,
+                ly_do=f"Hoàn tác phiếu {goc['ma_phieu']}",
+                hoan_tac_cua=phieu_id,
+            )
+            try:
+                ra = await _chuyen_cac_dong(
+                    conn,
+                    identity,
+                    huong=nguoc,
+                    dong=dong,
+                    phieu_id=hoan_id,
+                    ma=ma,
+                    ly_do=f"Hoàn tác phiếu {goc['ma_phieu']}",
+                )
+            except ConflictError as exc:
+                raise ConflictError(f"Không hoàn tác được: {exc.message}") from exc
+            await ghi_nhat_ky(
+                conn,
+                identity=identity,
+                event_type="pharmacy.chuyen_kho_hoan_tac",
+                aggregate_type="phieu_kho",
+                aggregate_id=hoan_id,
+                payload={"ma_phieu": ma, "hoan_tac_cua": goc["ma_phieu"]},
+            )
+    except asyncpg.UniqueViolationError as exc:
+        ten = getattr(exc, "constraint_name", "")
+        if ten == "uq_phieu_kho_hoan_tac_cua":
+            raise ConflictError("Phiếu này đã hoàn tác rồi.") from exc
+        if ten != "uq_phieu_kho_khoa":
+            raise
+        cu = await _gui_lai_hoac(pool, identity, khoa)
+        if cu is None:
+            raise
+        return cu
+    return {
+        "ok": True,
+        "id": hoan_id,
+        "ma_phieu": ma,
+        "loai": "CHUYEN",
+        "gui_lai": False,
+        "dong": ra,
     }
