@@ -4,7 +4,7 @@ import json
 from typing import Any
 
 import asyncpg
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
 from fastapi.responses import Response
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
@@ -14,6 +14,7 @@ from clinicai.services.danh_sach_hoa_don_service import (
     xlsx_hoa_don,
 )
 from clinicai.services.excel_export import XLSX_MEDIA_TYPE
+from clinicai.services.hoa_don_cong_ty_service import HoaDonCongTyService
 from clinicai.services.theo_hang_hoa_service import (
     TheoHangHoaService,
     xlsx_theo_hang_hoa,
@@ -151,4 +152,135 @@ async def theo_hang_hoa_excel(
             "Cache-Control": "private, no-store",
             "X-Content-Type-Options": "nosniff",
         },
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# G5c — Hoá đơn công ty + xuất MISA
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/hoa-don/cong-ty/khach/{clinic_patient_id}")
+async def doc_cong_ty_khach(
+    clinic_patient_id: str,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Danh sách công ty của khách (điền sẵn lần trước)."""
+    rows = await HoaDonCongTyService(pool).doc_cong_ty_khach(
+        identity=identity, clinic_patient_id=clinic_patient_id
+    )
+    return {"cong_ty": rows}
+
+
+@router.post("/hoa-don/cong-ty/khach/{clinic_patient_id}")
+async def luu_cong_ty_khach(
+    clinic_patient_id: str,
+    body: dict[str, Any] = Body(...),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tạo hoặc cập nhật công ty của khách."""
+    return await HoaDonCongTyService(pool).luu_cong_ty_khach(
+        identity=identity,
+        clinic_patient_id=clinic_patient_id,
+        id=body.get("id"),
+        ten_cong_ty=str(body.get("ten_cong_ty") or ""),
+        dia_chi_cong_ty=str(body.get("dia_chi_cong_ty") or ""),
+        ma_so_thue=str(body.get("ma_so_thue") or ""),
+        email_nhan_hd=str(body.get("email_nhan_hd") or ""),
+        is_mac_dinh=bool(body.get("is_mac_dinh", True)),
+        ghi_chu=str(body.get("ghi_chu") or ""),
+    )
+
+
+@router.delete("/hoa-don/cong-ty/khach/{clinic_patient_id}/{id}")
+async def xoa_cong_ty_khach(
+    clinic_patient_id: str,
+    id: str,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    await HoaDonCongTyService(pool).xoa_cong_ty_khach(identity=identity, id=id)
+    return {"ok": True}
+
+
+@router.get("/hoa-don/cong-ty/{payment_cycle_id}")
+async def doc_hoa_don_cong_ty(
+    payment_cycle_id: str,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Snapshot công ty gắn với payment_cycle (để hiển thị / chỉnh sửa)."""
+    result = await HoaDonCongTyService(pool).doc_hoa_don_cong_ty(
+        identity=identity, payment_cycle_id=payment_cycle_id
+    )
+    return {"cong_ty": result}
+
+
+@router.put("/hoa-don/cong-ty/{payment_cycle_id}")
+async def ghi_hoa_don_cong_ty(
+    payment_cycle_id: str,
+    body: dict[str, Any] = Body(...),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ghi/cập nhật snapshot công ty cho payment_cycle (snapshot không đổi sau khi xuất MISA)."""
+    return await HoaDonCongTyService(pool).ghi_hoa_don_cong_ty(
+        identity=identity,
+        payment_cycle_id=payment_cycle_id,
+        ten_cong_ty=str(body.get("ten_cong_ty") or ""),
+        dia_chi_cong_ty=str(body.get("dia_chi_cong_ty") or ""),
+        ma_so_thue=str(body.get("ma_so_thue") or ""),
+        email_nhan_hd=str(body.get("email_nhan_hd") or ""),
+        khach_cong_ty_id=body.get("khach_cong_ty_id"),
+    )
+
+
+@router.get("/hoa-don/cong-ty/{payment_cycle_id}/lich-su")
+async def doc_lich_su_cong_ty(
+    payment_cycle_id: str,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lịch sử thay đổi thông tin công ty sau khi xuất MISA."""
+    svc = HoaDonCongTyService(pool)
+    hdc = await svc.doc_hoa_don_cong_ty(
+        identity=identity, payment_cycle_id=payment_cycle_id
+    )
+    if not hdc:
+        return {"lich_su": []}
+    rows = await svc.doc_lich_su(
+        identity=identity, hoa_don_cong_ty_id=hdc["id"]
+    )
+    return {"lich_su": rows}
+
+
+# ─── Đánh dấu xuất MISA ─────────────────────────────────────────────────────
+
+
+@router.get("/hoa-don/misa-xuat")
+async def doc_misa_xuat(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Danh sách các lần đã xuất sang MISA."""
+    rows = await HoaDonCongTyService(pool).doc_misa_xuat(identity=identity)
+    return {"misa_xuat": rows}
+
+
+@router.post("/hoa-don/misa-xuat")
+async def danh_dau_xuat_misa(
+    body: dict[str, Any] = Body(...),
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đánh dấu đã xuất kỳ này sang MISA. Gửi `hoa_don` = mảng hoá đơn từ /hoa-don/xuat."""
+    return await HoaDonCongTyService(pool).danh_dau_xuat_misa(
+        identity=identity,
+        tu_ngay=str(body.get("tu_ngay") or ""),
+        den_ngay=str(body.get("den_ngay") or ""),
+        hoa_don=list(body.get("hoa_don") or []),
+        co_so=body.get("co_so"),
+        ghi_chu=str(body.get("ghi_chu") or ""),
     )
