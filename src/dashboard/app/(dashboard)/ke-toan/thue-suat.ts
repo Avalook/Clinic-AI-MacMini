@@ -19,3 +19,9 @@ export function tenThueSuat(ma: string | null | undefined): string {
 export const TEN_NGUON_THUE: Record<string, string> = {
   dong: "sửa tay", mat_hang: "theo mặt hàng", nhom: "theo nhóm",
 };
+
+/** Các mức hay dùng (mã máy chủ, nhãn). Mức khác nhập % tự do — máy chủ vẫn là nơi chuẩn hoá. */
+export const MUC_THUE: [string, string][] = [
+  ["0", "0%"], ["5", "5%"], ["8", "8%"], ["10", "10%"],
+  ["KCT", "Không chịu thuế (KCT)"], ["KKKNT", "Không kê khai nộp thuế (KKKNT)"],
+];

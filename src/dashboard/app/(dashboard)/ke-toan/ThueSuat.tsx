@@ -10,20 +10,18 @@ import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
-import { TEN_NHOM_HANG, tenThueSuat } from "./thue-suat";
+import { MUC_THUE, TEN_NHOM_HANG, tenThueSuat } from "./thue-suat";
 
 type MatHang = { loai: string; id: string; ma: string; ten: string; thue_suat_ma: string | null };
 type Data = { nhom: Record<string, string | null>; mat_hang: MatHang[]; duoc_dat: boolean };
 const NHOM = ["DICH_VU", "THUOC", "VAT_TU"] as const;
 const TEN_LOAI: Record<string, string> = { dich_vu: "Dịch vụ", thuoc: "Thuốc", vat_tu: "Vật tư" };
-/** Các mức hay dùng; mức khác nhập ở ô "Khác". Máy chủ vẫn là nơi chuẩn hoá và kiểm. */
-const MUC: [string, string][] = [["0", "0%"], ["5", "5%"], ["8", "8%"], ["10", "10%"], ["KCT", "Không chịu thuế (KCT)"], ["KKKNT", "Không kê khai nộp thuế (KKKNT)"]];
 const KHAC = "__khac";
 
 function ONhomThue({ gia, theoNhom, khoa, onDat, nhan }: {
   gia: string | null; theoNhom?: boolean; khoa: boolean; onDat: (v: string) => void; nhan: string;
 }) {
-  const laMucSan = gia !== null && MUC.some(([m]) => m === gia);
+  const laMucSan = gia !== null && MUC_THUE.some(([m]) => m === gia);
   const [khac, setKhac] = useState(gia !== null && !laMucSan);
   const [nhapKhac, setNhapKhac] = useState(gia !== null && !laMucSan ? gia : "");
   const chon = khac ? KHAC : (gia ?? "");
@@ -36,7 +34,7 @@ function ONhomThue({ gia, theoNhom, khoa, onDat, nhan }: {
           setKhac(false); onDat(v);
         }}>
         <option value="">{theoNhom ? "Theo nhóm hàng" : "Chưa đặt"}</option>
-        {MUC.map(([m, ten]) => <option key={m} value={m}>{ten}</option>)}
+        {MUC_THUE.map(([m, ten]) => <option key={m} value={m}>{ten}</option>)}
         <option value={KHAC}>Khác (nhập %)…</option>
       </OChon>
       {khac ? (
