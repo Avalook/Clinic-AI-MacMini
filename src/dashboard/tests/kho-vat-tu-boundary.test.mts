@@ -14,7 +14,7 @@ const tsx = readdirSync(thuMuc).filter((f) => f.endsWith(".tsx") || f.endsWith("
 const route = doc(new URL("../app/api/vat-tu-kho/[action]/route.ts", import.meta.url));
 
 test("màn Kho vật tư có đủ các tệp (chống xanh giả)", () => {
-  for (const f of ["page.tsx", "KhoVatTu.tsx", "TonVatTu.tsx", "LapPhieuVatTu.tsx", "DanhSachPhieuVatTu.tsx"]) {
+  for (const f of ["page.tsx", "KhoVatTu.tsx", "TonVatTu.tsx", "LapPhieuVatTu.tsx", "DanhSachPhieuVatTu.tsx", "TieuHaoVatTu.tsx"]) {
     assert.ok(tsx.includes(f), `thiếu ${f}`);
   }
 });
@@ -40,7 +40,7 @@ test("không window.confirm, không dấu * ở nhãn, nút luôn có type", () 
 });
 
 test("proxy danh sách trắng + chuyển Idempotency-Key cho lập phiếu / đảo phiếu", () => {
-  for (const a of ["ton", "canh-bao", "phieu", "hoan", "muc-toi-thieu"]) {
+  for (const a of ["ton", "canh-bao", "phieu", "tieu-hao", "hoan", "muc-toi-thieu"]) {
     assert.ok(route.includes(a), `proxy thiếu ${a}`);
   }
   assert.match(route, /Idempotency-Key/);

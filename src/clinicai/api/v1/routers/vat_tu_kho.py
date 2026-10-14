@@ -24,6 +24,7 @@ from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services import vat_tu_kho_man_service as man
 from clinicai.services import vat_tu_kho_service as kho
+from clinicai.services import vat_tu_tieu_hao_service as tieu_hao
 
 router = APIRouter()
 _QL = cua_quyen("vat_tu.manage")
@@ -64,6 +65,21 @@ async def danh_sach_phieu(
 ) -> dict[str, Any]:
     kq: dict[str, Any] = jsonable_encoder(
         {"items": await man.doc_phieu(pool, identity=identity, gioi_han=gioi_han)}
+    )
+    return kq
+
+
+@router.get("/vat-tu-kho/tieu-hao")
+async def bao_cao_tieu_hao(
+    ky: str | None = None,
+    tu: str | None = None,
+    den: str | None = None,
+    identity: StaffIdentity = Depends(_QL),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Tiêu hao theo phòng × kỳ (tuần / tháng / tự chọn), tính từ số đếm thật."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await tieu_hao.doc_tieu_hao(pool, identity=identity, ky=ky, tu=tu, den=den)
     )
     return kq
 
