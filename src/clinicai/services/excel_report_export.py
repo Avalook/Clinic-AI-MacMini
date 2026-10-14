@@ -7,6 +7,8 @@ from clinicai.services.bao_cao_cuoi_ngay_service import (
     TEN_HINH_THUC,
     TEN_LOAI,
     TEN_TRANG_THAI_THUOC,
+    TIEU_DE_CO_TON,
+    dong_co_ton,
 )
 
 
@@ -17,6 +19,10 @@ def xlsx_hang_hoa(bc: Mapping[str, Any], loai: Any) -> bytes:
     hh = (bc.get("hang_hoa") or {}).get(loai if loai in TEN_LOAI else "thuoc") or {
         "dong": []
     }
+    if hh.get("co_ton"):
+        # Khuôn có tồn kho: đúng thứ tự cột như màn (không "Đơn vị" riêng — đơn vị
+        # nằm trong tên hàng, mỗi đơn vị lô một dòng).
+        return excel_table([("Hàng hóa", TIEU_DE_CO_TON, dong_co_ton(hh))])
     keys = ("sl_ban", "doanh_thu", "sl_tra", "gia_tri_tra", "doanh_thu_thuan")
     rows = [
         [m.get("ma"), m["ten"], m.get("don_vi"), *[m[k] for k in keys]]
