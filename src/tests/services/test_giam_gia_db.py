@@ -407,6 +407,54 @@ async def test_hoan_dong_co_giam_chi_toi_so_da_thu(pool: asyncpg.Pool) -> None:
         )
 
 
+async def _dong_ve_giua_chung(pool: asyncpg.Pool, visit_id: str, ai: str) -> None:
+    """Đúng dấu vết ``CheckoutService.close(incomplete=True)``: INCOMPLETE + đã đóng."""
+    await pool.execute(
+        "UPDATE visit SET status = 'INCOMPLETE', incomplete_at = now(),"
+        " incomplete_reason = 'Khách về giữa chừng', incomplete_by = $2::uuid,"
+        " closed_at = now() WHERE visit_id = $1::uuid",
+        visit_id,
+        ai,
+    )
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_thu_no_luot_ve_giua_chung_chot_lua_chon_va_giam_gia_duoc(
+    pool: asyncpg.Pool,
+) -> None:
+    """Ghi nợ → "Đóng lượt" giữa chừng → khách quay lại trả nợ: quầy vừa chốt lựa
+    chọn vừa giảm giá trong một lệnh thu (UI luôn gửi `chon`). Trước 14/10/2026
+    lệnh này chết 409 VISIT_INCOMPLETE ở bước chốt lựa chọn."""
+    q, sa, soi, hpv = await _kich_ban(pool)
+    await pool.execute(
+        "INSERT INTO cong_no (clinic_id, visit_id, clinic_patient_id, so_tien,"
+        " ly_do, ghi_boi) SELECT $1::uuid, $2::uuid, v.clinic_patient_id, 700000,"
+        " 'khách xin ghi nợ', $3::uuid FROM visit v WHERE v.visit_id = $2::uuid",
+        CLINIC,
+        q.visit_id,
+        q.thu_ngan.staff_id,
+    )
+    await _dong_ve_giua_chung(pool, q.visit_id, q.thu_ngan.staff_id)
+    kq = await _thu(q, sa, soi, hpv, loai="PERCENT", gia_tri=100)
+    assert kq["status"] == "PAID"
+    cycle = await _cycle(pool, kq["payment_cycle_id"])
+    assert (int(cycle["amount"]), int(cycle["discount_amount"])) == (0, 700_000)
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_luot_ve_giua_chung_khong_no_van_bi_chan_khi_doi_lua_chon(
+    pool: asyncpg.Pool,
+) -> None:
+    """Chỉ mở cho lượt CÓ nợ: khách bỏ về không nợ thì đổi lựa chọn ở quầy vẫn
+    409 như cũ — không mở rộng quyền sửa lượt đã rời."""
+    q, sa, soi, hpv = await _kich_ban(pool)
+    await _dong_ve_giua_chung(pool, q.visit_id, q.thu_ngan.staff_id)
+    with pytest.raises(ConflictError, match="giữa chừng"):
+        await _thu(q, sa, soi, hpv)
+
+
 @pytest.mark.db
 @pytest.mark.asyncio
 async def test_luot_dang_ghi_no_van_giam_duoc(pool: asyncpg.Pool) -> None:
