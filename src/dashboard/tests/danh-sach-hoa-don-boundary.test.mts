@@ -29,3 +29,13 @@ test("UI nhận số tiền từ backend và có popup chi tiết chứng từ",
   const detail = read("../app/(dashboard)/hoa-don/ChiTietHoaDon.tsx");
   assert.match(detail, /HopChiTiet/); assert.match(detail, /nguoi_thu/); assert.match(detail, /su_kien/); assert.match(detail, /ly_do/); // lý do huỷ nằm trong "Sau khi thu" (v8)
 });
+test("Việc còn tồn ghi một dòng trung tính khi không tính cơ sở đã ngừng (14/10/2026)", () => {
+  const ui = read("../app/(dashboard)/hoa-don/DanhSachHoaDon.tsx");
+  assert.match(ui, /Không tính cơ sở đã ngừng:/);
+  assert.match(ui, /data\.co_so_ngung\?\.length/);
+  // Chữ trung tính — không hộp vàng/đỏ cho việc bình thường.
+  const i = ui.indexOf('data-testid="co-so-ngung"');
+  assert.ok(i > 0);
+  assert.doesNotMatch(ui.slice(i - 80, i + 60), /warning|danger/);
+  assert.match(read("../app/(dashboard)/hoa-don/types.ts"), /co_so_ngung\?:/);
+});

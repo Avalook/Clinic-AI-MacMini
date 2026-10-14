@@ -60,3 +60,45 @@ async def doc_ds_co_so(
         }
         for r in rows
     ]
+
+
+# ── Cơ sở NGỪNG HOẠT ĐỘNG (Tuyền 14/10/2026: "Kim Ngưu không còn hoạt động") ──
+#
+# "Ngừng" theo DỮ LIỆU: ``clinic_location.is_active IS FALSE`` (không viết cứng
+# tên). Chỉ áp cho màn VẬN HÀNH TỒN ĐỌNG (việc còn tồn, khách còn nợ, tiền thừa,
+# lượt cũ ở quầy thu): chế độ "Tất cả cơ sở" không đếm khoản của cơ sở ngừng —
+# khoản vẫn nằm nguyên trong sổ (``so_no`` append-only, hoá đơn, báo cáo lịch
+# sử). Người dùng CHỦ ĐỘNG chọn đúng cơ sở ngừng thì vẫn thấy đủ. Lượt không
+# biết cơ sở (NULL) giữ lại — không rơi im lặng.
+
+
+def sql_cua_co_so_ngung(clinic_param: str, loc_expr: str) -> str:
+    """Biểu thức SQL: ``loc_expr`` (id cơ sở) là cơ sở NGỪNG của phòng khám."""
+    return (
+        "EXISTS (SELECT 1 FROM public.clinic_location cl_ngung"
+        f" WHERE cl_ngung.clinic_id = {clinic_param}::uuid"
+        f" AND cl_ngung.is_active IS FALSE AND cl_ngung.id = {loc_expr})"
+    )
+
+
+def sql_loc_ton(co_so_param: str, loc_expr: str, clinic_param: str = "$1") -> str:
+    """Điều kiện lọc cơ sở cho khoản TỒN: chọn cơ sở → đúng cơ sở ấy (kể cả cơ sở
+    ngừng); không chọn (NULL) → mọi cơ sở TRỪ cơ sở ngừng."""
+    ngung = sql_cua_co_so_ngung(clinic_param, loc_expr)
+    return (
+        f"(({co_so_param}::uuid IS NULL AND NOT {ngung})"
+        f" OR {loc_expr} = {co_so_param}::uuid)"
+    )
+
+
+async def doc_co_so_ngung(
+    conn: asyncpg.Connection | asyncpg.Pool, clinic_id: str
+) -> list[dict[str, str]]:
+    """Cơ sở đã ngừng của phòng khám (id + tên) — để màn ghi một dòng trung tính
+    "Không tính cơ sở đã ngừng: …" ở chỗ lọc, không ai tưởng mất số."""
+    rows = await conn.fetch(
+        "SELECT id::text AS id, name FROM clinic_location"
+        " WHERE clinic_id = $1::uuid AND is_active IS FALSE ORDER BY name",
+        clinic_id,
+    )
+    return [{"id": r["id"], "ten": r["name"]} for r in rows]

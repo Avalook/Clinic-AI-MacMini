@@ -44,6 +44,7 @@ from clinicai.permissions.can import can
 from clinicai.services.anh_chuyen_khoan_service import anh_cua_cac_lan_thu
 from clinicai.services.cashier_scope_service import visible_refunds
 from clinicai.services.chot_0d import da_chot_0d, doc_chot_0d
+from clinicai.services.co_so_bao_cao import sql_cua_co_so_ngung
 from clinicai.services.doi_hinh_thuc_service import trang_thai_doi
 from clinicai.services.hoan_tac_service import tien_thua_cua_luot
 from clinicai.services.hoan_tien_service import hoan_cua_cac_lan_thu
@@ -131,6 +132,18 @@ _CU_CK_CHUA_VE = """EXISTS(SELECT 1 FROM public.payment_cycle pc
                    WHERE pc.clinic_id=old.clinic_id AND pc.visit_id=old.visit_id
                      AND pc.status='PENDING_VERIFICATION')"""
 
+
+def _chua_ngung(visit: str) -> str:
+    """Điều kiện SQL cho vế "lượt CŨ còn việc tồn": không chọn cơ sở ($5 NULL) thì
+    bỏ lượt của cơ sở đã NGỪNG hoạt động (Tuyền 14/10/2026) — chỉ ẩn khỏi hàng chờ,
+    nợ / tiền thừa vẫn nằm trong sổ; chọn đúng cơ sở ngừng ($5) thì vẫn thấy."""
+    return (
+        "($5::uuid IS NOT NULL OR NOT "
+        + sql_cua_co_so_ngung("$1", f"public.co_so_cua_luot($1::uuid, {visit})")
+        + ")"
+    )
+
+
 # Một câu, một vòng mạng. Sáu tập dữ liệu gói trong một JSON.
 _SQL = (
     """
@@ -201,6 +214,9 @@ WITH v AS (
             SELECT n.visit_id FROM public.cong_no n
              WHERE $4::boolean AND n.clinic_id = $1::uuid
                AND n.trang_thai = 'CHUA_THU'
+               AND """
+    + _chua_ngung("n.visit_id")
+    + """
             UNION ALL
             -- VIỆC TỒN CỦA MỌI NGÀY (G4a nối màn, 14/10/2026): nút "Xử lý" ở
             -- /hoa-don mở đúng khách tại đây, nên mọi khoản việc tồn phải có chỗ
@@ -211,10 +227,16 @@ WITH v AS (
             SELECT pc.visit_id FROM public.payment_cycle pc
              WHERE $4::boolean AND pc.clinic_id = $1::uuid
                AND pc.status = 'PENDING_VERIFICATION'
+               AND """
+    + _chua_ngung("pc.visit_id")
+    + """
             UNION ALL
             SELECT n.visit_id FROM public.so_no n
              WHERE $4::boolean AND n.clinic_id = $1::uuid
                AND n.chieu = 'PHAI_TRA' AND n.so_du > 0
+               AND """
+    + _chua_ngung("n.visit_id")
+    + """
                AND NOT EXISTS (SELECT 1 FROM public.so_no m
                                 WHERE m.clinic_id = n.clinic_id
                                   AND m.visit_id = n.visit_id
@@ -222,6 +244,9 @@ WITH v AS (
             UNION ALL
             SELECT old.visit_id FROM public.visit old
              WHERE $4::boolean AND old.clinic_id=$1::uuid AND old.created_at<$2
+               AND """
+    + _chua_ngung("old.visit_id")
+    + """
                AND NOT """
     + _LUOT_CU_DA_VE
     + """
@@ -236,6 +261,9 @@ WITH v AS (
             UNION ALL
             (SELECT old.visit_id FROM public.visit old
               WHERE $4::boolean AND old.clinic_id=$1::uuid AND old.created_at<$2
+                AND """
+    + _chua_ngung("old.visit_id")
+    + """
                 AND old.created_at >= $2 - interval '"""
     + str(CU_DA_VE_SO_NGAY)
     + """ days'

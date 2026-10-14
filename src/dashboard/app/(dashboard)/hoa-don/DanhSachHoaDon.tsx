@@ -258,6 +258,11 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
             <SoTien ten="Chưa trả lại khách" so={tien(data.tong.chua_tra_lai ?? 0)} />
             <SoTien ten="Việc còn tồn" so={`${data.tong.so_viec_ton ?? tonDay.length} việc`} />
           </dl>
+          {data.co_so_ngung?.length ? (
+            <p className="text-meta text-ink-muted" data-testid="co-so-ngung">
+              Không tính cơ sở đã ngừng: {data.co_so_ngung.map(c => c.ten).join(", ")} (chọn đúng cơ sở ấy ở ô Cơ sở để xem lại khoản cũ).
+            </p>
+          ) : null}
 
           <div className="flex justify-end">
             <ThanhTab<Tab>
