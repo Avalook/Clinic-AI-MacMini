@@ -66,6 +66,7 @@ SELECT DISTINCT v FROM (
     UNION
     SELECT rx.visit_id::text FROM dong d
       JOIN public.prescription rx
+        /* rx:gom-ca-lich-su: tiền đã thu ở dòng đã đính chính vẫn thuộc lượt đó */
         ON d.source_type = 'prescription' AND rx.clinic_id = $1::uuid
        AND rx.id::text = d.source_id
 ) x WHERE v IS NOT NULL
