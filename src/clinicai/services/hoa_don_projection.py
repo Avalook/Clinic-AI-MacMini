@@ -532,6 +532,14 @@ def duong_xu_ly(v: Mapping[str, Any]) -> dict[str, Any] | None:
                 "nhan": "Mở lượt để xử lý",
                 "lego": LEGO_CHECK_OUT,
             }
+        if quay == "thuoc":
+            # Tiền thuốc đã thu mà chưa giao / khách trả lại: hoàn ở QUẦY THUỐC
+            # (lần thu thuốc nằm trong "Giao dịch" của quầy ấy, lego thu thuốc).
+            return {
+                "href": f"/thu-ngan/thuoc?luot={vid}",
+                "nhan": "Hoàn tiền thuốc",
+                "lego": LEGO_QUAY["thuoc"],
+            }
         return {
             "href": f"/thu-ngan/dich-vu?luot={vid}",
             "nhan": "Hoàn tiền thừa",

@@ -56,6 +56,11 @@ async def _ton(pool: asyncpg.Pool, visit: str) -> dict[str, dict[str, Any]]:  # 
     return {t["loai"]: t for t in ds if t.get("visit_id") == visit}
 
 
+def _dich(t: dict[str, Any]) -> dict[str, Any]:
+    """Đích của nút Xử lý (bỏ phần cơ sở kèm theo)."""
+    return {k: t["xu_ly"][k] for k in ("href", "nhan", "lego")}
+
+
 async def _tren_quay(pool: asyncpg.Pool, ca: Ca) -> dict[str, dict[str, Any]]:  # noqa: F811
     bang = await CashierBoardService(pool).board(
         identity=ca.thu_ngan, modes=["dich_vu", "thuoc"]
@@ -72,7 +77,7 @@ async def test_ghi_no_co_nut_thu_no_ve_dung_quay_va_khach(pool: asyncpg.Pool) ->
     await chay_ben_nhan(pool, CONG_NO, SO_NO)
     t = (await _ton(pool, v))["GHI_NO"]
     assert t["kind"] == "dich_vu"
-    assert t["xu_ly"] == {
+    assert _dich(t) == {
         "href": f"/thu-ngan/dich-vu?luot={v}",
         "nhan": "Thu nợ / miễn",
         "lego": "payment.service.collect",
@@ -113,7 +118,7 @@ async def test_tien_thua_lan_da_dong_mo_o_quay_va_len_quay_du_cu(
     await chay_ben_nhan(pool, CONG_NO, SO_NO)
     await _lui_luot(pool, v, 40)
     t = (await _ton(pool, v))["CHUA_TRA_LAI"]
-    assert t["xu_ly"] == {
+    assert _dich(t) == {
         "href": f"/thu-ngan/dich-vu?luot={v}",
         "nhan": "Hoàn tiền thừa",
         "lego": "payment.service.collect",
