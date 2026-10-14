@@ -85,7 +85,7 @@ export default function KhoiChotCa({
   return (
     <section aria-label="Chốt sổ ca" className="space-y-2 print:hidden">
       {dieuChinh && dieuChinh.so_phieu > 0 ? (
-        <p className="rounded-control bg-warning-bg px-3 py-2 text-meta text-warning">
+        <p className="text-meta text-ink-muted">
           Điều chỉnh ca trước: {dieuChinh.so_phieu} phiếu của ca ĐÃ CHỐT bị huỷ trong khoảng này (
           {tien(dieuChinh.tong)}) — đã tính vào “Trả lại”, số của ca cũ giữ nguyên.
         </p>
@@ -98,7 +98,7 @@ export default function KhoiChotCa({
             {chot.ghi_chu ? ` Ghi chú: “${chot.ghi_chu}”.` : ""}
           </p>
           {coSauChot && sauChot ? (
-            <p className="text-meta text-warning">
+            <p className="text-meta text-ink-muted">
               Sau khi chốt có thêm: thu {tien(sauChot.thu)} · huỷ {tien(sauChot.huy)} · hoàn{" "}
               {tien(sauChot.hoan)} (thực thu {tien(sauChot.thuc_thu)}) — huỷ / hoàn tác sau chốt
               tính vào ca đang làm.
