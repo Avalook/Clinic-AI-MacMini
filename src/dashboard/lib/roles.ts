@@ -579,6 +579,7 @@ const KHONG_MO_THEO_CONG_TAC = [
   "/reports",
   "/hoa-don",
   "/xuat-hoa-don",
+  "/ke-toan",
   "/admin",
   // Hai màn của người NGOÀI phòng khám. Chúng đóng theo thiết kế, và công tắc
   // "mở tạm" không được phép chạm vào — xem `test_mo_quyen_tam_thoi.py`.
@@ -643,6 +644,7 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/xuat-hoa-don": ["report.view"],
   "/reports": ["report.view"], // 17 Báo cáo
   "/lich-do-ve": ["report.view"],
+  "/ke-toan": ["accounting.finance.full"], // 22 Kế toán (14/10/2026)
   "/settings": ["config.clinic.manage"], // 18 Cài đặt phòng khám
   "/settings/booking-policy": ["config.clinic.manage"],
   "/settings/clinic-config": ["config.clinic.manage"],

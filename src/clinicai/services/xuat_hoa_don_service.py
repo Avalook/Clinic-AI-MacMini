@@ -17,7 +17,7 @@ import warnings
 from collections.abc import Mapping, Sequence
 from copy import copy
 from datetime import datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +38,11 @@ DONG_DAU = 2
 #: Dịch vụ không ghi đơn vị trên phiếu → "Lần" (đúng ví dụ trong mẫu kế toán gửi).
 DVT_DICH_VU = "Lần"
 _NGUON_DICH_VU = frozenset({"exam", "service_order", "lieu_trinh"})
+#: Dòng hoá đơn thuộc nhóm hàng nào — kế toán đặt thuế suất theo nhóm (Q16).
+NHOM_THUOC = "THUOC"
+NHOM_VAT_TU = "VAT_TU"
+NHOM_DICH_VU = "DICH_VU"
+_NHOM_THEO_NGUON = {"prescription": NHOM_THUOC, "vat_tu": NHOM_VAT_TU}
 
 #: Câu gợi ý khi bấm vào ô — chép nguyên văn từ mẫu. openpyxl không đọc được
 #: phần mở rộng x14 chứa chúng nên phải gắn lại, để file giống mẫu khi mở.
@@ -69,8 +74,12 @@ GOI_Y: tuple[tuple[str, str], ...] = (
 )
 
 _THEM_DONG = """
-SELECT bl.id::text id, bl.unit, bl.source_type
+SELECT bl.id::text id, bl.unit, bl.source_type,
+ coalesce(nullif(btrim(dc.ma_hang), ''), nullif(btrim(o.service_code), '')) ma
 FROM payment_bill_line bl
+LEFT JOIN drug_catalog dc ON dc.id=bl.drug_catalog_id AND dc.clinic_id=bl.clinic_id
+LEFT JOIN service_order o ON bl.source_type='service_order'
+ AND o.clinic_id=bl.clinic_id AND o.id::text=bl.source_id
 WHERE bl.clinic_id=$1::uuid AND bl.payment_cycle_id=ANY($2::uuid[])
 """
 _THEM_KHACH = """
@@ -108,6 +117,10 @@ def _don_gia(thanh_tien: int, so_luong: float) -> int | float:
         return thanh_tien
     gia = Decimal(thanh_tien) / Decimal(str(so_luong))
     return int(gia) if gia == gia.to_integral_value() else float(round(gia, 4))
+
+
+def _tron_dong(x: Decimal) -> int:
+    return int(x.quantize(Decimal(1), rounding=ROUND_HALF_UP))
 
 
 def _so(x: float) -> int | float:
@@ -162,13 +175,27 @@ def dung_hoa_don(
             dvt = (them.get("unit") or "").strip()
             if not dvt and them.get("source_type") in _NGUON_DICH_VU:
                 dvt = DVT_DICH_VU
+            goc = int(d["thanh_tien"])
+            # Giảm giá đã chia cho dòng; hoàn một phần thì giảm còn lại theo tỉ lệ.
+            giam = int(d.get("giam_gia") or 0)
+            if giam and tien != goc:
+                giam = _tron_dong(Decimal(giam) * tien / goc)
             dong.append(
                 {
+                    "id": d["id"],
                     "ten": str(d.get("ten") or ""),
+                    "ma": str(them.get("ma") or ""),
+                    "nhom": _NHOM_THEO_NGUON.get(
+                        str(them.get("source_type") or ""), NHOM_DICH_VU
+                    ),
                     "dvt": dvt,
                     "so_luong": _so(sl),
                     "don_gia": _don_gia(tien, sl),
                     "thanh_tien": tien,
+                    # Số TRƯỚC giảm / phần giảm của dòng — chỉ để kế toán bật
+                    # "ghi giảm giá trên hoá đơn" (K2); thanh_tien vẫn là SAU giảm.
+                    "giam_gia": giam,
+                    "truoc_giam": tien + giam,
                 }
             )
         if not dong:

@@ -262,6 +262,16 @@ KHOI: dict[str, KhoiCongViec] = {
             "partner",
             "Khách được phân cho mình, điền thông tin, gửi tài liệu",
         ),
+        # KẾ TOÁN (14/10/2026): xem tài chính đầy đủ + xuất hoá đơn + đặt thuế.
+        # KHÔNG vào "mở full lego" (KHOI_CHI_QUAN_LY): có khối này là thấy Dòng
+        # tiền / hoá đơn của MỌI ca, mọi cơ sở không cần lịch trực — Quản lý cấp
+        # cho người cụ thể (gói mẫu "Kế toán"), không phát cho mọi nhân viên.
+        KhoiCongViec(
+            "ke_toan",
+            "Kế toán",
+            "accounting",
+            "Xem tài chính đầy đủ, hoá đơn, xuất Excel, thống kê theo hàng hoá",
+        ),
         # NỘI BỘ (09/10/2026): trung tâm giám sát AI ở giamsat.dr4women.io.vn —
         # chỉ đội vận hành ClinicAI. KHÔNG nằm trong preset nào, không bày trên
         # màn Phân quyền, API cấp/thu/nhóm từ chối, trigger DB chặn cấp lậu.
@@ -596,6 +606,13 @@ QUYEN: dict[str, Quyen] = {
             MucRuiRo.QUAN_TRI,
         ),
         Quyen(
+            "accounting.finance.full",
+            "Xem tài chính đầy đủ (Dòng tiền, hoá đơn, theo hàng hoá), mọi ca",
+            "ke_toan",
+            "accounting",
+            MucRuiRo.TIEN,
+        ),
+        Quyen(
             "config.clinic.manage",
             "Cài đặt phòng khám (luật đặt lịch, cấu trúc, lịch trực)",
             "cai_dat",
@@ -833,7 +850,7 @@ PRESET_TRUOC_MO_FULL: dict[str, tuple[str, ...]] = {
 
 #: Khối CHỈ Quản lý có (không mở cho mọi người).
 KHOI_CHI_QUAN_LY: frozenset[str] = frozenset(
-    {"quan_tri_quyen", "nhan_su", "cai_dat", "danh_muc"}
+    {"quan_tri_quyen", "nhan_su", "cai_dat", "danh_muc", "ke_toan"}
 )
 
 #: Khối mở cho MỌI nhân sự nội bộ.
@@ -844,6 +861,12 @@ KHOI_MO_FULL: list[str] = [
 for _vai in PRESET:
     if _vai not in ("PARTNER", "MANAGEMENT"):
         PRESET[_vai] = list(KHOI_MO_FULL)
+
+# GÓI MẪU "KẾ TOÁN" (Tuyền 14/10/2026) — KHÔNG phải vai tài khoản: quản lý áp gói
+# này cho người cụ thể (và thêm/bớt lego tuỳ ý). Cố ý KHÔNG có `thu_tien_dv`,
+# `thu_tien_thuoc`: kế toán không thu tiền — máy chủ chặn theo capability của hai
+# khối ấy, không theo tên vai. Đặt SAU vòng mở-full ở trên.
+PRESET["KE_TOAN"] = ["bao_cao", "ke_toan", "ds_benh_nhan", "lich_lam_viec"]
 
 
 # ── QUYỀN THEO MÀN (Tuyền chốt 23/09/2026) ───────────────────────────────
@@ -1021,6 +1044,15 @@ MAN: dict[str, Man] = {
             ["/reports", "/hoa-don", "/xuat-hoa-don", "/lich-do-ve"],
             ["bao_cao"],
             "Quản lý",
+        ),
+        # Kế toán (14/10/2026): chỗ làm việc của kế toán — thống kê theo hàng hoá
+        # (G5a); thuế suất, hoá đơn công ty, trạng thái MISA vào đây ở G5b.
+        _lego(
+            "ke_toan",
+            "Kế toán",
+            ["/ke-toan"],
+            ["ke_toan"],
+            "Kế toán",
         ),
         _lego(
             "cai_dat",

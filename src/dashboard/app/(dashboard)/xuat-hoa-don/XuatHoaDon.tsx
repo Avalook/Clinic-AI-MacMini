@@ -4,6 +4,7 @@
 // GTGT (MISA) thay vì gõ tay từng phiếu thu. Máy chủ dựng hoá đơn và file từ
 // chính tệp mẫu; màn chỉ chọn phạm vi, xem trước và tải.
 
+import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { buttonClass } from "@/components/ui/Button";
 import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
@@ -80,6 +81,10 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
 
   return (
     <div className="min-w-0 space-y-4">
+      <div className="flex flex-wrap items-center gap-2 text-body">
+        <span className="rounded-chip bg-info-bg px-3 py-1 text-meta font-semibold text-info">Theo từng hoá đơn</span>
+        <Link href="/ke-toan" className="rounded-chip px-3 py-1 text-meta text-ink-muted ring-1 ring-hairline hover:text-ink">Theo hàng hoá →</Link>
+      </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
         <OLoc ten="Ngày thu">
           <div className="[&>div>button]:h-10 [&>div>button]:w-full">

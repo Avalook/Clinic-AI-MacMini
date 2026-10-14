@@ -377,6 +377,17 @@ FT `danh-sach-hoa-don-boundary.test.mts`, E2E `e2e/danh-sach-hoa-don.mjs` (API g
 Mỗi phiếu thu trong kỳ = 1 hoá đơn; bỏ phiếu huỷ; trừ dòng đã hoàn xong; ô chưa có dữ liệu để trống.
 Đổi mẫu = thay tệp `.xlsx` đó (tiêu đề cột ở dòng `TIEU_DE_MAU` = 9). Test `T/unit/test_xuat_hoa_don.py`,
 FT `xuat-hoa-don-boundary.test.mts`.
+**Kế toán — lego #22 + Theo hàng hoá (G5a, 14/10)** — quyền KHÔNG theo vai: khối `ke_toan` /
+quyền `accounting.finance.full` (`P/permissions/catalogue.py`: KHOI, QUYEN, `MAN["ke_toan"]`,
+`PRESET["KE_TOAN"]` đặt SAU vòng mở-full, `KHOI_CHI_QUAN_LY` chứa `ke_toan` để nhân viên khác không
+tự có) + migration `20261014150000_lego_ke_toan.sql`. Cổng tài chính: nhánh capability trong
+`S/report_access_service.py::access()` (có quyền → xem mọi ca / cơ sở, không thành `quan_ly`).
+Gói Kế toán KHÔNG có `thu_tien_dv`/`thu_tien_thuoc` → thu/hoàn/đổi hình thức bị `payment_service` /
+`hoan_tien_service` chặn theo quyền. Thống kê: `D/ke-toan/KeToan.tsx` → `/api/theo-hang-hoa` →
+`GET /api/v1/hoa-don/theo-hang-hoa` (+ `/xlsx`) → `S/theo_hang_hoa_service.py` (`gom_theo_hang_hoa` thuần)
+dùng lại `XuatHoaDonService.xem`. Test `T/services/test_ke_toan_lego_db.py`, `test_theo_hang_hoa_db.py`,
+`T/unit/test_theo_hang_hoa.py`, FT `ke-toan-boundary.test.mts`.
+
 Nút thu dùng chung `NhomThu` ở 2 quầy và Bán lẻ đổi thành **Tạo bill**; tiền mặt vẫn ghi thu,
 chuyển khoản vẫn chờ xác minh, nút xác minh **Đã nhận tiền** giữ nguyên.
 
