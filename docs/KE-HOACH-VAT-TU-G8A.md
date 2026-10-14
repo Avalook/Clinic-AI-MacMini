@@ -22,6 +22,10 @@ nhận tín hiệu. Ở quy mô hiện tại một khoá ngắn mỗi cơ sở �
 
 ## Các lát tiếp theo trong Q1 (chưa hoàn thành ở lát 1)
 
+Tuyền chốt tiếp: cờ “Được kinh doanh” chỉ phân loại. Giữ điều kiện bán cũ
+(active + giá dương + duyệt khi mặt hàng yêu cầu), không thêm cổng chặn.
+Danh mục mới giữ phân loại ban đầu theo giá đã có, lần chạy lại không đè sửa tay.
+
 - Danh mục: loại VPP/VTYT, kinh doanh, giá nhập, mã vạch, cờ duyệt; proxy PATCH
   phải chuyển đủ cột. Backfill 84 hàng giữ nguyên, 3 hàng có giá kinh doanh.
 - API và màn Kho vật tư; thêm lego riêng sau khi báo Tuyền, không gác theo vai.

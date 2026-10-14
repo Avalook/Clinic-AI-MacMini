@@ -19,8 +19,14 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import NganGap from "@/components/ui/NganGap";
 import { boDauVatTu } from "@/lib/vat-tu";
+import VatTuThuocTinh from "./VatTuThuocTinh";
 
 export interface DongVatTu {
+  loai_vat_tu?: "VPP" | "VTYT" | null;
+  gia_nhap?: number | null;
+  ma_vach?: string | null;
+  kinh_doanh?: boolean;
+  can_duyet_nhap?: boolean;
   id: string;
   service_code: string;
   name: string;
@@ -146,6 +152,7 @@ export default function VatTuBangGia({
                       />
                       <span>{d.active ? "Đang bán" : "Tạm ngưng"}</span>
                     </label>
+                    <VatTuThuocTinh d={d} ban={ban} onSua={onSua} />
                   </li>
                 );
               })}
