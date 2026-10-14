@@ -23,6 +23,7 @@ from clinicai.modules import MODULE
 from clinicai.services.cong_no_service import CongNoService
 from clinicai.services.hoan_tac_service import HoanTacService
 from clinicai.services.hoan_tien_service import HoanTienService
+from clinicai.services.payment_service import PaymentService
 from clinicai.services.service_execution_service import ServiceExecutionService
 from clinicai.services.so_no_service import (
     LOAI_THEO_SU_KIEN,
@@ -107,16 +108,42 @@ async def test_r2_huy_phieu_sau_khi_ve_thanh_no(pool: asyncpg.Pool) -> None:  # 
     assert await _so(pool, v) == [("PHAI_THU", 300_000, 300_000, "HUY_PHIEU")]
 
 
-async def test_r11_ck_cho_cho_ve_roi_huy_thanh_no(pool: asyncpg.Pool) -> None:  # noqa: F811
+async def test_r11_ck_cho_cho_ve_la_no_tu_luc_ve_huy_cho_van_no(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Tiền chưa về thì vẫn là nợ (Tuyền 14/10): khách về khi CK còn chờ → sổ
+    ghi nợ ngay; quầy huỷ lần chờ → nợ còn nguyên, không ghi thêm."""
     ca = await _dung(pool)
     v, o = await _luot(pool, ca)
     await _lam_xong(pool, ca, o)
     await _thu(pool, ca, v, method="TRANSFER")
     await _ve(pool, ca, v)
-    # CK đang chờ: tiền đang về — không đếm là nợ (mục "CK chưa về" lo).
-    assert await _so(pool, v) == []
+    assert await _so(pool, v) == [("PHAI_THU", 300_000, 300_000, "KHI_VE")]
     await _huy_cho(pool, ca, v)
-    assert await _so(pool, v) == [("PHAI_THU", 300_000, 300_000, "HUY_PHIEU")]
+    assert await _so(pool, v) == [("PHAI_THU", 300_000, 300_000, "KHI_VE")]
+
+
+async def test_tra_no_bang_ck_chi_giam_luc_xac_minh(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Khách nợ quay lại chuyển khoản: lúc CHỜ, nợ chưa giảm; xác minh xong mới
+    là "nợ thu được" (THU) — đúng ngày tiền vào, không thành "điều chỉnh"."""
+    ca = await _dung(pool)
+    v, o = await _luot(pool, ca)
+    await _lam_xong(pool, ca, o)
+    await CongNoService(pool).ghi(identity=ca.le_tan, visit_id=v, ly_do="Quên ví")
+    await _ve(pool, ca, v)
+    cid = await _thu(pool, ca, v, method="TRANSFER")
+    assert await _so(pool, v) == [("PHAI_THU", 300_000, 300_000, "KHI_VE")]
+    # Lượt đối chiếu định kỳ cũng không thấy lệch trong lúc chờ.
+    await doi_chieu_mot_vong(pool)
+    assert len(await _so(pool, v)) == 1
+    await PaymentService(pool).xac_minh_dien_tu(
+        payment_cycle_id=cid,
+        visit_id=v,
+        kind="dich_vu",
+        reference="FT999",
+        identity=ca.thu_ngan,
+    )
+    assert (await _so(pool, v))[-1] == ("PHAI_THU", -300_000, 0, "THU")
 
 
 async def test_r13_bam_xong_muon_sau_khi_ve_thanh_no(pool: asyncpg.Pool) -> None:  # noqa: F811

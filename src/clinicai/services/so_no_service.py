@@ -4,8 +4,8 @@ Kế toán giữ hai sổ cho mỗi lượt ĐÃ VỀ:
 
   * PHAI_THU — khách nợ phòng khám: đúng luật chặn check-out ``no_khi_ve``
     (dịch vụ đã/đang làm, vật tư đã thêm, thuốc đã lấy mà chưa có lần thu nào
-    phủ; chuyển khoản CHỜ xác minh coi như đã phủ — tiền đang về nằm ở mục
-    "CK chưa về", không đếm hai lần).
+    phủ) + chuyển khoản CHỜ xác minh (tiền chưa về thì vẫn là nợ — một khoản,
+    ghi chú "chờ xác minh"; xác minh xong mới là "nợ thu được", đúng ngày).
   * PHAI_TRA — phòng khám nợ khách: tiền thừa (chỉ định đã bỏ / không làm, dịch
     vụ khám đã bỏ tick — ``dong_tien_thua``) + đã thu mà chưa làm khi khách đã
     về. "Giữ lại tiền thừa" vẫn là nợ khách. Không có hạn 90 ngày.
@@ -102,6 +102,14 @@ SELECT o.id::text AS id, o.service_name AS ten
    AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
 """
 
+#: Lần thu CHỜ xác minh của lượt — số GỐC (trước giảm) mà lần chờ đang phủ.
+_CK_CHO_SQL = """
+SELECT coalesce(c.original_amount, c.amount) AS goc
+  FROM public.payment_cycle c
+ WHERE c.clinic_id = $1::uuid AND c.visit_id = $2::uuid
+   AND c.status = 'PENDING_VERIFICATION'
+"""
+
 _CUOI_SQL = """
 SELECT so_du FROM public.so_no
  WHERE clinic_id = $1::uuid AND visit_id = $2::uuid AND chieu = $3
@@ -162,10 +170,21 @@ async def so_du_hien_tai(
     if not luot["da_ve"]:
         return sd, luot["clinic_patient_id"]
     no = await no_khi_ve(conn, clinic_id=clinic_id, visit_id=visit_id)
-    sd.phai_thu = no.tong
-    sd.chi_tiet[PHAI_THU] = [
-        {"ten": d.ten, "so_tien": d.so_tien, "loai": d.source_type} for d in no.dong
-    ]
+    thu = [{"ten": d.ten, "so_tien": d.so_tien, "loai": d.source_type} for d in no.dong]
+    # Chuyển khoản CHỜ xác minh: tiền chưa về thì vẫn là nợ (Tuyền 14/10) —
+    # `no_khi_ve` coi lần chờ là đã phủ (để check-out qua), sổ thì cộng lại
+    # đúng số gốc lần chờ đang giữ. Xác minh → giảm đúng lúc tiền vào (THU);
+    # huỷ lần chờ → các dòng hiện lại trong `no_khi_ve`, số dư không đổi.
+    for r in await conn.fetch(_CK_CHO_SQL, clinic_id, visit_id):
+        thu.append(
+            {
+                "ten": "Chuyển khoản chờ xác minh",
+                "so_tien": int(r["goc"]),
+                "loai": "CK_CHO",
+            }
+        )
+    sd.chi_tiet[PHAI_THU] = thu
+    sd.phai_thu = sum(int(d["so_tien"] or 0) for d in thu)
     thua = (await dong_tien_thua(conn, clinic_id, [visit_id])).get(visit_id, [])
     tra = [
         {"ten": d["ten"], "so_tien": int(d["so_tien"]), "loai": d["loai"]} for d in thua
