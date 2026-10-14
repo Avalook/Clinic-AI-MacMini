@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from clinicai.api.exceptions import NotFoundError, ValidationError
+from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.core.clock import hom_nay_vn
 from clinicai.services import lo_thuoc_service as lo
 from clinicai.services.pharmacy_service import PharmacyService
@@ -33,7 +33,7 @@ async def _batch(q: Quay, expired: bool = True) -> str:
 
 
 async def test_sua_lo_co_lich_su_va_hoan_bang_sua_lai(q: Quay) -> None:
-    batch = await _batch(q)
+    batch = await _batch(q, expired=False)
     original = await q.pool.fetchrow(
         "SELECT batch_code,expiry_date FROM drug_batch WHERE id=$1::uuid", batch
     )
@@ -42,7 +42,7 @@ async def test_sua_lo_co_lich_su_va_hoan_bang_sua_lai(q: Quay) -> None:
         identity=q.duoc_si,
         drug_batch_id=batch,
         batch_code="LO-MOI",
-        expiry_date="rác",
+        expiry_date=None,
     )
     assert (
         await q.pool.fetchval(
@@ -235,3 +235,143 @@ async def test_ba_lenh_lo_di_qua_cua_quyen_ghi(
         await pharmacy._GHI(identity=q.duoc_si, pool=q.pool)
     assert check.await_args is not None
     assert check.await_args.args[2] == "pharmacy.dispense"
+
+
+@pytest.mark.parametrize("raw", ["rác", "31/02/2026", "2026-13-01", 123, {}, True])
+async def test_sua_han_rac_khong_doi_lo_hay_ghi_log(q: Quay, raw: Any) -> None:
+    batch = await _batch(q)
+    before = await q.pool.fetchrow(
+        "SELECT batch_code,expiry_date FROM drug_batch WHERE id=$1::uuid", batch
+    )
+    with pytest.raises(ValidationError, match="Ngày hạn không đúng định dạng"):
+        await lo.sua_lo(
+            q.pool,
+            identity=q.duoc_si,
+            drug_batch_id=batch,
+            batch_code="DOI",
+            expiry_date=raw,
+        )
+    assert (
+        await q.pool.fetchrow(
+            "SELECT batch_code,expiry_date FROM drug_batch WHERE id=$1::uuid", batch
+        )
+        == before
+    )
+    assert (
+        await q.pool.fetchval(
+            "SELECT count(*) FROM event_log WHERE aggregate_id=$1::uuid "
+            "AND event_type='pharmacy.batch_updated'",
+            batch,
+        )
+        == 0
+    )
+
+
+@pytest.mark.parametrize("raw", [None, "", "   "])
+async def test_lo_het_han_khong_duoc_xoa_han(q: Quay, raw: Any) -> None:
+    batch = await _batch(q)
+    before = await q.pool.fetchval(
+        "SELECT expiry_date FROM drug_batch WHERE id=$1::uuid", batch
+    )
+    with pytest.raises(
+        ConflictError, match="Lô đã hết hạn — nhập hạn mới hoặc bấm Huỷ lô hết hạn"
+    ):
+        await lo.sua_lo(
+            q.pool,
+            identity=q.duoc_si,
+            drug_batch_id=batch,
+            batch_code="DOI",
+            expiry_date=raw,
+        )
+    assert (
+        await q.pool.fetchval(
+            "SELECT expiry_date FROM drug_batch WHERE id=$1::uuid", batch
+        )
+        == before
+    )
+
+
+async def test_lo_het_han_sua_han_moi_hop_le_co_lich_su(q: Quay) -> None:
+    batch = await _batch(q)
+    today = hom_nay_vn()
+    await lo.sua_lo(
+        q.pool,
+        identity=q.duoc_si,
+        drug_batch_id=batch,
+        batch_code="MOI",
+        expiry_date=today.strftime("%d/%m/%Y"),
+    )
+    assert (
+        await q.pool.fetchval(
+            "SELECT expiry_date FROM drug_batch WHERE id=$1::uuid", batch
+        )
+        == today
+    )
+    payload = json.loads(
+        await q.pool.fetchval(
+            "SELECT payload FROM event_log WHERE aggregate_id=$1::uuid "
+            "AND event_type='pharmacy.batch_updated'",
+            batch,
+        )
+    )
+    assert payload["before"]["expiry_date"] == str(today - timedelta(days=1))
+    assert payload["after"]["expiry_date"] == str(today)
+
+
+async def test_sua_so_lo_trung_tra_409_khong_doi_db(q: Quay) -> None:
+    batch = await _batch(q, expired=False)
+    other = await _batch(q, expired=False)
+    code = await q.pool.fetchval(
+        "SELECT batch_code FROM drug_batch WHERE id=$1::uuid", other
+    )
+    before = await q.pool.fetchrow(
+        "SELECT batch_code,expiry_date FROM drug_batch WHERE id=$1::uuid", batch
+    )
+    with pytest.raises(ConflictError, match="Số lô này đã có"):
+        await lo.sua_lo(
+            q.pool,
+            identity=q.duoc_si,
+            drug_batch_id=batch,
+            batch_code=code,
+            expiry_date=None,
+        )
+    assert (
+        await q.pool.fetchrow(
+            "SELECT batch_code,expiry_date FROM drug_batch WHERE id=$1::uuid", batch
+        )
+        == before
+    )
+
+
+@pytest.mark.parametrize("old", ["today", "none"])
+@pytest.mark.parametrize("raw", [None, "", "   "])
+async def test_lo_con_han_hoac_chua_han_bo_han_duoc(
+    q: Quay, old: str, raw: Any
+) -> None:
+    batch = await _batch(q, expired=False)
+    await q.pool.execute(
+        "UPDATE drug_batch SET expiry_date=$2 WHERE id=$1::uuid",
+        batch,
+        hom_nay_vn() if old == "today" else None,
+    )
+    await lo.sua_lo(
+        q.pool,
+        identity=q.duoc_si,
+        drug_batch_id=batch,
+        batch_code="BO-HAN",
+        expiry_date=raw,
+    )
+    assert (
+        await q.pool.fetchval(
+            "SELECT expiry_date FROM drug_batch WHERE id=$1::uuid", batch
+        )
+        is None
+    )
+    assert (
+        await q.pool.fetchval(
+            "SELECT count(*) FROM event_log WHERE aggregate_id=$1::uuid "
+            "AND event_type='pharmacy.batch_updated'",
+            batch,
+        )
+        == 1
+    )

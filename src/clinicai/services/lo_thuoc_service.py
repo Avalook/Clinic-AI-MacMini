@@ -7,7 +7,7 @@ from typing import Any
 
 import asyncpg
 
-from clinicai.api.exceptions import NotFoundError, ValidationError
+from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import hom_nay_vn
 from clinicai.phieu_kham.khung import doc_ngay
@@ -39,15 +39,31 @@ async def sua_lo(
     ma = batch_code.strip()
     if not ma:
         raise ValidationError("Nhập số lô.")
+    trong = expiry_date is None or (
+        isinstance(expiry_date, str) and not expiry_date.strip()
+    )
     han = expiry_date if isinstance(expiry_date, date) else doc_ngay(expiry_date)
+    if not trong and han is None:
+        raise ValidationError("Ngày hạn không đúng định dạng — nhập dd/mm/yyyy")
     async with pool.acquire() as conn, conn.transaction():
         lo = await _lo(conn, identity, drug_batch_id)
-        await conn.execute(
-            "UPDATE drug_batch SET batch_code=$2, expiry_date=$3 WHERE id=$1::uuid",
-            drug_batch_id,
-            ma,
-            han,
-        )
+        if (
+            han is None
+            and lo["expiry_date"] is not None
+            and lo["expiry_date"] < hom_nay_vn()
+        ):
+            raise ConflictError("Lô đã hết hạn — nhập hạn mới hoặc bấm Huỷ lô hết hạn")
+        try:
+            await conn.execute(
+                "UPDATE drug_batch SET batch_code=$2, expiry_date=$3 WHERE id=$1::uuid",
+                drug_batch_id,
+                ma,
+                han,
+            )
+        except asyncpg.UniqueViolationError as exc:
+            raise ConflictError(
+                "Số lô này đã có trong kho cơ sở — nhập số lô khác."
+            ) from exc
         await ghi_nhat_ky(
             conn,
             identity=identity,
