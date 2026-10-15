@@ -22,6 +22,7 @@ import type { KetQuaChia } from "../thu-ngan/ChiaHinhThuc";
 import type { GiamGiaResult } from "../thu-ngan/GiamGia";
 import NutHoanTac from "../thu-ngan/NutHoanTac";
 import { NhomThu, type ChoXacMinh, type HoaDon } from "../thu-ngan/QuayThuNgan";
+import LichSuDonThuoc from "./LichSuDonThuoc";
 
 interface DocBanLe {
   visit_id: string;
@@ -44,6 +45,10 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
   const [loi, setLoi] = useState<string | null>(null);
   const [xong, setXong] = useState<string | null>(null);
   const [dangThu, setDangThu] = useState(false);
+  // Nối đơn thêm dòng ở máy chủ → nạp lại khối "Lấy thêm thuốc" (nó tự giữ dữ liệu).
+  const [lanNoi, setLanNoi] = useState(0);
+  // Mỗi lần nạp lại lượt → lịch sử đơn (đã mua / đang bán / đã nối) nạp lại theo.
+  const [lanTai, setLanTai] = useState(0);
 
   const tai = useCallback(async () => {
     try {
@@ -58,13 +63,14 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
         return;
       }
       setDoc(d);
+      setLanTai((n) => n + 1);
     } catch {
       setLoi("Mất kết nối tới máy chủ.");
     }
   }, [visitId]);
 
-  // Người khác thu / sửa đơn (quầy thu thuốc, dược sĩ) → hoá đơn ở đây tự cập nhật.
-  useNgheBang(["payment_cycle", "prescription"], () => void tai());
+  // Người khác thu / sửa đơn / nối – gỡ đơn gốc → hoá đơn và đơn ở đây tự cập nhật.
+  useNgheBang(["payment_cycle", "prescription", "visit"], () => void tai());
 
   useEffect(() => {
     let bo = false;
@@ -151,8 +157,24 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
         </p>
       ) : null}
       {xong ? <p className="bg-success-bg px-4 py-2 text-meta text-success">{xong}</p> : null}
+      {doc.clinic_patient_id ? (
+        <LichSuDonThuoc
+          visitId={visitId}
+          clinicPatientId={doc.clinic_patient_id}
+          choSua={choSua}
+          lanTai={lanTai}
+          onDoi={async (cau, loiMoi) => {
+            setXong(cau);
+            setLoi(loiMoi);
+            setLanNoi((n) => n + 1);
+            await tai();
+            router.refresh();
+          }}
+        />
+      ) : null}
       {choSua ? (
         <ChinhDonQuay
+          key={lanNoi}
           visitId={visitId}
           onDoi={async (cau, loiMoi) => {
             setXong(cau);
