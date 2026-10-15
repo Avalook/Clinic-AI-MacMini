@@ -20,6 +20,7 @@ import DongThuoc, { CHAM } from "./DongThuoc";
 import KhachMuaThuoc from "./KhachMuaThuoc";
 import { INPUT } from "../form-ui";
 import OQuetMa, { NHAN_TRANG_THAI_LO, type KetQuaQuet } from "./inventory/OQuetMa";
+import { cauLoKhongDungDuoc } from "@/lib/lo-bi-loai";
 import { GIAI_DOAN, type LuotThuoc, type ManNhaThuoc } from "./ban-thuoc";
 
 type Tab = "dang_lam" | "xong";
@@ -88,7 +89,9 @@ export default function PharmacyBoard({
       loId = kq.lo_theo_ma?.trang_thai === "ok" ? kq.lo_theo_ma.id : kq.goi_y_lo[0]?.id;
     }
     if (!loId || !dong.lo_goi_y.some((b) => b.drug_batch_id === loId)) {
-      setBaoQuet(`Không có lô còn bán được của ${dong.drug_name_raw ?? "thuốc này"} dùng cho dòng đơn này.`);
+      // Nói ĐÚNG lý do (vd lô tính theo hộp, đơn kê theo gói) — máy chủ trả
+      // `lo_bi_loai`; không có lý do thì câu chung như cũ.
+      setBaoQuet(cauLoKhongDungDuoc(dong.lo_bi_loai, loId, dong.drug_name_raw ?? "thuốc này"));
       return;
     }
     setLoQuet({ dongId: dong.id, loId });
