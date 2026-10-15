@@ -7,7 +7,7 @@ export type KetQuaVatTu = { ok: true; data: unknown } | { ok: false; loi: string
 /** `khoa` = Idempotency-Key (bắt buộc cho `phieu` và `hoan`): gửi lại cùng khoá =
  *  cùng phiếu, máy chủ không ghi sổ lần hai. */
 export async function guiVatTu(
-  thaoTac: "phieu" | "hoan" | "muc-toi-thieu",
+  thaoTac: "phieu" | "hoan" | "muc-toi-thieu" | "nhap-duyet" | "nhap-tu-choi" | "nhap-rut-lai",
   duLieu: Record<string, unknown>,
   khoa?: string,
 ): Promise<KetQuaVatTu> {

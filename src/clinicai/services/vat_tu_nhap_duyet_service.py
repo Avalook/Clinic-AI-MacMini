@@ -392,8 +392,12 @@ async def doc_cho_duyet(
     out = []
     for r in rows:
         dong = []
+        tong = Decimal(0)
         for d in _dong_cua(r):
             vt = ten_vt.get(d["vat_tu_id"])
+            # Thành tiền tính ở đây (Decimal, giá nhập đã chụp lúc xin) để màn chỉ vẽ.
+            thanh_tien = Decimal(d["so_luong"]) * Decimal(d["gia_nhap"])
+            tong += thanh_tien
             dong.append(
                 {
                     "vat_tu_id": d["vat_tu_id"],
@@ -402,6 +406,7 @@ async def doc_cho_duyet(
                     "den_room_id": d.get("den_room_id"),
                     "so_luong": d["so_luong"],
                     "gia_nhap": d["gia_nhap"],
+                    "thanh_tien": str(thanh_tien),
                 }
             )
         out.append(
@@ -411,9 +416,12 @@ async def doc_cho_duyet(
                 "trang_thai": r["trang_thai"],
                 "nhan": NHAN[r["trang_thai"]],
                 "nguoi_lap": r["ten_lap"],
+                # Màn cần biết "của tôi" để hiện nút Rút lại (máy chủ vẫn kiểm lại).
+                "cua_toi": str(r["tao_boi"]) == identity.staff_id,
                 "tao_luc": r["tao_luc"],
                 "ghi_chu": r["ghi_chu"],
                 "dong": dong,
+                "tong_tien": str(tong),
                 "nguoi_quyet": r["ten_quyet"],
                 "quyet_luc": r["quyet_luc"],
                 "quyet_ly_do": r["quyet_ly_do"],
