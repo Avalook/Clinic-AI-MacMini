@@ -651,6 +651,15 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   + `chuaCoLuot`), nhãn chip `customers/mot-cham.ts` (`CHO_DAT_LICH`). FT
   `luu-ho-so-sang-quan-ly-khach-boundary.test.mts`. Test `T/services/test_man_khach_hang_callback_db.py`,
   FT `intake-patient-ui-boundary.test.mts`; bấm thật `e2e/quick-intake-confirmation.mjs`.
+- **Gọi xác nhận lịch đặt hộ (15/10):** việc `CHO_XAC_NHAN` ("Gọi xác nhận lịch") sinh
+  cho MỌI lịch còn sống, kênh ≠ `WALK_IN`, khám trong [hôm nay, +7 ngày], kể cả đặt sát
+  ngày; hạn = `GREATEST(ngày khám − so_ngay, ngày đặt)`; đóng bằng một dòng
+  `XAC_NHAN_LICH` chưa hoàn tác (không nghe máy/hẹn lại → `GOI_LAI`). Nguồn: view
+  `v_viec_cskh` (migration `20261015110000`, nhãn ở `luat_cskh`). Không có cột "ai đặt"
+  (chưa có cổng khách tự đặt) — thêm đường ghi lịch mới thì làm phương án B (cột nguồn
+  đặt). Test `T/services/test_goi_xac_nhan_lich_dat_ho_db.py` + bài canh ba nơi ghi
+  lịch `T/unit/test_dat_lich_chi_ba_noi_ghi.py`. Việc dữ liệu: bật/tắt, số ngày =
+  `luat_cskh` (sửa trên màn).
 - Màn chuẩn `/customers` (`D/customers/CustomersView.tsx`, `VungLamViecKhach.tsx`,
   `HanhDongTrangThai.tsx`) → `S/cskh_service.py`, `S/danh_sach_khach_cskh.py`; ghi
   chăm sóc `S/tuong_tac_cskh_service.py`. Test: `T/unit/test_so_tuong_tac_cskh.py`.
