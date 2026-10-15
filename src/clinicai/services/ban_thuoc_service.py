@@ -58,6 +58,27 @@ def _don_vi(value: str | None) -> str:
     return " ".join(unicodedata.normalize("NFC", value or "").casefold().split())
 
 
+#: Lý do một lô của thuốc này KHÔNG được gợi ý cho dòng đơn (chỉ để màn nói ĐÚNG
+#: lý do khi quét tem — không đổi luật chọn lô). Hết hạn / hết hàng / đã huỷ do
+#: kết quả quét (`ma_vach_service.trang_thai_lo`) nói; ở đây là hai lý do chỉ
+#: màn Nhà thuốc biết (lô nhìn từ DÒNG ĐƠN): khác cơ sở của lượt, khác đơn vị kê.
+LY_DO_LO_KHAC_CO_SO = "KHAC_CO_SO"
+LY_DO_LO_KHAC_DON_VI = "KHAC_DON_VI"
+
+
+def ly_do_lo_bi_loai(lo: Any, *, co_so: str, don_vi_ke: str) -> str | None:
+    """Lô `lo` có bị loại khỏi gợi ý của dòng đơn không; có thì vì sao.
+
+    Đúng hai luật của `_dong` (kho riêng từng cơ sở; luồng mới chỉ lô cùng đơn vị
+    kê — đơn thiếu đơn vị thì không lọc), tách ra để dùng chung cho cả việc LỌC
+    lẫn việc GIẢI THÍCH, hai nơi không lệch nhau."""
+    if lo["co_so_id"] != co_so:
+        return LY_DO_LO_KHAC_CO_SO
+    if don_vi_ke and _don_vi(lo["unit"]) != don_vi_ke:
+        return LY_DO_LO_KHAC_DON_VI
+    return None
+
+
 def _so(v: Any) -> Decimal:
     return Decimal(str(v if v is not None else 0))
 
@@ -656,15 +677,25 @@ def _dong(
             if ten
             and any(x and (x in ten or ten in x) for x in (b["ten_a"], b["ten_b"]))
         ]
+    lo_bi_loai: list[dict[str, Any]] = []
     if ung_vien and not lich_su:
         dv = _don_vi(r["unit"])
         for b in ung_vien:
-            # Kho riêng từng cơ sở: chỉ lô của cơ sở của lượt.
-            if b["co_so_id"] != co_so:
-                continue
-            # Luồng mới: chỉ lô cùng đơn vị kê. Luồng cũ (legacy) giữ luật cũ:
-            # đơn thiếu đơn vị thì hiểu theo đơn vị lô.
-            if dv and _don_vi(b["unit"]) != dv:
+            # Kho riêng từng cơ sở: chỉ lô của cơ sở của lượt. Luồng mới: chỉ lô
+            # cùng đơn vị kê. Luồng cũ (legacy) giữ luật cũ: đơn thiếu đơn vị
+            # thì hiểu theo đơn vị lô. Lô bị loại vẫn được GHI LẠI kèm lý do để
+            # màn quét tem nói đúng ("tính theo hộp, đơn kê theo gói").
+            ly_do = ly_do_lo_bi_loai(b, co_so=co_so, don_vi_ke=dv)
+            if ly_do:
+                lo_bi_loai.append(
+                    {
+                        "drug_batch_id": b["id"],
+                        "batch_code": b["batch_code"],
+                        "ly_do": ly_do,
+                        "don_vi_lo": b["unit"],
+                        "don_vi_ke": r["unit"],
+                    }
+                )
                 continue
             lo_goi_y.append(
                 {
@@ -695,6 +726,8 @@ def _dong(
         "da_chon": da_chon,
         "phan_lo": ds_pl,
         "lo_goi_y": lo_goi_y,
+        # Lô của thuốc này bị loại khỏi gợi ý + lý do — chỉ để giải thích.
+        "lo_bi_loai": lo_bi_loai,
         "xuat": them["xuat"],
         "chua_giao": them["chua_giao"],
         "can_hoan": them["can_hoan"],

@@ -7,6 +7,9 @@
 
 import type { StatusTone } from "@/components/ui/StatusChip";
 import { VN_TZ } from "../../../lib/datetime";
+import type { LoBiLoai } from "../../../lib/lo-bi-loai";
+
+export type { LoBiLoai };
 
 export type GiaiDoan =
   | "CHUA_SAN_SANG"
@@ -80,6 +83,8 @@ export interface DongDon {
   da_chon: number;
   phan_lo: PhanLo[];
   lo_goi_y: LoGoiY[];
+  /** Lô bị loại khỏi gợi ý + lý do (khác đơn vị / khác cơ sở) — chỉ để giải thích. */
+  lo_bi_loai?: LoBiLoai[];
   /** Lô thuốc này còn ở kho (tách kho / quầy) — để hiện "chuyển sang quầy?". */
   kho_con?: LoKhoCon[];
   xuat: LanGiao[];
