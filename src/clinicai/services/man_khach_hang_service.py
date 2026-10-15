@@ -40,6 +40,12 @@ _TRAN_LICH = 3000
 _TRAN_TEP = 300
 _TRAN_TUONG_TAC = 1000
 
+#: Kết quả cuộc gọi ĐÓNG việc "Gọi điện xác nhận" (CHO_DAT_LICH) của khách chỉ
+#: lưu hồ sơ (Tuyền 15/10/2026: CSKH ghi "đã gọi" thì nhãn mất). Không nghe máy /
+#: không liên lạc được / hẹn gọi lại sau thì việc CÒN MỞ — vẫn phải gọi tiếp.
+#: Hoàn tác (`huy_luc`) đưa nhãn trở lại vì dòng sổ thôi được tính.
+KET_QUA_DONG_CHO_DAT_LICH = ("DA_LIEN_HE", "TU_CHOI", "BO_QUA")
+
 
 class ManKhachHangService:
     """Đọc một lần mọi dữ liệu làm giàu của màn Quản lý khách hàng."""
@@ -160,9 +166,18 @@ class ManKhachHangService:
                        SELECT 1 FROM v_trang_thai_cskh t
                         WHERE t.clinic_id = p.clinic_id
                           AND t.clinic_patient_id = p.clinic_patient_id)
+                   -- CSKH đã gọi xong (và chưa hoàn tác) thì hết việc.
+                   AND NOT EXISTS (
+                       SELECT 1 FROM tuong_tac_cskh c
+                        WHERE c.clinic_id = p.clinic_id
+                          AND c.clinic_patient_id = p.clinic_patient_id
+                          AND c.trang_thai_ma = 'CHO_DAT_LICH'
+                          AND c.huy_luc IS NULL
+                          AND c.ket_qua = ANY($3::text[]))
                 """,
                 clinic_id,
                 ids,
+                list(KET_QUA_DONG_CHO_DAT_LICH),
             )
             viec_mo = await conn.fetch(
                 """

@@ -1,7 +1,7 @@
 // Đặt lịch CSKH — Hub đặt lịch hẹn sử dụng dữ liệu thật từ DB.
 
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { requireNavAccess } from "../../../lib/clinic-session";
+import { moDuocMan, requireNavAccess } from "../../../lib/clinic-session";
 import BookingHub, {
   type PatientLite,
   type ApptLite,
@@ -85,6 +85,9 @@ export default async function AppointmentsPage({
         // Truyền vai xuống thay vì một cờ suy sẵn — biểu mẫu khách mới bên
         // trong cũng cần biết nó đang phục vụ ai.
         vai={await vaiLamViec(canWriteIntake)}
+        // Tab "Thêm": chỉ lưu hồ sơ xong → Quản lý khách hàng (15/10/2026),
+        // cùng cửa lego của trang đích.
+        veQuanLyKhach={await moDuocMan("/customers")}
       />
     </div>
   );

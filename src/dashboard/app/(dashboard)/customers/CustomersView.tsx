@@ -381,11 +381,16 @@ function nhanChiTiet(
   tt: TrangThaiCskh,
   lichSu: DongLichSu[] | undefined,
 ): string {
-  if (tt.trang_thai !== "GOI_LAI") return tt.nhan;
+  if (tt.trang_thai !== "GOI_LAI" && tt.trang_thai !== "CHO_DAT_LICH") return tt.nhan;
   // `lichSu` xếp mới nhất trước (xem truy vấn ở `page.tsx`), và nhánh GOI_LAI
   // của view cũng đọc lần chạm CUỐI — nên hai bên nhìn cùng một dòng.
   // Bỏ qua dòng đã hoàn tác — nhánh GOI_LAI của view cũng lọc `huy_luc IS NULL`.
-  const kq = lichSu?.find((d) => !d.huy_luc)?.ket_qua;
+  // "Gọi điện xác nhận" (khách chỉ lưu hồ sơ): chỉ tính lần gọi của CHÍNH việc đó.
+  const kq = lichSu?.find(
+    (d) =>
+      !d.huy_luc &&
+      (tt.trang_thai !== "CHO_DAT_LICH" || d.trang_thai_ma === "CHO_DAT_LICH"),
+  )?.ket_qua;
   const noi = kq ? NHAN_KET_QUA_NGAN_GOI[kq] : undefined;
   return noi ? `${tt.nhan} · ${noi}` : tt.nhan;
 }

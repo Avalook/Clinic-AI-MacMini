@@ -62,13 +62,16 @@ export default async function NewPatientPage({
   // vào được màn ấy, hỏi ĐÚNG luật cửa của trang đích (lego), không hỏi vai.
   // Danh sách DỊCH VỤ không nạp ở đây nữa (07/10/2026): ô chọn 4 nhóm
   // (`_lam-viec/ChonDichVuDatLich`) tự hỏi `/api/catalog/dich-vu-dat-lich`.
-  const [coSo, docRes, tinh, veTiepDon] = await Promise.all([
+  const [coSo, docRes, tinh, veTiepDon, veQuanLyKhach] = await Promise.all([
     layCoSo(),
     listBookableDoctors(),
     fetchFromBackend<{ code: string; name: string; full_name: string }[]>(
       "/api/v1/catalog/provinces",
     ),
     moDuocMan("/reception/queue"),
+    // Chỉ lưu hồ sơ xong → Quản lý khách hàng (Tuyền 15/10/2026), cùng cửa lego
+    // của trang đích.
+    moDuocMan("/customers"),
   ]);
 
   const locations: Option[] = coSo.map((r) => ({ id: r.id, label: r.name }));
@@ -121,6 +124,7 @@ export default async function NewPatientPage({
         provinces={provinces}
         variant={variant}
         veTiepDon={veTiepDon}
+        veQuanLyKhach={veQuanLyKhach}
         // Ẩn tiêu đề + thanh bước RIÊNG của biểu mẫu: trang này đã có tiêu đề
         // ở thanh trên cùng, và hai thanh bước chồng nhau thì không thanh nào
         // đáng tin.

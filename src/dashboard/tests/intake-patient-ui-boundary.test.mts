@@ -111,9 +111,9 @@ test("CSKH intake without an appointment returns to the selected customer before
 });
 
 test("saved customer routing preserves reception and walk-in destinations", () => {
-  const routeBody = intake.match(/function goToProfile\(id: string, code\?: string\) \{([\s\S]*?)\n  \}/)?.[1];
+  const routeBody = intake.match(/function goToProfile\(id: string, code\?: string, moi = false\) \{([\s\S]*?)\n  \}/)?.[1];
   assert.ok(routeBody);
-  const makeRoute = new Function("role", "walkin", "wantsAppointment", "veTiepDon", "router", "khoaNhapKhach", `return function(id, code) {${routeBody}}`);
+  const makeRoute = new Function("role", "walkin", "wantsAppointment", "veTiepDon", "veQuanLyKhach", "router", "khoaNhapKhach", `return function(id, code, moi) {${routeBody}}`);
   for (const scenario of [
     { role: "CSKH", walkin: false, appointment: false, reception: true, destination: "/customers?selected=khach%201" },
     { role: "CSKH", walkin: false, appointment: false, reception: false, destination: "/customers?selected=khach%201" },
@@ -123,7 +123,7 @@ test("saved customer routing preserves reception and walk-in destinations", () =
     { role: "NURSE", walkin: true, appointment: false, reception: false, destination: "/patients/khach 1?new=1" },
   ]) {
     const destinations: string[] = [];
-    const route = makeRoute(scenario.role, scenario.walkin, scenario.appointment, scenario.reception, { push: (url: string) => destinations.push(url) }, null);
+    const route = makeRoute(scenario.role, scenario.walkin, scenario.appointment, scenario.reception, false, { push: (url: string) => destinations.push(url) }, null);
     route("khach 1");
     assert.deepEqual(destinations, [scenario.destination]);
   }

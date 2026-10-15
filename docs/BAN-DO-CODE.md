@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-15 08:09. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-15 08:22. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -99,7 +99,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/hoa-don/cong-ty/khach/[id]`, `/api/hoa-don/cong-ty/an/[id]`, `/api/cskh/ho-so-kham/[appointmentId]`, `/api/appointments/cho-xep-bac-si`, `/api/patients/[id]/uu-tien`, `/api/cskh/nhac-tai-kham`, `/api/cskh/hen-goi-lai`, `/api/cskh/phan-hoi`, `/api/cskh/ket-qua/chi-dinh`, `/api/cskh/lieu-trinh/[id]` (+20)
 - gọi thẳng backend (server): `/api/v1/cskh/danh-sach-khach`, `/api/v1/cskh/man-khach-hang`, `/api/v1/cskh/recall-jobs`, `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`, `/api/v1/staff/bac-si-dat-duoc`
 - service: HoaDonCongTyService.{doc_cong_ty_khach, luu_cong_ty_khach, an_cong_ty_khach} · HoSoKhamService.doc · lich_truc_co_so · ThongBaoService.goi · ThuTuKhamService.dat_uu_tien · RecallJobService.{tao_thu_cong, ghi_ket_qua, danh_sach} (+29 service)
-- test: test_lieu_trinh_db.py, test_tep_ket_qua.py, test_so_tuong_tac_cskh.py, test_ghi_chu_khach_db.py, test_phan_hoi_thuoc_db.py (+52)
+- test: test_lieu_trinh_db.py, test_tep_ket_qua.py, test_so_tuong_tac_cskh.py, test_ghi_chu_khach_db.py, test_phan_hoi_thuoc_db.py (+51)
 
 ### `/design-system` — ClinicAI — Hệ thiết kế
 - page: `src/dashboard/app/design-system/page.tsx` · quyền: ?
@@ -891,7 +891,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 
 #### `/api/cskh/tuong-tac/[id]/hoan-tac` · `src/dashboard/app/api/cskh/tuong-tac/[id]/hoan-tac/route.ts`
 - POST `/api/v1/cskh/tuong-tac/{tuong_tac_id}/hoan-tac` → `src/clinicai/api/v1/routers/cskh.py:hoan_tac_tuong_tac` → TuongTacCskhService.hoan_tac
-- test: src/tests/services/test_lieu_trinh_sap_het_db.py, src/tests/unit/test_so_tuong_tac_cskh.py
+- test: src/tests/services/test_man_khach_hang_callback_db.py, src/tests/unit/test_so_tuong_tac_cskh.py
 - màn dùng: /customers, /nhac-tai-kham
 
 #### `/api/cskh/zalo` · `src/dashboard/app/api/cskh/zalo/route.ts`

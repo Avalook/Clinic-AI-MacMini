@@ -359,6 +359,7 @@ export default function NewPatientForm({
   nhung = false,
   onHuy,
   veTiepDon = false,
+  veQuanLyKhach = false,
 }: {
   /** Khoá bản nhập dở theo NGƯỜI đang đăng nhập — quầy dùng chung máy,
    *  nháp của người trước không được hiện cho người sau (luu-nhap.ts). */
@@ -390,6 +391,11 @@ export default function NewPatientForm({
    *  (Tuyền 29/09/2026). Trang gọi hỏi `moDuocMan("/reception/queue")` — cùng
    *  luật cửa của trang đích (lego, không theo vai). false → hành vi cũ. */
   veTiepDon?: boolean;
+  /** Chỉ LƯU HỒ SƠ (không đặt lịch) xong thì sang màn QUẢN LÝ KHÁCH HÀNG, mở
+   *  đúng khách vừa tạo (`/customers?selected=`) để CSKH gọi xác nhận / đặt lịch
+   *  hộ (Tuyền 15/10/2026) — THẮNG `veTiepDon` cho đường này. Trang gọi hỏi
+   *  `moDuocMan("/customers")` (lego, không theo vai). false → đường cũ. */
+  veQuanLyKhach?: boolean;
 }) {
   const walkin = variant === "walkin";
   // Kênh "Trực tiếp" kéo theo tự check-in → theo LEGO Tiếp đón (30/09/2026).
@@ -861,11 +867,20 @@ export default function NewPatientForm({
     setNhapDo(null);
   }
 
-  function goToProfile(id: string, code?: string) {
+  function goToProfile(id: string, code?: string, moi = false) {
     // TẠO XONG LÀ NHÁP HẾT VIỆC — để lại thì lần mở sau mời khôi phục một
     // khách đã nằm trong hệ thống, và người trực tạo trùng.
     if (khoaNhapKhach && typeof window !== "undefined") {
       xoaNhap(window.localStorage, khoaNhapKhach);
+    }
+    // CHỈ LƯU HỒ SƠ → SANG QUẢN LÝ KHÁCH HÀNG (Tuyền 15/10/2026: "chọn 'Chỉ lưu
+    // hồ sơ — chưa đặt lịch' thì trang nhảy đến Quản lý khách hàng, không nhảy ra
+    // màn khác"). Khách ấy mang việc "Gọi điện xác nhận" ở đó (man_khach_hang_service
+    // CHO_DAT_LICH). Chỉ áp cho khách MỚI vừa tạo (`moi`): "Dùng bệnh nhân này"
+    // (khách có sẵn) giữ đường cũ.
+    if (moi && veQuanLyKhach && !walkin && !wantsAppointment) {
+      router.push(`/customers?selected=${encodeURIComponent(id)}`);
+      return;
     }
     // CSKH nhập nhanh hồ sơ chưa có lịch cần chăm sóc tiếp tại đúng khách,
     // kể cả tài khoản được cấp thêm quyền Tiếp đón.
@@ -874,9 +889,10 @@ export default function NewPatientForm({
       return;
     }
     // TẠO XONG → VỀ MÀN TIẾP ĐÓN (Tuyền 29/09/2026: "lễ tân thêm khách mới
-    // xong thì nhảy về màn Tiếp đón khách để làm việc tiếp"). Áp cho mọi đường
-    // lưu thành công: chỉ lưu hồ sơ, lưu + đặt lịch (khách Trực tiếp hôm nay đã
-    // tự check-in nên hiện ngay trong danh sách), và "Dùng bệnh nhân này". Ai
+    // xong thì nhảy về màn Tiếp đón khách để làm việc tiếp"). Áp cho: lưu + đặt
+    // lịch (khách Trực tiếp hôm nay đã tự check-in nên hiện ngay trong danh
+    // sách) và "Dùng bệnh nhân này". CHỈ LƯU HỒ SƠ đã rẽ sang Quản lý khách hàng
+    // ở trên (15/10/2026) khi người này vào được màn ấy. Ai
     // được vào màn ấy do trang quyết theo lego (`veTiepDon`), không theo vai.
     if (veTiepDon) {
       router.push("/reception/queue");
@@ -900,7 +916,7 @@ export default function NewPatientForm({
     }
   }
 
-  async function proceed(clinicPatientId: string, code?: string) {
+  async function proceed(clinicPatientId: string, code?: string, moi = false) {
     const booked = await bookFor(clinicPatientId);
     if (!booked) {
       // Patient exists; let the operator open the profile to retry booking.
@@ -908,7 +924,7 @@ export default function NewPatientForm({
       setDupes(null);
       return;
     }
-    goToProfile(clinicPatientId, code);
+    goToProfile(clinicPatientId, code, moi);
   }
 
   // Cơ sở mặc định TÍNH RA, không phải đặt bằng effect.
@@ -1055,6 +1071,7 @@ export default function NewPatientForm({
       await proceed(
         json.patient.clinic_patient_id as string,
         json.patient.patient_code as string,
+        true,
       );
     } catch {
       setError("Không lưu được hồ sơ. Kiểm tra kết nối rồi thử lại.");
