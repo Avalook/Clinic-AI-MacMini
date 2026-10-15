@@ -301,10 +301,17 @@ class ThongBaoService:
         return {"ok": True, "id": tb_id}
 
     async def cua_toi(self, *, identity: StaffIdentity) -> list[dict[str, Any]]:
-        """Thông báo CHƯA XỬ LÝ dành cho vai của tôi, hoặc đích danh tôi."""
+        """Thông báo CHƯA XỬ LÝ dành cho vai của tôi, hoặc đích danh tôi.
+
+        MỘT SỰ VIỆC = MỘT DÒNG cho người xem (14/10/2026): chuông ghi mỗi VAI một
+        hàng (`ghi_chuong_vai` — trạng thái đọc/xử lý chung cả vai). Người có
+        nhiều vai (quản lý + dược sĩ + trưởng ca) khớp cả ba hàng cùng nội dung
+        → thấy ba chuông giống hệt sau một lần chốt kiểm kê. Gộp các hàng cùng
+        (nguồn, mã nguồn, tiêu đề, nội dung) về một; `da_xu_ly` đóng cả nhóm."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(
                 """
+                SELECT * FROM (
                 SELECT t.id::text,
                        t.muc_do,
                        t.tieu_de,
@@ -321,7 +328,16 @@ class ThongBaoService:
                        CASE WHEN t.nguon = 'bo_chi_dinh'
                                  AND so.hanh_dong = 'BO'
                                  AND so.hoan_tac_luc IS NULL
-                            THEN so.id::text END AS hoan_tac_so_id
+                            THEN so.id::text END AS hoan_tac_so_id,
+                       -- Cùng sự việc (nguồn + mã nguồn + chữ) ghi cho nhiều vai
+                       -- của tôi → chỉ giữ MỘT hàng. Không có mã nguồn thì không
+                       -- gộp (mỗi hàng là một việc riêng).
+                       row_number() OVER (
+                           PARTITION BY CASE WHEN t.nguon_id IS NOT NULL
+                                THEN concat_ws('|', t.nguon, t.nguon_id,
+                                               t.tieu_de, coalesce(t.noi_dung, ''))
+                                ELSE t.id::text END
+                           ORDER BY t.tao_luc, t.id) AS rn
                   FROM public.thong_bao t
                   LEFT JOIN public.staff s ON s.id = t.nguoi_goi_staff_id
                   LEFT JOIN public.so_sua_chi_dinh so
@@ -337,7 +353,9 @@ class ThongBaoService:
                             AND t.tao_luc < (date_trunc(
                                     'day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
                                 AT TIME ZONE 'Asia/Ho_Chi_Minh'))
-                 ORDER BY (t.muc_do = 'KHAN') DESC, t.tao_luc DESC
+                ) goc
+                 WHERE goc.rn = 1
+                 ORDER BY (goc.muc_do = 'KHAN') DESC, goc.tao_luc DESC
                  LIMIT 50
                 """,
                 identity.clinic_id,
@@ -346,7 +364,7 @@ class ThongBaoService:
             )
         # `chi_hoan_tac`: máy chủ nói thông báo nào KHÔNG có nút "Xong" (chỉ
         # Hoàn tác) — giao diện không tự suy từ `nguon`.
-        ra = [dict(r) for r in rows]
+        ra = [{k: v for k, v in dict(r).items() if k != "rn"} for r in rows]
         return [{**d, "chi_hoan_tac": d.get("nguon") in NGUON_CHI_HOAN_TAC} for d in ra]
 
     async def danh_dau_da_doc(self, *, identity: StaffIdentity) -> dict[str, Any]:
@@ -390,7 +408,7 @@ class ThongBaoService:
 
         Thông báo "chỉ định bị bỏ" KHÔNG đóng ở đây (Tuyền 06/10: chỉ có nút
         Hoàn tác) — đóng bằng hoàn tác, hoặc tự hết hạn cuối ngày."""
-        async with self._pool.acquire() as conn:
+        async with self._pool.acquire() as conn, conn.transaction():
             # Lọc ngay trong câu UPDATE (một vòng hỏi, không kẽ hở giữa đọc
             # và ghi); không đóng được thì hỏi lại vì sao để nói đúng lỗi.
             row = await conn.fetchrow(
@@ -412,6 +430,33 @@ class ThongBaoService:
                 (ghi_chu or "").strip() or None,
                 sorted(NGUON_CHI_HOAN_TAC),
             )
+            if row is not None:
+                # `cua_toi` gộp các hàng cùng sự việc của nhiều vai về MỘT: đóng
+                # một thì đóng luôn các hàng cùng sự việc mà tôi cũng nhận (qua
+                # vai khác của tôi / đích danh) — không thì hàng kế lại hiện ra.
+                await conn.execute(
+                    """
+                    UPDATE public.thong_bao s
+                       SET da_xu_ly_luc = now(), da_xu_ly_boi = $3::uuid,
+                           ghi_chu_xu_ly = $4,
+                           da_doc_luc = coalesce(s.da_doc_luc, now())
+                      FROM public.thong_bao g
+                     WHERE g.id = $1::uuid AND g.clinic_id = $2::uuid
+                       AND g.nguon_id IS NOT NULL
+                       AND s.clinic_id = g.clinic_id AND s.id <> g.id
+                       AND s.da_xu_ly_luc IS NULL
+                       AND s.nguon = g.nguon AND s.nguon_id = g.nguon_id
+                       AND s.tieu_de = g.tieu_de
+                       AND s.noi_dung IS NOT DISTINCT FROM g.noi_dung
+                       AND (s.vai_nhan = ANY($5::text[])
+                            OR s.nguoi_nhan_staff_id = $3::uuid)
+                    """,
+                    thong_bao_id,
+                    identity.clinic_id,
+                    identity.staff_id,
+                    (ghi_chu or "").strip() or None,
+                    identity.ds_vai(),
+                )
             if row is None:
                 nguon = await conn.fetchval(
                     "SELECT nguon FROM public.thong_bao"
