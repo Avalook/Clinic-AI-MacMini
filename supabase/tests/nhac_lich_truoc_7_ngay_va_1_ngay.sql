@@ -26,7 +26,7 @@ BEGIN
     FOR r IN SELECT * FROM (VALUES
         ('xa',  7, 10),   -- khám sau 7 ngày, đặt 10 ngày trước → CHO_XAC_NHAN hạn hôm nay
         ('tre', 5, 10),   -- khám sau 5 ngày, đặt 10 ngày trước → CHO_XAC_NHAN hạn đã qua
-        ('gan', 5, 0),    -- khám sau 5 ngày, đặt HÔM NAY → không có CHO_XAC_NHAN
+        ('gan', 5, 0),    -- khám sau 5 ngày, đặt HÔM NAY → CHO_XAC_NHAN hạn hôm nay (15/10)
         ('mai', 1, 3),    -- khám ngày mai → NHAC_HEN_MAI hạn hôm nay
         ('nay', 0, 3)     -- khám hôm nay, chưa đến → NHAC_HEN_MAI quá hạn
     ) AS t(ten, cach, dat_truoc) LOOP
@@ -56,9 +56,12 @@ BEGIN
                     AND trang_thai = 'CHO_XAC_NHAN' AND han_xu_ly = hn - 2 AND qua_han) THEN
         RAISE EXCEPTION 'Qua mốc 7 ngày chưa gọi thì việc xác nhận phải đỏ quá hạn';
     END IF;
-    IF EXISTS (SELECT 1 FROM public.v_viec_cskh WHERE appointment_id = gan
-                AND trang_thai = 'CHO_XAC_NHAN') THEN
-        RAISE EXCEPTION 'Lịch đặt trong vòng 7 ngày không sinh việc nhắc 7 ngày';
+    -- 15/10/2026 (20261015110000): lịch đặt hộ nào cũng cần gọi xác nhận, kể cả đặt
+    -- sát ngày (luật 15/09 "đặt trong vòng 7 ngày không sinh việc" đã thay). Hạn =
+    -- GREATEST(khám − 7, ngày đặt) = hôm đặt (hôm nay) nên không đỏ ngay.
+    IF NOT EXISTS (SELECT 1 FROM public.v_viec_cskh WHERE appointment_id = gan
+                    AND trang_thai = 'CHO_XAC_NHAN' AND han_xu_ly = hn AND NOT qua_han) THEN
+        RAISE EXCEPTION 'Lịch đặt sát ngày cũng phải có việc xác nhận, hạn hôm đặt, chưa quá hạn';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM public.v_viec_cskh WHERE appointment_id = mai
                     AND trang_thai = 'NHAC_HEN_MAI' AND han_xu_ly = hn AND NOT qua_han) THEN

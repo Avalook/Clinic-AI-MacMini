@@ -81,7 +81,9 @@ async def _lich(
     )
 
 
-async def _viec(pool: asyncpg.Pool, ca: LT, appt: str, loai: str = CHO):
+async def _viec(
+    pool: asyncpg.Pool, ca: LT, appt: str, loai: str = CHO
+) -> asyncpg.Record | None:
     """Dòng việc `loai` của lịch `appt` trên v_viec_cskh (None nếu không có)."""
     return await pool.fetchrow(
         "SELECT trang_thai, nhan, han_xu_ly, qua_han FROM v_viec_cskh"
