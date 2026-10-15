@@ -529,7 +529,13 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   Tiếp đón. `S/man_khach_hang_service.py` trả `CHO_DAT_LICH` cho hồ sơ tiếp nhận
   chưa từng có lịch/lượt và chưa có việc CSKH khác: nhóm “Chờ xác nhận”, bước
   “Gọi điện xác nhận”; ghi cuộc gọi loại `HOI_THAM`, không xác nhận lịch chưa có.
-  Có lịch/lượt là hết việc này. Test `T/services/test_man_khach_hang_callback_db.py`,
+  Có lịch/lượt là hết việc này. **15/10:** chỉ lưu hồ sơ → `NewPatientForm` sang
+  `/customers?selected=` cho MỌI vai vào được màn ấy (prop `veQuanLyKhach`, trang
+  `patients/new/page.tsx` + `appointments/page.tsx` → `BookingHub`; "Dùng bệnh nhân
+  này" giữ đường cũ); CSKH gọi xong (`DA_LIEN_HE`) thì việc đóng, không nghe máy thì
+  còn mở, rút lại được kể cả khi khách chưa có lượt (`VungLamViecKhach.tsx` `rutNgoaiLuot`
+  + `chuaCoLuot`), nhãn chip `customers/mot-cham.ts` (`CHO_DAT_LICH`). FT
+  `luu-ho-so-sang-quan-ly-khach-boundary.test.mts`. Test `T/services/test_man_khach_hang_callback_db.py`,
   FT `intake-patient-ui-boundary.test.mts`; bấm thật `e2e/quick-intake-confirmation.mjs`.
 - Màn chuẩn `/customers` (`D/customers/CustomersView.tsx`, `VungLamViecKhach.tsx`,
   `HanhDongTrangThai.tsx`) → `S/cskh_service.py`, `S/danh_sach_khach_cskh.py`; ghi

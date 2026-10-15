@@ -724,9 +724,13 @@ export default function VungLamViecKhach({
     // không rút từ đây được.
     chamMoiNhat.id &&
     chamMoiNhat.loai !== "CHECK_OUT" &&
-    chamMoiNhat.appointment_id !== lich.id
+    // KHÁCH CHƯA CÓ LƯỢT NÀO (hồ sơ chỉ lưu, 15/10/2026): `null !== null` là
+    // false nên lối rút này từng KHÔNG hiện, và cuộc gọi "Gọi điện xác nhận"
+    // vừa ghi thành không rút lại được — không nút tròn nào gánh nó.
+    (!lich.id || chamMoiNhat.appointment_id !== lich.id)
       ? { ...chamMoiNhat, id: chamMoiNhat.id }
       : null;
+  const chuaCoLuot = !lich.id;
 
   /** RÚT LẠI MỘT LẦN CHẠM BẤM NHẦM.
    *
@@ -940,7 +944,35 @@ export default function VungLamViecKhach({
               {loiHoanTac}
             </p>
           )}
-          {rutNgoaiLuot && (
+          {rutNgoaiLuot && chuaCoLuot && (
+            // Khách chưa có lịch/lượt nào: ghi chăm sóc ở đây là chuyện BÌNH
+            // THƯỜNG (gọi xác nhận hồ sơ mới) — nền trung tính, không cảnh báo.
+            <p className="mt-1 flex flex-wrap items-center gap-2 rounded-md bg-surface-muted px-2 py-1.5 text-label text-ink-soft">
+              <span className="min-w-0">
+                Vừa ghi:{" "}
+                <span className="font-medium text-ink">
+                  {nhanLanChamCuoi(rutNgoaiLuot) ??
+                    rutNgoaiLuot.noi_dung ??
+                    rutNgoaiLuot.loai}
+                </span>
+                {rutNgoaiLuot.xay_ra_luc
+                  ? ` · ${gio(rutNgoaiLuot.xay_ra_luc)}`
+                  : null}
+                {rutNgoaiLuot.nhan_vien ? ` · ${rutNgoaiLuot.nhan_vien}` : null}
+              </span>
+              <button
+                type="button"
+                onClick={() => void hoanTac(rutNgoaiLuot.id)}
+                disabled={dangHoanTac === rutNgoaiLuot.id}
+                className="rounded-md border border-line bg-surface px-2 py-0.5 font-semibold text-ink hover:bg-surface-sunken disabled:opacity-50"
+              >
+                {dangHoanTac === rutNgoaiLuot.id
+                  ? "Đang rút lại…"
+                  : "↺ Rút lại thao tác này"}
+              </button>
+            </p>
+          )}
+          {rutNgoaiLuot && !chuaCoLuot && (
             <div className="mt-1 rounded-md bg-warning-bg px-2 py-1.5">
               {/* TÔNG CẢNH BÁO, KHÔNG PHẢI CHỮ MỜ. Bản đầu tôi vẽ nó bằng
                   `text-ink-soft` viền mảnh, đặt ngay dưới dòng "Lượt đang xem"
@@ -978,7 +1010,7 @@ export default function VungLamViecKhach({
               </p>
             </div>
           )}
-          {khongGanDuocLuot && (
+          {khongGanDuocLuot && !rutNgoaiLuot && (
             <p className="mt-1 rounded-md bg-warning-bg px-2 py-1 text-label font-medium text-warning">
               Khách có {lichSu.length} thao tác chăm sóc nhưng màn chưa gắn được
               vào lượt khám nào — chọn một lượt ở thanh lượt khám phía trên.
