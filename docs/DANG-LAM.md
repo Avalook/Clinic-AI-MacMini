@@ -2,6 +2,16 @@
 
 Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
 
+## 15/10/2026 — GỌI XÁC NHẬN MỌI LỊCH ĐẶT HỘ (PR nhánh `claude/goi-xac-nhan-lich-dat-ho-a`)
+
+Tuyền chốt: "gọi xác nhận MỌI lịch đặt hộ" (phương án A). Việc `CHO_XAC_NHAN`
+("Gọi xác nhận lịch") của `v_viec_cskh` sinh cho mọi lịch còn sống, kênh ≠ `WALK_IN`,
+khám trong hôm nay → hôm nay + 7 — **ĐÃ THAY** luật cũ "lịch đặt trong 7 ngày không
+sinh việc" (mục 9 bên dưới). Hạn = `GREATEST(ngày khám − 7, ngày đặt)`. Migration
+`20261015110000` chỉ đổi view + nhãn `luat_cskh`; không backfill. Bài canh
+`test_dat_lich_chi_ba_noi_ghi.py`: khi có cổng khách tự đặt (thêm đường ghi lịch thứ 4)
+phải làm **phương án B** — cột nguồn đặt trên `appointment`, lọc view theo cột ấy.
+
 ## 08/10/2026 — ĐỢT `dot/0710-nhan-tai-phong` ĐANG TRÊN STAGING, CHỜ BẤM THỬ RỒI LÊN PROD
 
 **Staging chạy `2d4abbbe`** (deploy 08/10 sáng, đã áp mọi migration — thử khô "Không còn
@@ -2023,7 +2033,9 @@ nhánh `lat-1-luot-kham` (lẫn với lát 1 chưa commit — tách PR theo file
    và 14/9): migration 20260915000010 đổi 2 nhánh `v_viec_cskh` — hạn = ngày
    khám − so_ngay, quá mốc là đỏ, việc nhắc 1 ngày không biến mất ngày khám;
    lịch đặt trong vòng 7 ngày không sinh việc 7 ngày (giả định của Claude —
-   cuộc gọi đặt lịch vừa xảy ra). Test SQL `nhac_lich_truoc_7_ngay_va_1_ngay.sql`.
+   cuộc gọi đặt lịch vừa xảy ra). **15/10/2026: ĐÃ THAY LUẬT** — mọi lịch đặt hộ
+   (kênh ≠ WALK_IN) đều có việc "Gọi xác nhận lịch", kể cả đặt sát ngày; xem mục
+   15/10 đầu file. Test SQL `nhac_lich_truoc_7_ngay_va_1_ngay.sql`.
 
 10. **AI đứng sau cờ + bác sĩ quyết báo kết quả:** không có ANTHROPIC_API_KEY
     thì API vẫn khởi động (endpoint AI trả 503 AI_DISABLED, orchestrator

@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 09:02. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-15 10:33. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -857,7 +857,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 
 #### `/api/cskh/tuong-tac/[id]/hoan-tac` · `src/dashboard/app/api/cskh/tuong-tac/[id]/hoan-tac/route.ts`
 - POST `/api/v1/cskh/tuong-tac/{tuong_tac_id}/hoan-tac` → `src/clinicai/api/v1/routers/cskh.py:hoan_tac_tuong_tac` → TuongTacCskhService.hoan_tac
-- test: src/tests/services/test_lieu_trinh_sap_het_db.py, src/tests/unit/test_so_tuong_tac_cskh.py
+- test: src/tests/services/test_goi_xac_nhan_lich_dat_ho_db.py, src/tests/unit/test_so_tuong_tac_cskh.py
 - màn dùng: /customers, /nhac-tai-kham
 
 #### `/api/cskh/zalo` · `src/dashboard/app/api/cskh/zalo/route.ts`
