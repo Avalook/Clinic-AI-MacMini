@@ -117,7 +117,13 @@ export default function VatTuQuay({
       so_luong: 1,
       ...(lyDoBan.trim() ? { ly_do_ban: lyDoBan.trim() } : {}),
     });
-    if (ok) setTim("");
+    // Nguyên nhân thuộc về DÒNG VỪA THÊM: xoá ô để dòng kế tiếp không mang nguyên
+    // lý do của dòng trước (14/10/2026: đầu dò Bio mang lý do của Mirena — sai
+    // dấu vết). Thêm hỏng thì giữ lại để bấm lại không phải gõ lại.
+    if (ok) {
+      setTim("");
+      setLyDoBan("");
+    }
   }
 
   async function xacNhanDuyet() {
@@ -132,6 +138,7 @@ export default function VatTuQuay({
     if (ok) {
       setDuyet(null);
       setTim("");
+      setLyDoBan("");
     }
   }
 
