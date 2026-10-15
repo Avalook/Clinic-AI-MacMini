@@ -37,7 +37,13 @@ SHA đã thử trên staging. Staging chỉ chạy một bản — deploy PR l�
 4. `git checkout -B main <sha-đã-soát>` — **không** fetch lại, **không**
    `origin/main` (30/09: phiên khác merge #291 kèm migration chen vào 5 phút
    giữa soát và deploy → prod lên bản chưa soát).
-5. `./scripts/deploy-backend.sh prod` (đòi đứng trên nhánh `main`, không detached).
+5. `DEPLOY_EXPECTED_SHA=<đúng SHA ở bước 4, đủ 40 ký tự> ./scripts/deploy-backend.sh prod`.
+   **Bắt buộc** (15/10/2026): thiếu biến, SHA rút gọn, hoặc `HEAD` ≠ SHA là script
+   dừng ngay; đòi đứng trên nhánh `main`, không detached; không còn tự `git pull`
+   (trước đó thiếu biến thì script kéo commit mới hơn rồi deploy luôn — chính là
+   cách "ghim" bị vô hiệu ngày 01/10). Lấy SHA từ bước 1, **không** tính bằng
+   `git rev-parse HEAD` trên VPS. Mỗi lần deploy chụp mã nguồn bất biến theo SHA
+   vào `.release-source-prod/<sha>` để rollback chạy đúng bản cũ.
 6. Kiểm: container api được tạo lại, log api 0 lỗi, `/health/su-kien` ok, 0 sự kiện kẹt.
 
 - Khuôn chạy cả chuỗi: `~/Projects/ClinicAI-Backups/ban-giao-2909/deploy_3009_chung.sh`
@@ -60,8 +66,9 @@ CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh          #
 CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh --apply  # áp thật
 docker exec clinicai_db psql -U postgres -c "NOTIFY pgrst, 'reload schema'"
 
+# khuôn cho AI: điền SHA thật (40 ký tự) ở CẢ HAI dòng trước khi đưa Tuyền
 git checkout -B main <sha-đã-soát>                   # KHÔNG origin/main
-./scripts/deploy-backend.sh prod
+DEPLOY_EXPECTED_SHA=<sha-đã-soát> ./scripts/deploy-backend.sh prod
 CLINIC_ENV_FILE="$PWD/.env.prod" docker compose --env-file .env.prod -p clinicai_prod ps
 ```
 

@@ -55,7 +55,8 @@ Cách này có đường lùi (máy cũ còn nguyên tới khi máy mới chạy
    `.env.prod`, `.env.viettel` (qua `scp`, không dán vào chat), chạy
    `bat-theo-doi-may-chu.sh` + `cung-co-may-chu.sh`, dựng stack
    (`docker compose -f docker-compose.supabase.yml … up -d`, rồi
-   `./scripts/deploy-backend.sh prod`) với database RỖNG để kiểm máy chạy được.
+   `DEPLOY_EXPECTED_SHA=<SHA 40 ký tự đã soát> ./scripts/deploy-backend.sh prod` —
+   prod luôn đòi ghim SHA) với database RỖNG để kiểm máy chạy được.
 3. **Khung đêm (1h–4h), có người xem:**
    1. Máy cũ: dừng nhận khách (`docker compose -p clinicai_prod stop dashboard`),
       sao lưu lần cuối (`scripts/backup-db.sh`, lệnh đầy đủ ở CLAUDE.md).
