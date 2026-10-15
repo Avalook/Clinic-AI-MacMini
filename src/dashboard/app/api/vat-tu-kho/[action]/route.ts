@@ -21,6 +21,8 @@ const DOC: Record<string, (q: URLSearchParams) => string> = {
       tu: q.get("tu") ?? "",
       den: q.get("den") ?? "",
     })}`,
+  // G8b: yêu cầu nhập chờ duyệt (+ đã quyết gần đây, `duoc_duyet`, `cua_toi`).
+  "cho-duyet": () => "/api/v1/vat-tu-kho/cho-duyet",
   phieu: (q) => `/api/v1/vat-tu-kho/phieu?${new URLSearchParams({ gioi_han: q.get("gioi_han") ?? "" })}`,
 };
 
@@ -49,15 +51,35 @@ export async function GET(request: Request, { params }: { params: Promise<{ acti
   return proxyJsonToBackend("GET", tao(new URL(request.url).searchParams), undefined);
 }
 
+/** Lệnh quyết yêu cầu nhập chờ duyệt (G8b) → đuôi đường backend. Quyền (Duyệt vật tư /
+ *  Kho vật tư), lý do 5–500 ký tự, "chỉ quyết một lần" do MÁY CHỦ quyết. */
+const QUYET_NHAP: Record<string, string> = {
+  "nhap-duyet": "duyet",
+  "nhap-tu-choi": "tu-choi",
+  "nhap-rut-lai": "rut-lai",
+};
+
 export async function POST(request: Request, { params }: { params: Promise<{ action: string }> }) {
   const chan = await daDangNhap();
   if (chan) return chan;
   const { action } = await params;
-  if (action !== "phieu" && action !== "hoan") {
+  if (action !== "phieu" && action !== "hoan" && !(action in QUYET_NHAP)) {
     return NextResponse.json({ error: `Thao tác không hợp lệ: ${action}` }, { status: 400 });
   }
   const goi = await docBody(request);
   if (goi instanceof NextResponse) return goi;
+  if (action in QUYET_NHAP) {
+    const q = (goi.body ?? {}) as { yeu_cau_id?: unknown; ly_do?: unknown };
+    if (typeof q.yeu_cau_id !== "string" || !UUID_RE.test(q.yeu_cau_id)) {
+      return NextResponse.json({ error: "Mã yêu cầu không hợp lệ." }, { status: 400 });
+    }
+    // Lý do đi nguyên văn (kể cả rỗng / rác) để máy chủ trả 422 có lời; duyệt không cần lý do.
+    return proxyJsonToBackend(
+      "POST",
+      `/api/v1/vat-tu-kho/cho-duyet/${q.yeu_cau_id}/${QUYET_NHAP[action]}`,
+      action === "nhap-duyet" ? undefined : { ly_do: q.ly_do ?? null },
+    );
+  }
   // Khoá chống gửi trùng: lập phiếu / đảo phiếu bắt buộc, máy chủ từ chối khi thiếu.
   const khoa = request.headers.get("Idempotency-Key") ?? undefined;
   if (action === "phieu") return proxyJsonToBackend("POST", "/api/v1/vat-tu-kho/phieu", goi.body, khoa);

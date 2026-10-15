@@ -6,6 +6,7 @@ import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../lib/clinic-session";
 import { quyenCuaToi } from "../../../lib/quyen-cua-toi";
 import type { DongVatTu } from "../cashier/VatTuBangGia";
+import type { GoiChoDuyet } from "./ChoDuyetVatTu";
 import type { PhieuVatTu } from "./DanhSachPhieuVatTu";
 import KhoVatTu from "./KhoVatTu";
 import type { DongTon, NoiChua } from "./TonVatTu";
@@ -20,10 +21,12 @@ interface GoiTon {
 
 export default async function KhoVatTuPage() {
   await requireNavAccess("/kho-vat-tu");
-  const [goi, phieu, quyen] = await Promise.all([
+  const [goi, phieu, choDuyet, quyen] = await Promise.all([
     fetchFromBackend<GoiTon>("/api/v1/vat-tu-kho/ton"),
     // Đọc hỏng thì tab Phiếu hiện rỗng, không chặn cả màn.
     fetchFromBackend<{ items: PhieuVatTu[] }>("/api/v1/vat-tu-kho/phieu"),
+    // G8b: yêu cầu nhập chờ duyệt. Đọc hỏng → tab Chờ duyệt tự báo, không chặn cả màn.
+    fetchFromBackend<GoiChoDuyet>("/api/v1/vat-tu-kho/cho-duyet"),
     quyenCuaToi(),
   ]);
   if (!goi) {
@@ -52,6 +55,7 @@ export default async function KhoVatTuPage() {
           gia_nhap: Number(d.gia_nhap),
         })),
       }))}
+      choDuyet={choDuyet}
       suaGiaDuoc={quyen.has("price.service.manage")}
     />
   );

@@ -90,12 +90,35 @@ interface Dong {
 let dem = 0;
 const dongMoi = (): Dong => ({ k: ++dem, ten: "", tu: "", den: "", so: "", gia: "" });
 
+/** Câu báo sau khi máy chủ nhận phiếu NHẬP có dòng "cần duyệt nhập" (G8b). Máy chủ trả
+ *  `cho_duyet` + `trang_thai`; màn chỉ chọn câu chữ, không tự quyết phiếu có cần duyệt. */
+function baoYeuCau(d: {
+  cho_duyet?: boolean;
+  trang_thai?: string;
+  ma_yeu_cau?: string;
+  ma_phieu?: string;
+  gui_lai?: boolean;
+}): string | null {
+  if (!d.ma_yeu_cau) return null;
+  const lai = d.gui_lai ? " (phiếu này đã gửi trước đó)" : "";
+  if (d.cho_duyet) {
+    return `Phiếu có dòng cần duyệt — đã gửi xin duyệt ${d.ma_yeu_cau}${lai}, chưa vào kho. Người có quyền Duyệt vật tư sẽ duyệt ở tab Chờ duyệt.`;
+  }
+  if (d.trang_thai === "DA_DUYET" && !d.gui_lai) {
+    return `Phiếu có dòng cần duyệt — bạn có quyền Duyệt vật tư nên đã tự duyệt và nhập kho (${d.ma_yeu_cau}${d.ma_phieu ? `, phiếu ${d.ma_phieu}` : ""}). Sai thì bấm Hoàn tác ở danh sách bên dưới.`;
+  }
+  return `Phiếu này đã gửi xin duyệt trước đó (${d.ma_yeu_cau}) và đã được quyết — xem ở tab Chờ duyệt, không lập thêm phiếu.`;
+}
+
 export default function LapPhieuVatTu({
   noiChua,
   vatTu,
+  xemChoDuyet,
 }: {
   noiChua: NoiChua[];
   vatTu: { id: string; name: string }[];
+  /** Chuyển sang tab Chờ duyệt khi phiếu vừa gửi đang chờ. */
+  xemChoDuyet?: () => void;
 }) {
   const router = useRouter();
   const [loai, setLoai] = useState("XUAT_PHONG");
@@ -105,6 +128,7 @@ export default function LapPhieuVatTu({
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
+  const [dangCho, setDangCho] = useState(false);
 
   const kieu = KIEU_PHIEU[loai];
   const phong = noiChua.filter((n) => n.room_id);
@@ -148,6 +172,7 @@ export default function LapPhieuVatTu({
     setDang(true);
     setLoi(null);
     setBao(null);
+    setDangCho(false);
     const kq = await guiVatTu(
       "phieu",
       {
@@ -168,8 +193,12 @@ export default function LapPhieuVatTu({
       setLoi(kq.loi);
       return;
     }
-    const ma = (kq.data as { ma_phieu?: string } | null)?.ma_phieu;
-    setBao(`Đã lập phiếu ${ma ?? ""} — tồn đã cập nhật. Sai thì bấm Hoàn tác ở danh sách bên dưới.`);
+    const d = kq.data as Parameters<typeof baoYeuCau>[0] | null;
+    const yeuCau = d ? baoYeuCau(d) : null;
+    setDangCho(d?.cho_duyet === true);
+    setBao(
+      yeuCau ?? `Đã lập phiếu ${d?.ma_phieu ?? ""} — tồn đã cập nhật. Sai thì bấm Hoàn tác ở danh sách bên dưới.`,
+    );
     setDong([dongMoi()]);
     setGhiChu("");
     setKhoa(khoaMoi());
@@ -286,9 +315,16 @@ export default function LapPhieuVatTu({
         </p>
       ) : null}
       {bao ? (
-        <p role="status" className="text-body text-success">
-          {bao}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p role="status" className="min-w-0 flex-1 basis-64 text-body text-success">
+            {bao}
+          </p>
+          {dangCho && xemChoDuyet ? (
+            <Button type="button" size="sm" variant="secondary" onClick={xemChoDuyet}>
+              Xem ở Chờ duyệt
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );

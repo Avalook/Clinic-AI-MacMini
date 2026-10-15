@@ -67,6 +67,14 @@ async def test_http_lap_xem_duyet_tu_choi_rut_lai(pool: asyncpg.Pool) -> None:
             mine = [x for x in ds["items"] if x["id"] == yc]
             assert mine[0]["trang_thai"] == "CHO_DUYET"
             assert mine[0]["dong"][0]["ten"] == "Găng cần duyệt nhập"
+            # Màn vẽ "của bạn" + nút Rút lại từ cờ này; thành tiền do máy chủ tính.
+            assert mine[0]["cua_toi"] is True
+            assert float(mine[0]["dong"][0]["thanh_tien"]) == float(
+                mine[0]["dong"][0]["so_luong"]
+            ) * float(mine[0]["dong"][0]["gia_nhap"])
+            assert float(mine[0]["tong_tien"]) == float(
+                mine[0]["dong"][0]["thanh_tien"]
+            )
             # Người lập rút lai được; số rác ở lý do → 422.
             rac = await c.post(f"{V1}/cho-duyet/{yc}/rut-lai", json={"ly_do": "ab"})
             assert rac.status_code == 422
@@ -77,6 +85,7 @@ async def test_http_lap_xem_duyet_tu_choi_rut_lai(pool: asyncpg.Pool) -> None:
             _dat_nguoi(pool, b.ql)
             ds = (await c.get(f"{V1}/cho-duyet")).json()
             assert ds["duoc_duyet"] is True
+            assert [x["cua_toi"] for x in ds["items"] if x["id"] == yc] == [False]
             thieu = await c.post(f"{V1}/cho-duyet/{yc}/tu-choi", json={})
             assert thieu.status_code == 422
             ok = await c.post(
@@ -104,5 +113,16 @@ async def test_http_lap_xem_duyet_tu_choi_rut_lai(pool: asyncpg.Pool) -> None:
             ton = (await c.get(f"{V1}/ton")).json()
             mine_ton = [x for x in ton["items"] if x["vat_tu_id"] == b.vt_can]
             assert sum(float(x["so_luong"]) for x in mine_ton) == 4
+
+            # Người có lego tự lập: kết quả cho màn nói "đã tự duyệt và nhập kho".
+            tu = await c.post(
+                f"{V1}/phieu",
+                json={"loai": "NHAP", "dong": [dong("2")]},
+                headers={"Idempotency-Key": uuid.uuid4().hex},
+            )
+            kq = tu.json()
+            assert tu.status_code == 201
+            assert kq["cho_duyet"] is False and kq["trang_thai"] == "DA_DUYET"
+            assert kq["phieu_id"] and kq["ma_phieu"] and kq["ma_yeu_cau"]
     finally:
         app.dependency_overrides.clear()
