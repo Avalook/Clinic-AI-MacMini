@@ -129,6 +129,10 @@ async def doc(
     rows = await conn.fetch(_SQL, clinic_id, clinic_patient_id)
     # "Lượt khám n" / "Buổi k/N" — đếm trên mọi lượt của khách (nhan_luot.py).
     nhan = await doc_nhan_luot(conn, clinic_id, [clinic_patient_id])
+    # Phản hồi sau dùng thuốc CSKH ghi (10/10/2026) — gắn cạnh lượt có đơn.
+    from clinicai.services.phan_hoi_thuoc_service import doc_theo_luot
+
+    phan_hoi = await doc_theo_luot(conn, clinic_id, clinic_patient_id)
     tat_ca = [
         {
             "visit_id": r["visit_id"],
@@ -146,6 +150,7 @@ async def doc(
             "nhan_luot": tra_nhan(
                 nhan, visit_id=r["visit_id"], appointment_id=r["appointment_id"]
             ),
+            "phan_hoi_thuoc": phan_hoi.get(r["visit_id"], []),
         }
         for r in rows
     ]

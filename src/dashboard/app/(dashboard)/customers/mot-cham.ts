@@ -124,6 +124,7 @@ export const NHAN_DA_LAM_THEO_LOAI: Record<string, string> = {
   CHECK_OUT: "Đã khám xong",
   THANH_TOAN: "Đã thanh toán",
   MUA_THUOC: "Đã mua thuốc",
+  PHAN_HOI_THUOC: "Đã ghi phản hồi thuốc",
 };
 
 /** Chip cho một khách KHÔNG còn việc nào mở, dựa trên lần chạm gần nhất.

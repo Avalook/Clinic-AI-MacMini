@@ -132,6 +132,7 @@ const NHAN_LOAI_NGAN: Record<string, string> = {
   CHECK_OUT: "Check-out",
   THANH_TOAN: "Thanh toán",
   MUA_THUOC: "Mua thuốc",
+  PHAN_HOI_THUOC: "Phản hồi sau dùng thuốc",
 };
 const NHAN_KQ_NGAN: Record<string, string> = {
   DA_LIEN_HE: "đã liên hệ",
@@ -2057,6 +2058,7 @@ export default function CustomersView({
                     key={selected.clinic_patient_id}
                     clinicPatientId={selected.clinic_patient_id}
                     onDatLichLieuTrinh={canEdit ? setDatLichLt : undefined}
+                    onDatLichKham={canEdit ? () => setDatLich("kham-moi") : undefined}
                   />
                 )}
 
