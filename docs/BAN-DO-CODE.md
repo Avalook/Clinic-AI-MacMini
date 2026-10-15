@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-14 21:50. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-15 07:32. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1329,7 +1329,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - POST `/api/v1/pharmacy/kiem-ke-ca/{phieu_id}/dieu-chinh` → `src/clinicai/api/v1/routers/pharmacy.py:dieu_chinh_kiem_ke_ca` → kiem_ke_ca_service.dieu_chinh_theo_kiem_ke
 - POST `/api/v1/pharmacy/kiem-ke-ca/{phieu_id}/dung-so-cuoi-ca-truoc` → `src/clinicai/api/v1/routers/pharmacy.py:dung_so_cuoi_ca_truoc` → kiem_ke_ca_service.dung_so_cuoi_ca_truoc
 - POST `/api/v1/pharmacy/kiem-ke-ca/{phieu_id}/hoan-tac-dieu-chinh` → `src/clinicai/api/v1/routers/pharmacy.py:hoan_tac_dieu_chinh_kiem_ke_ca` → kiem_ke_ca_service.hoan_tac_dieu_chinh
-- test: src/tests/services/test_kiem_ke_ca_db.py
+- test: src/tests/services/test_kiem_ke_ca_db.py, src/tests/services/test_chuong_mot_thong_bao_moi_nguoi_db.py
 - màn dùng: (không màn nào gọi thấy được ?)
 
 #### `/api/phieu` · `src/dashboard/app/api/phieu/route.ts`
@@ -1497,7 +1497,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 #### `/api/thong-bao` · `src/dashboard/app/api/thong-bao/route.ts`
 - GET `/api/v1/thong-bao` → `src/clinicai/api/v1/routers/dispatch.py:my_notifications` → ThongBaoService.cua_toi
 - POST `/api/v1/thong-bao/da-doc` → `src/clinicai/api/v1/routers/dispatch.py:mark_notifications_read` → ThongBaoService.danh_dau_da_doc
-- test: src/tests/services/test_so_sua_chi_dinh_db.py, src/tests/services/test_hen_tai_kham_db.py, src/tests/unit/test_cua_ngo_ghi_moi.py
+- test: src/tests/services/test_so_sua_chi_dinh_db.py, src/tests/services/test_chuong_mot_thong_bao_moi_nguoi_db.py, src/tests/unit/test_cua_ngo_ghi_moi.py
 - màn dùng: /doi-tac
 
 #### `/api/thong-bao/[id]/da-xu-ly` · `src/dashboard/app/api/thong-bao/[id]/da-xu-ly/route.ts`
