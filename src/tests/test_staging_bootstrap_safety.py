@@ -58,6 +58,32 @@ def _ghi_env(thu_muc: Path, env: dict[str, str]) -> Path:
     return f
 
 
+def _dong_ho_gia(tmp_path: Path, thu_vn: int, gio_vn: int) -> str:
+    """`date` giả đứng đầu PATH: `date -u '+%u %H'` trả đúng lúc (thứ, giờ) VN đã cho.
+
+    Giả ở tầng `date` chứ không bằng biến môi trường — script trên VPS không có
+    biến nào giả được giờ (một biến như thế là cửa sau bỏ qua khoá giờ khám).
+    thu_vn: 1 = thứ 2 … 7 = Chủ nhật. Đổi ngược VN → UTC (UTC = VN − 7h).
+    """
+    gio_utc, thu_utc = gio_vn - 7, thu_vn
+    if gio_utc < 0:
+        gio_utc += 24
+        thu_utc = (thu_vn - 2) % 7 + 1
+    return _date_gia_utc(tmp_path, thu_utc, gio_utc)
+
+
+def _date_gia_utc(tmp_path: Path, thu_utc: int, gio_utc: int) -> str:
+    bin_ = tmp_path / "dong-ho"
+    bin_.mkdir(exist_ok=True)
+    (bin_ / "date").write_text(
+        "#!/bin/sh\n"
+        f'if [ "$*" = "-u +%u %H" ]; then echo "{thu_utc} {gio_utc:02d}"; exit 0; fi\n'
+        'exec /bin/date "$@"\n'
+    )
+    (bin_ / "date").chmod(0o755)
+    return f"{bin_}:{os.environ.get('PATH', '')}"
+
+
 def _goi_lib(
     tmp_path: Path,
     ham: str,
@@ -168,18 +194,16 @@ class TestChotTaiNguyen:
 
     # Giờ phòng khám dùng (Tuyền 11/11): thứ 2–6 [16h, 23h), thứ 7–CN [7h, 23h).
     @pytest.mark.parametrize(
-        ("thu", "gio"),
-        [("1", "16"), ("3", "20"), ("5", "22"), ("6", "7"), ("6", "12"), ("7", "07")],
+        ("thu", "gio"), [(1, 16), (3, 20), (5, 22), (6, 7), (6, 12), (7, 7), (7, 22)]
     )
     def test_gio_kham_khong_co_bien_cho_phep_thi_dung(
-        self, tmp_path: Path, thu: str, gio: str
+        self, tmp_path: Path, thu: int, gio: int
     ) -> None:
         r = _goi_lib(
             tmp_path,
             "kiem_gio_kham && echo QUA",
             them={
-                "STG_THU_VN_GIA": thu,
-                "STG_GIO_VN_GIA": gio,
+                "PATH": _dong_ho_gia(tmp_path, thu, gio),
                 "CHO_PHEP_GIO_KHAM": "",
             },
         )
@@ -189,16 +213,15 @@ class TestChotTaiNguyen:
         # Câu thông báo phải nói được cách đi tiếp, không chỉ "cấm".
         assert "CHO_PHEP_GIO_KHAM=1" in r.stderr
 
-    @pytest.mark.parametrize(("thu", "gio"), [("2", "16"), ("4", "22"), ("7", "12")])
+    @pytest.mark.parametrize(("thu", "gio"), [(2, 16), (4, 22), (7, 12)])
     def test_gio_kham_co_bien_cho_phep_thi_di_tiep_kem_canh_bao(
-        self, tmp_path: Path, thu: str, gio: str
+        self, tmp_path: Path, thu: int, gio: int
     ) -> None:
         r = _goi_lib(
             tmp_path,
             "kiem_gio_kham && echo QUA",
             them={
-                "STG_THU_VN_GIA": thu,
-                "STG_GIO_VN_GIA": gio,
+                "PATH": _dong_ho_gia(tmp_path, thu, gio),
                 "CHO_PHEP_GIO_KHAM": "1",
             },
         )
@@ -209,18 +232,16 @@ class TestChotTaiNguyen:
     # Ngày thường buổi sáng/chiều (trước 16h) là lúc deploy được; mọi ngày từ 23h.
     @pytest.mark.parametrize(
         ("thu", "gio"),
-        [("1", "7"), ("3", "12"), ("5", "15"), ("2", "23"), ("6", "6"), ("7", "23"),
-         ("4", "0")],
-    )  # fmt: skip
+        [(1, 7), (3, 12), (5, 15), (2, 23), (6, 6), (7, 23), (4, 0), (1, 0)],
+    )
     def test_ngoai_gio_kham_khong_doi_hanh_vi(
-        self, tmp_path: Path, thu: str, gio: str
+        self, tmp_path: Path, thu: int, gio: int
     ) -> None:
         r = _goi_lib(
             tmp_path,
             "kiem_gio_kham && echo QUA",
             them={
-                "STG_THU_VN_GIA": thu,
-                "STG_GIO_VN_GIA": gio,
+                "PATH": _dong_ho_gia(tmp_path, thu, gio),
                 "CHO_PHEP_GIO_KHAM": "",
             },
         )
@@ -234,28 +255,69 @@ class TestChotTaiNguyen:
             "kiem_gio_kham && echo QUA",
             them={
                 "STAGING_KIEU": "rieng",
-                "STG_THU_VN_GIA": "6",
-                "STG_GIO_VN_GIA": "12",
+                "PATH": _dong_ho_gia(tmp_path, 6, 12),
             },
         )
         assert r.returncode == 0, r.stderr
         assert r.stderr == ""
 
-    def test_gio_vn_tinh_tu_utc_cong_7(self, tmp_path: Path) -> None:
-        # Không giả giờ: hàm phải ra một số trong [0,23] và khớp UTC+7.
-        r = _goi_lib(tmp_path, "gio_vn_hien_tai")
+    # Mốc đổi ngày: 17:00 UTC là 0h VN hôm sau. Ca 20/11 (thứ 6, 16:23 VN =
+    # 09:23 UTC) là đúng ca deploy prod giữa giờ khám đã xảy ra.
+    @pytest.mark.parametrize(
+        ("thu_utc", "gio_utc", "mong"),
+        [
+            (7, 16, "7 23"),  # CN 16h UTC = CN 23h VN
+            (7, 17, "1 0"),  # CN 17h UTC = 0h thứ 2 VN
+            (5, 23, "6 6"),  # thứ 6 23h UTC = 6h thứ 7 VN
+            (5, 9, "5 16"),  # 20/11: thứ 6 16h VN
+            (1, 0, "1 7"),
+        ],
+    )
+    def test_thu_gio_vn_doi_tu_utc(
+        self, tmp_path: Path, thu_utc: int, gio_utc: int, mong: str
+    ) -> None:
+        r = _goi_lib(
+            tmp_path,
+            "thu_gio_vn",
+            them={"PATH": _date_gia_utc(tmp_path, thu_utc, gio_utc)},
+        )
         assert r.returncode == 0, r.stderr
-        gio = int(r.stdout)
-        assert 0 <= gio <= 23
+        assert r.stdout.strip() == mong
 
-    def test_thu_vn_tinh_tu_utc_cong_7(self, tmp_path: Path) -> None:
-        # Không giả: thứ theo giờ VN phải khớp đồng hồ UTC+7 của chính máy chạy test.
-        from datetime import UTC, datetime, timedelta
+    def test_thu_gio_vn_khop_mui_gio_asia_ho_chi_minh(self, tmp_path: Path) -> None:
+        # Không giả: phải khớp đồng hồ Asia/Ho_Chi_Minh thật (tzdata của Python).
+        # Đo trước và sau để không chập chờn khi lệnh chạy đúng lúc qua giờ.
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
 
-        r = _goi_lib(tmp_path, "thu_vn_hien_tai")
+        def bay_gio() -> str:
+            t = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
+            return f"{t.isoweekday()} {t.hour}"
+
+        truoc = bay_gio()
+        r = _goi_lib(tmp_path, "thu_gio_vn")
+        sau = bay_gio()
         assert r.returncode == 0, r.stderr
-        mong = (datetime.now(UTC) + timedelta(hours=7)).isoweekday()
-        assert int(r.stdout) == mong
+        assert r.stdout.strip() in {truoc, sau}
+
+    def test_khung_gio_kham_khong_doi_duoc_bang_bien_moi_truong(
+        self, tmp_path: Path
+    ) -> None:
+        # Biến khung cũ (GIO_KHAM_TU/…_DEN) không còn tác dụng: khung là luật,
+        # đổi bằng PR. Thứ 6 17h VN vẫn là giờ khám dù đặt khung "rỗng".
+        r = _goi_lib(
+            tmp_path,
+            "kiem_gio_kham && echo QUA",
+            them={
+                "PATH": _dong_ho_gia(tmp_path, 5, 17),
+                "GIO_KHAM_TU": "23",
+                "GIO_KHAM_TU_NGAY_THUONG": "23",
+                "GIO_KHAM_DEN": "0",
+                "CHO_PHEP_GIO_KHAM": "",
+            },
+        )
+        assert r.returncode != 0
+        assert "GIỜ KHÁM" in r.stderr
 
     def test_deploy_staging_goi_kiem_gio_kham_sau_kiem_tai_nguyen(self) -> None:
         sh = (REPO / "scripts" / "deploy-staging.sh").read_text(encoding="utf-8")
@@ -281,6 +343,7 @@ def _repo_gia(tmp_path: Path) -> tuple[Path, Path]:
     ):
         shutil.copy(REPO / "scripts" / ten, goc / "scripts" / ten)
     shutil.copy(LIB, goc / "scripts" / "lib" / "staging-chung.sh")
+    shutil.copy(LIB.with_name("gio-kham.sh"), goc / "scripts" / "lib" / "gio-kham.sh")
     _ghi_env(goc, _env_hop_le())
     bin_ = tmp_path / "bin"
     bin_.mkdir()

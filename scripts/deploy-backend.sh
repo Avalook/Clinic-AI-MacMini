@@ -1,9 +1,15 @@
 #!/bin/bash
 # Deploy the ClinicAI stack — chạy NGAY TRÊN VPS prod (clinic-vps-moi,
 # /home/clinicai/clinicai). Script dùng docker của máy gõ lệnh.
-#   ./scripts/deploy-backend.sh prod      # branch main  → prod stack
+#   DEPLOY_EXPECTED_SHA=<40 ký tự> ./scripts/deploy-backend.sh prod
+#                                         # branch main, ĐÚNG commit đã soát → prod stack
 #   ./scripts/deploy-backend.sh staging   # tag staging-* → staging stack
-#                                         # (27/09/2026: KHÔNG có staging nào đang chạy)
+#
+# prod BẮT BUỘC có DEPLOY_EXPECTED_SHA: SHA lấy từ báo cáo CI/lần thử staging,
+# KHÔNG tính bằng `git rev-parse HEAD` ngay trên VPS (làm vậy là ghim vào bất
+# cứ thứ gì đang nằm đó, tức không ghim gì). Không có cờ nào bỏ qua được.
+# prod DỪNG trong giờ khám (thứ 2–6 16h–23h, thứ 7–CN 7h–23h giờ VN) trừ khi có
+# DEPLOY_KHAN_LY_DO="<lý do>" — xem khối GIỜ KHÁM bên dưới.
 #
 # Flow: verify exact source → build → up → health → rollback.
 # CLINIC_ENV_DIR may point at a separate secrets directory (used by CI checkouts).
@@ -55,49 +61,89 @@ if [ -n "$(git status --porcelain --untracked-files=normal)" ] && [ "${DEPLOY_AL
   exit 1
 fi
 
+# GHIM SHA (15/10/2026). Trước đây thiếu DEPLOY_EXPECTED_SHA thì script âm thầm
+# `git pull --ff-only` rồi deploy luôn: người đã soát một SHA, `checkout -B main
+# <sha>`, gõ deploy — và nhận về commit MỚI HƠN chưa ai soát (đã xảy ra 01/10).
+# Nay prod không có đường nào kéo thêm commit: thiếu SHA là dừng.
+if [ "$ENVN" = "prod" ] && [ -z "${DEPLOY_EXPECTED_SHA:-}" ]; then
+  echo "!! prod phải ghim commit đã soát: đặt DEPLOY_EXPECTED_SHA=<40 ký tự SHA>" >&2
+  echo "   (SHA lấy từ báo cáo CI / lần thử staging — KHÔNG tính bằng git rev-parse HEAD ngay trên VPS)" >&2
+  exit 2
+fi
+
 if [ -n "${DEPLOY_EXPECTED_SHA:-}" ]; then
-  PINNED_CHECKOUT=1
+  # Đủ 40 ký tự: SHA rút gọn khớp theo tiền tố là cách ghim nhầm lẫn khó thấy.
+  [[ "$DEPLOY_EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+    echo "!! DEPLOY_EXPECTED_SHA phải là SHA đầy đủ 40 ký tự chữ thường (nhận: $DEPLOY_EXPECTED_SHA)" >&2
+    exit 2
+  }
   ACTUAL_SHA="$(git rev-parse HEAD)"
   [ "$ACTUAL_SHA" = "$DEPLOY_EXPECTED_SHA" ] || {
     echo "!! checkout SHA $ACTUAL_SHA does not match requested $DEPLOY_EXPECTED_SHA" >&2
     exit 1
   }
-  if [ -n "${DEPLOY_SOURCE_REF:-}" ] && ! ref_is_expected "$DEPLOY_SOURCE_REF"; then
-    echo "!! $ENVN must deploy from $EXPECTED_REF, not $DEPLOY_SOURCE_REF" >&2
-    exit 1
-  fi
-else
-  PINNED_CHECKOUT=0
-  CURRENT_REF="$(git branch --show-current)"
-  if [ -z "$CURRENT_REF" ]; then
-    # Detached HEAD — the normal shape of a staging deploy. Accept it only when
-    # HEAD sits exactly on a tag, so the release has a name a human can say out
-    # loud in the runbook, not just a SHA nobody will recognise later.
-    CURRENT_REF="$(git describe --tags --exact-match HEAD 2>/dev/null || true)"
-  fi
-  ref_is_expected "$CURRENT_REF" || {
-    echo "!! $ENVN must deploy from $EXPECTED_REF (currently ${CURRENT_REF:-detached, not on a tag})" >&2
-    exit 1
-  }
-  # Preserve the old manual workflow, but never continue with stale code. Only a
-  # branch can fall behind; a tag is already the exact commit that was tested.
-  if [ "$ENVN" = "prod" ]; then
-    git pull --ff-only
+fi
+
+# Nhánh/tag đang đứng PHẢI đúng loại của môi trường — kể cả khi đã ghim SHA, vì
+# SHA đúng mà nằm trên nhánh lạ vẫn là bản chưa qua cổng của `main`.
+# DEPLOY_SOURCE_REF (nếu đặt) khai ref thay cho việc dò từ checkout, dùng cho
+# checkout tách (detached) do công cụ ngoài tạo ra.
+CURRENT_REF="${DEPLOY_SOURCE_REF:-$(git branch --show-current)}"
+if [ -z "$CURRENT_REF" ]; then
+  # Detached HEAD — the normal shape of a staging deploy. Accept it only when
+  # HEAD sits exactly on a tag, so the release has a name a human can say out
+  # loud in the runbook, not just a SHA nobody will recognise later.
+  CURRENT_REF="$(git describe --tags --exact-match HEAD 2>/dev/null || true)"
+fi
+ref_is_expected "$CURRENT_REF" || {
+  echo "!! $ENVN must deploy from $EXPECTED_REF (currently ${CURRENT_REF:-detached, not on a tag})" >&2
+  exit 1
+}
+
+# GIỜ KHÁM — prod dừng TRƯỚC khi dựng gì. Deploy tạo lại container: nhân viên
+# đang đón khách thấy lỗi 502 khoảng một phút. 20/11/2026 đã deploy 16:23 thứ 6
+# giữa ca vì tưởng script chặn (hồi đó chỉ deploy-staging.sh chặn). Khung giờ:
+# scripts/lib/gio-kham.sh, dùng chung với staging.
+# Sửa khẩn không chờ được: DEPLOY_KHAN_LY_DO="<lý do, ≥ 10 ký tự>" — đi tiếp, in
+# cảnh báo, ghi lý do vào mốc deploy (màn Ops). Cố ý KHÔNG nhận CHO_PHEP_GIO_KHAM=1
+# của staging: khẩn ở prod phải viết ra vì sao.
+DEPLOY_KHAN_GHI=""
+if [ "$ENVN" = "prod" ]; then
+  # shellcheck source=lib/gio-kham.sh
+  . "$REPO/scripts/lib/gio-kham.sh"
+  if dang_gio_kham; then
+    # Lý do đi vào JSON của mốc deploy: bỏ nháy kép, gạch chéo, xuống dòng.
+    LY_DO_KHAN="$(printf '%s' "${DEPLOY_KHAN_LY_DO:-}" | tr -d '"\\' | tr '\r\n\t' '   ' \
+      | sed 's/^ *//; s/ *$//')"
+    if [ "${#LY_DO_KHAN}" -lt 10 ]; then
+      echo "!! ĐANG GIỜ KHÁM (${GIO_KHAM_MO_TA}): deploy prod dựng lại container —" >&2
+      echo "   nhân viên đang đón khách sẽ thấy lỗi 502 khoảng một phút. CHƯA LÀM GÌ." >&2
+      echo "   Chạy lại ngoài giờ khám: thứ 2–6 trước ${GIO_KHAM_TU_NGAY_THUONG}h, thứ 7–CN trước ${GIO_KHAM_TU_CUOI_TUAN}h, mọi ngày từ ${GIO_KHAM_DEN}h." >&2
+      echo "   Sửa KHẨN không chờ được: thêm lý do (ít nhất 10 ký tự, sẽ hiện ở màn Ops) đứng đầu lệnh:" >&2
+      echo "     DEPLOY_KHAN_LY_DO=\"<lý do>\" DEPLOY_EXPECTED_SHA=${DEPLOY_EXPECTED_SHA:-} ./scripts/deploy-backend.sh prod" >&2
+      exit 3
+    fi
+    echo "!! KHẨN: deploy prod TRONG GIỜ KHÁM (${GIO_KHAM_MO_TA}) — nhân viên sẽ thấy lỗi 502 khoảng một phút." >&2
+    echo "!! Lý do: ${LY_DO_KHAN}" >&2
+    DEPLOY_KHAN_GHI="KHẨN giờ khám: ${LY_DO_KHAN} | "
   fi
 fi
 
 # Freeze the exact env revision used by this release in the private secrets
 # directory. A rollback must never reuse a newly edited/broken env file.
 RELEASE_SHA="$(git rev-parse HEAD)"
-RELEASE_SOURCE="$REPO"
-if [ "$PINNED_CHECKOUT" = "0" ]; then
-  RELEASE_SOURCE_DIR="${ENV_DIR}/.release-source-${ENVN}"
-  RELEASE_SOURCE="${RELEASE_SOURCE_DIR}/${RELEASE_SHA}"
-  if [ ! -f "$RELEASE_SOURCE/docker-compose.yml" ]; then
-    mkdir -p "$RELEASE_SOURCE_DIR" "${RELEASE_SOURCE}.tmp"
-    git archive HEAD | tar -x -C "${RELEASE_SOURCE}.tmp"
-    mv "${RELEASE_SOURCE}.tmp" "$RELEASE_SOURCE"
-  fi
+# LUÔN chụp mã nguồn của bản này. Trước đây checkout "ghim" dùng thẳng $REPO làm
+# nguồn bản phát hành; trên VPS cùng một thư mục đổi SHA sau mỗi lần deploy, nên
+# rollback ở lần sau `cd` vào một cây đã là code MỚI — compose của bản mới chạy
+# với ảnh của bản cũ. Bản chụp bất biến theo SHA thì rollback đúng bản cũ.
+RELEASE_SOURCE_DIR="${ENV_DIR}/.release-source-${ENVN}"
+RELEASE_SOURCE="${RELEASE_SOURCE_DIR}/${RELEASE_SHA}"
+if [ ! -d "$RELEASE_SOURCE" ]; then
+  # Bản chụp chỉ xuất hiện sau `mv` nguyên khối, nên thư mục đã có = đã đủ.
+  rm -rf "${RELEASE_SOURCE}.tmp"
+  mkdir -p "$RELEASE_SOURCE_DIR" "${RELEASE_SOURCE}.tmp"
+  git archive HEAD | tar -x -C "${RELEASE_SOURCE}.tmp"
+  mv "${RELEASE_SOURCE}.tmp" "$RELEASE_SOURCE"
 fi
 if command -v shasum >/dev/null 2>&1; then
   ENV_HASH="$(shasum -a 256 "$SOURCE_ENV_FILE" | awk '{print $1}')"
@@ -486,7 +532,8 @@ echo "==> dọn bộ nhớ tạm của trình dựng (trước: ${truoc:-?}); đ
 # trạng thái lớn dần mãi trên ổ đĩa máy chủ.
 if [ -d "$OPS_DIR_DA_GIAI" ]; then
   LUC_DEPLOY="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-  CHU_THICH="$(git log -1 --format=%s | tr -d '"\\' | cut -c1-120)"
+  # Lý do deploy khẩn trong giờ khám (nếu có) đứng đầu, để màn Ops thấy ngay.
+  CHU_THICH="$( { printf '%s' "$DEPLOY_KHAN_GHI"; git log -1 --format=%s; } | tr -d '"\\' | cut -c1-120)"
   printf '%s\n' \
     '{' \
     '  "format_version": 1,' \

@@ -144,57 +144,20 @@ kiem_tai_nguyen() {
 # (xem deploy-staging.sh). Nên GIỜ KHÁM mặc định là DỪNG kèm cách đi tiếp; ngoài
 # giờ khám không đổi gì. Không phải chặn cứng: Tuyền cố ý dựng giữa giờ thì đặt
 # `CHO_PHEP_GIO_KHAM=1` (script vẫn dựng, chỉ in cảnh báo).
-#
-# Giờ VN = UTC+7, không có giờ mùa hè → tính từ `date -u`, khỏi phụ thuộc tzdata
-# trên VPS (thiếu tzdata thì `TZ=Asia/Ho_Chi_Minh date` lặng lẽ in giờ UTC).
-# Khung giờ phòng khám dùng (Tuyền 11/11/2026), nửa mở [từ, đến):
-#   thứ 2–6: 16h → 23h (GIO_KHAM_TU, mặc định 16)
-#   thứ 7, CN: 7h → 23h (GIO_KHAM_TU_CUOI_TUAN, mặc định 7)
-#   giờ đóng chung GIO_KHAM_DEN (mặc định 23).
-# STG_GIO_VN_GIA / STG_THU_VN_GIA chỉ để test.
-gio_vn_hien_tai() {
-    if [ -n "${STG_GIO_VN_GIA:-}" ]; then
-        printf '%s' "$STG_GIO_VN_GIA"
-    else
-        printf '%s' $(( (10#$(date -u +%H) + 7) % 24 ))
-    fi
-}
-
-# Thứ theo giờ VN, 1 = thứ 2 … 7 = Chủ nhật. Từ 17h UTC là đã sang ngày hôm sau ở VN.
-thu_vn_hien_tai() {
-    if [ -n "${STG_THU_VN_GIA:-}" ]; then
-        printf '%s' "$STG_THU_VN_GIA"
-        return
-    fi
-    local thu
-    thu=$(date -u +%u)
-    if [ $(( 10#$(date -u +%H) + 7 )) -ge 24 ]; then
-        thu=$(( thu % 7 + 1 ))
-    fi
-    printf '%s' "$thu"
-}
+# Khung giờ và cách tính giờ VN: scripts/lib/gio-kham.sh (dùng chung với deploy prod).
+# shellcheck source=gio-kham.sh
+. "$(dirname "${BASH_SOURCE[0]}")/gio-kham.sh"
 
 kiem_gio_kham() {
     [ "$STAGING_KIEU" = "chung" ] || return 0
-    local gio thu tu den
-    gio=$(( 10#$(gio_vn_hien_tai) ))
-    thu=$(( 10#$(thu_vn_hien_tai) ))
-    if [ "$thu" -ge 6 ]; then
-        tu=$(( 10#${GIO_KHAM_TU_CUOI_TUAN:-7} ))
-    else
-        tu=$(( 10#${GIO_KHAM_TU:-16} ))
-    fi
-    den=$(( 10#${GIO_KHAM_DEN:-23} ))
-    if [ "$gio" -lt "$tu" ] || [ "$gio" -ge "$den" ]; then
-        return 0
-    fi
+    dang_gio_kham || return 0
     if [ "${CHO_PHEP_GIO_KHAM:-0}" = "1" ]; then
-        canh "ĐANG GIỜ KHÁM (${gio}h giờ VN, khung ${tu}h–${den}h) — dựng staging sẽ làm prod chậm. Tiếp tục vì CHO_PHEP_GIO_KHAM=1."
+        canh "ĐANG GIỜ KHÁM (${GIO_KHAM_MO_TA}) — dựng staging sẽ làm prod chậm. Tiếp tục vì CHO_PHEP_GIO_KHAM=1."
         return 0
     fi
-    canh "ĐANG GIỜ KHÁM (${gio}h giờ VN, khung ${tu}h–${den}h): staging chung 4 nhân với prod,"
+    canh "ĐANG GIỜ KHÁM (${GIO_KHAM_MO_TA}): staging chung 4 nhân với prod,"
     canh "dựng ảnh bây giờ làm prod chậm (đo 14/10: p95 1,3s, CPU máy tăng vọt)."
-    canh "Nên chờ sau ${den}h. Cố ý dựng ngay thì chạy lại, thêm CHO_PHEP_GIO_KHAM=1 đứng đầu lệnh:"
+    canh "Nên chờ sau ${GIO_KHAM_DEN}h. Cố ý dựng ngay thì chạy lại, thêm CHO_PHEP_GIO_KHAM=1 đứng đầu lệnh:"
     canh "    CHO_PHEP_GIO_KHAM=1 ./scripts/deploy-staging.sh <PR|nhánh>"
     dung "chưa dựng gì — chờ ngoài giờ khám hoặc đặt CHO_PHEP_GIO_KHAM=1."
 }

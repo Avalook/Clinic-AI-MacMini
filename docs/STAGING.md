@@ -87,8 +87,9 @@ Caddy — không database, không api nào của hai bên.
   chậm. Ngoài giờ khám không đổi gì. Cố ý dựng giữa giờ (sửa khẩn, hoặc Tuyền xác
   nhận phòng khám đang vắng) thì đặt biến đứng đầu lệnh — script vẫn dựng, chỉ in
   cảnh báo: `ssh clinic-vps-moi "cd ~/clinicai-staging && CHO_PHEP_GIO_KHAM=1 ./scripts/deploy-staging.sh 301"`.
-  Đổi khung: `GIO_KHAM_TU` (thứ 2–6, mặc định 16) / `GIO_KHAM_TU_CUOI_TUAN` (mặc định 7) /
-  `GIO_KHAM_DEN` (mặc định 23). Giờ và thứ tính từ UTC+7,
+  Khung giờ nằm ở MỘT chỗ, `scripts/lib/gio-kham.sh`, dùng chung với chặn giờ khám
+  của deploy prod (`deploy-backend.sh`); đổi khung = sửa tệp đó bằng PR (không còn
+  biến `GIO_KHAM_TU` / `GIO_KHAM_DEN`). Giờ và thứ tính từ UTC+7 (= Asia/Ho_Chi_Minh),
   không phụ thuộc múi giờ của VPS. Chỉ áp kiểu `chung` (staging VPS riêng không xét).
   `nice -n 19` + `ionice -c3` (client) và builder buildx `cpu-shares 128` đã có từ
   trước; chúng chỉ nhường lúc tranh chấp, không thay được việc né giờ khám.
