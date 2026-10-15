@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import BaoLoiCanhNut from "@/components/ui/BaoLoiCanhNut";
 import Button, { buttonClass } from "@/components/ui/Button";
 import { congTuLuu, type ClinicalCompletionGate } from "@/lib/clinical-completion";
+import { gopChiDinhChuaGui, type ChiDinhChuaGui } from "@/lib/chi-dinh-chua-gui";
 import { gopDoc } from "@/lib/doc-gop";
 import { SU_KIEN_THAI_KY } from "@/lib/nhip-lam-moi";
 import { LOI_MAT_KET_NOI, nenThuLai, type KetQuaGui, type TrangThaiLuu } from "@/lib/tu-luu";
@@ -122,6 +123,7 @@ export default function PhieuKhamLuot({
   datChiDinh,
   onDaDat,
   onTrangThai,
+  onChuaGui,
   chiMuc,
   chanRay,
   onTomTat,
@@ -139,6 +141,9 @@ export default function PhieuKhamLuot({
   onDaBoChiDinh?: () => void;
   /** Báo cho nút Hoàn tất: còn đang lưu dở / lỗi lưu thì nói ra. */
   onTrangThai?: (g: ClinicalCompletionGate) => void;
+  /** Báo còn mục tick ở khối chỉ định CHƯA gửi (null = hết) — nút Hoàn tất /
+   *  chuyển khách của màn cha chặn và hỏi lại thay vì để tick mất (14/10/2026). */
+  onChuaGui?: (c: ChiDinhChuaGui | null) => void;
   /** Chỉ vẽ các mục này của phiếu (bàn tư vấn: `["B"]`). */
   chiMuc?: string[];
   /** Nút Hoàn tất của bàn khám — vẽ ở chân cột phải (Tuyền 27/09/2026). */
@@ -376,6 +381,23 @@ export default function PhieuKhamLuot({
     (tt: TrangThaiLuu, luuNgay: () => Promise<boolean>) => setLuuPhieu({ tt, luuNgay }),
     [],
   );
+  // Mục tick chưa gửi của các danh mục chỉ định (cận lâm sàng + thủ thuật) —
+  // gộp một cổng cho nút Hoàn tất.
+  const [chuaGuiTheo, setChuaGuiTheo] = useState<Record<string, ChiDinhChuaGui | null>>({});
+  const baoChuaGuiCls = useCallback(
+    (c: ChiDinhChuaGui | null) => setChuaGuiTheo((cu) => ({ ...cu, cls: c })),
+    [],
+  );
+  const baoChuaGuiTt = useCallback(
+    (c: ChiDinhChuaGui | null) => setChuaGuiTheo((cu) => ({ ...cu, tt: c })),
+    [],
+  );
+  useEffect(() => {
+    if (!onChuaGui) return;
+    onChuaGui(gopChiDinhChuaGui(Object.values(chuaGuiTheo)));
+    // Phiếu đóng / đổi khách: không để màn cha giữ cổng của phiếu đã không còn.
+    return () => onChuaGui(null);
+  }, [chuaGuiTheo, onChuaGui]);
   const phieuDangVe = Boolean(phieu) && !chonDuoc;
   useEffect(() => {
     if (!onTrangThai) return;
@@ -555,13 +577,21 @@ export default function PhieuKhamLuot({
         {choGhi ? (
           <section className="space-y-2 rounded-card border border-hairline bg-surface p-4">
             <h2 className="text-title text-ink">Kê chỉ định</h2>
-            <DanhMucChiDinh nhom={dsCls} daDat={daDat} daChiDinh={ketQua} onDat={dat} chiDoc={!choGhi} />
+            <DanhMucChiDinh
+              nhom={dsCls}
+              daDat={daDat}
+              daChiDinh={ketQua}
+              onDat={dat}
+              chiDoc={!choGhi}
+              onChuaGui={baoChuaGuiCls}
+            />
             <DanhMucChiDinh
               nhom={nhomThuThuat(tc?.thu_thuat)}
               daDat={daDat}
               daChiDinh={ketQua}
               onDat={dat}
               chiDoc={!choGhi}
+              onChuaGui={baoChuaGuiTt}
             />
           </section>
         ) : null}
@@ -696,6 +726,7 @@ export default function PhieuKhamLuot({
             lan={lanChiDinh}
             onDat={dat}
             chiDoc={!choGhi}
+            onChuaGui={baoChuaGuiCls}
           />
         }
         oThuThuat={
@@ -706,6 +737,7 @@ export default function PhieuKhamLuot({
             lan={lanChiDinh}
             onDat={dat}
             chiDoc={!choGhi}
+            onChuaGui={baoChuaGuiTt}
           />
         }
         maThuThuat={maThuThuat}

@@ -70,7 +70,7 @@ test("BanKham enforces gate check and confirm BEFORE calling guiThaoTac('kham-xo
   assert.doesNotMatch(banKhamSource, /window\.confirm\(/);
   const bamFnIdx = banKhamSource.indexOf("const bam = async");
   assert.ok(bamFnIdx > 0, "bam handler must exist");
-  const bamBody = banKhamSource.slice(bamFnIdx, bamFnIdx + 2000);
+  const bamBody = banKhamSource.slice(bamFnIdx, bamFnIdx + 2800);
 
   const gateCheckIdx = bamBody.indexOf("if (!completionGate)");
   const gateOkCheckIdx = bamBody.indexOf("if (!completionGate.ok)");

@@ -65,6 +65,12 @@ import { TomTatLuotContext } from "../_lam-viec/phieu-kham/TomTatLuot";
 import XemLuot from "../_lam-viec/XemLuot";
 import PhieuKhamLuot from "../_lam-viec/phieu-kham/PhieuKhamLuot";
 import type { DatChiDinh } from "@/lib/phieu-kham";
+import {
+  cauChiDinhChuaGui,
+  conChiDinhChuaGui,
+  guiRoiTiep,
+  type ChiDinhChuaGui,
+} from "@/lib/chi-dinh-chua-gui";
 import BanDienDonThuoc from "./BanDienDonThuoc";
 import BanTuVan from "./BanTuVan";
 import Button from "@/components/ui/Button";
@@ -408,7 +414,7 @@ export default function BanKham({
   // rộng. Dưới 1536px cột ~250px của danh sách bóp phiếu còn ~350px (tên khách vỡ
   // từng chữ). Mở lại bằng nút "Hàng chờ" ở thanh công việc; chọn khách là gập.
   const [moHang, setMoHang] = useState(false);
-  const chonKhach = useCallback((id: string) => {
+  const moKhach = useCallback((id: string) => {
     setMoHang(false);
     setChonId(id);
     // Màn xếp chồng (< 1280): danh sách ở TRÊN vùng làm việc — tự cuộn tới.
@@ -418,6 +424,32 @@ export default function BanKham({
       );
     }
   }, []);
+  // CHỈ ĐỊNH TICK CHƯA GỬI (14/10/2026): rời khách / đổi phòng / đổi ngày khi
+  // khối 2 còn mục tick chưa gửi thì tick mất âm thầm → chặn, hỏi lại tại chỗ.
+  const [chuaGuiTheoKhach, setChuaGuiTheoKhach] = useState<{
+    id: string;
+    chua: ChiDinhChuaGui;
+  } | null>(null);
+  const baoChuaGui = useCallback((id: string, chua: ChiDinhChuaGui | null) => {
+    setChuaGuiTheoKhach((cu) => {
+      if (chua) return { id, chua };
+      // Chỉ xoá cổng của CHÍNH khách đang báo hết — không đè cổng khách khác.
+      return cu && cu.id === id ? null : cu;
+    });
+  }, []);
+  const chuaGui = chuaGuiTheoKhach && chuaGuiTheoKhach.id === chon?.id ? chuaGuiTheoKhach.chua : null;
+  const [choChuyen, setChoChuyen] = useState<{ tiep: () => void } | null>(null);
+  // Đã gửi / bỏ tick bằng nút ở khối 2 trong lúc dải đang hỏi → hết việc để hỏi.
+  if (choChuyen && !conChiDinhChuaGui(chuaGui)) setChoChuyen(null);
+  const chuyenDi = useCallback(
+    (tiep: () => void) => {
+      if (conChiDinhChuaGui(chuaGui)) setChoChuyen({ tiep });
+      else tiep();
+    },
+    [chuaGui],
+  );
+  const [dangGuiTruocKhiChuyen, setDangGuiTruocKhiChuyen] = useState(false);
+  const chonKhach = useCallback((id: string) => chuyenDi(() => moKhach(id)), [chuyenDi, moKhach]);
   // [Bắt đầu …] ngay ở dòng hàng chờ (27/09 — bản mẫu tư vấn): cùng lệnh
   // `nhan-kham` với nút trong hồ sơ; xong thì mở hồ sơ khách đó.
   const [dangBatDau, setDangBatDau] = useState<string | null>(null);
@@ -459,14 +491,15 @@ export default function BanKham({
           id="chon-phong"
           value={phong?.id ?? ""}
           onChange={(e) => {
-            setChonId(null);
-            // Giữ ngày đang xem khi đổi phòng.
-            const q = laHomNay ? "" : `?ngay=${ngay}`;
-            router.push(
-              e.target.value
-                ? `/ban-kham/${encodeURIComponent(e.target.value)}${q}`
-                : `/ban-kham${q}`,
-            );
+            const phongMoi = e.target.value;
+            chuyenDi(() => {
+              setChonId(null);
+              // Giữ ngày đang xem khi đổi phòng.
+              const q = laHomNay ? "" : `?ngay=${ngay}`;
+              router.push(
+                phongMoi ? `/ban-kham/${encodeURIComponent(phongMoi)}${q}` : `/ban-kham${q}`,
+              );
+            });
           }}
           className="min-h-10 rounded-control border border-line bg-surface px-3 text-sm text-ink"
         >
@@ -487,6 +520,26 @@ export default function BanKham({
         ) : null}
       </div>
 
+      {choChuyen && conChiDinhChuaGui(chuaGui) ? (
+        <XacNhanTaiCho
+          cau={cauChiDinhChuaGui(chuaGui.soMuc)}
+          nhanDongY="Chỉ định ngay rồi chuyển"
+          nhanThoi="Bỏ chọn và chuyển"
+          dangGui={dangGuiTruocKhiChuyen}
+          onDongY={() => {
+            setDangGuiTruocKhiChuyen(true);
+            void guiRoiTiep(chuaGui, () => {
+              setChoChuyen(null);
+              choChuyen.tiep();
+            }).finally(() => setDangGuiTruocKhiChuyen(false));
+          }}
+          onThoi={() => {
+            chuaGui.boChon();
+            setChoChuyen(null);
+            choChuyen.tiep();
+          }}
+        />
+      ) : null}
       <ThanhNgay
         motNgay
         nhan={tuVan ? "Xem hàng tư vấn theo ngày" : "Xem hàng chờ khám theo ngày"}
@@ -497,10 +550,12 @@ export default function BanKham({
         onChon={(k) => {
           const moi = k?.den ?? homNay;
           if (moi === ngay) return;
-          setHang(null);
-          setBang(null);
-          setChonId(null);
-          chonNgay(moi);
+          chuyenDi(() => {
+            setHang(null);
+            setBang(null);
+            setChonId(null);
+            chonNgay(moi);
+          });
         }}
       />
       {!laHomNay ? (
@@ -629,6 +684,8 @@ export default function BanKham({
               staffId={staffId}
               onDaBam={napLai}
               tuVan={tuVan}
+              chuaGui={chuaGui}
+              onChuaGui={baoChuaGui}
             />
           </div>
           {!PHIEU_V5 ? (
@@ -829,7 +886,12 @@ function HoSo({
   onHangCho,
   hangMo = true,
   soCho = 0,
+  chuaGui = null,
+  onChuaGui,
 }: {
+  /** Mục tick ở khối chỉ định chưa gửi của khách đang mở (14/10/2026). */
+  chuaGui?: ChiDinhChuaGui | null;
+  onChuaGui?: (khachId: string, c: ChiDinhChuaGui | null) => void;
   /** Mở / gập cột hàng chờ (phiếu v5 bác sĩ chính — 27/09/2026). */
   onHangCho?: () => void;
   hangMo?: boolean;
@@ -868,6 +930,17 @@ function HoSo({
   );
   // Hỏi lại trước khi Hoàn tất — dải xác nhận tại chỗ, theo đúng khách đang mở.
   const [hoiHoanTat, setHoiHoanTat] = useState<string | null>(null);
+  // Còn mục tick CHƯA gửi chỉ định → dải hỏi: gửi ngay rồi Hoàn tất / bỏ chọn.
+  const [hoiChiDinh, setHoiChiDinh] = useState<{
+    id: string;
+    thaoTac: "kham-xong" | "xong-tu-van";
+  } | null>(null);
+  const baoChuaGui = useCallback(
+    (c: ChiDinhChuaGui | null) => {
+      if (khachId) onChuaGui?.(khachId, c);
+    },
+    [khachId, onChuaGui],
+  );
   // "Đã khám xong · Hoàn tác" vài giây sau khi bấm (Tuyền 01/10/2026).
   const [thongBao, setThongBao] = useState<ThongBao | null>(null);
   const dongThongBao = useCallback(() => setThongBao(null), []);
@@ -949,8 +1022,18 @@ function HoSo({
     }
   };
 
-  const bam = async (thaoTac: "nhan-kham" | "kham-xong" | "xong-tu-van") => {
+  const bam = async (
+    thaoTac: "nhan-kham" | "kham-xong" | "xong-tu-van",
+    daXuLyChiDinh = false,
+  ) => {
     if (thaoTac === "kham-xong" || thaoTac === "xong-tu-van") {
+      // Tick ở khối chỉ định CHƯA gửi: Hoàn tất sẽ làm chúng mất không báo gì
+      // (14/10/2026) → chặn, hỏi tại chỗ. Gửi xong mới quay lại đây đi tiếp.
+      if (!daXuLyChiDinh && conChiDinhChuaGui(chuaGui)) {
+        setLoi(null);
+        setHoiChiDinh({ id: dong.id, thaoTac });
+        return;
+      }
       if (thaoTac === "kham-xong" && completionMode === "TERMINAL" && !laBacSi) {
         setLoi({
           id: dong.id,
@@ -1031,6 +1114,34 @@ function HoSo({
         </Button>
         {!tuVan && !laBacSi && completionMode === "TERMINAL" ? (
           <p className="text-meta text-ink-muted">Chờ bác sĩ hoàn tất lượt khám.</p>
+        ) : null}
+        {hoiChiDinh?.id === dong.id && conChiDinhChuaGui(chuaGui) ? (
+          <XacNhanTaiCho
+            cau={cauChiDinhChuaGui(chuaGui.soMuc)}
+            nhanDongY="Chỉ định ngay rồi hoàn tất"
+            nhanThoi="Bỏ chọn"
+            dangGui={dangGui}
+            onDongY={() => {
+              const { thaoTac } = hoiChiDinh;
+              setDangGui(true);
+              void guiRoiTiep(chuaGui, () => {
+                setHoiChiDinh(null);
+                setDangGui(false);
+                return bam(thaoTac, true);
+              }).then((daGui) => {
+                if (daGui) return;
+                setDangGui(false);
+                setLoi({
+                  id: dong.id,
+                  cau: "Chưa gửi được chỉ định nên chưa hoàn tất — xem thông báo dưới nút “Chỉ định”.",
+                });
+              });
+            }}
+            onThoi={() => {
+              chuaGui.boChon();
+              setHoiChiDinh(null);
+            }}
+          />
         ) : null}
         {hoiHoanTat === dong.id ? (
           <XacNhanTaiCho
@@ -1332,6 +1443,7 @@ function HoSo({
               onDaDat={onDaBam}
               onDaBoChiDinh={dongThongBao}
               onTrangThai={baoGate}
+              onChuaGui={baoChuaGui}
               chanRay={laPhieuMoi ? nutHoanTat : undefined}
             />
             {dong.form_code === "SK" ? (

@@ -31,11 +31,12 @@
 // định ở lần n" (bản mẫu `.da-truoc`). Số lần do máy chủ gán.
 
 import { Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import NganGap from "@/components/ui/NganGap";
+import type { ChiDinhChuaGui } from "@/lib/chi-dinh-chua-gui";
 import {
   chipMauDanhMuc,
   gomTheoNhomGoc,
@@ -60,6 +61,7 @@ export default function DanhMucChiDinh({
   onDat,
   chiDoc,
   nhanNut = "Chỉ định",
+  onChuaGui,
 }: {
   nhom: NhomCls[];
   /** service_code đã có chỉ định (chưa huỷ) trong lượt. */
@@ -76,6 +78,9 @@ export default function DanhMucChiDinh({
   ) => Promise<KetQuaDatChiDinh>;
   chiDoc: boolean;
   nhanNut?: string;
+  /** Báo màn cha còn mục tick CHƯA gửi (null = hết) — để chặn Hoàn tất / chuyển
+   *  khách thay vì làm tick mất âm thầm (14/10/2026). */
+  onChuaGui?: (c: ChiDinhChuaGui | null) => void;
 }) {
   const [chon, setChon] = useState<string[]>([]);
   const [dang, setDang] = useState(false);
@@ -129,7 +134,8 @@ export default function DanhMucChiDinh({
     if (!co) setBatBuoc((cu) => cu.filter((x) => x !== ma));
   };
 
-  const dat = async () => {
+  /** true = đã gửi xong (tick được xoá); false = lỗi, tick còn nguyên. */
+  const dat = async (): Promise<boolean> => {
     setDang(true);
     setLoi(null);
     setVuaDat(null);
@@ -141,13 +147,38 @@ export default function DanhMucChiDinh({
     setDang(false);
     if (!kq.ok) {
       setLoi(kq.loi);
-      return;
+      return false;
     }
     setVuaDat({ ids: kq.order_ids ?? [], lan: kq.lan ?? null });
     setMoLanMoi(false);
     setChon([]);
     setBatBuoc([]);
+    return true;
   };
+
+  // Báo cha khi còn tick chưa gửi. Hàm gửi gọi qua ref để luôn dùng bản `dat`
+  // MỚI NHẤT (tick vừa đổi) mà object báo lên không phải đổi theo từng lần vẽ.
+  const datMoiNhat = useRef(dat);
+  useEffect(() => {
+    datMoiNhat.current = dat;
+  });
+  const soChon = chiDoc ? 0 : chon.length;
+  useEffect(() => {
+    if (!onChuaGui) return;
+    if (soChon === 0) {
+      onChuaGui(null);
+      return;
+    }
+    onChuaGui({
+      soMuc: soChon,
+      guiNgay: () => datMoiNhat.current(),
+      boChon: () => {
+        setChon([]);
+        setBatBuoc([]);
+      },
+    });
+    return () => onChuaGui(null);
+  }, [soChon, onChuaGui]);
 
   /** Một dòng kiểu phiếu giấy: ô tick (20px) · tên · giá + chip mẫu. */
   const dong = (m: MucCls, phu?: string) => {
