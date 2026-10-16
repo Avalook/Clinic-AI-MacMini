@@ -92,7 +92,7 @@ Hiện trạng (agent đọc code): tắt 01/10 bằng **script SQL ngoài git**
 ## 6. ĐÃ LÀM (16/10, nhánh `claude/invoice-by-company-8a73f2`, nền `gop-staging-1410m`, chưa commit)
 
 Tuyền chốt: tick ở khâu thanh toán, hiện thông tin công ty, **theo lượt khám** (không theo hồ sơ).
-Mặc định đã chọn cho Q1–Q5 (sai thì nói): email công ty trống thì để trống · SĐT/CCCD trống khi tick ·
+Mặc định đã chọn cho Q1–Q5 (sai thì nói): email công ty trống thì để trống · SĐT/CCCD trống khi tick (**ĐÃ ĐỔI 16/10 chiều: Tuyền chốt H = SĐT khách, email công ty trống → email cá nhân, CCCD vẫn trống**) ·
 thu ngân được CHỌN công ty có sẵn trong hồ sơ (ghi/sửa công ty vẫn Kế toán + Quản lý) · làm trên nền 1410m.
 
 | Việc | Ở đâu |
@@ -116,6 +116,6 @@ DỮ LIỆU (bên thu của dịch vụ lúc thu, hoặc dịch vụ vào phòng
 2. Quầy thu dịch vụ của khách đó → thấy ô "Xuất hoá đơn về công ty"; tick → hiện đúng 4 thông tin; Tạo bill.
 3. Cùng khách, lượt khác KHÔNG tick → Tạo bill. Khách chưa có công ty → ô tick xám + câu nhắc.
 4. /xuat-hoa-don hôm nay → tải Excel: lượt tick có C=tên cty, D=địa chỉ cty, E=MST, F=tên khách, G=email cty;
-   lượt không tick C TRỐNG, F=tên khách, D/G/H/I cá nhân.
+   lượt không tick C TRỐNG, F=tên khách, D/G/H/I cá nhân. Lượt tick: H = SĐT khách, G = email cty (trống → email cá nhân), I trống.
 5. /hoa-don → bỏ chọn công ty của lượt đã tick → Excel quay về dạng cá nhân (hoàn tác được).
 6. Nhân sự → Thêm nhân viên → vai "Đối tác" → đăng nhập: chỉ thấy /doi-tac.

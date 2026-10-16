@@ -126,12 +126,12 @@ def test_hd_cong_ty_chi_xuat_thong_tin_cong_ty() -> None:
         "0123456789",
     )
     assert ct["email"] == "ketoan@hoasen.vn"
-    # Không một thông tin cá nhân nào lọt vào hoá đơn công ty.
-    assert ct["so_dien_thoai"] == "" and ct["cccd"] == ""
+    # SĐT khách ghi ở cột H (Tuyền 16/10); CCCD cá nhân KHÔNG vào hoá đơn công ty.
+    assert ct["so_dien_thoai"] == "0901234567" and ct["cccd"] == ""
     # Người mua = KHÁCH THẬT, kể cả khi xuất về công ty (Tuyền 16/10).
     assert ct["nguoi_mua"] == "Nguyễn Thị A"
     blob = repr(ct)
-    for rieng_tu in ("0901234567", "001190000001", "12 Kim Ngưu", "ca-nhan@example"):
+    for rieng_tu in ("001190000001", "12 Kim Ngưu", "ca-nhan@example"):
         assert rieng_tu not in blob
     # Hoá đơn cá nhân cùng kỳ GIỮ NGUYÊN như trước G5c.
     assert not ca_nhan["la_hd_cong_ty"]
@@ -142,6 +142,24 @@ def test_hd_cong_ty_chi_xuat_thong_tin_cong_ty() -> None:
     )
     assert ca_nhan["so_dien_thoai"] == "0901234567"
     assert ca_nhan["nguoi_mua"] == "Nguyễn Thị A" and ca_nhan["ma_so_thue"] == ""
+
+
+def test_hd_cong_ty_chua_co_email_thi_lay_email_ca_nhan() -> None:
+    """Email công ty trống → email cá nhân của khách; có email công ty thì dùng nó."""
+    khong_email = {"p1": {**CONG_TY["p1"], "email_nhan_hd": ""}}
+    ct = dung_hoa_don(KHACH, {}, THEM_KHACH, None, None, khong_email)[0]
+    assert ct["la_hd_cong_ty"] and ct["email"] == "ca-nhan@example.com"
+    khong_ca_hai = {pid: {**v, "email": ""} for pid, v in THEM_KHACH.items()}
+    ct = dung_hoa_don(KHACH, {}, khong_ca_hai, None, None, khong_email)[0]
+    assert ct["email"] == "" and ct["so_dien_thoai"] == "0901234567"
+    co_email = dung_hoa_don(KHACH, {}, THEM_KHACH, None, None, CONG_TY)[0]
+    assert co_email["email"] == "ketoan@hoasen.vn"
+
+
+def test_hd_cong_ty_khach_khong_co_sdt_thi_trong_khong_nem() -> None:
+    khach = [{**KHACH[0], "so_dien_thoai": None}]
+    ct = dung_hoa_don(khach, {}, THEM_KHACH, None, None, CONG_TY)[0]
+    assert ct["so_dien_thoai"] == ""
 
 
 def test_hd_cong_ty_khong_doi_so_tien() -> None:
@@ -167,14 +185,14 @@ def test_excel_cot_cde_va_hi_trong() -> None:
         "ct": [ws.cell(DONG_DAU, c).value for c in range(3, 10)],
         "cn": [ws.cell(DONG_DAU + 1, c).value for c in range(3, 10)],
     }
-    # C tên cty · D địa chỉ cty · E MST · F khách thật · G email cty · H/I trống.
+    # C tên cty · D địa chỉ cty · E MST · F khách thật · G email cty · H SĐT · I trống.
     assert dong["ct"] == [
         "Công ty TNHH Hoa Sen",
         "99 Trần Duy Hưng, Hà Nội",
         "0123456789",
         "Nguyễn Thị A",
         "ketoan@hoasen.vn",
-        None,
+        "0901234567",
         None,
     ]
     # Không xuất về công ty: C TRỐNG, F = khách thật, SĐT/CCCD cá nhân còn nguyên.

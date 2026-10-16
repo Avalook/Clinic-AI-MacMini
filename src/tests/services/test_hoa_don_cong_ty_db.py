@@ -70,7 +70,8 @@ async def _khach(pool: asyncpg.Pool, q: Any) -> str:
     pid = await pool.fetchval(
         "UPDATE patient p SET address=NULL, address_detail='12 Kim Ngưu',"
         " ward_name='Phường Vĩnh Tuy', province_name='Hà Nội',"
-        " national_id_number='001190000001', email='ca-nhan@example.com'"
+        " national_id_number='001190000001', email='ca-nhan@example.com',"
+        " phone_primary='09' || lpad((random()*99999999)::int::text, 8, '0')"
         " FROM visit v WHERE v.visit_id=$1::uuid"
         " AND p.clinic_patient_id=v.clinic_patient_id"
         " RETURNING p.clinic_patient_id::text",
@@ -134,17 +135,18 @@ async def test_bat_bien_ban_chup_khong_doi_theo_ho_so_va_xuat_dung_cot(
 
     hd = (await _xuat(pool, manager, [c1]))[c1]
     cot = _dong_xlsx(hd)
-    # C tên cty · D địa chỉ cty · E MST · F khách thật · G email cty · H/I TRỐNG.
+    # C tên cty · D địa chỉ cty · E MST · F khách thật · G email cty · H SĐT · I TRỐNG.
     assert cot[2:9] == [
         CT_A["ten_cong_ty"],
         CT_A["dia_chi_cong_ty"],
         CT_A["ma_so_thue"],
         hd["ten_khach"],
         CT_A["email_nhan_hd"],
-        None,
+        hd["so_dien_thoai"],
         None,
     ]
-    # Không thông tin cá nhân nào trong cả dòng.
+    assert hd["so_dien_thoai"]
+    # CCCD / địa chỉ / email cá nhân không vào dòng hoá đơn công ty.
     assert "001190000001" not in repr(cot) and "Kim Ngưu" not in repr(cot)
     assert "ca-nhan@example.com" not in repr(cot)
 
@@ -459,5 +461,8 @@ async def test_bam_ngau_nhien_40_chuoi_x_10_buoc_khop_mo_hinh(
                 assert cot[5] == hd["ten_khach"]  # người mua = khách thật
                 assert (cot[3] or "") == hien["dia_chi_cong_ty"]
                 assert (cot[4] or "") == hien["ma_so_thue"].replace(" ", "")
-                assert cot[7] is None and cot[8] is None
-                assert "ca-nhan@example.com" not in repr(cot)
+                # H = SĐT khách, I (CCCD) trống, G = email cty (trống → email cá nhân).
+                assert cot[7] == hd["so_dien_thoai"] and cot[8] is None
+                assert (cot[6] or "") == (
+                    hien["email_nhan_hd"] or "ca-nhan@example.com"
+                )

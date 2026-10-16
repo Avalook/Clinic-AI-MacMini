@@ -243,10 +243,11 @@ def dung_hoa_don(
             )
         if cho_hoan:
             ghi_chu.append(f"Đang chờ hoàn {cho_hoan:,}đ".replace(",", "."))
-        # HĐ công ty (Q15, Tuyền 16/10): đơn vị mua = công ty; CHỈ địa chỉ + email
-        # của công ty — không đưa SĐT / CCCD / địa chỉ / email cá nhân của khách vào
-        # file. "Người mua" LUÔN là khách thật (cả hai loại hoá đơn); "Tên khách
-        # hàng" (đơn vị mua) chỉ có khi xuất về công ty — xem `xlsx_misa`.
+        # HĐ công ty (Q15, Tuyền 16/10): đơn vị mua = công ty; địa chỉ lấy của công
+        # ty, KHÔNG đưa địa chỉ / CCCD cá nhân vào file. "Người mua" LUÔN là khách
+        # thật nên SĐT khách vẫn ghi ở cột H; email = email công ty, công ty chưa
+        # có thì lấy email cá nhân của khách (Tuyền 16/10, sau khi bấm staging thấy
+        # cột H trống). "Tên khách hàng" (đơn vị mua) chỉ có khi xuất về công ty.
         la_hd_cong_ty = bool(ct.get("ten_cong_ty"))
         out.append(
             {
@@ -268,13 +269,11 @@ def dung_hoa_don(
                 "ma_so_thue": ct.get("ma_so_thue") or "",
                 "nguoi_mua": k.get("ten") or "",
                 "email": (
-                    ct.get("email_nhan_hd") or ""
+                    ct.get("email_nhan_hd") or kh.get("email") or ""
                     if la_hd_cong_ty
                     else kh.get("email") or ""
                 ),
-                "so_dien_thoai": ""
-                if la_hd_cong_ty
-                else (k.get("so_dien_thoai") or ""),
+                "so_dien_thoai": k.get("so_dien_thoai") or "",
                 "cccd": "" if la_hd_cong_ty else (kh.get("cccd") or ""),
                 "hinh_thuc": HINH_THUC.get(str(p.get("hinh_thuc") or ""), ""),
                 "dong": dong,
