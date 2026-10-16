@@ -8,11 +8,11 @@ container, người đang dùng thấy 502 khoảng một phút.
 ## 0. Đợt này gồm
 ~211 commit, ~60 nhánh (G3b mã vạch, G4 dòng tiền, G5 kế toán/thuế/hoá đơn công ty/MISA, G6 kiểm kê ca, G7 tách kho/quầy,
 G8 vật tư + duyệt nhập, G9 Bio ở chỉ định, bán theo đơn + phản hồi thuốc, gọi xác nhận mọi lịch đặt hộ, email khách,
-7 PR giảm chậm, sửa lỗi). **28 migration mới**:
+7 PR giảm chậm, sửa lỗi, vai Kế toán, Phòng đối tác chạy chung luồng phòng). **29 migration mới**:
 
 `20261010100000` `20261010100001` `20261010200000` · `20261014110000` `…130000` `…130002` `…135000` `…140000` `…147000`
 `…148000` `…149000` `…150000` `…155000` `…156000` `…157000` `…160000` `…170000` `…180000` `…180100` `…180101` `…181000`
-`…181100` `…190000` `…200000` `…200100` `…220000` · `20261015110000` · `20261016300000`.
+`…181100` `…190000` `…200000` `…200100` `…220000` · `20261015110000` · `20261016300000` `20261016400000`.
 Hai nhóm thay đổi có hiệu ứng thấy ngay: **view `v_viec_cskh`** (mọi lịch đặt hộ thành việc "Gọi xác nhận lịch") và
 **cột/ràng buộc kho** (`drug_batch.noi_chua`, công tắc `tach_kho_quay` mặc định TẮT → quầy bán như cũ).
 
@@ -53,7 +53,7 @@ Sao lưu (phải kèm env như unit systemd):
 ```bash
 PG_DUMP_BIN=scripts/pg-dump-qua-container.sh CLINIC_DB_CONTAINER=clinicai_db BACKUP_ENV_FILE=.env.prod CLINIC_BACKUP_DIR=/home/clinicai/backups/clinicai ./scripts/backup-db.sh
 ```
-Diễn tập 28 migration trên bản sao (worktree tách ở SHA_PROD + Postgres phụ nạp dữ liệu prod; xong `docker rm -fv`; số dòng
+Diễn tập 29 migration trên bản sao (worktree tách ở SHA_PROD + Postgres phụ nạp dữ liệu prod; xong `docker rm -fv`; số dòng
 bảng chính không đổi). Rồi thử khô và áp thật:
 ```bash
 CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh
@@ -64,6 +64,15 @@ CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh --apply
 ```bash
 docker exec clinicai_db psql -U postgres -c "NOTIFY pgrst, 'reload schema'"
 ```
+Hai script DỮ LIỆU đối tác (đã chạy trên staging 16/10 — kết quả: 1 node làm bên ngoài · 4 dịch vụ đối tác tự lấy mẫu ·
+mỗi phòng đối tác gỡ 87 dịch vụ thường, còn 25). Chạy SAU migration, trên VPS trong `/home/clinicai/clinicai`:
+```bash
+docker exec -i clinicai_db psql -U postgres -d postgres -v ON_ERROR_STOP=1 < scripts/bat-lai-doi-tac-1610.sql
+```
+```bash
+docker exec -i clinicai_db psql -U postgres -d postgres -v ON_ERROR_STOP=1 < scripts/go-dich-vu-thua-phong-doi-tac-1610.sql
+```
+Script thứ hai tự dừng (không đổi gì) nếu có dịch vụ sẽ không còn phòng thường nào làm.
 
 ## 5. Deploy ghim SHA
 ```bash
