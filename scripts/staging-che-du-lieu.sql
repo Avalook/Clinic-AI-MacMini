@@ -259,6 +259,8 @@ BEGIN
     -- NHÁNH ĐANG THỬ thêm thì chưa có lúc che (che chạy trên lược đồ prod, trước
     -- bước 5 áp migration nhánh) — thiếu là vô hại (08/10/2026, clinic_location.phone).
     WHERE c.cach <> 'giu'
+      -- patient.email: xem khối che email ở dưới (cột thêm bởi migration nhánh).
+      AND NOT (c.bang = 'patient' AND c.cot = 'email')
       AND NOT EXISTS (SELECT 1 FROM information_schema.columns i
                       WHERE i.table_schema = 'public' AND i.table_name = c.bang
                         AND i.column_name = c.cot);
@@ -446,6 +448,24 @@ FROM (SELECT x.id, c.n FROM public.cskh_log x
       LEFT JOIN _che_khach c ON c.id = x.clinic_patient_id) m
 WHERE m.id = l.id;
 
+-- patient.email: cột do migration 20261014110000 thêm — bản sao prod chưa có nó
+-- tới khi đợt ấy lên prod, mà che chạy trên lược đồ prod (trước bước 5 áp
+-- migration nhánh). Thiếu cột = không có email nào để che → bỏ qua; có thì che
+-- (16/10/2026: thiếu cột làm hỏng đợt nạp lại staging hai đêm liền).
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema = 'public' AND table_name = 'patient'
+                 AND column_name = 'email') THEN
+        EXECUTE $q$
+            UPDATE public.patient p SET
+                email = CASE WHEN p.email IS NULL THEN NULL
+                             ELSE 'khach' || lpad(c.n::text, 4, '0') || '@vi-du.invalid' END
+            FROM _che_khach c WHERE c.id = p.clinic_patient_id
+        $q$;
+    END IF;
+END $$;
+
 -- patient CUỐI CÙNG: trigger của nó tính lại sdt_tim_kiem từ SĐT đã che (kể
 -- cả patient_sdt_them vừa che ở trên).
 UPDATE public.patient p SET
@@ -481,9 +501,7 @@ UPDATE public.patient p SET
         ELSE '(đã che)' END,
     occupation = pg_temp.che_chu(p.occupation),
     van_de_di_kham = pg_temp.che_chu(p.van_de_di_kham),
-    uu_tien_ly_do = pg_temp.che_chu(p.uu_tien_ly_do),
-    email = CASE WHEN p.email IS NULL THEN NULL
-                 ELSE 'khach' || lpad(c.n::text, 4, '0') || '@vi-du.invalid' END
+    uu_tien_ly_do = pg_temp.che_chu(p.uu_tien_ly_do)
 FROM _che_khach c WHERE c.id = p.clinic_patient_id;
 
 -- ── Che theo danh sách (một UPDATE mỗi bảng) ────────────────────────────────

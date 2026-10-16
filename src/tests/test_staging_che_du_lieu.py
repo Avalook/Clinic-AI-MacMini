@@ -455,3 +455,24 @@ async def test_ngay_sinh_dau_nam_1900_khong_lui_qua_1900(
         "SELECT min(date_of_birth) FROM patient WHERE patient_code LIKE 'NS1900-%'"
     )
     assert nho_nhat is not None and nho_nhat.year >= 1900
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_ban_sao_prod_chua_co_cot_email_van_che_duoc(
+    conn: asyncpg.Connection,
+) -> None:
+    """16/10/2026: lược đồ prod chưa có `patient.email` (migration 20261014110000
+    nằm ở nhánh đợt, chưa lên prod) mà script che chạy trên lược đồ prod → cả đợt
+    nạp lại staging huỷ hai đêm liền. Thiếu cột = không có email để che, không
+    phải lỗi; phần còn lại của khách vẫn phải được che."""
+    ids = await _gieo(conn)
+    await conn.execute("ALTER TABLE patient DROP COLUMN email")
+    await _che(conn)
+    ten, sdt = await conn.fetchrow(
+        "SELECT full_name, phone_primary FROM patient"
+        " WHERE clinic_patient_id = $1::uuid",
+        ids["bn"],
+    )
+    assert TEN_THAT not in ten
+    assert SDT_THAT not in (sdt or "")
