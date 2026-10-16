@@ -136,29 +136,30 @@ async def dat_co_hang_loat(
     tham_so: list[Any] = [identity.clinic_id, gia_tri_loai, dich]
     if ds_id is not None:
         tham_so.append(ds_id)
-    khung = (
-        "clinic_id = $1::uuid AND \"group\" = 'vat_tu'"
-        " AND loai_vat_tu IS NOT DISTINCT FROM $2::text"
-    )
+    # `clinic_id = $1::uuid` viết thẳng trong từng câu SQL bên dưới (không nhét vào
+    # `khung`): máy kiểm phạm vi phòng khám đọc chữ của câu, không chạy f-string.
+    khung = "\"group\" = 'vat_tu' AND loai_vat_tu IS NOT DISTINCT FROM $2::text"
     doi = f"active AND coalesce({cot}, false) <> $3::bool{loc_id}"
 
     async with pool.acquire() as conn, conn.transaction():
         tong, ngung = await conn.fetchrow(
             f"SELECT count(*), count(*) FILTER (WHERE NOT active)"
-            f" FROM service_price WHERE {khung}",
+            f" FROM service_price WHERE clinic_id = $1::uuid AND {khung}",
             identity.clinic_id,
             gia_tri_loai,
         )
         if not ap_dung:
             so_doi = await conn.fetchval(
-                f"SELECT count(*) FROM service_price WHERE {khung} AND {doi}",
+                "SELECT count(*) FROM service_price WHERE clinic_id = $1::uuid"
+                f" AND {khung} AND {doi}",
                 *tham_so,
             )
             da_doi: list[str] = []
         else:
             rows = await conn.fetch(
                 f"UPDATE service_price SET {cot} = $3::bool, updated_at = now()"
-                f" WHERE {khung} AND {doi} RETURNING id::text",
+                f" WHERE clinic_id = $1::uuid AND {khung} AND {doi}"
+                " RETURNING id::text",
                 *tham_so,
             )
             da_doi = sorted(r["id"] for r in rows)
