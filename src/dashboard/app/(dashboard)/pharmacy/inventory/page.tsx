@@ -33,8 +33,19 @@ interface LoTon {
   noi_chua: "KHO" | "QUAY";
 }
 
-export default async function PharmacyInventoryPage() {
+// Link từ báo cáo hàng hoá (`/reports?tab=hang-hoa`) mở thẳng tab Kiểm kê ca:
+// `/pharmacy/inventory?tab=kiem-ke-ca&ngay=YYYY-MM-DD&ca=SANG|CHIEU|TOI`. Tham số
+// lạ (gõ tay, link hỏng) bị bỏ — màn mở tab đầu / hôm nay như thường, không ném.
+const NGAY_HOP_LE = /^\d{4}-\d{2}-\d{2}$/;
+const CA_HOP_LE = ["SANG", "CHIEU", "TOI"] as const;
+
+export default async function PharmacyInventoryPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ tab?: string; ngay?: string; ca?: string }>;
+}) {
   await requireNavAccess("/pharmacy/inventory");
+  const { tab, ngay, ca } = (await searchParams) ?? {};
   const [data, dm, cho, quyen, cauHinhHan, tach] = await Promise.all([
     fetchFromBackend<{ items: LoTon[]; tach_kho_quay?: boolean }>("/api/v1/pharmacy/inventory"),
     fetchFromBackend<{ items: ThuocKho[] }>("/api/v1/pharmacy/danh-muc"),
@@ -84,6 +95,9 @@ export default async function PharmacyInventoryPage() {
       cauHinhHan={cauHinhHan ?? undefined}
       tachKhoQuay={data.tach_kho_quay === true}
       suaTachDuoc={tach?.sua_duoc === true}
+      tabDau={tab}
+      ngayKiemKe={ngay && NGAY_HOP_LE.test(ngay) ? ngay : undefined}
+      caKiemKe={CA_HOP_LE.find((c) => c === ca)}
     />
   );
 }

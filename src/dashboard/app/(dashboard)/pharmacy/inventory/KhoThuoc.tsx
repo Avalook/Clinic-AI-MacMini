@@ -21,6 +21,15 @@ import TheKho from "./TheKho";
 import XuatNhapTon from "./XuatNhapTon";
 
 type Tab = "danh_muc" | "ton" | "cho_gan_lo" | "phieu_nhap" | "chuyen_kho" | "kiem_ke_ca" | "kiem_kho" | "the_kho" | "xnt";
+const TAB_HOP_LE: readonly Tab[] = [
+  "danh_muc", "ton", "cho_gan_lo", "phieu_nhap", "chuyen_kho", "kiem_ke_ca", "kiem_kho", "the_kho", "xnt",
+];
+
+/** `?tab=kiem-ke-ca` → "kiem_ke_ca"; mã lạ / thiếu → tab đầu (không ném). */
+function tabTuUrl(tab?: string): Tab {
+  const ma = (tab ?? "").replace(/-/g, "_");
+  return TAB_HOP_LE.find((t) => t === ma) ?? "danh_muc";
+}
 
 export default function KhoThuoc({
   batches,
@@ -31,6 +40,9 @@ export default function KhoThuoc({
   cauHinhHan,
   tachKhoQuay = false,
   suaTachDuoc = false,
+  tabDau,
+  ngayKiemKe,
+  caKiemKe,
 }: {
   batches: InvBatch[];
   thuoc: ThuocKho[];
@@ -45,8 +57,13 @@ export default function KhoThuoc({
   tachKhoQuay?: boolean;
   /** G7: được bật / tắt tách (`config.clinic.manage`) — chỉ ẩn / hiện nút. */
   suaTachDuoc?: boolean;
+  /** `?tab=` của URL — link từ báo cáo hàng hoá mở thẳng tab Kiểm kê ca. */
+  tabDau?: string;
+  /** `?ngay=` / `?ca=` đã kiểm dạng ở trang — chỉ để KiemKeCa mở đúng ngày / ca. */
+  ngayKiemKe?: string;
+  caKiemKe?: "SANG" | "CHIEU" | "TOI";
 }) {
-  const [tab, setTab] = useState<Tab>("danh_muc");
+  const [tab, setTab] = useState<Tab>(() => tabTuUrl(tabDau));
   const [theKhoId, setTheKhoId] = useState<string | null>(null);
   const xemThe = (id: string) => {
     setTheKhoId(id);
@@ -95,7 +112,7 @@ export default function KhoThuoc({
       ) : tab === "chuyen_kho" ? (
         <ChuyenKho batches={batches} tachKhoQuay={tachKhoQuay} suaTachDuoc={suaTachDuoc} ghiDuoc={ghiDuoc} />
       ) : tab === "kiem_ke_ca" ? (
-        <KiemKeCa batches={batches} ghiDuoc={ghiDuoc} />
+        <KiemKeCa batches={batches} ghiDuoc={ghiDuoc} ngayDau={ngayKiemKe} caDau={caKiemKe} />
       ) : tab === "kiem_kho" ? (
         <KiemKho batches={batches} ghiDuoc={ghiDuoc} thuoc={thuoc} />
       ) : tab === "the_kho" ? (

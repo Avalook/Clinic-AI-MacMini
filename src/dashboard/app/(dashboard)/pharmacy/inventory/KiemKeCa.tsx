@@ -6,7 +6,7 @@
 // kê" là bước riêng (có lý do, hoàn tác được). Mọi luật ở máy chủ — màn chỉ gửi lệnh
 // và hiện câu trả lời; số đếm KHÔNG hiện tồn máy trước khi chốt (đếm mù cho khách quan).
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -100,13 +100,21 @@ const URL_GOC = "/api/pharmacy/kiem-ke-ca";
 export default function KiemKeCa({
   batches,
   ghiDuoc = false,
+  ngayDau,
+  caDau,
 }: {
   batches: InvBatch[];
   /** Có quyền ghi kho — chỉ ẩn / hiện nút, máy chủ vẫn kiểm. */
   ghiDuoc?: boolean;
+  /** Mở sẵn ngày / ca này (link từ báo cáo hàng hoá) thay vì hôm nay + ca hiện tại. */
+  ngayDau?: string;
+  caDau?: Ca;
 }) {
-  const [ngay, setNgay] = useState(homNayVn);
-  const [ca, setCa] = useState<Ca>("SANG");
+  const [ngay, setNgay] = useState(() => ngayDau ?? homNayVn());
+  const [ca, setCa] = useState<Ca>(caDau ?? "SANG");
+  // Ca mở từ link được giữ cho tới khi người dùng tự đổi ngày; không thì "ca hiện
+  // tại" máy chủ nhắc sẽ đè lên ca của báo cáo đang xem.
+  const giuCaDau = useRef(caDau !== undefined);
   const [loai, setLoai] = useState<Loai>("CUOI");
   const [nhac, setNhac] = useState<Nhac | null>(null);
   const [ds, setDs] = useState<TomTat[] | null>(null);
@@ -132,7 +140,7 @@ export default function KiemKeCa({
       if (bo) return;
       if (n.ok) {
         setNhac(n.data);
-        setCa(n.data.ca);
+        if (!giuCaDau.current) setCa(n.data.ca);
       }
       if (d.ok) setDs(d.data.items);
     })();
@@ -327,7 +335,10 @@ export default function KiemKeCa({
           <input
             type="date"
             value={ngay}
-            onChange={(e) => setNgay(e.target.value || homNayVn())}
+            onChange={(e) => {
+              giuCaDau.current = false;
+              setNgay(e.target.value || homNayVn());
+            }}
             className={INPUT}
           />
         </label>
