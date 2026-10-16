@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { KeyRound, X } from "lucide-react";
 import { getSupabaseBrowser } from "../../lib/supabase-browser";
 import Button from "@/components/ui/Button";
@@ -132,7 +133,10 @@ export function DoiMatKhauModal({ open, onClose, staffName }: Props) {
     }
   }
 
-  return (
+  // Portal ra <body>: GlobalHeader có backdrop-blur nên `fixed` của hộp đặt TRONG
+  // header bị tính theo header (cao 47px), không theo màn hình — hộp cắt mất phần
+  // trên, ô Mật khẩu hiện tại ngoài màn hình (16/10/2026).
+  return createPortal(
     <div
       className="fixed inset-0 z-50 overflow-y-auto bg-ink/40 p-4 backdrop-blur-sm"
       role="dialog"
@@ -266,6 +270,7 @@ export function DoiMatKhauModal({ open, onClose, staffName }: Props) {
           </form>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

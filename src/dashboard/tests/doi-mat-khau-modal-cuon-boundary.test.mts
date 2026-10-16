@@ -28,6 +28,13 @@ test("hộp vẫn căn giữa khi màn cao (lớp trong min-h-full)", () => {
   );
 });
 
+test("hộp vẽ qua portal ra body, không nằm trong header (backdrop-blur)", () => {
+  // GlobalHeader có backdrop-blur: `fixed` đặt trong nó bị tính theo header cao
+  // 47px → hộp cắt mất phần trên. Phải portal ra document.body.
+  assert.ok(/from "react-dom"/.test(src) && /createPortal\(/.test(src));
+  assert.ok(/document\.body/.test(src));
+});
+
 test("nút Lưu vẫn đòi đủ ba ô (không nới luật)", () => {
   assert.ok(
     /disabled=\{busy \|\| !oldPassword \|\| !newPassword \|\| !confirmPassword\}/.test(
