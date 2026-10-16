@@ -9,20 +9,30 @@
 //     và dấu hoá đơn do máy chủ tính (`GET /api/pharmacy/ban-le?id=`).
 // Thu xong máy chủ tự đóng lượt; giao thuốc / chọn lô ở các dòng bên dưới như
 // mọi lượt khác.
+//
+// 16/10/2026 (Tuyền bấm thử "bán theo đơn"): lời báo "Đã mở lượt bán theo đơn
+// khám … — N thuốc đã thêm / không thêm được: …" GIỮ ở đầu khung (không phải
+// toast) tới khi nhân viên thao tác tiếp hoặc bấm "Ẩn"; chip "Vượt số kê — đã
+// mua X / kê Y" và nhắc lần khám quá 2 tháng hiện ngay cạnh giỏ (số liệu đến từ
+// lịch sử đơn thuốc — máy chủ tính, ở đây chỉ vẽ); dòng đơn cũ chưa gắn thuốc kho
+// có nút "Chọn thuốc kho" mở danh mục ở giỏ.
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import Button from "@/components/ui/Button";
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
 import { useNgheBang } from "../dung-nghe-bang";
-import ChinhDonQuay from "../thu-ngan/ChinhDonQuay";
+import ChinhDonQuay, { type TheoDonDong } from "../thu-ngan/ChinhDonQuay";
 import { nhanPhan } from "@/lib/hinh-thuc-thu";
 import { taiAnhChuyenKhoan } from "../thu-ngan/AnhChuyenKhoan";
 import type { KetQuaChia } from "../thu-ngan/ChiaHinhThuc";
 import type { GiamGiaResult } from "../thu-ngan/GiamGia";
 import NutHoanTac from "../thu-ngan/NutHoanTac";
 import { NhomThu, type ChoXacMinh, type HoaDon } from "../thu-ngan/QuayThuNgan";
-import LichSuDonThuoc from "./LichSuDonThuoc";
+import { CHAM } from "./DongThuoc";
+import LichSuDonThuoc, { type GoiLichSu } from "./LichSuDonThuoc";
+import { anNoiDon, useNoiDon } from "./thong-bao-noi-don";
 
 interface DocBanLe {
   visit_id: string;
@@ -49,6 +59,11 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
   const [lanNoi, setLanNoi] = useState(0);
   // Mỗi lần nạp lại lượt → lịch sử đơn (đã mua / đang bán / đã nối) nạp lại theo.
   const [lanTai, setLanTai] = useState(0);
+  // Gói lịch sử đơn thuốc (LichSuDonThuoc báo lên) → chip "Vượt số kê" ở giỏ.
+  const [goiDon, setGoiDon] = useState<GoiLichSu | null>(null);
+  // "Chọn thuốc kho" ở dòng đơn cũ → mở danh mục ở giỏ với tên thuốc đó.
+  const [goiYThuoc, setGoiYThuoc] = useState<{ ten: string; lan: number } | null>(null);
+  const noiDon = useNoiDon(visitId);
 
   const tai = useCallback(async () => {
     try {
@@ -98,6 +113,7 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
     setDangThu(true);
     setLoi(null);
     setXong(null);
+    anNoiDon();
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (thaoTac) headers["Idempotency-Key"] = khoaThaoTac(thaoTac);
@@ -130,13 +146,29 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
     router.refresh();
   };
 
+  // Lời báo nối đơn — hiện cả lúc hoá đơn còn đang tải, để không lỡ.
+  const baoNoi = noiDon ? (
+    <div
+      role="status"
+      className="flex flex-wrap items-start gap-2 bg-brand-50 px-4 py-2 text-meta text-brand-700"
+    >
+      <p className="min-w-0 flex-1 whitespace-pre-line">{noiDon}</p>
+      <Button type="button" className={CHAM} size="sm" variant="ghost" onClick={anNoiDon}>
+        Ẩn
+      </Button>
+    </div>
+  ) : null;
+
   if (!doc) {
     return loi ? (
       <p role="alert" className="text-meta text-danger">
         {loi}
       </p>
     ) : (
-      <p className="text-meta text-ink-muted">Đang tải hoá đơn thuốc…</p>
+      <div className="space-y-2">
+        {baoNoi}
+        <p className="text-meta text-ink-muted">Đang tải hoá đơn thuốc…</p>
+      </div>
     );
   }
 
@@ -149,23 +181,36 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
   }
 
   const choSua = !doc.da_thu && !doc.cho_xac_minh;
+  // Đơn cũ đang bán theo: số kê / đã mua theo từng thuốc kho, cho chip ở giỏ.
+  const donNoi = goiDon?.don.find((d) => d.da_noi);
+  const theoDon: Record<string, TheoDonDong> = {};
+  for (const d of donNoi?.dong ?? []) {
+    if (d.drug_catalog_id) theoDon[d.drug_catalog_id] = d;
+  }
   return (
     <div className="overflow-hidden rounded-card border border-line">
+      {baoNoi}
       {loi ? (
         <p role="alert" className="bg-danger-bg px-4 py-2 text-meta text-danger">
           {loi}
         </p>
       ) : null}
-      {xong ? <p className="bg-success-bg px-4 py-2 text-meta text-success">{xong}</p> : null}
+      {xong ? (
+        <p className="whitespace-pre-line bg-success-bg px-4 py-2 text-meta text-success">{xong}</p>
+      ) : null}
       {doc.clinic_patient_id ? (
         <LichSuDonThuoc
           visitId={visitId}
           clinicPatientId={doc.clinic_patient_id}
           choSua={choSua}
           lanTai={lanTai}
+          onGoi={setGoiDon}
+          onChonThuocKho={(ten) => setGoiYThuoc({ ten, lan: (goiYThuoc?.lan ?? 0) + 1 })}
           onDoi={async (cau, loiMoi) => {
+            anNoiDon();
             setXong(cau);
             setLoi(loiMoi);
+            setGoiYThuoc(null);
             setLanNoi((n) => n + 1);
             await tai();
             router.refresh();
@@ -176,7 +221,11 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
         <ChinhDonQuay
           key={lanNoi}
           visitId={visitId}
+          theoDon={donNoi ? theoDon : undefined}
+          nhacChung={donNoi ? goiDon?.nhac_chung : undefined}
+          goiYThuoc={goiYThuoc}
           onDoi={async (cau, loiMoi) => {
+            anNoiDon();
             setXong(cau);
             setLoi(loiMoi);
             await tai();
@@ -246,7 +295,10 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
           )
         }
         onDoi={(cau?: string) => {
-          if (cau) setXong(cau);
+          if (cau) {
+            anNoiDon();
+            setXong(cau);
+          }
           void tai();
           router.refresh();
         }}

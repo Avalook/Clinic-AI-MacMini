@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-16 07:35. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-16 08:13. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -279,7 +279,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/pharmacy` — Cấp thuốc
 - page: `src/dashboard/app/(dashboard)/pharmacy/page.tsx` · quyền: lego `kho_thuoc` (Kho thuốc · mặc định: Dược sĩ (+ lễ tân))
-- thành phần: PharmacyBoard.tsx, ban-thuoc.ts, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/form-ui.ts, BanLeThu.tsx, DongThuoc.tsx, KhachMuaThuoc.tsx, app/(dashboard)/pharmacy/inventory/OQuetMa.tsx
+- thành phần: PharmacyBoard.tsx, ban-thuoc.ts, app/(dashboard)/_lam-viec/XemLuot.tsx, app/(dashboard)/form-ui.ts, BanLeThu.tsx, DongThuoc.tsx, KhachMuaThuoc.tsx, app/(dashboard)/pharmacy/inventory/OQuetMa.tsx (+1)
 - gọi API Next: `/api/pharmacy/[action]`, `/api/payment`, `/api/payment/anh-ck`, `/api/quay-thuoc`, `/api/nhac-viec`, `/api/cskh/ket-qua`, `/api/phieu-kham`, `/api/luot-kham`, `/api/cashier`
 - gọi thẳng backend (server): `/api/v1/pharmacy/ban-thuoc`
 - service: lo_thuoc_service.{sua_lo, huy_lo, hoan_huy_lo, so_ngay_canh_bao, +1} · can · PharmacyService.{nhap_lo, cap_phat, tu_choi, chot, +12} · kho_thuoc_service.{tao_phieu_nhap, kiem_kho, chuyen_kho, hoan_tac_chuyen, +3} · BanLeService.{mo_luot, mo_theo_don, tim_khach, doc, +1} · ma_vach_service.{gan_ma, go_ma, tra_ma, du_lieu_tem} (+33 service)
