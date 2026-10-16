@@ -25,14 +25,45 @@ async def test_script_kiem_doi_tac_chi_doc_va_chay_duoc(pool: asyncpg.Pool) -> N
             await conn.execute("RESET default_transaction_read_only")
 
 
-async def test_script_bat_lai_doi_tac_mac_dinh_khong_doi_gi(pool: asyncpg.Pool) -> None:
+class _HoanLaiError(Exception):
+    pass
+
+
+async def test_script_bat_lai_doi_tac_chi_bat_dung_ma_da_chot(
+    pool: asyncpg.Pool,
+) -> None:
+    """Chỉ chụp phim ngoài + HPV/Thinprep (Tuyền 16/10). Chạy trong giao dịch rồi
+    hoàn lại — DB test dùng chung, cờ đối tác lật thì test khác lệch."""
     sql = (SCRIPTS / "bat-lai-doi-tac-1610.sql").read_text(encoding="utf-8")
+    than = "\n".join(
+        d for d in sql.splitlines() if d.strip() not in {"BEGIN;", "COMMIT;"}
+    )
+    hpv = ["CLS_HPV", "CLS_THINPREP", "KV_SP000169", "KV_SP000170"]
     async with pool.acquire() as conn:
-        dem = (
-            "SELECT (SELECT count(*) FROM node_definition WHERE lam_ben_ngoai),"
-            " (SELECT count(*) FROM service_price WHERE doi_tac_lay_mau),"
-            " (SELECT count(*) FROM service_price WHERE billing_owner<>'CLINIC')"
+        khac_truoc = await conn.fetchval(
+            "SELECT count(*) FROM service_price"
+            " WHERE doi_tac_lay_mau AND NOT service_code = ANY($1::text[])",
+            hpv,
         )
-        truoc = tuple(await conn.fetchrow(dem))
-        await conn.execute(sql)  # danh sách mã rỗng → không đổi gì
-        assert tuple(await conn.fetchrow(dem)) == truoc
+        with pytest.raises(_HoanLaiError):
+            async with conn.transaction():
+                await conn.execute(than)
+                assert await conn.fetchval(
+                    "SELECT bool_and(lam_ben_ngoai) FROM node_definition"
+                    " WHERE code = 'DICHVU-HINHANH-NGOAI'"
+                ) in (True, None)
+                assert not await conn.fetchval(
+                    "SELECT count(*) FROM service_price WHERE \"group\" = 'dich_vu'"
+                    " AND service_code = ANY($1::text[]) AND NOT doi_tac_lay_mau",
+                    hpv,
+                )
+                # Không lật dịch vụ nào ngoài danh sách.
+                assert (
+                    await conn.fetchval(
+                        "SELECT count(*) FROM service_price"
+                        " WHERE doi_tac_lay_mau AND NOT service_code = ANY($1::text[])",
+                        hpv,
+                    )
+                    == khac_truoc
+                )
+                raise _HoanLaiError
