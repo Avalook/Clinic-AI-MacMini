@@ -19,7 +19,7 @@
 // C19 (Tuyền 02/10/2026): bác sĩ đã ghi số thì quầy vẫn gõ số khác được — chip
 // "SL do thu ngân sửa (bác sĩ kê X)"; máy chủ ghi số cũ → mới.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -57,6 +57,16 @@ interface DongBan {
   don_vi_goi_y: string | null;
 }
 
+/** Số kê của đơn cũ đang được bán theo (`BanLeThu` lấy từ lịch sử đơn thuốc —
+ *  máy chủ đã tính `vuot`; ở đây chỉ vẽ chip cạnh dòng thuốc). */
+export interface TheoDonDong {
+  so_ke: string | null;
+  da_mua: string;
+  dang_ban: string;
+  don_vi: string | null;
+  vuot: boolean;
+}
+
 async function gui(than: Record<string, unknown>): Promise<string | null> {
   try {
     const r = await fetch("/api/quay-thuoc", {
@@ -75,16 +85,30 @@ async function gui(than: Record<string, unknown>): Promise<string | null> {
 export default function ChinhDonQuay({
   visitId,
   onDoi,
+  theoDon,
+  nhacChung,
+  goiYThuoc,
 }: {
   visitId: string;
   /** Đơn bán vừa đổi — màn cha nạp lại hoá đơn thuốc. */
   onDoi: (cau: string | null, loi: string | null) => Promise<void>;
+  /** Lượt bán lẻ đang nối đơn cũ: theo `drug_catalog_id` → số kê / đã mua. */
+  theoDon?: Record<string, TheoDonDong>;
+  /** Nhắc của khách (vd lần khám gần nhất quá 2 tháng) — chữ trung tính, không chặn. */
+  nhacChung?: string[];
+  /** Nhân viên bấm "Chọn thuốc kho" ở dòng đơn cũ: mở sẵn danh mục với tên đó. */
+  goiYThuoc?: { ten: string; lan: number } | null;
 }) {
   const [dong, setDong] = useState<DongBan[] | null>(null);
   const [mauThuoc, setMauThuoc] = useState<MauThuoc[]>([]);
   const [them, setThem] = useState<DongThuoc[]>([]);
   const [soNhap, setSoNhap] = useState<Record<string, string>>({});
   const [dang, setDang] = useState(false);
+  const khungThem = useRef<HTMLDivElement>(null);
+  const lanGoiY = goiYThuoc?.lan;
+  useEffect(() => {
+    if (lanGoiY) khungThem.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [lanGoiY]);
 
   const tai = useCallback(async () => {
     const r = await fetch(`/api/quay-thuoc?visit_id=${visitId}`, { cache: "no-store" });
@@ -195,72 +219,92 @@ export default function ChinhDonQuay({
       <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
         Khách lấy thuốc nào?
       </p>
+      {nhacChung && nhacChung.length > 0 ? (
+        <ul role="status" className="space-y-1">
+          {nhacChung.map((c) => (
+            <li key={c} className="text-meta text-ink-muted">
+              {c}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <ul className="space-y-2">
-        {dong.map((d) => (
-          <li
-            key={d.id}
-            className={`space-y-1 rounded-control border p-2 ${
-              d.thieu_so_luong ? "border-warning bg-warning-bg" : "border-line"
-            } ${d.mua ? "" : "opacity-60"}`}
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="checkbox"
-                className="size-4 accent-brand-600"
-                checked={d.mua}
-                disabled={dang || d.da_chot}
-                onChange={(e) => void chon(d, e.target.checked)}
-                aria-label={`Khách lấy ${d.ten}`}
-              />
-              <span className="min-w-0 flex-1 text-body font-medium text-ink">{d.ten}</span>
-              <Chip tone={d.nguon === "QUAY" ? "brand" : "neutral"}>
-                {d.nguon === "QUAY" ? "Quầy thêm" : "Bác sĩ kê"}
-              </Chip>
-              <span className="text-meta text-ink-muted">
-                {d.gia !== null ? tienVn(d.gia) : "chưa có giá"}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 pl-6">
-              <label className="flex items-center gap-2 text-meta text-ink-muted">
-                Số lượng
+        {dong.map((d) => {
+          const td = d.drug_catalog_id ? theoDon?.[d.drug_catalog_id] : undefined;
+          return (
+            <li
+              key={d.id}
+              className={`space-y-1 rounded-control border p-2 ${
+                d.thieu_so_luong ? "border-warning bg-warning-bg" : "border-line"
+              } ${d.mua ? "" : "opacity-60"}`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
                 <input
-                  inputMode="decimal"
-                  value={soNhap[d.id] ?? d.so_mua ?? d.so_ke ?? ""}
-                  disabled={dang || !d.mua || d.da_chot}
-                  onChange={(e) => setSoNhap({ ...soNhap, [d.id]: e.target.value })}
-                  onBlur={() => void doiSo(d)}
-                  className={`${INPUT} w-24`}
-                  aria-label={`Số lượng ${d.ten}`}
+                  type="checkbox"
+                  className="size-4 accent-brand-600"
+                  checked={d.mua}
+                  disabled={dang || d.da_chot}
+                  onChange={(e) => void chon(d, e.target.checked)}
+                  aria-label={`Khách lấy ${d.ten}`}
                 />
-                <span>{d.don_vi ?? d.don_vi_goi_y ?? ""}</span>
-              </label>
-              {d.nguon === "BAC_SI" && d.so_ke && !d.so_luong_do_thu_ngan ? (
-                <span className="text-meta text-ink-faint">bác sĩ kê {d.so_ke}</span>
-              ) : null}
-              {d.so_luong_do_thu_ngan ? (
-                <Chip tone="brand" title={d.nguoi_dien ? `Điền bởi ${d.nguoi_dien}` : undefined}>
-                  {d.so_ke_goc ? `SL do thu ngân sửa (bác sĩ kê ${d.so_ke_goc})` : "SL do thu ngân điền"}
+                <span className="min-w-0 flex-1 text-body font-medium text-ink">{d.ten}</span>
+                <Chip tone={d.nguon === "QUAY" ? "brand" : "neutral"}>
+                  {d.nguon === "QUAY" ? "Quầy thêm" : "Bác sĩ kê"}
                 </Chip>
+                <span className="text-meta text-ink-muted">
+                  {d.gia !== null ? tienVn(d.gia) : "chưa có giá"}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pl-6">
+                <label className="flex items-center gap-2 text-meta text-ink-muted">
+                  Số lượng
+                  <input
+                    inputMode="decimal"
+                    value={soNhap[d.id] ?? d.so_mua ?? d.so_ke ?? ""}
+                    disabled={dang || !d.mua || d.da_chot}
+                    onChange={(e) => setSoNhap({ ...soNhap, [d.id]: e.target.value })}
+                    onBlur={() => void doiSo(d)}
+                    className={`${INPUT} w-24`}
+                    aria-label={`Số lượng ${d.ten}`}
+                  />
+                  <span>{d.don_vi ?? d.don_vi_goi_y ?? ""}</span>
+                </label>
+                {d.nguon === "BAC_SI" && d.so_ke && !d.so_luong_do_thu_ngan ? (
+                  <span className="text-meta text-ink-faint">bác sĩ kê {d.so_ke}</span>
+                ) : null}
+                {d.so_luong_do_thu_ngan ? (
+                  <Chip tone="brand" title={d.nguoi_dien ? `Điền bởi ${d.nguoi_dien}` : undefined}>
+                    {d.so_ke_goc ? `SL do thu ngân sửa (bác sĩ kê ${d.so_ke_goc})` : "SL do thu ngân điền"}
+                  </Chip>
+                ) : null}
+              </div>
+              {td?.vuot ? (
+                <p className="pl-6">
+                  <Chip tone="warning">
+                    Vượt số kê — đã mua {td.da_mua} + đang bán {td.dang_ban} / kê {td.so_ke ?? "—"}
+                    {td.don_vi ? ` ${td.don_vi}` : ""}
+                  </Chip>
+                </p>
               ) : null}
-            </div>
-            {d.thieu_so_luong ? (
-              <p className="pl-6 text-meta font-semibold text-warning" role="alert">
-                Bác sĩ chưa nhập số lượng — nhập tại quầy
-              </p>
-            ) : null}
-            {d.nguon === "QUAY" ? (
-              <DongQuaySua d={d} dang={dang} onLuu={suaDongQuay} />
-            ) : d.cach_dung || d.luu_y ? (
-              <p className="pl-6 text-meta text-ink-muted">
-                {d.cach_dung}
-                {d.luu_y ? ` · Lưu ý: ${d.luu_y}` : ""}
-              </p>
-            ) : null}
-          </li>
-        ))}
+              {d.thieu_so_luong ? (
+                <p className="pl-6 text-meta font-semibold text-warning" role="alert">
+                  Bác sĩ chưa nhập số lượng — nhập tại quầy
+                </p>
+              ) : null}
+              {d.nguon === "QUAY" ? (
+                <DongQuaySua d={d} dang={dang} onLuu={suaDongQuay} />
+              ) : d.cach_dung || d.luu_y ? (
+                <p className="pl-6 text-meta text-ink-muted">
+                  {d.cach_dung}
+                  {d.luu_y ? ` · Lưu ý: ${d.luu_y}` : ""}
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
 
-      <div className="space-y-2">
+      <div ref={khungThem} className="space-y-2">
         {/* Nhãn đợt 3 (27/09/2026 — C2): quầy bán cả VẬT TƯ (đầu dò Bio) và
             thực phẩm chức năng từ cùng danh mục kho, không riêng thuốc. */}
         <p className="text-meta font-semibold uppercase tracking-wide text-ink-muted">
@@ -268,7 +312,20 @@ export default function ChinhDonQuay({
         </p>
         {/* Đơn bán chỉ nhận thuốc KHO (lệnh `them` gửi `drug_catalog_id`) —
             tắt dòng gõ tự do của phiếu khám. */}
-        <DonThuocPhieu dong={them} mauThuoc={mauThuoc} onDoi={setThem} ngoaiDanhMuc={false} />
+        {goiYThuoc ? (
+          <p role="status" className="text-meta text-ink-muted">
+            Đang chọn thuốc kho thay cho “{goiYThuoc.ten}” (đơn cũ nhập từ hồ sơ giấy) — bấm đúng
+            thuốc trong danh mục, rồi nhập số lượng (không thấy thì xoá ô tìm).
+          </p>
+        ) : null}
+        <DonThuocPhieu
+          key={goiYThuoc?.lan ?? 0}
+          dong={them}
+          mauThuoc={mauThuoc}
+          onDoi={setThem}
+          ngoaiDanhMuc={false}
+          tuKhoaDau={goiYThuoc?.ten}
+        />
         {them.length > 0 ? (
           <Button variant="primary" size="md" disabled={dang} onClick={() => void luuThem()}>
             Thêm {them.length} mặt hàng vào đơn bán

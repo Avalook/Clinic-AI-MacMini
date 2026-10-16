@@ -11,8 +11,15 @@
 // đây chỉ vẽ: đơn đang nối (không có thì đơn mới nhất) mở sẵn, đơn khác thu gọn.
 // Lời nhắc chỉ để đọc — không nút nào bị khoá vì nó. "Lịch sử khám" dùng lại
 // popup chung (`_lam-viec/LichSuKham`).
+//
+// 16/10/2026 (Tuyền bấm thử "chưa thấy chỗ bán theo đơn"): ở khung chọn khách
+// khối này hiện NGAY khi chọn khách (không phải bấm tên); khung chờ có chữ +
+// khung xám; "Bán theo đơn này" xong thì báo "Đã mở lượt bán theo đơn khám …"
+// (`thong-bao-noi-don`) và gói lịch sử được chuyển cho `BanLeThu` (`onGoi`) để
+// chip "Vượt số kê" hiện cạnh dòng thuốc trong giỏ; dòng đơn cũ "Chưa xác định
+// thuốc kho" nói vì sao và có nút chọn thuốc kho thay (`onChonThuocKho`).
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
@@ -21,8 +28,9 @@ import LichSuKham from "../_lam-viec/LichSuKham";
 import { useNgheBang } from "../dung-nghe-bang";
 import { fmtNgay } from "./ban-thuoc";
 import { CHAM } from "./DongThuoc";
+import { baoNoiDon } from "./thong-bao-noi-don";
 
-interface DongDon {
+export interface DongDon {
   drug_catalog_id: string | null;
   ten: string;
   ten_bac_si: string | null;
@@ -34,7 +42,7 @@ interface DongDon {
   vuot: boolean;
 }
 
-interface DonCu {
+export interface DonCu {
   visit_id: string;
   ngay_kham: string | null;
   bac_si: string | null;
@@ -45,7 +53,7 @@ interface DonCu {
   nhac: string[];
 }
 
-interface GoiLichSu {
+export interface GoiLichSu {
   don: DonCu[];
   nhac_chung: string[];
   trang: number;
@@ -83,6 +91,28 @@ async function taiTrang(pid: string, trang: number): Promise<GoiLichSu | null> {
   return r?.ok ? ((await r.json().catch(() => null)) as GoiLichSu | null) : null;
 }
 
+/** Lời báo sau "Bán theo đơn này": đơn nào · bao nhiêu thuốc vào giỏ · thuốc nào
+ *  không thêm được (máy chủ nói lý do trong `bo_qua`). Nhiều dòng ngăn bằng "\n". */
+function cauNoiDon(don: DonCu, so: number, boQua: string[], moMoi: boolean): string {
+  const ten = [
+    don.ngay_kham ? `khám ${fmtNgay(don.ngay_kham)}` : "khám",
+    don.bac_si ? `BS ${don.bac_si}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const dau = moMoi ? "Đã mở lượt bán theo đơn" : "Đã nối lượt này với đơn";
+  const them =
+    so > 0
+      ? `${so} thuốc đã thêm vào giỏ (số điền sẵn là số còn lại, sửa được ở dưới)`
+      : "không có thuốc nào cần thêm";
+  return [
+    `${dau} ${ten} — ${them}.`,
+    ...(boQua.length > 0
+      ? [`Không thêm được ${boQua.length} thuốc:`, ...boQua.map((c) => `• ${c}`)]
+      : []),
+  ].join("\n");
+}
+
 function TheDon({
   don,
   mo,
@@ -92,6 +122,7 @@ function TheDon({
   choSua,
   onDoi,
   onMo,
+  onChonThuocKho,
 }: {
   don: DonCu;
   mo: boolean;
@@ -101,6 +132,7 @@ function TheDon({
   choSua: boolean;
   onDoi: Doi;
   onMo?: (visitId: string) => void;
+  onChonThuocKho?: (ten: string) => void;
 }) {
   const [dang, setDang] = useState(false);
 
@@ -114,17 +146,20 @@ function TheDon({
         });
     setDang(false);
     if (kq.loi) return void (await onDoi(null, kq.loi));
-    const so = kq.d?.so_dong_them ?? 0;
-    await onDoi(
-      [
-        so > 0
-          ? `Đã thêm ${so} thuốc theo đơn — số điền sẵn là số còn lại, sửa được ở dưới.`
-          : "Đã nối đơn — không có thuốc nào cần thêm.",
-        ...(kq.d?.bo_qua ?? []),
-      ].join(" "),
-      null,
-    );
-    if (!visitId && kq.d?.visit_id) onMo?.(kq.d.visit_id);
+    const cau = cauNoiDon(don, kq.d?.so_dong_them ?? 0, kq.d?.bo_qua ?? [], !visitId);
+    if (visitId) {
+      // Lượt đang mở: nạp lại trước (thao tác của màn cha xoá lời báo cũ), rồi
+      // mới ghim lời báo mới trên khung lượt.
+      await onDoi(null, null);
+      baoNoiDon(visitId, cau);
+      return;
+    }
+    // Chưa có lượt: máy chủ vừa mở/lấy lại lượt — màn chọn luôn lượt ấy và lời báo
+    // đi theo (không đóng hộp chọn khách trong im lặng).
+    if (kq.d?.visit_id) {
+      baoNoiDon(kq.d.visit_id, cau);
+      onMo?.(kq.d.visit_id);
+    }
   };
 
   const goNoi = async () => {
@@ -183,15 +218,31 @@ function TheDon({
                     <span className="block text-meta text-ink-muted">BS ghi: {d.ten_bac_si}</span>
                   ) : null}
                   {d.drug_catalog_id ? null : (
-                    <span className="block text-meta text-ink-muted">Chưa xác định thuốc kho</span>
+                    <span className="block text-meta text-ink-muted">
+                      Đơn cũ nhập từ hồ sơ giấy nên chưa biết đây là thuốc nào trong kho — chọn
+                      thuốc trong kho để bán
+                      {visitId ? "." : " (sau khi mở lượt bán)."}
+                    </span>
                   )}
                 </span>
-                <span className="text-meta tabular-nums text-ink-soft">
-                  Kê {d.so_ke ?? "—"} · Đã mua {d.da_mua}
-                  {d.dang_ban !== "0" ? ` · Đang bán ${d.dang_ban}` : ""} · Còn{" "}
-                  {d.con_lai ?? "—"}
-                  {d.don_vi ? ` ${d.don_vi}` : ""}
-                </span>
+                {d.drug_catalog_id ? (
+                  <span className="text-meta tabular-nums text-ink-soft">
+                    Kê {d.so_ke ?? "—"} · Đã mua {d.da_mua}
+                    {d.dang_ban !== "0" ? ` · Đang bán ${d.dang_ban}` : ""} · Còn{" "}
+                    {d.con_lai ?? "—"}
+                    {d.don_vi ? ` ${d.don_vi}` : ""}
+                  </span>
+                ) : choSua && visitId && onChonThuocKho ? (
+                  <Button
+                    type="button"
+                    className={CHAM}
+                    size="sm"
+                    variant="soft"
+                    onClick={() => onChonThuocKho(d.ten_bac_si ?? d.ten)}
+                  >
+                    Chọn thuốc kho
+                  </Button>
+                ) : null}
                 {d.vuot ? <Chip tone="warning">Vượt số kê</Chip> : null}
               </li>
             ))}
@@ -232,6 +283,8 @@ export default function LichSuDonThuoc({
   lanTai = 0,
   onDoi,
   onMo,
+  onGoi,
+  onChonThuocKho,
 }: {
   clinicPatientId: string;
   /** Lượt bán lẻ đang mở; bỏ trống = đang chọn khách, chưa mở lượt. */
@@ -243,12 +296,25 @@ export default function LichSuDonThuoc({
   onDoi: Doi;
   /** Chưa có lượt: máy chủ vừa mở/lấy lại lượt này — màn chọn luôn nó. */
   onMo?: (visitId: string) => void;
+  /** Gói lịch sử vừa đọc được — `BanLeThu` lấy số kê / đã mua để báo "Vượt số kê"
+   *  cạnh dòng thuốc trong giỏ. */
+  onGoi?: (goi: GoiLichSu | null) => void;
+  /** Dòng đơn cũ chưa gắn thuốc kho: mở ô chọn thuốc kho ở giỏ (chỉ lượt đang mở). */
+  onChonThuocKho?: (ten: string) => void;
 }) {
   // undefined = đang tải · null = không đọc được.
   const [goi, setGoi] = useState<GoiLichSu | null | undefined>(undefined);
   const [bat, setBat] = useState<Record<string, boolean>>({});
   const [dangThem, setDangThem] = useState(false);
   const [lanSuKien, setLanSuKien] = useState(0);
+  const onGoiRef = useRef(onGoi);
+  useEffect(() => {
+    onGoiRef.current = onGoi;
+  });
+  const datGoi = (g: GoiLichSu | null) => {
+    setGoi(g);
+    onGoiRef.current?.(g);
+  };
 
   // Khung chọn khách chưa có màn cha nạp lại: nghe cả hoàn tiền và đổi hẹn.
   useNgheBang(
@@ -259,7 +325,9 @@ export default function LichSuDonThuoc({
   useEffect(() => {
     let bo = false;
     void taiTrang(clinicPatientId, 0).then((d) => {
-      if (!bo) setGoi(d);
+      if (bo) return;
+      setGoi(d);
+      onGoiRef.current?.(d);
     });
     return () => {
       bo = true;
@@ -271,13 +339,13 @@ export default function LichSuDonThuoc({
     setDangThem(true);
     const tiep = await taiTrang(clinicPatientId, goi.trang + 1);
     setDangThem(false);
-    if (tiep) setGoi({ ...tiep, don: [...goi.don, ...tiep.don] });
+    if (tiep) datGoi({ ...tiep, don: [...goi.don, ...tiep.don] });
   };
 
   const moSan = goi?.don.find((d) => d.da_noi)?.visit_id ?? goi?.don[0]?.visit_id;
   const taiLai = async (cau: string | null, loi: string | null) => {
     await onDoi(cau, loi);
-    if (!loi) setGoi(await taiTrang(clinicPatientId, 0));
+    if (!loi) datGoi(await taiTrang(clinicPatientId, 0));
   };
 
   return (
@@ -287,7 +355,12 @@ export default function LichSuDonThuoc({
         <LichSuKham clinicPatientId={clinicPatientId} />
       </div>
       {goi === undefined ? (
-        <p className="text-meta text-ink-muted">Đang tải lịch sử đơn thuốc…</p>
+        // Máy chủ trả sau vài giây — khung xám giữ chỗ để người dùng biết đơn đang tới.
+        <div role="status" aria-busy="true" className="space-y-2">
+          <p className="text-meta text-ink-muted">Đang tải đơn thuốc của khách…</p>
+          <div className="skeleton h-10 w-full" />
+          <div className="skeleton h-10 w-full" />
+        </div>
       ) : goi === null ? (
         <p role="alert" className="text-meta text-danger">
           Không đọc được lịch sử đơn thuốc.
@@ -305,7 +378,7 @@ export default function LichSuDonThuoc({
           ) : null}
           {goi.don.length === 0 ? (
             <p className="text-meta text-ink-muted">
-              Khách chưa có đơn thuốc nào{visitId ? "." : " — bấm “Mở lượt mua thuốc” để bán lẻ."}
+              Khách chưa có đơn thuốc nào{visitId ? "." : " — bấm “Bán lẻ — không theo đơn” bên dưới."}
             </p>
           ) : (
             <ul className="divide-y divide-line rounded-control border border-line">
@@ -322,6 +395,7 @@ export default function LichSuDonThuoc({
                   choSua={choSua}
                   onDoi={taiLai}
                   onMo={onMo}
+                  onChonThuocKho={onChonThuocKho}
                 />
               ))}
             </ul>

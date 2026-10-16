@@ -8,8 +8,12 @@
 //
 // V8 (30/09/2026): nút "Khách mua thuốc" mở lượt BÁN LẺ (khách chỉ mua thuốc);
 // lượt bán lẻ hiện ngay cả khi chưa có dòng đơn, kèm khối kê + thu tại quầy.
+//
+// 16/10/2026: mở lượt xong (bán lẻ hay "Bán theo đơn này") màn KHÔNG chỉ thêm một
+// dòng nhạt vào danh sách — nó chọn đúng lượt đó, cuộn tới khung chi tiết, viền
+// đậm + chip "Vừa mở"; lời báo nối đơn nằm đầu khối bán lẻ (`BanLeThu`).
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
@@ -22,6 +26,7 @@ import { INPUT } from "../form-ui";
 import OQuetMa, { NHAN_TRANG_THAI_LO, type KetQuaQuet } from "./inventory/OQuetMa";
 import { cauLoKhongDungDuoc } from "@/lib/lo-bi-loai";
 import { GIAI_DOAN, type LuotThuoc, type ManNhaThuoc } from "./ban-thuoc";
+import { anNoiDon } from "./thong-bao-noi-don";
 
 type Tab = "dang_lam" | "xong";
 
@@ -44,6 +49,11 @@ export default function PharmacyBoard({
   // Lô chọn sẵn do quét (G3b): dòng nào, lô nào. Chỉ điền sẵn ô chọn lô của dòng.
   const [loQuet, setLoQuet] = useState<{ dongId: string; loId: string } | null>(null);
   const [baoQuet, setBaoQuet] = useState<string | null>(null);
+  // Lượt người dùng vừa mở (nút "Khách mua thuốc") — đánh dấu + cuộn tới đó.
+  // `chonDau` (đi từ Kho thuốc sang) cũng là lượt vừa mở.
+  const [vuaMo, setVuaMo] = useState<string | null>(chonDau);
+  const canCuon = useRef<string | null>(chonDau);
+  const khungLuot = useRef<HTMLDivElement>(null);
 
   const dem = useMemo(
     () => ({
@@ -65,6 +75,14 @@ export default function PharmacyBoard({
       );
   }, [man.luot, tab, tim]);
   const luot = man.luot.find((l) => l.visit_id === chon) ?? null;
+
+  // Lượt vừa mở có thể chưa nằm trong `man.luot` (đang nạp lại) — cuộn khi nó xuất hiện.
+  useEffect(() => {
+    if (!luot || canCuon.current !== luot.visit_id) return;
+    canCuon.current = null;
+    khungLuot.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    khungLuot.current?.focus({ preventScroll: true });
+  }, [luot]);
 
   const khiQuet = (kq: KetQuaQuet) => {
     setLoQuet(null);
@@ -111,6 +129,8 @@ export default function PharmacyBoard({
               setTab("dang_lam");
               setTim("");
               setChon(id);
+              setVuaMo(id);
+              canCuon.current = id;
             }}
           />
         </div>
@@ -157,7 +177,13 @@ export default function PharmacyBoard({
                   <button
                     key={l.visit_id}
                     type="button"
-                    onClick={() => setChon(l.visit_id)}
+                    onClick={() => {
+                      if (l.visit_id !== chon) {
+                        anNoiDon();
+                        setVuaMo(null);
+                      }
+                      setChon(l.visit_id);
+                    }}
                     className={`block min-h-10 w-full border-b border-line px-3 py-2 text-left transition-colors hover:bg-surface-muted ${
                       chon === l.visit_id ? "bg-surface-selected" : ""
                     }`}
@@ -186,13 +212,20 @@ export default function PharmacyBoard({
         {/* ── Chi tiết lượt ── */}
         <section className="flex flex-col gap-3 overflow-y-auto lg:col-span-2">
           {luot ? (
-            <div className="space-y-3 rounded-card border border-line bg-surface p-4">
+            <div
+              ref={khungLuot}
+              tabIndex={-1}
+              className={`scroll-mt-4 space-y-3 rounded-card border bg-surface p-4 outline-none ${
+                vuaMo === luot.visit_id ? "border-brand-600" : "border-line"
+              }`}
+            >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h3 className="flex flex-wrap items-center gap-2 text-title font-semibold text-ink">
                     {luot.ten_khach ?? "Chưa có tên"}
                     <SoLuot booking={luot.so_booking} checkin={luot.so_tiep_don} />
                     {luot.ban_le ? <Chip tone="brand">Bán lẻ — khách chỉ mua thuốc</Chip> : null}
+                    {vuaMo === luot.visit_id ? <Chip tone="brand">Vừa mở</Chip> : null}
                   </h3>
                   <p className="text-meta text-ink-muted">
                     {luot.patient_code ?? "—"} · {luot.phone ?? "—"}

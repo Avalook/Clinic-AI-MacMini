@@ -77,6 +77,7 @@ export default function DonThuocPhieu({
   mauThuoc,
   onDoi,
   ngoaiDanhMuc = true,
+  tuKhoaDau,
 }: {
   dong: DongThuoc[];
   mauThuoc: MauThuoc[];
@@ -84,9 +85,12 @@ export default function DonThuocPhieu({
   onDoi?: (dong: DongThuoc[]) => void;
   /** Cho thêm dòng gõ tự do. Quầy thu tắt: đơn bán chỉ nhận thuốc có trong kho. */
   ngoaiDanhMuc?: boolean;
+  /** Mở sẵn danh mục với từ khoá này (quầy bán lẻ: chọn thuốc kho thay cho dòng đơn
+   *  cũ chưa gắn thuốc kho). Đổi từ khoá = dựng lại component bằng `key`. */
+  tuKhoaDau?: string;
 }) {
-  const [tu, setTu] = useState("");
-  const [moDanhMuc, setMoDanhMuc] = useState(false);
+  const [tu, setTu] = useState(tuKhoaDau ?? "");
+  const [moDanhMuc, setMoDanhMuc] = useState(!!tuKhoaDau);
   const loc = useMemo(() => locMauThuoc(mauThuoc, tu), [mauThuoc, tu]);
   const chiDoc = !onDoi;
 
