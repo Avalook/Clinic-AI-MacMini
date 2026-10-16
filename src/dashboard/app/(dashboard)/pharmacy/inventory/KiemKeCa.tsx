@@ -470,10 +470,10 @@ export default function KiemKeCa({
                 <tr>
                   <th className="px-3 py-2">Thuốc</th>
                   <th className="px-3 py-2">Đơn vị</th>
-                  <th className="px-3 py-2 text-right">Đếm</th>
+                  <th className="px-3 py-2 text-right">Số lượng</th>
                   {daChot ? (
                     <>
-                      <th className="px-3 py-2 text-right">Tồn máy lúc chốt</th>
+                      <th className="px-3 py-2 text-right">Tồn trên hệ thống lúc chốt</th>
                       <th className="px-3 py-2 text-right">Lệch</th>
                       <th className="px-3 py-2 text-right">Đã giao chưa gắn lô</th>
                     </>
@@ -530,12 +530,12 @@ export default function KiemKeCa({
           {daChot ? (
             <div className="space-y-2">
               <p className="text-meta text-ink-muted">
-                Tồn máy là số tại giờ chốt (
+                Tồn trên hệ thống là số ghi trong sổ kho tại giờ chốt (
                 {phieu.chot_luc
                   ? new Date(phieu.chot_luc).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
                   : "—"}
                 {phieu.nguoi_chot ? `, ${phieu.nguoi_chot}` : ""}). Thuốc đã giao mà chưa gắn lô làm tồn
-                máy cao hơn kệ thật — cột riêng bên cạnh, không phải lệch đếm.
+                trên hệ thống cao hơn kệ thật — cột riêng bên cạnh, không phải lệch đếm.
               </p>
               {ketQuaDC ? (
                 <p role="status" className="text-meta text-ink">

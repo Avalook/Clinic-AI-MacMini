@@ -96,7 +96,7 @@ export default function KhoThuoc({
             nhac: choGanLo.length > 0,
           },
           { ma: "phieu_nhap", nhan: "Phiếu nhập" },
-          { ma: "chuyen_kho", nhan: "Chuyển kho" },
+          { ma: "chuyen_kho", nhan: "Chuyển thuốc kho → quầy" },
           { ma: "kiem_ke_ca", nhan: "Kiểm kê ca" },
           { ma: "kiem_kho", nhan: "Kiểm kho" },
           { ma: "the_kho", nhan: "Thẻ kho" },

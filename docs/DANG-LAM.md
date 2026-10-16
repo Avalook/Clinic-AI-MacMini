@@ -2,6 +2,22 @@
 
 Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
 
+## 16/10/2026 — ĐỢT `gop-staging-1410m` TRÊN STAGING, CI MÁY XANH; VIỆC TỒN ĐỌNG (Tuyền: CHƯA ưu tiên)
+
+Đợt ~211 commit / 28 migration đã bấm trên staging; runbook lên prod: `docs/RUNBOOK-LEN-PROD-DOT-1610.md`; hướng dẫn bấm:
+`docs/HUONG-DAN-BAM-THU-NOTION-1610.md`. **Việc tồn đọng, làm sau (Tuyền chốt 16/10):**
+1. **Hàm sức chứa** `lich_vuot_suc_chua()` — tính một lần cho mỗi cặp (bác sĩ, giờ): `docs/KE-HOACH-HAM-SUC-CHUA.md`
+   (mức 3; Tuyền "ok làm nhưng chưa ưu tiên").
+2. **Hạn cho việc "Gọi xác nhận lịch" tồn khi lên prod:** cho **quản lý tự chỉnh ngày** (mốc bắt đầu tính hạn) thay vì cứng — chưa
+   làm; khi chưa có thì mặc định như hiện nay (hạn theo ngày đặt, việc cũ hiện quá hạn).
+3. `danh_sach_khach` tính "hoạt động gần nhất" cho mọi khách trước khi sắp xếp (cần cột/keyset); gom N+1 quầy thu.
+4. Màn **xử lý thuốc khách trả** (thuốc về quầy nhưng chưa bán lại được — chờ quyết định phòng khám: nhập lại bán được hay huỷ).
+5. Nút "Bật tách kho / quầy": bấm lần đầu không đổi trạng thái (nghi gửi 2 lần) — kiểm.
+6. Chip trạng thái "Đã ghi phản hồi thuốc" tô đỏ khi khách còn việc quá hạn — xem có nên luôn trung tính.
+7. Nhãn "Quầy thêm" trên dòng thuốc lấy từ đơn bác sĩ ("Bán theo đơn") — đổi nhãn.
+8. Nhận khách tại phòng: cho nhận khi bác sĩ vừa chỉ định (hiện chỉ sau Hoàn tất) — Tuyền: giữ như hiện nay.
+9. Mẫu Excel kiểm kê của anh Thắng + mẫu Excel kế toán: chưa nhận → chưa đối chiếu.
+
 ## 15/10/2026 — GỌI XÁC NHẬN MỌI LỊCH ĐẶT HỘ (PR nhánh `claude/goi-xac-nhan-lich-dat-ho-a`)
 
 Tuyền chốt: "gọi xác nhận MỌI lịch đặt hộ" (phương án A). Việc `CHO_XAC_NHAN`

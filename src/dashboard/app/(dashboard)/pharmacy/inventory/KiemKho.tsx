@@ -177,8 +177,8 @@ export default function KiemKho({
                 <tr>
                   <th className="px-3 py-2">Thuốc</th>
                   <th className="px-3 py-2">Lô</th>
-                  <th className="px-3 py-2 text-right">Tồn máy</th>
-                  <th className="px-3 py-2">Thực tế</th>
+                  <th className="px-3 py-2 text-right">Tồn trên hệ thống</th>
+                  <th className="px-3 py-2">Số lượng thực tế</th>
                   <th className="px-3 py-2 text-right">Lệch (xem trước)</th>
                 </tr>
               </thead>

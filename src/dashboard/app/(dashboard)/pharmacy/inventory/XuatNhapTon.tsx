@@ -118,6 +118,20 @@ export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => vo
         dangTai={dangTai}
         onChon={setKhoang}
       />
+      <details className="rounded-card border border-line bg-surface px-3 py-2 text-meta text-ink-muted">
+        <summary className="cursor-pointer font-medium text-ink">Các cột nghĩa là gì?</summary>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          <li><b>Tồn đầu</b>: số thuốc có trong kho vào đầu khoảng ngày đang xem.</li>
+          <li><b>Nhập</b>: số nhập thêm trong khoảng ngày (phiếu nhập, nhập lô).</li>
+          <li><b>Xuất bán</b>: số đã giao cho khách (bán thuốc).</li>
+          <li><b>Điều chỉnh</b>: số cộng hoặc trừ do kiểm kho, kiểm kê sửa tồn.</li>
+          <li><b>Huỷ</b>: số huỷ (hỏng, hết hạn).</li>
+          <li><b>Khách trả</b>: số khách trả lại, nhập lại kho.</li>
+          <li><b>Tồn cuối</b>: số còn lại cuối khoảng ngày = Tồn đầu + Nhập − Xuất bán ± Điều chỉnh − Huỷ + Khách trả.</li>
+          <li><b>Giá trị tồn</b>: Tồn cuối × giá nhập (để trống nếu chưa có giá nhập).</li>
+        </ul>
+        <p className="mt-2">&ldquo;Tồn trên hệ thống&rdquo; ở các màn Kiểm kho / Kiểm kê là số ghi trong sổ kho; &ldquo;Số lượng thực tế&rdquo; là số nhân viên đếm trên kệ.</p>
+      </details>
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-body text-ink-muted">
           {kq ? `Từ ${ngayNgan(kq.tu)} đến ${ngayNgan(kq.den)} · ${dong.length} thuốc` : ""}
