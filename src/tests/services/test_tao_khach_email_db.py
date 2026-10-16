@@ -30,13 +30,14 @@ def _sdt_moi() -> str:
     return "09" + "".join(random.choice("0123456789") for _ in range(8))
 
 
-async def _co_so_va_nguoi_tao(pool: asyncpg.Pool) -> tuple[str, StaffIdentity]:
+async def _co_so_va_nguoi_tao(pool: asyncpg.Pool) -> tuple[uuid.UUID, StaffIdentity]:
     async with pool.acquire() as conn:
-        loc = await conn.fetchval(
+        loc_text = await conn.fetchval(
             "SELECT id::text FROM clinic_location "
             "WHERE clinic_id = $1::uuid AND is_active LIMIT 1;",
             CLINIC,
         )
+    loc = uuid.UUID(str(loc_text))
     staff = StaffIdentity(
         staff_id=str(uuid.uuid4()),
         auth_user_id=str(uuid.uuid4()),
@@ -44,7 +45,7 @@ async def _co_so_va_nguoi_tao(pool: asyncpg.Pool) -> tuple[str, StaffIdentity]:
         department="RECEPTION",
         role=ClinicRole.RECEPTION,
         clinic_id=CLINIC,
-        location_id=loc,
+        location_id=str(loc),
         location_name="Cơ sở test",
     )
     return loc, staff
@@ -52,9 +53,10 @@ async def _co_so_va_nguoi_tao(pool: asyncpg.Pool) -> tuple[str, StaffIdentity]:
 
 async def _email_trong_db(pool: asyncpg.Pool, pid: uuid.UUID) -> str | None:
     async with pool.acquire() as conn:
-        return await conn.fetchval(
+        mail = await conn.fetchval(
             "SELECT email FROM patient WHERE clinic_patient_id = $1;", pid
         )
+    return None if mail is None else str(mail)
 
 
 async def test_tao_khach_co_email_luu_chuan_hoa(pool: asyncpg.Pool) -> None:
