@@ -49,13 +49,17 @@ from clinicai.events.catalogue import DOI_TAC_NHAN_VIEC, DoiTacNhanViec
 from clinicai.events.emit import NguoiGayRa, emit_event
 from clinicai.events.worker import SuKienDaNhan, dang_ky
 from clinicai.services import finance_gate
+from clinicai.services.service_routing_service import DOI_TAC_LAM_TRON_SQL
 
-_CHO_NHAN_SQL = """
-SELECT o.id::text AS id, o.visit_id::text AS visit_id,
+#: ĐỐI TÁC LÀM TRỌN (16/10/2026) — cùng một câu với Phòng đối tác / xếp phòng
+#: (`DOI_TAC_LAM_TRON_SQL`): đối tác tự lấy mẫu, hoặc bước làm bên ngoài không
+#: phòng nội bộ nào làm (chụp phim ngoài). Trước đây chỉ vế đầu nhận việc lúc
+#: khách chốt; chụp phim ngoài đợi "đã làm" — mà không phòng nào làm nó, nên nó
+#: không bao giờ sang bàn đối tác.
+_CHO_NHAN_SQL = f"""
+SELECT o.id::text AS id, o.visit_id::text AS visit_id, o.exec_status,
        coalesce(sp.name, o.service_name) AS ten,
-       -- Đối tác tự lấy mẫu chỉ có nghĩa ở bước làm bên ngoài.
-       (coalesce(n.lam_ben_ngoai, false)
-        AND coalesce(sp.doi_tac_lay_mau, false)) AS tu_lay_mau,
+       (coalesce(n.lam_ben_ngoai, false) AND {DOI_TAC_LAM_TRON_SQL}) AS tu_lay_mau,
        NOT coalesce(n.lam_ben_ngoai, false) AS mau_gui
   FROM service_order o
   LEFT JOIN node_definition n
@@ -72,9 +76,10 @@ SELECT o.id::text AS id, o.visit_id::text AS visit_id,
    AND (
         -- Bước làm bên ngoài (phòng đối tác).
         (coalesce(n.lam_ben_ngoai, false) AND (
-             (coalesce(sp.doi_tac_lay_mau, false)
-              AND o.exec_status IN ('authorized', 'assigned', 'in_progress'))
-          OR (NOT coalesce(sp.doi_tac_lay_mau, false)
+             ({DOI_TAC_LAM_TRON_SQL}
+              AND o.exec_status IN ('authorized', 'assigned', 'in_progress',
+                                    'performed'))
+          OR (NOT {DOI_TAC_LAM_TRON_SQL}
               AND o.exec_status = 'performed')))
         -- Mẫu gửi đối tác: thu hộ đối tác, làm ở phòng của phòng khám, đã xong.
      OR (NOT coalesce(n.lam_ben_ngoai, false)
@@ -117,7 +122,11 @@ async def nhan_viec_doi_tac(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> 
     boi = NguoiGayRa(actor_type=su_kien.actor_type, staff_id=su_kien.actor_staff_id)
     for r in rows:
         thu_sau = False
-        if r["tu_lay_mau"]:
+        if r["tu_lay_mau"] and r["exec_status"] == "performed":
+            # Phòng đối tác đã bấm "Đã nhận mẫu" trước khi bàn nhận việc (vd tiền
+            # còn chặn lúc chốt): mẫu đã có thật — nhận như việc đã lấy mẫu.
+            ly_do = "DA_LAY_MAU"
+        elif r["tu_lay_mau"]:
             # Đối tác tự lấy mẫu: khách chốt làm là nhận (V10 làm trước, thu
             # sau — trước chỉ nhận khi đã trả phòng khám / đối tác tự thu). Tiền
             # đang hoàn / đã hoàn / sổ lệch thì chưa nhận (`duoc_lam`).

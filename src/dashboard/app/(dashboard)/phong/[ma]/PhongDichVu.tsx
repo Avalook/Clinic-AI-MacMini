@@ -71,6 +71,14 @@ import {
 import { type LuaChonBacSi } from "../../_lam-viec/ChonBacSiLam";
 import HangChoCot from "../../_lam-viec/HangChoCot";
 import KhungTep from "../../_lam-viec/KhungTep";
+import {
+  ChipDoiTac,
+  KetQuaDoiTac,
+  ThuHoDoiTac,
+  guiLenhDoiTac,
+  hoanTacDoiTac,
+  type ViecDoiTacChung,
+} from "../../_lam-viec/KhoiDoiTac";
 import PhieuKetQua from "../../_lam-viec/PhieuKetQua";
 import LieuTrinhChiDinh from "../../_lam-viec/phieu-kham/LieuTrinhChiDinh";
 import XemLuot from "../../_lam-viec/XemLuot";
@@ -107,9 +115,12 @@ interface LanCuaToi {
 /** Link "Phải dừng giữa chừng? / Không làm được?" ở phòng — OFF 24/09/2026. */
 const NUT_NGOAI_LE = false;
 
-type LoaiPhong = "SIEU_AM" | "THU_THUAT" | "LAY_MAU" | "KHAC";
+type LoaiPhong = "SIEU_AM" | "THU_THUAT" | "LAY_MAU" | "DOI_TAC" | "KHAC";
 
-function loaiCua(node: string | null): LoaiPhong {
+function loaiCua(node: string | null, laDoiTac = false): LoaiPhong {
+  // PHÒNG ĐỐI TÁC (Tuyền 16/10/2026): máy chủ quyết loại phòng (`la_doi_tac`),
+  // không đoán theo bước — phòng đối tác gắn cả bước lấy máu.
+  if (laDoiTac) return "DOI_TAC";
   if (!node) return "KHAC";
   if (node === "DICHVU-SIEUAM") return "SIEU_AM";
   if (node.startsWith("DICHVU-LAYMAU")) return "LAY_MAU";
@@ -123,6 +134,9 @@ const NUT_XONG: Record<LoaiPhong, string> = {
   SIEU_AM: "Siêu âm xong",
   THU_THUAT: "Làm thủ thuật xong",
   LAY_MAU: "Đã lấy mẫu",
+  // Phòng đối tác: KHÔNG có nút "Lấy mẫu" — Nhận / Bắt đầu của phòng đã thay;
+  // nút cuối ghi "đã nhận mẫu" (cùng lệnh với bàn /doi-tac), khách không bị giữ.
+  DOI_TAC: "Đã nhận mẫu",
   KHAC: "Làm xong",
 };
 
@@ -466,6 +480,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
               <KhachTrongPhong
                 key={chon.id}
                 dong={chon}
+                laDoiTac={phong.la_doi_tac === true}
                 onDaBam={napLai}
                 onBao={setThongBao}
                 yeuCau={yeuCau?.id === chon.id ? yeuCau : null}
@@ -488,6 +503,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
           <KhachTrongPhong
             key={chon.id}
             dong={chon}
+            laDoiTac={phong?.la_doi_tac === true}
             onDaBam={napLai}
             onBao={setThongBao}
             keTiep={keTiep ? { ten: keTiep.ten, onChon: () => setChonId(keTiep.id) } : null}
@@ -504,6 +520,7 @@ export default function PhongDichVu({ ma }: { ma: string }) {
 
 function KhachTrongPhong({
   dong,
+  laDoiTac = false,
   onDaBam,
   onBao,
   keTiep,
@@ -511,6 +528,8 @@ function KhachTrongPhong({
   onDaLamYeuCau,
 }: {
   dong: DongHangCho;
+  /** Phòng đối tác (`la_doi_tac`, máy chủ trả) — 16/10/2026. */
+  laDoiTac?: boolean;
   onDaBam: () => void;
   /** Báo thông báo kèm Hoàn tác sau thao tác (đặt ở cấp màn). */
   onBao?: (tb: ThongBao) => void;
@@ -521,7 +540,7 @@ function KhachTrongPhong({
   yeuCau?: { hanh: HanhDong; lan: number } | null;
   onDaLamYeuCau?: () => void;
 }) {
-  const loai = loaiCua(dong.node_code);
+  const loai = loaiCua(dong.node_code, laDoiTac);
   const [th, setTh] = useState<ThucHien | null>(null);
   const [moLyDo, setMoLyDo] = useState<"khong-lam" | "gian-doan" | null>(null);
   const [lyDo, setLyDo] = useState("");
@@ -629,14 +648,47 @@ function KhachTrongPhong({
   // khi cần. Bấm thật 23/09 khuya: từ khi luôn có 18 mẫu dự phòng, nút [Xong]
   // (trước chỉ hiện khi danh sách mẫu rỗng) biến mất — phòng thủ thuật / lấy
   // mẫu không kết thúc được nếu không điền một phiếu.
+  // Phòng đối tác: phiếu kết quả điền SAU "Đã nhận mẫu" (khối đối tác bên dưới,
+  // thường vài ngày sau) — không phải đường đóng dịch vụ.
   const coPhieuChinh =
     th != null &&
     loai !== "LAY_MAU" &&
+    loai !== "DOI_TAC" &&
     (th.mau_goi_y != null || (th.phieu?.length ?? 0) > 0);
+  /** Lần đọc lại khối đối tác (sau Nhận mẫu / Trả kết quả / thu hộ). */
+  const [lanDoiTac, setLanDoiTac] = useState(0);
+
+  /** PHÒNG ĐỐI TÁC — [Đã nhận mẫu]: MỘT lệnh của bàn đối tác (đóng lần làm
+   *  đang chạy như Xong + ghi mốc nhận mẫu + `partner.sample_received`). */
+  const daNhanMau = async () => {
+    setDangGui(true);
+    setLoi(null);
+    const kq = await guiLenhDoiTac("/api/doi-tac/cho-tai-lieu", {
+      chi_dinh_id: dong.ref_id,
+      ghi_chu: ghiChuXong.trim() || undefined,
+    });
+    setDangGui(false);
+    if (kq.loi) {
+      setLoi(kq.loi);
+      return;
+    }
+    onBao?.({
+      cau: `Đã nhận mẫu ${dong.viec ?? "dịch vụ"} — ${dong.ten}`,
+      goi: hoanTacDoiTac("huy-nhan-mau", dong.ref_id, { mo_lai_phong: true }),
+    });
+    setGhiChuXong("");
+    setLanDoiTac((n) => n + 1);
+    docLai();
+    onDaBam();
+  };
 
   /** MỘT chỗ gọi lệnh đóng thẳng dịch vụ (dịch vụ không có phiếu chính) — cả
    *  nút [Xong] ở hàng phụ lẫn [Xong] trên dòng chỉ định đi qua đây. */
   const xongThang = () => {
+    if (loai === "DOI_TAC") {
+      void daNhanMau();
+      return;
+    }
     if (!th?.lan_dang_chay) return;
     void lenh("xong-v1", {
       attempt_id: th.lan_dang_chay.id,
@@ -852,8 +904,10 @@ function KhachTrongPhong({
               {trangThai === "NOT_PERFORMED" ? "Không làm được" : "Đã làm"}
               {dong.nguoi_lam ? ` · ${dong.nguoi_lam}` : ""} · {gioVn(dong.xong_luc)}
             </p>
-            {/* HOÀN TÁC "Xong" (01/10/2026): về lại đang làm, kết quả giữ nguyên. */}
-            {trangThai === "COMPLETED" ? (
+            {/* HOÀN TÁC "Xong" (01/10/2026): về lại đang làm, kết quả giữ nguyên.
+                Phòng đối tác: hoàn tác "Đã nhận mẫu" ở khối đối tác bên dưới
+                (mở lại cả lần làm) — không hai nút hoàn tác cho một lần bấm. */}
+            {trangThai === "COMPLETED" && loai !== "DOI_TAC" ? (
               <NutHoanTac
                 goi={lenhHoanTac("hoan-tac-xong-v1", dong.ref_id)}
                 onXong={() => {
@@ -928,7 +982,23 @@ function KhachTrongPhong({
 
       {/* Phiếu kết quả: mở được ngay khi đang làm, và vẫn xem/điền được sau khi
           dịch vụ đã đóng — kết quả về muộn là chuyện thường. */}
-      {th && (dangLam || daXong) && !coPhieuChinh && loai !== "LAY_MAU" ? (
+      {/* PHÒNG ĐỐI TÁC (16/10/2026): trạng thái chung với /doi-tac, Thu hộ đối
+          tác, phiếu theo mẫu + [Trả kết quả] — cùng lệnh, bấm ở đâu cũng đồng bộ. */}
+      {loai === "DOI_TAC" ? (
+        <KhoiDoiTacPhong
+          chiDinhId={dong.ref_id}
+          lan={lanDoiTac}
+          daXong={daXong}
+          dangGui={dangGui}
+          onNhanMau={() => void daNhanMau()}
+          onDoi={() => {
+            docLai();
+            onDaBam();
+          }}
+        />
+      ) : null}
+
+      {th && (dangLam || daXong) && !coPhieuChinh && loai !== "LAY_MAU" && loai !== "DOI_TAC" ? (
         <Button size="sm" variant="ghost" onClick={() => setMoPhieuPhu((v) => !v)}>
           {moPhieuPhu ? "Đóng phiếu kết quả" : "Điền phiếu kết quả (nếu cần)"}
         </Button>
@@ -976,7 +1046,9 @@ function KhachTrongPhong({
             <div className="space-y-2">
               <label className="block">
                 <span className="text-meta font-semibold text-ink">
-                  Ghi chú {loai === "LAY_MAU" ? "lấy mẫu" : "khi làm"} (tuỳ chọn)
+                  Ghi chú{" "}
+                  {loai === "LAY_MAU" ? "lấy mẫu" : loai === "DOI_TAC" ? "nhận mẫu" : "khi làm"} (tuỳ
+                  chọn)
                 </span>
                 <textarea
                   value={ghiChuXong}
@@ -1085,6 +1157,83 @@ function KhachTrongPhong({
         </div>
       ) : null}
     </section>
+  );
+}
+
+/** KHỐI ĐỐI TÁC của Phòng đối tác (Tuyền 16/10/2026): đọc ĐÚNG việc ấy ở bàn
+ *  đối tác (`/api/doi-tac/viec`) — trạng thái chung, Thu hộ đối tác (tuỳ chọn),
+ *  rồi sau "Đã nhận mẫu" là phiếu kết quả theo mẫu + [Trả kết quả]. Tệp kết
+ *  quả tải ở ô tệp của phòng (cùng kho). Nút nào hiện là cờ máy chủ. */
+function KhoiDoiTacPhong({
+  chiDinhId,
+  lan,
+  daXong,
+  dangGui,
+  onNhanMau,
+  onDoi,
+}: {
+  chiDinhId: string;
+  /** Đổi số = đọc lại (phòng vừa bấm Đã nhận mẫu). */
+  lan: number;
+  /** Lần làm ở phòng đã đóng. */
+  daXong: boolean;
+  dangGui: boolean;
+  /** [Đã nhận mẫu] khi lần làm đã đóng mà mốc nhận mẫu chưa có (vd vừa hoàn tác). */
+  onNhanMau: () => void;
+  onDoi: () => void;
+}) {
+  const [viec, setViec] = useState<ViecDoiTacChung | null>(null);
+  const [loi, setLoi] = useState<string | null>(null);
+  const [lanDoc, setLanDoc] = useState(0);
+
+  useEffect(() => {
+    let huy = false;
+    void fetch(`/api/doi-tac/viec?chi_dinh=${encodeURIComponent(chiDinhId)}`, { cache: "no-store" })
+      .then(async (r) => {
+        const d = (await r.json().catch(() => null)) as
+          | (ViecDoiTacChung & { message?: string; error?: string })
+          | null;
+        if (huy) return;
+        if (r.ok && d) {
+          setViec(d);
+          setLoi(null);
+        } else setLoi(d?.message ?? d?.error ?? "Không đọc được việc đối tác.");
+      })
+      .catch(() => {
+        if (!huy) setLoi("Mất kết nối tới máy chủ.");
+      });
+    return () => {
+      huy = true;
+    };
+  }, [chiDinhId, lan, lanDoc]);
+
+  const doi = () => {
+    setLanDoc((n) => n + 1);
+    onDoi();
+  };
+
+  if (loi) {
+    return <p className="rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-muted">{loi}</p>;
+  }
+  if (!viec) return null;
+  return (
+    <div className="space-y-3 rounded-control border border-line px-3 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-meta font-semibold text-ink">Việc đối tác</p>
+        <ChipDoiTac viec={viec} />
+      </div>
+      {viec.doi_tac_thu ? <ThuHoDoiTac viec={viec} onDoi={doi} /> : null}
+      {daXong && viec.nhan_mau_duoc ? (
+        <div className="flex justify-end">
+          <Button size="lg" variant="primary" disabled={dangGui} onClick={onNhanMau}>
+            {dangGui ? "Đang ghi…" : "Đã nhận mẫu"}
+          </Button>
+        </div>
+      ) : null}
+      {daXong && !viec.nhan_mau_duoc ? (
+        <KetQuaDoiTac viec={viec} duongPhieu="/api/phieu" onDoi={doi} moLaiPhong />
+      ) : null}
+    </div>
   );
 }
 

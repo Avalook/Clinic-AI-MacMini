@@ -134,16 +134,19 @@ def test_nhan_dich_vu_dang_cho_co_stt_va_so_nguoi_truoc() -> None:
         ),
         ({"hang": "serving"}, "DANG_LAM", "Đang làm", True),
         ({"execution_status": "COMPLETED", "xong_luc": LUC}, "XONG", "Xong", False),
+        # Việc đối tác (16/10/2026): CHỈ hai chữ riêng; phòng khám làm xong mà
+        # đối tác chưa nhận mẫu là "Xong" (khách không chờ gì).
+        ({"execution_status": "COMPLETED", "doi_tac": True}, "XONG", "Xong", False),
         (
-            {"execution_status": "COMPLETED", "doi_tac": True},
+            {"execution_status": "COMPLETED", "doi_tac": True, "nhan_mau_luc": LUC},
             "CHO_KQ_DOI_TAC",
-            "Chờ kết quả đối tác",
+            "Đã nhận mẫu · chờ kết quả",
             False,
         ),
         (
             {"execution_status": "COMPLETED", "doi_tac": True, "ket_qua_luc": LUC},
             "XONG",
-            "Xong",
+            "Có kết quả",
             False,
         ),
         ({"khach_ve": True, "hang": "waiting"}, "KHACH_VE", "Khách về", False),
@@ -193,7 +196,7 @@ def _khach(**kw: Any) -> dict[str, Any]:
         ({"hang": "serving", "lane": "DOCTOR"}, "DANG_LAM", "Đang khám"),
         ({"hang": "serving", "lane": "TU_VAN"}, "DANG_LAM", "Đang khám"),
         ({"hang": "blocked"}, "CHO_BUOC_KHAC", "Chờ bước khác"),
-        ({"cho_kq_doi_tac": True}, "CHO_KQ_DOI_TAC", "Chờ kết quả đối tác"),
+        ({"cho_kq_doi_tac": True}, "CHO_KQ_DOI_TAC", "Đã nhận mẫu · chờ kết quả"),
         ({"khach_ve": True, "hang": "serving"}, "KHACH_VE", "Khách về"),
         ({}, "CHUA_VAO_HANG", "Chưa vào hàng"),
     ],

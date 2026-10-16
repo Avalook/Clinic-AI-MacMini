@@ -452,6 +452,10 @@ KHOA_NOI_BO = frozenset({"node_code", "service_code"})
 
 #: Câu cho chỉ định đối tác làm trọn — màn vẽ nguyên câu này, không tự đặt.
 CAU_DOI_TAC_LAM = "Đối tác làm — không cần xếp phòng."
+#: Phòng đối tác chỉ nhận việc đối tác làm trọn (16/10/2026).
+CAU_PHONG_DOI_TAC_KHONG_LAM = (
+    "Phòng đối tác chỉ nhận dịch vụ đối tác làm trọn — dịch vụ này phòng khám làm."
+)
 
 #: Trạng thái gợi ý phòng (``recommend.trang_thai``) — màn chỉ bày ô chọn phòng
 #: khi ``CO_PHONG``.
@@ -1322,13 +1326,31 @@ class ServiceRoutingService:
         )
         if giu:
             raise _loi(giu, rules.cau_giu_dieu_phoi(giu))
-        if await conn.fetchval(
-            f"SELECT {DOI_TAC_LAM_TRON_SQL} FROM service_order o"
-            f" WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid",
-            cid,
-            oid,
-        ):
+        # PHÒNG ĐỐI TÁC (Tuyền 16/10/2026): việc đối tác làm trọn đi CÙNG luồng
+        # phòng (Sắp đến → Nhận → Bắt đầu) — nhưng chỉ vào phòng `la_doi_tac` và
+        # chỉ bằng Nhận tại phòng; quầy / dây H4 / trưởng ca vẫn không xếp nó.
+        # Chiều ngược: phòng đối tác gắn mọi bước làm bên ngoài (kể cả lấy máu
+        # điều dưỡng lấy rồi gửi mẫu) mà KHÔNG nhận việc phòng khám tự làm.
+        doi_tac_lam = bool(
+            await conn.fetchval(
+                f"SELECT {DOI_TAC_LAM_TRON_SQL} FROM service_order o"
+                f" WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid",
+                cid,
+                oid,
+            )
+        )
+        phong_doi_tac = bool(
+            await conn.fetchval(
+                "SELECT la_doi_tac FROM clinic_room"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                cid,
+                rid,
+            )
+        )
+        if doi_tac_lam and not (tai_phong and phong_doi_tac):
             raise _loi("SERVICE_PARTNER_PERFORMED", CAU_DOI_TAC_LAM)
+        if phong_doi_tac and not doi_tac_lam:
+            raise _loi("PHONG_DOI_TAC_KHONG_LAM", CAU_PHONG_DOI_TAC_KHONG_LAM)
         await self._kiem_phong(
             conn,
             cid,

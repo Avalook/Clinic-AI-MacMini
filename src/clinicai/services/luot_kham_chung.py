@@ -125,6 +125,8 @@ CHI_DINH_CON_VIEC_GIU_LUOT_SQL = (
 #: mới kết thúc"*). Mốc nhận mẫu (`doi_tac_cho_tai_lieu_luc`, chỉ bàn đối tác
 #: ghi được) thoả yêu cầu — cả bước làm bên ngoài lẫn MẪU GỬI ĐỐI TÁC. Kết quả
 #: đối tác về sau KHÔNG giữ vòng: nó báo chuông, ai cũng xem được.
+#: Phòng đối tác (16/10/2026): "Đã nhận mẫu" ở phòng ghi CẢ "đã làm" lẫn mốc nhận
+#: mẫu trong một lệnh → yêu cầu đạt ngay lúc bấm, khách đi thanh toán và về.
 #: Còn lại như cũ: làm bên ngoài cần tệp HOP_LE; nội bộ cần `ket_qua_luc`.
 CO_KET_QUA_VONG_SQL = """(
     o.doi_tac_cho_tai_lieu_luc IS NOT NULL

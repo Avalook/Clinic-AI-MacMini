@@ -44,6 +44,10 @@ def _cd(ma: str, ten: str, phong: str | None, **k: Any) -> dict[str, Any]:
         "doi_tac_da_thu": False,
         "execution_status": k.get("ex", "PENDING"),
         "lam_xong_luc": k.get("lam_xong"),
+        "viec_doi_tac": k.get("ngoai", False),
+        "phong_doi_tac": k.get("phong_doi_tac", False),
+        "nhan_mau_luc": k.get("nhan_mau"),
+        "ket_qua_luc": k.get("ket_qua"),
     }
 
 
@@ -95,14 +99,17 @@ def _buoi(dong_luc: datetime | None = None) -> dict[str, Any]:
             dang_lam=True,
             ex="IN_PROGRESS",
         ),
+        # Việc đối tác (16/10/2026): điều dưỡng lấy mẫu xong (COMPLETED = xong,
+        # khách không chờ), đối tác đã nhận mẫu, chưa trả kết quả.
         _cd(
             "cd-hpv",
             "HPV PCR (40 type)",
             "Lấy mẫu",
             ngoai=True,
-            dang_lam=True,
+            xong=True,
             xong_luc=p(65),
             lam_xong=p(65),
+            nhan_mau=p(66),
             ex="COMPLETED",
         ),
     ]
@@ -228,7 +235,9 @@ def test_gio_tung_buoc() -> None:
     hpv = dv["cd-hpv"]
     assert hpv["trang_thai"] == "DOI_TAC" and hpv["doi_tac"]
     assert hpv["noi"] == "Lấy mẫu → Đối tác" and hpv["lay_mau"] == p(65)
-    assert hpv["xong"] is None, "chưa có kết quả thì chưa xong"
+    # 16/10/2026: chữ riêng của đối tác; giờ xong = giờ phòng khám làm xong.
+    assert hpv["doi_tac_chu"] == "Đã nhận mẫu · chờ kết quả"
+    assert hpv["xong"] == p(65)
 
     assert b["DOC_KQ"]["trang_thai"] == "chua"
     assert b["DOC_KQ"]["ghi_chu"] == "đọc kết quả, khi dịch vụ xong"
@@ -272,7 +281,8 @@ def test_dong_gon_doan_va_dem() -> None:
         "chua",
     ]
     assert (g["dv_xong"], g["dv_tong"]) == (1, 3)
-    assert g["con_cho"] == ["KQ đối tác"]
+    # Việc đối tác đã nhận mẫu không phải việc khách còn chờ (16/10/2026).
+    assert g["con_cho"] == []
 
 
 def test_check_out_la_xong_buoi_thanh_theo_khung() -> None:

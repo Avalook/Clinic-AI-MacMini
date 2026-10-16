@@ -184,13 +184,17 @@ async def test_buoi_du_dang_o_tiep_theo_gio_tung_buoc_va_check_out(
     assert the[o2]["vao"] and the[o2]["bat_dau"] and the[o2]["xong"]
     assert the[o1]["trang_thai"] == "DANG_LAM"
     assert the[o1]["bat_dau"] and the[o1]["xong"] is None
-    assert the[o_dt]["trang_thai"] == "DOI_TAC" and the[o_dt]["lay_mau"]
+    # 16/10/2026: phòng khám làm xong việc đối tác mà đối tác chưa nhận mẫu là
+    # "Xong" (chữ chung, khách không chờ gì); "Đã nhận mẫu · chờ kết quả" chỉ
+    # khi đối tác đã nhận mẫu.
+    assert the[o_dt]["trang_thai"] == "XONG" and the[o_dt]["doi_tac"]
+    assert the[o_dt]["doi_tac_chu"] is None
     assert b["LAM_DV"]["trang_thai"] == "dang"
 
     g = ht["gon"]
-    assert (g["dv_xong"], g["dv_tong"]) == (1, 3)
-    assert "KQ đối tác" in g["con_cho"]
-    assert "dang" in g["doan"] and "doi_tac" in g["doan"]
+    assert (g["dv_xong"], g["dv_tong"]) == (2, 3)
+    assert "KQ đối tác" not in g["con_cho"]
+    assert "dang" in g["doan"]
     assert not g["xong_buoi"]
     # TIẾP THEO có chỗ để đi (quay lại bác sĩ / bước kế) — không rỗng khi
     # khách còn ở phòng khám.

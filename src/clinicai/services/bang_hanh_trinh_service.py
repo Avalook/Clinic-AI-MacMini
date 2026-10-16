@@ -21,6 +21,7 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services import finance_gate
+from clinicai.services.service_routing_service import DOI_TAC_LAM_TRON_SQL
 from clinicai.services.xem_luot_service import goi_duoc
 
 _TRAN_LUOT = 300
@@ -91,7 +92,15 @@ def con_cho(
             out.append(f"Chờ khách chọn làm: {ten}")
         elif o["selection_status"] == "SELECTED":
             ex = o["execution_status"] or "PENDING"
-            if ex == "PENDING" and o["routing_status"] in (None, "UNASSIGNED"):
+            if (
+                ex == "PENDING"
+                and o.get("doi_tac_lam")
+                and o["routing_status"] in (None, "UNASSIGNED")
+            ):
+                # Việc ĐỐI TÁC LÀM TRỌN chờ ở "Sắp đến" của Phòng đối tác (16/10
+                # /2026) — chữ chung của mọi dịch vụ, không "chờ xếp phòng".
+                out.append(f"Chờ làm {ten}")
+            elif ex == "PENDING" and o["routing_status"] in (None, "UNASSIGNED"):
                 # Đã chốt mà chưa có phòng = TRÁCH NHIỆM đang rơi (người chốt /
                 # người thu không có quyền điều phối, hoặc dây tự xếp đang tắt)
                 # — nói thẳng. V10 làm trước, thu sau: chưa trả KHÔNG phải lý do
@@ -112,15 +121,9 @@ def con_cho(
                 out.append(f"Chờ làm {ten} ở {o['phong'] or 'phòng'}")
             elif ex == "INTERRUPTED":
                 out.append(f"Dừng giữa chừng: {ten}")
-            elif (
-                ex == "COMPLETED"
-                and o["ngoai"]
-                and o["ket_qua_luc"] is None
-                and o.get("nhan_mau_luc") is None
-            ):
-                # Đối tác NHẬN MẪU là xong (Tuyền 29/09/2026) — chỉ còn chờ
-                # đối tác nhận mẫu mới là việc dở.
-                out.append(f"Chờ đối tác nhận mẫu: {ten}")
+            # Việc đối tác phòng khám đã làm xong: đối tác nhận mẫu / trả kết quả
+            # về sau KHÔNG phải việc khách còn chờ (16/10/2026 — trước đây còn
+            # dòng "Chờ đối tác nhận mẫu", một chữ thứ ba của đối tác).
     if tep_chua_xem:
         out.append(f"{tep_chua_xem} tệp kết quả chưa bác sĩ nào xem")
     if phieu_chua_xem:
@@ -213,6 +216,9 @@ class BangHanhTrinhService:
                        o.ket_qua_luc, r.name AS phong, o.nguon_lam_them,
                        o.doi_tac_cho_tai_lieu_luc AS nhan_mau_luc,
                        coalesce(n.lam_ben_ngoai, false) AS ngoai,
+                       """
+                + DOI_TAC_LAM_TRON_SQL
+                + """ AS doi_tac_lam,
                        EXISTS (
                            SELECT 1 FROM payment_bill_line bl
                              JOIN payment_cycle c

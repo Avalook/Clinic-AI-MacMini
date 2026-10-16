@@ -31,7 +31,7 @@ from clinicai.services.bac_si_phu_trach import (
     VAI_BAC_SI,
     bac_si_trong_ca_hoac_ca_ngay,
 )
-from clinicai.services.doi_tac_service import trang_thai_doi_tac
+from clinicai.services.doi_tac_service import chu_trang_thai_doi_tac, trang_thai_doi_tac
 from clinicai.services.lan_bac_si import (
     can_chon_bac_si,
     la_khach_lan_toi,
@@ -516,6 +516,15 @@ class BangLuotKham:
                     ),
                 }
             )
+            # Chữ máy chủ viết cho trạng thái đối tác (16/10/2026) — mọi màn
+            # cùng một bộ chữ ("Chờ làm" / "Đã nhận mẫu · chờ kết quả" / "Có
+            # kết quả").
+            o_ra = by_visit[o["visit_id"]]["chi_dinh"][-1]
+            o_ra["trang_thai_doi_tac_chu"] = (
+                chu_trang_thai_doi_tac(o_ra["trang_thai_doi_tac"])
+                if o_ra["trang_thai_doi_tac"]
+                else None
+            )
         views = [
             rules.QueueView(q["id"], q["status"], q["eligible_at"], q["created_at"])
             for q in hang_cho
@@ -624,14 +633,14 @@ class BangLuotKham:
             )
             tat_ca = await conn.fetch(
                 """
-                SELECT r.id::text AS id, r.code, r.name, r.floor,
+                SELECT r.id::text AS id, r.code, r.name, r.floor, r.la_doi_tac,
                        array_agg(rn.node_code ORDER BY rn.node_code) AS nodes
                   FROM clinic_room r
                   JOIN clinic_room_node rn
                     ON rn.room_id = r.id AND rn.clinic_id = r.clinic_id
                  WHERE r.clinic_id = $1::uuid AND r.is_active
                    AND ($2::uuid IS NULL OR r.location_id = $2::uuid)
-                 GROUP BY r.id, r.code, r.name, r.floor, r.sort
+                 GROUP BY r.id, r.code, r.name, r.floor, r.la_doi_tac, r.sort
                  ORDER BY r.sort, r.code
                 """,
                 identity.clinic_id,
@@ -665,6 +674,9 @@ class BangLuotKham:
                     "tang": r["floor"],
                     "nodes": list(r["nodes"] or []),
                     "la_phong_dich_vu": la_phong_dich_vu(r["nodes"] or []),
+                    # PHÒNG ĐỐI TÁC (16/10/2026): cùng màn phòng, nút cuối là
+                    # "Đã nhận mẫu" + khối Trả kết quả / Thu hộ đối tác.
+                    "la_doi_tac": bool(r["la_doi_tac"]),
                     "dem": dem.get(r["id"], trong),
                 }
                 for r in tat_ca

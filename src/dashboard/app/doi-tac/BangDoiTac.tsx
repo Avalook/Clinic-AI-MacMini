@@ -36,27 +36,36 @@
 // tệp XEM TRƯỚC ngay tại chỗ (ảnh thu nhỏ + hộp xem, PDF/Word trong khung) bằng
 // đúng thành phần của trang chỉ định (AnhKetQua + Lightbox + XemTaiLieu).
 
+// 16/10/2026 (Tuyền — luồng chung với Phòng đối tác): bỏ bước "Lấy mẫu" và chữ
+// "có mẫu, chờ nhận"; trước khi nhận mẫu là chữ chung "Chờ làm". Một nút [Nhận
+// mẫu] (máy chủ ghi luôn "đã làm" nếu cần), rồi tải tệp / điền phiếu theo mẫu
+// của loại chỉ định → [Trả kết quả] → "Có kết quả". Thu hộ: ô số tiền TUỲ CHỌN.
+// Phần chung với Phòng đối tác nằm ở `_lam-viec/KhoiDoiTac`.
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CircleCheck, FileUp, FlaskConical, Inbox } from "lucide-react";
+import { CircleCheck, FileUp, Inbox } from "lucide-react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import Lightbox from "@/components/ui/Lightbox";
 import ThanhNgay from "@/components/ui/ThanhNgay";
-import { ngayNgan } from "@/lib/thanh-ngay";
 import { homNayVn } from "@/lib/validation";
 import { doCoTep, guiTepCoTienDo } from "../../lib/gui-tep-co-tien-do";
 import AnhKetQua, { tepXem } from "../(dashboard)/_lam-viec/AnhKetQua";
 import { XemTaiLieu } from "../(dashboard)/_lam-viec/KhungTep";
+import {
+  ChipDoiTac,
+  KetQuaDoiTac,
+  ThuHoDoiTac,
+  XONG_DOI_TAC as XONG,
+  type TrangThaiDoiTac as TrangThai,
+  type ViecDoiTacChung,
+} from "../(dashboard)/_lam-viec/KhoiDoiTac";
 import { NutKhoiPhucTep, NutXoaTep } from "../(dashboard)/_lam-viec/XoaTep";
 import { EmptyWorkspace } from "../(dashboard)/tasks/WorkspacePrimitives";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
-/** DA_NHAN_MAU và DA_GUI_KET_QUA đều là XONG (máy chủ: VIEC_DOI_TAC_XONG). */
-type TrangThai = "CHO_LAY_MAU" | "DA_LAY_MAU" | "DA_NHAN_MAU" | "DA_GUI_KET_QUA";
-const XONG: ReadonlySet<TrangThai> = new Set<TrangThai>(["DA_NHAN_MAU", "DA_GUI_KET_QUA"]);
-
-interface Viec {
+interface Viec extends ViecDoiTacChung {
   chi_dinh_id: string;
   ten_dich_vu: string;
   chi_dinh_luc: string | null;
@@ -67,12 +76,6 @@ interface Viec {
   /** Ghi chú đối tác đã ghi (24/09/2026). */
   ghi_chu_lay_mau?: string | null;
   ghi_chu_tai_lieu?: string | null;
-  /** Dịch vụ thu hộ đối tác (bên thu của dịch vụ, Bảng giá). */
-  doi_tac_thu?: boolean;
-  /** Giá tham khảo trong bảng giá phòng khám. */
-  gia_tham_khao?: number | null;
-  /** Ghi nhận "đã thu hộ cho đối tác" còn hiệu lực — null = chưa thu. */
-  da_thu?: DaThu | null;
   /** LỊCH SỬ các lần tải tệp của việc này (29/09/2026) — cũ trước. */
   tep?: TepDaGui[];
   /** Mẫu lấy ở phòng của phòng khám, gửi sang đối tác (29/09/2026). */
@@ -103,25 +106,6 @@ interface TepDaGui {
 const kichThuoc = (b: number) =>
   b >= 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`;
 
-interface DaThu {
-  id: string;
-  so_tien: number;
-  hinh_thuc: "CASH" | "TRANSFER";
-  ghi_chu: string | null;
-  luc: string | null;
-  /** Ai ghi nhận. */
-  boi?: string | null;
-}
-
-const TEN_HINH_THUC: Record<DaThu["hinh_thuc"], string> = {
-  CASH: "Tiền mặt",
-  TRANSFER: "Chuyển khoản",
-};
-
-function tienVnd(n: number): string {
-  return `${n.toLocaleString("vi-VN")}đ`;
-}
-
 interface Khach {
   clinic_patient_id: string;
   ten_khach: string;
@@ -142,20 +126,12 @@ interface DanhSach {
 
 type KetQua = DanhSach | { loi: string };
 
-// Thanh bước (29/09/2026): Lấy mẫu → Nhận mẫu (ĐIỂM XONG) → Có kết quả (tuỳ
-// chọn — không phải điều kiện xong, không tô "đang chờ").
+// Thanh bước (16/10/2026): Đã nhận mẫu (ĐIỂM XONG) → Có kết quả. Bỏ bước "Lấy
+// mẫu" — Nhận mẫu của bàn / Phòng đối tác đã thay.
 const BUOC: { nhan: string; xong: (tt: TrangThai) => boolean; tuyChon?: boolean }[] = [
-  { nhan: "Lấy mẫu", xong: (tt) => tt !== "CHO_LAY_MAU" },
-  { nhan: "Nhận mẫu · xong", xong: (tt) => XONG.has(tt) },
-  { nhan: "Có kết quả (tuỳ chọn)", xong: (tt) => tt === "DA_GUI_KET_QUA", tuyChon: true },
+  { nhan: "Đã nhận mẫu · chờ kết quả", xong: (tt) => XONG.has(tt) },
+  { nhan: "Có kết quả", xong: (tt) => tt === "DA_GUI_KET_QUA", tuyChon: true },
 ];
-
-const NHAN_TRANG_THAI: Record<TrangThai, { chu: string; tone: "warning" | "info" | "success" }> = {
-  CHO_LAY_MAU: { chu: "Chờ lấy mẫu", tone: "warning" },
-  DA_LAY_MAU: { chu: "Đã có mẫu · chờ nhận", tone: "info" },
-  DA_NHAN_MAU: { chu: "Đã nhận mẫu · xong", tone: "success" },
-  DA_GUI_KET_QUA: { chu: "Xong · có kết quả", tone: "success" },
-};
 
 function gioPhut(iso: string | null): string {
   if (!iso) return "—";
@@ -238,25 +214,27 @@ async function bamViec(
 
 // HÀNG CHỜ BÊN TRÁI chia theo BƯỚC ĐẦU TIÊN còn dở của khách (Tuyền 28/09/2026:
 // "thiết kế như các màn thủ thuật, siêu âm, bác sĩ") — cùng khuôn HangChoCot.
-// Hai nhóm cuối là XONG (Tuyền 29/09/2026: nhận mẫu là xong việc).
+// Hai nhóm cuối là XONG (Tuyền 29/09/2026: nhận mẫu là xong việc). 16/10/2026:
+// chưa nhận mẫu là MỘT nhóm "Chờ làm" (chữ chung) — mẫu điều dưỡng đã lấy cũng
+// chờ đối tác nhận như việc đối tác tự làm.
 const NHOM: { ma: TrangThai; ten: string }[] = [
-  { ma: "CHO_LAY_MAU", ten: "Chờ lấy mẫu" },
-  { ma: "DA_LAY_MAU", ten: "Có mẫu · chờ nhận" },
-  { ma: "DA_NHAN_MAU", ten: "Đã nhận mẫu · xong" },
-  { ma: "DA_GUI_KET_QUA", ten: "Xong · có kết quả" },
+  { ma: "CHO_LAY_MAU", ten: "Chờ làm" },
+  { ma: "DA_NHAN_MAU", ten: "Đã nhận mẫu · chờ kết quả" },
+  { ma: "DA_GUI_KET_QUA", ten: "Có kết quả" },
 ];
 const THU_TU: Record<TrangThai, number> = {
   CHO_LAY_MAU: 0,
-  DA_LAY_MAU: 1,
+  DA_LAY_MAU: 0,
   DA_NHAN_MAU: 2,
   DA_GUI_KET_QUA: 3,
 };
 /** Khách đứng ở nhóm của việc CHƯA XONG sớm nhất; xong hết → nhóm xong. */
 function buocCua(k: Khach): TrangThai {
-  return k.viec.reduce<TrangThai>(
+  const tt = k.viec.reduce<TrangThai>(
     (m, v) => (THU_TU[v.trang_thai] < THU_TU[m] ? v.trang_thai : m),
     "DA_GUI_KET_QUA",
   );
+  return tt === "DA_LAY_MAU" ? "CHO_LAY_MAU" : tt;
 }
 
 export default function BangDoiTac() {
@@ -394,16 +372,12 @@ export default function BangDoiTac() {
   return (
     <div className="grid gap-4">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        {/* Bỏ dòng tóm tắt số việc (Tuyền 16/10/2026) — đầu nhóm bên trái đã đếm. */}
         <h1 className="text-title font-semibold text-ink">Việc của đối tác</h1>
-        <p className="text-body text-ink-muted">
-          {xemNgay.homNay ? "Hôm nay" : `Ngày ${ngayNgan(xemNgay.ngay)}`} · {dem.CHO_LAY_MAU} chờ lấy
-          mẫu · {dem.DA_LAY_MAU} chờ nhận mẫu · {dem.DA_NHAN_MAU} đã nhận mẫu ·{" "}
-          {dem.DA_GUI_KET_QUA} có kết quả
-        </p>
       </header>
 
-      {/* NGÀY CŨ (29/09/2026): việc có hoạt động ngày ấy — chỉ định, lấy mẫu,
-          nhận mẫu, gửi tệp. Vẫn tải thêm tệp / bấm "Đã lấy mẫu" được. */}
+      {/* NGÀY CŨ (29/09/2026): việc có hoạt động ngày ấy — chỉ định, nhận mẫu,
+          gửi tệp, trả kết quả. Vẫn tải thêm tệp / Nhận mẫu / Trả kết quả được. */}
       <ThanhNgay
         motNgay
         nhan="Xem việc theo ngày"
@@ -531,31 +505,17 @@ export default function BangDoiTac() {
                     xemTep={xemNgay.xemTep}
                     dangLam={dangLam === v.chi_dinh_id}
                     tienDo={tienDo?.id === v.chi_dinh_id ? tienDo : null}
-                    onLayMau={(g) =>
-                      void lamViec("/api/doi-tac/da-lay-mau", v, chon, "Đã ghi lấy mẫu", g)
-                    }
                     onChoTaiLieu={(g) =>
                       void lamViec(
                         "/api/doi-tac/cho-tai-lieu",
                         v,
                         chon,
-                        "Đã nhận mẫu — việc đối tác XONG (kết quả tải lên lúc nào cũng được)",
+                        "Đã nhận mẫu — việc đối tác XONG (kết quả trả lúc nào cũng được)",
                         g,
                       )
                     }
                     onGui={(tep) => void gui(v, chon, tep)}
                     onDoiTep={() => void tai()}
-                    onDaThu={(soTien, hinhThuc, g) =>
-                      lamViec("/api/doi-tac/da-thu-tien", v, chon, "Đã ghi nhận thu hộ cho đối tác", g, {
-                        so_tien: soTien,
-                        hinh_thuc: hinhThuc,
-                      })
-                    }
-                    onHuyThu={(lyDo) =>
-                      lamViec("/api/doi-tac/huy-da-thu", v, chon, "Đã huỷ ghi nhận thu hộ", "", {
-                        ly_do: lyDo,
-                      })
-                    }
                   />
                 ))}
             </ul>
@@ -579,11 +539,8 @@ function MotViec({
   xemTep,
   dangLam,
   tienDo,
-  onLayMau,
   onChoTaiLieu,
   onGui,
-  onDaThu,
-  onHuyThu,
   onDoiTep,
 }: {
   viec: Viec;
@@ -591,22 +548,17 @@ function MotViec({
   xemTep: boolean;
   dangLam: boolean;
   tienDo: { pt: number; ten: string } | null;
-  onLayMau: (ghiChu: string) => void;
   onChoTaiLieu: (ghiChu: string) => void;
   onGui: (tep: File) => void;
-  onDaThu: (soTien: string, hinhThuc: DaThu["hinh_thuc"], ghiChu: string) => Promise<boolean>;
-  onHuyThu: (lyDo: string) => Promise<boolean>;
-  /** Vừa xoá / khôi phục một tệp (V9) — tải lại danh sách. */
+  /** Vừa ghi / xoá / khôi phục / hoàn tác — tải lại danh sách. */
   onDoiTep: () => void;
 }) {
   const oTep = useRef<HTMLInputElement>(null);
-  // Ghi chú đi kèm "Đã lấy mẫu" / "Nhận mẫu" (24/09/2026).
+  // Ghi chú đi kèm "Nhận mẫu" (24/09/2026).
   const [ghiChu, setGhiChu] = useState("");
   // Hộp xem tệp (Lightbox) — mở ở tệp thứ `i` (29/09/2026).
   const [mo, setMo] = useState<{ i: number; luoi: boolean } | null>(null);
   const tt = viec.trang_thai;
-  const xong = XONG.has(tt);
-  const nhanTt = NHAN_TRANG_THAI[tt];
   // Tệp còn hiệu lực, xem trước được — cùng đường đọc tệp chung của trang chỉ định.
   const tepCon = (viec.tep ?? []).filter((t) => !t.thu_hoi && !t.da_xoa);
   const xem = tepCon.map((t) =>
@@ -620,9 +572,7 @@ function MotViec({
       : tt === "DA_NHAN_MAU"
         ? `Đã nhận mẫu ${gioPhut(viec.cho_tai_lieu_luc)} · ${gioVn(viec.cho_tai_lieu_luc)}`
         : tt === "DA_LAY_MAU"
-          ? viec.mau_gui_doi_tac
-            ? `Phòng khám gửi mẫu lúc ${gioVn(viec.lay_mau_luc)}`
-            : `Có mẫu lúc ${gioVn(viec.lay_mau_luc)}`
+          ? `Phòng khám gửi mẫu lúc ${gioVn(viec.lay_mau_luc)}`
           : `Phòng khám gửi lúc ${gioVn(viec.chi_dinh_luc)}`;
 
   return (
@@ -637,13 +587,10 @@ function MotViec({
           ) : null}
           <p className="text-meta text-ink-muted">{mocGanNhat}</p>
         </div>
-        <Chip tone={nhanTt.tone}>
-          {xong ? <CircleCheck className="size-3.5" aria-hidden="true" /> : null}
-          {tt === "DA_NHAN_MAU" ? `Đã nhận mẫu ${gioPhut(viec.cho_tai_lieu_luc)}` : nhanTt.chu}
-        </Chip>
+        <ChipDoiTac viec={viec} />
       </div>
 
-      <ol className="grid grid-cols-3 gap-1" aria-label="Tiến độ việc">
+      <ol className="grid grid-cols-2 gap-1" aria-label="Tiến độ việc">
         {BUOC.map((b) => {
           const daXong = b.xong(tt);
           // Bước đang làm = bước đầu tiên chưa xong, trừ bước tuỳ chọn.
@@ -782,11 +729,9 @@ function MotViec({
         </div>
       ) : null}
 
-      {viec.doi_tac_thu ? (
-        <ThuTienKhach viec={viec} dangLam={dangLam} onDaThu={onDaThu} onHuyThu={onHuyThu} />
-      ) : null}
+      {viec.doi_tac_thu ? <ThuHoDoiTac viec={viec} onDoi={onDoiTep} /> : null}
 
-      {tt === "CHO_LAY_MAU" || tt === "DA_LAY_MAU" ? (
+      {viec.nhan_mau_duoc ? (
         <label className="block">
           <span className="text-label font-semibold text-ink-muted">
             Ghi chú (tuỳ chọn)
@@ -796,25 +741,16 @@ function MotViec({
             onChange={(e) => setGhiChu(e.target.value)}
             rows={2}
             maxLength={2000}
-            placeholder="VD: lấy mẫu lúc 10h, mẫu đủ; hẹn trả kết quả sau 3 ngày…"
+            placeholder="VD: nhận mẫu lúc 10h, mẫu đủ; hẹn trả kết quả sau 3 ngày…"
             className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-2 text-body text-ink"
           />
         </label>
       ) : null}
 
       <div className="flex flex-wrap justify-end gap-2">
-        {tt === "CHO_LAY_MAU" ? (
-          <button
-            type="button"
-            disabled={dangLam}
-            onClick={() => onLayMau(ghiChu)}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            <FlaskConical className="size-4" aria-hidden="true" />
-            {dangLam ? "Đang ghi…" : "Đã lấy mẫu"}
-          </button>
-        ) : null}
-        {tt === "DA_LAY_MAU" ? (
+        {/* MỘT nút Nhận mẫu (16/10/2026) — bỏ "Đã lấy mẫu": máy chủ ghi luôn
+            "đã làm" cho việc đối tác làm trọn chưa ai bấm. */}
+        {viec.nhan_mau_duoc ? (
           <button
             type="button"
             disabled={dangLam}
@@ -850,156 +786,11 @@ function MotViec({
             {dangLam && tienDo ? "Đang gửi…" : tt === "DA_GUI_KET_QUA" ? "Gửi thêm kết quả" : "Tải kết quả lên"}
           </button>
       </div>
+
+      {/* Phiếu theo mẫu của loại chỉ định + [Trả kết quả] + hoàn tác — cửa đối
+          tác `/api/doi-tac/phieu` (tài khoản đối tác điền được). */}
+      <KetQuaDoiTac viec={viec} duongPhieu="/api/doi-tac/phieu" onDoi={onDoiTep} />
     </li>
   );
 }
 
-/** THU HỘ ĐỐI TÁC (Tuyền chốt 27/09/2026, Q1; đổi tên 29/09/2026): người ở vị
- *  trí Đối tác ghi nhận đã thu hộ (số tiền mặc định = giá tham khảo, hình thức,
- *  ghi chú) và huỷ có lý do. Máy chủ kiểm số tiền / hình thức / lý do. */
-function ThuTienKhach({
-  viec,
-  dangLam,
-  onDaThu,
-  onHuyThu,
-}: {
-  viec: Viec;
-  dangLam: boolean;
-  onDaThu: (soTien: string, hinhThuc: DaThu["hinh_thuc"], ghiChu: string) => Promise<boolean>;
-  onHuyThu: (lyDo: string) => Promise<boolean>;
-}) {
-  const [mo, setMo] = useState<"thu" | "huy" | null>(null);
-  const [soTien, setSoTien] = useState(
-    viec.gia_tham_khao != null ? String(viec.gia_tham_khao) : "",
-  );
-  const [hinhThuc, setHinhThuc] = useState<DaThu["hinh_thuc"]>("CASH");
-  const [ghiChu, setGhiChu] = useState("");
-  const [lyDo, setLyDo] = useState("");
-  const da = viec.da_thu;
-
-  return (
-    <div className="space-y-2 rounded-control bg-surface-muted px-3 py-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-meta text-ink-muted">
-          Thu hộ đối tác
-          {viec.gia_tham_khao != null ? ` · tham khảo ${tienVnd(viec.gia_tham_khao)}` : ""}
-        </p>
-        {da ? (
-          <Chip tone="success">
-            Đã thu hộ {tienVnd(da.so_tien)} · {TEN_HINH_THUC[da.hinh_thuc]}
-          </Chip>
-        ) : (
-          <Chip tone="warning">Chưa thu hộ</Chip>
-        )}
-      </div>
-      {da?.ghi_chu ? <p className="whitespace-pre-wrap text-meta text-ink-soft">Ghi chú: {da.ghi_chu}</p> : null}
-      {da?.luc ? (
-        <p className="text-label text-ink-faint">
-          Ghi lúc {gioVn(da.luc)}
-          {da.boi ? ` · ${da.boi}` : ""}
-        </p>
-      ) : null}
-
-      {mo === "thu" && !da ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-label font-semibold text-ink-muted">Số tiền (đồng)</span>
-            <input
-              value={soTien}
-              onChange={(e) => setSoTien(e.target.value)}
-              inputMode="numeric"
-              className="mt-1 h-10 w-full rounded-control border border-line bg-surface px-3 text-body tabular-nums text-ink"
-            />
-          </label>
-          <label className="block">
-            <span className="text-label font-semibold text-ink-muted">Hình thức</span>
-            <select
-              value={hinhThuc}
-              onChange={(e) => setHinhThuc(e.target.value as DaThu["hinh_thuc"])}
-              className="mt-1 h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
-            >
-              <option value="CASH">Tiền mặt</option>
-              <option value="TRANSFER">Chuyển khoản</option>
-            </select>
-          </label>
-          <label className="block sm:col-span-2">
-            <span className="text-label font-semibold text-ink-muted">Ghi chú (tuỳ chọn)</span>
-            <input
-              value={ghiChu}
-              onChange={(e) => setGhiChu(e.target.value)}
-              maxLength={2000}
-              className="mt-1 h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
-            />
-          </label>
-        </div>
-      ) : null}
-
-      {mo === "huy" && da ? (
-        <label className="block">
-          <span className="text-label font-semibold text-ink-muted">Lý do huỷ ghi nhận</span>
-          <input
-            value={lyDo}
-            onChange={(e) => setLyDo(e.target.value)}
-            maxLength={2000}
-            placeholder="VD: ghi nhầm số tiền"
-            className="mt-1 h-10 w-full rounded-control border border-line bg-surface px-3 text-body text-ink"
-          />
-        </label>
-      ) : null}
-
-      <div className="flex flex-wrap justify-end gap-2">
-        {mo === null && !da ? (
-          <Button variant="soft" size="lg" disabled={dangLam} onClick={() => setMo("thu")}>
-            Đã thu hộ cho đối tác
-          </Button>
-        ) : null}
-        {mo === null && da ? (
-          <Button variant="ghost" size="lg" disabled={dangLam} onClick={() => setMo("huy")}>
-            Huỷ ghi nhận
-          </Button>
-        ) : null}
-        {mo === "thu" && !da ? (
-          <>
-            <Button variant="ghost" size="lg" disabled={dangLam} onClick={() => setMo(null)}>
-              Thôi
-            </Button>
-            <Button
-              variant="primary"
-              size="lg"
-              disabled={dangLam || !soTien.trim()}
-              onClick={() =>
-                void onDaThu(soTien, hinhThuc, ghiChu).then((ok) => {
-                  if (ok) setMo(null);
-                })
-              }
-            >
-              {dangLam ? "Đang ghi…" : "Ghi nhận đã thu hộ"}
-            </Button>
-          </>
-        ) : null}
-        {mo === "huy" && da ? (
-          <>
-            <Button variant="ghost" size="lg" disabled={dangLam} onClick={() => setMo(null)}>
-              Thôi
-            </Button>
-            <Button
-              variant="danger"
-              size="lg"
-              disabled={dangLam || lyDo.trim().length < 3}
-              onClick={() =>
-                void onHuyThu(lyDo).then((ok) => {
-                  if (ok) {
-                    setMo(null);
-                    setLyDo("");
-                  }
-                })
-              }
-            >
-              {dangLam ? "Đang ghi…" : "Huỷ ghi nhận"}
-            </Button>
-          </>
-        ) : null}
-      </div>
-    </div>
-  );
-}

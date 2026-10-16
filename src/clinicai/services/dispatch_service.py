@@ -176,6 +176,7 @@ SELECT v.visit_id,
                   AND nd.lam_ben_ngoai
                 WHERE od.clinic_id = v.clinic_id AND od.visit_id = v.visit_id
                   AND od.execution_status = 'COMPLETED'
+                  AND od.doi_tac_cho_tai_lieu_luc IS NOT NULL
                   AND od.ket_qua_luc IS NULL)     AS cho_kq_doi_tac
   FROM public.visit v
   LEFT JOIN public.patient p
@@ -363,6 +364,7 @@ class DispatchService:
                         execution_status=r["execution_status"],
                         doi_tac=bool(r["doi_tac"]),
                         ket_qua_luc=r["ket_qua_luc"],
+                        nhan_mau_luc=r["nhan_mau_luc"],
                         xong_luc=r["xong_luc"],
                         khach_ve=r["khach_ve_luc"] is not None,
                         hang=r["work_status"],
@@ -1068,6 +1070,7 @@ SELECT o.id::text,
        q.eligible_at AS vao_hang_luc, q.called_at AS goi_luc,
        q.serving_at, q.so_truoc,
        o.ket_qua_luc, o.finished_at AS xong_luc, v.closed_at AS khach_ve_luc,
+       o.doi_tac_cho_tai_lieu_luc AS nhan_mau_luc,
        (SELECT a.started_at FROM public.service_execution_attempt a
          WHERE a.clinic_id = o.clinic_id AND a.service_order_id = o.id
            AND a.status = 'IN_PROGRESS') AS lan_lam_tu,

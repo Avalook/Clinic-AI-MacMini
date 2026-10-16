@@ -597,6 +597,11 @@ async def test_cskh_ket_qua_muon_doc_rail_moi(kb: KichBan) -> None:
         tep_id=str(tep["id"]),
         trang_thai="HOP_LE",
     )
+    # 16/10/2026: việc đối tác "Có kết quả" khi bấm [Trả kết quả] (tải tệp chưa
+    # đặt mốc) — rồi CSKH gửi được ngay.
+    from clinicai.services.doi_tac_service import DoiTacService
+
+    await DoiTacService(kb.pool).tra_ket_qua(order_id=mau, identity=kb.truong_ca)
     assert [t for t, _ in await viec()] == ["KQ_CHUA_GUI"]
     # Bác sĩ duyệt vẫn làm được (việc chuyên môn của bác sĩ) nhưng không đổi
     # việc của CSKH: tệp chưa gửi thì vẫn là việc "chưa gửi".

@@ -146,8 +146,8 @@ def _moc_dich_vu(r: Any) -> list[dict[str, Any]]:
         ("Phòng gọi khách", r["goi_luc"], None),
         ("Bắt đầu làm", r["started_at"], r["nguoi_lam"]),
         (xong, r["finished_at"], r["nguoi_lam"]),
-        # Việc đối tác: nhận mẫu là XONG (Tuyền 29/09/2026); kết quả tuỳ chọn.
-        ("Đối tác nhận mẫu · xong", r.get("nhan_mau_luc"), None),
+        # Việc đối tác — đúng hai chữ riêng (Tuyền 16/10/2026).
+        ("Đã nhận mẫu · chờ kết quả", r.get("nhan_mau_luc"), None),
         ("Có kết quả", r["ket_qua_luc"], None),
         ("Bác sĩ duyệt kết quả", r["duyet_luc"], r["nguoi_duyet_ket_qua"]),
     ]
