@@ -43,6 +43,7 @@ import {
   toTitleCaseVi,
   phoneError,
   cccdError,
+  emailError,
   birthYearError,
   unaccentVi,
 } from "../../../../lib/validation";
@@ -423,6 +424,7 @@ export default function NewPatientForm({
   const [phone, setPhone] = useState("");
   const [phone2, setPhone2] = useState("");
   const [cccd, setCccd] = useState("");
+  const [email, setEmail] = useState("");
   // Cơ sở CỦA NGƯỜI ĐẶT trước, rồi mới tới đầu danh sách (16/09/2026): danh
   // sách xếp theo tên nên `locations[0]` là "Kim Ngưu" với mọi người — hồ sơ
   // khách mới của CSKH ở cơ sở khác rơi sai cơ sở mà không ai để ý.
@@ -756,6 +758,7 @@ export default function NewPatientForm({
   const phoneErr = phoneError(phone);
   const phone2Err = phoneError(phone2);
   const cccdErr = cccdError(cccd);
+  const emailErr = emailError(email);
 
   async function bookFor(clinicPatientId: string): Promise<boolean> {
     // Cùng lớp đỡ như save(): state có thể còn rỗng nếu danh sách cơ sở tới
@@ -813,7 +816,7 @@ export default function NewPatientForm({
   useEffect(() => {
     if (!khoaNhapKhach || typeof window === "undefined") return;
     const giaTri: Record<string, string | boolean> = {
-      fullName, dobIso, dobYearOnly, birthYear, phone, phone2, cccd,
+      fullName, dobIso, dobYearOnly, birthYear, phone, phone2, cccd, email,
       gender, ethnicity, nationality, occupation, objection,
       provinceCode, wardCode, addressDetail, vanDe, linhVuc,
     };
@@ -832,7 +835,7 @@ export default function NewPatientForm({
     return () => clearTimeout(t);
   }, [
     khoaNhapKhach, fullName, dobIso, dobYearOnly, birthYear, phone, phone2,
-    cccd, gender, ethnicity, nationality, occupation, objection,
+    cccd, email, gender, ethnicity, nationality, occupation, objection,
     provinceCode, wardCode, addressDetail, vanDe, linhVuc,
   ]);
 
@@ -847,6 +850,7 @@ export default function NewPatientForm({
     setPhone(chu("phone"));
     setPhone2(chu("phone2"));
     setCccd(chu("cccd"));
+    setEmail(chu("email"));
     setGender(chu("gender"));
     setEthnicity(chu("ethnicity") || "Kinh");
     setNationality(chu("nationality") || "Việt Nam");
@@ -964,6 +968,7 @@ export default function NewPatientForm({
       phoneError(phone) ||
       phoneError(phone2) ||
       cccdError(cccd) ||
+      emailError(email) ||
       (dobYearOnly ? birthYearErr : dobErr);
     if (ve) {
       setError(ve);
@@ -1038,6 +1043,8 @@ export default function NewPatientForm({
           phone_primary: phone,
           phone_secondary: phone2,
           national_id_number: cccd,
+          // Rỗng thì KHÔNG gửi khoá (máy chủ chuẩn hoá chữ thường + kiểm lại).
+          email: email.trim() || undefined,
           location_id: effLocationId,
           gender,
           ethnicity,
@@ -1331,6 +1338,22 @@ export default function NewPatientForm({
             />
             {cccdErr && (
               <p className="mt-1 text-meta text-danger">{cccdErr}</p>
+            )}
+          </div>
+          <div>
+            <label className={LABEL}>Email (nếu có)</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={INPUT + (emailErr ? " border-danger" : "")}
+              placeholder="ten@example.com"
+              inputMode="email"
+              autoComplete="off"
+              maxLength={254}
+            />
+            {emailErr && (
+              <p className="mt-1 text-meta text-danger">{emailErr}</p>
             )}
           </div>
           <div>

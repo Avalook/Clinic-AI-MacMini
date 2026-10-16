@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-15 10:40. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-16 07:35. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -1206,7 +1206,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 #### `/api/patients` · `src/dashboard/app/api/patients/route.ts`
 - POST `/api/v1/patients` → `src/clinicai/api/v1/patients.py:create_patient` → PatientService.create_patient
 - PATCH `/api/v1/patients/{id:uuid}` → `src/clinicai/api/v1/patients.py:update_patient` → PatientService.update_patient
-- test: src/tests/unit/test_patient_service.py, src/tests/integration/test_patient_integration.py, src/tests/services/test_sua_ho_so_khach_db.py
+- test: src/tests/unit/test_patient_service.py, src/tests/api/test_patients_api.py, src/tests/services/test_sua_ho_so_khach_db.py
 - màn dùng: /appointments, /ban-kham, /ban-kham/[phong], /customers, /patient-list, /patients/new (+1)
 
 #### `/api/patients/[id]/uu-tien` · `src/dashboard/app/api/patients/[id]/uu-tien/route.ts`

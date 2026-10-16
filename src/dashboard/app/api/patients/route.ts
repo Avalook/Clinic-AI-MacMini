@@ -3,7 +3,7 @@
 // Access control = phiên đăng nhập ở đây; quyền do FastAPI quyết (27/09/2026).
 //
 //   POST { full_name, date_of_birth?, phone_primary?, phone_secondary?,
-//          national_id_number?, location_id, force? }
+//          national_id_number?, email?, location_id, force? }
 //     → { duplicate: true, matches: [...] }   when phone already exists & !force
 //     → { ok: true, patient: {...} }          on insert
 
@@ -13,6 +13,7 @@ import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import {
   PHONE_RE,
   CCCD_RE,
+  emailError,
   tenError,
   dobErrorIso,
   homNayVn,
@@ -28,6 +29,7 @@ interface Body {
   phone_primary?: string;
   phone_secondary?: string;
   national_id_number?: string;
+  email?: string;
   location_id?: string;
   // Hành chính (mục I form khám) — đồng bộ sang hồ sơ lâm sàng.
   gender?: string;
@@ -115,6 +117,13 @@ export async function POST(request: Request) {
       { error: "CCCD phải gồm đúng 12 chữ số (3 số đầu là mã tỉnh 001–096)." },
       { status: 400 },
     );
+  }
+
+  // Email không bắt buộc; điền thì đúng định dạng (cùng luật máy chủ). Chặn ở
+  // đây để người dùng luôn nhận câu tiếng Việt, không phải mảng lỗi 422 thô.
+  const loiEmail = emailError(String(body.email ?? ""));
+  if (loiEmail) {
+    return NextResponse.json({ error: loiEmail }, { status: 400 });
   }
 
   if (!API_BASE) {

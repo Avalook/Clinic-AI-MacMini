@@ -71,6 +71,17 @@ export function cccdError(v: string | null | undefined): string | null {
   return null;
 }
 
+// Cùng luật với `_EMAIL_RE` + trần 254 ký tự ở `schemas/patient.py` (máy chủ vẫn
+// là nơi quyết định và chuẩn hoá về chữ thường) — ở đây chỉ để báo sớm cạnh ô.
+export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+export function emailError(v: string | null | undefined): string | null {
+  const t = (v ?? "").trim();
+  if (!t) return null;
+  if (t.length > 254 || !EMAIL_RE.test(t)) return "Email không đúng định dạng.";
+  return null;
+}
+
 // ===== Ngày sinh dd/mm/yyyy — có LOGIC LỊCH (không 30/2, 29/2 chỉ năm nhuận) =====
 
 /** Số ngày tối đa của tháng m (1-12) trong năm y — đúng năm nhuận (29/2). */
