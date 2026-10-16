@@ -1,4 +1,10 @@
-# Runbook lên prod — đợt `gop-staging-1410m` (soạn 16/10/2026, CHƯA chạy)
+# Runbook lên prod — đợt `dot/1610-tai-chinh` (soạn 16/10/2026, CHƯA chạy)
+
+**Tuyền 16/10 chiều: tách phần đối tác ra, lên trước phần tài chính.** Nhánh phát hành `dot/1610-tai-chinh` =
+`gop-staging-1410m` tại `242877ac` (bản staging chạy cả ngày 16/10 trước khi gộp luồng Phòng đối tác) + 1 commit test.
+KHÔNG gồm: Phòng đối tác chạy chung luồng phòng (59bb967e, de9fad5d), `/doi-tac` chung khung phòng, hai script dữ liệu
+đối tác — để đợt sau, vẫn nằm ở `gop-staging-1410m` / `claude/doi-tac-chung-khung-phong`. **Không chạy** script đối tác
+nào trên prod ở đợt này.
 
 **Điều kiện bắt đầu (Tuyền nói "lên prod" + đủ ba thứ):** CI máy của đợt xanh · Tuyền đã bấm xong kịch bản staging
 (`docs/HUONG-DAN-BAM-THU-NOTION-1610.md`) · các câu "Cần Tuyền quyết" ở cuối đã chốt.
@@ -8,11 +14,11 @@ container, người đang dùng thấy 502 khoảng một phút.
 ## 0. Đợt này gồm
 ~211 commit, ~60 nhánh (G3b mã vạch, G4 dòng tiền, G5 kế toán/thuế/hoá đơn công ty/MISA, G6 kiểm kê ca, G7 tách kho/quầy,
 G8 vật tư + duyệt nhập, G9 Bio ở chỉ định, bán theo đơn + phản hồi thuốc, gọi xác nhận mọi lịch đặt hộ, email khách,
-7 PR giảm chậm, sửa lỗi). **28 migration mới**:
+7 PR giảm chậm, sửa lỗi, vai Kế toán, tick công ty xuất hoá đơn ở quầy thu). **29 migration mới**:
 
 `20261010100000` `20261010100001` `20261010200000` · `20261014110000` `…130000` `…130002` `…135000` `…140000` `…147000`
 `…148000` `…149000` `…150000` `…155000` `…156000` `…157000` `…160000` `…170000` `…180000` `…180100` `…180101` `…181000`
-`…181100` `…190000` `…200000` `…200100` `…220000` · `20261015110000` · `20261016300000`.
+`…181100` `…190000` `…200000` `…200100` `…220000` · `20261015110000` · `20261016300000` `20261016400000`.
 Hai nhóm thay đổi có hiệu ứng thấy ngay: **view `v_viec_cskh`** (mọi lịch đặt hộ thành việc "Gọi xác nhận lịch") và
 **cột/ràng buộc kho** (`drug_batch.noi_chua`, công tắc `tach_kho_quay` mặc định TẮT → quầy bán như cũ).
 
@@ -21,7 +27,7 @@ Hai nhóm thay đổi có hiệu ứng thấy ngay: **view `v_viec_cskh`** (mọ
 git fetch origin
 ```
 ```bash
-git log --oneline origin/main..origin/gop-staging-1410m
+git log --oneline origin/main..origin/dot/1610-tai-chinh
 ```
 Đọc từng nhóm commit; chốt **một SHA** (SHA đầu nhánh đợt sau khi CI xanh). Nếu `main` có commit mới ngoài đợt thì dừng và báo.
 
@@ -33,7 +39,7 @@ ssh clinic-vps-moi "docker exec clinicai_db psql -U postgres -d postgres -Atc \"
 Ghi con số vào PR. Nếu lớn (hàng chục) và Tuyền chưa chốt cách tính hạn → hoãn migration này.
 
 ## 3. Merge đợt vào `main` (Tuyền bấm trên GitHub)
-Mở PR `gop-staging-1410m` → `main`, kiểm CI máy xanh, merge **bằng merge commit** (giữ lịch sử). Rồi trên Mac:
+Mở PR `dot/1610-tai-chinh` → `main`, kiểm CI máy xanh, merge **bằng merge commit** (giữ lịch sử). Rồi trên Mac:
 ```bash
 git fetch origin
 ```
@@ -53,7 +59,7 @@ Sao lưu (phải kèm env như unit systemd):
 ```bash
 PG_DUMP_BIN=scripts/pg-dump-qua-container.sh CLINIC_DB_CONTAINER=clinicai_db BACKUP_ENV_FILE=.env.prod CLINIC_BACKUP_DIR=/home/clinicai/backups/clinicai ./scripts/backup-db.sh
 ```
-Diễn tập 28 migration trên bản sao (worktree tách ở SHA_PROD + Postgres phụ nạp dữ liệu prod; xong `docker rm -fv`; số dòng
+Diễn tập 29 migration trên bản sao (worktree tách ở SHA_PROD + Postgres phụ nạp dữ liệu prod; xong `docker rm -fv`; số dòng
 bảng chính không đổi). Rồi thử khô và áp thật:
 ```bash
 CLINIC_DB_CONTAINER=clinicai_db ./scripts/apply-pending-migrations.sh
