@@ -134,132 +134,137 @@ export function DoiMatKhauModal({ open, onClose, staffName }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 overflow-y-auto bg-ink/40 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="doi-mat-khau-title"
     >
-      <div className="w-full max-w-md rounded-panel border border-line bg-surface p-5 shadow-panel animate-in fade-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between border-b border-line pb-3">
-          <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-control bg-brand-50 text-brand-600">
-              <KeyRound size={18} aria-hidden />
+      {/* Cuộn được: màn thấp (laptop phóng to, điện thoại ngang) mà hộp căn giữa
+          không cuộn thì ô "Mật khẩu hiện tại" nằm ngoài màn hình, nút Lưu xám
+          mãi (Tuyền, 16/10/2026). `min-h-full` giữ hộp ở giữa khi màn cao. */}
+      <div className="flex min-h-full items-center justify-center">
+        <div className="w-full max-w-md rounded-panel border border-line bg-surface p-5 shadow-panel animate-in fade-in zoom-in-95 duration-150">
+          <div className="flex items-center justify-between border-b border-line pb-3">
+            <div className="flex items-center gap-2">
+              <div className="flex size-8 items-center justify-center rounded-control bg-brand-50 text-brand-600">
+                <KeyRound size={18} aria-hidden />
+              </div>
+              <div>
+                <h2
+                  id="doi-mat-khau-title"
+                  className="text-base font-semibold text-ink"
+                >
+                  Đổi mật khẩu cá nhân
+                </h2>
+                {staffName && (
+                  <p className="text-xs text-ink-muted">{staffName}</p>
+                )}
+              </div>
             </div>
-            <div>
-              <h2
-                id="doi-mat-khau-title"
-                className="text-base font-semibold text-ink"
-              >
-                Đổi mật khẩu cá nhân
-              </h2>
-              {staffName && (
-                <p className="text-xs text-ink-muted">{staffName}</p>
-              )}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            disabled={busy}
-            className="rounded-control p-1 text-ink-muted transition-colors hover:bg-surface-tint hover:text-ink disabled:opacity-50"
-            aria-label="Đóng"
-          >
-            <X size={18} aria-hidden />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label
-              htmlFor="old-password"
-              className="mb-1 block text-xs font-medium text-ink"
-            >
-              Mật khẩu hiện tại
-            </label>
-            <input
-              id="old-password"
-              type="password"
-              autoFocus
-              aria-required="true"
-              value={oldPassword}
-              onChange={(e) => setOldPassword(e.target.value)}
-              disabled={busy}
-              autoComplete="current-password"
-              placeholder="Nhập mật khẩu đang dùng"
-              className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-brand-600 focus:ring-2 focus:ring-brand-200 disabled:opacity-50"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="new-password"
-              className="mb-1 block text-xs font-medium text-ink"
-            >
-              Mật khẩu mới
-            </label>
-            <input
-              id="new-password"
-              type="password"
-              aria-required="true"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              disabled={busy}
-              autoComplete="new-password"
-              placeholder={`Tối thiểu ${MIN_PASSWORD} ký tự`}
-              className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-brand-600 focus:ring-2 focus:ring-brand-200 disabled:opacity-50"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="confirm-password"
-              className="mb-1 block text-xs font-medium text-ink"
-            >
-              Nhập lại mật khẩu mới
-            </label>
-            <input
-              id="confirm-password"
-              type="password"
-              aria-required="true"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={busy}
-              autoComplete="new-password"
-              placeholder="Nhập lại chính xác mật khẩu mới"
-              className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-brand-600 focus:ring-2 focus:ring-brand-200 disabled:opacity-50"
-            />
-          </div>
-
-          {msg && (
-            <p
-              className={`rounded-control p-2.5 text-xs ${
-                msg.kind === "ok"
-                  ? "bg-success-bg text-success"
-                  : "bg-danger-bg text-danger"
-              }`}
-            >
-              {msg.text}
-            </p>
-          )}
-
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <Button
+            <button
               type="button"
-              variant="secondary"
               onClick={handleClose}
               disabled={busy}
+              className="rounded-control p-1 text-ink-muted transition-colors hover:bg-surface-tint hover:text-ink disabled:opacity-50"
+              aria-label="Đóng"
             >
-              Huỷ
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={busy || !oldPassword || !newPassword || !confirmPassword}
-            >
-              {busy ? "Đang xử lý..." : "Lưu thay đổi"}
-            </Button>
+              <X size={18} aria-hidden />
+            </button>
           </div>
-        </form>
+
+          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+            <div>
+              <label
+                htmlFor="old-password"
+                className="mb-1 block text-xs font-medium text-ink"
+              >
+                Mật khẩu hiện tại
+              </label>
+              <input
+                id="old-password"
+                type="password"
+                autoFocus
+                aria-required="true"
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                disabled={busy}
+                autoComplete="current-password"
+                placeholder="Nhập mật khẩu đang dùng"
+                className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-brand-600 focus:ring-2 focus:ring-brand-200 disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="new-password"
+                className="mb-1 block text-xs font-medium text-ink"
+              >
+                Mật khẩu mới
+              </label>
+              <input
+                id="new-password"
+                type="password"
+                aria-required="true"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={busy}
+                autoComplete="new-password"
+                placeholder={`Tối thiểu ${MIN_PASSWORD} ký tự`}
+                className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-brand-600 focus:ring-2 focus:ring-brand-200 disabled:opacity-50"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="confirm-password"
+                className="mb-1 block text-xs font-medium text-ink"
+              >
+                Nhập lại mật khẩu mới
+              </label>
+              <input
+                id="confirm-password"
+                type="password"
+                aria-required="true"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={busy}
+                autoComplete="new-password"
+                placeholder="Nhập lại chính xác mật khẩu mới"
+                className="w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-brand-600 focus:ring-2 focus:ring-brand-200 disabled:opacity-50"
+              />
+            </div>
+
+            {msg && (
+              <p
+                className={`rounded-control p-2.5 text-xs ${
+                  msg.kind === "ok"
+                    ? "bg-success-bg text-success"
+                    : "bg-danger-bg text-danger"
+                }`}
+              >
+                {msg.text}
+              </p>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleClose}
+                disabled={busy}
+              >
+                Huỷ
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={busy || !oldPassword || !newPassword || !confirmPassword}
+              >
+                {busy ? "Đang xử lý..." : "Lưu thay đổi"}
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
