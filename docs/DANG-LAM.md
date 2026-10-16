@@ -16,6 +16,8 @@ Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; c�
 6. Chip trạng thái "Đã ghi phản hồi thuốc" tô đỏ khi khách còn việc quá hạn — xem có nên luôn trung tính.
 7. Nhãn "Quầy thêm" trên dòng thuốc lấy từ đơn bác sĩ ("Bán theo đơn") — đổi nhãn.
 8. Nhận khách tại phòng: cho nhận khi bác sĩ vừa chỉ định (hiện chỉ sau Hoàn tất) — Tuyền: giữ như hiện nay.
+9a. Danh mục vật tư: Lễ tân tick "Cần duyệt nhập" thì giao diện tick rồi tự quay về, KHÔNG báo lỗi (máy chủ từ chối đúng quyền) — hiện thông báo "Bạn không có quyền sửa danh mục".
+9b. Chuông kiểm kê lệch còn chữ "tồn máy" — đổi "tồn trên hệ thống".
 9. Mẫu Excel kiểm kê của anh Thắng + mẫu Excel kế toán: chưa nhận → chưa đối chiếu.
 
 ## 15/10/2026 — GỌI XÁC NHẬN MỌI LỊCH ĐẶT HỘ (PR nhánh `claude/goi-xac-nhan-lich-dat-ho-a`)
