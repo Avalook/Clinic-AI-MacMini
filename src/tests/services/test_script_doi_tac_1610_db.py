@@ -67,3 +67,54 @@ async def test_script_bat_lai_doi_tac_chi_bat_dung_ma_da_chot(
                     == khac_truoc
                 )
                 raise _HoanLaiError
+
+
+async def test_script_go_dich_vu_thua_phong_doi_tac(pool: asyncpg.Pool) -> None:
+    """Phòng đối tác chỉ còn dịch vụ đối tác; dịch vụ đối tác giữ nguyên; dịch vụ
+    thường vẫn gắn ở phòng thường. Chạy trong giao dịch rồi hoàn lại."""
+    sql = (SCRIPTS / "go-dich-vu-thua-phong-doi-tac-1610.sql").read_text(
+        encoding="utf-8"
+    )
+    than = "\n".join(
+        d for d in sql.splitlines() if d.strip() not in {"BEGIN;", "COMMIT;"}
+    )
+    la_doi_tac = (
+        "(sp.billing_owner = 'EXTERNAL_PARTNER' OR sp.doi_tac_lay_mau"
+        " OR coalesce(nd.lam_ben_ngoai, false))"
+    )
+    dem = f"""
+        SELECT count(*) FILTER (WHERE {la_doi_tac}) AS doi_tac,
+               count(*) FILTER (WHERE NOT coalesce({la_doi_tac}, false)) AS thuong
+          FROM clinic_room_service rs
+          JOIN clinic_room r ON r.id = rs.room_id AND r.la_doi_tac
+          LEFT JOIN service_price sp ON sp.clinic_id = rs.clinic_id
+               AND sp.service_code = rs.service_code AND sp."group" = 'dich_vu'
+          LEFT JOIN node_definition nd ON nd.clinic_id = sp.clinic_id
+               AND nd.code = sp.node_code"""
+    # Tình huống 01/10: một dịch vụ thường (đang gắn ở phòng thường) bị gắn vào mọi
+    # phòng đối tác.
+    gan_thua = """
+        INSERT INTO clinic_room_service (clinic_id, room_id, service_code)
+        SELECT r.clinic_id, r.id, x.service_code
+          FROM clinic_room r
+          JOIN LATERAL (
+               SELECT rs.service_code FROM clinic_room_service rs
+                 JOIN clinic_room r2 ON r2.id = rs.room_id
+                  AND r2.is_active AND NOT r2.la_doi_tac
+                 JOIN service_price sp ON sp.clinic_id = rs.clinic_id
+                  AND sp.service_code = rs.service_code
+                  AND sp.billing_owner = 'CLINIC'
+                WHERE rs.clinic_id = r.clinic_id LIMIT 1) x ON true
+         WHERE r.la_doi_tac
+        ON CONFLICT DO NOTHING"""
+    async with pool.acquire() as conn:
+        with pytest.raises(_HoanLaiError):
+            async with conn.transaction():  # ném ở cuối → hoàn lại hết
+                await conn.execute(gan_thua)
+                truoc = await conn.fetchrow(dem)
+                assert truoc["thuong"] > 0
+                await conn.execute(than)
+                sau = await conn.fetchrow(dem)
+                assert sau["thuong"] == 0
+                assert sau["doi_tac"] == truoc["doi_tac"]
+                raise _HoanLaiError
