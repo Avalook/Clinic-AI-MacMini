@@ -381,6 +381,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:pharmacy": "Nhà thuốc",
     "api:pharmacy-ban-le": "Nhà thuốc — khách mua thuốc (bán lẻ)",
     "api:payment": "Quầy thu tiền",
+    "api:payments": "Quầy thu — chọn công ty xuất hoá đơn theo lượt",
     "api:reports-chot-ca": "Báo cáo cuối ca — chốt sổ",
     "api:me-account": "Tài khoản cá nhân — Đổi mật khẩu",
     "api:staff": "Quản lý nhân sự",
