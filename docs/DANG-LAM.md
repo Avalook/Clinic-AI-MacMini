@@ -13,6 +13,13 @@ Bio vừa ở Chỉ định CLS vừa ở Thu ngân là ĐÚNG ý. Đối soát 
 chưa giải thích: 1 phiếu staging `payment` 700k > dòng hoá đơn 650k. Lego Kế toán đã có trên staging, chưa có trên prod (chờ lên đợt).
 **Bấm kịch bản đầy đủ 16/10 10:30 (HT, staging):** tạo khách + đặt lịch → Tiếp đón (vào thẳng Bàn tư vấn) → sinh hiệu → tư vấn → Bàn khám
 → chỉ định Bio + đầu dò Bio 1 lần → Thu ngân 600k tiền mặt → Phòng Sàn chậu Nhận/Bắt đầu/phiếu/Xong → Báo cáo cuối ngày 600k khớp: ĐẠT.
+**KHO THUỐC THẬT-HAY-LOGIC (16/10 10:40, đối chiếu DB staging + prod chỉ đọc):** Eulac (lô hộp = bán hộp) gán lô → lô 20→18, sổ DISPENSE −2,
+tồn lô = tổng sổ, báo cáo Hàng hoá 40→38: THẬT. **Androgel bán "gói" nhưng lô nhập "hộp"** → `pharmacy_service` lọc lô theo đơn vị
+(`_don_vi(b.unit)==dv`) → "Chưa có lô gán được" → giao thuốc KHÔNG trừ kho (doanh thu 170k, SL bán 0, "Đã giao chưa gắn lô"). Lệch đơn vị:
+113/163 lô staging, 110/160 lô PROD. Lô prod hiện là lô mẫu `DEMO1709-*` (tồn thật chưa nạp — xem `lo-thuoc-that-khong-han-0810`).
+**CHỜ TUYỀN QUYẾT (mức 3):** (a) quy đổi đơn vị (1 hộp = N gói/viên) hay bắt nhập lô theo đơn vị bán; (b) nạp tồn thật trước hay sau khi lên prod.
+**Trạng thái đợt:** nhánh `gop-staging-1410m` @ 8400b369 (+ commit docs này), CI máy XANH ở a2f7fc3b, staging đang chạy a2f7fc3b; 29 migration
+(thêm `20261016400000_vai_ke_toan`); Tuyền: "chưa lên prod, tính sau". Runbook còn ghi 28 migration → sửa thành 29 + điền SHA khi lên.
 Việc nhỏ thấy thêm (chưa sửa): (1) Bàn khám dưới ~1536px rộng ẩn cột hàng chờ sau nút "☰ Hàng chờ" — dễ bỏ sót; (2) Thu ngân: danh sách chờ
 tự làm mới nên khung phải/ nút Tạo bill nhích chỗ giữa lúc bấm (bấm lần hai không tạo gì thêm, đã kiểm "Đã thanh toán hôm nay" = 1 phiếu);
 (3) lịch đặt "Phụ khoa" nhưng Thu ngân vẫn ghi "Chưa chọn dịch vụ khám — đang tính 0đ" nếu thu ngân không chọn loại khám.
