@@ -4,6 +4,14 @@ Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; c�
 
 ## 16/10/2026 — ĐỢT `gop-staging-1410m` TRÊN STAGING, CI MÁY XANH; VIỆC TỒN ĐỌNG (Tuyền: CHƯA ưu tiên)
 
+**Cập nhật 16/10 sáng (sau CI xanh — CẦN CI MÁY LẠI trước khi lên prod):** (a) thêm PR "đặt cờ vật tư hàng loạt theo loại"
+(`claude/vat-tu-hang-loat-theo-loai`, đã bấm thật trên staging: đếm → xác nhận → ghi → Hoàn tác; chưa bấm ở 375px);
+(b) `ghi_chu_khach_service` "Đã trả" cộng theo `payment_cycle` (prod có 17 lần thu / 19,65tr không có dòng `payment`);
+(c) `QUYEN_CONG_TY` chỉ còn `accounting.finance.full` + `config.clinic.manage` (Tuyền chốt: kế toán + quản lý ghi công ty xuất hoá đơn);
+(d) công thức tồn cuối ca (đầu + nhập − bán + trả + khác) và doanh thu thuần (vào − trả lại − giảm giá) Tuyền đã đồng ý;
+Bio vừa ở Chỉ định CLS vừa ở Thu ngân là ĐÚNG ý. Đối soát chỉ đọc 16/10: tiền thuốc/kho khớp sổ, hoàn tiền không vượt thu;
+chưa giải thích: 1 phiếu staging `payment` 700k > dòng hoá đơn 650k. Lego Kế toán đã có trên staging, chưa có trên prod (chờ lên đợt).
+
 Đợt ~211 commit / 28 migration đã bấm trên staging; runbook lên prod: `docs/RUNBOOK-LEN-PROD-DOT-1610.md`; hướng dẫn bấm:
 `docs/HUONG-DAN-BAM-THU-NOTION-1610.md`. **Việc tồn đọng, làm sau (Tuyền chốt 16/10):**
 1. **Hàm sức chứa** `lich_vuot_suc_chua()` — tính một lần cho mỗi cặp (bác sĩ, giờ): `docs/KE-HOACH-HAM-SUC-CHUA.md`
