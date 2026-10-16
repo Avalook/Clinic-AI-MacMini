@@ -188,3 +188,32 @@ Số **Đúng N · Không đúng M** + tổng (Tổng tiền hàng · Giảm gi�
 | 10 | Nhãn avatar "bấm để thoát" nhưng mở menu | Nhẹ | Chưa sửa |
 | 11 | 94 việc "Gọi xác nhận lịch" cũ trên staging đều quá hạn (không backfill) | Chốt nghiệp vụ | Chờ Tuyền (tính hạn từ ngày lên prod?) |
 | 12 | Chờ duyệt vật tư, nhắc >2 tháng khi bán theo đơn, Excel mẫu kế toán, mẫu kiểm kê của anh Thắng, upload kết quả của đối tác | Chưa bấm / chưa có mẫu | Xem từng mục trên |
+
+## 11. Bổ sung — các luồng bấm thật chiều 16/10 (staging)
+
+### 11.1 Khách trả lại thuốc (Cấp thuốc → đơn "Đã thu — giao thuốc")
+Chọn một đơn đã giao có lô (ví dụ Khách 8757 · Diane) → mục **Đã giao** → dòng "Lô … · giao N · khách đã trả M" có:
+**Khách trả** (số lượng ≤ còn trả được) · **Tiền phần trả** (BẮT chọn: **Hoàn tiền** / **Đổi thuốc khác** / **Giữ lại tiền** + lý do) ·
+**Hình thức hoàn** (Như khách đã trả / Tiền mặt / Chuyển khoản) · ô **Lý do** (bắt buộc) → **Ghi nhận khách trả**.
+Kết quả bấm thật: "khách đã trả 1 → 2"; ở `/hoa-don` hiện khoản trả lại 160.000đ ("hoàn tiền chưa xong · phòng khám còn nợ khách" khi hoàn chuyển
+khoản chờ chuyển). **Thuốc về quầy nhưng CHƯA bán lại được** (cách ly) — màn quyết định nhập lại/huỷ CHƯA làm (việc tồn đọng).
+
+### 11.2 Nhận chéo giữa hai phòng (công tắc Nhận khách tại phòng BẬT)
+1. Bác sĩ chỉ định 2 mục (Siêu âm ổ bụng + Tổng phân tích nước tiểu) → Hoàn tất. Phòng siêu âm tầng 2 thấy khách ở "Sắp đến".
+2. Tầng 2: **Nhận** → Đang chờ → **Bắt đầu** → Đang làm (nhân viên KHÔNG bấm Xong).
+3. Phòng Siêu âm tầng 4 mở khách: chỉ định đang làm ở tầng 2 hiện "đang làm ở Phòng siêu âm tầng 2" (không có nút Nhận); chỉ định kia "sắp đến" có **Nhận**.
+4. Bấm Nhận → hộp hỏi: "**Khách đang làm ở phòng Phòng siêu âm tầng 2 — nhận sang phòng này?** [Nhận sang phòng này] [Thôi]".
+5. Quay lại tầng 2: khách ghi "đã sang Phòng Siêu âm tầng 4 lúc 09:06" và dòng đang làm hiện "**Khách đã sang Phòng Siêu âm tầng 4 — bấm Xong hoặc Gián đoạn**".
+
+### 11.3 Tách kho/quầy (Kho thuốc → tab "Chuyển thuốc kho → quầy")
+**Bật tách kho / quầy** (quyền quản lý cơ sở) → **Phiếu nhập** (nhập vào KHO: thuốc, số lô, hạn, số lượng, đơn vị, giá) → tab chuyển: chọn chiều
+**Kho → Quầy**, nhập số ở ô **Chuyển**, **Tạo phiếu chuyển** → "Tồn theo lô" hiện hai hàng cùng lô: KHO còn / QUẦY nhận. Phiếu có **Hoàn tác**.
+Tắt tách chỉ được khi kho đã hết hàng.
+
+### 11.4 Kiểm kê ca và chuông
+Báo cáo Hàng hoá → link **Xem bảng kiểm kê đầu – cuối ca** → tab Kiểm kê ca đúng ngày. Nhập **Số lượng** đếm → **Chốt kiểm kê** → hộp xác nhận → **Chốt**:
+hiện Số lượng · Tồn trên hệ thống · **Lệch** (ví dụ 3 / 45 / −42; kiểm kê chỉ tính hàng ở QUẦY) và chuông "Kiểm kê quầy thuốc có lệch" (một thông báo).
+
+### 11.5 Bán theo đơn
+Cấp thuốc → **Khách mua thuốc** → gõ SĐT (đợi 1–2 s) → đơn cũ tự hiện; đơn quá 2 tháng có khung vàng "Lần khám gần nhất … đã quá 2 tháng — nên mời khách khám
+lại. Vẫn bán được nếu khách cần."; **Bán theo đơn này** → trang cuộn tới lượt vừa mở (chip "Vừa mở") + thông báo "Đã mở lượt bán theo đơn khám …".
