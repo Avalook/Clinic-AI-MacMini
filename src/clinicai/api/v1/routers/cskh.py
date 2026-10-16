@@ -27,7 +27,7 @@ from clinicai.services.cskh_service import (
     CskhService,
     clinic_today,
 )
-from clinicai.services.danh_sach_khach_cskh import danh_sach_khach
+from clinicai.services.danh_sach_khach_cskh import danh_sach_khach, la_bat
 from clinicai.services.ghi_chu_khach_service import (
     QUYEN_KHUNG_KHACH,
     GhiChuKhachService,
@@ -71,13 +71,15 @@ async def danh_sach_khach_cskh(
     selected: str | None = None,
     tu: str | None = None,
     den: str | None = None,
+    phan_hoi_thuoc: str | None = None,
     identity: StaffIdentity = Depends(_MAN_KHACH_HANG_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Một trang khách (50) của màn Quản lý khách hàng + tổng số khớp bộ lọc.
 
     ``tu``/``den`` (yyyy-mm-dd, giờ VN) = khoảng của thanh ngày ngang; có thì
-    thắng ``period``. Rác → bỏ qua, không 422 (`cua_so_khoang`)."""
+    thắng ``period``. Rác → bỏ qua, không 422 (`cua_so_khoang`).
+    ``phan_hoi_thuoc=1`` = chỉ khách có phản hồi sau dùng thuốc (rác → tắt)."""
     return await danh_sach_khach(
         pool,
         identity=identity,
@@ -88,6 +90,7 @@ async def danh_sach_khach_cskh(
         chon=selected,
         tu=tu,
         den=den,
+        co_phan_hoi_thuoc=la_bat(phan_hoi_thuoc),
     )
 
 

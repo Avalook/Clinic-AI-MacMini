@@ -262,6 +262,28 @@ class ManKhachHangService:
                 ids,
                 _TRAN_TEP,
             )
+            # PHẢN HỒI SAU DÙNG THUỐC cho cả trang — MỘT câu gộp theo khách
+            # (16/10/2026, cột "Phản hồi thuốc"): số phản hồi còn hiệu lực + dòng
+            # mới nhất. Không phụ thuộc số khách (không N+1); cùng luật hiệu lực
+            # với `phan_hoi_thuoc_service._PHAN_HOI_SQL` (chưa gỡ, lượt còn tồn
+            # tại). Không LIMIT: đếm phải trên TOÀN BỘ phản hồi của khách.
+            phan_hoi_thuoc = await conn.fetch(
+                """
+                SELECT DISTINCT ON (t.clinic_patient_id)
+                       t.clinic_patient_id, t.xay_ra_luc, t.kenh, t.noi_dung,
+                       count(*) OVER (PARTITION BY t.clinic_patient_id)
+                           AS so_phan_hoi
+                  FROM tuong_tac_cskh t
+                  JOIN visit pv
+                    ON pv.visit_id = t.visit_id AND pv.clinic_id = t.clinic_id
+                 WHERE t.clinic_id = $1::uuid
+                   AND t.clinic_patient_id = ANY($2::uuid[])
+                   AND t.loai = 'PHAN_HOI_THUOC' AND t.huy_luc IS NULL
+                 ORDER BY t.clinic_patient_id, t.xay_ra_luc DESC
+                """,
+                clinic_id,
+                ids,
+            )
             hen_goi_lai = await conn.fetch(
                 """
                 SELECT h.id, h.clinic_patient_id, h.ngay_goi, h.gio_goi,
@@ -439,6 +461,7 @@ class ManKhachHangService:
             ],
             "tep": [_kem_nhan_vien(r) for r in tep],
             "phan_hoi": [_kem_nhan_vien(r) for r in phan_hoi],
+            "phan_hoi_thuoc": tom_tat_phan_hoi_thuoc(phan_hoi_thuoc),
             "hen_goi_lai": [_kem_nhan_vien(r) for r in hen_goi_lai],
             "tuong_tac": [_kem_nhan_vien(r) for r in tuong_tac],
             "cskh": [dict(r) for r in cskh],
@@ -457,11 +480,57 @@ _CAC_KHOI = (
     "viec_mo",
     "tep",
     "phan_hoi",
+    "phan_hoi_thuoc",
     "hen_goi_lai",
     "tuong_tac",
     "cskh",
     "visits",
 )
+
+
+#: Rút gọn nội dung phản hồi thuốc cho ô bảng; hover đọc đủ (cắt ở `_TRAN_NOI_DUNG`).
+_RUT_GON_KY_TU = 40
+_TRAN_NOI_DUNG = 400
+
+
+def rut_gon(noi_dung: Any, toi_da: int = _RUT_GON_KY_TU) -> str | None:
+    """Một dòng ~`toi_da` ký tự: gộp khoảng trắng/xuống dòng, thêm "…" nếu cắt.
+
+    Thuần; không phải chuỗi / rỗng → None; `toi_da` rác → mặc định. Không ném.
+    """
+    if not isinstance(noi_dung, str):
+        return None
+    mot_dong = " ".join(noi_dung.split())
+    if not mot_dong:
+        return None
+    if not isinstance(toi_da, int) or isinstance(toi_da, bool) or toi_da < 2:
+        toi_da = _RUT_GON_KY_TU
+    if len(mot_dong) <= toi_da:
+        return mot_dong
+    return mot_dong[: toi_da - 1].rstrip() + "…"
+
+
+def tom_tat_phan_hoi_thuoc(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Một dòng tóm tắt cho mỗi khách CÓ phản hồi (khách không có → vắng mặt).
+
+    `ngay`/`luc` = lần ghi gần nhất (ISO); `tom_tat` = nội dung rút gọn; `noi_dung`
+    = nội dung đủ (cắt 400 ký tự) cho tooltip. Thuần, rỗng → rỗng.
+    """
+    ra: list[dict[str, Any]] = []
+    for r in rows:
+        luc = r["xay_ra_luc"]
+        nd = r["noi_dung"] if isinstance(r["noi_dung"], str) else None
+        ra.append(
+            {
+                "clinic_patient_id": str(r["clinic_patient_id"]),
+                "so_phan_hoi": int(r["so_phan_hoi"]),
+                "luc": luc.isoformat() if luc is not None else None,
+                "kenh": r["kenh"],
+                "tom_tat": rut_gon(nd),
+                "noi_dung": nd.strip()[:_TRAN_NOI_DUNG] if nd and nd.strip() else None,
+            }
+        )
+    return ra
 
 
 def _khoa_viec_thang(r: Mapping[str, Any]) -> tuple[int, bool, int, bool, date]:

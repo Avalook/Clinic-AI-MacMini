@@ -29,6 +29,7 @@ import { weekStartOf } from "../../../lib/roster";
 import { docKhoang } from "../../../lib/thanh-ngay";
 import type { DongLichSu } from "./so-tuong-tac";
 import type { DongPhanHoi } from "./PhanHoiKhach";
+import type { TomTatPhanHoiThuoc } from "./PhanHoiThuocCot";
 import type { TepKetQuaRow } from "./TepKetQua";
 import type { MocTaiKham } from "./NhacTaiKham";
 import type { ViecDoiTac } from "./CustomersView";
@@ -81,6 +82,8 @@ export default async function CustomersPage({
     /** Khoảng của thanh ngày ngang (yyyy-mm-dd, giờ VN) — thắng `period`. */
     tu?: string;
     den?: string;
+    /** "1" = chỉ khách có phản hồi sau dùng thuốc (bộ lọc, 16/10/2026). */
+    phan_hoi_thuoc?: string;
   }>;
 }) {
   await requireNavAccess("/customers");
@@ -123,6 +126,7 @@ export default async function CustomersPage({
   const by: ByDim = sp.by === "appt" ? "appt" : "created";
   // Rác → null (không ném) — cùng luật với `cua_so_khoang` phía máy chủ.
   const khoang = docKhoang(sp.tu, sp.den);
+  const locPhanHoiThuoc = sp.phan_hoi_thuoc === "1";
   const selected = (sp.selected ?? "").trim() || null;
   // VIỆC VÀ LƯỢT ĐI TỪ URL VÀO MÀN.
   //
@@ -152,6 +156,7 @@ export default async function CustomersPage({
     trang: String(trang),
   });
   if (q) thamSo.set("q", q);
+  if (locPhanHoiThuoc) thamSo.set("phan_hoi_thuoc", "1");
   if (selected) thamSo.set("selected", selected);
   if (khoang) {
     thamSo.set("tu", khoang.tu);
@@ -211,6 +216,8 @@ export default async function CustomersPage({
     viec_mo: unknown[];
     tep: unknown[];
     phan_hoi: unknown[];
+    /** Tóm tắt phản hồi sau dùng thuốc theo khách (cột "Phản hồi thuốc"). */
+    phan_hoi_thuoc?: unknown[];
     hen_goi_lai: unknown[];
     tuong_tac: unknown[];
     cskh: unknown[];
@@ -300,6 +307,7 @@ export default async function CustomersPage({
 
   // PHẢN HỒI / KHIẾU NẠI — vòng đời xử lý hiện ngay trong vùng làm việc.
   const phanHoiPromise = khoi("phan_hoi");
+  const phanHoiThuocPromise = khoi("phan_hoi_thuoc");
 
   // VIỆC CSKH TỰ HẸN CHO MÌNH — "gọi lại ngày…".
   //
@@ -779,6 +787,7 @@ type LichHenRaw = {
   const tepByPatient: Record<string, TepKetQuaRow[]> = {};
   const henGoiLaiByPatient: Record<string, HenGoiLai[]> = {};
   const phanHoiByPatient: Record<string, DongPhanHoi[]> = {};
+  const phanHoiThuocByPatient: Record<string, TomTatPhanHoiThuoc> = {};
   const tuongTacByPatient: Record<string, DongLichSu[]> = {};
   let tuongTacError: { message: string } | null = null;
   if (rows.length) {
@@ -827,6 +836,10 @@ type LichHenRaw = {
         created_at: r.created_at,
         nguoi_tiep_nhan: nv?.full_name ?? null,
       });
+    }
+    const { data: pht } = await phanHoiThuocPromise;
+    for (const r of (pht as TomTatPhanHoiThuoc[] | null) ?? []) {
+      phanHoiThuocByPatient[r.clinic_patient_id] = r;
     }
     const { data: tt2, error: ttErr2 } = await trangThaiPromise;
     trangThaiError = ttErr2;
@@ -1103,6 +1116,8 @@ type LichHenRaw = {
           trangThaiByPatient={trangThaiByPatient}
           viecMoByPatient={viecMoByPatient}
           phanHoiByPatient={phanHoiByPatient}
+          phanHoiThuocByPatient={phanHoiThuocByPatient}
+          locPhanHoiThuoc={locPhanHoiThuoc}
           lichSuKhamByPatient={lichSuKhamByPatient}
           henGoiLaiByPatient={henGoiLaiByPatient}
           taiKhamByPatient={taiKhamByPatient}
@@ -1169,6 +1184,7 @@ type LichHenRaw = {
       qs.set("den", khoang.den);
     } else if (period !== "all") qs.set("period", period);
     if (by !== "created") qs.set("by", by);
+    if (locPhanHoiThuoc) qs.set("phan_hoi_thuoc", "1");
     if (selected) qs.set("selected", selected);
     if (viec) qs.set("viec", viec);
     if (luot) qs.set("luot", luot);

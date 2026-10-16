@@ -698,6 +698,15 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   Bác sĩ đọc: `doc_theo_khach` → `phan_hoi_thuoc` của `GET /clinical-forms/history`
   (Bàn khám `LuotKhamTruoc`, theo KHÁCH — cả lượt có đơn chưa có phiếu) và
   `doc_theo_luot` → `S/lich_su_luot.py` (popup `LichSuKham`). Test: `T/services/test_phan_hoi_thuoc_db.py`.
+  **Ra bảng danh sách (16/10):** cột "Phản hồi thuốc" của `/customers`
+  (`D/customers/PhanHoiThuocCot.tsx`, vẽ trong `CustomersView.tsx`) đọc khối `phan_hoi_thuoc`
+  của `GET /cskh/man-khach-hang` → `S/man_khach_hang_service.py` (`goi_du_lieu` một câu
+  `DISTINCT ON` + `count() OVER`; `tom_tat_phan_hoi_thuoc`, `rut_gon` ~40 ký tự); nút lọc
+  "Có phản hồi sau dùng thuốc" = `?phan_hoi_thuoc=1` → `GET /cskh/danh-sach-khach` →
+  `S/danh_sach_khach_cskh.py` (`co_phan_hoi_thuoc`); dòng "gần nhất" ở đầu `KhungKhach.tsx`
+  (nhận từ `PhanHoiThuocKhach` qua `onDoc`, không đọc thêm). Chỉ mục: mig `20261016300000`.
+  Test: `T/services/test_phan_hoi_thuoc_cot_db.py`, `T/unit/test_man_khach_hang.py`
+  (`TestPhanHoiThuocCot`), FT `phan-hoi-thuoc-cot-boundary.test.mts`.
 - **Nhãn đếm lượt "Lượt khám n" / "Buổi k/N" (08/10, mọi màn):** máy chủ đếm ở
   `S/nhan_luot.py` (`gan_nhan` thuần + `doc_nhan_luot` một câu SQL), gắn `nhan_luot` vào
   dữ liệu của `S/man_khach_hang_service.py` (`/customers` — kèm giờ thật `den_luc` /
