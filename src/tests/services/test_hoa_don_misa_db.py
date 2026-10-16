@@ -97,7 +97,7 @@ async def test_danh_dau_xem_trang_thai_va_phat_hien_thay_doi(
     c1, c2, c3 = [await _phieu(pool, q, manager) for _ in range(3)]
     ct = HoaDonCongTyService(pool)
     misa = HoaDonMisaService(pool)
-    await ct.ghi_hoa_don(identity=manager, payment_cycle_id=c1, **CT_A)
+    await ct.ghi_hoa_don(identity=kt, payment_cycle_id=c1, **CT_A)
 
     truoc = await _man_hinh(pool, kt, [c1, c2, c3])
     assert all(h["misa"] is None for h in truoc.values())
@@ -111,7 +111,7 @@ async def test_danh_dau_xem_trang_thai_va_phat_hien_thay_doi(
 
     # Sau khi xuất: c1 đổi công ty, c2 đổi dòng tiền, c3 giữ nguyên.
     await ct.ghi_hoa_don(
-        identity=manager,
+        identity=kt,
         payment_cycle_id=c1,
         **{**CT_A, "ma_so_thue": "9876543210"},
     )
@@ -238,7 +238,7 @@ async def test_bam_ngau_nhien_20_chuoi_x_10_buoc_khop_mo_hinh(
                 x["huy"] = False
             elif op == "cong_ty":
                 moi = {**CT_A, "ten_cong_ty": rng.choice(["Alpha", "Beta", "Gamma"])}
-                await ct.ghi_hoa_don(identity=manager, payment_cycle_id=c, **moi)
+                await ct.ghi_hoa_don(identity=kt, payment_cycle_id=c, **moi)
                 hien[c] = (moi["ten_cong_ty"], hien[c][1])
             elif op == "tien" and hien[c][1] < 5:
                 await _hoan(pool, q, manager, c)
