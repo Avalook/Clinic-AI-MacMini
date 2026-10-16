@@ -2,7 +2,7 @@
 
 // Danh sách người bên trái, KỸ NĂNG bên phải (Tuyền chốt 28/09/2026, bản "D"):
 // phòng khám giao việc theo kỹ năng (file nhân sự: Phụ SA, Bio, TKYK…) nên màn
-// cấp quyền nói đúng ngôn ngữ ấy. 21 lego (25/09) lùi vào "Ngoại lệ (nâng cao)"
+// cấp quyền nói đúng ngôn ngữ ấy. 21 lego (25/09) nằm ở "Quyền theo màn" (mở sẵn từ 16/10)
 // cho trường hợp một người cần thêm / bớt riêng một màn.
 
 import { useEffect, useState } from "react";
@@ -206,11 +206,13 @@ export default function BangPhanQuyen({
               onDoi={() => setLanDoc((n) => n + 1)}
               onLoi={setLoi}
             />
-            {/* NGOẠI LỆ (nâng cao): 21 lego như trước — thêm / bớt riêng một màn
-                cho một người khi kỹ năng không đủ (vd cho xem Báo cáo). */}
-            <details className="mt-4 rounded-card border border-line bg-surface px-3 py-2">
-              <summary className="cursor-pointer text-body font-medium text-ink-soft">
-                Ngoại lệ (nâng cao) — bật / tắt từng màn riêng cho người này
+            {/* QUYỀN THEO MÀN: các lego như trước — thêm / bớt riêng một màn cho một
+                người (vd Báo cáo, Kế toán cho kế toán viên, vì không có "kỹ năng"
+                nào cho họ). Mở sẵn (16/10): trước đây gập trong "Ngoại lệ (nâng cao)"
+                nên người cấp quyền Kế toán không thấy. */}
+            <details open className="mt-4 rounded-card border border-line bg-surface px-3 py-2">
+              <summary className="cursor-pointer text-body font-medium text-ink">
+                Quyền theo màn — bật / tắt từng màn (Báo cáo, Kế toán, Kho…) cho người này
               </summary>
               <div className="mt-2 flex justify-end">
                 <Button
