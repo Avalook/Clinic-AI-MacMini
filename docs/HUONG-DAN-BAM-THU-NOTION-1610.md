@@ -226,4 +226,5 @@ lại. Vẫn bán được nếu khách cần."; **Bán theo đơn này** → tr
 3. **Quản lý** tab Chờ duyệt: yêu cầu "Thử xin lúc 09:15" với **Duyệt · Từ chối · Rút lại** → **Duyệt** → hộp "Duyệt YC-… — lập phiếu nhập thật, tồn tăng theo số đã xin?" →
    **Duyệt và nhập kho** → "Đã duyệt YC-HN-0001 — phiếu nhập đã lập, tồn đã cập nhật" → Tồn theo nơi chứa: Bút bi, Kho cơ sở = 5.
 4. Quản lý tự lập phiếu với mặt hàng cần duyệt: "…bạn có quyền Duyệt vật tư nên đã tự duyệt và nhập kho (YC-HN-0002, phiếu VT-HN-0007). Sai thì bấm Hoàn tác".
-**Chưa bấm:** Từ chối (lý do ≥ 5 ký tự) — cần Lễ tân lập thêm một yêu cầu. **Lưu ý:** Lễ tân hiện sửa được thuộc tính vật tư vì chế độ "mở hết quyền".
+5. **Từ chối** (đã bấm thật): Quản lý bấm **Từ chối** → hộp nhập lý do; nút **Từ chối yêu cầu** khoá khi lý do trống hoặc < 5 ký tự → bấm → "Đã từ chối YC-HN-0003 — không có gì vào kho"; yêu cầu sang mục "Đã quyết gần đây" kèm "Từ chối bởi … — <lý do>"; tồn Bút bi vẫn 8 (5 + 3, không cộng 7).
+**Lưu ý:** Lễ tân hiện sửa được thuộc tính vật tư vì chế độ "mở hết quyền".
