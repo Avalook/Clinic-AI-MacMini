@@ -217,3 +217,13 @@ hiện Số lượng · Tồn trên hệ thống · **Lệch** (ví dụ 3 / 45 
 ### 11.5 Bán theo đơn
 Cấp thuốc → **Khách mua thuốc** → gõ SĐT (đợi 1–2 s) → đơn cũ tự hiện; đơn quá 2 tháng có khung vàng "Lần khám gần nhất … đã quá 2 tháng — nên mời khách khám
 lại. Vẫn bán được nếu khách cần."; **Bán theo đơn này** → trang cuộn tới lượt vừa mở (chip "Vừa mở") + thông báo "Đã mở lượt bán theo đơn khám …".
+
+### 11.6 Duyệt phiếu nhập vật tư (bấm thật bằng 2 tài khoản: Lễ tân "Thử" và Quản lý hệ thống)
+1. **Quản lý** `/kho-vat-tu` → Danh mục → mở "Vật tư bán thêm ở quầy thu" → mặt hàng → **▶ Sửa thuộc tính vật tư** → tick **Cần duyệt nhập** → **Lưu thuộc tính**
+   ("Đã lưu thuộc tính …"). *Tick ngoài dòng KHÔNG tự lưu.*
+2. **Lễ tân** Phiếu → Loại phiếu **Nhập kho** → Vật tư, Nhập vào (Kho cơ sở), Số lượng → **Lưu phiếu**: hiện "Phiếu có dòng cần duyệt — đã gửi xin duyệt YC-HN-0001,
+   chưa vào kho" + nút **Xem ở Chờ duyệt**. Tab Chờ duyệt phía Lễ tân: nhãn "Của bạn", chỉ có **Rút lại**.
+3. **Quản lý** tab Chờ duyệt: yêu cầu "Thử xin lúc 09:15" với **Duyệt · Từ chối · Rút lại** → **Duyệt** → hộp "Duyệt YC-… — lập phiếu nhập thật, tồn tăng theo số đã xin?" →
+   **Duyệt và nhập kho** → "Đã duyệt YC-HN-0001 — phiếu nhập đã lập, tồn đã cập nhật" → Tồn theo nơi chứa: Bút bi, Kho cơ sở = 5.
+4. Quản lý tự lập phiếu với mặt hàng cần duyệt: "…bạn có quyền Duyệt vật tư nên đã tự duyệt và nhập kho (YC-HN-0002, phiếu VT-HN-0007). Sai thì bấm Hoàn tác".
+**Chưa bấm:** Từ chối (lý do ≥ 5 ký tự) — cần Lễ tân lập thêm một yêu cầu. **Lưu ý:** Lễ tân hiện sửa được thuộc tính vật tư vì chế độ "mở hết quyền".
