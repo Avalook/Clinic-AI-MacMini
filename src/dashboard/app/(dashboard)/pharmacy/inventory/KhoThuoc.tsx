@@ -88,9 +88,9 @@ export default function KhoThuoc({
   const khu = khuCua(tab);
   const canSoat = thuoc.some((t) => t.dang_dung && (t.can_soat || !t.cach_dung));
   const sapHet = thuoc.filter((t) => t.sap_het_hang).length;
-  // Chuyển kho → quầy KHÔNG bắt buộc: chỉ hiện khi cơ sở đã bật tách hoặc người quản lý có
-  // quyền bật (nút bật nằm trong chính tab ấy). Còn lại quầy bán thẳng từ kho.
-  const hienChuyen = tachKhoQuay || suaTachDuoc;
+  // Chuyển kho → quầy KHÔNG bắt buộc (Tuyền 16/10: "bỏ"): chỉ hiện khi cơ sở ĐANG bật tách
+  // (còn hàng nằm ở kho cần chuyển). Tắt tách thì tab biến mất, quầy bán thẳng từ kho.
+  const hienChuyen = tachKhoQuay;
 
   const mucKho = [
     { ma: "ton" as const, nhan: `Thuốc trong kho (${batches.length} lô)` },
@@ -123,15 +123,37 @@ export default function KhoThuoc({
           <KhachMuaThuoc sangNhaThuoc />
         </div>
       ) : null}
-      <ThanhTab
-        nhan="Khu của kho thuốc"
-        chon={khu}
-        onChon={(k) => setTab(k === "kho" ? "ton" : "kiem_dau")}
-        muc={[
-          { ma: "kho", nhan: "KHO — nhập và theo dõi thuốc" },
-          { ma: "quay", nhan: "QUẦY — kiểm ca, báo cáo", nhac: choGanLo.length > 0 },
-        ]}
-      />
+      {/* Hai KHU là hai nút TO, tách hẳn với dãy tab nhỏ bên dưới (Tuyền 16/10). */}
+      <div role="tablist" aria-label="Khu của kho thuốc" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {(
+          [
+            { ma: "kho" as const, nhan: "KHO", mota: "Nhập và theo dõi thuốc", nhac: false },
+            { ma: "quay" as const, nhan: "QUẦY", mota: "Kiểm ca, báo cáo cuối ngày", nhac: choGanLo.length > 0 },
+          ] as const
+        ).map((k) => {
+          const dang = k.ma === khu;
+          return (
+            <button
+              key={k.ma}
+              type="button"
+              role="tab"
+              aria-selected={dang}
+              onClick={() => setTab(k.ma === "kho" ? "ton" : "kiem_dau")}
+              className={`flex min-h-16 flex-col items-start justify-center rounded-card px-5 py-3 text-left ring-1 ring-inset ${
+                dang
+                  ? "bg-brand-600 text-white ring-brand-600"
+                  : "bg-surface text-ink ring-line-strong hover:bg-surface-muted"
+              }`}
+            >
+              <span className="flex items-center gap-2 text-title font-semibold">
+                {k.nhan}
+                {k.nhac ? <span aria-label="có việc cần xem" className="size-2 rounded-full bg-warning" /> : null}
+              </span>
+              <span className={`text-meta ${dang ? "text-white/90" : "text-ink-muted"}`}>{k.mota}</span>
+            </button>
+          );
+        })}
+      </div>
       {khu === "kho" ? (
         <ThanhTab nhan="Kho thuốc" chon={tab} onChon={setTab} muc={mucKho} />
       ) : (
