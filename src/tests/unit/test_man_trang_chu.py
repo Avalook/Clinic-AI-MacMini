@@ -36,9 +36,22 @@ class TestKhoaPhongKham:
         # thêm vào đường chạy của MỌI lần mở trang chủ.
         # 13 = 7 + (27/09/2026, Tuyền chốt "bảng A + thống kê B + tải bác sĩ /
         # cần xử lý của C"): 2 xu hướng 7 ngày + tải bác sĩ + 3 đếm cần xử lý.
-        assert len(cau) == 13, f"phải đúng 13 câu riêng, thấy {len(cau)}"
+        # 12 = 13 − câu trực ca (16/10/2026: chuyển sang `_doc_truc_ca` để gói gọn
+        # của bảng lịch hẹn `goi_lich_hen_tuan` dùng chung; tổng số câu chạy một
+        # request KHÔNG đổi — xem `test_cac_cau_rieng_chay_tren_mot_ket_noi`).
+        assert len(cau) == 12, f"phải đúng 12 câu riêng, thấy {len(cau)}"
         for c in cau:
             assert "clinic_id = $1::uuid" in c, f"câu thiếu khoá:\n{c[:90]}"
+
+    def test_cau_truc_ca_dung_chung_cung_khoa_phong_kham(self) -> None:
+        nguon = inspect.getsource(mtc._doc_truc_ca)
+        cau = re.findall(r'"""\s*(SELECT[\s\S]*?)"""', nguon)
+        assert len(cau) == 1 and "clinic_id = $1::uuid" in cau[0]
+        # Cả hai đường (gói đầy đủ, gói gọn) phải gọi đúng một câu ấy.
+        assert "_doc_truc_ca(" in inspect.getsource(ManTrangChuService.goi_du_lieu)
+        assert "_doc_truc_ca(" in inspect.getsource(
+            ManTrangChuService.goi_lich_hen_tuan
+        )
 
 
 # ── Chạy thật với pool giả + service con giả ───────────────────────────────
@@ -157,6 +170,28 @@ async def test_cac_cau_rieng_chay_tren_mot_ket_noi() -> None:
     # khách còn nợ (01/10) = 22, + dịch vụ đang bán chưa có phòng (01/10) = 23,
     # cùng một _Conn.
     assert len(conn.cac_cau) == 23
+
+
+@pytest.mark.asyncio
+async def test_goi_gon_lich_hen_tuan_chi_chay_cau_truc_ca_va_hai_service() -> None:
+    """Màn Tiếp đón chỉ cần bảng lịch hẹn tuần: đúng ba khối, đúng MỘT câu SQL
+    riêng (trực ca) — không đếm, không xu hướng, không "khách còn nợ"."""
+    conn = _Conn()
+    ra = await ManTrangChuService(_Pool(conn)).goi_lich_hen_tuan(
+        identity=_ai(ClinicRole.RECEPTION), week_appt=date(2026, 8, 18)
+    )
+    assert sorted(ra) == ["tien_trinh", "truc_ca", "tuan_hen"]
+    assert ra["tuan_hen"][0]["id"] == "a1"
+    assert len(conn.cac_cau) == 1 and "work_roster" in conn.cac_cau[0]
+
+
+@pytest.mark.parametrize("vai", [ClinicRole.CSKH, ClinicRole.MANAGEMENT])
+@pytest.mark.asyncio
+async def test_goi_gon_khong_phu_thuoc_vai(vai: ClinicRole) -> None:
+    ra = await ManTrangChuService(_Pool(_Conn())).goi_lich_hen_tuan(
+        identity=_ai(vai), week_appt=date(2026, 8, 18)
+    )
+    assert sorted(ra) == ["tien_trinh", "truc_ca", "tuan_hen"]
 
 
 @pytest.mark.asyncio

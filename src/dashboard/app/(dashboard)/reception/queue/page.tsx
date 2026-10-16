@@ -49,8 +49,10 @@ export default async function ReceptionQueuePage({
   // ĐÚNG luật cửa của trang đích (`moDuocMan`), không hỏi vai.
   const [danhSach, goi, role, themKhachDuoc, quyen, moHoSoKhach, moHoSoBenhNhan] = await Promise.all([
     fetchFromBackend<GoiTiepDon>("/api/v1/reception/danh-sach"),
+    // CHỈ phần bảng lịch hẹn tuần (`tuan_hen` + `truc_ca` + `tien_trinh`) —
+    // không phải cả gói Trang chủ (16/10/2026: gói đầy đủ ~1,15s, phần dùng ~0,25s).
     fetchFromBackend<GoiLichHen>(
-      `/api/v1/home/bang-dieu-khien?week_appt=${tuan}&week_roster=${tuan}`,
+      `/api/v1/home/lich-hen-tuan?week_appt=${tuan}`,
     ),
     getVaiChinh(),
     moDuocMan("/patients/new"),

@@ -64,6 +64,20 @@ class TestKhoaPhongKham:
         for c in cau:
             assert "clinic_id = $1::uuid" in c, f"câu thiếu khoá phòng khám:\n{c[:90]}"
 
+    def test_doc_v_viec_cskh_dung_mot_lan_khong_doc_v_trang_thai_cskh(self) -> None:
+        """16/10/2026: `v_viec_cskh` gọi `lich_vuot_suc_chua()` (~225ms/lần trên DB
+        lớn). Đọc nó (hoặc `v_trang_thai_cskh`, vốn đọc nó hai lần) nhiều lần trong
+        một request là cái đã làm màn này 1,2s. Trạng thái suy từ MỘT lần đọc."""
+        nguon = inspect.getsource(ManKhachHangService.goi_du_lieu)
+        cau = re.findall(r'"""\s*(SELECT[\s\S]*?)"""', nguon)
+        doc_viec = [c for c in cau if re.search(r"\bv_viec_cskh\b", c)]
+        assert len(doc_viec) == 1, (
+            f"v_viec_cskh phải đúng một câu, thấy {len(doc_viec)}"
+        )
+        assert not any("v_trang_thai_cskh" in c for c in cau), (
+            "không đọc v_trang_thai_cskh trong request này — dùng trang_thai_tu_viec"
+        )
+
     def test_ids_di_bang_tham_so_khong_noi_chuoi(self) -> None:
         """Nối chuỗi ids vào SQL là mở cửa SQL injection — dù caller là máy
         chủ Next, luật vẫn là luật."""
