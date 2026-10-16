@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import timedelta
 
 import asyncpg
@@ -41,6 +42,20 @@ async def test_han_lo_dem_va_chuong_mot_lan_trong_ngay(q: Quay) -> None:  # noqa
         "ON CONFLICT (clinic_id,su_kien) DO UPDATE SET vai=EXCLUDED.vai,bat=true",
         q.duoc_si.clinic_id,
     )
+    # Phòng khám test là CHUNG: bài khác trong cùng worker (canh_gac.mot_vong)
+    # có thể đã phát sự kiện hạn lô của HÔM NAY — khi đó chưa có dây nhận nên
+    # chuông đi theo dây mặc định (PHARMACIST + MANAGEMENT). Chỉ khẳng định trên
+    # sự kiện/chuông của ngày hôm nay, và chỉ đòi "không réo MANAGEMENT" khi
+    # chính bài này phát sự kiện.
+    cid = q.duoc_si.clinic_id
+    ngay = hom_nay_vn()
+    moc = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{cid}:han-lo:{ngay}"))
+    da_phat_truoc = await q.pool.fetchval(
+        "SELECT EXISTS(SELECT 1 FROM domain_event WHERE clinic_id=$1::uuid"
+        " AND event_type='pharmacy.expiry_checked' AND aggregate_id=$2::uuid)",
+        cid,
+        moc,
+    )
     async with q.pool.acquire() as conn:
         so = await canh_gac.do_so(conn)
         assert so["lo_sap_het_han"] >= 1
@@ -48,13 +63,26 @@ async def test_han_lo_dem_va_chuong_mot_lan_trong_ngay(q: Quay) -> None:  # noqa
         async with conn.transaction():
             await canh_gac.bao_han_hang_ngay(conn, so["han_lo"])
             await canh_gac.bao_han_hang_ngay(conn, so["han_lo"])
+    assert (
+        await q.pool.fetchval(
+            "SELECT count(*) FROM domain_event WHERE clinic_id=$1::uuid"
+            " AND event_type='pharmacy.expiry_checked' AND aggregate_id=$2::uuid",
+            cid,
+            moc,
+        )
+        == 1
+    )
     await chay_ben_nhan(q.pool, CHUONG)
     chuong = await q.pool.fetch(
-        "SELECT * FROM thong_bao WHERE clinic_id=$1::uuid AND nguon='lo_thuoc_han'",
-        q.duoc_si.clinic_id,
+        "SELECT * FROM thong_bao WHERE clinic_id=$1::uuid AND nguon='lo_thuoc_han'"
+        " AND nguon_id=$2",
+        cid,
+        ngay.isoformat(),
     )
+    if not da_phat_truoc:
+        assert {c["vai_nhan"] for c in chuong} == {"PHARMACIST"}
+    chuong = [c for c in chuong if c["vai_nhan"] == "PHARMACIST"]
     assert len(chuong) == 1
-    assert chuong[0]["vai_nhan"] == "PHARMACIST"
     assert chuong[0]["nguoi_goi_staff_id"] is None
     assert chuong[0]["duong_dan"] == "/pharmacy/inventory"
     assert "lô" in chuong[0]["noi_dung"]

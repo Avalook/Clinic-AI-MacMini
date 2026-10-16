@@ -11,8 +11,7 @@ khung đã đến và ngồi chờ từ trước; ngược lại người có h�
 đứng trước A. Bảng gọi số (`/queue`, `queue_order`) thì từ 15/09 đã xếp mọi
 người theo giờ check-in — hai màn nói hai thứ tự.
 
-    DATABASE_URL_TEST=postgresql://postgres:postgres@127.0.0.1:55560/postgres \\
-        .venv/bin/pytest src/tests/services/test_tiep_don_gio_thuc_db.py
+    scripts/test-nhanh.sh src/tests/services/test_tiep_don_gio_thuc_db.py
 """
 
 from __future__ import annotations
@@ -37,9 +36,25 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 VN = timezone(timedelta(hours=7))
 
 
-def _ngay_rieng() -> date:
-    """Một ngày xa, riêng cho mỗi lần chạy — không lẫn lịch của test khác."""
-    return date(2031, 1, 1) + timedelta(days=uuid.uuid4().int % 3000)
+async def _ngay_rieng(pool: asyncpg.Pool) -> date:  # noqa: F811
+    """Một ngày xa mà phòng khám CHƯA có lịch nào — không lẫn lịch của test khác.
+
+    Ngày ngẫu nhiên thôi chưa đủ: khách vãng lai chưa phân bác sĩ dùng chung
+    MỘT ghế/khung 15 phút của cả phòng khám (`enforce_slot_capacity`), nên chỉ
+    cần một bài khác cùng worker để lại một vãng lai trùng khung là bài này
+    vỡ "Khung giờ đã đầy". Bài trong một worker chạy lần lượt → kiểm rồi dùng
+    là đủ."""
+    while True:
+        ngay = date(2031, 1, 1) + timedelta(days=uuid.uuid4().int % 3000)
+        dau = datetime(ngay.year, ngay.month, ngay.day, tzinfo=VN)
+        if not await pool.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM appointment WHERE clinic_id = $1::uuid"
+            " AND slot_start >= $2 AND slot_start < $3)",
+            CLINIC,
+            dau,
+            dau + timedelta(days=1),
+        ):
+            return ngay
 
 
 def _luc(ngay: date, gio: int, phut: int) -> datetime:
@@ -137,7 +152,7 @@ async def test_vang_lai_le_tan_tao_sau_dung_sau_nguoi_da_den(
     """Kịch bản Tuyền: B hẹn 18:00 check-in 17:55; 18:05 lễ tân tạo A khung
     18:00–18:15 (vãng lai, tự check-in); C hẹn 18:00 nhưng 18:10 mới tới.
     Thứ tự thật: B → A → C, ở CẢ danh sách tiếp đón lẫn bảng gọi số."""
-    ngay = _ngay_rieng()
+    ngay = await _ngay_rieng(pool)
     loc, le_tan = await _le_tan(pool)
     async with pool.acquire() as conn:
         b = await _khach(
@@ -179,7 +194,7 @@ async def test_vang_lai_check_in_truoc_khung_khong_vuot_nguoi_den_truoc(
     tân tạo A vào khung 18:00 → A tự check-in. Bản cũ xếp A (mốc 17:50) lên
     ĐẦU khung 18:00, trước B (mốc = giờ hẹn 18:00). A phải đứng SAU B.
     Người có hẹn CHƯA tới (D) vẫn đứng theo giờ hẹn."""
-    ngay = _ngay_rieng()
+    ngay = await _ngay_rieng(pool)
     loc, le_tan = await _le_tan(pool)
     async with pool.acquire() as conn:
         b = await _khach(

@@ -514,10 +514,14 @@ async def test_phat_su_kien_cho_cac_man(pool: asyncpg.Pool) -> None:
 
 @pytest.mark.asyncio
 async def test_du_lieu_nap_tu_excel_va_bang_gia(pool: asyncpg.Pool) -> None:
+    # Chỉ dòng do `dong_bo_vat_tu` nạp: mã 'VT_' + 10 ký tự md5 viết HOA, hoặc
+    # ba mã đặt tên. Bài khác cùng worker tạo vật tư riêng (VT_TEST_*, VT_HL_*…)
+    # — đếm tổng nhóm 'vat_tu' thì lệch theo thứ tự chạy.
     rows = await pool.fetch(
         "SELECT name, unit_price, don_vi, can_ql_duyet, chon_nhanh, active"
         " FROM service_price WHERE clinic_id = $1::uuid AND \"group\" = 'vat_tu'"
-        " AND service_code NOT LIKE 'VT_TEST_%'",
+        " AND service_code ~ '^VT_([0-9A-F]{10}|DAU_DO_BIO_1_LAN"
+        "|DAU_DO_BIO_NHIEU_LAN|MIRENA)$'",
         CLINIC,
     )
     theo_ten = {r["name"]: r for r in rows}
