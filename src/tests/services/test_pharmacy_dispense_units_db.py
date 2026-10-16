@@ -74,6 +74,8 @@ async def stock_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
                 id uuid PRIMARY KEY, clinic_id uuid NOT NULL,
                 drug_catalog_id uuid, quantity_on_hand numeric NOT NULL,
                 expiry_date date, unit text NOT NULL,
+                -- Tách KHO / QUẦY (20261014160000): cấp phát lọc theo nơi chứa.
+                noi_chua text NOT NULL DEFAULT 'QUAY',
                 CHECK (quantity_on_hand >= 0)
             );
             CREATE TEMP TABLE inventory_txn (
