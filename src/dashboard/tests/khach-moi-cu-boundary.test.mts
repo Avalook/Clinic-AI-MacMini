@@ -71,11 +71,11 @@ test("cột 'Mới / cũ' có mặt trong tiêu đề bảng", () => {
   // `minmax(180px,1.2fr)` ở đầu chuỗi, nên chỉnh lại độ rộng cột (14/08/2026)
   // là biểu thức không khớp gì nữa — và bài kiểm KHÔNG đỏ, nó chỉ lặng lẽ
   // không tìm thấy lưới nào để so. Một bài kiểm ngừng kiểm mà vẫn xanh còn tệ
-  // hơn không có bài kiểm. Nay khớp mọi lưới tám cột và so chúng với nhau.
+  // hơn không có bài kiểm. Nay khớp mọi lưới từ tám cột trở lên (thêm cột "Phản hồi thuốc" 16/10/2026 thành chín) và so chúng với nhau.
   const luoi = (view.match(/grid-cols-\[[^\]]+\]/g) ?? []).filter(
-    (g) => g.split("_").length === 8,
+    (g) => g.split("_").length >= 8,
   );
-  assert.ok(luoi.length >= 2, "không tìm thấy đủ hai lưới cột tám cột");
+  assert.ok(luoi.length >= 2, "không tìm thấy đủ hai lưới cột (từ tám cột trở lên)");
   assert.equal(
     new Set(luoi).size,
     1,
@@ -97,7 +97,7 @@ test("khe giữa các cột của tiêu đề và của hàng bằng nhau", () =
   // biểu thức "một phát ăn cả hai" đều bắt hụt một bên.
   const khe: string[] = [];
   for (const m of view.matchAll(/grid-cols-\[[^\]]+\]/g)) {
-    if ((m[0].match(/_/g) ?? []).length !== 7) continue;
+    if ((m[0].match(/_/g) ?? []).length < 7) continue;
     const quanh = view.slice(Math.max(0, m.index! - 260), m.index! + 260);
     const g = [...quanh.matchAll(/\bgap-(\d)\b/g)].map((x) => x[1]);
     if (g.length) khe.push(g[0]);
