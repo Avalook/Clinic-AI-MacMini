@@ -128,6 +128,7 @@ EVENT_LABELS: dict[str, str] = {
     "visit.supply_changed": "Bán thêm vật tư ở quầy thu dịch vụ",
     "vat_tu.nhap_cho_duyet": "Phiếu nhập vật tư vào hàng chờ duyệt",
     "vat_tu.nhap_da_quyet": "Duyệt / từ chối / rút lại phiếu nhập vật tư",
+    "vat_tu.co_hang_loat": "Đặt cờ vật tư cho cả loại (Danh mục vật tư)",
     "visit.exam_fee_selected": "Chọn dịch vụ khám (tiền khám)",
     "pharmacy.refused": "Khách không lấy thuốc",
     "pharmacy.line_closed": "Chốt dòng thuốc",
@@ -363,6 +364,7 @@ SOURCE_LABELS: dict[str, str] = {
     "api:hoa-don-cong-ty": "Hoá đơn công ty (tên, địa chỉ, mã số thuế)",
     "api:hoa-don-misa": "Kế toán — đánh dấu đã xuất sang MISA",
     "api:vat-tu-nhap": "Kho vật tư — duyệt phiếu nhập",
+    "api:vat-tu-hang-loat": "Kho vật tư — đặt cờ cho cả loại (Danh mục)",
     "api:payment-doi-hinh-thuc": "Quầy thu — đổi hình thức thu (TM/CK/QR)",
     "api:phi-kham": "Bàn khám / quầy thu — chọn dịch vụ khám",
     "api:lam-truoc-thu-sau": "Bàn khám / quầy thu — tick Làm trước – thu sau",
@@ -441,6 +443,7 @@ AGGREGATE_LABELS: dict[str, str] = {
     "slot_hold": "Giữ chỗ khung giờ",
     "visit": "Lượt khám",
     "vat_tu_nhap": "Phiếu nhập vật tư chờ duyệt",
+    "vat_tu_danh_muc": "Danh mục vật tư",
     "lieu_trinh": "Liệu trình điều trị",
     "consultation": "Phiên khám",
     # Lifecycle v1 (Slice 4): sự kiện điều phối gắn vào chính chỉ định.

@@ -498,6 +498,14 @@ người có lego tự lập = tự duyệt; quyết MỘT lần; hoàn tác nh�
 `GET /vat-tu-kho/cho-duyet`, `POST …/{id}/duyet|tu-choi|rut-lai`. Sự kiện `vat_tu.nhap_cho_duyet`, `vat_tu.nhap_da_quyet`. CHƯA có màn: nút
 Duyệt / Từ chối / Rút lại + danh sách chờ gắn vào `/kho-vat-tu` khi phiên màn G8a gộp (không sửa màn đó ở G8b). Test: `T/services/test_vat_tu_nhap_duyet_db.py`.
 
+**Đặt cờ vật tư HÀNG LOẠT theo loại (16/10/2026)** — Kho vật tư → tab Danh mục, khối "Đặt cho cả loại":
+`D/kho-vat-tu/DatCoTheoLoai.tsx` (Loại VPP/VTYT/Chưa phân loại + Cờ Được kinh doanh/Cần QL duyệt bán/Cần duyệt nhập
++ Bật/Tắt; xem trước "Sẽ đổi N vật tư" → Áp dụng → xác nhận tại chỗ → Hoàn tác) → `/api/service-price/vat-tu-hang-loat`
+→ `POST /service-prices/vat-tu/hang-loat` (`R/config.py` `dat_co_vat_tu_hang_loat`, quyền `price.service.manage`) →
+`S/vat_tu_danh_muc_service.py` `dat_co_hang_loat` + `kiem_hang_loat` (bảng `LOAI_HANG_LOAT` / `CO_HANG_LOAT` — thêm cờ
+mới thì thêm ở đây và ở `DatCoTheoLoai.tsx`, FT canh lệch). Chỉ vật tư đang bán, chỉ đúng cột cờ; ghi `event_log`
+`vat_tu.co_hang_loat`. Test: `T/services/test_vat_tu_hang_loat_db.py`, FT `vat-tu-hang-loat-boundary.test.mts`.
+
 **Liệu trình ở quầy thu dịch vụ — trả trước k buổi (08/10/2026, C1)** — khối "Liệu trình" của
 khách đang thu `D/thu-ngan/LieuTrinhQuay.tsx` ([Trả trước … buổi] / [Trả hết]) → `/api/lieu-trinh`
 (`xem=quay`, `thao_tac=tra-truoc`) → `S/lieu_trinh_tien.py` (`quay`, `dat_tra_truoc`); [Bỏ] dòng trả
