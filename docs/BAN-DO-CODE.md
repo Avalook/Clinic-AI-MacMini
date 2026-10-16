@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-16 09:47. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-16 10:08. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -170,7 +170,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/hoa-don/cong-ty/phieu/[id]`, `/api/hoa-don`, `/api/reports/access`
 - gọi thẳng backend (server): `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
 - service: HoaDonCongTyService.{doc_hoa_don, ghi_hoa_don, bo_hoa_don} · DanhSachHoaDonService.xem · danh_sach_hoa_don_service · ReportAccessService.access
-- test: test_hoa_don_cong_ty_db.py, test_an_ton_co_so_ngung_db.py, test_danh_sach_hoa_don.py, test_danh_sach_hoa_don_db.py, test_danh_sach_hoa_don_viec_ton_db.py (+3)
+- test: test_hoa_don_cong_ty_db.py, test_vai_ke_toan_db.py, test_an_ton_co_so_ngung_db.py, test_danh_sach_hoa_don.py, test_danh_sach_hoa_don_db.py (+3)
 
 ### `/home` — Trang chủ
 - page: `src/dashboard/app/(dashboard)/home/page.tsx` · quyền: ?
@@ -235,7 +235,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/staff`
 - gọi thẳng backend (server): `/api/v1/staff`, `/api/v1/clinic-config/overview`
 - service: StaffService.{list_assignable, list_active, create_staff, update_staff} · ClinicConfigService.overview
-- test: test_staff_service.py, test_phong_la_tai_nguyen_db.py, test_phong_lam_theo_dich_vu_db.py, test_quyen_khoi_dong_db.py
+- test: test_staff_service.py, test_phong_la_tai_nguyen_db.py, test_phong_lam_theo_dich_vu_db.py, test_quyen_khoi_dong_db.py, test_vai_ke_toan_db.py
 
 ### `/ops` — Vận hành hệ thống
 - page: `src/dashboard/app/(dashboard)/ops/page.tsx` · quyền: lego `van_hanh` (Vận hành hệ thống · mặc định: Quản lý)
@@ -275,7 +275,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/phan-quyen`
 - gọi thẳng backend (server): `/api/v1/staff`
 - service: PermissionService.{them_preset, lego_cua_nguoi, doi_lego, danh_sach_nhom, +5} · KyNangService.{cua_nguoi, doi, chep, danh_sach} · KHOI.values · PRESET.items · catalogue · StaffService.{list_assignable, list_active, create_staff}
-- test: test_lego_21_db.py, test_permission_db.py, test_staff_service.py, test_no_con_lai_db.py, test_clinical_cluster.py (+6)
+- test: test_lego_21_db.py, test_permission_db.py, test_staff_service.py, test_no_con_lai_db.py, test_clinical_cluster.py (+7)
 
 ### `/pharmacy` — Cấp thuốc
 - page: `src/dashboard/app/(dashboard)/pharmacy/page.tsx` · quyền: lego `kho_thuoc` (Kho thuốc · mặc định: Dược sĩ (+ lễ tân))
@@ -1003,7 +1003,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/hoa-don/cong-ty/phieu/{payment_cycle_id}` → `src/clinicai/api/v1/routers/hoa_don_cong_ty.py:doc_cong_ty_hoa_don` → HoaDonCongTyService.doc_hoa_don
 - PUT `/api/v1/hoa-don/cong-ty/phieu/{payment_cycle_id}` → `src/clinicai/api/v1/routers/hoa_don_cong_ty.py:ghi_cong_ty_hoa_don` → HoaDonCongTyService.ghi_hoa_don
 - DELETE `/api/v1/hoa-don/cong-ty/phieu/{payment_cycle_id}` → `src/clinicai/api/v1/routers/hoa_don_cong_ty.py:bo_cong_ty_hoa_don` → HoaDonCongTyService.bo_hoa_don
-- test: src/tests/services/test_hoa_don_cong_ty_db.py, src/tests/services/test_hoa_don_misa_db.py
+- test: src/tests/services/test_hoa_don_cong_ty_db.py, src/tests/services/test_vai_ke_toan_db.py, src/tests/services/test_hoa_don_misa_db.py
 - màn dùng: /hoa-don
 
 #### `/api/hoa-don/cong-ty/phieu/[id]/lich-su` · `src/dashboard/app/api/hoa-don/cong-ty/phieu/[id]/lich-su/route.ts`
@@ -1409,7 +1409,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 
 #### `/api/reports/access` · `src/dashboard/app/api/reports/access/route.ts`
 - GET `/api/v1/reports/access` → `src/clinicai/api/v1/routers/reports.py:report_access` → ReportAccessService.access
-- test: src/tests/services/test_ke_toan_lego_db.py, src/tests/services/test_report_access_db.py
+- test: src/tests/services/test_report_access_db.py, src/tests/services/test_vai_ke_toan_db.py
 - màn dùng: /hoa-don, /reports
 
 #### `/api/reports/chot-ca` · `src/dashboard/app/api/reports/chot-ca/route.ts`
@@ -1490,7 +1490,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/staff` → `src/clinicai/api/v1/routers/staff.py:list_staff` → StaffService.list_assignable, StaffService.list_active
 - POST `/api/v1/staff` → `src/clinicai/api/v1/routers/staff.py:create_staff` → StaffService.create_staff
 - PATCH `/api/v1/staff/{id}` → `src/clinicai/api/v1/routers/staff.py:update_staff` → StaffService.update_staff
-- test: src/tests/unit/test_staff_service.py, src/tests/services/test_quyen_khoi_dong_db.py
+- test: src/tests/unit/test_staff_service.py, src/tests/services/test_quyen_khoi_dong_db.py, src/tests/services/test_vai_ke_toan_db.py
 - màn dùng: /nhan-su
 
 #### `/api/thai-ky` · `src/dashboard/app/api/thai-ky/route.ts`
@@ -1883,7 +1883,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `chot_so_ca` | `20261014149000_chot_so_ca.sql` | 0 |
 | `clinic` | `20260730000003_multi_tenant_foundation.sql` | 2 |
 | `clinic_location` | `20260714000001_baseline_schema.sql` | 4 |
-| `clinic_membership` | `20260730000003_multi_tenant_foundation.sql` | 3 |
+| `clinic_membership` | `20260730000003_multi_tenant_foundation.sql` | 4 |
 | `clinic_room` | `20260804000001_dispatch_rooms.sql` | 4 |
 | `clinic_room_node` | `20260804000013_room_serves_many_nodes.sql` | 1 |
 | `clinic_room_service` | `20261001210000_phong_lam_theo_dich_vu.sql` | 0 |
@@ -2011,7 +2011,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `so_no` | `20261014140000_so_no_hai_chieu.sql` | 1 |
 | `so_no_moc` | `20261014140000_so_no_hai_chieu.sql` | 0 |
 | `so_sua_chi_dinh` | `20261006200000_so_sua_chi_dinh.sql` | 0 |
-| `staff` | `20260714000001_baseline_schema.sql` | 5 |
+| `staff` | `20260714000001_baseline_schema.sql` | 6 |
 | `staff_capability` | `20260714000001_baseline_schema.sql` | 0 |
 | `staff_node` | `20260804000018_staff_node.sql` | 0 |
 | `staff_task` | `20260714000001_baseline_schema.sql` | 1 |

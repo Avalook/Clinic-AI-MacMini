@@ -137,6 +137,7 @@ Nguồn: `src/dashboard/lib/roles.ts` (13 mã) + `src/clinicai/api/identity.py`.
 | `NURSE_ULTRASOUND` | Điều dưỡng / Phụ siêu âm | Sinh hiệu, lấy mẫu, thủ thuật, phụ SA | `/lab-queue`, `/service-queue`, `/sono` |
 | `CASHIER` · `CASHIER_THUOC` · `CASHIER_DV` | Thu ngân (chung / thuốc / dịch vụ) | Đối soát, thu tiền, đóng lượt | `/cashier/thuoc`, `/cashier/dich-vu` |
 | `PHARMACIST` | Dược sĩ | Nhà thuốc: soạn, kiểm, tư vấn, bàn giao thuốc; tồn kho | `/pharmacy`, `/pharmacy/inventory` |
+| `ACCOUNTANT` | Kế toán | **Chỉ là nhãn vai** (16/10/2026); quyền là lego `ke_toan` — thiếu lego là 403. Tạo với vai này được cấp sẵn gói mẫu "Kế toán" | `/ke-toan`, `/xuat-hoa-don`, `/hoa-don`, `/reports` |
 | `TRUONG_CA` | Trưởng ca | Toàn cảnh hàng đợi, gỡ nghẽn, duyệt điều phối | `/truong-ca/*` (5 màn) |
 | `MANAGEMENT` | Quản lý | Tài khoản, luật đặt lịch, bảng giá, báo cáo | `/settings`, `/ops`, `/reports` |
 | `DISPLAY` | Màn hình phòng chờ | **Không phải người** — cái TV treo tường | `/display` |

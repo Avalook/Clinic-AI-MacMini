@@ -25,6 +25,7 @@ class PrimaryDepartment(str, Enum):
     TKYK = "TKYK"
     TRUONG_CA = "TRUONG_CA"
     PHARMACIST = "PHARMACIST"
+    ACCOUNTANT = "ACCOUNTANT"
 
 
 class Gender(str, Enum):

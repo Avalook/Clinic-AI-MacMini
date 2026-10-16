@@ -903,10 +903,10 @@ for _vai in PRESET:
     if _vai not in ("PARTNER", "MANAGEMENT"):
         PRESET[_vai] = list(KHOI_MO_FULL)
 
-# GÓI MẪU "KẾ TOÁN" (Tuyền 14/10/2026) — KHÔNG phải vai tài khoản: quản lý áp gói
-# này cho người cụ thể (và thêm/bớt lego tuỳ ý). Cố ý KHÔNG có `thu_tien_dv`,
-# `thu_tien_thuoc`: kế toán không thu tiền — máy chủ chặn theo capability của hai
-# khối ấy, không theo tên vai. Đặt SAU vòng mở-full ở trên.
+# GÓI MẪU "KẾ TOÁN" (Tuyền 14/10/2026): quản lý áp gói này cho người cụ thể (và
+# thêm/bớt lego tuỳ ý). Cố ý KHÔNG có `thu_tien_dv`, `thu_tien_thuoc`: kế toán
+# không thu tiền — máy chủ chặn theo capability của hai khối ấy, không theo tên
+# vai. Đặt SAU vòng mở-full ở trên.
 PRESET["KE_TOAN"] = [
     "bao_cao",
     "ke_toan",
@@ -914,6 +914,11 @@ PRESET["KE_TOAN"] = [
     "lich_lam_viec",
     "kho_vat_tu",
 ]
+# VAI "KẾ TOÁN" `ACCOUNTANT` (Tuyền 16/10/2026) chỉ là NHÃN để chọn khi thêm nhân
+# viên; người mới tạo với vai này được cấp sẵn đúng gói trên (cơ chế chung: nhóm
+# mẫu mã = mã vai, `cap_preset_mac_dinh`). Vai KHÔNG tự cấp quyền — rút/đổi khối
+# trên màn Phân quyền là hết. Giữ hai gói đồng bộ bằng cách chép, không viết lại.
+PRESET["ACCOUNTANT"] = list(PRESET["KE_TOAN"])
 
 
 # ── QUYỀN THEO MÀN (Tuyền chốt 23/09/2026) ───────────────────────────────

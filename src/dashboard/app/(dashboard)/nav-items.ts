@@ -725,6 +725,9 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   // 25/09: Bảng giá thuốc OFF khỏi thanh bên (giá thuốc sửa ở Kho thuốc).
   CASHIER_THUOC: ["/home", "/thu-ngan/thuoc", "/patient-list", "/customers"],
   CASHIER_DV: ["/home", "/thu-ngan/dich-vu", "/cashier/dich-vu", "/customers"],
+  // Kế toán (16/10/2026): chỗ làm việc → hoá đơn → báo cáo. Chỉ chọn trong những
+  // mục thanh bên ĐÃ hiện (theo lego); thiếu lego nào thì mục đó tự rơi.
+  ACCOUNTANT: ["/home", "/ke-toan", "/xuat-hoa-don", "/reports"],
 };
 
 /** Bốn nút của thanh dưới cho vai này, luôn là TẬP CON của thanh bên. */

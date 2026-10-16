@@ -32,6 +32,7 @@ NHAN_VAI: dict[str, tuple[str, str]] = {
     "CASHIER_DV": ("Thu ngân dịch vụ", "TN dịch vụ"),
     "TRUONG_CA": ("Trưởng ca", "Trưởng ca"),
     "PHARMACIST": ("Dược sĩ", "Dược sĩ"),
+    "ACCOUNTANT": ("Kế toán", "Kế toán"),
 }
 
 

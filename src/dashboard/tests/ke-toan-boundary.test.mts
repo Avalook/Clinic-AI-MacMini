@@ -7,8 +7,10 @@ const read = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 test("lego Kế toán: cửa theo QUYỀN accounting.finance.full, không theo vai", () => {
   const roles = read("../lib/roles.ts");
   assert.match(roles, /"\/ke-toan": \["accounting\.finance\.full"\]/);
-  // Không có dòng vai cho màn này: vai KE_TOAN không tồn tại (Tuyền 27/09: chỉ lego).
+  // Không có dòng vai cho màn này: vai `ACCOUNTANT` (16/10) chỉ là nhãn, không mở
+  // /ke-toan; còn mã gói mẫu KE_TOAN thì không bao giờ là vai (Tuyền 27/09: chỉ lego).
   assert.doesNotMatch(roles, /KE_TOAN/);
+  assert.doesNotMatch(roles, /"\/ke-toan": \[[^\]]*"ACCOUNTANT"/);
   assert.match(read("../app/(dashboard)/nav-items.ts"), /href: "\/ke-toan", label: "Kế toán"/);
   assert.match(read("../app/(dashboard)/ke-toan/page.tsx"), /requireNavAccess\("\/ke-toan"\)/);
 });

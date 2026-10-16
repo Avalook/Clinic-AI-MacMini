@@ -56,6 +56,7 @@ const ROLE_VI: Record<string, string> = {
   // `r.toLowerCase()` hiện chữ "pharmacist" cho nhân viên — đúng thứ dòng chú
   // thích ngay trên bảng này nói là không được để xảy ra.
   PHARMACIST: "dược sĩ",
+  ACCOUNTANT: "kế toán",
 };
 
 const roleNames = (roles: string[]) =>

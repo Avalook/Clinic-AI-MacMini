@@ -722,6 +722,9 @@ _FEATURE_MODE_READ = require_role(
     ClinicRole.CASHIER_THUOC,
     ClinicRole.CASHIER_DV,
     ClinicRole.PHARMACIST,
+    # Layout dashboard hỏi chế độ phòng khám ở MỌI trang (chỉ đọc, không dữ liệu
+    # khách) — thiếu vai nào là vai ấy ăn 403 mỗi lượt tải trang.
+    ClinicRole.ACCOUNTANT,
 )
 _FEATURE_MODE_WRITE = cua_quyen("config.clinic.manage")
 

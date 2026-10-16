@@ -68,6 +68,14 @@ class ClinicRole(str, Enum):
     TKYK = "TKYK"
     TRUONG_CA = "TRUONG_CA"
     PHARMACIST = "PHARMACIST"
+    # KẾ TOÁN (Tuyền 16/10/2026) — chỉ là NHÃN vai để chọn khi thêm nhân viên.
+    # KHÔNG cấp quyền: "chỉ lego, không vai" — quyền thật là khối `ke_toan`
+    # (accounting.finance.full / accounting.tax.manage) do Quản lý cấp, và không có
+    # `ClinicRole.ACCOUNTANT` nào nằm trong một `require_role(...)` hay tập vai quyền
+    # lực (CLINICAL_WRITE_ROLES, CASHIER_ROLES…). Thiếu lego thì mọi cửa kế toán 403.
+    # Là thành viên NỘI BỘ như CSKH: nằm trong `VAI_LAM_VIEC` (mặc định, trừ DISPLAY
+    # và PARTNER) nên vào được các cửa "mọi thành viên nội bộ" (Trang chủ, Hành trình).
+    ACCOUNTANT = "ACCOUNTANT"
     # Màn hình TV phòng chờ. KHÔNG phải người — là cái máy treo tường.
     #
     # Tồn tại vì lý do an toàn, không phải vì tiện: nếu cái tivi đăng nhập bằng
