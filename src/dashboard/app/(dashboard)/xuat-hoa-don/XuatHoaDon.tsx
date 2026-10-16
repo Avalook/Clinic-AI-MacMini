@@ -15,7 +15,6 @@ import { INPUT } from "../form-ui";
 import CongTac from "@/components/ui/CongTac";
 import OChon from "@/components/ui/OChon";
 import { MUC_THUE, tenThueSuat, TEN_NGUON_THUE } from "../ke-toan/thue-suat";
-import LanXuatMisa from "./LanXuatMisa";
 import { tien } from "../hoa-don/types";
 
 type DongHang = {
@@ -30,12 +29,9 @@ type HoaDon = {
   la_hd_cong_ty: boolean; ten_cong_ty: string; ma_so_thue: string; nguoi_mua?: string;
   /** Thuế GTGT của hoá đơn (sau khi tách): mã chung, tiền hàng chưa thuế, tiền thuế. */
   thue_suat_ma: string; tien_hang: number | null; tien_thue: number | null;
-  /** Đã đánh dấu xuất sang MISA chưa; có thay đổi sau khi xuất không + lý do (máy chủ so). */
-  misa: { xuat_id: string; xuat_luc: string; xuat_boi: string | null; co_thay_doi: boolean; ly_do: string[] } | null;
 };
 type XuatData = {
   tu: string; den: string; hoa_don: HoaDon[]; so_hoa_don: number; so_dong: number; tong: number;
-  so_da_xuat_misa: number; so_co_thay_doi_sau_xuat: number;
   dong_chua_thue: number; tien_thue: number;
 };
 
@@ -80,22 +76,6 @@ function KhachHang({ h }: { h: HoaDon }) {
   return <>{h.ten_khach || "—"}<span className="block text-meta text-ink-muted">{h.ma_bn || "—"} · {h.so_dien_thoai || "—"}</span></>;
 }
 
-/** "Đã xuất MISA" + "có thay đổi sau khi xuất" của một hoá đơn — máy chủ so dấu vân tay. */
-function TrangThaiMisa({ h }: { h: HoaDon }) {
-  if (!h.misa) return null;
-  const luc = new Date(h.misa.xuat_luc).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
-  return (
-    <div className="flex flex-col items-start gap-1">
-      <span className="inline-block rounded-chip bg-success-bg px-2 py-0.5 text-meta font-medium text-success">Đã xuất MISA {luc}</span>
-      {h.misa.co_thay_doi ? (
-        <span className="inline-block rounded-chip bg-info-bg px-2 py-0.5 text-meta font-medium text-info">
-          Có thay đổi sau khi xuất — {h.misa.ly_do.join(" · ")}
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
 function GhiChu({ h }: { h: HoaDon }) {
   return h.ghi_chu.length ? (
     <div className="flex flex-col items-start gap-1">
@@ -112,14 +92,9 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
   const [data, setData] = useState<XuatData | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [dangTai, setDangTai] = useState(true);
-  const [lamMoi, setLamMoi] = useState(0);
   const [cheDo, setCheDo] = useState<"tach" | "mot">("tach");
   const [ghiGiamGia, setGhiGiamGia] = useState(false);
   const [ghiDe, setGhiDe] = useState<Record<string, string>>({});
-  const [coQuyenMisa, setCoQuyenMisa] = useState(true);
-  const [dangDanhDau, setDangDanhDau] = useState(false);
-  const [vuaDanhDau, setVuaDanhDau] = useState<{ id: string; so: number } | null>(null);
-  const [loiMisa, setLoiMisa] = useState<string | null>(null);
   const thamSo = new URLSearchParams({ tu: khoang.tu, den: khoang.den, loai, co_so: coSoChon, che_do: cheDo });
   if (ghiGiamGia) thamSo.set("ghi_giam_gia", "true");
   if (Object.keys(ghiDe).length) thamSo.set("ghi_de", JSON.stringify(ghiDe));
@@ -144,29 +119,7 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
       } finally { if (!controller.signal.aborted) setDangTai(false); }
     }, 250);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [chuoi, lamMoi]);
-
-  const danhDau = async () => {
-    setDangDanhDau(true); setLoiMisa(null);
-    try {
-      const r = await fetch("/api/xuat-hoa-don/misa", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tu: khoang.tu, den: khoang.den, loai: loai || null, co_so: coSoChon || null }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(typeof d.error === "string" ? d.error : "Máy chủ chưa đánh dấu được — thử lại.");
-      setVuaDanhDau({ id: d.id, so: d.so_hoa_don });
-      setLamMoi(n => n + 1);
-    } catch (e) { setLoiMisa(e instanceof Error ? e.message : "Mất kết nối tới máy chủ."); }
-    finally { setDangDanhDau(false); }
-  };
-  const hoanTacDanhDau = async () => {
-    if (!vuaDanhDau) return;
-    setDangDanhDau(true); setLoiMisa(null);
-    const r = await fetch(`/api/xuat-hoa-don/misa/${vuaDanhDau.id}`, { method: "DELETE" });
-    if (r.ok) { setVuaDanhDau(null); setLamMoi(n => n + 1); } else setLoiMisa("Máy chủ chưa bỏ được đánh dấu — thử lại.");
-    setDangDanhDau(false);
-  };
+  }, [chuoi]);
 
   const ds = data?.hoa_don ?? [];
   const coHoaDon = ds.length > 0;
@@ -225,19 +178,6 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
           <Button size="sm" variant="ghost" onClick={() => setGhiDe({})}>Bỏ {Object.keys(ghiDe).length} thuế sửa tay</Button>
         ) : null}
       </div>
-      {coHoaDon && coQuyenMisa ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button onClick={() => void danhDau()} disabled={dangDanhDau}>{dangDanhDau ? "Đang đánh dấu…" : "Đánh dấu đã xuất MISA"}</Button>
-          <span className="text-meta text-ink-muted">Bấm sau khi đã tải file và nhập vào MISA — để biết hoá đơn nào đã xuất và hoá đơn nào đổi sau đó.</span>
-        </div>
-      ) : null}
-      {vuaDanhDau ? (
-        <p role="status" className="flex flex-wrap items-center gap-2 rounded-control bg-info-bg p-3 text-body text-info">
-          Đã đánh dấu {vuaDanhDau.so} hoá đơn là đã xuất sang MISA.
-          <Button size="sm" variant="ghost" disabled={dangDanhDau} onClick={() => void hoanTacDanhDau()}>Hoàn tác</Button>
-        </p>
-      ) : null}
-      {loiMisa ? <p role="alert" className="rounded-control bg-danger-bg p-3 text-body text-danger">{loiMisa}</p> : null}
       {loi ? <p role="alert" className="rounded-control bg-danger-bg p-3 text-body text-danger">{loi}</p> : null}
       {dangTai && !data ? <p role="status" className="text-body text-ink-muted">Đang tải hoá đơn…</p> : null}
 
@@ -253,12 +193,6 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
               {data.dong_chua_thue} dòng hàng chưa có thuế suất — cột thuế trong file để trống.{" "}
               <Link href="/ke-toan" className="font-semibold underline">Đặt thuế suất ở Kế toán</Link>
               {" "}hoặc chọn mức cho từng dòng bên dưới (chỉ áp cho lần xuất này).
-            </p>
-          ) : null}
-          {data.so_da_xuat_misa > 0 ? (
-            <p role="status" className="rounded-control bg-info-bg p-3 text-body text-info">
-              Đã xuất MISA: {data.so_da_xuat_misa}/{data.so_hoa_don} hoá đơn
-              {data.so_co_thay_doi_sau_xuat > 0 ? ` · ${data.so_co_thay_doi_sau_xuat} hoá đơn có thay đổi sau khi xuất — mở “Các lần đã xuất” bên dưới để xem` : ""}.
             </p>
           ) : null}
           <p className="text-meta text-ink-muted">Đây là Màn hình xem nhanh, tải file excel để xem chi tiết!</p>
@@ -283,7 +217,7 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
                       <td className="whitespace-nowrap px-3 py-3">{h.hinh_thuc || "—"}</td>
                       <td className="px-3 py-3"><DongHangGon dong={h.dong} ghiDe={ghiDe} onThue={datThueDong} /></td>
                       <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(h.tong)}{h.tien_thue !== null ? <span className="block text-meta text-ink-muted">Thuế {tenThueSuat(h.thue_suat_ma) || "nhiều mức"}: {tien(h.tien_thue)}</span> : null}</td>
-                      <td className="px-3 py-3"><TrangThaiMisa h={h} /><GhiChu h={h} /></td>
+                      <td className="px-3 py-3"><GhiChu h={h} /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -299,13 +233,12 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
                 </div>
                 <p className="text-meta text-ink-muted">{h.ngay} · {h.ma_phieu} · {h.hinh_thuc || "—"}</p>
                 <div className="mt-2"><DongHangGon dong={h.dong} ghiDe={ghiDe} onThue={datThueDong} /></div>
-                <div className="mt-2 space-y-1"><TrangThaiMisa h={h} /><GhiChu h={h} /></div>
+                <div className="mt-2 space-y-1"><GhiChu h={h} /></div>
               </div>
             ))}
           </div>
         </>
       ) : null}
-      <LanXuatMisa lamMoi={lamMoi} onDoi={() => setLamMoi(n => n + 1)} onQuyen={setCoQuyenMisa} />
     </div>
   );
 }
