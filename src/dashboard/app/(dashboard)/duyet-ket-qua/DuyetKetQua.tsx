@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import ThongBaoHoanTac, { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
+import { bsTen } from "@/lib/doctor-name";
 
 import { docBang, guiThaoTac, gioVn } from "../_lam-viec/api";
 import { lenhHoanTac } from "../_lam-viec/hoan-tac";
@@ -121,7 +122,7 @@ function TheKetQua({ k, onXong }: { k: KetQua; onXong: () => void }) {
           <h2 className="text-base font-semibold text-ink">{k.dich_vu}</h2>
           <p className="text-sm text-ink-muted">
             {k.ten} · {k.ma_bn}
-            {k.bac_si ? ` · BS ${k.bac_si}` : ""}
+            {k.bac_si ? ` · ${bsTen(k.bac_si)}` : ""}
           </p>
         </div>
         <p className="text-label text-ink-muted">

@@ -50,6 +50,7 @@ from clinicai.core.shifts import (
 )
 from clinicai.permissions import cache
 from clinicai.permissions.can import can
+from clinicai.services.lan_bac_si import ten_bac_si as ten_bac_si_hien
 from clinicai.services.lich_truc_co_so import ca_thuoc_co_so
 from clinicai.services.lich_truc_phien_ban_service import (
     dat_nguoi_bam,
@@ -359,7 +360,7 @@ class RosterService:
                 clinic_id=identity.clinic_id,
                 vai=ClinicRole.CSKH.value,
                 tieu_de=(
-                    f"BS {ten_bac_si} có ca {work_date:%d/%m} — "
+                    f"{ten_bac_si_hien(ten_bac_si)} có ca {work_date:%d/%m} — "
                     f"{len(trong_ca)} lịch đang chờ xếp"
                 ),
                 noi_dung=(
@@ -1258,7 +1259,8 @@ class RosterService:
 
         dong = [
             f"{r['slot_start'].astimezone(CLINIC_TZ):%H:%M %d/%m} "
-            f"{r['khach'] or 'khách'} (BS {r['bac_si'] or '?'} nghỉ)"
+            f"{r['khach'] or 'khách'} "
+            f"({ten_bac_si_hien(r['bac_si']) if r['bac_si'] else 'BS ?'} nghỉ)"
             for r in mat[:8]
         ]
         them = f" và {len(mat) - 8} lịch khác" if len(mat) > 8 else ""

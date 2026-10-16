@@ -20,6 +20,8 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from clinicai.services.lan_bac_si import ten_bac_si
+
 # Nhãn lý do huỷ — cùng danh mục với ``booking_service.LY_DO_HUY`` nhưng rút
 # gọn cho một dòng tin. KHÔNG import từ booking_service: tin nhắn cần câu
 # ngắn, còn danh mục gốc là câu đầy đủ cho ô chọn — hai nhu cầu khác nhau,
@@ -45,9 +47,10 @@ def _gio(payload: dict[str, Any]) -> str:
 
 
 def lich_moi(payload: dict[str, Any]) -> str:
-    bs = payload.get("ten_bac_si") or "chờ xếp bác sĩ"
+    ten = payload.get("ten_bac_si")
+    bs = ten_bac_si(ten) if ten else "BS chờ xếp bác sĩ"
     dv = payload.get("dich_vu") or "—"
-    return f"📅 <b>Lịch mới</b> · {_gio(payload)}\n{_khach(payload)} · {dv} · BS {bs}"
+    return f"📅 <b>Lịch mới</b> · {_gio(payload)}\n{_khach(payload)} · {dv} · {bs}"
 
 
 def huy_lich(payload: dict[str, Any]) -> str:
@@ -68,9 +71,13 @@ def xoa_ca_bac_si(payload: dict[str, Any]) -> str:
     vào hàng "Lịch chờ xếp bác sĩ". Lịch KHÔNG bị huỷ (CONTEXT v1.0), nên tin
     phải nói đúng việc cần làm: xếp bác sĩ khác hoặc gọi khách đổi giờ —
     không phải "đặt lịch mới"."""
-    bs = payload.get("bac_si_da_go") or payload.get("ten_bac_si") or "—"
+    ten = payload.get("bac_si_da_go") or payload.get("ten_bac_si")
+    # Tên đã mang chức danh ("Bác sĩ Phan Chí Thành") thì không thêm "bác sĩ" nữa.
+    bs = "bác sĩ —"
+    if ten:
+        bs = ten if ten_bac_si(ten) == ten else f"bác sĩ {ten}"
     return (
-        f"⚠️ <b>Gỡ ca bác sĩ {bs}</b> · lịch {_gio(payload)} chờ xếp bác sĩ\n"
+        f"⚠️ <b>Gỡ ca {bs}</b> · lịch {_gio(payload)} chờ xếp bác sĩ\n"
         f"{_khach(payload)} — xếp bác sĩ khác hoặc gọi khách đổi giờ"
     )
 
@@ -95,9 +102,10 @@ def ca_moi_cho_xep(payload: dict[str, Any]) -> str:
     khi ca được cập nhật?) Payload đủ ngay từ lúc ghi — aggregate là ca trực,
     không đi qua đường làm giàu của lịch hẹn."""
     ca = _CA_LABEL.get(str(payload.get("ca") or ""), "")
+    ten = payload.get("ten_bac_si")
     gio = " · ".join(payload.get("gio") or [])
     return (
-        f"🩺 <b>BS {payload.get('ten_bac_si', '—')} có ca {ca} ngày "
+        f"🩺 <b>{ten_bac_si(ten) if ten else 'BS —'} có ca {ca} ngày "
         f"{payload.get('ngay', '—')}</b>\n"
         f"{payload.get('so_lich', 0)} lịch đang chờ xếp bác sĩ ({gio}) — "
         f"vào Quản lý khách hàng gán bác sĩ cho khách."

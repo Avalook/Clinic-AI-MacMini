@@ -17,6 +17,7 @@ from clinicai.services.hen_tai_kham_service import (
     NGUON_CHUONG,
     chi_tiet_viec,
 )
+from clinicai.services.lan_bac_si import ten_bac_si
 
 
 def noi_dung_chuong(ct: dict[str, object] | None) -> str:
@@ -26,7 +27,7 @@ def noi_dung_chuong(ct: dict[str, object] | None) -> str:
         return "Gọi khách chốt giờ tái khám."
     phan: list[str] = []
     if ct.get("bac_si"):
-        phan.append(f"BS {ct['bac_si']}")
+        phan.append(ten_bac_si(ct["bac_si"]))
     if ct.get("loai_kham"):
         phan.append(f"lần trước: {ct['loai_kham']}")
     if ct.get("chan_doan"):

@@ -182,7 +182,9 @@ SELECT * FROM (
            -- là tài khoản bác sĩ. Chưa khám → "BS X (dự kiến)".
            CASE WHEN c.status IN ('completed', 'in_progress') THEN d.full_name
                 WHEN d.full_name IS NOT NULL
-                THEN 'BS ' || d.full_name || ' (dự kiến)' END,
+                THEN CASE WHEN d.full_name ILIKE 'BS%' OR d.full_name ILIKE 'Bác sĩ%'
+                          THEN d.full_name ELSE 'BS ' || d.full_name END
+                     || ' (dự kiến)' END,
            NULL, 3
       FROM public.consultation c
       JOIN public.visit v ON v.visit_id = c.visit_id AND v.clinic_id = c.clinic_id
