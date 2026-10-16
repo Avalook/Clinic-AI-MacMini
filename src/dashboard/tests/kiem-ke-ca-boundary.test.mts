@@ -50,10 +50,12 @@ test("proxy kiểm kê: danh sách trắng bước ghi, id phải là uuid, khô
   assert.match(doc("app/api/pharmacy/kiem-ke-ca/route.ts"), /\/api\/v1\/pharmacy\/kiem-ke-ca/);
 });
 
-test("Kho thuốc có tab Kiểm kê ca; bảng realtime nghe kiem_ke_ca", () => {
+test("Quầy có hai tab Kiểm đầu ca / Kiểm cuối ca; bảng realtime nghe kiem_ke_ca", () => {
   const kho = doc("app/(dashboard)/pharmacy/inventory/KhoThuoc.tsx");
-  assert.match(kho, /ma: "kiem_ke_ca", nhan: "Kiểm kê ca"/);
-  assert.match(kho, /<KiemKeCa /);
+  assert.match(kho, /ma: "kiem_dau" as const, nhan: "Kiểm đầu ca"/);
+  assert.match(kho, /ma: "kiem_cuoi" as const, nhan: "Kiểm cuối ca"/);
+  assert.match(kho, /loaiCoDinh="DAU"/);
+  assert.match(kho, /loaiCoDinh="CUOI"/);
   assert.match(doc("app/(dashboard)/RealtimeRefresher.tsx"), /"kiem_ke_ca",/);
 });
 

@@ -44,7 +44,7 @@ test("/pharmacy/inventory đọc ?tab= ?ngay= ?ca= và truyền xuống, tham s�
   const k = doc(KHO);
   assert.match(k, /useState<Tab>\(\(\) => tabTuUrl\(tabDau\)\)/);
   assert.match(k, /replace\(\/-\/g, "_"\)/); // kiem-ke-ca → kiem_ke_ca
-  assert.match(k, /"kiem_ke_ca"/);
+  assert.match(k, /"kiem_ke_ca": "kiem_cuoi"/); // link cũ → tab Kiểm cuối ca (16/10)
   assert.match(k, /ngayDau=\{ngayKiemKe\} caDau=\{caKiemKe\}/);
 });
 

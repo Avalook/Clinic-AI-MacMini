@@ -103,6 +103,7 @@ export default function KiemKeCa({
   ghiDuoc = false,
   ngayDau,
   caDau,
+  loaiCoDinh,
 }: {
   batches: InvBatch[];
   /** Có quyền ghi kho — chỉ ẩn / hiện nút, máy chủ vẫn kiểm. */
@@ -110,13 +111,15 @@ export default function KiemKeCa({
   /** Mở sẵn ngày / ca này (link từ báo cáo hàng hoá) thay vì hôm nay + ca hiện tại. */
   ngayDau?: string;
   caDau?: Ca;
+  /** 16/10: "Kiểm đầu ca" và "Kiểm cuối ca" là hai tab riêng — tab đã chọn loại, ẩn ô Loại. */
+  loaiCoDinh?: Loai;
 }) {
   const [ngay, setNgay] = useState(() => ngayDau ?? homNayVn());
   const [ca, setCa] = useState<Ca>(caDau ?? "SANG");
   // Ca mở từ link được giữ cho tới khi người dùng tự đổi ngày; không thì "ca hiện
   // tại" máy chủ nhắc sẽ đè lên ca của báo cáo đang xem.
   const giuCaDau = useRef(caDau !== undefined);
-  const [loai, setLoai] = useState<Loai>("CUOI");
+  const [loai, setLoai] = useState<Loai>(loaiCoDinh ?? "CUOI");
   const [nhac, setNhac] = useState<Nhac | null>(null);
   const [ds, setDs] = useState<TomTat[] | null>(null);
   const [phieu, setPhieu] = useState<Phieu | null>(null);
@@ -356,16 +359,18 @@ export default function KiemKeCa({
             ))}
           </select>
         </label>
-        <label className="block">
-          <span className="mb-1 block text-meta text-ink-soft">Loại</span>
-          <select value={loai} onChange={(e) => setLoai(e.target.value as Loai)} className={INPUT}>
-            {(Object.keys(NHAN_LOAI) as Loai[]).map((l) => (
-              <option key={l} value={l}>
-                {NHAN_LOAI[l]}
-              </option>
-            ))}
-          </select>
-        </label>
+        {loaiCoDinh ? null : (
+          <label className="block">
+            <span className="mb-1 block text-meta text-ink-soft">Loại</span>
+            <select value={loai} onChange={(e) => setLoai(e.target.value as Loai)} className={INPUT}>
+              {(Object.keys(NHAN_LOAI) as Loai[]).map((l) => (
+                <option key={l} value={l}>
+                  {NHAN_LOAI[l]}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         {ghiDuoc ? (
           <Button type="button" variant="primary" disabled={dang} onClick={() => void moPhieu()}>
             Mở / tiếp tục phiếu
