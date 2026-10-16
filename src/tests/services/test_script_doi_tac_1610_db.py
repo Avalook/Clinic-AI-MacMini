@@ -118,3 +118,84 @@ async def test_script_go_dich_vu_thua_phong_doi_tac(pool: asyncpg.Pool) -> None:
                 assert sau["thuong"] == 0
                 assert sau["doi_tac"] == truoc["doi_tac"]
                 raise _HoanLaiError
+
+
+async def test_script_go_dich_vu_doi_tac_khoi_phong_thuong(
+    pool: asyncpg.Pool,
+) -> None:
+    """Dịch vụ thuộc nhóm việc làm bên ngoài bị gắn vào phòng thường (01/10) → gỡ khỏi
+    phòng thường, giữ ở phòng đối tác; dịch vụ thường không đụng. Hoàn lại cuối."""
+    sql = (SCRIPTS / "go-dich-vu-doi-tac-khoi-phong-thuong-1610.sql").read_text(
+        encoding="utf-8"
+    )
+    than = "\n".join(
+        d for d in sql.splitlines() if d.strip() not in {"BEGIN;", "COMMIT;"}
+    )
+    async with pool.acquire() as conn:
+        with pytest.raises(_HoanLaiError):
+            async with conn.transaction():  # ném ở cuối → hoàn lại hết
+                dv = await conn.fetchrow(
+                    """
+                    SELECT sp.clinic_id, sp.service_code, sp.node_code
+                      FROM service_price sp
+                     WHERE sp."group" = 'dich_vu' AND sp.active
+                       AND sp.node_code IS NOT NULL AND NOT sp.doi_tac_lay_mau
+                     ORDER BY sp.service_code LIMIT 1
+                    """
+                )
+                assert dv is not None
+                # Cô lập: chỉ dịch vụ đang thử là việc đối tác làm trọn.
+                await conn.execute("UPDATE service_price SET doi_tac_lay_mau = false")
+                await conn.execute("UPDATE node_definition SET lam_ben_ngoai = false")
+                await conn.execute(
+                    "UPDATE node_definition SET lam_ben_ngoai = true"
+                    " WHERE clinic_id = $1 AND code = $2",
+                    dv["clinic_id"],
+                    dv["node_code"],
+                )
+                # Gắn dịch vụ ấy vào MỌI phòng đang bật (thường + đối tác) như 01/10.
+                await conn.execute(
+                    "INSERT INTO clinic_room_service (clinic_id, room_id, service_code)"
+                    " SELECT r.clinic_id, r.id, $2 FROM clinic_room r"
+                    " WHERE r.clinic_id = $1 AND r.is_active ON CONFLICT DO NOTHING",
+                    dv["clinic_id"],
+                    dv["service_code"],
+                )
+                # Như staging: phòng đối tác có nhóm việc ấy (dịch vụ cùng nhóm không
+                # gắn tên phòng nào vẫn làm được ở phòng đối tác).
+                await conn.execute(
+                    "INSERT INTO clinic_room_node (clinic_id, room_id, node_code)"
+                    " SELECT r.clinic_id, r.id, $2 FROM clinic_room r"
+                    " WHERE r.clinic_id = $1 AND r.is_active AND r.la_doi_tac"
+                    " ON CONFLICT DO NOTHING",
+                    dv["clinic_id"],
+                    dv["node_code"],
+                )
+                dem = (
+                    "SELECT count(*) FILTER (WHERE NOT r.la_doi_tac) thuong,"
+                    " count(*) FILTER (WHERE r.la_doi_tac) doi_tac"
+                    " FROM clinic_room_service rs"
+                    " JOIN clinic_room r ON r.id = rs.room_id"
+                    " WHERE rs.clinic_id = $1 AND rs.service_code = $2"
+                )
+                truoc = await conn.fetchrow(dem, dv["clinic_id"], dv["service_code"])
+                assert truoc["thuong"] > 0 and truoc["doi_tac"] > 0
+                # Dịch vụ NGOÀI nhóm việc ấy (không phải việc đối tác làm trọn).
+                khac = (
+                    "SELECT count(*) FROM clinic_room_service rs"
+                    " JOIN service_price sp ON sp.clinic_id = rs.clinic_id"
+                    "  AND sp.service_code = rs.service_code"
+                    " WHERE rs.clinic_id = $1"
+                    "   AND sp.node_code IS DISTINCT FROM $2"
+                )
+                tong_khac = await conn.fetchval(khac, dv["clinic_id"], dv["node_code"])
+                await conn.execute(than)
+                sau = await conn.fetchrow(dem, dv["clinic_id"], dv["service_code"])
+                assert sau["thuong"] == 0
+                assert sau["doi_tac"] == truoc["doi_tac"]
+                # Dịch vụ ngoài nhóm việc đối tác: không mất dòng nào.
+                assert (
+                    await conn.fetchval(khac, dv["clinic_id"], dv["node_code"])
+                    == tong_khac
+                )
+                raise _HoanLaiError
