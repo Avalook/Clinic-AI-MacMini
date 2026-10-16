@@ -39,7 +39,7 @@ interface LuotCoDon {
 }
 
 // Nhãn hiển thị (không phải luật) cho mã kênh máy chủ trả.
-const NHAN_KENH: Record<string, string> = {
+export const NHAN_KENH: Record<string, string> = {
   GOI: "Gọi điện",
   ZALO: "Zalo",
   TRUC_TIEP: "Trực tiếp",
@@ -72,10 +72,15 @@ export function DongPhanHoiThuoc({ p }: { p: PhanHoiThuoc }) {
 export default function PhanHoiThuocKhach({
   clinicPatientId,
   onDatLichKham,
+  onDoc,
 }: {
   clinicPatientId: string;
   /** Có = hiện [Đặt lịch khám] — màn cha mở bộ đặt lịch sẵn có. */
   onDatLichKham?: () => void;
+  /** Mỗi lần đọc xong (kể cả sau ghi/gỡ/NOTIFY) báo danh sách phản hồi còn hiệu
+   *  lực, mới nhất trước — khung cha dùng để vẽ dòng "Phản hồi thuốc gần nhất"
+   *  ở đầu khung mà không phải đọc lần thứ hai. Truyền hàm ỔN ĐỊNH (setState). */
+  onDoc?: (items: PhanHoiThuoc[]) => void;
 }) {
   const [data, setData] = useState<{ luot_co_don: LuotCoDon[]; items: PhanHoiThuoc[] } | null>(
     null,
@@ -121,6 +126,10 @@ export default function PhanHoiThuocKhach({
       huy = true;
     };
   }, [duong, lan]);
+
+  useEffect(() => {
+    if (data) onDoc?.(data.items);
+  }, [data, onDoc]);
 
   const gui = async (than: unknown, khoa?: string): Promise<boolean> => {
     setDang(true);
