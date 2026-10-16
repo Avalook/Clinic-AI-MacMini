@@ -46,6 +46,7 @@ from clinicai.services.cashier_scope_service import visible_refunds
 from clinicai.services.chot_0d import da_chot_0d, doc_chot_0d
 from clinicai.services.co_so_bao_cao import sql_cua_co_so_ngung
 from clinicai.services.doi_hinh_thuc_service import trang_thai_doi
+from clinicai.services.hoa_don_cong_ty_service import cong_ty_cua_khach
 from clinicai.services.hoan_tac_service import tien_thua_cua_luot
 from clinicai.services.hoan_tien_service import hoan_cua_cac_lan_thu
 from clinicai.services.moc_kham_xong import kham_xong_sql
@@ -783,8 +784,16 @@ class CashierBoardService:
                 if want_svc
                 else {}
             )
+            # Công ty trong hồ sơ khách (16/10/2026): quầy hiện ô tick "xuất hoá
+            # đơn về công ty" nếu khách có; tick theo LƯỢT thu, không theo hồ sơ.
+            cong_ty = await cong_ty_cua_khach(
+                conn,
+                identity.clinic_id,
+                [i.get("clinic_patient_id") for i in out["items"]],
+            )
             for item in out["items"]:
                 item["tien_thua"] = thua.get(item["visit_id"])
+                item["cong_ty"] = cong_ty.get(str(item.get("clinic_patient_id")), [])
                 if want_svc:
                     item["da_bo_chi_dinh"] = da_bo.get(item["visit_id"], [])
         if want_svc:

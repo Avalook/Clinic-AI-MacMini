@@ -27,7 +27,7 @@ type HoaDon = {
   stt: number; ma_phieu: string; kind: string; ngay: string; ten_khach: string; ma_bn: string | null;
   so_dien_thoai: string; hinh_thuc: string; dong: DongHang[]; tong: number; ghi_chu: string[];
   /** Hoá đơn công ty (G5c): tên + MST của công ty thay cho thông tin khách cá nhân. */
-  la_hd_cong_ty: boolean; ten_cong_ty: string; ma_so_thue: string;
+  la_hd_cong_ty: boolean; ten_cong_ty: string; ma_so_thue: string; nguoi_mua?: string;
   /** Thuế GTGT của hoá đơn (sau khi tách): mã chung, tiền hàng chưa thuế, tiền thuế. */
   thue_suat_ma: string; tien_hang: number | null; tien_thue: number | null;
   /** Đã đánh dấu xuất sang MISA chưa; có thay đổi sau khi xuất không + lý do (máy chủ so). */
@@ -75,7 +75,7 @@ function DongHangGon({ dong, ghiDe, onThue }: {
 /** Hoá đơn công ty chỉ hiện tên công ty + MST — không SĐT / mã khách cá nhân. */
 function KhachHang({ h }: { h: HoaDon }) {
   if (h.la_hd_cong_ty) {
-    return <>{h.ten_cong_ty}<span className="block text-meta text-ink-muted">Công ty · MST {h.ma_so_thue || "—"}</span></>;
+    return <>{h.ten_cong_ty}<span className="block text-meta text-ink-muted">Công ty · MST {h.ma_so_thue || "—"} · Người mua: {h.nguoi_mua || "—"}</span></>;
   }
   return <>{h.ten_khach || "—"}<span className="block text-meta text-ink-muted">{h.ma_bn || "—"} · {h.so_dien_thoai || "—"}</span></>;
 }

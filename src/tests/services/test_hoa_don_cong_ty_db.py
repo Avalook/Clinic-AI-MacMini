@@ -134,12 +134,12 @@ async def test_bat_bien_ban_chup_khong_doi_theo_ho_so_va_xuat_dung_cot(
 
     hd = (await _xuat(pool, manager, [c1]))[c1]
     cot = _dong_xlsx(hd)
-    # C tên cty · D địa chỉ cty · E MST · F người mua TRỐNG · G email cty · H/I TRỐNG.
+    # C tên cty · D địa chỉ cty · E MST · F khách thật · G email cty · H/I TRỐNG.
     assert cot[2:9] == [
         CT_A["ten_cong_ty"],
         CT_A["dia_chi_cong_ty"],
         CT_A["ma_so_thue"],
-        None,
+        hd["ten_khach"],
         CT_A["email_nhan_hd"],
         None,
         None,
@@ -451,9 +451,12 @@ async def test_bam_ngau_nhien_40_chuoi_x_10_buoc_khop_mo_hinh(
             cot = _dong_xlsx(hd)
             if hien is None:
                 assert hd["la_hd_cong_ty"] is False
-                assert cot[2] == hd["ten_khach"] and cot[8] == "001190000001"
+                # Không xuất về công ty: C trống, F = khách thật (Tuyền 16/10).
+                assert cot[2] is None and cot[5] == hd["ten_khach"]
+                assert cot[8] == "001190000001"
             else:
                 assert cot[2] == hien["ten_cong_ty"]
+                assert cot[5] == hd["ten_khach"]  # người mua = khách thật
                 assert (cot[3] or "") == hien["dia_chi_cong_ty"]
                 assert (cot[4] or "") == hien["ma_so_thue"].replace(" ", "")
                 assert cot[7] is None and cot[8] is None

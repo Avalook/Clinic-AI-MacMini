@@ -20,7 +20,7 @@ const O: { k: keyof CongTy; ten: string; goiY?: string }[] = [
   { k: "ma_so_thue", ten: "Mã số thuế", goiY: "10 số, hoặc 10 số-001" },
   { k: "dia_chi_cong_ty", ten: "Địa chỉ công ty" },
   { k: "email_nhan_hd", ten: "Email nhận hoá đơn" },
-  { k: "nguoi_mua", ten: "Người mua (không bắt buộc)", goiY: "Để trống thì ô người mua trong file cũng để trống" },
+  // "Người mua" trong file luôn là KHÁCH THẬT (16/10) — không còn ô nhập riêng.
 ];
 
 /** Chỉ lấy 5 trường công ty từ một đối tượng lớn hơn (id, mốc giờ…). */

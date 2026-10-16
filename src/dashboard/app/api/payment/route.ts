@@ -76,6 +76,8 @@ export async function POST(request: Request) {
     discountValue?: number | null;
     discount_reason?: string | null;
     discountReason?: string | null;
+    /** "Xuất hoá đơn về công ty" (16/10/2026): công ty trong hồ sơ khách. */
+    congTyId?: string | null;
   };
   // CP5 — hoàn tiền (tạm thời chỉ Quản lý, máy chủ kiểm; số tiền máy chủ tính).
   if (p.action === "hoan-tien") {
@@ -161,6 +163,7 @@ export async function POST(request: Request) {
       discount_type: p.discount_type ?? p.discountType ?? null,
       discount_value: p.discount_value ?? p.discountValue ?? null,
       discount_reason: p.discount_reason ?? p.discountReason ?? null,
+      cong_ty_id: p.congTyId ?? null,
       ...(p.chon ? { chon: p.chon } : {}),
       ...(p.phan ? { phan: p.phan } : {}),
     },

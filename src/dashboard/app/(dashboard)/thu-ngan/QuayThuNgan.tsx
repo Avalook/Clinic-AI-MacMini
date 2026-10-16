@@ -41,6 +41,7 @@ import { nhanPhan, tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
 import { gio, nhanLamTruocThuSau, type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
 import AnhChuyenKhoan, { taiAnhChuyenKhoan, type AnhCk } from "./AnhChuyenKhoan";
 import ChiaHinhThuc, { type KetQuaChia } from "./ChiaHinhThuc";
+import CongTyKhiThu, { type CongTyThu } from "./CongTyKhiThu";
 import GiamGia, { type GiamGiaResult } from "./GiamGia";
 import NutHoanTac from "./NutHoanTac";
 
@@ -93,6 +94,8 @@ interface Luot {
   services: Dong[];
   drugs: Dong[];
   hoa_don?: { dich_vu?: HoaDon; thuoc?: HoaDon };
+  /** Công ty trong hồ sơ khách — ô tick "xuất hoá đơn về công ty" (16/10/2026). */
+  cong_ty?: CongTyThu[];
   /** Chỉ định còn chờ khách quyết làm hay không (máy chủ tính). */
   chon_dich_vu?: ChoKhachQuyet | null;
   /** Đã trả, chưa bắt đầu — xếp / đổi phòng sau khi thu (máy chủ tính). */
@@ -355,7 +358,14 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
         });
         if (r.ok && thaoTac) xongThaoTac(thaoTac);
         const d = (await r.json().catch(() => null)) as
-          | { error?: string; message?: string; status?: string; payment_cycle_id?: string | null }
+          | {
+              error?: string;
+              message?: string;
+              status?: string;
+              payment_cycle_id?: string | null;
+              cong_ty?: { gan?: boolean };
+              cong_ty_loi?: string;
+            }
           | null;
         if (!r.ok) {
           loiThu = d?.message ?? d?.error ?? "Không ghi được.";
@@ -375,8 +385,10 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
           setXong(
             d?.status === "PENDING_VERIFICATION"
               ? "Đã ghi CHỜ XÁC MINH — chưa tính là đã thu cho tới khi nhập mã giao dịch."
-              : xongCau,
+              : `${xongCau}${d?.cong_ty?.gan ? " Hoá đơn xuất về công ty." : ""}`,
           );
+          // Tiền đã ghi nhưng công ty chưa gắn: báo rõ (sống sót qua lần tải lại).
+          if (d?.cong_ty_loi) loiThu = `Đã ghi lần thu, nhưng chưa gắn công ty: ${d.cong_ty_loi}`;
         }
         // Hoá đơn đổi (BILL_CHANGED) hay bị từ chối: tải lại để thấy số mới.
         await tai();
@@ -398,6 +410,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
       hd: HoaDon,
       chia: KetQuaChia | null,
       giam?: GiamGiaResult,
+      congTyId?: string | null,
     ) => {
       const pt: PhuongThuc = chia?.coChuyenKhoan ? "TRANSFER" : "CASH";
       // Số xem trước do GiamGia tính; máy chủ tính lại và quyết số thật.
@@ -427,6 +440,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                 discount_reason: discount.discount_reason,
               }
             : {}),
+          ...(congTyId ? { congTyId } : {}),
         },
         cau,
         dinhDanhThaoTac(
@@ -437,6 +451,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
           JSON.stringify(mienPhi ? null : chia?.phan),
           String(hd.tong),
           discount ? `${discount.discount_type}:${discount.discount_value}` : "",
+          congTyId ?? "",
         ),
         mienPhi ? null : (chia?.anh ?? null),
       );
@@ -474,6 +489,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                 discount_reason: p.discount.discount_reason,
               }
             : {}),
+          ...(p.congTyId ? { congTyId: p.congTyId } : {}),
         },
         cau,
         dinhDanhThaoTac(l.visit_id, p.khoa),
@@ -800,6 +816,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                 key={`${l.visit_id}:${l.quay_thu.lua_chon.order_ids_seen.join(",")}:${l.quay_thu.lua_chon.revision}`}
                 visitId={l.visit_id}
                 lamTruoc={l.lam_truoc}
+                congTy={l.cong_ty}
                 qt={l.quay_thu}
                 dangThu={dangThu === `${l.visit_id}:dich_vu`}
                 dangLuuVatTu={vatTuDangLuu.has(l.visit_id)}
@@ -830,10 +847,11 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                 quay="dich_vu"
                 tieu_de="Tiền dịch vụ"
                 hd={l.hoa_don?.dich_vu}
+                congTy={l.cong_ty}
                 daThu={daThuCua(l.visit_id, "dich_vu")}
                 cho={choCua(l.visit_id, "dich_vu")}
                 dangThu={dangThu === `${l.visit_id}:dich_vu`}
-                onThu={(hd, c, g) => void thu(l, "dich_vu", hd, c, g)}
+                onThu={(hd, c, g, ct) => void thu(l, "dich_vu", hd, c, g, ct)}
                 onXacMinh={(ma, soNhan) => void xacMinh(l, "dich_vu", ma, soNhan)}
                 onDoi={(cau) => {
                   if (cau) setXong(cau);
@@ -882,10 +900,11 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                 quay="thuoc"
                 tieu_de="Thuốc đã kê"
                 hd={l.hoa_don?.thuoc}
+                congTy={l.cong_ty}
                 daThu={daThuCua(l.visit_id, "thuoc")}
                 cho={choCua(l.visit_id, "thuoc")}
                 dangThu={dangThu === `${l.visit_id}:thuoc`}
-                onThu={(hd, c, g) => void thu(l, "thuoc", hd, c, g)}
+                onThu={(hd, c, g, ct) => void thu(l, "thuoc", hd, c, g, ct)}
                 onXacMinh={(ma, soNhan) => void xacMinh(l, "thuoc", ma, soNhan)}
                 onDoi={(cau) => {
                   if (cau) setXong(cau);
@@ -1096,6 +1115,7 @@ export function NhomThu({
   quay,
   tieu_de,
   hd,
+  congTy,
   daThu,
   cho,
   dangThu,
@@ -1107,10 +1127,17 @@ export function NhomThu({
   quay?: "dich_vu" | "thuoc";
   tieu_de: string;
   hd: HoaDon | undefined;
+  /** Công ty trong hồ sơ khách — ô tick "xuất hoá đơn về công ty" (theo lượt thu). */
+  congTy?: CongTyThu[];
   daThu: boolean;
   cho: ChoXacMinh | undefined;
   dangThu: boolean;
-  onThu: (hd: HoaDon, chia: KetQuaChia | null, giam?: GiamGiaResult) => void;
+  onThu: (
+    hd: HoaDon,
+    chia: KetQuaChia | null,
+    giam?: GiamGiaResult,
+    congTyId?: string | null,
+  ) => void;
   /** `soNhan`: số ngân hàng thật nhận thu ngân đã xác nhận (G4d, R1 — bắt buộc). */
   onXacMinh: (ma: string, soNhan: number) => void;
   /** Sau hoàn tác / thêm ảnh: tải lại (kèm câu báo nếu có). */
@@ -1118,6 +1145,7 @@ export function NhomThu({
 }) {
   const [chia, setChia] = useState<KetQuaChia | null>(null);
   const [giamGia, setGiamGia] = useState<GiamGiaResult | null>(null);
+  const [congTyId, setCongTyId] = useState<string | null>(null);
   const [ma, setMa] = useState("");
   // null = chưa sửa → hiện số máy chủ điền sẵn (phần chuyển khoản của lần chờ).
   const [soNhan, setSoNhan] = useState<string | null>(null);
@@ -1238,6 +1266,13 @@ export function NhomThu({
         </div>
       ) : null}
 
+      {/* Xuất hoá đơn về công ty (16/10/2026) — theo lượt thu */}
+      {hd && hd.thu_duoc && !daThu && !hd.chi_doi_tac_thu && tongGoc > 0 ? (
+        <div className="mt-3 border-t border-line pt-3">
+          <CongTyKhiThu congTy={congTy} onDoi={setCongTyId} />
+        </div>
+      ) : null}
+
       {giamGia?.loi ? (
         <p role="alert" className="mt-2 text-meta text-danger">{giamGia.loi}</p>
       ) : null}
@@ -1274,7 +1309,7 @@ export function NhomThu({
           <button
             type="button"
             disabled={dangThu || !hd || !hd.thu_duoc || giamGia?.loi != null || (!mienPhi && !chia?.hopLe)}
-            onClick={() => hd && (mienPhi || chia) && onThu(hd, mienPhi ? null : chia, giamGia?.params ? giamGia : undefined)}
+            onClick={() => hd && (mienPhi || chia) && onThu(hd, mienPhi ? null : chia, giamGia?.params ? giamGia : undefined, congTyId)}
             className="inline-flex min-h-10 items-center rounded-control border border-brand-500 bg-brand-500 px-4 text-sm font-semibold text-white disabled:opacity-50"
           >
             {dangThu
