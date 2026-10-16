@@ -8,6 +8,7 @@
 // Số do máy chủ gom (`GET /api/v1/reports/cuoi-ngay` → `hang_hoa`, `chi_nhanh`),
 // cùng luật ngày / ca / cơ sở với tab Cuối ngày. Màn chỉ vẽ.
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button, { buttonClass } from "@/components/ui/Button";
@@ -54,7 +55,18 @@ function bayGio(): string {
 
 const NUT = "min-h-10 whitespace-nowrap rounded-control px-3 text-sm font-medium";
 
-export default function BaoCaoHangHoa({ coSo = [], access, ngay }: { ngay?: string; coSo?: CoSo[]; access?: import("./access").ReportAccess }) {
+export default function BaoCaoHangHoa({
+  coSo = [],
+  access,
+  ngay,
+  moKiemKe = false,
+}: {
+  ngay?: string;
+  coSo?: CoSo[];
+  access?: import("./access").ReportAccess;
+  /** Người xem mở được `/pharmacy/inventory` (máy chủ hỏi `moDuocMan`) — không thì ẩn link. */
+  moKiemKe?: boolean;
+}) {
   const lanTai = useRef(0);
   const lanNgay = useRef(0);
   const [chuoiDaTai, setChuoiDaTai] = useState("");
@@ -94,6 +106,12 @@ export default function BaoCaoHangHoa({ coSo = [], access, ngay }: { ngay?: stri
     loai,
     ...(coSoChon ? { co_so: coSoChon } : {}),
     ...(ca && motNgay ? { ca } : {}),
+  }).toString();
+
+  const linkKiemKe = new URLSearchParams({
+    tab: "kiem-ke-ca",
+    ...(motNgay ? { ngay: khoang.tu } : {}),
+    ...(motNgay && ca ? { ca } : {}),
   }).toString();
 
   const tai = useCallback(async () => {
@@ -175,7 +193,14 @@ export default function BaoCaoHangHoa({ coSo = [], access, ngay }: { ngay?: stri
           </div>
         ) : null}
         <ChonCoSoO coSo={restricted && phamVi ? coSo.filter(c => phamVi.co_so_ids.includes(c.id)) : coSo} dangChon={coSoChon} onChon={setCoSoChon} />
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Cột Tồn đầu / Nhập / Tồn cuối ca chỉ có ở bảng THUỐC; link mở đúng tab
+              "Kiểm kê ca", kèm ngày + ca đang xem (chỉ khi xem một ngày). */}
+          {moKiemKe && loai === "thuoc" ? (
+            <Link href={`/pharmacy/inventory?${linkKiemKe}`} className={buttonClass("secondary", "sm")}>
+              Xem bảng kiểm kê đầu – cuối ca
+            </Link>
+          ) : null}
           <Button type="button" size="sm" onClick={() => window.print()} disabled={!hh}>
             In
           </Button>

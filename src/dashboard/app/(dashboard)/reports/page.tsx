@@ -8,7 +8,7 @@ import { Fragment } from "react";
 import { buttonClass } from "@/components/ui/Button";
 import { ChonCoSoLink } from "@/components/ui/ChonCoSo";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
-import { requireNavAccess } from "../../../lib/clinic-session";
+import { moDuocMan, requireNavAccess } from "../../../lib/clinic-session";
 import { layCoSo } from "../../../lib/danh-muc";
 import { fmtDate, VN_TZ } from "../../../lib/datetime";
 import PrintReportButton from "./PrintReportButton";
@@ -85,11 +85,14 @@ export default async function ReportsPage({
     );
   }
   if (dangMo === "hang-hoa") {
+    // Link "Xem bảng kiểm kê đầu – cuối ca" gác bằng ĐÚNG cửa của trang đích
+    // (`/pharmacy/inventory`) — không quyền thì ẩn, không hiện link chết.
+    const moKiemKe = await moDuocMan("/pharmacy/inventory");
     return (
       <main className="page-in min-w-0 space-y-4 p-4 lg:p-5">
         <style>{IN_CSS}</style>
         <ThanhTabBaoCao dangMo={dangMo} access={access} />
-        <BaoCaoHangHoa ngay={ngay} coSo={coSo} access={access ?? undefined} />
+        <BaoCaoHangHoa ngay={ngay} coSo={coSo} access={access ?? undefined} moKiemKe={moKiemKe} />
       </main>
     );
   }
