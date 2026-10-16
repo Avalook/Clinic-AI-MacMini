@@ -274,13 +274,16 @@ class GhiChuKhachService:
             )
             da_tra = await conn.fetchrow(
                 """
-                SELECT coalesce(sum(pm.amount), 0) AS tong, count(*) AS so_lan,
-                       max(pm.paid_at) AS lan_cuoi
-                  FROM payment pm
+                -- Sự thật tiền là `payment_cycle` (dịch vụ thu NHIỀU lần; `payment`
+                -- chỉ là hình chiếu lần mới nhất → cộng nó thì thiếu các lần trước:
+                -- prod 16/10 có 17 lần thu / 19,65 triệu không có dòng payment riêng).
+                SELECT coalesce(sum(pc.amount), 0) AS tong, count(*) AS so_lan,
+                       max(pc.paid_at) AS lan_cuoi
+                  FROM payment_cycle pc
                   JOIN visit v
-                    ON v.visit_id = pm.visit_id AND v.clinic_id = pm.clinic_id
-                 WHERE pm.clinic_id = $1::uuid AND v.clinic_patient_id = $2::uuid
-                   AND pm.status = 'PAID' AND pm.voided_at IS NULL
+                    ON v.visit_id = pc.visit_id AND v.clinic_id = pc.clinic_id
+                 WHERE pc.clinic_id = $1::uuid AND v.clinic_patient_id = $2::uuid
+                   AND pc.status = 'PAID'
                 """,
                 cid,
                 pid,

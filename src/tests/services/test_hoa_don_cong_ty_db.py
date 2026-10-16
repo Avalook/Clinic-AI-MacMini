@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import io
 import random
-from dataclasses import replace
 from typing import Any
 from uuid import uuid4
 
@@ -13,7 +12,7 @@ import asyncpg
 import pytest
 from openpyxl import load_workbook
 
-from clinicai.api.identity import ClinicRole, StaffIdentity
+from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import now_vn
 from clinicai.core.exceptions import (
     ResourceNotFoundError,
@@ -106,7 +105,7 @@ async def test_bat_bien_ban_chup_khong_doi_theo_ho_so_va_xuat_dung_cot(
     pool: asyncpg.Pool,
 ) -> None:
     q = await tao_quay(pool)
-    manager = replace(q.thu_ngan, role=ClinicRole.MANAGEMENT)
+    manager = await nguoi_theo_lego(pool, "CSKH", GOI_KE_TOAN)
     pid = await _khach(pool, q)
     c1, c2 = await _phieu(pool, q, manager), await _phieu(pool, q, manager)
     svc = HoaDonCongTyService(pool)
@@ -160,7 +159,7 @@ async def test_bat_bien_ban_chup_khong_doi_theo_ho_so_va_xuat_dung_cot(
 
 async def test_sua_ban_chup_ghi_lich_su_bo_va_ghi_lai(pool: asyncpg.Pool) -> None:
     q = await tao_quay(pool)
-    manager = replace(q.thu_ngan, role=ClinicRole.MANAGEMENT)
+    manager = await nguoi_theo_lego(pool, "CSKH", GOI_KE_TOAN)
     await _khach(pool, q)
     c = await _phieu(pool, q, manager)
     svc = HoaDonCongTyService(pool)
@@ -201,7 +200,7 @@ async def test_sua_ban_chup_ghi_lich_su_bo_va_ghi_lai(pool: asyncpg.Pool) -> Non
 
 async def test_mst_sai_van_luu_chi_nhac_va_dau_vao_rac(pool: asyncpg.Pool) -> None:
     q = await tao_quay(pool)
-    manager = replace(q.thu_ngan, role=ClinicRole.MANAGEMENT)
+    manager = await nguoi_theo_lego(pool, "CSKH", GOI_KE_TOAN)
     pid = await _khach(pool, q)
     c = await _phieu(pool, q, manager)
     svc = HoaDonCongTyService(pool)
@@ -271,7 +270,7 @@ async def test_nhieu_cong_ty_dien_san_lan_truoc_va_an_hoan_tac(
     pool: asyncpg.Pool,
 ) -> None:
     q = await tao_quay(pool)
-    manager = replace(q.thu_ngan, role=ClinicRole.MANAGEMENT)
+    manager = await nguoi_theo_lego(pool, "CSKH", GOI_KE_TOAN)
     pid = await _khach(pool, q)
     c1, c2, c3 = [await _phieu(pool, q, manager) for _ in range(3)]
     svc = HoaDonCongTyService(pool)
@@ -333,7 +332,7 @@ async def test_nhieu_cong_ty_dien_san_lan_truoc_va_an_hoan_tac(
 
 async def test_cong_quyen_theo_lego_khong_theo_vai(pool: asyncpg.Pool) -> None:
     q = await tao_quay(pool)
-    manager = replace(q.thu_ngan, role=ClinicRole.MANAGEMENT)
+    manager = await nguoi_theo_lego(pool, "CSKH", GOI_KE_TOAN)
     pid = await _khach(pool, q)
     c = await _phieu(pool, q, manager)
     svc = HoaDonCongTyService(pool)
@@ -348,8 +347,14 @@ async def test_cong_quyen_theo_lego_khong_theo_vai(pool: asyncpg.Pool) -> None:
     ):
         with pytest.raises(SafetyGateError):
             await goi
-    # Thu ngân (lúc thu) và Kế toán (sửa sau) đều ghi được.
-    await svc.ghi_hoa_don(identity=q.thu_ngan, payment_cycle_id=c, **CT_A)
+    # Từ 16/10: Thu ngân / Lễ tân / CSKH KHÔNG ghi được; chỉ Kế toán và Quản lý.
+    with pytest.raises(SafetyGateError):
+        await svc.ghi_hoa_don(identity=q.thu_ngan, payment_cycle_id=c, **CT_A)
+    le_tan = await nguoi_theo_lego(pool, "CSKH", ["tiep_don", "ds_benh_nhan"])
+    with pytest.raises(SafetyGateError):
+        await svc.ghi_hoa_don(identity=le_tan, payment_cycle_id=c, **CT_A)
+    ke_toan_dau = await nguoi_theo_lego(pool, "CSKH", GOI_KE_TOAN)
+    await svc.ghi_hoa_don(identity=ke_toan_dau, payment_cycle_id=c, **CT_A)
     ke_toan = await nguoi_theo_lego(pool, "CSKH", GOI_KE_TOAN)
     r = await svc.ghi_hoa_don(
         identity=ke_toan,
@@ -368,7 +373,7 @@ async def test_bam_ngau_nhien_40_chuoi_x_10_buoc_khop_mo_hinh(
     """Mô hình trong bộ nhớ so với DB sau MỖI bước: bản chụp, số dòng lịch sử, cột
     Excel, hồ sơ khách không kéo bản chụp theo, và tổng tiền không bao giờ đổi."""
     q = await tao_quay(pool)
-    manager = replace(q.thu_ngan, role=ClinicRole.MANAGEMENT)
+    manager = await nguoi_theo_lego(pool, "CSKH", GOI_KE_TOAN)
     pid = await _khach(pool, q)
     svc = HoaDonCongTyService(pool)
     ten_mau = ["Công ty Alpha", "Công ty Beta", "Công ty Gamma", "Hộ KD Delta"]

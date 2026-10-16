@@ -1,7 +1,7 @@
 "use client";
 
-// Công ty của khách trong HỒ SƠ (G5c, Tuyền 14/10/2026): Lễ tân / CSKH ghi trước tên +
-// địa chỉ + MST công ty để Thu ngân / Kế toán điền sẵn vào hoá đơn. Một khách nhiều
+// Công ty của khách trong HỒ SƠ (G5c, Tuyền 14/10/2026; 16/10 chỉ Kế toán + Quản lý ghi):
+// tên + địa chỉ + MST công ty để điền sẵn vào hoá đơn. Một khách nhiều
 // công ty được. Sửa ở đây KHÔNG đổi công ty đã ghi trên hoá đơn cũ (bản chụp). Gỡ = ẩn,
 // khôi phục được. Máy chủ gác quyền; không có quyền thì khối ẩn.
 

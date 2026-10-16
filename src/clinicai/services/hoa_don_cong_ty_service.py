@@ -31,15 +31,12 @@ from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.audit import record_event
 
-#: Ai ghi nhận được thông tin công ty: Lễ tân / CSKH (hồ sơ), Thu ngân (lúc thu),
-#: Kế toán (sửa sau) — mọi người có MỘT trong các quyền này. Không gác theo vai.
+#: Ai ghi nhận được thông tin công ty: Kế toán (lego Kế toán) và Quản lý (cấu hình
+#: phòng khám) — Tuyền chốt 16/10/2026 (trước đó mở cho Lễ tân/CSKH/Thu ngân).
+#: Mọi người có MỘT trong các quyền này. Không gác theo vai.
 QUYEN_CONG_TY: tuple[str, ...] = (
-    "patient.create",
-    "crm.manage",
-    "reception.checkin.perform",
-    "payment.service.collect",
-    "payment.medicine.collect",
     "accounting.finance.full",
+    "config.clinic.manage",
 )
 
 _MST_RE = re.compile(r"^[0-9]{10}(-[0-9]{3})?$")

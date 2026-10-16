@@ -199,6 +199,21 @@ async def test_tom_tat_moi_thu_cua_khach(pool: asyncpg.Pool) -> None:  # noqa: F
     assert tt["tien"]["da_tra"] > 0
     assert tt["tien"]["con_phai_thu"] == 0
 
+    # Lần thu thứ hai của cùng lượt chỉ có ở `payment_cycle` (payment = hình chiếu
+    # một dòng): "đã trả" phải cộng cả hai, không thiếu lần sau (prod 16/10: 19,65tr).
+    truoc = tt["tien"]["da_tra"]
+    await pool.execute(
+        "INSERT INTO payment_cycle(payment_cycle_id,clinic_id,visit_id,kind,amount,"
+        "status,legacy,paid_at,created_at,created_by,confirmed_by,method)"
+        " VALUES(gen_random_uuid(),$1::uuid,$2::uuid,'dich_vu',250000,'PAID',true,"
+        "now(),now(),$3::uuid,$3::uuid,'CASH')",
+        CLINIC,
+        visit,
+        ca.le_tan.staff_id,
+    )
+    tt = await sv.tom_tat(identity=ca.le_tan, clinic_patient_id=pid)
+    assert tt["tien"]["da_tra"] == truoc + 250000
+
     with pytest.raises(NotFoundError):
         await sv.tom_tat(identity=ca.le_tan, clinic_patient_id=str(uuid.uuid4()))
 
