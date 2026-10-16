@@ -113,7 +113,7 @@ def test_l1_khong_tick_ten_khach_hang_trong_thong_tin_ca_nhan() -> None:
         assert dau[6] == (ca["ca_nhan"]["email"] or "")
 
 
-def test_l2_tick_dien_dung_cot_khong_lo_email_ca_nhan() -> None:
+def test_l2_tick_dien_dung_cot_sdt_khach_khong_lo_cccd() -> None:
     for ca in _cac_ca():
         ct = ca["cong_ty"]
         _, hang = _chay(ca, tick=True)
@@ -122,9 +122,10 @@ def test_l2_tick_dien_dung_cot_khong_lo_email_ca_nhan() -> None:
         assert dau[3] == (ct["dia_chi_cong_ty"] or "")
         assert dau[4] == (ct["ma_so_thue"] or "")
         assert dau[5] == ca["khach"]["ten"]  # khách THẬT, không theo ô của công ty
-        assert dau[6] == (ct["email_nhan_hd"] or "")
-        # SĐT / CCCD cá nhân không lọt vào hoá đơn công ty.
-        assert dau[7] == "" and dau[8] == ""
+        # Email công ty; công ty chưa có thì email cá nhân của khách (Tuyền 16/10).
+        assert dau[6] == (ct["email_nhan_hd"] or ca["ca_nhan"]["email"] or "")
+        # SĐT khách ghi ở cột H; CCCD cá nhân KHÔNG lọt vào hoá đơn công ty.
+        assert dau[7] == (ca["khach"]["so_dien_thoai"] or "") and dau[8] == ""
 
 
 def test_l3_tick_khong_doi_tien() -> None:
