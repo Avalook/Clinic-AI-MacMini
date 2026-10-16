@@ -354,7 +354,7 @@ Các luồng nhiều bước (khách trả thuốc, nhận chéo giữa phòng, 
 ![Chỉ định Bio ở Bàn khám](huong-dan-1610/anh/39-ban-kham-chi-dinh-bio.jpg)
 
 - **Vào bằng:** Bàn khám → Chỉ định cận lâm sàng
-- **Có gì:** Danh sách dịch vụ theo nhóm; mục Đo trương lực cơ sàn chậu máy Bio (300.000đ, đã bao gồm đầu dò) kèm tick Bắt buộc.
-- **Cần theo dõi:** Đầu dò Bio có ở Bàn khám và cả ở Thu ngân để khách mua thêm.
-- **Bấm → tới đâu:** Tick dịch vụ → thêm vào chỉ định.
+- **Có gì:** Danh sách dịch vụ theo nhóm; mục Đo trương lực cơ sàn chậu máy Bio (300.000đ, KHÔNG gồm đầu dò) kèm tick Bắt buộc. Sau khi bấm Chỉ định, mục này hiện thêm ô chọn Đầu dò kèm chỉ định: Không dùng / Bio 1 lần 300.000đ / Bio nhiều lần 900.000đ.
+- **Cần theo dõi:** Tiền đầu dò đi theo chỉ định: bỏ chỉ định thì đầu dò bỏ theo, thu cùng hoá đơn dịch vụ. Thu ngân vẫn có chip Đầu dò Bio để khách mua thêm. Đã bấm thật 16/10: chỉ định + Bio 1 lần = 600.000đ ở Thu ngân.
+- **Bấm → tới đâu:** Tick dịch vụ → Chỉ định N mục → chọn đầu dò → Hoàn tất → khách sang Thu ngân.
 

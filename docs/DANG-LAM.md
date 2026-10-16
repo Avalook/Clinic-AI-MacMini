@@ -11,6 +11,11 @@ Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; c�
 (d) công thức tồn cuối ca (đầu + nhập − bán + trả + khác) và doanh thu thuần (vào − trả lại − giảm giá) Tuyền đã đồng ý;
 Bio vừa ở Chỉ định CLS vừa ở Thu ngân là ĐÚNG ý. Đối soát chỉ đọc 16/10: tiền thuốc/kho khớp sổ, hoàn tiền không vượt thu;
 chưa giải thích: 1 phiếu staging `payment` 700k > dòng hoá đơn 650k. Lego Kế toán đã có trên staging, chưa có trên prod (chờ lên đợt).
+**Bấm kịch bản đầy đủ 16/10 10:30 (HT, staging):** tạo khách + đặt lịch → Tiếp đón (vào thẳng Bàn tư vấn) → sinh hiệu → tư vấn → Bàn khám
+→ chỉ định Bio + đầu dò Bio 1 lần → Thu ngân 600k tiền mặt → Phòng Sàn chậu Nhận/Bắt đầu/phiếu/Xong → Báo cáo cuối ngày 600k khớp: ĐẠT.
+Việc nhỏ thấy thêm (chưa sửa): (1) Bàn khám dưới ~1536px rộng ẩn cột hàng chờ sau nút "☰ Hàng chờ" — dễ bỏ sót; (2) Thu ngân: danh sách chờ
+tự làm mới nên khung phải/ nút Tạo bill nhích chỗ giữa lúc bấm (bấm lần hai không tạo gì thêm, đã kiểm "Đã thanh toán hôm nay" = 1 phiếu);
+(3) lịch đặt "Phụ khoa" nhưng Thu ngân vẫn ghi "Chưa chọn dịch vụ khám — đang tính 0đ" nếu thu ngân không chọn loại khám.
 
 Đợt ~211 commit / 28 migration đã bấm trên staging; runbook lên prod: `docs/RUNBOOK-LEN-PROD-DOT-1610.md`; hướng dẫn bấm:
 `docs/HUONG-DAN-BAM-THU-NOTION-1610.md`. **Việc tồn đọng, làm sau (Tuyền chốt 16/10):**
