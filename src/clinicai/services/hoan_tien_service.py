@@ -131,14 +131,26 @@ class HoanTienService:
                 )
 
     async def hoan_tien_thua(
-        self, *, identity: StaffIdentity, visit_id: str, reason: object = None
+        self,
+        *,
+        identity: StaffIdentity,
+        visit_id: str,
+        reason: object = None,
+        method: object = None,
     ) -> dict[str, Any]:
         """HOÀN TIỀN THỪA của lượt (Tuyền 06/10/2026, E2): máy hoàn ĐÚNG phần
         còn thừa của từng dòng hoá đơn (chỉ định đã bỏ / không làm, dịch vụ khám
-        đã bỏ tick), tiền mặt. Không gõ số. Ai có lego Thu tiền dịch vụ.
-        Không còn gì để hoàn → trả `already`."""
+        đã bỏ tick). Không gõ số. Ai có lego Thu tiền dịch vụ.
+        Không còn gì để hoàn → trả `already`.
+
+        HÌNH THỨC (G4d, R6 — Tuyền chốt B 14/10): mặc định theo hình thức khách
+        đã trả của TỪNG lần thu gốc; ``method`` gửi lên thì dùng cho mọi khoản.
+        Trước đây luôn ghi tiền mặt → khách CK 500k, hệ ghi trả TM 500k, két lệch.
+        Hoàn chuyển khoản / QR là khoản CHỜ, xác nhận kèm mã sau (``xac_nhan``)."""
         from clinicai.services.tien_thua_service import dong_tien_thua
 
+        if method is not None and method not in PHUONG_THUC:
+            raise ValidationError(f"Phương thức hoàn không hợp lệ: {method!r}")
         ly_do = (
             _ly_do(reason)
             if isinstance(reason, str) and reason.strip()
@@ -151,17 +163,19 @@ class HoanTienService:
                 dong = (await dong_tien_thua(conn, identity.clinic_id, [visit_id])).get(
                     visit_id, []
                 )
-                nhom: dict[tuple[str, str], dict[str, Decimal]] = {}
+                nhom: dict[tuple[str, str, str], dict[str, Decimal]] = {}
                 for d in dong:
                     if d["con_sl"] <= 0 or d["so_tien"] <= 0:
                         continue
-                    k = (d["line_visit_id"], d["payment_cycle_id"])
+                    ht = str(method or d.get("hinh_thuc") or "CASH")
+                    k = (d["line_visit_id"], d["payment_cycle_id"], ht)
                     nhom.setdefault(k, {})[d["line_id"]] = d["con_sl"]
                 if not nhom:
                     return {"ok": True, "already": True, "amount": 0, "refund_ids": []}
                 tong = 0
                 ids: list[str] = []
-                for (vid, cycle), yeu_cau in sorted(nhom.items()):
+                theo_hinh_thuc: dict[str, int] = {}
+                for (vid, cycle, ht), yeu_cau in sorted(nhom.items()):
                     kq = await _tao_trong(
                         conn,
                         identity=identity,
@@ -169,12 +183,18 @@ class HoanTienService:
                         visit_id=vid,
                         kind="dich_vu",
                         yeu_cau=yeu_cau,
-                        method="CASH",
+                        method=ht,
                         ly_do=ly_do,
                     )
                     tong += int(kq["amount"])
+                    theo_hinh_thuc[ht] = theo_hinh_thuc.get(ht, 0) + int(kq["amount"])
                     ids.append(str(kq["refund_id"]))
-        return {"ok": True, "amount": tong, "refund_ids": ids}
+        return {
+            "ok": True,
+            "amount": tong,
+            "refund_ids": ids,
+            "theo_hinh_thuc": theo_hinh_thuc,
+        }
 
     async def xac_nhan(
         self, *, identity: StaffIdentity, refund_id: str, reference: object

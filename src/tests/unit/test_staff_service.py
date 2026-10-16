@@ -321,3 +321,65 @@ async def test_deactivate_not_found_raises() -> None:
 
     with pytest.raises(ResourceNotFoundError, match=str(missing_id)):
         await svc.deactivate(missing_id)
+
+
+@pytest.mark.asyncio
+async def test_deactivate_self_raises_validation_error() -> None:
+    """Actor cannot deactivate their own staff membership."""
+    from clinicai.api.identity import ClinicRole, StaffIdentity
+
+    pool, _ = _mock_pool_and_conn()
+    actor = StaffIdentity(
+        staff_id=str(FAKE_STAFF_ID),
+        auth_user_id=str(uuid4()),
+        full_name="Tôi",
+        department="DOCTOR",
+        role=ClinicRole("DOCTOR"),
+        clinic_id=str(FAKE_CLINIC_ID),
+        location_id=str(FAKE_LOCATION_ID),
+        location_name="Cơ sở test",
+    )
+    svc = StaffService(pool, str(FAKE_CLINIC_ID), actor=actor)
+
+    with pytest.raises(
+        ValidationError, match="Không thể tự khoá tài khoản của chính mình"
+    ):
+        await svc.deactivate(FAKE_STAFF_ID)
+
+
+@pytest.mark.asyncio
+async def test_activate_sets_active() -> None:
+    """activate should re-enable staff membership and global record."""
+    pool, conn = _mock_pool_and_conn()
+    conn.fetchrow.return_value = {"staff_id": FAKE_STAFF_ID}
+
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
+    res = await svc.activate(FAKE_STAFF_ID)
+
+    assert res == {"ok": True}
+    sql_arg = conn.fetchrow.call_args[0][0]
+    assert "UPDATE clinic_membership" in sql_arg
+    assert "is_active = TRUE" in sql_arg
+    assert any("UPDATE staff" in call.args[0] for call in conn.execute.call_args_list)
+
+
+@pytest.mark.asyncio
+async def test_ca_truc_tuong_lai() -> None:
+    """ca_truc_tuong_lai should return future roster shifts."""
+    pool, conn = _mock_pool_and_conn()
+    conn.fetch.return_value = [
+        {
+            "id": uuid4(),
+            "work_date": datetime.date(2026, 10, 15),
+            "shift": "SANG",
+            "station": "T1_LETAN",
+            "status": "APPROVED",
+        }
+    ]
+
+    svc = StaffService(pool, str(FAKE_CLINIC_ID))
+    shifts = await svc.ca_truc_tuong_lai(FAKE_STAFF_ID)
+
+    assert len(shifts) == 1
+    assert shifts[0]["shift"] == "SANG"
+    assert shifts[0]["station"] == "T1_LETAN"

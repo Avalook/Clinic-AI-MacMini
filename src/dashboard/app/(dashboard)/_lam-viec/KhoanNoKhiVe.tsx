@@ -24,6 +24,8 @@ import { loiDocDuoc } from "@/lib/loi-doc-duoc";
 import { INPUT } from "../form-ui";
 import { useQuyen } from "../QuyenContext";
 
+import NutHoanTienThua from "./NutHoanTienThua";
+
 export interface DongNo {
   loai: "dich_vu" | "thuoc" | string;
   source_id: string;
@@ -34,6 +36,8 @@ export interface DongNo {
 /** Tiền thừa lúc về (06/10/2026, E2a) — máy chủ tính, màn chỉ vẽ. */
 export interface TienThuaKhiVe {
   tong: number;
+  /** Số thừa theo hình thức khách đã trả — mặc định hoàn theo đó (G4d, R6). */
+  theo_hinh_thuc?: Record<string, number>;
   dong: { ten: string | null; so_tien: number; loai: string; ly_do: string | null }[];
   giu_lai: { id: string; so_tien: number; ly_do: string; boi: string | null; luc: string | null } | null;
   /** Còn tiền thừa chưa hoàn / chưa giữ lại phủ đủ → chặn check-out. */
@@ -110,7 +114,6 @@ export default function KhoanNoKhiVe({
     hanhDong:
       | "ghi_no"
       | "huy_ghi_no"
-      | "hoan_tien_thua"
       | "giu_lai_tien_thua"
       | "huy_giu_lai_tien_thua",
   ) {
@@ -199,14 +202,12 @@ export default function KhoanNoKhiVe({
           {mo === null ? (
             <div className="flex flex-wrap items-center gap-2">
               {tt.chan ? (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  disabled={dangGui}
-                  onClick={() => void gui("hoan_tien_thua")}
-                >
-                  {dangGui ? "Đang hoàn…" : `Đã hoàn cho khách — hoàn ${tien(tt.tong)} tiền mặt`}
-                </Button>
+                <NutHoanTienThua
+                  visitId={visitId}
+                  tong={tt.tong}
+                  theoHinhThuc={tt.theo_hinh_thuc}
+                  onDoi={onDoi}
+                />
               ) : null}
               {tt.chan ? (
                 <Button size="sm" variant="secondary" onClick={() => setMo("giu")}>

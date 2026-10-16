@@ -13,8 +13,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
+import OChon from "@/components/ui/OChon";
 import { INPUT } from "../form-ui";
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
+import KhoConChuyenQuay from "./KhoConChuyenQuay";
 import {
   NHAN_CAP,
   fmtNgay,
@@ -29,6 +31,8 @@ interface Props {
   danhMuc: ThuocDanhMuc[];
   /** Người xem không có quyền ghi — câu "chưa có thao tác" không nói về giai đoạn. */
   chiXem?: boolean;
+  /** Lô chọn sẵn do quét hộp / tem (G3b) — chỉ ĐIỀN SẴN ô chọn, dược sĩ bấm Chọn lô. */
+  loQuet?: string | null;
 }
 
 const O_NHAP = `${INPUT} mt-1`;
@@ -43,7 +47,7 @@ function nhanLo(b: LoGoiY): string {
   );
 }
 
-export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
+export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null }: Props) {
   const router = useRouter();
   const tt = dong.thao_tac;
   const [thuocId, setThuocId] = useState(dong.drug_catalog_id ?? "");
@@ -54,8 +58,13 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
   // Rơi về lô đầu tiên khi chưa chọn: trình duyệt tô sẵn option đầu, nên giá
   // trị bên trong cũng phải là nó — không thì nút bị khoá mà không ai biết vì
   // sao (bấm thử 19/09: xác định thuốc xong, ô lô hiện X nhưng state còn rỗng).
-  const [loChonTay, setLoChon] = useState("");
+  const [loChonTay, setLoChon] = useState(
+    loQuet && dong.lo_goi_y.some((b) => b.drug_batch_id === loQuet) ? loQuet : "",
+  );
   const loChon = loChonTay || (dong.lo_goi_y[0]?.drug_batch_id ?? "");
+  // Lô vừa QUÉT (tem / mã vuông): giao không lô thì giao thẳng từ lô ấy — kho trừ
+  // ngay, dòng "Đã giao … Lô …" có đủ để khách trả; không thì chữ "điền sẵn lô" nói dối.
+  const loGiaoQuet = loQuet ? dong.lo_goi_y.find((b) => b.drug_batch_id === loQuet) : undefined;
   const [soChon, setSoChon] = useState(conCanLo > 0 ? String(conCanLo) : "");
   const [soGiao, setSoGiao] = useState<Record<string, string>>({});
   const [loDoi, setLoDoi] = useState<Record<string, string>>({});
@@ -65,6 +74,10 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
   const [soKhongLo, setSoKhongLo] = useState(conGiao > 0 ? String(conGiao) : "");
   const [lyDo, setLyDo] = useState("");
   const [soTra, setSoTra] = useState<Record<string, string>>({});
+  // Tiền phần khách trả (G4d · R3, Tuyền chốt E): BẮT chọn — máy chủ quyết số tiền.
+  const [ketCuc, setKetCuc] = useState<Record<string, string>>({});
+  const [hinhThucHoan, setHinhThucHoan] = useState<Record<string, string>>({});
+  const [lyDoGiu, setLyDoGiu] = useState<Record<string, string>>({});
   const [dangGui, setDangGui] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
 
@@ -326,6 +339,15 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
         </div>
       ) : null}
 
+      {/* ── Tách kho / quầy (G7): quầy hết lô mà kho còn → chuyển ngay tại đây ── */}
+      {tt.chon_lo && (dong.kho_con?.length ?? 0) > 0 && dong.lo_goi_y.length === 0 ? (
+        <KhoConChuyenQuay
+          khoCon={dong.kho_con ?? []}
+          can={conCanLo}
+          tenThuoc={dong.drug_name_raw ?? "thuốc"}
+          chiXem={chiXem}
+        />
+      ) : null}
       {/* ── Chọn lô ── */}
       {tt.chon_lo ? (
         dong.lo_goi_y.length === 0 ? (
@@ -399,12 +421,20 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
             variant="primary"
             disabled={dangGui || !soKhongLo}
             onClick={() =>
-              goi("dispense", { prescription_id: dong.id, so_luong: Number(soKhongLo) })
+              goi("dispense", {
+                prescription_id: dong.id,
+                so_luong: Number(soKhongLo),
+                ...(loGiaoQuet ? { drug_batch_id: loGiaoQuet.drug_batch_id } : {}),
+              })
             }
           >
             Giao thuốc
           </Button>
-          <span className="text-meta text-ink-muted">Chưa cần lô — gán lô sau ở Kho thuốc.</span>
+          <span className="text-meta text-ink-muted">
+            {loGiaoQuet
+              ? `Giao từ lô ${loGiaoQuet.batch_code} (đã quét) — kho trừ ngay.`
+              : "Chưa cần lô — gán lô sau ở Kho thuốc."}
+          </span>
         </div>
       ) : null}
 
@@ -447,7 +477,7 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
         </div>
       ) : null}
 
-      {/* ── CP5: đã giao → khách trả thuốc (chỉ ghi nhận, chưa quyết xử lý) ── */}
+      {/* ── CP5: đã giao → khách trả thuốc (thuốc chưa quyết xử lý; tiền bắt chọn — R3) ── */}
       {dong.xuat.length > 0 ? (
         <div>
           <span className={NHAN}>Đã giao</span>
@@ -474,15 +504,68 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
                         className={O_NHAP}
                       />
                     </label>
+                    <label className={`${NHAN} w-44`}>
+                      Tiền phần trả
+                      <OChon
+                        value={ketCuc[x.dispense_txn_id] ?? ""}
+                        onChange={(e) =>
+                          setKetCuc((s) => ({ ...s, [x.dispense_txn_id]: e.target.value }))
+                        }
+                        aria-label="Tiền phần khách trả"
+                      >
+                        <option value="">Chọn…</option>
+                        <option value="HOAN">Hoàn tiền</option>
+                        <option value="DOI">Đổi thuốc khác</option>
+                        <option value="GIU_LAI">Giữ lại tiền</option>
+                      </OChon>
+                    </label>
+                    {ketCuc[x.dispense_txn_id] === "HOAN" || ketCuc[x.dispense_txn_id] === "DOI" ? (
+                      <label className={`${NHAN} w-44`}>
+                        Hình thức hoàn
+                        <OChon
+                          value={hinhThucHoan[x.dispense_txn_id] ?? ""}
+                          onChange={(e) =>
+                            setHinhThucHoan((s) => ({ ...s, [x.dispense_txn_id]: e.target.value }))
+                          }
+                          aria-label="Hình thức hoàn tiền thuốc trả"
+                        >
+                          <option value="">Như khách đã trả</option>
+                          <option value="CASH">Tiền mặt</option>
+                          <option value="TRANSFER">Chuyển khoản</option>
+                        </OChon>
+                      </label>
+                    ) : null}
+                    {ketCuc[x.dispense_txn_id] === "GIU_LAI" ? (
+                      <label className={`${NHAN} min-w-48 flex-1`}>
+                        Vì sao giữ lại tiền
+                        <input
+                          value={lyDoGiu[x.dispense_txn_id] ?? ""}
+                          onChange={(e) =>
+                            setLyDoGiu((s) => ({ ...s, [x.dispense_txn_id]: e.target.value }))
+                          }
+                          maxLength={500}
+                          placeholder="vd: khách để lại trừ lần mua sau"
+                          className={O_NHAP}
+                        />
+                      </label>
+                    ) : null}
                     <Button className={CHAM}
                       disabled={
-                        dangGui || !soTra[x.dispense_txn_id] || lyDo.trim().length < 3
+                        dangGui ||
+                        !soTra[x.dispense_txn_id] ||
+                        lyDo.trim().length < 3 ||
+                        !ketCuc[x.dispense_txn_id] ||
+                        (ketCuc[x.dispense_txn_id] === "GIU_LAI" &&
+                          (lyDoGiu[x.dispense_txn_id] ?? "").trim().length < 3)
                       }
                       onClick={() =>
                         goi("khach-tra", {
                           dispense_txn_id: x.dispense_txn_id,
                           so_luong: Number(soTra[x.dispense_txn_id]),
                           ly_do: lyDo,
+                          ket_cuc_tien: ketCuc[x.dispense_txn_id],
+                          hinh_thuc: hinhThucHoan[x.dispense_txn_id] || null,
+                          ly_do_tien: lyDoGiu[x.dispense_txn_id] ?? null,
                         })
                       }
                     >
@@ -496,7 +579,9 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false }: Props) {
           {dong.xuat.some((x) => x.da_tra > 0) ? (
             <p className="mt-1 text-meta text-ink-faint">
               Thuốc khách trả đã về quầy nhưng CHƯA bán lại được — chờ quyết định xử lý của phòng
-              khám. Ghi nhận khách trả không tự hoàn tiền.
+              khám. Tiền phần trả theo lựa chọn lúc ghi nhận: hoàn tiền / đổi thuốc (tạo khoản
+              hoàn, chuyển khoản là khoản “Chờ chuyển”) hoặc giữ lại (vẫn là tiền phòng khám nợ
+              khách).
             </p>
           ) : null}
         </div>

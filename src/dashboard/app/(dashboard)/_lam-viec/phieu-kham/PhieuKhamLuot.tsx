@@ -22,9 +22,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import BaoLoiCanhNut from "@/components/ui/BaoLoiCanhNut";
 import Button, { buttonClass } from "@/components/ui/Button";
 import { congTuLuu, type ClinicalCompletionGate } from "@/lib/clinical-completion";
-import { SU_KIEN_BANG, SU_KIEN_THAI_KY } from "@/lib/nhip-lam-moi";
+import { gopChiDinhChuaGui, type ChiDinhChuaGui } from "@/lib/chi-dinh-chua-gui";
+import { gopDoc } from "@/lib/doc-gop";
+import { SU_KIEN_THAI_KY } from "@/lib/nhip-lam-moi";
 import { LOI_MAT_KET_NOI, nenThuLai, type KetQuaGui, type TrangThaiLuu } from "@/lib/tu-luu";
 import { useTuLuu } from "@/lib/use-tu-luu";
+
+import { useNgheBang } from "../../dung-nghe-bang";
 import {
   donTuDong,
   docKhoi1,
@@ -74,12 +78,15 @@ interface ThamChieuDu extends ThamChieu {
 
 const CHO_LUU_DON_MS = 1500;
 /** Bảng mà đổi thì danh sách chỉ định + kết quả có thể đổi. */
-const BANG_KET_QUA = new Set(["service_order", "form_instance", "tep_ket_qua"]);
+const BANG_KET_QUA = ["service_order", "form_instance", "tep_ket_qua"] as const;
 
 async function doc<T>(url: string): Promise<T | null> {
-  const r = await fetch(url, { cache: "no-store" }).catch(() => null);
-  if (!r || !r.ok) return null;
-  return (await r.json().catch(() => null)) as T | null;
+  // Một lượt đọc một lúc cho mỗi đường dẫn (`lib/doc-gop`) — kết quả dùng chung, chỉ đọc.
+  return gopDoc(url, async () => {
+    const r = await fetch(url, { cache: "no-store" }).catch(() => null);
+    if (!r || !r.ok) return null;
+    return (await r.json().catch(() => null)) as T | null;
+  });
 }
 
 async function ghi(
@@ -116,6 +123,7 @@ export default function PhieuKhamLuot({
   datChiDinh,
   onDaDat,
   onTrangThai,
+  onChuaGui,
   chiMuc,
   chanRay,
   onTomTat,
@@ -133,6 +141,9 @@ export default function PhieuKhamLuot({
   onDaBoChiDinh?: () => void;
   /** Báo cho nút Hoàn tất: còn đang lưu dở / lỗi lưu thì nói ra. */
   onTrangThai?: (g: ClinicalCompletionGate) => void;
+  /** Báo còn mục tick ở khối chỉ định CHƯA gửi (null = hết) — nút Hoàn tất /
+   *  chuyển khách của màn cha chặn và hỏi lại thay vì để tick mất (14/10/2026). */
+  onChuaGui?: (c: ChiDinhChuaGui | null) => void;
   /** Chỉ vẽ các mục này của phiếu (bàn tư vấn: `["B"]`). */
   chiMuc?: string[];
   /** Nút Hoàn tất của bàn khám — vẽ ở chân cột phải (Tuyền 27/09/2026). */
@@ -238,47 +249,20 @@ export default function PhieuKhamLuot({
   // SỐ LƯỢNG DO QUẦY THU THUỐC ĐIỀN (C14, 01/10/2026): bác sĩ vội để trống, quầy
   // điền lúc thu — màn kê đơn đang mở tự hiện số ấy + nhãn "SL do thu ngân điền".
   // Chỉ gộp dòng bác sĩ còn để trống (`gopSoLuongQuayDien`) — không đè chữ đang gõ.
-  useEffect(() => {
-    let hen: ReturnType<typeof setTimeout> | undefined;
-    const khiBangDoi = (ev: Event) => {
-      const bang = (ev as CustomEvent<string | null>).detail;
-      if (bang !== null && bang !== "prescription") return;
-      if (document.visibilityState === "hidden") return;
-      clearTimeout(hen);
-      hen = setTimeout(() => {
-        void napDon().then((may) => {
-          if (!may) return;
-          const gop = gopSoLuongQuayDien(donRef.current, may);
-          if (gop) datDon(gop);
-        });
-      }, 400);
-    };
-    window.addEventListener(SU_KIEN_BANG, khiBangDoi);
-    return () => {
-      clearTimeout(hen);
-      window.removeEventListener(SU_KIEN_BANG, khiBangDoi);
-    };
-  }, [napDon, datDon]);
+  // Nghe qua `useNgheBang` (gộp nhịp + lệch ngẫu nhiên + một lượt một lúc + tab ẩn
+  // không tải) thay cho bản tự hẹn giờ 400ms — 14/10/2026.
+  useNgheBang(["prescription"], async () => {
+    const may = await napDon();
+    if (!may) return;
+    const gop = gopSoLuongQuayDien(donRef.current, may);
+    if (gop) datDon(gop);
+  });
 
   // KẾT QUẢ TỰ HIỆN (lát 4, 26/09/2026). Màn này tự fetch nên `router.refresh`
   // không với tới — nghe chung dòng tin của RealtimeRefresher (không mở kết nối
   // riêng). CHỈ nạp lại danh sách chỉ định + kết quả (chỉ đọc); phiếu đang gõ
   // KHÔNG nạp lại để không đè chữ người đang nhập.
-  useEffect(() => {
-    let hen: ReturnType<typeof setTimeout> | undefined;
-    const khiBangDoi = (ev: Event) => {
-      const bang = (ev as CustomEvent<string | null>).detail;
-      if (bang !== null && !BANG_KET_QUA.has(bang)) return;
-      if (document.visibilityState === "hidden") return;
-      clearTimeout(hen);
-      hen = setTimeout(() => void napKetQua(), 250);
-    };
-    window.addEventListener(SU_KIEN_BANG, khiBangDoi);
-    return () => {
-      clearTimeout(hen);
-      window.removeEventListener(SU_KIEN_BANG, khiBangDoi);
-    };
-  }, [napKetQua]);
+  useNgheBang(BANG_KET_QUA, napKetQua);
 
   const onLuu = useCallback(
     async (goi: Record<string, ONhap>, keepalive: boolean): Promise<KetQuaLuu> => {
@@ -397,6 +381,23 @@ export default function PhieuKhamLuot({
     (tt: TrangThaiLuu, luuNgay: () => Promise<boolean>) => setLuuPhieu({ tt, luuNgay }),
     [],
   );
+  // Mục tick chưa gửi của các danh mục chỉ định (cận lâm sàng + thủ thuật) —
+  // gộp một cổng cho nút Hoàn tất.
+  const [chuaGuiTheo, setChuaGuiTheo] = useState<Record<string, ChiDinhChuaGui | null>>({});
+  const baoChuaGuiCls = useCallback(
+    (c: ChiDinhChuaGui | null) => setChuaGuiTheo((cu) => ({ ...cu, cls: c })),
+    [],
+  );
+  const baoChuaGuiTt = useCallback(
+    (c: ChiDinhChuaGui | null) => setChuaGuiTheo((cu) => ({ ...cu, tt: c })),
+    [],
+  );
+  useEffect(() => {
+    if (!onChuaGui) return;
+    onChuaGui(gopChiDinhChuaGui(Object.values(chuaGuiTheo)));
+    // Phiếu đóng / đổi khách: không để màn cha giữ cổng của phiếu đã không còn.
+    return () => onChuaGui(null);
+  }, [chuaGuiTheo, onChuaGui]);
   const phieuDangVe = Boolean(phieu) && !chonDuoc;
   useEffect(() => {
     if (!onTrangThai) return;
@@ -486,6 +487,8 @@ export default function PhieuKhamLuot({
         }
       : undefined,
     choDien: choGhi,
+    // Đầu dò Bio chọn ở chỉ định CLS (G9, 14/10/2026).
+    dauDoLuot: visitId,
     clinicPatientId,
     onDoi: () => {
       void napKetQua();
@@ -574,13 +577,21 @@ export default function PhieuKhamLuot({
         {choGhi ? (
           <section className="space-y-2 rounded-card border border-hairline bg-surface p-4">
             <h2 className="text-title text-ink">Kê chỉ định</h2>
-            <DanhMucChiDinh nhom={dsCls} daDat={daDat} daChiDinh={ketQua} onDat={dat} chiDoc={!choGhi} />
+            <DanhMucChiDinh
+              nhom={dsCls}
+              daDat={daDat}
+              daChiDinh={ketQua}
+              onDat={dat}
+              chiDoc={!choGhi}
+              onChuaGui={baoChuaGuiCls}
+            />
             <DanhMucChiDinh
               nhom={nhomThuThuat(tc?.thu_thuat)}
               daDat={daDat}
               daChiDinh={ketQua}
               onDat={dat}
               chiDoc={!choGhi}
+              onChuaGui={baoChuaGuiTt}
             />
           </section>
         ) : null}
@@ -715,6 +726,7 @@ export default function PhieuKhamLuot({
             lan={lanChiDinh}
             onDat={dat}
             chiDoc={!choGhi}
+            onChuaGui={baoChuaGuiCls}
           />
         }
         oThuThuat={
@@ -725,6 +737,7 @@ export default function PhieuKhamLuot({
             lan={lanChiDinh}
             onDat={dat}
             chiDoc={!choGhi}
+            onChuaGui={baoChuaGuiTt}
           />
         }
         maThuThuat={maThuThuat}

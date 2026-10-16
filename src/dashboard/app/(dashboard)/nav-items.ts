@@ -29,7 +29,9 @@ import {
   PhoneCall,
   Route,
   FileSpreadsheet,
+  Calculator,
   Trash2,
+  Boxes,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -196,6 +198,8 @@ export const NAV: NavItem[] = [
     label: "Kho thuốc",
     icon: ClipboardList,
   },
+  // Kho vật tư (G8a, 14/10/2026) — kho riêng, không lẫn kho thuốc (`vat_tu.manage`).
+  { href: "/kho-vat-tu", label: "Kho vật tư", icon: Boxes },
   {
     href: "/pharmacy/history",
     label: "Lịch sử bàn giao",
@@ -221,6 +225,9 @@ export const NAV: NavItem[] = [
   { href: "/reports", label: "Báo cáo", icon: BarChart3 },
   { href: "/hoa-don", label: "Danh sách hoá đơn", icon: Receipt },
   { href: "/xuat-hoa-don", label: "Xuất hoá đơn", icon: FileSpreadsheet },
+  // Chỗ làm việc của kế toán (14/10/2026): lego "Kế toán" — theo hàng hoá, về sau
+  // thuế suất / hoá đơn công ty.
+  { href: "/ke-toan", label: "Kế toán", icon: Calculator },
   {
     href: "/audit-log",
     label: "Lịch sử thao tác",
@@ -718,6 +725,9 @@ export const THANH_DUOI: Partial<Record<ClinicRole, readonly string[]>> = {
   // 25/09: Bảng giá thuốc OFF khỏi thanh bên (giá thuốc sửa ở Kho thuốc).
   CASHIER_THUOC: ["/home", "/thu-ngan/thuoc", "/patient-list", "/customers"],
   CASHIER_DV: ["/home", "/thu-ngan/dich-vu", "/cashier/dich-vu", "/customers"],
+  // Kế toán (16/10/2026): chỗ làm việc → hoá đơn → báo cáo. Chỉ chọn trong những
+  // mục thanh bên ĐÃ hiện (theo lego); thiếu lego nào thì mục đó tự rơi.
+  ACCOUNTANT: ["/home", "/ke-toan", "/xuat-hoa-don", "/reports"],
 };
 
 /** Bốn nút của thanh dưới cho vai này, luôn là TẬP CON của thanh bên. */
@@ -789,7 +799,7 @@ export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly
     ten: "Khách hàng",
     hrefs: ["/appointments", "/appointments/cho-xep-bac-si", "/customers", "/nhac-tai-kham", "/patient-list", "/patients/new"],
   },
-  { ma: "thuoc", ten: "Nhà thuốc", hrefs: ["/pharmacy", "/pharmacy/inventory", "/pharmacy/history", "/pharmacy/consult"] },
+  { ma: "thuoc", ten: "Nhà thuốc", hrefs: ["/pharmacy", "/pharmacy/inventory", "/kho-vat-tu", "/pharmacy/history", "/pharmacy/consult"] },
   { ma: "dieu-hanh", ten: "Điều hành", hrefs: ["/truong-ca", "/truong-ca/tv", "/truong-ca/lich-su", "/schedule"] },
   {
     ma: "quan-tri",
@@ -809,6 +819,7 @@ export const NHOM_CONG_VIEC: readonly { ma: string; ten: string; hrefs: readonly
       "/reports",
       "/hoa-don",
       "/xuat-hoa-don",
+      "/ke-toan",
       "/lich-do-ve",
       "/ops",
       "/audit-log",

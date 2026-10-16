@@ -17,6 +17,7 @@ import { INPUT, LABEL } from "./form-ui";
 import DateField from "./DateField";
 import { linhVucLabel } from "../../lib/linh-vuc";
 import { nhanLoi } from "../../lib/loi-api";
+import CongTyKhach from "./CongTyKhach";
 
 export interface PatientAdmin {
   clinic_patient_id: string;
@@ -24,6 +25,8 @@ export interface PatientAdmin {
   date_of_birth: string | null;
   phone_primary: string | null;
   phone_secondary: string | null;
+  national_id_number?: string | null;
+  email?: string | null;
   gender: string | null;
   ethnicity: string | null;
   nationality: string | null;
@@ -44,6 +47,8 @@ type Form = {
   date_of_birth: string;
   phone_primary: string;
   phone_secondary: string;
+  national_id_number: string;
+  email: string;
   gender: string;
   ethnicity: string;
   nationality: string;
@@ -59,6 +64,8 @@ function toForm(p: PatientAdmin): Form {
     date_of_birth: p.date_of_birth ?? "",
     phone_primary: p.phone_primary ?? "",
     phone_secondary: p.phone_secondary ?? "",
+    national_id_number: p.national_id_number ?? "",
+    email: p.email ?? "",
     gender: p.gender ?? "",
     ethnicity: p.ethnicity ?? "",
     nationality: p.nationality ?? "",
@@ -140,42 +147,73 @@ export default function PatientAdminEditor({
   }
 
   async function save() {
-    if (!form.full_name.trim()) return setError("Phải nhập họ tên.");
-    const ve =
-      phoneError(form.phone_primary) || phoneError(form.phone_secondary);
-    if (ve) return setError(ve);
+    const curForm = toForm(cur);
+    const changes: Partial<Record<keyof Form, string | null>> = {};
+    for (const key of Object.keys(form) as (keyof Form)[]) {
+      if (form[key] !== curForm[key]) {
+        changes[key] = form[key].trim() || null;
+      }
+    }
+
+    if (Object.keys(changes).length === 0) {
+      setEditing(false);
+      return;
+    }
+
+    if ("full_name" in changes && !form.full_name.trim()) {
+      return setError("Phải nhập họ tên.");
+    }
+
+    // Chỉ kiểm tra SĐT nếu SĐT ĐÃ ĐỔI (khách Notion SĐT cũ dạng lạ sửa trường khác vẫn lưu được)
+    if ("phone_primary" in changes && form.phone_primary.trim()) {
+      const ve = phoneError(form.phone_primary);
+      if (ve) return setError(ve);
+    }
+    if ("phone_secondary" in changes && form.phone_secondary.trim()) {
+      const ve = phoneError(form.phone_secondary);
+      if (ve) return setError(ve);
+    }
+
+    if ("national_id_number" in changes && form.national_id_number.trim()) {
+      const rawCccd = form.national_id_number.trim();
+      if (!/^(\d{9}|\d{12})$/.test(rawCccd)) {
+        return setError("Số CCCD phải gồm 9 hoặc 12 chữ số.");
+      }
+    }
+
     setBusy(true);
     setError(null);
+
+    const payload = {
+      clinic_patient_id: cur.clinic_patient_id,
+      // THẺ KHOÁ LẠC QUAN: mốc hồ sơ lúc màn hình này ĐỌC nó. Backend chỉ ghi
+      // đè nếu dưới database vẫn đúng mốc ấy.
+      sua_luc: cur.updated_at ?? undefined,
+      ...changes,
+    };
+
     const res = await fetch("/api/patients", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clinic_patient_id: cur.clinic_patient_id,
-        // THẺ KHOÁ LẠC QUAN: mốc hồ sơ lúc màn hình này ĐỌC nó. Backend chỉ ghi
-        // đè nếu dưới database vẫn đúng mốc ấy.
-        //
-        // Đo ngày 11/08/2026: hai người cùng mở một hồ sơ và cùng bấm Lưu thì CẢ
-        // HAI đều nhận 200. Người bấm trước mất trắng phần mình vừa nhập và
-        // không hề biết — màn hình họ vẫn báo "Đã lưu thông tin."
-        //
-        // Bỏ trống thì backend không khoá (giữ đường cũ cho các màn chưa cập
-        // nhật), nên chỗ nào KHÔNG gửi mốc thì chỗ đó vẫn ghi đè được như trước.
-        sua_luc: cur.updated_at ?? undefined,
-        ...form,
-      }),
+      body: JSON.stringify(payload),
     });
     setBusy(false);
     if (!res.ok) {
       const than = await res.json().catch(() => null);
       return setError(nhanLoi(than, "Lỗi lưu."));
     }
-    // Cập nhật hiển thị NGAY + đồng bộ phần còn lại của trang (server refetch).
-    // Mốc mới đi kèm: không lấy mốc mới thì lần lưu THỨ HAI trong cùng phiên sẽ
-    // gửi mốc đã cũ và bị chính khoá này từ chối.
-    const luu = (await res.json().catch(() => null)) as {
-      updated_at?: string;
-    } | null;
-    setCur({ ...cur, ...form, updated_at: luu?.updated_at ?? cur.updated_at });
+
+    const luu = (await res.json().catch(() => null)) as Partial<PatientAdmin> | null;
+    setCur((prev) => ({
+      ...prev,
+      ...changes,
+      full_name: changes.full_name ? changes.full_name : prev.full_name,
+      updated_at: luu?.updated_at ?? prev.updated_at,
+      ...(luu?.national_id_number !== undefined
+        ? { national_id_number: luu.national_id_number }
+        : {}),
+      ...(luu?.email !== undefined ? { email: luu.email } : {}),
+    }));
     setEditing(false);
     setMsg("Đã lưu thông tin.");
     router.refresh();
@@ -184,11 +222,6 @@ export default function PatientAdminEditor({
   if (!editing) {
     return (
       <div className="space-y-2">
-        {/* MỘT THÔNG TIN MỘT DÒNG (Quang chốt 09/08/2026).
-            Hai cột ở đây nằm trong cột phải vốn đã hẹp, nên mỗi ô còn ~5rem cho
-            giá trị: "Nguyễn Thị Hoa" xuống thành ba dòng và ngắt giữa chữ
-            ("Nguyễ / n Thị / Hoa"), "Việt Nam" thành hai. Tiết kiệm chiều cao
-            bằng cách làm tên người không đọc được là một cái đổi tồi. */}
         <dl className="space-y-1.5">
           <Row label="Họ tên" value={cur.full_name} />
           <Row
@@ -196,6 +229,8 @@ export default function PatientAdminEditor({
             value={cur.date_of_birth ? fmtDate(cur.date_of_birth) : null}
           />
           <Row label="Giới tính" value={cur.gender} />
+          <Row label="Số CCCD" value={cur.national_id_number} khiTrong="Không có" />
+          <Row label="Email" value={cur.email} khiTrong="Không có" />
           <Row label="Dân tộc" value={cur.ethnicity} />
           <Row label="Quốc tịch" value={cur.nationality} />
           <Row label="Nghề nghiệp" value={cur.occupation} />
@@ -216,10 +251,6 @@ export default function PatientAdminEditor({
                 </button>
               </div>
             ))}
-          {/* "Không có" chứ không phải "—".
-              Gạch ngang nói "chỗ này trống", và trống thì đọc thành "chưa ai
-              nhập" — người trực sẽ đi hỏi lại khách một số điện thoại vốn
-              không tồn tại. "Không có" nói rằng CÂU HỎI ĐÃ ĐƯỢC HỎI. */}
           <Row
             label="SĐT người nhà"
             value={cur.phone_secondary}
@@ -252,6 +283,7 @@ export default function PatientAdminEditor({
             <Row label="Vấn đề đi khám" value={cur.van_de_di_kham} />
           )}
         </dl>
+        <CongTyKhach clinicPatientId={cur.clinic_patient_id} />
         <div className="flex items-center gap-2">
           <button
             onClick={startEdit}
@@ -297,6 +329,29 @@ export default function PatientAdminEditor({
             <option value="Nam">Nam</option>
             <option value="Khác">Khác</option>
           </select>
+        </div>
+        <div>
+          <label className={LABEL}>Số CCCD</label>
+          <input
+            className={INPUT}
+            inputMode="numeric"
+            maxLength={12}
+            placeholder="9 hoặc 12 chữ số"
+            value={form.national_id_number}
+            onChange={(e) =>
+              set("national_id_number", digitsOnly(e.target.value).slice(0, 12))
+            }
+          />
+        </div>
+        <div>
+          <label className={LABEL}>Email</label>
+          <input
+            className={INPUT}
+            type="email"
+            placeholder="email@example.com"
+            value={form.email}
+            onChange={(e) => set("email", e.target.value)}
+          />
         </div>
         <div>
           <label className={LABEL}>SĐT chính</label>

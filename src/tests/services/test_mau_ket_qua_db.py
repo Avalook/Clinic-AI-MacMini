@@ -152,9 +152,15 @@ async def test_quan_ly_gan_duoc_va_bac_si_doc_duoc(pool: asyncpg.Pool) -> None:
     async with pool.acquire() as conn:
         quan_ly = await _nguoi(conn, "MANAGEMENT")
         bac_si = await _nguoi(conn, "DOCTOR")
+        # Dịch vụ CHƯA gắn mẫu nào — dịch vụ điều trị đã được migration gắn sẵn
+        # PHIEU_DIEU_TRI, lấy nhầm nó thì danh sách mẫu có thêm một dòng.
         ma_dv = await conn.fetchval(
-            "SELECT service_code FROM service_price WHERE clinic_id = $1::uuid"
-            " AND active ORDER BY service_code LIMIT 1",
+            "SELECT sp.service_code FROM service_price sp"
+            " WHERE sp.clinic_id = $1::uuid AND sp.active"
+            "   AND NOT EXISTS (SELECT 1 FROM dich_vu_mau_ket_qua g"
+            "                    WHERE g.clinic_id = sp.clinic_id"
+            "                      AND g.service_code = sp.service_code)"
+            " ORDER BY sp.service_code LIMIT 1",
             CLINIC,
         )
 

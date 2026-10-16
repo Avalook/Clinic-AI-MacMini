@@ -44,3 +44,25 @@ async def bang_dieu_khien(
         identity=identity, week_appt=week_appt, week_roster=week_roster
     )
     return {"ok": True, **du_lieu}
+
+
+@router.get("/home/lich-hen-tuan")
+async def lich_hen_tuan(
+    week_appt: date_cls,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chỉ phần bảng lịch hẹn tuần của Trang chủ: `tuan_hen` + `truc_ca` + `tien_trinh`.
+
+    Cho màn Tiếp đón (`/reception/queue`), vốn dựng đúng bảng ấy nhưng trước đây
+    gọi cả `bang-dieu-khien` rồi bỏ phần lớn. Cùng cửa gác (mọi vai đã đăng nhập),
+    cùng hàm lấy dữ liệu, chỉ BỚT khối — xem `goi_lich_hen_tuan`. Tham số tuần
+    khai kiểu ``date`` để chuỗi rác bị FastAPI chặn bằng 422 ngay cửa.
+
+    KHÔNG ``response_model``: cùng lý do với `bang-dieu-khien` (hình bắt chước
+    PostgREST, model khai thiếu trường sẽ âm thầm cắt khỏi JSON).
+    """
+    du_lieu = await ManTrangChuService(pool).goi_lich_hen_tuan(
+        identity=identity, week_appt=week_appt
+    )
+    return {"ok": True, **du_lieu}

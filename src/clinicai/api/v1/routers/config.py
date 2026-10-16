@@ -11,7 +11,7 @@ from uuid import UUID
 import asyncpg
 from fastapi import APIRouter, Depends, Query
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import (
@@ -41,6 +41,7 @@ from clinicai.services.config_service import (
 from clinicai.services.danh_muc_dich_vu_service import DanhMucDichVuService
 from clinicai.services.lich_truc_phien_ban_service import LichTrucPhienBanService
 from clinicai.services.ngoai_le_ca_truc_service import NgoaiLeCaTrucService
+from clinicai.services.vat_tu_danh_muc_service import dat_co_hang_loat
 
 router = APIRouter()
 
@@ -160,6 +161,14 @@ class PriceCreateRequest(BaseModel):
 
 
 class PriceUpdateRequest(BaseModel):
+    loai_vat_tu: str | None = Field(default=None, max_length=16)
+    gia_nhap: Any = None
+    don_vi: str | None = Field(default=None, max_length=40)
+    ma_vach: str | None = Field(default=None, max_length=120)
+    kinh_doanh: StrictBool | None = None
+    can_duyet_nhap: StrictBool | None = None
+    can_ql_duyet: StrictBool | None = None
+    chon_nhanh: StrictBool | None = None
     name: str | None = Field(default=None, max_length=300)
     unit_price: float | str | None = None
     active: bool | None = None
@@ -169,6 +178,17 @@ class PriceUpdateRequest(BaseModel):
     billing_owner: str | None = Field(default=None, max_length=32)
     #: Nhóm hàng — rỗng = bỏ nhóm (01/10/2026).
     nhom: str | None = Field(default=None, max_length=120)
+
+
+class VatTuHangLoatRequest(BaseModel):
+    """Đặt một cờ cho cả loại vật tư; `ap_dung=false` (mặc định) chỉ ĐẾM xem trước."""
+
+    loai: str = Field(max_length=32)
+    co: str = Field(max_length=32)
+    bat: StrictBool
+    ap_dung: StrictBool = False
+    #: Khoanh vào đúng những dòng này (dùng cho Hoàn tác); trống = cả loại.
+    ids: list[str] | None = Field(default=None, max_length=2000)
 
 
 class DisplayZoneToggle(BaseModel):
@@ -517,8 +537,42 @@ async def update_price(
         billing_owner=body.billing_owner,
         nhom=body.nhom,
         nhom_provided="nhom" in body.model_fields_set,
+        vat_tu=body.model_dump(
+            include=body.model_fields_set
+            & {
+                "loai_vat_tu",
+                "gia_nhap",
+                "don_vi",
+                "ma_vach",
+                "kinh_doanh",
+                "can_duyet_nhap",
+                "can_ql_duyet",
+                "chon_nhanh",
+            }
+        ),
     )
     return {"ok": True}
+
+
+@router.post("/service-prices/vat-tu/hang-loat")
+async def dat_co_vat_tu_hang_loat(
+    body: VatTuHangLoatRequest,
+    identity: StaffIdentity = Depends(_PRICE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đặt cờ vật tư (kinh doanh / cần QL duyệt bán / cần duyệt nhập) cho cả một loại.
+
+    Cùng quyền sửa thuộc tính từng món. Luật ở `vat_tu_danh_muc_service`.
+    """
+    return await dat_co_hang_loat(
+        pool,
+        identity=identity,
+        loai=body.loai,
+        co=body.co,
+        bat=body.bat,
+        ap_dung=body.ap_dung,
+        ids=body.ids,
+    )
 
 
 @router.delete("/service-prices/{price_id}")
@@ -668,6 +722,9 @@ _FEATURE_MODE_READ = require_role(
     ClinicRole.CASHIER_THUOC,
     ClinicRole.CASHIER_DV,
     ClinicRole.PHARMACIST,
+    # Layout dashboard hỏi chế độ phòng khám ở MỌI trang (chỉ đọc, không dữ liệu
+    # khách) — thiếu vai nào là vai ấy ăn 403 mỗi lượt tải trang.
+    ClinicRole.ACCOUNTANT,
 )
 _FEATURE_MODE_WRITE = cua_quyen("config.clinic.manage")
 

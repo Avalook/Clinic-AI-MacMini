@@ -93,6 +93,8 @@ export function kenhCho(ketQua: string): string {
  *  chỗ họ đang ở CHÍNH LÀ việc vừa xong. */
 export const NHAN_DA_LAM: Record<string, string> = {
   CHO_XAC_NHAN: "Đã gọi xác nhận lịch",
+  // Khách chỉ lưu hồ sơ, chưa có lịch (15/10/2026) — gọi xong là hết việc.
+  CHO_DAT_LICH: "Đã gọi xác nhận",
   VUOT_SUC_CHUA: "Đã gọi chốt lịch vượt sức chứa",
   NHAC_HEN_MAI: "Đã gọi nhắc hẹn",
   GOI_LAI: "Đã gọi lại",
@@ -124,7 +126,11 @@ export const NHAN_DA_LAM_THEO_LOAI: Record<string, string> = {
   CHECK_OUT: "Đã khám xong",
   THANH_TOAN: "Đã thanh toán",
   MUA_THUOC: "Đã mua thuốc",
+  PHAN_HOI_THUOC: "Đã ghi phản hồi thuốc",
 };
+
+/** Khớp `KET_QUA_DONG_CHO_DAT_LICH` ở man_khach_hang_service.py. */
+const KET_QUA_DONG_CHO_DAT_LICH = new Set(["DA_LIEN_HE", "TU_CHOI", "BO_QUA"]);
 
 /** Chip cho một khách KHÔNG còn việc nào mở, dựa trên lần chạm gần nhất.
  *
@@ -134,8 +140,19 @@ export const NHAN_DA_LAM_THEO_LOAI: Record<string, string> = {
 export function nhanLanChamCuoi(cham: {
   trang_thai_ma?: string | null;
   loai?: string | null;
+  ket_qua?: string | null;
 } | undefined): string | null {
   if (!cham) return null;
+  // Việc "Gọi điện xác nhận" chỉ ĐÓNG khi nói chuyện được với khách (máy chủ:
+  // `KET_QUA_DONG_CHO_DAT_LICH`). Không nghe máy / hẹn gọi lại thì việc còn mở —
+  // chip phải nói việc còn lại, không kể "Đã gọi xác nhận".
+  if (
+    cham.trang_thai_ma === "CHO_DAT_LICH" &&
+    cham.ket_qua &&
+    !KET_QUA_DONG_CHO_DAT_LICH.has(cham.ket_qua)
+  ) {
+    return null;
+  }
   const theoMa = cham.trang_thai_ma
     ? NHAN_DA_LAM[cham.trang_thai_ma]
     : undefined;

@@ -198,8 +198,23 @@ BEGIN
     -- (20261008100000, liệu trình điều trị nhiều buổi — CHỈ SELECT).
     -- 109 → 110 (08/10/2026): lieu_trinh_tra_truoc (20261008110000, trả trước
     -- k buổi liệu trình vào hoá đơn dịch vụ).
-    IF scoped_count <> 110 THEN
-        RAISE EXCEPTION 'expected 110 tenant-scoped read policies, found %', scoped_count;
+    -- 110 → 112 (14/10/2026): so_no + so_no_moc (20261014140000, sổ nợ hai
+    -- chiều theo lượt — CHỈ SELECT).
+    -- 112 → 113 (14/10/2026): chot_so_ca (20261014149000, khoá sổ theo ca —
+    -- CHỈ SELECT).
+    -- 113 → 114 (14/10/2026): thue_suat_nhom (20261014155000, thuế GTGT theo
+    -- nhóm cho kế toán — CHỈ SELECT).
+    -- 114 → 115 (14/10/2026, G3b): drug_ma_vach (20261014135000, mã vạch → thuốc).
+    -- 115 → 117 (14/10/2026, G6): kiem_ke_ca + kiem_ke_ca_dong (20261014170000).
+    -- 117 → 120 (14/10/2026, G8a): vat_tu_phieu + vat_tu_ton + vat_tu_txn
+    -- (phiếu vật tư + tồn theo nơi chứa + sổ chỉ thêm).
+    -- 120 → 123 (14/10/2026, G5c): khach_cong_ty + hoa_don_cong_ty +
+    -- hoa_don_cong_ty_lich_su (20261014156000, hoá đơn công ty — CHỈ SELECT).
+    -- 123 → 125 (14/10/2026, G5c): hoa_don_misa_xuat + hoa_don_misa_xuat_dong
+    -- (20261014157000, đánh dấu đã xuất MISA — CHỈ SELECT).
+    -- 125 → 126 (14/10/2026, G8b): vat_tu_nhap_cho_duyet (20261014200100).
+    IF scoped_count <> 126 THEN
+        RAISE EXCEPTION 'expected 126 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

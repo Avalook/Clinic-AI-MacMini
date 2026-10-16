@@ -19,7 +19,7 @@ time.
 from __future__ import annotations
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
 from clinicai.api.identity import (
     StaffIdentity,
@@ -31,6 +31,7 @@ from clinicai.api.identity import (
 from clinicai.core.chon_co_so import doc_chon_co_so
 from clinicai.core.clock import now_vn
 from clinicai.core.database import get_db_pool
+from clinicai.services.audit import record_event
 
 router = APIRouter()
 
@@ -229,3 +230,25 @@ async def vi_tri_hom_nay(
         # trang và nút Bàn khám từ tập này, cùng luật với cửa gác máy chủ.
         "vai_hieu_luc": identity.ds_vai(),
     }
+
+
+@router.post("/me/nhat-ky-doi-mat-khau", status_code=status.HTTP_201_CREATED)
+async def ghi_nhat_ky_doi_mat_khau_ca_nhan(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Nhân sự tự đổi mật khẩu cá nhân — ghi nhật ký (không lưu mật khẩu)."""
+    async with pool.acquire() as conn, conn.transaction():
+        await record_event(
+            conn,
+            event_type="staff.account_doi_mat_khau_ca_nhan",
+            aggregate_type="staff",
+            aggregate_id=str(identity.staff_id),
+            identity=identity,
+            origin="api:me-account",
+            payload={
+                "staff_id": str(identity.staff_id),
+                "hanh_dong": "doi_mat_khau_ca_nhan",
+            },
+        )
+    return {"ok": True}

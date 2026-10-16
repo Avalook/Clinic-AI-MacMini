@@ -11,7 +11,9 @@ test("Danh sách hoá đơn đứng ngay dưới Báo cáo và dùng cửa repor
 test("hai quầy cùng tạo bill, vẫn giữ xác minh tiền chuyển khoản", () => {
   const quay = read("../app/(dashboard)/thu-ngan/QuayThuNgan.tsx");
   assert.match(quay, /"Tạo bill"/);
-  assert.match(quay, /onXacMinh\(ma.trim\(\)\)/);
+  // Xác minh gửi kèm số ngân hàng thật nhận (G4d, R1) — bắt xác nhận, điền sẵn phần CK.
+  assert.match(quay, /onXacMinh\(ma\.trim\(\), Number\(soNhanHien\)\)/);
+  assert.match(quay, /disabled=\{dangThu \|\| soNhanHien === ""\}/);
   for (const p of ["dich-vu", "thuoc"]) assert.match(read(`../app/(dashboard)/thu-ngan/${p}/page.tsx`), /Tạo bill/);
   // Quầy dịch vụ (hoá đơn từng lượt) cùng chữ với quầy thuốc — không còn nút "Thu" (13/10/2026).
   const hoaDon = read("../app/(dashboard)/thu-ngan/HoaDonMot.tsx");
@@ -26,4 +28,14 @@ test("UI nhận số tiền từ backend và có popup chi tiết chứng từ",
   assert.doesNotMatch(ui, /\.reduce\(/);
   const detail = read("../app/(dashboard)/hoa-don/ChiTietHoaDon.tsx");
   assert.match(detail, /HopChiTiet/); assert.match(detail, /nguoi_thu/); assert.match(detail, /su_kien/); assert.match(detail, /ly_do/); // lý do huỷ nằm trong "Sau khi thu" (v8)
+});
+test("Việc còn tồn ghi một dòng trung tính khi không tính cơ sở đã ngừng (14/10/2026)", () => {
+  const ui = read("../app/(dashboard)/hoa-don/DanhSachHoaDon.tsx");
+  assert.match(ui, /Không tính cơ sở đã ngừng:/);
+  assert.match(ui, /data\.co_so_ngung\?\.length/);
+  // Chữ trung tính — không hộp vàng/đỏ cho việc bình thường.
+  const i = ui.indexOf('data-testid="co-so-ngung"');
+  assert.ok(i > 0);
+  assert.doesNotMatch(ui.slice(i - 80, i + 60), /warning|danger/);
+  assert.match(read("../app/(dashboard)/hoa-don/types.ts"), /co_so_ngung\?:/);
 });

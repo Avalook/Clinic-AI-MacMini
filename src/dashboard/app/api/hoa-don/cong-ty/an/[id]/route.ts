@@ -1,0 +1,13 @@
+// Gỡ / khôi phục một công ty trong hồ sơ khách (G5c) — ẩn, không xoá. Proxy mỏng.
+
+import { NextResponse } from "next/server";
+import { proxyJsonToBackend } from "../../../../../../lib/backend-proxy";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  if (!UUID_RE.test(id)) return NextResponse.json({ error: "Mã công ty không hợp lệ" }, { status: 400 });
+  const body = await request.json().catch(() => ({}));
+  return proxyJsonToBackend("PUT", `/api/v1/hoa-don/cong-ty/an/${id}`, body);
+}

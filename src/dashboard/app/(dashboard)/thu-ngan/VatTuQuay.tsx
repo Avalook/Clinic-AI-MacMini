@@ -51,6 +51,10 @@ export default function VatTuQuay({
   const [loi, setLoi] = useState<string | null>(null);
   const [duyet, setDuyet] = useState<DuyetMo | null>(null);
   const [nhapSl, setNhapSl] = useState<Record<string, string>>({});
+  // Bỏ dòng đi kèm chỉ định (đầu dò bác sĩ chọn): bắt ghi lý do (G9, 14/10/2026).
+  const [boMo, setBoMo] = useState<{ id: string; lyDo: string } | null>(null);
+  // Nguyên nhân bán thêm (G8b) — gửi kèm mỗi lần thêm ở quầy; dây BẬT thì bắt buộc.
+  const [lyDoBan, setLyDoBan] = useState("");
 
   const nap = useCallback(async () => {
     const kq = await docBang<VatTuGoi>("vat-tu", { luot: visitId });
@@ -94,6 +98,11 @@ export default function VatTuQuay({
   if (!goi) return loi ? <p className="text-meta text-danger">{loi}</p> : null;
 
   const sua = goi.duoc_sua && !dangGui;
+  // Dây BẬT mà chưa gõ nguyên nhân: nút thêm khoá, trừ mặt hàng đã có dòng
+  // (bấm nữa = cộng dồn, dòng ấy đã có nguyên nhân). Máy chủ vẫn ép lại.
+  const thieuLyDo = goi.bat_ly_do_ban && lyDoBan.trim().length < 5;
+  const daCoDong = (id: string) => goi.dong.some((d) => d.service_price_id === id && !d.order_id);
+  const khongThem = (m: VatTuMuc) => !sua || !m.ban_duoc || (thieuLyDo && !daCoDong(m.id));
   const nhanh = goi.danh_muc.filter((m) => m.chon_nhanh);
   const ketQua = timVatTu(goi.danh_muc, tim);
 
@@ -103,8 +112,18 @@ export default function VatTuQuay({
       setDuyet({ muc: m, quanLy: "", lyDo: "" });
       return;
     }
-    const ok = await gui("vat-tu-them", visitId, { service_price_id: m.id, so_luong: 1 });
-    if (ok) setTim("");
+    const ok = await gui("vat-tu-them", visitId, {
+      service_price_id: m.id,
+      so_luong: 1,
+      ...(lyDoBan.trim() ? { ly_do_ban: lyDoBan.trim() } : {}),
+    });
+    // Nguyên nhân thuộc về DÒNG VỪA THÊM: xoá ô để dòng kế tiếp không mang nguyên
+    // lý do của dòng trước (14/10/2026: đầu dò Bio mang lý do của Mirena — sai
+    // dấu vết). Thêm hỏng thì giữ lại để bấm lại không phải gõ lại.
+    if (ok) {
+      setTim("");
+      setLyDoBan("");
+    }
   }
 
   async function xacNhanDuyet() {
@@ -114,10 +133,12 @@ export default function VatTuQuay({
       so_luong: 1,
       ...(duyet.quanLy ? { duyet_boi: duyet.quanLy } : {}),
       ly_do_duyet: duyet.lyDo,
+      ...(lyDoBan.trim() ? { ly_do_ban: lyDoBan.trim() } : {}),
     });
     if (ok) {
       setDuyet(null);
       setTim("");
+      setLyDoBan("");
     }
   }
 
@@ -135,6 +156,23 @@ export default function VatTuQuay({
         <span className="text-meta text-ink-muted">Tiền vật tư thu cùng hoá đơn dịch vụ</span>
       </div>
 
+      {goi.duoc_sua ? (
+        <label className="block">
+          <span className="mb-1 block text-meta font-medium text-ink-soft">
+            Nguyên nhân bán thêm
+            {goi.bat_ly_do_ban ? " (bắt buộc, 5–500 ký tự)" : " (5–500 ký tự, nên ghi)"}
+          </span>
+          <input
+            value={lyDoBan}
+            onChange={(e) => setLyDoBan(e.target.value)}
+            maxLength={500}
+            className={INPUT}
+            disabled={dangGui}
+            placeholder="VD: khách yêu cầu thêm · dịch vụ cần thêm vật tư · thay vật tư hỏng"
+          />
+        </label>
+      ) : null}
+
       {goi.duoc_sua && nhanh.length > 0 ? (
         <div className="space-y-1">
           {nhanh.some((m) => m.goi_y) ? (
@@ -149,7 +187,7 @@ export default function VatTuQuay({
                 type="button"
                 size="lg"
                 variant={m.goi_y ? "soft" : "secondary"}
-                disabled={!sua || !m.ban_duoc}
+                disabled={khongThem(m)}
                 onClick={() => void them(m)}
                 aria-label={`Thêm ${m.ten}`}
               >
@@ -186,8 +224,8 @@ export default function VatTuQuay({
                       {!m.ban_duoc ? (
                         <span className="block text-meta text-ink-muted">{m.ly_do_khong_ban}</span>
                       ) : m.can_ql_duyet ? (
-                        <span className="block text-meta text-warning">
-                          Thường không bán — cần quản lý duyệt
+                        <span className="block text-meta text-ink-muted">
+                          Thường không bán — cần người có quyền duyệt
                         </span>
                       ) : null}
                     </span>
@@ -198,7 +236,7 @@ export default function VatTuQuay({
                       type="button"
                       size="sm"
                       variant="secondary"
-                      disabled={!sua || !m.ban_duoc}
+                      disabled={khongThem(m)}
                       onClick={() => void them(m)}
                       aria-label={`Thêm ${m.ten}`}
                     >
@@ -217,22 +255,22 @@ export default function VatTuQuay({
       )}
 
       {duyet ? (
-        <div role="group" aria-label="Quản lý duyệt bán" className="space-y-2 rounded-control bg-warning-bg px-3 py-2">
-          <p className="text-body text-warning">
+        <div role="group" aria-label="Người duyệt bán" className="space-y-2 rounded-control bg-surface-sunken px-3 py-2">
+          <p className="text-body text-ink">
             <b>{duyet.muc.ten}</b> thường không bán (đã nằm trong giá dịch vụ). Chỉ bán khi sự cố cần cái thứ hai —
-            phải có quản lý duyệt.
+            phải có người có quyền duyệt (Trưởng ca / Quản lý).
           </p>
           {goi.la_quan_ly ? (
-            <p className="text-meta text-ink-soft">Bạn là quản lý — bạn duyệt bán dòng này.</p>
+            <p className="text-meta text-ink-soft">Bạn có quyền duyệt vật tư — bạn duyệt bán dòng này.</p>
           ) : (
             <label className="block">
-              <span className="mb-1 block text-meta font-medium text-ink-soft">Quản lý đã duyệt</span>
+              <span className="mb-1 block text-meta font-medium text-ink-soft">Người đã duyệt</span>
               <select
                 value={duyet.quanLy}
                 onChange={(e) => setDuyet({ ...duyet, quanLy: e.target.value })}
                 className={INPUT}
               >
-                <option value="">Chọn quản lý…</option>
+                <option value="">Chọn người duyệt…</option>
                 {goi.quan_ly.map((q) => (
                   <option key={q.id} value={q.id}>
                     {q.ten}
@@ -280,8 +318,17 @@ export default function VatTuQuay({
                   <span className="block text-meta text-ink-muted">
                     {tien(d.don_gia)}
                     {d.don_vi ? ` / ${d.don_vi}` : ""}
-                    {d.nguoi_duyet ? ` · QL duyệt: ${d.nguoi_duyet}` : ""}
+                    {d.nguoi_duyet ? ` · người duyệt: ${d.nguoi_duyet}` : ""}
                   </span>
+                  {d.ly_do_ban ? (
+                    <span className="block text-meta text-ink-muted">Nguyên nhân: {d.ly_do_ban}</span>
+                  ) : null}
+                  {d.order_id ? (
+                    <span className="block text-meta text-ink-muted">
+                      Bác sĩ chọn ở chỉ định{d.ten_chi_dinh ? `: ${d.ten_chi_dinh}` : ""}
+                      {d.tinh_tien ? "" : " · khách không làm dịch vụ này nên không tính tiền"}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="flex items-center gap-1">
                   <Button
@@ -330,12 +377,45 @@ export default function VatTuQuay({
                     size="sm"
                     variant="danger"
                     disabled={khoa}
-                    onClick={() => void gui("vat-tu-bo", d.id, {})}
+                    onClick={() =>
+                      d.order_id ? setBoMo({ id: d.id, lyDo: "" }) : void gui("vat-tu-bo", d.id, {})
+                    }
                     aria-label={`Bỏ ${d.ten}`}
                   >
                     Bỏ
                   </Button>
                 )}
+                {boMo?.id === d.id ? (
+                  <div role="group" aria-label={`Lý do bỏ ${d.ten}`} className="basis-full space-y-2">
+                    <label className="block">
+                      <span className="mb-1 block text-meta font-medium text-ink-soft">
+                        Lý do bỏ đầu dò bác sĩ đã chọn (5–500 ký tự)
+                      </span>
+                      <input
+                        value={boMo.lyDo}
+                        onChange={(e) => setBoMo({ id: d.id, lyDo: e.target.value })}
+                        maxLength={500}
+                        className={INPUT}
+                        placeholder="VD: khách không mua đầu dò"
+                      />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="danger"
+                        disabled={dangGui || boMo.lyDo.trim().length < 5}
+                        onClick={async () => {
+                          if (await gui("vat-tu-bo", d.id, { ly_do: boMo.lyDo.trim() })) setBoMo(null);
+                        }}
+                      >
+                        Xác nhận bỏ
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={() => setBoMo(null)}>
+                        Giữ lại
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </li>
             );
           })}

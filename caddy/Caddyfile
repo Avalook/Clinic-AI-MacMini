@@ -47,6 +47,46 @@ http://localhost, http://127.0.0.1 {
 	respond 404
 }
 
+# TÀI NGUYÊN TĨNH KHÔNG ĐỔI THEO PHIÊN — CHO TRÌNH DUYỆT GIỮ LẠI (14/10/2026).
+#
+# ĐO: 30 phút log prod 14/10 (20:20–20:51, ~14 req/giây) — `manifest.webmanifest`
+# 3.140 lần + `/pwa/icon-192.png` 3.136 lần + `/favicon.ico` 720 lần = ~28% số
+# request chỉ là tài nguyên tĩnh bị HỎI LẠI mỗi lần chuyển trang. Next trả cho
+# chúng `Cache-Control: public, max-age=0, must-revalidate` (icon: `max-age=0`)
+# — mặc định của Next cho tệp trong `public/` và route metadata, không phải lựa
+# chọn có cân nhắc. Mỗi lượt hỏi lại đi qua Caddy → Next (CPU dashboard 130% lúc
+# cao điểm) chỉ để nhận lại đúng tệp cũ.
+#
+# MỘT NGÀY + `stale-while-revalidate` một tuần. Đổi icon/manifest thì máy khách
+# thấy bản mới chậm nhất sau ~1 ngày; muốn ép đổi ngay: đặt tệp icon sang tên mới
+# rồi sửa `app/manifest.ts`. Không dùng `immutable`: các tệp này không mang hash
+# trong tên (khác `/_next/static/*` — Next tự đặt `immutable, max-age=31536000`, không đụng).
+#
+# CHỈ GẮN KHI UPSTREAM TRẢ 2xx: một lần 404/500 thoáng qua (dashboard đang khởi
+# động lại) không bị trình duyệt nhớ cả ngày.
+#
+# CÚ PHÁP LÀ DO ĐÃ THỬ THẬT (caddy:2-alpine, upstream giả trả `max-age=0`):
+#   • `header_down @ok Cache-Control …` — KHÔNG có tác dụng (matcher bị bỏ qua, im lặng);
+#   • `header Cache-Control …` + `copy_response` — ra HAI dòng Cache-Control;
+#   • thêm `copy_response_headers` — nhân đôi cả Content-Length/Content-Type;
+#   • `header >Cache-Control …` (dấu `>` = ghi sau cùng, đè của upstream) + `copy_response`
+#     — đúng một dòng. Đừng "dọn" thành kiểu khác mà không thử lại bằng `curl -I`.
+#
+# Snippet này chép NGUYÊN VĂN trong caddy/Caddyfile.staging (snippet không dùng
+# chung được giữa hai tệp) — src/tests/test_caddy_cache_tinh.py canh hai bản khớp.
+(tai_nguyen_tinh) {
+	@tinh path /manifest.webmanifest /favicon.ico /icon.png /apple-icon.png /pwa/* /logo.png /clinicai-logo.svg
+	handle @tinh {
+		reverse_proxy dashboard:3000 {
+			@ok status 2xx
+			handle_response @ok {
+				header >Cache-Control "public, max-age=86400, stale-while-revalidate=604800"
+				copy_response
+			}
+		}
+	}
+}
+
 {$SITE_ADDRESS} {
 	encode zstd gzip
 
@@ -153,6 +193,8 @@ http://localhost, http://127.0.0.1 {
 		reverse_proxy {$SUPABASE_GATEWAY_HOST:clinicai_supabase_gateway}:8000
 	}
 
+	import tai_nguyen_tinh
+
 	# Everything else → Next.js dashboard. The dashboard (UI) calls the FastAPI
 	# backend internally at http://api:8000; the API is never exposed publicly.
 	handle {
@@ -199,6 +241,8 @@ http://localhost, http://127.0.0.1 {
 		log_skip
 		respond "ok" 200
 	}
+
+	import tai_nguyen_tinh
 
 	handle {
 		reverse_proxy dashboard:3000

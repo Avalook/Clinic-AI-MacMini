@@ -88,6 +88,40 @@ khách: `S/hanh_trinh_khach_service.py` `dong_dich_vu_kham`. Test: `T/services/t
 (`luu_thuoc`, `nhap_lo`), `S/kho_thuoc_service.py` (`tao_phieu_nhap`, `kiem_kho`,
 `xuat_nhap_ton`). Test: `T/services/test_kho_thuoc_danh_muc_db.py`, `T/services/test_kho_kiotviet_db.py`.
 
+**Mã vạch thuốc: quét hộp / tem lô, gắn mã, in tem (G3b)** — ô quét `D/pharmacy/inventory/OQuetMa.tsx`
+(máy quét USB = gõ nhanh + Enter; camera `CameraQuet.tsx` chỉ HTTPS) ở Phiếu nhập, Nhập lô, Kiểm kho
+và quầy `/pharmacy` (`PharmacyBoard.tsx` điền sẵn lô cho `DongThuoc.tsx`). Máy chủ: `S/ma_vach_service.py`
+(`tra_ma`, `gan_ma`, `go_ma`, `du_lieu_tem`), tách mã vuông GS1 `clinicai/core/gs1.py`, bảng `drug_ma_vach` +
+cột `drug_batch.ma_tem` (migration `20261014135000`). Trang in tem `D/print/tem-lo/` (Code 128 tự vẽ
+`D/lib/ma-vach.ts`). Test: `T/services/test_ma_vach_db.py`, `T/unit/test_gs1.py`, `D/tests/ma-vach-boundary.test.mts`.
+
+**Tách KHO / QUẦY trong một cơ sở (G7)** — công tắc theo cơ sở `clinic_location.tach_kho_quay` (mặc định TẮT =
+một kho như cũ). Mỗi lô tối đa hai hàng `drug_batch` (`noi_chua` KHO / QUAY, cùng số lô + mã tem); nhập đi vào KHO,
+bán / giao / nhận trả CHỈ ở QUẦY (trigger `gac_ban_tu_quay` + kiểm ở `pharmacy_service._kiem_lo`,
+`gan_lo_da_giao`, `_cap_phat_cu`), phiếu chuyển `S/kho_thuoc_service.py` (`chuyen_kho`, `hoan_tac_chuyen`,
+`dat_tach_kho_quay`) — migration `20261014160000`. Quầy hết mà kho còn: `ban_thuoc_service` trả `kho_con` cho từng
+dòng đơn. Test: `T/services/test_kho_quay_db.py` (bấm ngẫu nhiên 40×10).
+Giao diện (G7-2): tab "Chuyển kho" + công tắc tách `D/pharmacy/inventory/ChuyenKho.tsx` (trong `KhoThuoc.tsx`),
+chip KHO/QUẦY ở `InventoryBoard.tsx` (prop `tachKhoQuay`), nút "Kho còn N — chuyển sang quầy?" ở dòng đơn
+`D/pharmacy/KhoConChuyenQuay.tsx` (gắn trong `DongThuoc.tsx`); proxy `chuyen-kho` / `hoan-tac-chuyen-kho` /
+`tach-kho-quay` ở `D/app/api/pharmacy/[action]/route.ts`. Test: `D/tests/kho-quay-giao-dien-boundary.test.mts`.
+
+**Kiểm kê đầu / cuối ca ở QUẦY + cột tồn của "Báo cáo hàng hoá" (G6)** — phiếu `kiem_ke_ca` (+ `_dong`),
+migration `20261014170000`: NHÁP → CHỐT (chốt ghi tồn máy ở quầy TẠI GIỜ CHỐT + lệch = đếm − tồn máy, KHÔNG tự sửa
+tồn), đầu/cuối ca một phiếu mỗi ca (UNIQUE từng phần ở Postgres), đột xuất nhiều phiếu, kiểm một phần tự nhận ra.
+"Điều chỉnh theo kiểm kê" là bước riêng ghi `ADJUST` (`ref_type 'kiem_ke_ca'`, có lý do), hoàn tác bằng ADJUST ngược.
+Service `S/kiem_ke_ca_service.py` (`mo_phieu`, `luu_dem`, `dung_so_cuoi_ca_truoc`, `chot`, `dieu_chinh_theo_kiem_ke`,
+`hoan_tac_dieu_chinh`, `nhac_thieu_kiem`; thuần: `khung_moc`, `tinh_xnt_dong`, `ghep_ton_ca`), 9 route `/pharmacy/kiem-ke-ca…`
+ở `S/../routers/pharmacy.py`. Báo cáo: MỘT chỗ gắn ở `bao_cao_cuoi_ngay_service.py` (`ghep_vao_bao_cao` sau
+`gom_hang_hoa`) thêm khối `kho` vào mỗi dòng thuốc — số thu cũ (SL bán theo thu, doanh thu) KHÔNG đổi; `kho.theo_don_vi[]`
+= Tồn đầu · Nhập · SL bán (= số GIAO) · SL trả · khác · Tồn cuối · Kiểm kê · Lệch · đã thu chưa giao. Chuông lệch:
+sự kiện `pharmacy.stocktake_mismatch` → `chuong.py` (người nhận ở `day_nhan_thong_bao`, quản lý chỉnh).
+Test: `T/services/test_kiem_ke_ca_db.py` (bấm ngẫu nhiên 40×10), `T/unit/test_xnt_theo_ca.py`.
+Giao diện: tab "Kiểm kê ca" ở Kho thuốc `D/pharmacy/inventory/KiemKeCa.tsx` (đếm mù → [Chốt kiểm kê] có xác nhận tại chỗ `XacNhanTaiCho` → lệch → điều chỉnh / hoàn tác,
+nhắc thiếu kiểm); proxy `D/app/api/pharmacy/kiem-ke-ca/**` (danh sách trắng bước ghi); cột tồn ở `/reports?tab=hang-hoa`
+→ `D/reports/BangHangHoa.tsx` (`BangCoTon`, chỉ khi máy chủ trả `co_ton`; bản in = `window.print()`, Excel/CSV chưa có cột tồn).
+FT: `D/tests/kiem-ke-ca-boundary.test.mts`.
+
 **Mẫu kết quả · biểu mẫu phiếu kết quả · gán mẫu cho dịch vụ**
 - Trên màn: `/settings/mau-ket-qua` (tab Gán mẫu · Sửa mẫu; xuất bản là dùng).
 - Code: `D/settings/mau-ket-qua/` (`MauKetQuaView.tsx`, `GanMau.tsx`, `TrinhSuaMau.tsx`)
@@ -377,6 +411,49 @@ FT `danh-sach-hoa-don-boundary.test.mts`, E2E `e2e/danh-sach-hoa-don.mjs` (API g
 Mỗi phiếu thu trong kỳ = 1 hoá đơn; bỏ phiếu huỷ; trừ dòng đã hoàn xong; ô chưa có dữ liệu để trống.
 Đổi mẫu = thay tệp `.xlsx` đó (tiêu đề cột ở dòng `TIEU_DE_MAU` = 9). Test `T/unit/test_xuat_hoa_don.py`,
 FT `xuat-hoa-don-boundary.test.mts`.
+**Kế toán — lego #22 + Theo hàng hoá (G5a, 14/10)** — quyền KHÔNG theo vai: khối `ke_toan` /
+quyền `accounting.finance.full` (`P/permissions/catalogue.py`: KHOI, QUYEN, `MAN["ke_toan"]`,
+`PRESET["KE_TOAN"]` đặt SAU vòng mở-full, `KHOI_CHI_QUAN_LY` chứa `ke_toan` để nhân viên khác không
+tự có) + migration `20261014150000_lego_ke_toan.sql`. Cổng tài chính: nhánh capability trong
+`S/report_access_service.py::access()` (có quyền → xem mọi ca / cơ sở, không thành `quan_ly`).
+Gói Kế toán KHÔNG có `thu_tien_dv`/`thu_tien_thuoc` → thu/hoàn/đổi hình thức bị `payment_service` /
+`hoan_tien_service` chặn theo quyền. Thống kê: `D/ke-toan/KeToan.tsx` → `/api/theo-hang-hoa` →
+`GET /api/v1/hoa-don/theo-hang-hoa` (+ `/xlsx`) → `S/theo_hang_hoa_service.py` (`gom_theo_hang_hoa` thuần)
+dùng lại `XuatHoaDonService.xem`. Test `T/services/test_ke_toan_lego_db.py`, `test_theo_hang_hoa_db.py`,
+`T/unit/test_theo_hang_hoa.py`, FT `ke-toan-boundary.test.mts`.
+
+**Thuế GTGT cho kế toán (G5b, 14/10) — backend; màn đặt thuế = tab "Thuế suất" ở `/ke-toan` (C2)** — giá đã gồm thuế, tách ngược
+khi xuất (K1); KHÔNG chạm vận hành (`T/unit/test_thue_khong_cham_van_hanh.py` khoá: chỉ `thue_suat_service`,
+`xuat_hoa_don_service`, `thue_gtgt` biết cột thuế). Cột `service_price.thue_suat_ma`, `drug_catalog.thue_suat_ma`,
+bảng `thue_suat_nhom` (migration `20261014155000_thue_gtgt.sql`, hàm `thue_suat_hop_le`); quyền đặt
+`accounting.tax.manage`. Đặt: `S/thue_suat_service.py` ← `R/ke_toan.py` (`GET/PUT /ke-toan/thue-suat…`).
+Xuất: `S/xuat_hoa_don_service.py::dung_hoa_don` gán thuế suất dòng (sửa tay > mặt hàng > nhóm) →
+`S/thue_gtgt.py::ap_thue_hoa_don` (tách theo thuế suất `che_do=tach` | một hoá đơn `mot`; K2 `ghi_giam_gia`) →
+`xlsx_misa` ghi K (thuế suất) / L (tiền thuế). Query `/hoa-don/xuat?che_do&ghi_giam_gia&ghi_de={"id dòng":"mã"}`.
+Chưa đặt thuế → xuất y như cũ. Test `T/unit/test_thue_gtgt.py` (bảng số tay), `T/services/test_thue_gtgt_db.py`.
+**Màn đặt thuế (C2):** `D/ke-toan/KeToan.tsx` (tab bar `ThanhTab`: Theo hàng hoá | Thuế suất) → `D/ke-toan/ThueSuat.tsx` (nhóm + tìm mặt hàng, hoàn tác) → `/api/ke-toan/thue-suat(/nhom/[nhom] | /mat-hang)` → `R/ke_toan.py`; nhãn thuế `D/ke-toan/thue-suat.ts` (`tenThueSuat`). FT `thue-suat-boundary.test.mts`.
+**Điều khiển thuế ở màn xuất (C2):** `D/xuat-hoa-don/XuatHoaDon.tsx` (`cheDo`, `ghiGiamGia`, `ghiDe` → query `che_do`/`ghi_giam_gia`/`ghi_de`; `DongHangGon` có ô sửa thuế từng dòng) → `D/api/xuat-hoa-don/route.ts` (chuyển tiếp 3 tham số) → `R/hoa_don.py::xuat_hoa_don`. Danh sách mức dùng chung `D/ke-toan/thue-suat.ts::MUC_THUE`. FT `xuat-hoa-don-thue-boundary.test.mts`.
+
+**Hoá đơn công ty (G5c, 14/10)** — khách lấy hoá đơn về công ty: tên + địa chỉ + MST (+ email nhận HĐ). Lưu THEO HOÁ ĐƠN
+(`hoa_don_cong_ty`, bản chụp theo `payment_cycle`) và ghi vào HỒ SƠ khách (`khach_cong_ty`, nhiều công ty/khách, dùng gần nhất
+đứng đầu = điền sẵn lần trước); sửa hồ sơ KHÔNG đổi bản chụp; sửa/bỏ bản chụp ghi `hoa_don_cong_ty_lich_su`; gỡ khỏi hồ sơ = ẩn
+(`an_luc`), bỏ chọn = `bo_luc` (hoàn tác = ghi lại). Migration `20261014156000_hoa_don_cong_ty.sql`. Luật: `S/hoa_don_cong_ty_service.py`
+(MST sai dạng chỉ NHẮC — `nhac_mst`, vẫn lưu; ghi rác 422, đọc rác → rỗng) ← `R/hoa_don_cong_ty.py` (`/hoa-don/cong-ty/khach/{id}`,
+`/hoa-don/cong-ty/an/{id}`, `/hoa-don/cong-ty/phieu/{payment_cycle_id}` (+ `/lich-su`)). Cửa = một trong các quyền
+`QUYEN_CONG_TY` (Lễ tân/CSKH/Thu ngân/Kế toán — lego, không vai). Xuất: `S/xuat_hoa_don_service.py::dung_hoa_don` — hoá đơn công ty
+→ C=tên cty, D=địa chỉ cty, E=MST, F=người mua (trống nếu không điền), G=email cty, H/I trống (không SĐT/CCCD/địa chỉ/email cá nhân);
+hoá đơn khác giữ nguyên. **Màn:** `D/hoa-don/CongTyHoaDon.tsx` (gắn vào từng phiếu ở `ChiTietHoaDon.tsx`) → `/api/hoa-don/cong-ty/phieu/[id]` (+ `/lich-su`); xem trước xuất hoá đơn (`D/xuat-hoa-don/XuatHoaDon.tsx::KhachHang`) hiện công ty thay cho khách cá nhân. Test `T/unit/test_hoa_don_cong_ty.py`, `T/services/test_hoa_don_cong_ty_db.py` (có bấm ngẫu nhiên 40×10), FT `hoa-don-cong-ty-boundary.test.mts`.
+**Công ty trong hồ sơ khách (màn):** `D/CongTyKhach.tsx` (gắn trong `D/PatientAdminEditor.tsx`, chế độ xem) dùng chung `D/hoa-don/FormCongTy.tsx` với khối trên phiếu → `/api/hoa-don/cong-ty/khach/[id]` (GET/PUT) + `/api/hoa-don/cong-ty/an/[id]` (PUT). FT `cong-ty-khach-boundary.test.mts`.
+
+**Đánh dấu "đã xuất sang MISA" + "có thay đổi sau khi xuất" (G5c, 14/10)** — kế toán tải Excel xong bấm đánh dấu khoảng ngày:
+máy chủ DỰNG LẠI danh sách hoá đơn của khoảng (không tin danh sách từ trình duyệt), lưu mỗi hoá đơn một dòng
+(`hoa_don_misa_xuat_dong`) cùng hai dấu vân tay (`S/hoa_don_misa_doc.py::dau_van_tay`: người mua/công ty và nội dung —
+KHÔNG gồm thuế suất). Sau đó `/hoa-don/xuat` gắn `misa` cho từng hoá đơn (`S/hoa_don_misa_service.py::gan_trang_thai`:
+đã xuất lúc nào, có đổi không, lý do) + `so_da_xuat_misa` / `so_co_thay_doi_sau_xuat`. Bỏ đánh dấu = `huy_luc`
+(`PUT` khôi phục). Migration `20261014157000_hoa_don_misa_xuat.sql`. Router `R/hoa_don_misa.py`
+(`/hoa-don/misa-xuat` GET/POST, `/{id}` GET chi tiết · DELETE bỏ · PUT khôi phục); quyền lego `accounting.finance.full`.
+Ngày rác khi ghi → 422. **Màn:** `D/xuat-hoa-don/XuatHoaDon.tsx` (nút đánh dấu + chip `TrangThaiMisa` + banner tổng) và `D/xuat-hoa-don/LanXuatMisa.tsx` (các lần đã xuất, xem thay đổi, bỏ / khôi phục) → `/api/xuat-hoa-don/misa(/[id])`. Test `T/unit/test_hoa_don_misa.py`, `T/services/test_hoa_don_misa_db.py` (bấm ngẫu nhiên 20×10 khớp mô hình), FT `hoa-don-misa-boundary.test.mts`.
+
 Nút thu dùng chung `NhomThu` ở 2 quầy và Bán lẻ đổi thành **Tạo bill**; tiền mặt vẫn ghi thu,
 chuyển khoản vẫn chờ xác minh, nút xác minh **Đã nhận tiền** giữ nguyên.
 
@@ -390,6 +467,44 @@ gợi ý dịch vụ→vật tư `vat_tu_goi_y` (mig 20261003000000; nạp lại
 **Sửa giá / tắt bán / thêm hàng = việc DỮ LIỆU: quản lý làm trên `/cashier/dich-vu` (ngăn "Vật tư bán thêm
 ở quầy thu", `D/cashier/VatTuBangGia.tsx`)** — không code. Hàng cần QL duyệt = cột `can_ql_duyet` (Mirena).
 Test: `T/services/test_vat_tu_ban_them_db.py`, FT `quay-thu-vat-tu-boundary.test.mts`.
+
+**Đầu dò Bio chọn ở CHỈ ĐỊNH CLS (14/10/2026, G9 — Notion recap 12/10 mục 3: "hiện bổ sung trong Chỉ định CLS thay vì ở bước thanh toán")** —
+bác sĩ chọn "Bio 1 lần / nhiều lần" ngay ở thẻ chỉ định: màn `D/_lam-viec/phieu-kham/DauDoChiDinh.tsx` (gắn trong
+`KetQuaChiDinh.tsx` qua prop `dauDoLuot`) → `S/bio_chi_dinh_service.py` (`BioChiDinhService.doc` / `chon`; quyền
+`clinical.order.place`; chọn = ĐẶT, radio, không cộng dồn; đã thu → khoá). Dòng bán vẫn là `luot_vat_tu` nhưng có
+`order_id` (migration 20261014190000; dòng cũ NULL, không di chuyển). **Tiền đi theo chỉ định, suy từ trạng thái chỉ
+định lúc đọc** (không chép sang dòng Bio): `S/bill_service.py` `_VAT_TU_THEO_CHI_DINH` (hoá đơn còn nợ), nợ khi check-out
+chỉ khi chỉ định đã làm `S/cong_no_service.py` `loc_no_dich_vu`, màn quầy `S/vat_tu_service.py` `_DONG_SQL` (`tinh_tien`).
+Quầy bỏ dòng đi kèm chỉ định bắt ghi lý do (`VatTuService.bo(ly_do=)`, cột `bo_ly_do`); bỏ chỉ định đã thu Bio →
+`HoanTacService.huy_chi_dinh` nhắc khoản Bio (không tự thành tiền thừa); hoàn tác bỏ chỉ định sau hoàn tiền (chỉ định
+MỚI) → Bio chưa thu đi theo (`so_sua_chi_dinh_service._chi_dinh_moi_thay` → `chuyen_bio_chua_thu`).
+Test: `T/services/test_bio_chi_dinh_db.py` (bất biến B1–B5 + bấm ngẫu nhiên 40×10 có bên nhận sự kiện xen giữa),
+FT `dau-do-chi-dinh-boundary.test.mts`. Luật duyệt trigger `luot_vat_tu_gac` KHÔNG đổi ở G9.
+
+**Ai duyệt vật tư cần duyệt + nguyên nhân bán thêm (14/10/2026, G8b — Notion recap 12/10 mục 3.3, Tuyền Q11)** — người duyệt là
+LEGO, không phải vai: khối `duyet_vat_tu` / quyền `vat_tu.approve` (`P/catalogue.py`, nằm trong `KHOI_CHI_QUAN_LY` — KHÔNG "mở full";
+migration 20261014200000 cấp bù cho tài khoản Quản lý + Trưởng ca đang có; tài khoản Trưởng ca MỚI do Quản lý cấp ở `/phan-quyen`).
+`S/vat_tu_service.py` (`_NGUOI_DUYET_SQL`, `_nguoi_duyet`, `doc` → `quan_ly` / `la_quan_ly` giữ tên khoá cũ cho màn) và trigger
+`luot_vat_tu_gac` (CHỈ đổi điều kiện người duyệt: có `vat_tu.approve` trong `v_quyen_thuc_te`, đang làm việc). Nguyên nhân bán thêm:
+cột `luot_vat_tu.ly_do_ban`, `VatTuService.them(ly_do_ban=)`, luôn ghi khi có gửi (5–500 ký tự, rác → 422); dây nối
+`vat_tu_bat_ly_do_ban` (`S/day_noi.py`, mặc định TẮT) BẬT thì dòng MỚI ở quầy phải có. Màn: `D/thu-ngan/VatTuQuay.tsx`.
+Test: `T/services/test_vat_tu_duyet_db.py` (D1–D4 + bấm ngẫu nhiên cấp/thu lego, bật/tắt dây, bán, bỏ), FT `duyet-vat-tu-boundary.test.mts`.
+
+**Phiếu NHẬP vật tư chờ duyệt (14/10/2026, G8b-2)** — mặt hàng có cờ "cần duyệt nhập" (`can_duyet_nhap_vat_tu`, đặt ở danh mục vật tư):
+`S/vat_tu_kho_service.py` `tao_phieu` (NHẬP) gọi `S/vat_tu_nhap_duyet_service.py` `xu_ly_nhap_can_duyet` — phiếu có ít nhất một dòng như vậy
+KHÔNG ghi sổ mà thành YÊU CẦU ở bảng `vat_tu_nhap_cho_duyet` (migration 20261014200100; nội dung bất biến, giá nhập chụp lúc xin; cả phiếu chờ,
+không ghi nửa phiếu). Người có lego Duyệt vật tư `duyet` → lập phiếu NHẬP thật đúng số; `tu_choi` (bắt lý do); người lập / người có lego `rut_lai`;
+người có lego tự lập = tự duyệt; quyết MỘT lần; hoàn tác nhập đã duyệt = `hoan_phieu` như mọi phiếu. Route `R/vat_tu_nhap_duyet.py`:
+`GET /vat-tu-kho/cho-duyet`, `POST …/{id}/duyet|tu-choi|rut-lai`. Sự kiện `vat_tu.nhap_cho_duyet`, `vat_tu.nhap_da_quyet`. CHƯA có màn: nút
+Duyệt / Từ chối / Rút lại + danh sách chờ gắn vào `/kho-vat-tu` khi phiên màn G8a gộp (không sửa màn đó ở G8b). Test: `T/services/test_vat_tu_nhap_duyet_db.py`.
+
+**Đặt cờ vật tư HÀNG LOẠT theo loại (16/10/2026)** — Kho vật tư → tab Danh mục, khối "Đặt cho cả loại":
+`D/kho-vat-tu/DatCoTheoLoai.tsx` (Loại VPP/VTYT/Chưa phân loại + Cờ Được kinh doanh/Cần QL duyệt bán/Cần duyệt nhập
++ Bật/Tắt; xem trước "Sẽ đổi N vật tư" → Áp dụng → xác nhận tại chỗ → Hoàn tác) → `/api/service-price/vat-tu-hang-loat`
+→ `POST /service-prices/vat-tu/hang-loat` (`R/config.py` `dat_co_vat_tu_hang_loat`, quyền `price.service.manage`) →
+`S/vat_tu_danh_muc_service.py` `dat_co_hang_loat` + `kiem_hang_loat` (bảng `LOAI_HANG_LOAT` / `CO_HANG_LOAT` — thêm cờ
+mới thì thêm ở đây và ở `DatCoTheoLoai.tsx`, FT canh lệch). Chỉ vật tư đang bán, chỉ đúng cột cờ; ghi `event_log`
+`vat_tu.co_hang_loat`. Test: `T/services/test_vat_tu_hang_loat_db.py`, FT `vat-tu-hang-loat-boundary.test.mts`.
 
 **Liệu trình ở quầy thu dịch vụ — trả trước k buổi (08/10/2026, C1)** — khối "Liệu trình" của
 khách đang thu `D/thu-ngan/LieuTrinhQuay.tsx` ([Trả trước … buổi] / [Trả hết]) → `/api/lieu-trinh`
@@ -419,6 +534,13 @@ lần thu (mig 20261002800000). Màn: `D/thu-ngan/QuayThuNgan.tsx` (`quayThu`), 
 `quay-thu-tach-thuoc-dich-vu-boundary.test.mts`. (Dịch vụ "XN thu hộ" của đối tác vẫn là tiền DỊCH VỤ,
 thu ở quầy dịch vụ.)
 Lượt Bán lẻ ở quầy thuốc: `D/pharmacy/BanLeThu.tsx` → `S/ban_le_service.py`.
+Bán theo đơn khám cũ (lịch sử đơn thuốc, kê / đã mua / còn lại, nhắc quá 2 tháng / vượt số kê,
+nối – gỡ đơn gốc `visit.don_goc_visit_id`, mig `20261010100000`): khung "Lịch sử đơn thuốc"
+`D/pharmacy/LichSuDonThuoc.tsx` (khung chọn khách `KhachMuaThuoc.tsx` — chưa mở lượt — và
+`BanLeThu.tsx`; nút "Lịch sử khám" = popup chung `D/_lam-viec/LichSuKham.tsx`) →
+`S/ban_theo_don_service.py` (`lich_su_don` — mới → cũ theo trang, `noi_don`, `go_noi_don`) +
+`S/ban_le_service.py` (`lich_su_don`, `mo_theo_don` — mở lượt + nối + thêm dòng một giao dịch). Test:
+`T/unit/test_ban_theo_don.py`, `T/services/test_ban_theo_don_db.py`.
 
 **Thu trước – làm trước (tick "Làm trước – thu sau")** — công tắc: `/settings/day-noi`
 (`thu_truoc_khi_lam`). Code: `S/lam_truoc_thu_sau.py`, cổng `S/finance_gate.py`
@@ -529,8 +651,23 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   Tiếp đón. `S/man_khach_hang_service.py` trả `CHO_DAT_LICH` cho hồ sơ tiếp nhận
   chưa từng có lịch/lượt và chưa có việc CSKH khác: nhóm “Chờ xác nhận”, bước
   “Gọi điện xác nhận”; ghi cuộc gọi loại `HOI_THAM`, không xác nhận lịch chưa có.
-  Có lịch/lượt là hết việc này. Test `T/services/test_man_khach_hang_callback_db.py`,
+  Có lịch/lượt là hết việc này. **15/10:** chỉ lưu hồ sơ → `NewPatientForm` sang
+  `/customers?selected=` cho MỌI vai vào được màn ấy (prop `veQuanLyKhach`, trang
+  `patients/new/page.tsx` + `appointments/page.tsx` → `BookingHub`; "Dùng bệnh nhân
+  này" giữ đường cũ); CSKH gọi xong (`DA_LIEN_HE`) thì việc đóng, không nghe máy thì
+  còn mở, rút lại được kể cả khi khách chưa có lượt (`VungLamViecKhach.tsx` `rutNgoaiLuot`
+  + `chuaCoLuot`), nhãn chip `customers/mot-cham.ts` (`CHO_DAT_LICH`). FT
+  `luu-ho-so-sang-quan-ly-khach-boundary.test.mts`. Test `T/services/test_man_khach_hang_callback_db.py`,
   FT `intake-patient-ui-boundary.test.mts`; bấm thật `e2e/quick-intake-confirmation.mjs`.
+- **Gọi xác nhận lịch đặt hộ (15/10):** việc `CHO_XAC_NHAN` ("Gọi xác nhận lịch") sinh
+  cho MỌI lịch còn sống, kênh ≠ `WALK_IN`, khám trong [hôm nay, +7 ngày], kể cả đặt sát
+  ngày; hạn = `GREATEST(ngày khám − so_ngay, ngày đặt)`; đóng bằng một dòng
+  `XAC_NHAN_LICH` chưa hoàn tác (không nghe máy/hẹn lại → `GOI_LAI`). Nguồn: view
+  `v_viec_cskh` (migration `20261015110000`, nhãn ở `luat_cskh`). Không có cột "ai đặt"
+  (chưa có cổng khách tự đặt) — thêm đường ghi lịch mới thì làm phương án B (cột nguồn
+  đặt). Test `T/services/test_goi_xac_nhan_lich_dat_ho_db.py` + bài canh ba nơi ghi
+  lịch `T/unit/test_dat_lich_chi_ba_noi_ghi.py`. Việc dữ liệu: bật/tắt, số ngày =
+  `luat_cskh` (sửa trên màn).
 - Màn chuẩn `/customers` (`D/customers/CustomersView.tsx`, `VungLamViecKhach.tsx`,
   `HanhDongTrangThai.tsx`) → `S/cskh_service.py`, `S/danh_sach_khach_cskh.py`; ghi
   chăm sóc `S/tuong_tac_cskh_service.py`. Test: `T/unit/test_so_tuong_tac_cskh.py`.
@@ -559,6 +696,25 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   `src/clinicai/events/consumers/lieu_trinh_sap_het.py` (nghe `service.completed`,
   `nguon = lieu_trinh_sap_het`, một mốc một chuông). Test:
   `T/services/test_lieu_trinh_sap_het_db.py`, FT `lieu-trinh-sap-het-boundary.test.mts`.
+- **Phản hồi sau dùng thuốc (10/10):** khối "Phản hồi sau dùng thuốc" của khung khách
+  (`D/_lam-viec/KhungKhach.tsx` → `D/_lam-viec/PhanHoiThuocKhach.tsx`: chọn lượt có đơn,
+  kênh, nội dung · Gỡ · [Đặt lịch khám] = `DatLichModal` "kham-moi" của `CustomersView`)
+  → `/api/cskh/khach/[id]` (`?xem=phan-hoi-thuoc`, `thao_tac: phan-hoi-thuoc |
+  go-phan-hoi-thuoc`) → `S/phan_hoi_thuoc_service.py` (`doc`, `ghi`, `go`). Lưu ở
+  `tuong_tac_cskh` loại `PHAN_HOI_THUOC` + cột `visit_id` (mig `20261010200000`); chỉ
+  người ghi gỡ được (cả `tuong_tac_cskh_service.hoan_tac`); POST nhận `Idempotency-Key`.
+  Bác sĩ đọc: `doc_theo_khach` → `phan_hoi_thuoc` của `GET /clinical-forms/history`
+  (Bàn khám `LuotKhamTruoc`, theo KHÁCH — cả lượt có đơn chưa có phiếu) và
+  `doc_theo_luot` → `S/lich_su_luot.py` (popup `LichSuKham`). Test: `T/services/test_phan_hoi_thuoc_db.py`.
+  **Ra bảng danh sách (16/10):** cột "Phản hồi thuốc" của `/customers`
+  (`D/customers/PhanHoiThuocCot.tsx`, vẽ trong `CustomersView.tsx`) đọc khối `phan_hoi_thuoc`
+  của `GET /cskh/man-khach-hang` → `S/man_khach_hang_service.py` (`goi_du_lieu` một câu
+  `DISTINCT ON` + `count() OVER`; `tom_tat_phan_hoi_thuoc`, `rut_gon` ~40 ký tự); nút lọc
+  "Có phản hồi sau dùng thuốc" = `?phan_hoi_thuoc=1` → `GET /cskh/danh-sach-khach` →
+  `S/danh_sach_khach_cskh.py` (`co_phan_hoi_thuoc`); dòng "gần nhất" ở đầu `KhungKhach.tsx`
+  (nhận từ `PhanHoiThuocKhach` qua `onDoc`, không đọc thêm). Chỉ mục: mig `20261016300000`.
+  Test: `T/services/test_phan_hoi_thuoc_cot_db.py`, `T/unit/test_man_khach_hang.py`
+  (`TestPhanHoiThuocCot`), FT `phan-hoi-thuoc-cot-boundary.test.mts`.
 - **Nhãn đếm lượt "Lượt khám n" / "Buổi k/N" (08/10, mọi màn):** máy chủ đếm ở
   `S/nhan_luot.py` (`gan_nhan` thuần + `doc_nhan_luot` một câu SQL), gắn `nhan_luot` vào
   dữ liệu của `S/man_khach_hang_service.py` (`/customers` — kèm giờ thật `den_luc` /
@@ -676,6 +832,14 @@ popup `D/_lam-viec/HanhTrinhKhach.tsx`; máy chủ `S/hanh_trinh_khach_service.p
   sổ tay `docs/VAN-HANH-MAY-CHU.md`. CI: `scripts/ci-may.sh`; chạy test: `docs/CHAY-TEST.md`.
 - Lỗi & cảnh báo: màn `/ops` (tab Lỗi & cảnh báo, Nhật ký vận hành) → kho lỗi
   `S/kho_loi.py`, canh gác `S/canh_gac.py`, nhật ký `S/nhat_ky_van_hanh.py`.
+- **API chậm / nghi cạn bể kết nối (14/10/2026):** log container `api` có dòng
+  `request_cham` (mỗi request ≥ 500ms), `api_nhip_phut` (mỗi phút), `pool_cho_lau`/
+  `pool_day`/`pool_ban_keo_dai`; `/ops/pool` (số tức thời) + cảnh báo `POOL_API_DAY` ở
+  `/ops`. Code: `src/clinicai/core/quan_sat.py` (đo), `S/canh_gac_pool.py` (vòng nền +
+  cảnh báo), `TimingMiddleware` ở `src/clinicai/api/middleware.py`; trần bể
+  `POOL_MAX_SIZE` ở `src/clinicai/core/database.py`. Test: `T/core/test_quan_sat.py`,
+  `T/services/test_quan_sat_pool_db.py`. Bẫy: **không mượn kết nối thứ hai khi đang giữ
+  một** (truyền `conn`, đừng truyền `pool` xuống hàm con).
 - Sao lưu kéo về Mac: `cat ~/Projects/ClinicAI-Backups/TRANG-THAI.txt` phải "BÌNH THƯỜNG".
 - Lịch sử Notion: schema `lich_su_notion` NGOÀI `public` — bản 15 phút không lấy; bản
   đêm lấy thành `*_lich_su_notion.sql.gz` (`BACKUP_LICH_SU_NOTION=1` ở `clinicai-backup.service`).

@@ -17,6 +17,10 @@ export type ClinicRole =
   | "CASHIER_DV"
   | "TRUONG_CA"
   | "PHARMACIST"
+  // KẾ TOÁN (16/10/2026) — chỉ là NHÃN vai. Quyền thật là lego Kế toán
+  // (`accounting.finance.full`); vai này không mở thêm màn nào ở bảng `NAV_ROLES`
+  // ngoài đường rơi khi máy chủ im, và gói mẫu "Kế toán" được cấp sẵn lúc tạo.
+  | "ACCOUNTANT"
   // Màn hình TV phòng chờ.
   // Backend từ chối vai này ở mọi endpoint trừ bảng gọi số; ở đây nó chỉ tồn
   // tại để layout biết mà đưa thẳng ra /display thay vì mở bảng điều khiển.
@@ -40,6 +44,7 @@ export const ALL_ROLES: ClinicRole[] = [
   "CASHIER_DV",
   "TRUONG_CA",
   "PHARMACIST",
+  "ACCOUNTANT",
   "DISPLAY",
   "PARTNER",
 ];
@@ -210,6 +215,9 @@ export function isCashierRole(role: ClinicRole | null): boolean {
 export function roleLanding(role: ClinicRole | null): string {
   // Đối tác không có trang chủ để mà xem — họ vào đúng việc của mình.
   if (role === "PARTNER") return "/doi-tac";
+  // Kế toán vào thẳng chỗ làm việc của mình. Thiếu lego Kế toán thì cửa trang
+  // (requireNavAccess) đẩy về /home — không vòng lặp, không quyền nào được cấp ở đây.
+  if (role === "ACCOUNTANT") return "/ke-toan";
   // Không còn "/tasks" (màn cũ, gộp 18/09/2026 — docs/SITEMAP.md mục C).
   // Bác sĩ siêu âm đứng phòng siêu âm; bác sĩ và thư ký vào bàn khám.
   // Không còn mã phòng viết cứng (CORE-C): vào danh sách phòng, chọn phòng.
@@ -236,6 +244,7 @@ export const ROLE_LABEL: Record<ClinicRole, string> = {
   CASHIER_DV: "Thu ngân dịch vụ",
   TRUONG_CA: "Trưởng ca",
   PHARMACIST: "Dược sĩ",
+  ACCOUNTANT: "Kế toán",
   DISPLAY: "Màn hình phòng chờ",
   PARTNER: "Đối tác",
 };
@@ -410,6 +419,8 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   "/pharmacy/history": ["PHARMACIST", "MANAGEMENT"],
   "/pharmacy/consult": ["PHARMACIST", "MANAGEMENT"],
   "/pharmacy/inventory": ["RECEPTION", "PHARMACIST", "MANAGEMENT"],
+  // Kho vật tư (G8a, 14/10/2026): cửa chính là LEGO `kho_vat_tu`; vai chỉ là đường rơi khi máy chủ im.
+  "/kho-vat-tu": ["RECEPTION", "PHARMACIST", "TRUONG_CA", "MANAGEMENT"],
   // MỌI vai trò tự đăng ký ca của mình (thu ngân, điều dưỡng... cũng cần); Quản
   // lý + Trưởng ca xếp cả bảng. Ca tự đăng ký vào trạng thái chờ duyệt (xem
   // /api/roster).
@@ -424,9 +435,12 @@ const NAV_ROLES: Record<string, "all" | ClinicRole[]> = {
   // Đối tác (người NGOÀI phòng khám) và màn TV cũng không có lịch làm việc
   // (17/09/2026: thanh bên đối tác hiện "Lịch làm việc").
   "/schedule": ALL_ROLES.filter((r) => r !== "CSKH" && r !== "PARTNER" && r !== "DISPLAY"),
-  "/reports": ["MANAGEMENT"],
-  "/hoa-don": ["MANAGEMENT"],
-  "/xuat-hoa-don": ["MANAGEMENT"],
+  // Kế toán (16/10/2026) có mặt ở ba màn tài chính CHỈ làm đường rơi khi máy chủ
+  // chưa trả lời quyền (`vaoDuocMan` → `canSeeNavGoc`); lúc biết quyền thì lego
+  // (`report.view`) quyết, và máy chủ vẫn 403 nếu thiếu capability.
+  "/reports": ["MANAGEMENT", "ACCOUNTANT"],
+  "/hoa-don": ["MANAGEMENT", "ACCOUNTANT"],
+  "/xuat-hoa-don": ["MANAGEMENT", "ACCOUNTANT"],
   // Lịch sử thao tác (audit log) — CSKH + Quản lý + Trưởng ca.
   "/audit-log": ["CSKH", "MANAGEMENT"],
   // Duyệt kết quả theo chỉ định — thay /result-review. Chỉ bác sĩ (duyệt là
@@ -579,6 +593,7 @@ const KHONG_MO_THEO_CONG_TAC = [
   "/reports",
   "/hoa-don",
   "/xuat-hoa-don",
+  "/ke-toan",
   "/admin",
   // Hai màn của người NGOÀI phòng khám. Chúng đóng theo thiết kế, và công tắc
   // "mở tạm" không được phép chạm vào — xem `test_mo_quyen_tam_thoi.py`.
@@ -639,10 +654,12 @@ const NAV_QUYEN: Record<string, string[]> = {
   "/pharmacy/consult": ["pharmacy.view", "pharmacy.dispense"],
   "/schedule": ["roster.view"], // 15 Lịch làm việc
   "/cashier/dich-vu": ["price.service.manage"], // 16 Bảng giá (dịch vụ)
+  "/kho-vat-tu": ["vat_tu.manage"], // Kho vật tư (G8a)
   "/hoa-don": ["report.view"],
   "/xuat-hoa-don": ["report.view"],
   "/reports": ["report.view"], // 17 Báo cáo
   "/lich-do-ve": ["report.view"],
+  "/ke-toan": ["accounting.finance.full"], // 22 Kế toán (14/10/2026)
   "/settings": ["config.clinic.manage"], // 18 Cài đặt phòng khám
   "/settings/booking-policy": ["config.clinic.manage"],
   "/settings/clinic-config": ["config.clinic.manage"],

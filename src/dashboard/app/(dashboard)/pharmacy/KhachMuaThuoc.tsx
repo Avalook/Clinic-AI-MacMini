@@ -7,8 +7,15 @@
 // (`ban_le_service`): ai được mở, chống trùng SĐT, mỗi khách một lượt đang mở.
 // Màn chỉ gửi và vẽ lại câu máy chủ trả.
 //
-// Ở /pharmacy: mở xong chọn luôn lượt vừa mở. Ở /pharmacy/inventory: chuyển
-// sang /pharmacy?luot=<id> để kê và thu.
+// Chọn khách cũ → hiện ngay LỊCH SỬ ĐƠN THUỐC, chưa mở lượt; "Bán theo đơn này"
+// ở từng đơn mở lượt + nối đơn + thêm dòng một lần (09/10/2026). Chỉ tìm ra MỘT
+// khách thì chọn luôn (gõ đủ SĐT là thấy đơn). 16/10/2026 (Tuyền bấm thử: "chưa
+// thấy chỗ bán theo đơn"): bỏ nút "Mở lượt mua thuốc" ở từng dòng kết quả — nó
+// là lối bán lẻ trơn nên người dùng bấm nút to và không bao giờ thấy đơn cũ; nay
+// là "Bán lẻ — không theo đơn", đặt SAU danh sách đơn.
+//
+// Ở /pharmacy: mở xong chọn luôn lượt vừa mở (màn cuộn tới lượt, có lời báo).
+// Ở /pharmacy/inventory: chuyển sang /pharmacy?luot=<id> để kê và thu.
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -16,6 +23,7 @@ import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 
 import { INPUT } from "../form-ui";
+import LichSuDonThuoc from "./LichSuDonThuoc";
 import { CHAM } from "./DongThuoc";
 
 interface KhachTim {
@@ -65,12 +73,18 @@ export default function KhachMuaThuoc({
   const [mo, setMo] = useState(false);
   const [tim, setTim] = useState("");
   const [ketQua, setKetQua] = useState<KhachTim[]>([]);
+  // Từ khoá đã có kết quả — khác ô đang gõ nghĩa là máy chủ còn đang tìm.
+  const [daTim, setDaTim] = useState("");
   const [ten, setTen] = useState("");
   const [sdt, setSdt] = useState("");
   const [namSinh, setNamSinh] = useState("");
   const [trung, setTrung] = useState<KetQuaMo["matches"] | null>(null);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  // Khách cũ đang chọn — khung lịch sử đơn thuốc của họ hiện bên dưới.
+  const [chon, setChon] = useState<string | null>(null);
+
+  const chonKhach = (id: string | null) => setChon(id);
 
   // Tìm khách: gõ ≥ 2 ký tự, chờ 300ms sau lần gõ cuối.
   useEffect(() => {
@@ -81,10 +95,17 @@ export default function KhachMuaThuoc({
       fetch(`/api/pharmacy/tim-khach?${new URLSearchParams({ q })}`, { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .then((d: { items?: KhachTim[] } | null) => {
-          if (!bo) setKetQua(d?.items ?? []);
+          if (bo) return;
+          const ds = d?.items ?? [];
+          setKetQua(ds);
+          setDaTim(q);
+          // Một khách duy nhất: chọn luôn để đơn thuốc cũ hiện ngay.
+          if (ds.length === 1) setChon(ds[0].clinic_patient_id);
         })
         .catch(() => {
-          if (!bo) setKetQua([]);
+          if (bo) return;
+          setKetQua([]);
+          setDaTim(q);
         });
     }, 300);
     return () => {
@@ -101,6 +122,7 @@ export default function KhachMuaThuoc({
     setSdt("");
     setNamSinh("");
     setTrung(null);
+    chonKhach(null);
     if (sangNhaThuoc) {
       router.push(`/pharmacy?${new URLSearchParams({ luot: visitId })}`);
       return;
@@ -151,7 +173,8 @@ export default function KhachMuaThuoc({
       </div>
       <p className="text-meta text-ink-muted">
         Mở lượt bán lẻ: không tiền khám, không vào hàng chờ bác sĩ. Kê thuốc và thu tiền ngay
-        tại quầy; thu xong lượt tự đóng.
+        tại quầy; thu xong lượt tự đóng. Khách cũ: tìm và chọn khách — đơn thuốc cũ hiện ngay,
+        bấm “Bán theo đơn này” để bán theo đơn.
       </p>
       {loi ? (
         <p role="alert" className="rounded-control bg-danger-bg px-3 py-2 text-meta text-danger">
@@ -162,39 +185,75 @@ export default function KhachMuaThuoc({
       <div className="space-y-2">
         <input
           value={tim}
-          onChange={(e) => setTim(e.target.value)}
+          onChange={(e) => {
+            setTim(e.target.value);
+            chonKhach(null);
+          }}
           placeholder="Tìm khách: SĐT / mã khách / tên…"
           aria-label="Tìm khách có sẵn"
           className={INPUT}
         />
         {tim.trim().length >= 2 ? (
-          ketQua.length === 0 ? (
+          daTim !== tim.trim() ? (
+            <p role="status" className="text-meta text-ink-muted">
+              Đang tìm khách…
+            </p>
+          ) : ketQua.length === 0 ? (
             <p className="text-meta text-ink-muted">Không thấy khách — nhập khách mới bên dưới.</p>
           ) : (
             <ul className="divide-y divide-line rounded-control border border-line">
               {ketQua.map((k) => (
-                <li key={k.clinic_patient_id} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-body font-medium text-ink">
-                      {k.full_name}
-                    </span>
-                    <span className="block truncate text-meta text-ink-muted">
-                      {[k.patient_code, k.phone_primary, k.birth_year].filter(Boolean).join(" · ")}
-                    </span>
-                  </span>
-                  <Button
-                    className={CHAM}
-                    size="sm"
-                    variant="soft"
-                    disabled={dang}
-                    onClick={() => void gui({ clinic_patient_id: k.clinic_patient_id })}
+                <li key={k.clinic_patient_id}>
+                  <button
+                    type="button"
+                    aria-pressed={chon === k.clinic_patient_id}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left ${
+                      chon === k.clinic_patient_id ? "bg-brand-50" : "hover:bg-surface-muted"
+                    }`}
+                    onClick={() => chonKhach(k.clinic_patient_id)}
                   >
-                    Mở lượt mua thuốc
-                  </Button>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-body font-medium text-ink">
+                        {k.full_name}
+                      </span>
+                      <span className="block truncate text-meta text-ink-muted">
+                        {[k.patient_code, k.phone_primary, k.birth_year].filter(Boolean).join(" · ")}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-meta text-brand-700">
+                      {chon === k.clinic_patient_id ? "Đang xem đơn thuốc" : "Xem đơn thuốc"}
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
           )
+        ) : null}
+        {chon ? (
+          <div className="overflow-hidden rounded-control border border-line">
+            <LichSuDonThuoc
+              key={chon}
+              clinicPatientId={chon}
+              choSua
+              onDoi={(_cau, loiMoi) => setLoi(loiMoi)}
+              onMo={xong}
+            />
+            {/* Lối bán lẻ trơn nằm SAU danh sách đơn: "Bán theo đơn này" là lựa chọn thấy trước. */}
+            <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+              <Button
+                className={CHAM}
+                size="sm"
+                variant="secondary"
+                disabled={dang}
+                onClick={() => void gui({ clinic_patient_id: chon })}
+              >
+                {dang ? "Đang mở…" : "Bán lẻ — không theo đơn"}
+              </Button>
+              <span className="text-meta text-ink-muted">
+                Khách mua thuốc không theo đơn nào ở trên.
+              </span>
+            </div>
+          </div>
         ) : null}
       </div>
 

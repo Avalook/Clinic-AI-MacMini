@@ -109,8 +109,14 @@ async def _xuat(q: Quay, rx: str) -> str:
 
 
 async def _tra(q: Quay, xuat: str, so: Any) -> dict[str, Any]:
+    # G4d · R3: tiền phần trả bắt chọn — bài CP5 giữ nghĩa cũ (không tạo hoàn).
     return await PharmacyService(q.pool).khach_tra_thuoc(
-        identity=q.duoc_si, dispense_txn_id=xuat, so_luong=so, ly_do="Khách dị ứng"
+        identity=q.duoc_si,
+        dispense_txn_id=xuat,
+        so_luong=so,
+        ly_do="Khách dị ứng",
+        ket_cuc_tien="GIU_LAI",
+        ly_do_tien="Khách để lại, trừ lần mua sau",
     )
 
 

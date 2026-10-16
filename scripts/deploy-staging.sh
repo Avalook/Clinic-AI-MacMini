@@ -17,6 +17,9 @@
 #     chỉ gửi lệnh, việc dựng chạy trong dockerd/buildkitd với ưu tiên của nó —
 #     nên trần phải đặt lên chính container buildkitd. Client vẫn chạy dưới
 #     `nice -n 19 ionice -c3` cho phần nén/gửi ngữ cảnh.
+#   • GIỜ KHÁM (7h–21h giờ VN): dựng ảnh làm prod chậm → dừng, in cách đi tiếp;
+#     cố ý dựng thì `CHO_PHEP_GIO_KHAM=1 ./scripts/deploy-staging.sh …`. Ngoài
+#     giờ khám không đổi gì (kiem_gio_kham, scripts/lib/staging-chung.sh).
 #   • Sau deploy: dọn ảnh staging cũ (chỉ ảnh mang nhãn project staging) và bộ
 #     nhớ tạm của builder staging.
 #
@@ -66,6 +69,7 @@ trap don_dep EXIT INT TERM
 
 buoc "1/6  Chốt tài nguyên + nguồn code"
 kiem_tai_nguyen
+kiem_gio_kham
 if [ "${STAGING_TAI_CHO:-0}" = "1" ]; then
     # staging-dung-lan-dau.sh đã checkout sẵn — dựng đúng chỗ đang đứng.
     SHA="$(git rev-parse HEAD)"

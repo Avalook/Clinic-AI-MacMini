@@ -32,6 +32,7 @@ import ChonBacSiLam, { coChonBacSi, type LuaChonBacSi } from "../_lam-viec/ChonB
 import OLamTruocThuSau, { type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
 import type { PhanGui } from "@/lib/hinh-thuc-thu";
 import ChiaHinhThuc, { type KetQuaChia } from "./ChiaHinhThuc";
+import CongTyKhiThu, { type CongTyThu } from "./CongTyKhiThu";
 import GiamGia, { type GiamGiaResult, type GiamGiaParams } from "./GiamGia";
 
 export interface PhongChon {
@@ -132,6 +133,8 @@ export interface LenhThuMot {
   /** Giảm giá (13/10/2026): tham số gửi máy chủ + số phải thu xem trước. */
   discount?: GiamGiaParams;
   tongSauGiam?: number;
+  /** "Xuất hoá đơn về công ty" (16/10/2026): công ty trong hồ sơ khách, theo lượt thu này. */
+  congTyId?: string;
 }
 
 function tien(n: number): string {
@@ -149,6 +152,7 @@ function gio(iso: string | null): string {
 export default function HoaDonMot({
   visitId,
   lamTruoc,
+  congTy,
   qt,
   dangThu,
   dangLuuVatTu,
@@ -159,6 +163,8 @@ export default function HoaDonMot({
   visitId: string;
   /** Tick "Làm trước – thu sau" của lượt — cờ máy chủ trả trong bảng quầy. */
   lamTruoc?: LamTruoc | null;
+  /** Công ty trong hồ sơ khách (máy chủ báo trong bảng quầy). */
+  congTy?: CongTyThu[];
   qt: QuayThu;
   dangThu: boolean;
   dangLuuVatTu: boolean;
@@ -174,6 +180,7 @@ export default function HoaDonMot({
   const [chon, setChon] = useState<Set<string>>(macDinh);
   const [chia, setChia] = useState<KetQuaChia | null>(null);
   const [giamGia, setGiamGia] = useState<GiamGiaResult | null>(null);
+  const [congTyId, setCongTyId] = useState<string | null>(null);
   const pt: PhuongThuc = chia?.coChuyenKhoan ? "TRANSFER" : "CASH";
   const [loiPhong, setLoiPhong] = useState<string | null>(null);
   const orderIdsCoTheDoi = new Set(qt.lua_chon.order_ids_seen);
@@ -259,10 +266,12 @@ export default function HoaDonMot({
         JSON.stringify(chiChot || mienPhi ? null : chia?.phan),
         String(tong),
         giamGia?.params ? `${giamGia.params.discount_type}:${giamGia.params.discount_value}` : "",
+        congTyId ?? "",
       ].join("|"),
       tong,
       discount: giamGia?.params ?? undefined,
       tongSauGiam: giamGia?.params ? giamGia.tongSauGiam : undefined,
+      congTyId: congTyId ?? undefined,
     });
   };
 
@@ -371,6 +380,13 @@ export default function HoaDonMot({
       {tong > 0 ? (
         <div className="border-t border-line pt-3">
           <GiamGia tong={tong} giamDuoc={qt.giam_duoc} onDoi={setGiamGia} />
+        </div>
+      ) : null}
+
+      {/* Xuất hoá đơn về công ty (16/10/2026) — theo lượt thu */}
+      {tong > 0 ? (
+        <div className="border-t border-line pt-3">
+          <CongTyKhiThu congTy={congTy} onDoi={setCongTyId} />
         </div>
       ) : null}
 

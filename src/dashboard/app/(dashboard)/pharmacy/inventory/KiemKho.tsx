@@ -7,13 +7,15 @@
 // điều chỉnh vào sổ kho và lưu phiếu — con số cuối cùng là của máy chủ.
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import DanhSachPhieu from "./DanhSachPhieu";
+import type { ThuocKho } from "./DanhMucKho";
 import { guiKho, soKho } from "./gui-kho";
 import type { InvBatch } from "./InventoryBoard";
+import OQuetMa, { NHAN_TRANG_THAI_LO, type KetQuaQuet } from "./OQuetMa";
 
 const khoaMoi = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -23,7 +25,16 @@ const khoaMoi = () =>
 const tenLo = (b: InvBatch) =>
   `${b.drug?.name_base ?? b.drug?.name_raw ?? "—"}${b.drug?.variant ? ` (${b.drug.variant})` : ""}`;
 
-export default function KiemKho({ batches, ghiDuoc }: { batches: InvBatch[]; ghiDuoc: boolean }) {
+export default function KiemKho({
+  batches,
+  ghiDuoc,
+  thuoc = [],
+}: {
+  batches: InvBatch[];
+  ghiDuoc: boolean;
+  /** Danh mục thuốc — để gắn mã vạch cho thuốc khi quét mã lạ. */
+  thuoc?: ThuocKho[];
+}) {
   const router = useRouter();
   const [tim, setTim] = useState("");
   const [caLoRong, setCaLoRong] = useState(false);
@@ -44,6 +55,54 @@ export default function KiemKho({ batches, ghiDuoc }: { batches: InvBatch[]; ghi
       return tenLo(b).toLowerCase().includes(q) || b.batch_code.toLowerCase().includes(q);
     });
   }, [batches, tim, caLoRong, dem]);
+
+  // Quét tem lô → nhảy tới ô đếm của ĐÚNG lô đó (quét lại chỉ nhảy lại, không
+  // cộng số). Quét hộp (mã thuốc) → lọc danh sách theo thuốc; mã vuông có số lô
+  // thì nhảy thẳng tới lô ấy. Lô hết hạn / đã huỷ vẫn đếm được — kiểm kê là đếm
+  // đủ những gì đang nằm trên kệ.
+  const tieuDiem = useRef<string | null>(null);
+  const [baoQuet, setBaoQuet] = useState<string | null>(null);
+  const [lanQuet, setLanQuet] = useState(0);
+  useEffect(() => {
+    if (!tieuDiem.current) return;
+    const o = document.getElementById(`kk-dem-${tieuDiem.current}`);
+    if (o) {
+      o.focus();
+      tieuDiem.current = null;
+    }
+    // `hang` đổi sau khi lọc / mở lô hết: ô mới có mặt thì mới nhảy tới được.
+  }, [lanQuet, hang]);
+
+  const nhayToiLo = (id: string, trangThai: string, ten: string) => {
+    const b = batches.find((x) => x.id === id);
+    if (!b) {
+      setBaoQuet(`Lô này không nằm trong kho cơ sở đang làm (${ten}).`);
+      return;
+    }
+    if (Number(b.quantity_on_hand) <= 0) setCaLoRong(true);
+    setTim("");
+    tieuDiem.current = id;
+    setBaoQuet(
+      trangThai === "ok"
+        ? `Lô ${b.batch_code} — nhập số đếm ở ô đã chọn.`
+        : `Lô ${b.batch_code} ${NHAN_TRANG_THAI_LO[trangThai] ?? ""} — vẫn đếm được.`,
+    );
+  };
+
+  const khiQuet = (kq: KetQuaQuet) => {
+    setBaoQuet(null);
+    setLanQuet((n) => n + 1);
+    if (kq.loai === "tem") {
+      nhayToiLo(kq.lo.id, kq.lo.trang_thai, kq.lo.ten_thuoc ?? "");
+    } else if (kq.loai === "thuoc") {
+      if (kq.lo_theo_ma) {
+        nhayToiLo(kq.lo_theo_ma.id, kq.lo_theo_ma.trang_thai, kq.thuoc.ten);
+      } else {
+        setTim(kq.thuoc.ten);
+        setBaoQuet(`Đã lọc theo ${kq.thuoc.ten} — quét tem lô hoặc nhập số đếm từng lô.`);
+      }
+    }
+  };
 
   const daDem = Object.entries(dem).filter(([, v]) => v.trim() !== "");
 
@@ -84,6 +143,16 @@ export default function KiemKho({ batches, ghiDuoc }: { batches: InvBatch[]; ghi
           className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-card"
         >
           <h3 className="text-title text-ink">Phiếu kiểm kho</h3>
+          <OQuetMa
+            thuoc={thuoc.filter((t) => t.dang_dung).map((t) => ({ id: t.id, ten: t.ten }))}
+            ghiDuoc={ghiDuoc}
+            onKetQua={khiQuet}
+          />
+          {baoQuet ? (
+            <p role="status" className="text-meta text-ink-soft">
+              {baoQuet}
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <input
               value={tim}
@@ -108,8 +177,8 @@ export default function KiemKho({ batches, ghiDuoc }: { batches: InvBatch[]; ghi
                 <tr>
                   <th className="px-3 py-2">Thuốc</th>
                   <th className="px-3 py-2">Lô</th>
-                  <th className="px-3 py-2 text-right">Tồn máy</th>
-                  <th className="px-3 py-2">Thực tế</th>
+                  <th className="px-3 py-2 text-right">Tồn trên hệ thống</th>
+                  <th className="px-3 py-2">Số lượng thực tế</th>
                   <th className="px-3 py-2 text-right">Lệch (xem trước)</th>
                 </tr>
               </thead>
@@ -137,6 +206,7 @@ export default function KiemKho({ batches, ghiDuoc }: { batches: InvBatch[]; ghi
                         </td>
                         <td className="px-3 py-2">
                           <input
+                            id={`kk-dem-${b.id}`}
                             value={v}
                             inputMode="decimal"
                             aria-label={`Số đếm thực tế ${tenLo(b)} lô ${b.batch_code}`}

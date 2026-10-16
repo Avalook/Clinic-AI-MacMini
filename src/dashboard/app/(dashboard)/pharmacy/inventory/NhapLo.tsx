@@ -2,7 +2,7 @@
 
 // Nhập lô thuốc vào kho (Tuyền 25/09/2026: "lô thuốc, ngày nhập xuất, kho để
 // họ tự fill"). Gọi lệnh có sẵn `receive` → `POST /api/v1/pharmacy/receive`:
-// số lô, hạn dùng, đơn vị BẮT BUỘC (máy chủ từ chối kèm câu tiếng Việt); tồn
+// số lô và đơn vị bắt buộc; hạn có thể bổ sung sau. Tồn
 // cộng qua sổ kho (trigger), không cộng tay.
 
 import { useRouter } from "next/navigation";
@@ -12,10 +12,19 @@ import Button from "@/components/ui/Button";
 import { INPUT, LABEL } from "../../form-ui";
 import type { ThuocKho } from "./DanhMucKho";
 import { guiKho } from "./gui-kho";
+import OQuetMa, { type KetQuaQuet } from "./OQuetMa";
 
 const TRONG = { ten: "", so_lo: "", han: "", so_luong: "", don_vi: "", gia_nhap: "", ghi_chu: "" };
 
-export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: () => void }) {
+export default function NhapLo({
+  thuoc,
+  onXong,
+  ghiDuoc = true,
+}: {
+  thuoc: ThuocKho[];
+  onXong: () => void;
+  ghiDuoc?: boolean;
+}) {
   const router = useRouter();
   const [f, setF] = useState(TRONG);
   const [dang, setDang] = useState(false);
@@ -30,6 +39,28 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
     setF((cu) => ({ ...cu, ten, don_vi: t && !cu.don_vi ? (t.don_vi_lo?.[0] ?? t.don_vi_ban ?? "") : cu.don_vi }));
   };
 
+  const [baoQuet, setBaoQuet] = useState<string | null>(null);
+
+  // Quét hộp / tem → điền sẵn thuốc; mã vuông GS1 điền thêm số lô + hạn. Chỉ
+  // ĐIỀN SẴN — người bấm "Nhập vào kho" mới ghi.
+  const khiQuet = (kq: KetQuaQuet) => {
+    setBaoQuet(null);
+    if (kq.loai !== "thuoc" && kq.loai !== "tem") return;
+    const id = kq.loai === "thuoc" ? kq.thuoc.id : kq.lo.drug_catalog_id;
+    const t = dangDung.find((x) => x.id === id);
+    if (!t) {
+      setBaoQuet("Thuốc này đang tắt trong danh mục — bật lại ở Danh mục thuốc trước khi nhập.");
+      return;
+    }
+    doiTen(t.ten);
+    if (kq.loai === "tem") {
+      setF((cu) => ({ ...cu, ten: t.ten, so_lo: kq.lo.batch_code, han: kq.lo.expiry_date ?? cu.han, don_vi: kq.lo.unit }));
+      setBaoQuet(`Tem lô ${kq.lo.batch_code}: nhập thêm vào đúng lô này.`);
+    } else if (kq.gs1) {
+      setF((cu) => ({ ...cu, ten: t.ten, so_lo: kq.gs1?.so_lo ?? cu.so_lo, han: kq.gs1?.han ?? cu.han }));
+    }
+  };
+
   const luu = async () => {
     if (!chon) {
       setLoi("Chọn thuốc có trong danh mục (gõ rồi chọn trong danh sách).");
@@ -40,7 +71,7 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
     const kq = await guiKho("receive", {
       drug_catalog_id: chon.id,
       batch_code: f.so_lo.trim(),
-      expiry_date: f.han,
+      expiry_date: f.han || null,
       so_luong: f.so_luong.trim(),
       unit: f.don_vi.trim(),
       cost_price: f.gia_nhap.trim() === "" ? null : f.gia_nhap.trim(),
@@ -75,6 +106,16 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
       className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-card"
     >
       <h3 className="text-title text-ink">Nhập lô thuốc</h3>
+      <OQuetMa
+        thuoc={dangDung.map((t) => ({ id: t.id, ten: t.ten }))}
+        ghiDuoc={ghiDuoc}
+        onKetQua={khiQuet}
+      />
+      {baoQuet ? (
+        <p role="status" className="text-meta text-ink-soft">
+          {baoQuet}
+        </p>
+      ) : null}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block sm:col-span-2">
           <span className={LABEL}>Thuốc</span>
@@ -92,7 +133,7 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
           </datalist>
         </label>
         {o("so_lo", "Số lô")}
-        {o("han", "Hạn dùng", "date")}
+        {o("han", "Hạn dùng (có thể nhập sau)", "date")}
         {o("so_luong", "Số lượng nhập")}
         {o("don_vi", "Đơn vị")}
         {o("gia_nhap", "Giá nhập (đ / đơn vị)")}
@@ -102,7 +143,7 @@ export default function NhapLo({ thuoc, onXong }: { thuoc: ThuocKho[]; onXong: (
         <Button
           type="button"
           variant="primary"
-          disabled={dang || !f.ten || !f.so_lo.trim() || !f.han || !f.so_luong.trim() || !f.don_vi.trim()}
+          disabled={dang || !f.ten || !f.so_lo.trim() || !f.so_luong.trim() || !f.don_vi.trim()}
           onClick={() => void luu()}
         >
           {dang ? "Đang nhập…" : "Nhập vào kho"}

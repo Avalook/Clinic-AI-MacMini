@@ -62,8 +62,9 @@ class DongHoaDon:
     # Vì sao dòng này chưa thu được (thiếu giá, mâu thuẫn giá, chưa xác định
     # thuốc kho, thiếu số lượng). Rỗng = thu được.
     van_de: str | None = None
-    # Chỉ dòng phụ thu: chỉ định dịch vụ cha. Metadata này cho quầy nối tick
-    # phụ thu với lựa chọn của cha; source_id vẫn là ID phụ thu để ghi sổ.
+    # Dòng phụ thu / vật tư đi kèm chỉ định (Bio, G9): chỉ định dịch vụ cha. Cho
+    # quầy nối tick với lựa chọn của cha và cho luật nợ; source_id vẫn là ID
+    # dòng để ghi sổ.
     order_id: str | None = None
 
 
@@ -473,6 +474,7 @@ def ghep_dich_vu(
                 ben_thu=CLINIC,
                 ma=str(v["service_price_id"]) if v.get("service_price_id") else None,
                 van_de=None,
+                order_id=str(v["order_id"]) if v.get("order_id") else None,
             )
         )
     # Trả trước k buổi liệu trình (08/10/2026): một dòng, số lượng = số buổi,
@@ -704,8 +706,10 @@ SELECT p.id::text AS id, p.service_order_id::text AS order_id, p.ten, p.don_gia
 #: đang giữ phủ. Khác phụ thu: theo LƯỢT, không phụ thuộc chỉ định nào.
 _VAT_TU_SQL = """
 SELECT v.id::text AS id, v.service_price_id::text AS service_price_id, v.ten,
-       v.don_vi, v.don_gia, v.so_luong
+       v.don_vi, v.don_gia, v.so_luong, v.order_id::text AS order_id
   FROM public.luot_vat_tu v
+  LEFT JOIN public.service_order o
+    ON o.id = v.order_id AND o.clinic_id = v.clinic_id
  WHERE v.clinic_id = $1::uuid AND v.visit_id = $2::uuid AND v.bo_luc IS NULL
    AND {dieu_kien}
  ORDER BY v.chon_luc, v.id
@@ -713,6 +717,18 @@ SELECT v.id::text AS id, v.service_price_id::text AS service_price_id, v.ten,
 
 
 _VAT_TU_CHUA_THU = "NOT " + _DA_PHU.format(loai="'vat_tu'", nguon="v.id::text")
+
+#: Vật tư đi kèm CHỈ ĐỊNH (đầu dò Bio chọn ở chỉ định CLS, G9 14/10/2026): tiền
+#: đi theo chỉ định — chỉ tính khi chỉ định còn tính tiền được (chưa huỷ / không
+#: làm) VÀ khách đã chọn làm (hoặc đang chờ quyết mà quầy coi như chọn, `$3`).
+#: Suy từ trạng thái chỉ định lúc đọc, không chép sang dòng vật tư: khôi phục
+#: chỉ định thì Bio tự quay lại. Dòng thêm ở quầy (order_id NULL) theo lượt như cũ.
+_VAT_TU_THEO_CHI_DINH = f"""
+    (v.order_id IS NULL OR (
+        (o.selection_status = 'SELECTED'
+         OR (o.selection_status = 'PENDING' AND o.id::text = ANY($3::text[])))
+        AND {_CON_TINH_TIEN}))
+"""
 
 
 #: Trả trước k buổi liệu trình (08/10/2026): dòng chưa bỏ của lượt, chưa nằm
@@ -935,9 +951,10 @@ async def hoa_don_con_no(
         sorted({str(i) for i in coi_nhu_chon}),
     )
     vat_tu = await conn.fetch(
-        _VAT_TU_SQL.format(dieu_kien=_VAT_TU_CHUA_THU),
+        _VAT_TU_SQL.format(dieu_kien=f"{_VAT_TU_CHUA_THU} AND {_VAT_TU_THEO_CHI_DINH}"),
         clinic_id,
         visit_id,
+        sorted({str(i) for i in coi_nhu_chon}),
     )
     lieu_trinh = await conn.fetch(
         _LIEU_TRINH_SQL.format(dieu_kien=_LIEU_TRINH_CHUA_THU),

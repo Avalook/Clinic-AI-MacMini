@@ -12,7 +12,6 @@
 
 import { getClinicStaffId, getNutBanKham, requireNavAccess } from "@/lib/clinic-session";
 
-import LiveBoardSync from "../LiveBoardSync";
 import BanKham from "../ban-kham/BanKham";
 
 export const metadata = { title: "Bàn khám tư vấn · ClinicAI" };
@@ -23,16 +22,13 @@ export default async function TuVanPage() {
   // Nút bấm theo LEGO của tài khoản, không theo vai (đợt 3, 27/09/2026).
   const nut = await getNutBanKham();
   return (
-    <>
-      <LiveBoardSync />
-      <main className="page-in flex flex-col gap-4 p-4 xl:p-6">
-        <BanKham
-          phongMa={null}
-          nut={nut}
-          staffId={await getClinicStaffId()}
-          cheDo="tu_van"
-        />
-      </main>
-    </>
+    <main className="page-in flex flex-col gap-4 p-4 xl:p-6">
+      <BanKham
+        phongMa={null}
+        nut={nut}
+        staffId={await getClinicStaffId()}
+        cheDo="tu_van"
+      />
+    </main>
   );
 }

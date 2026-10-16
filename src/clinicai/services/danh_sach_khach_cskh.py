@@ -63,7 +63,8 @@ COT_KENH_DOI_HUY = """
 _COT = (
     """
     p.clinic_patient_id::text AS clinic_patient_id, p.patient_code, p.full_name,
-    p.date_of_birth, p.birth_year, p.phone_primary, p.phone_secondary, p.gender,
+    p.date_of_birth, p.birth_year, p.phone_primary, p.phone_secondary,
+    p.national_id_number, p.email, p.gender,
     p.ethnicity, p.nationality, p.occupation, p.patient_objection, p.address,
     p.guardian_name, p.location_id::text AS location_id, p.created_at,
     p.van_de_di_kham, p.linh_vuc, p.updated_at, p.uu_tien, p.uu_tien_ly_do,
@@ -167,6 +168,11 @@ def cua_so_khoang(tu: Any, den: Any) -> tuple[datetime, datetime] | None:
     return dau, cuoi
 
 
+def la_bat(v: Any) -> bool:
+    """Cờ bật/tắt từ chuỗi URL: "1"/"true"/"co" → bật; rác/rỗng/None → tắt. Thuần."""
+    return isinstance(v, (str, bool)) and str(v).strip().lower() in ("1", "true", "co")
+
+
 def _chuoi_tim(q: str | None) -> str:
     """Bỏ ký tự đặc biệt của ILIKE (và của bộ lọc cũ) — rác → rỗng."""
     return re.sub(r"[,()%*_\\]", " ", (q or "")).strip()
@@ -206,6 +212,7 @@ async def danh_sach_khach(
     chon: str | None = None,
     tu: str | None = None,
     den: str | None = None,
+    co_phan_hoi_thuoc: bool = False,
 ) -> dict[str, Any]:
     cid = identity.clinic_id
     trang = max(1, trang)
@@ -234,6 +241,15 @@ async def danh_sach_khach(
                 OR p.full_name_unaccent ILIKE
                    '%' || lower(replace(replace(f_unaccent($7), 'đ', 'd'), 'Đ', 'D'))
                    || '%')
+           -- Bộ lọc "Có phản hồi sau dùng thuốc" (16/10/2026): cùng luật đếm với
+           -- cột "Phản hồi thuốc" (man_khach_hang_service) — còn hiệu lực, có lượt.
+           AND (NOT $10::boolean OR EXISTS (
+                 SELECT 1 FROM tuong_tac_cskh ph
+                   JOIN visit pv
+                     ON pv.visit_id = ph.visit_id AND pv.clinic_id = ph.clinic_id
+                  WHERE ph.clinic_id = p.clinic_id
+                    AND ph.clinic_patient_id = p.clinic_patient_id
+                    AND ph.loai = 'PHAN_HOI_THUOC' AND ph.huy_luc IS NULL))
          -- Hoạt động gần nhất lên trên; mã khách là khoá phụ để hai khách cùng
          -- mốc không đổi chỗ giữa hai lần tải → phân trang không lặp / sót.
          ORDER BY hd.luc DESC, p.clinic_patient_id
@@ -248,6 +264,7 @@ async def danh_sach_khach(
         t,
         (trang - 1) * KHACH_MOT_TRANG,
         KHACH_MOT_TRANG,
+        co_phan_hoi_thuoc is True,
     )
     tong = int(rows[0]["tong"]) if rows else 0
     dong = [_dong(r) for r in rows]
@@ -271,4 +288,5 @@ __all__ = [
     "cua_so",
     "cua_so_khoang",
     "danh_sach_khach",
+    "la_bat",
 ]

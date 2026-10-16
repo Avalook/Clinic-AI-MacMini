@@ -57,6 +57,7 @@ import DatLichModal from "./DatLichModal";
 import LichSuCacLanKham from "./LichSuCacLanKham";
 import ThanhLuotKham from "./ThanhLuotKham";
 import PhanHoiKhach, { type DongPhanHoi } from "./PhanHoiKhach";
+import PhanHoiThuocCot, { type TomTatPhanHoiThuoc } from "./PhanHoiThuocCot";
 // `NhacTaiKham` không còn được dựng ở màn này (Quang chốt 09/08/2026). File
 // component vẫn nằm nguyên trong thư mục — chưa xoá, vì nó là cả một khối chức
 // năng chứ không phải vài dòng trang trí.
@@ -132,6 +133,7 @@ const NHAN_LOAI_NGAN: Record<string, string> = {
   CHECK_OUT: "Check-out",
   THANH_TOAN: "Thanh toán",
   MUA_THUOC: "Mua thuốc",
+  PHAN_HOI_THUOC: "Phản hồi sau dùng thuốc",
 };
 const NHAN_KQ_NGAN: Record<string, string> = {
   DA_LIEN_HE: "đã liên hệ",
@@ -177,6 +179,8 @@ export interface CustomerRow {
   birth_year: number | null;
   phone_primary: string | null;
   phone_secondary: string | null;
+  national_id_number?: string | null;
+  email?: string | null;
   gender: string | null;
   ethnicity: string | null;
   nationality: string | null;
@@ -378,11 +382,16 @@ function nhanChiTiet(
   tt: TrangThaiCskh,
   lichSu: DongLichSu[] | undefined,
 ): string {
-  if (tt.trang_thai !== "GOI_LAI") return tt.nhan;
+  if (tt.trang_thai !== "GOI_LAI" && tt.trang_thai !== "CHO_DAT_LICH") return tt.nhan;
   // `lichSu` xếp mới nhất trước (xem truy vấn ở `page.tsx`), và nhánh GOI_LAI
   // của view cũng đọc lần chạm CUỐI — nên hai bên nhìn cùng một dòng.
   // Bỏ qua dòng đã hoàn tác — nhánh GOI_LAI của view cũng lọc `huy_luc IS NULL`.
-  const kq = lichSu?.find((d) => !d.huy_luc)?.ket_qua;
+  // "Gọi điện xác nhận" (khách chỉ lưu hồ sơ): chỉ tính lần gọi của CHÍNH việc đó.
+  const kq = lichSu?.find(
+    (d) =>
+      !d.huy_luc &&
+      (tt.trang_thai !== "CHO_DAT_LICH" || d.trang_thai_ma === "CHO_DAT_LICH"),
+  )?.ket_qua;
   const noi = kq ? NHAN_KET_QUA_NGAN_GOI[kq] : undefined;
   return noi ? `${tt.nhan} · ${noi}` : tt.nhan;
 }
@@ -581,11 +590,12 @@ function appointmentStatus(status: string): { label: string; tone: StatusTone } 
 
 function CustomerTableHeader() {
   return (
-    <div className="hidden gap-2 border-b border-hairline bg-surface-muted px-4 py-2 text-label font-semibold uppercase tracking-wide text-ink-muted md:grid md:grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(160px,0.8fr)_96px_150px_32px]">
+    <div className="hidden gap-2 border-b border-hairline bg-surface-muted px-4 py-2 text-label font-semibold uppercase tracking-wide text-ink-muted md:grid md:grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(150px,0.8fr)_minmax(160px,0.8fr)_96px_150px_32px]">
       <span>Khách hàng</span>
       <span>Trạng thái</span>
       <span>Mới / cũ</span>
       <span>Tương tác gần nhất</span>
+      <span>Phản hồi thuốc</span>
       <span>Bước tiếp theo</span>
       <span>Hạn xử lý</span>
       <span>Người xử lý gần nhất</span>
@@ -602,6 +612,8 @@ export default function CustomersView({
   trangThaiByPatient,
   viecMoByPatient,
   phanHoiByPatient,
+  phanHoiThuocByPatient,
+  locPhanHoiThuoc = false,
   lichSuKhamByPatient,
   henGoiLaiByPatient,
   taiKhamByPatient,
@@ -637,6 +649,10 @@ export default function CustomersView({
   /** MỌI việc đang mở theo khách — để cột giữa/phải bám đúng LƯỢT. */
   viecMoByPatient: Record<string, ViecCskh[]>;
   phanHoiByPatient: Record<string, DongPhanHoi[]>;
+  /** Tóm tắt phản hồi sau dùng thuốc theo khách (cột "Phản hồi thuốc"). */
+  phanHoiThuocByPatient: Record<string, TomTatPhanHoiThuoc>;
+  /** Bộ lọc "Có phản hồi sau dùng thuốc" đang bật (`?phan_hoi_thuoc=1`). */
+  locPhanHoiThuoc?: boolean;
   /** Lịch sử khám theo khách, đã ghép sẵn thành từng đợt ở server. */
   lichSuKhamByPatient: Record<string, ChuoiKham[]>;
   /** Lời hẹn gọi lại CHƯA ĐÓNG, theo khách. */
@@ -782,6 +798,7 @@ export default function CustomersView({
     nextQ: string,
     nextBy: ByDim,
     nextKhoang: Khoang | null = khoang,
+    nextPhanHoiThuoc: boolean = locPhanHoiThuoc,
   ) {
     // DỰNG PARAMS MỚI TINH, KHÔNG chép từ URL hiện tại — và đó là chủ ý:
     // đổi bộ lọc thì `trang` phải rơi về 1. Đứng ở trang 3 rồi gõ tìm kiếm mà
@@ -797,6 +814,7 @@ export default function CustomersView({
       params.set("den", nextKhoang.den);
     } else if (nextPeriod !== "all") params.set("period", nextPeriod);
     if (nextBy !== "created") params.set("by", nextBy);
+    if (nextPhanHoiThuoc) params.set("phan_hoi_thuoc", "1");
     if (selectedId) params.set("selected", selectedId);
     // Lượt và việc đi theo đường dẫn, để F5 và một link gửi cho ca sau vẫn mở
     // đúng chỗ người trước đang đứng.
@@ -1434,6 +1452,23 @@ export default function CustomersView({
         onChon={(k, chieuMoi) => go("all", term, chieuMoi, k)}
       />
 
+      {/* BỘ LỌC "Có phản hồi sau dùng thuốc" (16/10/2026) — chạy ở máy chủ như
+          mọi bộ lọc của màn (`?phan_hoi_thuoc=1`, lọc cả danh sách, không chỉ
+          trang đang xem). Bấm lại = bỏ lọc. */}
+      <button
+        type="button"
+        aria-pressed={locPhanHoiThuoc}
+        disabled={isPending}
+        onClick={() => go(period, term, by, khoang, !locPhanHoiThuoc)}
+        className={`inline-flex h-7 items-center rounded-control px-3 text-meta font-medium ${
+          locPhanHoiThuoc
+            ? "bg-brand-50 text-brand-700"
+            : "bg-surface-muted text-ink-muted hover:text-ink"
+        }`}
+      >
+        Có phản hồi sau dùng thuốc
+      </button>
+
       {/* TÊN NÚT ĐỔI 13/08/2026: "Ghi nhận khách quan tâm" → "Thêm khách hàng mới"
           (Tuyền chọn khi nghiệm thu). Chữ cũ mô tả HOÀN CẢNH của khách, nên người
           trực đọc xong vẫn không biết bấm vào thì được gì; chữ mới nói ra VIỆC nút
@@ -1494,7 +1529,7 @@ export default function CustomersView({
               thì dừng, không đùn sang trang. Chiều cao 664px = 720px của cột
               giữa trừ khối tiêu đề, để hai cột kết thúc ngang nhau. */}
           <div className="overflow-x-auto overscroll-contain xl:max-h-166 xl:overflow-y-auto">
-            <div className={selected ? "min-w-0" : "min-w-240"}>
+            <div className={selected ? "min-w-0" : "min-w-300"}>
               {!selected && <CustomerTableHeader />}
               {visibleRows.length > 0 ? (
                 <div className="divide-y divide-hairline">
@@ -1518,7 +1553,7 @@ export default function CustomersView({
                         className={`flex w-full flex-col gap-2 px-4 py-3 text-left transition-colors cursor-pointer md:grid md:items-center ${
                           selected
                             ? "md:grid-cols-1" /* chip dưới tên (27/09) */
-                            : "md:grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(160px,0.8fr)_96px_150px_32px]"
+                            : "md:grid-cols-[minmax(170px,1fr)_minmax(200px,1.7fr)_112px_minmax(190px,0.9fr)_minmax(150px,0.8fr)_minmax(160px,0.8fr)_96px_150px_32px]"
                         } ${active ? "bg-brand-50/60" : "hover:bg-surface-sunken"}`}
                       >
                         <div className="min-w-0">
@@ -1630,6 +1665,20 @@ export default function CustomersView({
                               ) ??
                                 cskh?.lastInteraction ??
                                 "—"}
+                            </div>
+                            {/* PHẢN HỒI THUỐC (16/10/2026): số · ngày gần nhất +
+                                nội dung rút gọn; chưa có thì ô trống (điện thoại:
+                                ẩn hẳn). Chữ trung tính — việc bình thường. */}
+                            <div
+                              className={`min-w-0 ${
+                                phanHoiThuocByPatient[row.clinic_patient_id]
+                                  ? ""
+                                  : "hidden md:block"
+                              }`}
+                            >
+                              <PhanHoiThuocCot
+                                tt={phanHoiThuocByPatient[row.clinic_patient_id]}
+                              />
                             </div>
                             <div className="min-w-0">
                               <span className="block truncate text-xs font-medium text-ink">
@@ -2055,6 +2104,7 @@ export default function CustomersView({
                     key={selected.clinic_patient_id}
                     clinicPatientId={selected.clinic_patient_id}
                     onDatLichLieuTrinh={canEdit ? setDatLichLt : undefined}
+                    onDatLichKham={canEdit ? () => setDatLich("kham-moi") : undefined}
                   />
                 )}
 
@@ -2101,6 +2151,8 @@ export default function CustomersView({
                         date_of_birth: selected.date_of_birth,
                         phone_primary: selected.phone_primary,
                         phone_secondary: selected.phone_secondary,
+                        national_id_number: selected.national_id_number,
+                        email: selected.email,
                         gender: selected.gender,
                         ethnicity: selected.ethnicity,
                         nationality: selected.nationality,

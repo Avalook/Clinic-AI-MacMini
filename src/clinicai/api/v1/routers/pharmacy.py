@@ -13,10 +13,10 @@ from typing import Any
 from uuid import UUID
 
 import asyncpg
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from clinicai.api.idempotency import (
     IdempotencyGuard,
@@ -25,10 +25,23 @@ from clinicai.api.idempotency import (
 )
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.can import can
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services import ban_thuoc_service, kho_thuoc_service
+from clinicai.phieu_kham.khung import doc_ngay
+from clinicai.services import (
+    ban_theo_don_service,
+    ban_thuoc_service,
+    kho_thuoc_service,
+    kiem_ke_ca_service,
+    lo_thuoc_service,
+    ma_vach_service,
+)
 from clinicai.services.ban_le_service import QUYEN_MO, BanLeService
-from clinicai.services.pharmacy_service import GIU_NGUYEN, PharmacyService
+from clinicai.services.pharmacy_service import (
+    GIU_NGUYEN,
+    PharmacyService,
+    tach_kho_quay_bat,
+)
 
 router = APIRouter()
 
@@ -38,6 +51,91 @@ router = APIRouter()
 # 20260924000013): cấp khối trên màn Phân quyền là có hiệu lực ngay.
 _DOC = cua_quyen("pharmacy.view", "pharmacy.dispense")
 _GHI = cua_quyen("pharmacy.dispense")
+
+
+class SoNgayCanhBaoRequest(BaseModel):
+    so_ngay: int = Field(ge=0, le=365000)
+
+
+@router.get("/pharmacy/so-ngay-canh-bao")
+async def so_ngay_canh_bao(
+    identity: StaffIdentity = Depends(_DOC), pool: asyncpg.Pool = Depends(get_db_pool)
+) -> dict[str, Any]:
+    async with pool.acquire() as conn:
+        return {
+            "so_ngay_sap_het_han": await lo_thuoc_service.so_ngay_canh_bao(
+                conn, identity.clinic_id
+            ),
+            "sua_canh_bao_duoc": await can(conn, identity, "config.clinic.manage"),
+        }
+
+
+@router.post("/pharmacy/so-ngay-canh-bao")
+async def doi_canh_bao(
+    body: SoNgayCanhBaoRequest,
+    identity: StaffIdentity = Depends(cua_quyen("config.clinic.manage")),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await lo_thuoc_service.doi_canh_bao(
+        pool, identity=identity, so_ngay=body.so_ngay
+    )
+
+
+class SuaLoRequest(BaseModel):
+    drug_batch_id: UUID
+    batch_code: str = Field(min_length=1, max_length=100)
+    expiry_date: Any = None
+
+
+@router.post("/pharmacy/sua-lo")
+async def sua_lo(
+    body: SuaLoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await lo_thuoc_service.sua_lo(
+        pool,
+        identity=identity,
+        drug_batch_id=str(body.drug_batch_id),
+        batch_code=body.batch_code,
+        expiry_date=body.expiry_date,
+    )
+
+
+class HuyLoHetHanRequest(BaseModel):
+    drug_batch_id: UUID
+    ly_do: str = Field(min_length=1, max_length=1000)
+
+
+@router.post("/pharmacy/huy-lo-het-han")
+async def huy_lo_het_han(
+    body: HuyLoHetHanRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    khoa: UUID = Header(alias="Idempotency-Key"),
+) -> dict[str, Any]:
+    return await lo_thuoc_service.huy_lo(
+        pool,
+        identity=identity,
+        drug_batch_id=str(body.drug_batch_id),
+        ly_do=body.ly_do,
+        khoa_gui=str(khoa),
+    )
+
+
+class HoanHuyLoRequest(BaseModel):
+    inventory_txn_id: UUID
+
+
+@router.post("/pharmacy/hoan-huy-lo")
+async def hoan_huy_lo(
+    body: HoanHuyLoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await lo_thuoc_service.hoan_huy_lo(
+        pool, identity=identity, inventory_txn_id=str(body.inventory_txn_id)
+    )
 
 
 @router.get("/pharmacy/queue")
@@ -111,6 +209,78 @@ async def mo_ban_le(
     )
 
 
+class NoiDonRequest(BaseModel):
+    visit_id: UUID
+    don_goc_visit_id: UUID
+
+
+@router.post("/pharmacy/ban-le/theo-don")
+async def ban_le_theo_don(
+    body: NoiDonRequest,
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """ "Bán theo đơn này": nối lượt bán lẻ về đơn gốc + thêm dòng số còn lại."""
+    return await ban_theo_don_service.noi_don(
+        pool,
+        identity,
+        visit_id=str(body.visit_id),
+        don_goc_visit_id=str(body.don_goc_visit_id),
+    )
+
+
+@router.get("/pharmacy/ban-le/lich-su-don")
+async def ban_le_lich_su_don(
+    clinic_patient_id: UUID,
+    trang: str | None = Query(default=None, max_length=10),
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Vừa chọn khách ở quầy (chưa mở lượt) → lịch sử đơn thuốc, mới → cũ, theo
+    trang. Trang rác → trang đầu (không 422)."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await BanLeService(pool).lich_su_don(
+            clinic_patient_id=str(clinic_patient_id), trang=trang, identity=identity
+        )
+    )
+    return kq
+
+
+class MoTheoDonRequest(BaseModel):
+    clinic_patient_id: UUID
+    don_goc_visit_id: UUID
+
+
+@router.post("/pharmacy/ban-le/mo-theo-don")
+async def ban_le_mo_theo_don(
+    body: MoTheoDonRequest,
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Một giao dịch: mở / lấy lại lượt bán lẻ + nối đơn gốc + thêm dòng."""
+    return await BanLeService(pool).mo_theo_don(
+        clinic_patient_id=str(body.clinic_patient_id),
+        don_goc_visit_id=str(body.don_goc_visit_id),
+        identity=identity,
+    )
+
+
+class GoDonRequest(BaseModel):
+    visit_id: UUID
+
+
+@router.post("/pharmacy/ban-le/go-don")
+async def ban_le_go_don(
+    body: GoDonRequest,
+    identity: StaffIdentity = Depends(_BAN_LE),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tác "Bán theo đơn này" khi tiền thuốc chưa thu."""
+    return await ban_theo_don_service.go_noi_don(
+        pool, identity, visit_id=str(body.visit_id)
+    )
+
+
 @router.get("/pharmacy/ban-le/{visit_id}")
 async def doc_ban_le(
     visit_id: UUID,
@@ -130,7 +300,93 @@ async def ton_kho(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Tồn theo lô, kèm hạn dùng và cờ hết hạn."""
-    return {"items": await PharmacyService(pool).ton_kho(identity=identity)}
+    async with pool.acquire() as conn:
+        tach = await tach_kho_quay_bat(conn, identity)
+    return {
+        "items": await PharmacyService(pool).ton_kho(identity=identity),
+        "tach_kho_quay": tach,
+    }
+
+
+@router.get("/pharmacy/tra-ma")
+async def tra_ma(
+    ma: str = "",
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Một chuỗi quét (tem lô / mã vạch thuốc / mã vuông GS1 / mã hàng) → thuốc
+    hoặc lô, kèm gợi ý lô FEFO. Chỉ đọc; mã lạ trả `loai: "la"`, không lỗi."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await ma_vach_service.tra_ma(pool, identity=identity, ma=ma)
+    )
+    return kq
+
+
+class GanMaVachRequest(BaseModel):
+    drug_catalog_id: UUID
+    ma: str = Field(min_length=1, max_length=256)
+    nguon: str = "quet"
+
+
+@router.post("/pharmacy/gan-ma-vach")
+async def gan_ma_vach(
+    body: GanMaVachRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gắn mã vạch cho thuốc (người có quyền kho). Mã đã thuộc thuốc khác → 409."""
+    return await ma_vach_service.gan_ma(
+        pool,
+        identity=identity,
+        drug_catalog_id=str(body.drug_catalog_id),
+        ma=body.ma,
+        nguon=body.nguon,
+    )
+
+
+class GoMaVachRequest(BaseModel):
+    ma_vach_id: UUID
+
+
+@router.post("/pharmacy/go-ma-vach")
+async def go_ma_vach(
+    body: GoMaVachRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gỡ mã vạch gắn nhầm (hoàn tác của gắn mã) — ghi nhật ký."""
+    return await ma_vach_service.go_ma(
+        pool, identity=identity, ma_vach_id=str(body.ma_vach_id)
+    )
+
+
+@router.get("/pharmacy/tem-lo")
+async def tem_lo(
+    ids: str = "",
+    phieu: str = "",
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dữ liệu in tem: lô theo danh sách `ids` (cách nhau dấu phẩy) hoặc theo
+    phiếu nhập `phieu`. Id rác bị bỏ qua; tối đa 200 tem."""
+    lo_ids: list[str] = []
+    for x in ids.split(","):
+        try:
+            lo_ids.append(str(UUID(x.strip())))
+        except ValueError:
+            continue
+    try:
+        phieu_id: str | None = str(UUID(phieu.strip())) if phieu.strip() else None
+    except ValueError:
+        phieu_id = None
+    kq: dict[str, Any] = jsonable_encoder(
+        {
+            "items": await ma_vach_service.du_lieu_tem(
+                pool, identity=identity, lo_ids=lo_ids, phieu_kho_id=phieu_id
+            )
+        }
+    )
+    return kq
 
 
 @router.get("/pharmacy/cho-gan-lo")
@@ -401,15 +657,276 @@ async def kiem_kho(
     return ket_qua
 
 
+class DongChuyenKho(BaseModel):
+    drug_batch_id: UUID
+    so_luong: Any = None
+
+
+class ChuyenKhoRequest(BaseModel):
+    huong: str = Field(max_length=20)
+    ly_do: str | None = Field(default=None, max_length=1000)
+    dong: list[DongChuyenKho] = Field(min_length=1, max_length=200)
+
+
+@router.post("/pharmacy/chuyen-kho", status_code=201)
+async def chuyen_kho(
+    body: ChuyenKhoRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
+) -> dict[str, Any]:
+    """Phiếu chuyển KHO → QUẦY hoặc QUẦY → KHO — một giao dịch, hai dòng sổ đối
+    ứng mỗi dòng. Bắt buộc `Idempotency-Key`. Người làm được thì hệ cho làm (luật
+    open); ai/lúc/lý do nằm trên phiếu và hoàn tác được."""
+    khoa = idem.key
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        ket_qua: dict[str, Any] = jsonable_encoder(
+            await kho_thuoc_service.chuyen_kho(
+                pool,
+                identity=identity,
+                khoa_gui=khoa,
+                huong=body.huong,
+                ly_do=body.ly_do,
+                dong=[d.model_dump(mode="json") for d in body.dong],
+            )
+        )
+        await idem.save(pool, ket_qua, status_code=201)
+    return ket_qua
+
+
+class HoanTacChuyenRequest(BaseModel):
+    phieu_id: UUID
+
+
+@router.post("/pharmacy/hoan-tac-chuyen-kho", status_code=201)
+async def hoan_tac_chuyen_kho(
+    body: HoanTacChuyenRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
+) -> dict[str, Any]:
+    """Hoàn tác một phiếu chuyển bằng phiếu chuyển ngược (mỗi phiếu một lần)."""
+    khoa = idem.key
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        ket_qua: dict[str, Any] = jsonable_encoder(
+            await kho_thuoc_service.hoan_tac_chuyen(
+                pool,
+                identity=identity,
+                khoa_gui=khoa,
+                phieu_id=str(body.phieu_id),
+            )
+        )
+        await idem.save(pool, ket_qua, status_code=201)
+    return ket_qua
+
+
+class TachKhoQuayRequest(BaseModel):
+    bat: bool
+
+
+@router.get("/pharmacy/tach-kho-quay")
+async def tach_kho_quay(
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    async with pool.acquire() as conn:
+        return {
+            "tach_kho_quay": await tach_kho_quay_bat(conn, identity),
+            "sua_duoc": await can(conn, identity, "config.clinic.manage"),
+        }
+
+
+@router.post("/pharmacy/tach-kho-quay")
+async def dat_tach_kho_quay(
+    body: TachKhoQuayRequest,
+    identity: StaffIdentity = Depends(cua_quyen("config.clinic.manage")),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bật / tắt tách kho-quầy của CƠ SỞ đang làm (mặc định tắt)."""
+    return await kho_thuoc_service.dat_tach_kho_quay(
+        pool, identity=identity, bat=body.bat
+    )
+
+
+# ── Kiểm kê đầu / cuối ca ở QUẦY (G6, 14/10/2026) ────────────────────────
+# Đọc: ai xem được kho. Ghi: khối "Nhà thuốc" (lego, không gác theo vai); luật
+# (ngày/ca/số rác → 422, chốt rồi không sửa, điều chỉnh có lý do + hoàn tác) ở
+# `kiem_ke_ca_service`.
+
+
+class MoKiemKeRequest(BaseModel):
+    ngay: str | None = None
+    ca: str | None = None
+    loai: str | None = None
+    ghi_chu: str | None = Field(default=None, max_length=500)
+
+
+class DongDemRequest(BaseModel):
+    drug_catalog_id: str
+    don_vi: str
+    # Chuỗi / số / null: rỗng = bỏ dòng; rác → 422 ở service (không ghi gì).
+    dem: Any = None
+
+
+class LuuDemRequest(BaseModel):
+    dong: list[DongDemRequest] = Field(max_length=500)
+
+
+class DieuChinhKiemKeRequest(BaseModel):
+    ly_do: str | None = Field(default=None, max_length=1000)
+
+
+@router.get("/pharmacy/kiem-ke-ca")
+async def ds_kiem_ke_ca(
+    ngay: str | None = None,
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return {
+        "items": jsonable_encoder(
+            await kiem_ke_ca_service.danh_sach(pool, identity=identity, ngay=ngay)
+        )
+    }
+
+
+@router.get("/pharmacy/kiem-ke-ca/nhac")
+async def nhac_kiem_ke_ca(
+    ngay: str | None = None,
+    ca: str | None = None,
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Nhắc (không chặn bán): ca chưa kiểm đầu ca / ca trước chưa kiểm cuối ca."""
+    return await kiem_ke_ca_service.nhac_thieu_kiem(
+        pool, identity=identity, ngay=ngay, ca=ca
+    )
+
+
+@router.post("/pharmacy/kiem-ke-ca", status_code=201)
+async def mo_kiem_ke_ca(
+    body: MoKiemKeRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    kq: dict[str, Any] = jsonable_encoder(
+        await kiem_ke_ca_service.mo_phieu(
+            pool,
+            identity=identity,
+            ngay=body.ngay,
+            ca=body.ca,
+            loai=body.loai,
+            ghi_chu=body.ghi_chu,
+        )
+    )
+    return kq
+
+
+@router.get("/pharmacy/kiem-ke-ca/{phieu_id}")
+async def doc_kiem_ke_ca(
+    phieu_id: str,
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    kq: dict[str, Any] = jsonable_encoder(
+        await kiem_ke_ca_service.doc_phieu(pool, identity=identity, phieu_id=phieu_id)
+    )
+    return kq
+
+
+@router.post("/pharmacy/kiem-ke-ca/{phieu_id}/dem")
+async def luu_dem_kiem_ke_ca(
+    phieu_id: str,
+    body: LuuDemRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    kq: dict[str, Any] = jsonable_encoder(
+        await kiem_ke_ca_service.luu_dem(
+            pool,
+            identity=identity,
+            phieu_id=phieu_id,
+            dong=[d.model_dump() for d in body.dong],
+        )
+    )
+    return kq
+
+
+@router.post("/pharmacy/kiem-ke-ca/{phieu_id}/dung-so-cuoi-ca-truoc")
+async def dung_so_cuoi_ca_truoc(
+    phieu_id: str,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    kq: dict[str, Any] = jsonable_encoder(
+        await kiem_ke_ca_service.dung_so_cuoi_ca_truoc(
+            pool, identity=identity, phieu_id=phieu_id
+        )
+    )
+    return kq
+
+
+@router.post("/pharmacy/kiem-ke-ca/{phieu_id}/chot")
+async def chot_kiem_ke_ca(
+    phieu_id: str,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    kq: dict[str, Any] = jsonable_encoder(
+        await kiem_ke_ca_service.chot(pool, identity=identity, phieu_id=phieu_id)
+    )
+    return kq
+
+
+@router.post("/pharmacy/kiem-ke-ca/{phieu_id}/dieu-chinh")
+async def dieu_chinh_kiem_ke_ca(
+    phieu_id: str,
+    body: DieuChinhKiemKeRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bước RIÊNG sau chốt: ghi ADJUST đưa tồn máy về số đếm (có lý do)."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await kiem_ke_ca_service.dieu_chinh_theo_kiem_ke(
+            pool, identity=identity, phieu_id=phieu_id, ly_do=body.ly_do
+        )
+    )
+    return kq
+
+
+@router.post("/pharmacy/kiem-ke-ca/{phieu_id}/hoan-tac-dieu-chinh")
+async def hoan_tac_dieu_chinh_kiem_ke_ca(
+    phieu_id: str,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    kq: dict[str, Any] = jsonable_encoder(
+        await kiem_ke_ca_service.hoan_tac_dieu_chinh(
+            pool, identity=identity, phieu_id=phieu_id
+        )
+    )
+    return kq
+
+
 class NhapLoRequest(BaseModel):
     drug_catalog_id: UUID
     so_luong: float = Field(gt=0)
-    # Cả ba BẮT BUỘC: `drug_batch` khai NOT NULL. Xem PharmacyService.nhap_lo.
+    # Số lô và đơn vị bắt buộc; hạn có thể bổ sung sau.
     batch_code: str = Field(min_length=1, max_length=100)
-    expiry_date: date
+    expiry_date: date | None = None
     unit: str = Field(min_length=1, max_length=50)
     cost_price: float | None = Field(default=None, ge=0)
     ly_do: str | None = Field(default=None, max_length=500)
+
+    @field_validator("expiry_date", mode="before")
+    @classmethod
+    def doc_han_dung(cls, value: Any) -> date | None:
+        return value if isinstance(value, date) else doc_ngay(value)
 
 
 @router.post("/pharmacy/receive", status_code=201)
@@ -724,6 +1241,11 @@ class KhachTraRequest(BaseModel):
     dispense_txn_id: UUID
     so_luong: float = Field(gt=0)
     ly_do: str
+    #: G4d · R3 (Tuyền chốt E): HOAN | DOI | GIU_LAI — bắt buộc, máy chủ báo câu
+    #: tiếng Việt khi thiếu. Hình thức hoàn bỏ trống = theo lần thu gốc.
+    ket_cuc_tien: str | None = None
+    hinh_thuc: str | None = None
+    ly_do_tien: str | None = Field(default=None, max_length=500)
 
 
 @router.post("/pharmacy/khach-tra")
@@ -733,7 +1255,8 @@ async def khach_tra_thuoc(
     pool: asyncpg.Pool = Depends(get_db_pool),
     idem: IdempotencyGuard = Depends(idempotency_guard),
 ) -> dict[str, Any]:
-    """Ghi nhận thuốc khách trả lại quầy (CP5) — chưa quyết xử lý (HOLD J1/J2).
+    """Ghi nhận thuốc khách trả lại quầy (CP5) — thuốc chưa quyết xử lý (HOLD
+    J1/J2); TIỀN phần trả bắt chọn hoàn / đổi / giữ lại (G4d · R3).
 
     CHỐNG GỬI TRÙNG (review CP5 P1-A): trả nhiều lần là hợp lệ, DB chỉ chặn tổng
     trả ≤ số đã giao — nên gửi lại sau khi mất phản hồi sẽ thành "khách trả
@@ -749,6 +1272,9 @@ async def khach_tra_thuoc(
                 dispense_txn_id=str(body.dispense_txn_id),
                 so_luong=body.so_luong,
                 ly_do=body.ly_do,
+                ket_cuc_tien=body.ket_cuc_tien,
+                hinh_thuc=body.hinh_thuc,
+                ly_do_tien=body.ly_do_tien,
             )
         )
         await idem.save(pool, kq, status_code=200)

@@ -20,6 +20,7 @@ import Button from "./Button";
 export default function XacNhanTaiCho({
   cau,
   nhanDongY,
+  nhanThoi = "Thôi",
   onDongY,
   onThoi,
   dangGui = false,
@@ -28,6 +29,8 @@ export default function XacNhanTaiCho({
 }: {
   cau: string;
   nhanDongY: string;
+  /** Chữ nút từ chối — mặc định "Thôi"; nơi cần nói rõ việc nút làm (vd "Bỏ chọn"). */
+  nhanThoi?: string;
   onDongY: () => void;
   onThoi: () => void;
   dangGui?: boolean;
@@ -54,7 +57,7 @@ export default function XacNhanTaiCho({
         {dangGui ? "Đang ghi…" : nhanDongY}
       </Button>
       <Button variant="ghost" onClick={onThoi} disabled={dangGui}>
-        Thôi
+        {nhanThoi}
       </Button>
     </div>
   );

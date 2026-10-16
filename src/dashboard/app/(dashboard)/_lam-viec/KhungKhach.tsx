@@ -5,7 +5,8 @@
 // và tự nhắc lịch cho chính mình cho bệnh nhân này … Lễ tân cũng nên có … cần có
 // chỗ xem hết mọi thứ của khách đó ở màn của người đó, không miss gì."
 //
-// Các khối, một component (khối "Liệu trình" nằm giữa 2 và 3 — `LieuTrinhKhach`):
+// Các khối, một component (giữa 2 và 3: "Liệu trình" — `LieuTrinhKhach`,
+// "Phản hồi sau dùng thuốc" — `PhanHoiThuocKhach`):
 //   1. Ghi chú về khách — sổ chung (ai ghi, lúc nào); người ghi gỡ được dòng
 //      của mình → /api/cskh/khach/[id] → `ghi_chu_khach_service.py`.
 //   2. Tự nhắc tôi — `TuNhac` sẵn có (→ /api/nhac-viec), cùng khối ở Xem lượt.
@@ -24,6 +25,7 @@ import type { LieuTrinh } from "@/lib/lieu-trinh-cskh";
 
 import { LieuTrinhCuaKhach } from "./LieuTrinhKhach";
 import NutXemLuot from "./NutXemLuot";
+import PhanHoiThuocKhach, { NHAN_KENH, type PhanHoiThuoc } from "./PhanHoiThuocKhach";
 import TuNhac from "./TuNhac";
 import ViecTaiKham, { type ChiTietHen } from "./ViecTaiKham";
 
@@ -126,6 +128,26 @@ function Khoi({ tieuDe, children }: { tieuDe: string; children: ReactNode }) {
   );
 }
 
+/** "Phản hồi thuốc gần nhất: <ngày> · <kênh> · <nội dung>" — một dòng, trung tính
+ *  (việc bình thường, không phải cảnh báo); rê chuột thấy đủ nội dung. */
+function DongPhanHoiGanNhat({ p, tong }: { p: PhanHoiThuoc; tong: number }) {
+  const kenh = NHAN_KENH[p.kenh] ?? p.kenh;
+  return (
+    <p
+      className="truncate rounded-control bg-surface-muted px-3 py-1.5 text-meta text-ink-muted"
+      title={p.noi_dung ?? undefined}
+      data-dong="phan-hoi-thuoc-gan-nhat"
+    >
+      <span className="font-medium text-ink">
+        Phản hồi thuốc gần nhất{tong > 1 ? ` (${tong})` : ""}:
+      </span>{" "}
+      {p.luc ? fmtDate(p.luc) : "—"}
+      {kenh ? ` · ${kenh}` : ""}
+      {p.noi_dung ? ` · ${p.noi_dung}` : ""}
+    </p>
+  );
+}
+
 function Trong({ children }: { children: ReactNode }) {
   return <p className="text-meta text-ink-faint">{children}</p>;
 }
@@ -133,10 +155,13 @@ function Trong({ children }: { children: ReactNode }) {
 export default function KhungKhach({
   clinicPatientId,
   onDatLichLieuTrinh,
+  onDatLichKham,
 }: {
   clinicPatientId: string;
   /** [Đặt lịch buổi kế] của khối Liệu trình — màn cha mở bộ đặt lịch sẵn có. */
   onDatLichLieuTrinh?: (lt: LieuTrinh) => void;
+  /** [Đặt lịch khám] của khối Phản hồi sau dùng thuốc — bộ đặt lịch sẵn có. */
+  onDatLichKham?: () => void;
 }) {
   const [ghiChu, setGhiChu] = useState<GhiChu[] | null>(null);
   const [tomTat, setTomTat] = useState<TomTat | null>(null);
@@ -147,6 +172,9 @@ export default function KhungKhach({
   const [goDangHoi, setGoDangHoi] = useState<string | null>(null);
   const [loiGhiChuDoc, setLoiGhiChuDoc] = useState<string | null>(null);
   const [khongQuyen, setKhongQuyen] = useState(false);
+  // Phản hồi thuốc còn hiệu lực (khối PhanHoiThuocKhach đọc, báo lên qua onDoc) —
+  // để dòng tóm tắt "gần nhất" ở ĐẦU khung, không phải cuộn tới mục dưới.
+  const [phanHoiThuoc, setPhanHoiThuoc] = useState<PhanHoiThuoc[]>([]);
 
   const duong = `/api/cskh/khach/${clinicPatientId}`;
 
@@ -227,6 +255,8 @@ export default function KhungKhach({
       aria-label="Khung làm việc với khách"
       className="space-y-3 rounded-card border border-line bg-surface p-3 shadow-card"
     >
+      {phanHoiThuoc[0] ? <DongPhanHoiGanNhat p={phanHoiThuoc[0]} tong={phanHoiThuoc.length} /> : null}
+
       <Khoi tieuDe={`Ghi chú về khách${ghiChu && ghiChu.length ? ` (${ghiChu.length})` : ""}`}>
         <textarea
           value={noiDung}
@@ -308,6 +338,16 @@ export default function KhungKhach({
           làm / đã trả / còn lại, tiền còn lại, lộ trình, lịch sử sửa + nút CSKH. */}
       <Khoi tieuDe="Liệu trình">
         <LieuTrinhCuaKhach clinicPatientId={clinicPatientId} onDatLich={onDatLichLieuTrinh} />
+      </Khoi>
+
+      {/* PHẢN HỒI SAU DÙNG THUỐC (10/10/2026): gắn lượt có đơn; bác sĩ thấy ở
+          Bàn khám; cần tư vấn thêm → [Đặt lịch khám] (bộ đặt lịch sẵn có). */}
+      <Khoi tieuDe="Phản hồi sau dùng thuốc">
+        <PhanHoiThuocKhach
+          clinicPatientId={clinicPatientId}
+          onDatLichKham={onDatLichKham}
+          onDoc={setPhanHoiThuoc}
+        />
       </Khoi>
 
       <Khoi tieuDe="Mọi thứ của khách">

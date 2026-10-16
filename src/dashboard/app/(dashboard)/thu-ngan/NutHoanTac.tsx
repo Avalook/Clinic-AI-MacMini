@@ -50,14 +50,23 @@ export default function NutHoanTac({
           ...(quay ? { quay } : {}),
         }),
       });
-      const d = (await r.json().catch(() => null)) as { message?: string; error?: string } | null;
+      const d = (await r.json().catch(() => null)) as {
+        message?: string;
+        error?: string;
+        /** Khách đã về, dịch vụ đã làm → máy tự ghi nợ chờ xử lý (G4d · D). */
+        tu_ghi_no?: { so_tien: number } | null;
+      } | null;
       if (!r.ok) {
         setLoi(d?.message ?? d?.error ?? "Không hoàn tác được.");
         return;
       }
       setMo(false);
       setLyDo("");
-      onXong("Đã hoàn tác lần thu — lượt về chưa thu, thu lại khi sẵn sàng.");
+      onXong(
+        d?.tu_ghi_no
+          ? `Đã hoàn tác lần thu. Khách đã về mà dịch vụ đã làm — máy đã ghi nợ ${d.tu_ghi_no.so_tien.toLocaleString("vi-VN")}đ (chờ thu hoặc miễn), xem ở "Khách còn nợ".`
+          : "Đã hoàn tác lần thu — lượt về chưa thu, thu lại khi sẵn sàng.",
+      );
     } catch {
       setLoi("Mất kết nối — CHƯA hoàn tác được.");
     } finally {

@@ -465,6 +465,8 @@ class VatTuThemBody(BaseModel):
     #: Hàng cần quản lý duyệt (Mirena): quản lý đã duyệt + lý do.
     duyet_boi: UUID | None = None
     ly_do_duyet: str | None = Field(default=None, max_length=500)
+    #: Nguyên nhân bán thêm (G8b) — bắt buộc khi dây `vat_tu_bat_ly_do_ban` BẬT.
+    ly_do_ban: str | None = Field(default=None, max_length=500)
 
 
 class VatTuSoLuongBody(BaseModel):
@@ -500,6 +502,7 @@ async def them_vat_tu(
         cong_don=body.cong_don,
         duyet_boi=str(body.duyet_boi) if body.duyet_boi else None,
         ly_do_duyet=body.ly_do_duyet,
+        ly_do_ban=body.ly_do_ban,
         identity=identity,
     )
 
@@ -519,16 +522,63 @@ async def dat_so_luong_vat_tu(
     )
 
 
+class VatTuBoBody(BaseModel):
+    #: Dòng đi kèm chỉ định (đầu dò Bio bác sĩ chọn) bỏ thì BẮT ghi lý do.
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
 @router.post("/luot-kham/vat-tu/{dong_id}/bo")
 async def bo_vat_tu(
     dong_id: UUID,
+    body: VatTuBoBody | None = None,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Bỏ một dòng vật tư chưa thu khỏi hoá đơn."""
     from clinicai.services.vat_tu_service import VatTuService
 
-    return await VatTuService(pool).bo(dong_id=str(dong_id), identity=identity)
+    return await VatTuService(pool).bo(
+        dong_id=str(dong_id),
+        ly_do=body.ly_do if body else None,
+        identity=identity,
+    )
+
+
+class DauDoChonBody(BaseModel):
+    #: Mặt hàng đầu dò; null = không dùng đầu dò (bỏ chọn).
+    service_price_id: UUID | None = None
+    so_luong: int = Field(default=1, ge=1, le=99)
+
+
+@router.get("/luot-kham/visits/{visit_id}/dau-do")
+async def doc_dau_do(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đầu dò Bio gợi ý + đã chọn theo từng chỉ định của lượt (G9)."""
+    from clinicai.services.bio_chi_dinh_service import BioChiDinhService
+
+    return await BioChiDinhService(pool).doc(visit_id=str(visit_id), identity=identity)
+
+
+@router.post("/luot-kham/orders/{order_id}/dau-do")
+async def chon_dau_do(
+    order_id: UUID,
+    body: DauDoChonBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Chọn đầu dò Bio ở chỉ định (radio: không / 1 lần / nhiều lần) — tiền đi
+    theo chỉ định, đã thu thì khoá (G9, 14/10/2026)."""
+    from clinicai.services.bio_chi_dinh_service import BioChiDinhService
+
+    return await BioChiDinhService(pool).chon(
+        order_id=str(order_id),
+        service_price_id=str(body.service_price_id) if body.service_price_id else None,
+        so_luong=body.so_luong,
+        identity=identity,
+    )
 
 
 class PhiKhamBody(BaseModel):

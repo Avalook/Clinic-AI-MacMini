@@ -3,6 +3,7 @@
 import HopChiTiet from "@/components/ui/HopChiTiet";
 import { tenHinhThuc } from "@/lib/hinh-thuc-thu";
 import { buttonClass } from "@/components/ui/Button";
+import CongTyHoaDon from "./CongTyHoaDon";
 import {
   TEN_SU_KIEN, TRANG_THAI, daTon, gio, ngayGio, tien,
   type DongHoaDon, type KhachHoaDon, type PhieuThu, type SuKien,
@@ -22,10 +23,20 @@ function DongChiTiet({ dong }: { dong: DongHoaDon[] }) {
 
 const MAU_SU_KIEN: Record<SuKien["loai"], string> = {
   DOI_HINH_THUC: "bg-info-bg text-info",
-  BO_DICH_VU: "bg-warning-bg text-warning",
+  BO_DICH_VU: "bg-surface-muted text-ink-soft",
   HOAN_TIEN: "bg-success-bg text-success",
-  HUY_PHIEU: "bg-danger-bg text-danger",
+  HUY_PHIEU: "bg-surface-muted text-ink-soft",
+  HUY_CHO_CK: "bg-surface-muted text-ink-soft",
 };
+/** Vì sao một phiếu cần soi lại — chữ trung tính (không phải lỗi). `SO_TIEN_LECH`
+ *  đã có dòng riêng "Ngân hàng báo nhận …" nên không lặp ở đây. */
+const GHI_CHU_DOI_CHIEU: Record<string, string> = {
+  HOA_DON_DOI: "hoá đơn đã đổi sau khi chuyển khoản",
+  CHUA_GHI_BAN: "thuốc chưa ghi bán được",
+};
+function ghiChuDoiChieu(p: PhieuThu): string[] {
+  return (p.doi_soat_ly_do ?? []).filter(m => m in GHI_CHU_DOI_CHIEU).map(m => GHI_CHU_DOI_CHIEU[m]);
+}
 const TEN_HOAN: Record<string, string> = {
   PENDING: "chờ trả", COMPLETED: "đã trả", FAILED: "thất bại", CANCELLED: "đã huỷ yêu cầu",
 };
@@ -48,7 +59,7 @@ function SauKhiThu({ su }: { su: SuKien[] }) {
           {e.ly_do ? <span className="block text-meta text-ink-muted">Lý do: {e.ly_do}</span> : null}
           {e.loai === "HUY_PHIEU" && e.sau_giay != null ? <span className="block text-meta text-ink-muted">huỷ sau {e.sau_giay < 120 ? `${e.sau_giay} giây` : `${Math.round(e.sau_giay / 60)} phút`} kể từ lúc thu</span> : null}
         </span>
-        <span className={`text-right font-semibold tabular-nums ${e.so_tien < 0 ? "text-danger" : ""}`}>
+        <span className="text-right font-semibold tabular-nums">
           {e.loai === "DOI_HINH_THUC" ? tien(e.so_tien) : e.so_tien < 0 ? `−${tien(-e.so_tien)}` : tien(e.so_tien)}
         </span>
       </li>)}
@@ -61,15 +72,18 @@ function Phieu({ phieu: p, so }: { phieu: PhieuThu; so: number }) {
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h3 className="text-emph font-semibold">
         <span className="mr-2 rounded-control bg-ink px-2 py-0.5 text-meta text-white">Phiếu {so}</span>
-        Thu lúc <span className="tabular-nums">{gio(p.thu_luc)}</span> · {p.ma} · {p.kind === "thuoc" ? "Thuốc" : "Dịch vụ"}
+        {p.trang_thai === "CK_DA_HUY" ? "Chờ CK, huỷ lúc" : "Thu lúc"}{" "}
+        <span className="tabular-nums">{gio(p.trang_thai === "CK_DA_HUY" ? p.huy_luc : p.thu_luc)}</span> · {p.ma} · {p.kind === "thuoc" ? "Thuốc" : "Dịch vụ"}
       </h3>
       <span className="text-body font-semibold">{TRANG_THAI[p.trang_thai] ?? p.trang_thai}</span>
       <a className={buttonClass("secondary", "md")} href={`/print/phieu-thu/${encodeURIComponent(p.id)}`} target="_blank" rel="noopener noreferrer">Xem / in phiếu</a>
     </div>
-    {p.can_doi_soat ? <p className="mt-2 rounded-control bg-warning-bg p-2 text-warning">Phiếu cần đối soát: chuyển khoản về nhưng hoá đơn đã đổi, hoặc thuốc chưa ghi bán được.</p> : null}
+    {ghiChuDoiChieu(p).length ? <p className="mt-2 text-meta text-ink-muted">Ghi chú: {ghiChuDoiChieu(p).join("; ")}.</p> : null}
+    {p.so_tien_thuc_nhan != null ? <p className="mt-2 text-meta text-ink">Ngân hàng báo nhận <span className="tabular-nums">{tien(p.so_tien_thuc_nhan)}</span>{p.doi_soat_ly_do?.includes("SO_TIEN_LECH") ? " — khác số chuyển khoản của phiếu" : ""}.</p> : null}
+    {p.trang_thai === "CK_DA_HUY" ? <p className="mt-2 text-meta text-ink-muted">Lần chờ chuyển khoản {tien(p.so_tien)} đã huỷ{p.nguoi_huy ? ` bởi ${p.nguoi_huy}` : ""}{p.ly_do_huy ? ` — “${p.ly_do_huy}”` : ""}; chưa ghi là đã thu.</p> : null}
     {p.thu_trong_ky === false ? <p className="mt-2 text-meta text-ink-muted">Phiếu thu ngoài kỳ đang xem, có xử lý sau thanh toán trong kỳ.</p> : null}
     <dl className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-      <div><dt className="text-meta text-ink-muted">Tiền đã thu</dt><dd className="tabular-nums">{tien(p.so_tien)}</dd></div>
+      <div><dt className="text-meta text-ink-muted">{p.trang_thai === "CK_DA_HUY" ? "Số tiền lần chờ" : "Tiền đã thu"}</dt><dd className="tabular-nums">{tien(p.so_tien)}</dd></div>
       <div><dt className="text-meta text-ink-muted">Thực thu</dt><dd className="tabular-nums">{tien(p.thu_rong)}</dd></div>
       <div><dt className="text-meta text-ink-muted">Hình thức</dt><dd>{p.hinh_thuc ? tenHinhThuc(p.hinh_thuc) : "Không có dữ liệu"}</dd></div>
       <div><dt className="text-meta text-ink-muted">Người thu</dt><dd>{p.nguoi_thu || "Không có dữ liệu"}</dd></div>
@@ -79,6 +93,7 @@ function Phieu({ phieu: p, so }: { phieu: PhieuThu; so: number }) {
       <span className="block text-meta text-ink-muted">Lý do: {p.ly_do_giam || "Không có dữ liệu"} · {p.nguoi_giam || "—"} · {ngayGio(p.giam_luc)}</span>
     </p> : null}
     <SauKhiThu su={p.su_kien ?? []} />
+    {p.trang_thai !== "DA_HUY" && p.trang_thai !== "CK_DA_HUY" ? <CongTyHoaDon paymentCycleId={p.id} /> : null}
     <h4 className="mt-4 text-meta font-semibold text-ink-muted">Dòng trên phiếu gốc</h4>
     <DongChiTiet dong={p.dong} />
     {p.hoan.length ? <div className="mt-2 flex flex-wrap gap-2">
@@ -87,16 +102,39 @@ function Phieu({ phieu: p, so }: { phieu: PhieuThu; so: number }) {
   </section>;
 }
 
+/** Vì sao còn tiền chưa trả lại — chữ trung tính, mã do máy chủ gắn. */
+const LY_DO_THUA: Record<string, string> = {
+  BO_CHI_DINH: "Chỉ định đã bỏ sau khi thu",
+  KHONG_LAM: "Không làm sau khi thu",
+  BO_DICH_VU_KHAM: "Bỏ dịch vụ khám sau khi thu",
+  CHUA_LAM: "Đã thu, khách về mà chưa làm xong",
+};
+/** "2026-10-13" → "13/10". */
+const ngayDM = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+
 export default function ChiTietHoaDon({ khach, onDong }: { khach: KhachHoaDon; onDong: () => void }) {
   // Phiếu 1, 2, 3… theo giờ BẤM THU (cũ trước) — người đối soát lần theo thứ tự.
-  const phieu = [...khach.phieu].sort((a, b) => (a.thu_luc ?? "").localeCompare(b.thu_luc ?? ""));
+  const moc = (p: PhieuThu) => p.thu_luc ?? p.huy_luc ?? "";
+  const phieu = [...khach.phieu].sort((a, b) => moc(a).localeCompare(moc(b)));
   const ton = khach.viec_ton ?? [];
   return <HopChiTiet tieuDe={`Hoá đơn · ${khach.ten}`} onDong={onDong}>
     <p className="mb-4 text-meta text-ink-muted">{khach.ma_bn || "—"} · {khach.so_dien_thoai || "—"} · {khach.so_phieu} phiếu</p>
     <dl className="mb-4 grid grid-cols-2 gap-3 rounded-control bg-surface-muted p-3 sm:grid-cols-4">
       {([["Tổng tiền hàng", khach.tong_truoc_giam], ["Giảm giá", khach.giam_gia], ["Tiền đã thu", khach.da_thu], ["Thực thu", khach.thu_rong]] as const).map(([ten, so]) => <div key={ten}><dt className="text-meta text-ink-muted">{ten}</dt><dd className="tabular-nums font-semibold">{tien(so)}</dd></div>)}
-      {(khach.chua_tra_lai ?? 0) > 0 ? <div><dt className="text-meta text-ink-muted">Chưa trả lại khách</dt><dd className="tabular-nums font-semibold text-danger">{tien(khach.chua_tra_lai ?? 0)}</dd></div> : null}
+      {(khach.chua_tra_lai ?? 0) > 0 ? <div><dt className="text-meta text-ink-muted">Chưa trả lại khách</dt><dd className="tabular-nums font-semibold">{tien(khach.chua_tra_lai ?? 0)}</dd></div> : null}
     </dl>
+    {(khach.tien_thua ?? []).length || (khach.cho_hoan ?? 0) > 0 ? <div className="mb-4 rounded-control bg-surface-muted p-3">
+      <b>Chưa trả lại khách</b>
+      <ul className="mt-1">
+        {(khach.tien_thua ?? []).map((d, i) => <li key={i} className="flex flex-wrap justify-between gap-2 py-1 text-body">
+          <span>{d.ten} <span className="text-meta text-ink-muted">· {LY_DO_THUA[d.loai] ?? "Tiền thu chưa dùng"}{d.ly_do ? ` (${d.ly_do})` : ""}{d.luot_ngay ? ` · lượt ngày ${ngayDM(d.luot_ngay)}` : ""}</span></span>
+          <span className="tabular-nums">{tien(d.so_tien)}</span>
+        </li>)}
+        {(khach.cho_hoan ?? 0) > 0 ? <li className="flex flex-wrap justify-between gap-2 py-1 text-body">
+          <span>Khoản hoàn đang chờ xử lý</span><span className="tabular-nums">{tien(khach.cho_hoan)}</span>
+        </li> : null}
+      </ul>
+    </div> : null}
     {ton.length ? <div className="mb-4 rounded-control bg-surface-muted p-3">
       <b>Việc còn tồn</b>
       <ul className="mt-1">{ton.map((v, i) => <li key={i} className="flex flex-wrap justify-between gap-2 py-1 text-body">

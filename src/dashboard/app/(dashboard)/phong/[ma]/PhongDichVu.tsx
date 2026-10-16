@@ -708,8 +708,8 @@ function KhachTrongPhong({
                       }`
                     : dong.trang_thai === "blocked"
                       ? dong.dang_o_phong
-                        ? `${cauDangOPhong(dong.dang_o_phong)} — chưa làm bước này được.`
-                        : "Khách đang ở một bước khác — chưa làm bước này được."
+                        ? `${cauDangOPhong(dong.dang_o_phong)} — vẫn bấm Bắt đầu được nếu khách đang ở phòng này; hệ thống ghi giờ và người bấm.`
+                        : "Khách đang ở một bước khác — vẫn bấm Bắt đầu được nếu khách đang ở phòng này; hệ thống ghi giờ và người bấm."
                       : `Vào hàng ${gioVn(dong.vao_hang_luc)} · chờ ${soPhutTu(dong.vao_hang_luc)}`,
             ]
               .filter(Boolean)

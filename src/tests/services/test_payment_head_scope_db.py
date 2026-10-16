@@ -15,6 +15,7 @@ from tests.services.test_doi_tac_tu_thu_db import _nguoi_vai
 from tests.services.test_tien_thuoc_cp1_db import tao_quay
 from tests.services.test_tien_thuoc_cp2_db import _thu_pt
 from tests.services.test_tien_thuoc_cp3_db import _dong_da_xac_dinh
+from tests.so_ck import so_ck
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 
@@ -106,6 +107,7 @@ async def test_head_adjustment_preserves_original_payer_and_logs_head(
             kind="dich_vu",
             reference="HEAD-VERIFY",
             identity=pending_actor,
+            so_tien_thuc_nhan=await so_ck(pool, pending["payment_cycle_id"]),
         )
         assert (
             await pool.fetchval(

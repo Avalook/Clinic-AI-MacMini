@@ -29,7 +29,7 @@ export interface InvBatch {
   id: string;
   drug_catalog_id: string | null;
   batch_code: string;
-  expiry_date: string;
+  expiry_date: string | null;
   quantity_on_hand: number;
   unit: string;
   cost_price: number | null;
@@ -38,6 +38,9 @@ export interface InvBatch {
   trang_thai_han: ExpiryState;
   /** Còn thuốc trên kệ VÀ sắp hết hạn / hết hạn (máy chủ tính). */
   canh_bao_han: boolean;
+  huy_lo_txn_id: string | null;
+  /** G7: nơi chứa — chỉ có nghĩa khi cơ sở bật tách kho / quầy. */
+  noi_chua?: "KHO" | "QUAY";
   drug: InvDrug | null;
 }
 
@@ -47,34 +50,43 @@ const fmtDate = (iso: string | null) =>
 const fmtQty = (n: number) =>
   new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 }).format(n);
 
-export type ExpiryState = "con_han" | "sap_het_han" | "het_han";
+export type ExpiryState = "con_han" | "sap_het_han" | "het_han" | "chua_co_han";
 
 const STATE_LABEL: Record<ExpiryState, string> = {
   con_han: "Còn hạn",
   sap_het_han: "Sắp hết hạn",
   het_han: "Hết hạn",
+  chua_co_han: "Chưa có hạn",
 };
 
-const STATE_TONE: Record<ExpiryState, "success" | "warning" | "danger"> = {
+const STATE_TONE: Record<ExpiryState, "success" | "warning" | "danger" | "neutral"> = {
   con_han: "success",
   sap_het_han: "warning",
   het_han: "danger",
+  chua_co_han: "neutral",
 };
 
-type ThaoTacLo = { id: string; loai: "adjust" | "discard"; so_luong: string; ly_do: string };
+type ThaoTacLo = { id: string; loai: "adjust" | "discard" | "sua-lo" | "huy-lo-het-han"; so_luong: string; ly_do: string; batch_code?: string; expiry_date?: string; khoa?: string };
+
+export interface CauHinhHan { so_ngay_sap_het_han: number; sua_canh_bao_duoc: boolean }
 
 export default function InventoryBoard({
   batches,
   thuoc,
   ghiDuoc = false,
   onXemThe,
+  cauHinhHan,
+  tachKhoQuay = false,
 }: {
   batches: InvBatch[];
   thuoc: ThuocKho[];
   /** Có quyền ghi kho — chỉ ẩn/hiện nút, máy chủ tự kiểm. */
   ghiDuoc?: boolean;
+  /** G7: cơ sở bật tách kho / quầy → mỗi dòng lô có chip KHO / QUẦY. */
+  tachKhoQuay?: boolean;
   /** Bấm tên thuốc → tab Thẻ kho. */
   onXemThe?: (id: string) => void;
+  cauHinhHan?: CauHinhHan;
 }) {
   const router = useRouter();
   const [filter, setFilter] = useState<"all" | ExpiryState>("all");
@@ -83,6 +95,16 @@ export default function InventoryBoard({
   const [lo, setLo] = useState<ThaoTacLo | null>(null);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  const [ngay, setNgay] = useState(String(cauHinhHan?.so_ngay_sap_het_han ?? ""));
+
+  const guiThem = async (action: "hoan-huy-lo" | "so-ngay-canh-bao", data: Record<string, unknown>) => {
+    setDang(true);
+    setLoi(null);
+    const kq = await guiKho(action, data);
+    setDang(false);
+    if (!kq.ok) { setLoi(kq.loi); return; }
+    router.refresh();
+  };
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -114,11 +136,11 @@ export default function InventoryBoard({
     if (!lo) return;
     setDang(true);
     setLoi(null);
-    const kq = await guiKho(lo.loai, {
-      drug_batch_id: lo.id,
-      so_luong: lo.so_luong.trim(),
-      ly_do: lo.ly_do.trim(),
-    });
+    const kq = await guiKho(lo.loai, lo.loai === "sua-lo" ? {
+      drug_batch_id: lo.id, batch_code: lo.batch_code?.trim(), expiry_date: lo.expiry_date || null,
+    } : {
+      drug_batch_id: lo.id, so_luong: lo.so_luong.trim(), ly_do: lo.ly_do.trim(),
+    }, lo.khoa);
     setDang(false);
     if (!kq.ok) {
       setLoi(kq.loi);
@@ -137,6 +159,13 @@ export default function InventoryBoard({
 
   return (
     <div className="flex flex-col gap-4">
+      {cauHinhHan?.sua_canh_bao_duoc ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="block"><span className="mb-1 block text-meta text-ink-soft">Cảnh báo trước hạn (số ngày)</span><input value={ngay} inputMode="numeric" onChange={(e) => setNgay(e.target.value)} className={`${INPUT} sm:w-40`} /></label>
+          <Button type="button" variant="secondary" disabled={dang || !ngay.trim()} onClick={() => void guiThem("so-ngay-canh-bao", { so_ngay: ngay })}>Lưu cảnh báo</Button>
+        </div>
+      ) : null}
+      {loi ? <p role="alert" className="text-meta text-danger">{loi}</p> : null}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {the(batches.length, "Lô thuốc")}
         {the(fmtQty(summary.totalUnits), "Tổng tồn (đơn vị)")}
@@ -145,7 +174,7 @@ export default function InventoryBoard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {(["all", "con_han", "sap_het_han", "het_han"] as const).map((f) => (
+        {(["all", "con_han", "sap_het_han", "het_han", "chua_co_han"] as const).map((f) => (
           <Button
             key={f}
             type="button"
@@ -178,6 +207,7 @@ export default function InventoryBoard({
             <tr>
               <th className="px-3 py-2">Thuốc</th>
               <th className="px-3 py-2">Mã lô</th>
+              {tachKhoQuay ? <th className="px-3 py-2">Nơi chứa</th> : null}
               <th className="px-3 py-2">Hạn dùng</th>
               <th className="px-3 py-2 text-right">Tồn</th>
               <th className="px-3 py-2">Đơn vị</th>
@@ -189,7 +219,7 @@ export default function InventoryBoard({
           <tbody className={TBL_DIV}>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-ink-muted">
+                <td colSpan={9} className="px-3 py-6 text-center text-ink-muted">
                   Chưa có lô thuốc nào — bấm [+ Nhập lô] để nhập.
                 </td>
               </tr>
@@ -218,6 +248,13 @@ export default function InventoryBoard({
                       )}
                     </td>
                     <td className="px-3 py-2 text-ink-muted">{b.batch_code}</td>
+                    {tachKhoQuay ? (
+                      <td className="px-3 py-2">
+                        <Chip tone={b.noi_chua === "KHO" ? "neutral" : "success"}>
+                          {b.noi_chua === "KHO" ? "KHO" : "QUẦY"}
+                        </Chip>
+                      </td>
+                    ) : null}
                     <td className="px-3 py-2 text-ink-muted">{fmtDate(b.expiry_date)}</td>
                     <td className="px-3 py-2 text-right font-semibold tabular-nums text-ink">
                       {fmtQty(b.quantity_on_hand)}
@@ -230,8 +267,20 @@ export default function InventoryBoard({
                       <Chip tone={STATE_TONE[st]}>{STATE_LABEL[st]}</Chip>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-right">
+                      <a
+                        href={`/print/tem-lo?ids=${b.id}`}
+                        target="_blank"
+                        rel="noopener"
+                        className="inline-flex min-h-8 items-center rounded-control px-2 text-meta text-brand-700 hover:underline"
+                      >
+                        In tem
+                      </a>
                       {ghiDuoc ? (
                         <>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => {
+                        setLoi(null);
+                        setLo({ id: b.id, loai: "sua-lo", so_luong: "", ly_do: "", batch_code: b.batch_code, expiry_date: b.expiry_date ?? "" });
+                      }}>Sửa lô</Button>
                       <Button
                         type="button"
                         size="sm"
@@ -254,6 +303,15 @@ export default function InventoryBoard({
                       >
                         Huỷ
                       </Button>
+                      {b.trang_thai_han === "het_han" && b.quantity_on_hand > 0 ? (
+                        <Button type="button" size="sm" variant="danger" onClick={() => {
+                          setLoi(null);
+                          setLo({ id: b.id, loai: "huy-lo-het-han", so_luong: String(b.quantity_on_hand), ly_do: "", khoa: crypto.randomUUID() });
+                        }}>Huỷ lô hết hạn</Button>
+                      ) : null}
+                      {b.huy_lo_txn_id ? (
+                        <Button type="button" size="sm" variant="ghost" disabled={dang} onClick={() => void guiThem("hoan-huy-lo", { inventory_txn_id: b.huy_lo_txn_id })}>Hoàn huỷ lô</Button>
+                      ) : null}
                         </>
                       ) : null}
                     </td>
@@ -263,8 +321,15 @@ export default function InventoryBoard({
                 return [
                   hang,
                   <tr key={`${b.id}-thao-tac`} className="bg-surface-muted">
-                    <td colSpan={8} className="px-3 py-3">
+                    <td colSpan={9} className="px-3 py-3">
                       <div className="flex flex-wrap items-end gap-2">
+                        {lo.loai === "sua-lo" ? (
+                          <>
+                            <label className="block"><span className="mb-1 block text-meta text-ink-soft">Số lô</span><input value={lo.batch_code} onChange={(e) => setLo({ ...lo, batch_code: e.target.value })} className={INPUT} /></label>
+                            <label className="block"><span className="mb-1 block text-meta text-ink-soft">Hạn dùng (có thể nhập sau)</span><input type="date" value={lo.expiry_date} onChange={(e) => setLo({ ...lo, expiry_date: e.target.value })} className={INPUT} /></label>
+                          </>
+                        ) : (
+                          <>
                         <label className="block">
                           <span className="mb-1 block text-meta text-ink-soft">
                             {lo.loai === "adjust"
@@ -273,6 +338,7 @@ export default function InventoryBoard({
                           </span>
                           <input
                             value={lo.so_luong}
+                            disabled={lo.loai === "huy-lo-het-han"}
                             inputMode="decimal"
                             onChange={(e) => setLo({ ...lo, so_luong: e.target.value })}
                             className={`${INPUT} sm:w-40`}
@@ -287,23 +353,20 @@ export default function InventoryBoard({
                             className={INPUT}
                           />
                         </label>
+                          </>
+                        )}
                         <Button
                           type="button"
-                          variant={lo.loai === "discard" ? "danger" : "primary"}
-                          disabled={dang || !lo.so_luong.trim() || !lo.ly_do.trim()}
+                          variant={lo.loai === "discard" || lo.loai === "huy-lo-het-han" ? "danger" : "primary"}
+                          disabled={dang || (lo.loai === "sua-lo" ? !lo.batch_code?.trim() : !lo.so_luong.trim() || !lo.ly_do.trim())}
                           onClick={() => void guiLo()}
                         >
-                          {dang ? "Đang lưu…" : lo.loai === "adjust" ? "Lưu điều chỉnh" : "Huỷ thuốc"}
+                          {dang ? "Đang lưu…" : lo.loai === "sua-lo" ? "Lưu lô" : lo.loai === "adjust" ? "Lưu điều chỉnh" : "Huỷ thuốc"}
                         </Button>
                         <Button type="button" variant="ghost" onClick={() => setLo(null)}>
                           Thôi
                         </Button>
                       </div>
-                      {loi ? (
-                        <p role="alert" className="mt-2 text-meta text-danger">
-                          {loi}
-                        </p>
-                      ) : null}
                     </td>
                   </tr>,
                 ];

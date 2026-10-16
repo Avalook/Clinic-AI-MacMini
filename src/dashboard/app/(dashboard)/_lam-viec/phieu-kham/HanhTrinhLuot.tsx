@@ -26,18 +26,17 @@ import {
   type HanhTrinh,
   type TrangThaiDichVu,
 } from "@/lib/hanh-trinh";
-import { SU_KIEN_BANG } from "@/lib/nhip-lam-moi";
-
+import { useNgheBang } from "../../dung-nghe-bang";
 import { PopupHanhTrinhKhach } from "../HanhTrinhKhach";
 
-const BANG = new Set([
+const BANG = [
   "luot_dong_thoi_gian",
   "queue_entry",
   "service_order",
   "payment",
   "visit",
   "consultation",
-]);
+] as const;
 
 export default function HanhTrinhLuot({ visitId }: { visitId: string }) {
   const [ht, setHt] = useState<HanhTrinh | null>(null);
@@ -60,22 +59,13 @@ export default function HanhTrinhLuot({ visitId }: { visitId: string }) {
     };
   }, [visitId, lanNap]);
 
+  // Tin bảng đổi → nạp lại (gộp nhịp, tab ẩn không tải — `useNgheBang`).
+  useNgheBang(BANG, () => setLanNap((n) => n + 1));
+
+  // Đồng hồ cho các mốc "x phút trước" — không liên quan tới tin bảng.
   useEffect(() => {
-    let hen: ReturnType<typeof setTimeout> | undefined;
-    const khiBangDoi = (ev: Event) => {
-      const bang = (ev as CustomEvent<string | null>).detail;
-      if (bang !== null && !BANG.has(bang)) return;
-      if (document.visibilityState === "hidden") return;
-      clearTimeout(hen);
-      hen = setTimeout(() => setLanNap((n) => n + 1), 400);
-    };
-    window.addEventListener(SU_KIEN_BANG, khiBangDoi);
     const dongHo = setInterval(() => setBayGio(Date.now()), 30_000);
-    return () => {
-      clearTimeout(hen);
-      clearInterval(dongHo);
-      window.removeEventListener(SU_KIEN_BANG, khiBangDoi);
-    };
+    return () => clearInterval(dongHo);
   }, []);
 
   if (!ht) return null;

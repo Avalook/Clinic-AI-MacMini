@@ -20,6 +20,7 @@ Nội dung cảnh báo chỉ SỐ ĐẾM — không tên khách (Telegram là d�
 from __future__ import annotations
 
 import os
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -27,6 +28,9 @@ import asyncpg
 import httpx
 import structlog
 
+from clinicai.core.clock import hom_nay_vn
+from clinicai.events.catalogue import HanLoDaKiem
+from clinicai.events.emit import HE_THONG, emit_event
 from clinicai.services.luot_treo import dieu_kien_luot_treo
 
 logger = structlog.get_logger()
@@ -59,6 +63,18 @@ def danh_gia(so: dict[str, Any]) -> list[KetQuaKiem]:
 
     ly_do = danh_gia_su_kien(so["su_kien"])
     ra = [
+        KetQuaKiem(
+            "LO_THUOC_SAP_HET_HAN",
+            "warning",
+            so.get("lo_sap_het_han", 0) > 0,
+            f"{so.get('lo_sap_het_han', 0)} lô thuốc sắp hết hạn còn tồn.",
+        ),
+        KetQuaKiem(
+            "LO_THUOC_HET_HAN",
+            "warning",
+            so.get("lo_het_han", 0) > 0,
+            f"{so.get('lo_het_han', 0)} lô thuốc đã hết hạn còn tồn.",
+        ),
         KetQuaKiem(
             "SU_KIEN",
             "critical",
@@ -167,7 +183,29 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
         BAT_BIEN_TIEN_GIO,
     )
     assert r is not None
+    from clinicai.services.lo_thuoc_service import so_ngay_canh_bao
+
+    han_lo = []
+    for cid in await conn.fetch("SELECT id::text FROM clinic"):
+        ngay = await so_ngay_canh_bao(conn, cid["id"])
+        lo = await conn.fetchrow(
+            "SELECT count(DISTINCT (location_id, batch_code)) FILTER "
+            "(WHERE expiry_date BETWEEN $2 AND $2+$3::int) AS sap,"
+            " count(DISTINCT (location_id, batch_code)) FILTER"
+            " (WHERE expiry_date < $2) AS het FROM drug_batch"
+            " WHERE clinic_id=$1::uuid AND quantity_on_hand>0",
+            cid["id"],
+            hom_nay_vn(),
+            ngay,
+        )
+        assert lo is not None
+        han_lo.append(
+            {"clinic_id": cid["id"], "sap": int(lo["sap"]), "het": int(lo["het"])}
+        )
     return {
+        "han_lo": han_lo,
+        "lo_sap_het_han": sum(lo["sap"] for lo in han_lo),
+        "lo_het_han": sum(lo["het"] for lo in han_lo),
         "su_kien": su_kien,
         "loi_moi_15p": int(r["loi_moi_15p"]),
         "lan_loi_15p": int(r["lan_loi_15p"]),
@@ -178,6 +216,34 @@ async def do_so(conn: asyncpg.Connection) -> dict[str, Any]:
         "tep_loi_day": int(r["tep_loi_day"]),
         "tien_chi_dinh_lech": int(r["tien_chi_dinh_lech"]),
     }
+
+
+async def bao_han_hang_ngay(
+    conn: asyncpg.Connection, han_lo: list[dict[str, Any]]
+) -> None:
+    """Một sự kiện mỗi clinic/ngày VN; khoá clinic chống hai worker cùng phát."""
+    for lo in han_lo:
+        if not lo["sap"] and not lo["het"]:
+            continue
+        cid = lo["clinic_id"]
+        ngay = hom_nay_vn()
+        moc = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{cid}:han-lo:{ngay}"))
+        await conn.fetchval("SELECT id FROM clinic WHERE id=$1::uuid FOR UPDATE", cid)
+        if await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM domain_event WHERE clinic_id=$1::uuid"
+            " AND event_type='pharmacy.expiry_checked' AND aggregate_id=$2::uuid)",
+            cid,
+            moc,
+        ):
+            continue
+        await emit_event(
+            conn,
+            ten="pharmacy.expiry_checked",
+            clinic_id=cid,
+            aggregate_id=moc,
+            payload=HanLoDaKiem(ngay=ngay, sap_het_han=lo["sap"], het_han=lo["het"]),
+            boi=HE_THONG,
+        )
 
 
 async def _mo(conn: asyncpg.Connection, k: KetQuaKiem) -> bool:
@@ -252,7 +318,10 @@ async def mot_vong(pool: asyncpg.Pool) -> list[KetQuaKiem]:
     """Một lượt canh gác. Không bao giờ ném."""
     try:
         async with pool.acquire() as conn:
-            ket_qua = danh_gia(await do_so(conn))
+            so = await do_so(conn)
+            ket_qua = danh_gia(so)
+            async with conn.transaction():
+                await bao_han_hang_ngay(conn, so["han_lo"])
         await ap_dung(pool, ket_qua)
         return ket_qua
     except Exception:  # noqa: BLE001 — canh gác hỏng không được làm chết vòng

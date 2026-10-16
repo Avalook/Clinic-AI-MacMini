@@ -53,6 +53,8 @@ VAI_NHAN_DUOC: tuple[str, ...] = (
 
 #: Nhãn sự kiện chuông cho màn (chỉ các sự kiện khối Chuông nghe).
 NHAN_CHUONG: dict[str, str] = {
+    "pharmacy.expiry_checked": "Lô thuốc sắp hết hạn / đã hết hạn (hằng ngày)",
+    "pharmacy.stocktake_mismatch": "Kiểm kê ca ở quầy thuốc có thuốc lệch",
     "result_file.uploaded": "Tệp kết quả về",
     "result_file.confirmed": "Tệp kết quả đối tác được xác nhận hợp lệ",
     "result.ready": "Phòng hoàn tất phiếu kết quả",

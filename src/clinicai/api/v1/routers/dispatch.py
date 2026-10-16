@@ -466,6 +466,11 @@ class TienThuaRequest(BaseModel):
     ly_do: str | None = Field(default=None, max_length=500)
 
 
+class HoanTienThuaRequest(TienThuaRequest):
+    #: Bỏ trống = theo hình thức khách đã trả của từng lần thu gốc (G4d, R6).
+    hinh_thuc: Literal["CASH", "TRANSFER", "QR"] | None = None
+
+
 #: Hoàn tiền thừa = lego Thu tiền dịch vụ (Tuyền 06/10/2026, "ai có node cũng
 #: được"); lệnh tự kiểm lại trong giao dịch.
 _HOAN_TIEN_THUA_GUARD = get_current_identity
@@ -473,12 +478,13 @@ _HOAN_TIEN_THUA_GUARD = get_current_identity
 
 @router.post("/reception/checkout/hoan-tien-thua")
 async def checkout_hoan_tien_thua(
-    body: TienThuaRequest,
+    body: HoanTienThuaRequest,
     identity: StaffIdentity = Depends(_HOAN_TIEN_THUA_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """ "Đã hoàn cho khách": máy hoàn ĐÚNG phần tiền thừa còn lại (tiền mặt) của
-    lượt — chỉ định đã bỏ / không làm, dịch vụ khám đã bỏ (06/10/2026, E2)."""
+    """ "Đã hoàn cho khách": máy hoàn ĐÚNG phần tiền thừa còn lại của lượt —
+    chỉ định đã bỏ / không làm, dịch vụ khám đã bỏ (06/10/2026, E2) — theo
+    hình thức khách đã trả, hoặc ``hinh_thuc`` người bấm chọn."""
     from clinicai.services.hoan_tien_service import HoanTienService
     from clinicai.services.payment_access_service import authorize_payment
 
@@ -486,7 +492,10 @@ async def checkout_hoan_tien_thua(
         pool, identity, visit_id=str(body.visit_id), kind="dich_vu"
     )
     return await HoanTienService(pool).hoan_tien_thua(
-        identity=identity, visit_id=str(body.visit_id), reason=body.ly_do
+        identity=identity,
+        visit_id=str(body.visit_id),
+        reason=body.ly_do,
+        method=body.hinh_thuc,
     )
 
 

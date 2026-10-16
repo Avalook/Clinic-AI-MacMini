@@ -20,6 +20,8 @@ import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
 
 import { INPUT } from "../form-ui";
 import TomTatCuoiNgay from "./TomTatCuoiNgay";
+import KhoiChotCa, { type ChotCa } from "./KhoiChotCa";
+import { useNgheBang } from "../dung-nghe-bang";
 import { todayVn } from "@/lib/roster";
 import NgayTrucBaoCao, { type ReportCalendar } from "./NgayTrucBaoCao";
 import { congNgay, nhanKhoang, type Khoang } from "@/lib/thanh-ngay";
@@ -35,6 +37,11 @@ interface OTien {
 
 interface BaoCao {
   tai_chinh?: import("./TomTatCuoiNgay").TaiChinh;
+  /** Khoá sổ theo ca (G4c) — máy chủ quyết: đang xem đúng một ca? đã chốt? */
+  xem_mot_ca?: boolean;
+  chot?: ChotCa | null;
+  sau_chot?: OTien | null;
+  dieu_chinh_ca_truoc?: { so_phieu: number; tong: number };
   tu: string;
   den: string;
   /** Đang xem riêng một loại tiền (01/10/2026) — null = cả hai. */
@@ -207,6 +214,9 @@ export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { n
     }
   }, [chuoi]);
 
+  // Người khác chốt / mở khoá ca → tải lại (bảng có trigger notify).
+  useNgheBang(["chot_so_ca"], () => void tai());
+
   useEffect(() => {
     const compteur = lanTai;
     const h = setTimeout(() => void tai(), 0);
@@ -341,7 +351,22 @@ export default function CuoiNgay({ coSo = [], dayDu = false, access, ngay }: { n
         </p>
       ) : null}
 
-      <TomTatCuoiNgay dayDu={dayDu} data={dangTai || loi || chuoiDaTai !== chuoi ? null : bc} dangTai={dangTai || (!loi && chuoiDaTai !== chuoi)} />
+      {pret && bc ? (
+        <KhoiChotCa
+          xemMotCa={!!bc.xem_mot_ca}
+          chot={bc.chot ?? null}
+          sauChot={bc.sau_chot ?? null}
+          dieuChinh={bc.dieu_chinh_ca_truoc ?? null}
+          ngay={khoang.tu}
+          ca={ca}
+          coSo={coSoChon}
+          quanLy={!!access?.quan_ly}
+          onDoi={() => void tai()}
+        />
+      ) : null}
+
+      <TomTatCuoiNgay dayDu={dayDu} data={dangTai || loi || chuoiDaTai !== chuoi ? null : bc} dangTai={dangTai || (!loi && chuoiDaTai !== chuoi)}
+        loc={{ tu: khoang.tu, den: khoang.den, ...(ca && motNgay ? { ca } : {}), ...(coSoChon ? { co_so: coSoChon } : {}) }} />
 
 
     </section>

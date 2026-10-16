@@ -113,6 +113,8 @@ MODULE: dict[str, Module] = {
             lenh=["AddSupplyToBill", "SetSupplyQuantity", "RemoveSupply"],
             phat=["visit.supply_changed"],
             bang=["luot_vat_tu", "vat_tu_goi_y"],
+            # Người duyệt hàng cần duyệt (G8b, 14/10/2026) — lego, không theo vai.
+            quyen=["vat_tu.approve"],
         ),
         Module(
             ma="lieu_trinh",
@@ -398,6 +400,7 @@ MODULE: dict[str, Module] = {
                 "cong_no.huy",
                 "cong_no.da_thu",
                 "medicine.dispensed",
+                "medicine.returned",
                 "result_file.uploaded",
                 "result_file.confirmed",
                 "result_file.revoked",
@@ -667,6 +670,8 @@ MODULE: dict[str, Module] = {
                 "result.corrected",
                 "lab_result.arrived",
                 "partner.order_received",
+                "pharmacy.expiry_checked",
+                "pharmacy.stocktake_mismatch",
             ],
             ben_nhan=["chuong_thong_bao"],
             bang=["day_nhan_thong_bao"],
@@ -788,7 +793,13 @@ MODULE: dict[str, Module] = {
                 "RefuseLine",
                 "CloseLine",
             ],
-            phat=["medicine.dispensed", "medicine.counter_changed"],
+            phat=[
+                "medicine.dispensed",
+                "medicine.counter_changed",
+                "pharmacy.expiry_checked",
+                "medicine.returned",
+                "pharmacy.stocktake_mismatch",
+            ],
             bang=["prescription_allocation", "inventory_txn"],
             quyen=["pharmacy.dispense", "pharmacy.view"],
         ),
@@ -806,6 +817,60 @@ MODULE: dict[str, Module] = {
             ben_nhan=["cong_no"],
             bang=["cong_no"],
             projection=["khach_con_no"],
+        ),
+        # SỔ NỢ HAI CHIỀU (14/10/2026): một chỗ ghi duy nhất cho "khách nợ phòng
+        # khám" / "phòng khám nợ khách" của lượt đã về. Chỉ ĐỌC luật của các khối
+        # khác (no_khi_ve, tiền thừa), không có lệnh của riêng mình.
+        Module(
+            ma="so_no",
+            ten="Sổ nợ hai chiều (phải thu / phải trả theo lượt)",
+            nghe=[
+                "visit.checked_out",
+                "visit.left_early",
+                "visit.reopened",
+                "cong_no.ghi",
+                "cong_no.huy",
+                "payment.service_collected",
+                "payment.medicine_collected",
+                "payment.collection_undone",
+                "payment.refunded",
+                "service_order.cancelled",
+                "service_order.restored",
+                "service_order.carried_over",
+                "service.started",
+                "service.completed",
+                "service.not_performed",
+                "service.start_cancelled",
+                "service.completion_undone",
+                "visit.supply_changed",
+                "visit.exam_service_changed",
+                "medicine.dispensed",
+                # G4d · R3: khách trả thuốc (thường SAU check-out) + đính chính
+                # dòng đơn đã thu.
+                "medicine.returned",
+                "prescription.saved",
+            ],
+            ben_nhan=["so_no"],
+            bang=["so_no", "so_no_moc"],
+            projection=["so_no_hai_chieu"],
+        ),
+        # Kho VẬT TƯ (14/10/2026): sổ riêng, không dùng bảng thuốc. Tồn do trigger
+        # cộng trong chính giao dịch ghi sổ nên không cần bên nhận sự kiện.
+        Module(
+            ma="kho_vat_tu",
+            ten="Kho vật tư (phiếu kho, tồn theo nơi chứa, mức tối thiểu)",
+            lenh=[
+                "LapPhieuVatTu",
+                "HoanPhieuVatTu",
+                "DatMucToiThieuVatTu",
+                # G8b: phiếu nhập hàng "cần duyệt nhập" → yêu cầu chờ duyệt.
+                "DuyetPhieuNhapVatTu",
+                "TuChoiPhieuNhapVatTu",
+                "RutLaiPhieuNhapVatTu",
+            ],
+            phat=["vat_tu.nhap_cho_duyet", "vat_tu.nhap_da_quyet"],
+            bang=["vat_tu_phieu", "vat_tu_ton", "vat_tu_txn", "vat_tu_nhap_cho_duyet"],
+            quyen=["vat_tu.manage"],
         ),
         # Lịch ĐIỀU TRỊ (07/10/2026): khách vào hàng → chỉ định sẵn đúng dịch vụ
         # đã đặt (một service_order bình thường).
@@ -829,6 +894,11 @@ MODULE: dict[str, Module] = {
             ma="van_hanh",
             ten="Vận hành, báo cáo, lịch sử thao tác",
             quyen=["report.view", "ops.view", "audit.view", "giamsat.view"],
+        ),
+        Module(
+            ma="ke_toan",
+            ten="Kế toán — xem tài chính đầy đủ, hoá đơn, theo hàng hoá",
+            quyen=["accounting.finance.full", "accounting.tax.manage"],
         ),
         Module(
             ma="lich_truc",

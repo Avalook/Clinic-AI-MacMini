@@ -25,6 +25,8 @@ nguyên từng byte. Đổi hình ở đây là đổi cả màn; có test canh 
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
+from datetime import date
 from typing import Any
 
 import asyncpg
@@ -39,6 +41,12 @@ from clinicai.services.nhan_luot import doc_nhan_luot, tra_nhan
 _TRAN_LICH = 3000
 _TRAN_TEP = 300
 _TRAN_TUONG_TAC = 1000
+
+#: Kết quả cuộc gọi ĐÓNG việc "Gọi điện xác nhận" (CHO_DAT_LICH) của khách chỉ
+#: lưu hồ sơ (Tuyền 15/10/2026: CSKH ghi "đã gọi" thì nhãn mất). Không nghe máy /
+#: không liên lạc được / hẹn gọi lại sau thì việc CÒN MỞ — vẫn phải gọi tiếp.
+#: Hoàn tác (`huy_luc`) đưa nhãn trở lại vì dòng sổ thôi được tính.
+KET_QUA_DONG_CHO_DAT_LICH = ("DA_LIEN_HE", "TU_CHOI", "BO_QUA")
 
 
 class ManKhachHangService:
@@ -127,19 +135,52 @@ class ManKhachHangService:
                 for r in ca_truc_va_tuan
                 if r["tuan_cong_bo"] is not None
             ]
-            trang_thai = await conn.fetch(
+            # MỘT LẦN ĐỌC `v_viec_cskh` cho cả hai khối (viec_mo + trang_thai).
+            # View này gọi `lich_vuot_suc_chua()` — hàm KHÔNG nhận tham số, duyệt
+            # mọi lịch tương lai có bác sĩ và gọi `resolve_effective_cap` từng
+            # dòng (đo 16/10/2026: 2.000 lịch tương lai ≈ 225ms MỖI lần), và
+            # Postgres không đẩy `clinic_patient_id = ANY(...)` xuống được. Bản
+            # cũ đọc `v_trang_thai_cskh` (view ấy đọc `v_viec_cskh` HAI lần: `dem`
+            # + `gap_nhat`, cộng NOT EXISTS lồng thêm hai lần ở nhánh CHO_DAT_LICH)
+            # rồi đọc `v_viec_cskh` lần nữa: 3–5 lần gọi hàm một request. Nay
+            # đúng một lần; trạng thái mỗi khách suy từ chính các dòng này bằng
+            # `trang_thai_tu_viec` (đúng luật của `v_trang_thai_cskh` — test
+            # canh bằng cách so với chính view). Không LIMIT ở đây: trạng thái và
+            # "khách còn việc" phải tính trên TOÀN BỘ việc; trần `_TRAN_LICH`
+            # chỉ áp cho khối `viec_mo` trả ra, như trước.
+            viec = await conn.fetch(
                 """
-                SELECT clinic_patient_id, trang_thai, nhan, han_xu_ly, qua_han,
-                       so_viec_mo, co_viec_qua_han, appointment_id, da_xac_nhan
-                  FROM v_trang_thai_cskh
-                 WHERE clinic_id = $1::uuid
-                   AND clinic_patient_id = ANY($2::uuid[])
-                UNION ALL
-                SELECT p.clinic_patient_id, 'CHO_DAT_LICH', 'Gọi điện xác nhận',
-                       NULL::date, false, 1::bigint, false, NULL::uuid, false
+                SELECT v.clinic_patient_id, v.trang_thai, v.nhan, v.uu_tien,
+                       v.han_xu_ly, v.qua_han, v.appointment_id,
+                       coalesce(xn.co, false) AS da_xac_nhan
+                  FROM v_viec_cskh v
+                  LEFT JOIN LATERAL (
+                      SELECT true AS co FROM tuong_tac_cskh t
+                       WHERE t.appointment_id = v.appointment_id
+                         AND t.khach_xac_nhan AND t.huy_luc IS NULL
+                       LIMIT 1
+                  ) xn ON TRUE
+                 WHERE v.clinic_id = $1::uuid
+                   AND v.clinic_patient_id = ANY($2::uuid[])
+                """,
+                clinic_id,
+                ids,
+            )
+            trang_thai = trang_thai_tu_viec(viec)
+            cho_dat_lich = await conn.fetch(
+                """
+                SELECT p.clinic_patient_id, 'CHO_DAT_LICH' AS trang_thai,
+                       'Gọi điện xác nhận' AS nhan, NULL::date AS han_xu_ly,
+                       false AS qua_han, 1::bigint AS so_viec_mo,
+                       false AS co_viec_qua_han, NULL::uuid AS appointment_id,
+                       false AS da_xac_nhan
                   FROM patient p
                  WHERE p.clinic_id = $1::uuid
                    AND p.clinic_patient_id = ANY($2::uuid[])
+                   -- Khách đã có việc nào khác thì việc ấy thắng (cùng luật với
+                   -- NOT EXISTS lồng view trạng thái của bản cũ — không đọc lại
+                   -- view, danh sách khách có việc lấy từ khối trên).
+                   AND p.clinic_patient_id <> ALL($4::uuid[])
                    -- Chỉ hồ sơ nhập từ màn tiếp nhận, không gom dữ liệu nhập cũ.
                    AND EXISTS (
                        SELECT 1 FROM event_log e
@@ -156,27 +197,21 @@ class ManKhachHangService:
                        SELECT 1 FROM visit v
                         WHERE v.clinic_id = p.clinic_id
                           AND v.clinic_patient_id = p.clinic_patient_id)
+                   -- CSKH đã gọi xong (và chưa hoàn tác) thì hết việc.
                    AND NOT EXISTS (
-                       SELECT 1 FROM v_trang_thai_cskh t
-                        WHERE t.clinic_id = p.clinic_id
-                          AND t.clinic_patient_id = p.clinic_patient_id)
+                       SELECT 1 FROM tuong_tac_cskh c
+                        WHERE c.clinic_id = p.clinic_id
+                          AND c.clinic_patient_id = p.clinic_patient_id
+                          AND c.trang_thai_ma = 'CHO_DAT_LICH'
+                          AND c.huy_luc IS NULL
+                          AND c.ket_qua = ANY($3::text[]))
                 """,
                 clinic_id,
                 ids,
+                list(KET_QUA_DONG_CHO_DAT_LICH),
+                list({r["clinic_patient_id"] for r in viec}),
             )
-            viec_mo = await conn.fetch(
-                """
-                SELECT clinic_patient_id, trang_thai, nhan, uu_tien, han_xu_ly,
-                       qua_han, appointment_id
-                  FROM v_viec_cskh
-                 WHERE clinic_id = $1::uuid
-                   AND clinic_patient_id = ANY($2::uuid[])
-                 LIMIT $3
-                """,
-                clinic_id,
-                ids,
-                _TRAN_LICH,
-            )
+            trang_thai += [dict(r) for r in cho_dat_lich]
             tep = await conn.fetch(
                 """
                 SELECT t.id, t.clinic_patient_id, t.appointment_id,
@@ -226,6 +261,28 @@ class ManKhachHangService:
                 clinic_id,
                 ids,
                 _TRAN_TEP,
+            )
+            # PHẢN HỒI SAU DÙNG THUỐC cho cả trang — MỘT câu gộp theo khách
+            # (16/10/2026, cột "Phản hồi thuốc"): số phản hồi còn hiệu lực + dòng
+            # mới nhất. Không phụ thuộc số khách (không N+1); cùng luật hiệu lực
+            # với `phan_hoi_thuoc_service._PHAN_HOI_SQL` (chưa gỡ, lượt còn tồn
+            # tại). Không LIMIT: đếm phải trên TOÀN BỘ phản hồi của khách.
+            phan_hoi_thuoc = await conn.fetch(
+                """
+                SELECT DISTINCT ON (t.clinic_patient_id)
+                       t.clinic_patient_id, t.xay_ra_luc, t.kenh, t.noi_dung,
+                       count(*) OVER (PARTITION BY t.clinic_patient_id)
+                           AS so_phan_hoi
+                  FROM tuong_tac_cskh t
+                  JOIN visit pv
+                    ON pv.visit_id = t.visit_id AND pv.clinic_id = t.clinic_id
+                 WHERE t.clinic_id = $1::uuid
+                   AND t.clinic_patient_id = ANY($2::uuid[])
+                   AND t.loai = 'PHAN_HOI_THUOC' AND t.huy_luc IS NULL
+                 ORDER BY t.clinic_patient_id, t.xay_ra_luc DESC
+                """,
+                clinic_id,
+                ids,
             )
             hen_goi_lai = await conn.fetch(
                 """
@@ -387,8 +444,8 @@ class ManKhachHangService:
             "appts": [_lich(r, dang_o, nhan) for r in appts],
             "ca_truc": [dict(r) for r in ca_truc],
             "tuan_cong_bo": [str(w) for w in tuan_cong_bo],
-            "trang_thai": [dict(r) for r in trang_thai],
-            "viec_mo": [dict(r) for r in viec_mo]
+            "trang_thai": trang_thai,
+            "viec_mo": [_viec_mo(r) for r in viec[:_TRAN_LICH]]
             + [
                 {
                     "clinic_patient_id": r["clinic_patient_id"],
@@ -404,6 +461,7 @@ class ManKhachHangService:
             ],
             "tep": [_kem_nhan_vien(r) for r in tep],
             "phan_hoi": [_kem_nhan_vien(r) for r in phan_hoi],
+            "phan_hoi_thuoc": tom_tat_phan_hoi_thuoc(phan_hoi_thuoc),
             "hen_goi_lai": [_kem_nhan_vien(r) for r in hen_goi_lai],
             "tuong_tac": [_kem_nhan_vien(r) for r in tuong_tac],
             "cskh": [dict(r) for r in cskh],
@@ -422,11 +480,126 @@ _CAC_KHOI = (
     "viec_mo",
     "tep",
     "phan_hoi",
+    "phan_hoi_thuoc",
     "hen_goi_lai",
     "tuong_tac",
     "cskh",
     "visits",
 )
+
+
+#: Rút gọn nội dung phản hồi thuốc cho ô bảng; hover đọc đủ (cắt ở `_TRAN_NOI_DUNG`).
+_RUT_GON_KY_TU = 40
+_TRAN_NOI_DUNG = 400
+
+
+def rut_gon(noi_dung: Any, toi_da: int = _RUT_GON_KY_TU) -> str | None:
+    """Một dòng ~`toi_da` ký tự: gộp khoảng trắng/xuống dòng, thêm "…" nếu cắt.
+
+    Thuần; không phải chuỗi / rỗng → None; `toi_da` rác → mặc định. Không ném.
+    """
+    if not isinstance(noi_dung, str):
+        return None
+    mot_dong = " ".join(noi_dung.split())
+    if not mot_dong:
+        return None
+    if not isinstance(toi_da, int) or isinstance(toi_da, bool) or toi_da < 2:
+        toi_da = _RUT_GON_KY_TU
+    if len(mot_dong) <= toi_da:
+        return mot_dong
+    return mot_dong[: toi_da - 1].rstrip() + "…"
+
+
+def tom_tat_phan_hoi_thuoc(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Một dòng tóm tắt cho mỗi khách CÓ phản hồi (khách không có → vắng mặt).
+
+    `ngay`/`luc` = lần ghi gần nhất (ISO); `tom_tat` = nội dung rút gọn; `noi_dung`
+    = nội dung đủ (cắt 400 ký tự) cho tooltip. Thuần, rỗng → rỗng.
+    """
+    ra: list[dict[str, Any]] = []
+    for r in rows:
+        luc = r["xay_ra_luc"]
+        nd = r["noi_dung"] if isinstance(r["noi_dung"], str) else None
+        ra.append(
+            {
+                "clinic_patient_id": str(r["clinic_patient_id"]),
+                "so_phan_hoi": int(r["so_phan_hoi"]),
+                "luc": luc.isoformat() if luc is not None else None,
+                "kenh": r["kenh"],
+                "tom_tat": rut_gon(nd),
+                "noi_dung": nd.strip()[:_TRAN_NOI_DUNG] if nd and nd.strip() else None,
+            }
+        )
+    return ra
+
+
+def _khoa_viec_thang(r: Mapping[str, Any]) -> tuple[int, bool, int, bool, date]:
+    """Khoá xếp để chọn việc THẮNG của một khách — gương của `gap_nhat` trong
+    `v_trang_thai_cskh`: `ORDER BY qua_han DESC, uu_tien, han_xu_ly`.
+
+    DESC của Postgres đặt NULL TRƯỚC true TRƯỚC false; ASC đặt NULL CUỐI.
+    """
+    qua_han = r["qua_han"]
+    uu_tien = r["uu_tien"]
+    han = r["han_xu_ly"]
+    return (
+        0 if qua_han is None else (1 if qua_han else 2),
+        uu_tien is None,
+        uu_tien or 0,
+        han is None,
+        han or date.min,
+    )
+
+
+def trang_thai_tu_viec(viec: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Một dòng trạng thái cho mỗi khách có việc mở, suy từ các dòng `v_viec_cskh`.
+
+    Đúng luật của `v_trang_thai_cskh` (đếm = `dem`, việc thắng = `gap_nhat`):
+      * `so_viec_mo` = số việc; `co_viec_qua_han` = `bool_or(qua_han)` (NULL nếu
+        không dòng nào có `qua_han`);
+      * việc thắng = nhỏ nhất theo `_khoa_viec_thang`; hai việc đồng khoá thì
+        lấy việc đứng trước (view cũng chọn tuỳ ý trong trường hợp ấy);
+      * `da_xac_nhan` đọc từ chính dòng thắng (đã tính ở câu SQL đọc việc).
+    Thuần, không đụng database; rỗng → rỗng. Thứ tự: theo lần xuất hiện đầu của
+    khách trong `viec`.
+    """
+    theo_khach: dict[Any, list[Mapping[str, Any]]] = {}
+    for r in viec:
+        theo_khach.setdefault(r["clinic_patient_id"], []).append(r)
+    ra: list[dict[str, Any]] = []
+    for khach, ds in theo_khach.items():
+        thang = min(ds, key=_khoa_viec_thang)
+        co_gia_tri = [r["qua_han"] for r in ds if r["qua_han"] is not None]
+        ra.append(
+            {
+                "clinic_patient_id": khach,
+                "trang_thai": thang["trang_thai"],
+                "nhan": thang["nhan"],
+                "han_xu_ly": thang["han_xu_ly"],
+                "qua_han": thang["qua_han"],
+                "so_viec_mo": len(ds),
+                "co_viec_qua_han": any(co_gia_tri) if co_gia_tri else None,
+                "appointment_id": thang["appointment_id"],
+                "da_xac_nhan": bool(thang["da_xac_nhan"]),
+            }
+        )
+    return ra
+
+
+def _viec_mo(r: Mapping[str, Any]) -> dict[str, Any]:
+    """Một việc mở của khối `viec_mo` — bỏ cột `da_xac_nhan` chỉ dùng cho trạng thái."""
+    return {
+        k: r[k]
+        for k in (
+            "clinic_patient_id",
+            "trang_thai",
+            "nhan",
+            "uu_tien",
+            "han_xu_ly",
+            "qua_han",
+            "appointment_id",
+        )
+    }
 
 
 def _lich(

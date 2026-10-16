@@ -4,21 +4,36 @@
 // GTGT (MISA) thay vì gõ tay từng phiếu thu. Máy chủ dựng hoá đơn và file từ
 // chính tệp mẫu; màn chỉ chọn phạm vi, xem trước và tải.
 
+import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
-import { buttonClass } from "@/components/ui/Button";
+import Button, { buttonClass } from "@/components/ui/Button";
 import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
 import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
 import { todayVn } from "@/lib/roster";
 import { khoangNhanh, type Khoang } from "@/lib/thanh-ngay";
 import { INPUT } from "../form-ui";
+import CongTac from "@/components/ui/CongTac";
+import OChon from "@/components/ui/OChon";
+import { MUC_THUE, tenThueSuat, TEN_NGUON_THUE } from "../ke-toan/thue-suat";
 import { tien } from "../hoa-don/types";
 
-type DongHang = { ten: string; dvt: string; so_luong: number; don_gia: number; thanh_tien: number };
+type DongHang = {
+  id: string; ten: string; dvt: string; so_luong: number; don_gia: number; thanh_tien: number;
+  /** Thuế suất của dòng + tầng quyết định (sửa tay / mặt hàng / nhóm) — máy chủ tính. */
+  thue_suat: string | null; thue_nguon: string | null;
+};
 type HoaDon = {
   stt: number; ma_phieu: string; kind: string; ngay: string; ten_khach: string; ma_bn: string | null;
   so_dien_thoai: string; hinh_thuc: string; dong: DongHang[]; tong: number; ghi_chu: string[];
+  /** Hoá đơn công ty (G5c): tên + MST của công ty thay cho thông tin khách cá nhân. */
+  la_hd_cong_ty: boolean; ten_cong_ty: string; ma_so_thue: string; nguoi_mua?: string;
+  /** Thuế GTGT của hoá đơn (sau khi tách): mã chung, tiền hàng chưa thuế, tiền thuế. */
+  thue_suat_ma: string; tien_hang: number | null; tien_thue: number | null;
 };
-type XuatData = { tu: string; den: string; hoa_don: HoaDon[]; so_hoa_don: number; so_dong: number; tong: number };
+type XuatData = {
+  tu: string; den: string; hoa_don: HoaDon[]; so_hoa_don: number; so_dong: number; tong: number;
+  dong_chua_thue: number; tien_thue: number;
+};
 
 function OLoc({ ten, children }: { ten: string; children: ReactNode }) {
   return (
@@ -29,16 +44,36 @@ function OLoc({ ten, children }: { ten: string; children: ReactNode }) {
   );
 }
 
-function DongHangGon({ dong }: { dong: DongHang[] }) {
+function DongHangGon({ dong, ghiDe, onThue }: {
+  dong: DongHang[]; ghiDe: Record<string, string>; onThue: (id: string, ma: string) => void;
+}) {
   return (
-    <ul className="space-y-0.5">
+    <ul className="space-y-1">
       {dong.map((d, i) => (
         <li key={i} className="text-body text-ink">
           {d.ten} <span className="text-meta text-ink-muted">· {d.so_luong} {d.dvt || ""} × {d.don_gia.toLocaleString("vi-VN")}</span>
+          <span className="flex flex-wrap items-center gap-2 text-meta text-ink-muted">
+            Thuế: {tenThueSuat(d.thue_suat) || "chưa đặt"}{d.thue_nguon ? ` (${TEN_NGUON_THUE[d.thue_nguon] ?? d.thue_nguon})` : ""}
+            {d.thanh_tien >= 0 ? (
+              <OChon aria-label={`Sửa thuế suất dòng ${d.ten}`} className="w-44" value={ghiDe[d.id] ?? ""}
+                onChange={e => onThue(d.id, e.target.value)}>
+                <option value="">Theo cài đặt</option>
+                {MUC_THUE.map(([m, ten]) => <option key={m} value={m}>{ten}</option>)}
+              </OChon>
+            ) : null}
+          </span>
         </li>
       ))}
     </ul>
   );
+}
+
+/** Hoá đơn công ty chỉ hiện tên công ty + MST — không SĐT / mã khách cá nhân. */
+function KhachHang({ h }: { h: HoaDon }) {
+  if (h.la_hd_cong_ty) {
+    return <>{h.ten_cong_ty}<span className="block text-meta text-ink-muted">Công ty · MST {h.ma_so_thue || "—"} · Người mua: {h.nguoi_mua || "—"}</span></>;
+  }
+  return <>{h.ten_khach || "—"}<span className="block text-meta text-ink-muted">{h.ma_bn || "—"} · {h.so_dien_thoai || "—"}</span></>;
 }
 
 function GhiChu({ h }: { h: HoaDon }) {
@@ -57,7 +92,18 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
   const [data, setData] = useState<XuatData | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
   const [dangTai, setDangTai] = useState(true);
-  const chuoi = new URLSearchParams({ tu: khoang.tu, den: khoang.den, loai, co_so: coSoChon }).toString();
+  const [cheDo, setCheDo] = useState<"tach" | "mot">("tach");
+  const [ghiGiamGia, setGhiGiamGia] = useState(false);
+  const [ghiDe, setGhiDe] = useState<Record<string, string>>({});
+  const thamSo = new URLSearchParams({ tu: khoang.tu, den: khoang.den, loai, co_so: coSoChon, che_do: cheDo });
+  if (ghiGiamGia) thamSo.set("ghi_giam_gia", "true");
+  if (Object.keys(ghiDe).length) thamSo.set("ghi_de", JSON.stringify(ghiDe));
+  const chuoi = thamSo.toString();
+  const datThueDong = (id: string, ma: string) => setGhiDe(cu => {
+    const moi = { ...cu };
+    if (ma) moi[id] = ma; else delete moi[id];
+    return moi;
+  });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -80,6 +126,10 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
 
   return (
     <div className="min-w-0 space-y-4">
+      <div className="flex flex-wrap items-center gap-2 text-body">
+        <span className="rounded-chip bg-info-bg px-3 py-1 text-meta font-semibold text-info">Theo từng hoá đơn</span>
+        <Link href="/ke-toan" className="rounded-chip px-3 py-1 text-meta text-ink-muted ring-1 ring-hairline hover:text-ink">Theo hàng hoá →</Link>
+      </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
         <OLoc ten="Ngày thu">
           <div className="[&>div>button]:h-10 [&>div>button]:w-full">
@@ -113,6 +163,21 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+        <OLoc ten="Phiếu có nhiều thuế suất">
+          <OChon aria-label="Phiếu có nhiều thuế suất" className="w-full sm:w-64" value={cheDo} onChange={e => setCheDo(e.target.value === "mot" ? "mot" : "tach")}>
+            <option value="tach">Tách thành nhiều hoá đơn theo thuế suất</option>
+            <option value="mot">Giữ một hoá đơn (tổng tiền thuế)</option>
+          </OChon>
+        </OLoc>
+        <span className="flex items-center gap-2 text-body text-ink">
+          <CongTac bat={ghiGiamGia} onDoi={setGhiGiamGia} nhan="Ghi giảm giá trên hoá đơn" />
+          Ghi giảm giá trên hoá đơn
+        </span>
+        {Object.keys(ghiDe).length ? (
+          <Button size="sm" variant="ghost" onClick={() => setGhiDe({})}>Bỏ {Object.keys(ghiDe).length} thuế sửa tay</Button>
+        ) : null}
+      </div>
       {loi ? <p role="alert" className="rounded-control bg-danger-bg p-3 text-body text-danger">{loi}</p> : null}
       {dangTai && !data ? <p role="status" className="text-body text-ink-muted">Đang tải hoá đơn…</p> : null}
 
@@ -121,8 +186,15 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
           <dl className="grid grid-cols-3 gap-4 rounded-card bg-surface p-4 ring-1 ring-hairline">
             <div><dt className="text-meta text-ink-muted">Số hoá đơn</dt><dd className="tabular-nums text-emph font-semibold text-ink">{data.so_hoa_don}</dd></div>
             <div><dt className="text-meta text-ink-muted">Số dòng hàng</dt><dd className="tabular-nums text-emph font-semibold text-ink">{data.so_dong}</dd></div>
-            <div><dt className="text-meta text-ink-muted">Tổng thành tiền</dt><dd className="tabular-nums text-emph font-semibold text-ink">{tien(data.tong)}</dd></div>
+            <div><dt className="text-meta text-ink-muted">Tổng thành tiền{data.tien_thue > 0 ? ` (gồm thuế ${tien(data.tien_thue)})` : ""}</dt><dd className="tabular-nums text-emph font-semibold text-ink">{tien(data.tong)}</dd></div>
           </dl>
+          {data.dong_chua_thue > 0 ? (
+            <p role="status" className="rounded-control bg-info-bg p-3 text-body text-info">
+              {data.dong_chua_thue} dòng hàng chưa có thuế suất — cột thuế trong file để trống.{" "}
+              <Link href="/ke-toan" className="font-semibold underline">Đặt thuế suất ở Kế toán</Link>
+              {" "}hoặc chọn mức cho từng dòng bên dưới (chỉ áp cho lần xuất này).
+            </p>
+          ) : null}
           <p className="text-meta text-ink-muted">Đây là Màn hình xem nhanh, tải file excel để xem chi tiết!</p>
 
           {!coHoaDon ? <p className="rounded-card bg-surface p-4 text-body text-ink-muted ring-1 ring-hairline">Không có phiếu thu trong phạm vi đã chọn.</p> : null}
@@ -141,10 +213,10 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
                     <tr key={h.ma_phieu} className="border-t border-hairline align-top">
                       <td className="px-3 py-3 text-right tabular-nums">{h.stt}</td>
                       <td className="whitespace-nowrap px-3 py-3 tabular-nums">{h.ngay}<span className="block text-meta text-ink-muted">{h.ma_phieu}</span></td>
-                      <td className="px-3 py-3">{h.ten_khach || "—"}<span className="block text-meta text-ink-muted">{h.ma_bn || "—"} · {h.so_dien_thoai || "—"}</span></td>
+                      <td className="px-3 py-3"><KhachHang h={h} /></td>
                       <td className="whitespace-nowrap px-3 py-3">{h.hinh_thuc || "—"}</td>
-                      <td className="px-3 py-3"><DongHangGon dong={h.dong} /></td>
-                      <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(h.tong)}</td>
+                      <td className="px-3 py-3"><DongHangGon dong={h.dong} ghiDe={ghiDe} onThue={datThueDong} /></td>
+                      <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(h.tong)}{h.tien_thue !== null ? <span className="block text-meta text-ink-muted">Thuế {tenThueSuat(h.thue_suat_ma) || "nhiều mức"}: {tien(h.tien_thue)}</span> : null}</td>
                       <td className="px-3 py-3"><GhiChu h={h} /></td>
                     </tr>
                   ))}
@@ -156,12 +228,12 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
             {ds.map(h => (
               <div key={h.ma_phieu} className="rounded-card bg-surface p-4 ring-1 ring-hairline">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <span className="text-emph font-semibold text-ink">{h.stt}. {h.ten_khach || "—"}</span>
+                  <span className="text-emph font-semibold text-ink">{h.stt}. {h.la_hd_cong_ty ? h.ten_cong_ty : h.ten_khach || "—"}</span>
                   <span className="tabular-nums text-emph font-semibold text-ink">{tien(h.tong)}</span>
                 </div>
                 <p className="text-meta text-ink-muted">{h.ngay} · {h.ma_phieu} · {h.hinh_thuc || "—"}</p>
-                <div className="mt-2"><DongHangGon dong={h.dong} /></div>
-                <div className="mt-2"><GhiChu h={h} /></div>
+                <div className="mt-2"><DongHangGon dong={h.dong} ghiDe={ghiDe} onThue={datThueDong} /></div>
+                <div className="mt-2 space-y-1"><GhiChu h={h} /></div>
               </div>
             ))}
           </div>

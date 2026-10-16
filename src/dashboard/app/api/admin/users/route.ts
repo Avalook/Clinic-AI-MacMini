@@ -64,7 +64,7 @@ function docTaiKhoan(staffId: string) {
 }
 
 type AuthResult =
-  | { ok: true; admin: SupabaseClient }
+  | { ok: true; admin: SupabaseClient; callerUserId: string }
   | { ok: false; res: NextResponse };
 
 // Cổng chung: có phiên + có khoá + người gọi có quyền account.manage. Backend gác
@@ -111,7 +111,7 @@ async function authorizeAdmin(): Promise<AuthResult> {
   const admin = createClient(SUPABASE_URL, khoaDichVu, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  return { ok: true, admin };
+  return { ok: true, admin, callerUserId: user.id };
 }
 
 interface CreateBody {
@@ -120,13 +120,25 @@ interface CreateBody {
   staffId?: string;
 }
 
-// Tên đăng nhập của từng nhân viên. `auth.users` chỉ khoá dịch vụ đọc được, và
-// ADR-0012 cấm file khác với ra khoá đó — nên nó phải đi qua đúng route này.
-// MỘT lượt gọi cho cả bảng, không phải mỗi dòng một lượt.
-export async function GET() {
+// Tên đăng nhập của từng nhân viên hoặc ca trực tương lai. `auth.users` chỉ
+// khoá dịch vụ đọc được, và ADR-0012 cấm file khác với ra khoá đó — nên nó phải
+// đi qua đúng route này.
+export async function GET(request: Request) {
   const auth = await authorizeAdmin();
   if (!auth.ok) return auth.res;
   const { admin } = auth;
+
+  const url = new URL(request.url);
+  const staffId = url.searchParams.get("staffId");
+  const action = url.searchParams.get("action");
+
+  if (action === "future_shifts" && staffId) {
+    const shifts = await docTuBackend<unknown[]>(
+      `/api/v1/staff/${encodeURIComponent(staffId)}/ca-truc-tuong-lai`,
+    );
+    if (!shifts.ok) return shifts.res;
+    return NextResponse.json({ ok: true, shifts: shifts.data });
+  }
 
   const [{ data: users }, nhanVien] = await Promise.all([
     admin.auth.admin.listUsers({ perPage: 1000 }),
@@ -233,16 +245,22 @@ export async function POST(request: Request) {
 
 interface PatchBody {
   staffId?: string;
-  action?: "reset_password" | "change_email" | "unlink";
+  action?:
+    | "reset_password"
+    | "change_email"
+    | "unlink"
+    | "ban_staff"
+    | "unban_staff";
   password?: string;
   email?: string;
+  goCaTruc?: boolean;
 }
 
-// Tài khoản đã nối: đặt lại mật khẩu, đổi tên đăng nhập, hoặc thu hồi.
+// Tài khoản đã nối: đặt lại mật khẩu, đổi tên đăng nhập, thu hồi, hoặc khoá / mở lại.
 export async function PATCH(request: Request) {
   const auth = await authorizeAdmin();
   if (!auth.ok) return auth.res;
-  const { admin } = auth;
+  const { admin, callerUserId } = auth;
 
   let body: PatchBody;
   try {
@@ -260,6 +278,72 @@ export async function PATCH(request: Request) {
   if (!doc.ok) return doc.res;
   const target = doc.data;
   const authUserId = target.auth_user_id;
+
+  if (action === "ban_staff") {
+    // Chặn tự khoá chính mình
+    if (authUserId && authUserId === callerUserId) {
+      return NextResponse.json(
+        { error: "Không thể tự khoá tài khoản của chính mình." },
+        { status: 422 },
+      );
+    }
+    const res = await proxyJsonToBackend(
+      "POST",
+      `/api/v1/staff/${encodeURIComponent(staffId)}/khoa-nghi-viec`,
+      { go_ca_truc: Boolean(body.goCaTruc) },
+    );
+    if (!res.ok) {
+      return res;
+    }
+    const backendData = (await res.json().catch(() => ({}))) as {
+      so_ca_go?: number;
+    };
+
+    if (authUserId) {
+      const { error: banErr } = await admin.auth.admin.updateUserById(
+        authUserId,
+        { ban_duration: "876000h" },
+      );
+      if (banErr) {
+        console.error("gotrue_ban_error", banErr);
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      action,
+      staffName: target.full_name,
+      soCaGo: backendData.so_ca_go ?? 0,
+    });
+  }
+
+  if (action === "unban_staff") {
+    const res = await proxyJsonToBackend(
+      "POST",
+      `/api/v1/staff/${encodeURIComponent(staffId)}/mo-lai`,
+      {},
+    );
+    if (!res.ok) {
+      return res;
+    }
+
+    if (authUserId) {
+      const { error: unbanErr } = await admin.auth.admin.updateUserById(
+        authUserId,
+        { ban_duration: "none" },
+      );
+      if (unbanErr) {
+        console.error("gotrue_unban_error", unbanErr);
+      }
+    }
+
+    return NextResponse.json({
+      ok: true,
+      action,
+      staffName: target.full_name,
+    });
+  }
+
   if (!authUserId) {
     return NextResponse.json(
       { error: "Nhân viên này chưa có tài khoản đăng nhập." },

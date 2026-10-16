@@ -29,12 +29,23 @@ KHONG_TIM_THAY = "Nhân viên không tồn tại trong phòng khám hiện tại
 DA_CO_TAI_KHOAN = "Nhân viên này đã được nối với tài khoản khác."
 CHUA_CO_TAI_KHOAN = "Nhân viên này chưa có tài khoản đăng nhập."
 DA_DOI = "Tài khoản đã thay đổi; tải lại trang rồi thử lại."
+KHONG_THE_TU_THU_HOI = "Không thể tự thu hồi tài khoản của chính mình."
 
 # Nhân viên của phòng khám người gọi. `staff` không có clinic_id — phạm vi đi
 # qua clinic_membership còn hiệu lực (cùng luật route Next cũ dùng).
 _THUOC_PHONG_KHAM = """
     EXISTS (SELECT 1 FROM clinic_membership m
              WHERE m.staff_id = s.id AND m.clinic_id = $2::uuid AND m.is_active)
+"""
+
+
+# Như trên nhưng KỂ CẢ nhân viên đã bị khoá / nghỉ việc (membership tắt). Dùng
+# cho `doc` — nút "Mở lại" của màn Thiết lập tài khoản đọc nhân viên TRƯỚC khi mở,
+# mà "Khoá & nghỉ việc" tắt đúng membership ấy → nếu đòi `is_active` thì khoá xong
+# không mở lại được từ màn (404 "không tồn tại trong phòng khám hiện tại").
+_CUNG_PHONG_KHAM_KE_CA_DA_KHOA = """
+    EXISTS (SELECT 1 FROM clinic_membership m
+             WHERE m.staff_id = s.id AND m.clinic_id = $2::uuid)
 """
 
 
@@ -49,7 +60,7 @@ class TaiKhoanService:
             f"""
             SELECT s.id::text AS id, s.full_name, s.auth_user_id::text AS auth_user_id
               FROM staff s
-             WHERE s.id = $1::uuid AND {_THUOC_PHONG_KHAM}
+             WHERE s.id = $1::uuid AND {_CUNG_PHONG_KHAM_KE_CA_DA_KHOA}
             """,
             staff_id,
             self._ai.clinic_id,
@@ -124,6 +135,11 @@ class TaiKhoanService:
         `auth_user_id` là tài khoản màn hình đang thấy: khác hiện tại (ai đó vừa
         gỡ/tạo lại ở tab khác) thì 409, không gỡ nhầm tài khoản mới.
         """
+        if str(staff_id) == str(self._ai.staff_id) or (
+            self._ai.auth_user_id and str(auth_user_id) == str(self._ai.auth_user_id)
+        ):
+            raise ConflictError(KHONG_THE_TU_THU_HOI)
+
         async with self._pool.acquire() as conn, conn.transaction():
             row = await conn.fetchrow(
                 f"""

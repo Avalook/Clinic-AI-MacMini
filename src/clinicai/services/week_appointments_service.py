@@ -69,8 +69,10 @@ WITH tuan AS (
        AND a.slot_start <  $3
        AND a.status <> ALL($4::text[])
        -- Chỉ lịch của cơ sở đang đứng (hai cơ sở, 08/10/2026); NULL = mọi cơ sở.
-       AND coalesce(a.location_id, $5::uuid)
-           IS NOT DISTINCT FROM coalesce($5::uuid, a.location_id)
+       -- (Viết `coalesce(..) IS NOT DISTINCT FROM coalesce(..)` — cùng nghĩa —
+       -- làm planner ước 1 dòng cho cả tuần ~200 dòng rồi chọn vòng lặp lồng
+       -- chạy lại `som_nhat` từng dòng; dạng này ước đúng. 14/10/2026.)
+       AND ($5::uuid IS NULL OR a.location_id IS NULL OR a.location_id = $5::uuid)
      -- THỨ TỰ PHẢI XÁC ĐỊNH, và bản cũ thì không.
      --
      -- Prod đang có BA lịch hẹn cùng mốc 10:15 ngày 15/07. Với `ORDER BY
@@ -105,6 +107,23 @@ som_nhat AS (
        -- khẳng định về NGƯỜI — và với khách chưa từng tới thì nó sai thẳng.
        AND a.status <> ALL($4::text[])
      GROUP BY a.clinic_patient_id
+),
+-- Lịch của tuần đang VƯỢT SỨC CHỨA: tính MỘT lần (view chạy cả
+-- `lich_vuot_suc_chua`), thay vì `EXISTS` chạy lại view cho từng dòng.
+vuot AS MATERIALIZED (
+    SELECT DISTINCT vv.appointment_id
+      FROM public.v_viec_cskh vv
+     WHERE vv.clinic_id = $1::uuid
+       AND vv.trang_thai = 'VUOT_SUC_CHUA'
+       AND vv.appointment_id IN (SELECT id FROM tuan)
+),
+-- Sức chứa theo (bác sĩ, giờ) KHÁC NHAU — nửa số dòng của tuần trùng cặp này,
+-- mà `resolve_effective_cap` (SECURITY DEFINER) tốn ~0,1 ms mỗi lần gọi.
+caps AS MATERIALIZED (
+    SELECT k.doctor_id, k.slot_start, cap.slot_minutes, cap.walkin_cap
+      FROM (SELECT DISTINCT doctor_id, slot_start FROM tuan) k
+     CROSS JOIN LATERAL public.resolve_effective_cap(
+         $1::uuid, k.doctor_id, k.slot_start) cap
 )
 SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        t.so_booking, t.so_tiep_don,
@@ -173,12 +192,7 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        ) AS bs_go_co_ca_lai,
        -- Lịch VƯỢT SỨC CHỨA sau khi công bố lịch trực (20260915000014) — trang
        -- chủ báo cam ngay trên dòng lịch, cùng nguồn với khung báo CSKH.
-       EXISTS (
-         SELECT 1 FROM public.v_viec_cskh vv
-          WHERE vv.clinic_id = $1::uuid
-            AND vv.appointment_id = t.id
-            AND vv.trang_thai = 'VUOT_SUC_CHUA'
-       ) AS vuot_suc_chua,
+       (vu.appointment_id IS NOT NULL) AS vuot_suc_chua,
        CASE
          WHEN p.clinic_patient_id IS NULL THEN ''
          WHEN t.slot_start > s.dau_tien  THEN 'Tái khám'
@@ -224,9 +238,10 @@ SELECT t.id, t.slot_start, t.status, t.queue_number, t.doctor_id,
        ORDER BY vi.checked_in_at NULLS LAST
        LIMIT 1
   ) v ON TRUE
-  LEFT JOIN LATERAL public.resolve_effective_cap(
-      $1::uuid, t.doctor_id, t.slot_start
-  ) cap ON TRUE
+  LEFT JOIN vuot vu ON vu.appointment_id = t.id
+  LEFT JOIN caps cap
+         ON cap.doctor_id IS NOT DISTINCT FROM t.doctor_id
+        AND cap.slot_start = t.slot_start
  ORDER BY t.slot_start, t.created_at, t.id
 """
 ) % MAX_ROWS

@@ -60,6 +60,7 @@ const TEN_O: Record<string, string> = {
   doctor_id: "Bác sĩ",
   ngay_hen: "Ngày hẹn",
   noi_dung: "Nội dung",
+  email: "Email",
 };
 
 /**
@@ -107,6 +108,9 @@ function tenOTu(loc: unknown): string | undefined {
 
 /** Vài câu Pydantic hay gặp nhất, nói lại bằng tiếng Việt. Câu lạ thì giữ nguyên. */
 function doiCauQuen(msg: string): string {
+  if (msg.startsWith("Value error, ")) {
+    return msg.slice("Value error, ".length);
+  }
   const m = msg.toLowerCase();
   if (m.includes("valid date")) return "ngày không hợp lệ.";
   if (m.includes("valid integer") || m.includes("valid number"))

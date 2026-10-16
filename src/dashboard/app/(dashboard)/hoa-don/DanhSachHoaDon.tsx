@@ -12,10 +12,13 @@ import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
 import ThanhTab from "@/components/ui/ThanhTab";
 import { todayVn } from "@/lib/roster";
 import { khoangNhanh, type Khoang } from "@/lib/thanh-ngay";
+import Link from "next/link";
+import { coQuyen } from "@/lib/quyen-client";
 import { INPUT } from "../form-ui";
+import { useQuyen } from "../QuyenContext";
 import NgayTrucBaoCao, { type ReportCalendar } from "../reports/NgayTrucBaoCao";
 import ChiTietHoaDon from "./ChiTietHoaDon";
-import { TRANG_THAI, daTon, ngayGio, tien, type DanhSachData, type KhachHoaDon } from "./types";
+import { NHOM_HOA_DON, TEN_LECH, TRANG_THAI, daTon, ngayGio, tien, type DanhSachData, type KhachHoaDon, type ViecTon } from "./types";
 
 type Tab = "khach" | "ton";
 
@@ -28,11 +31,11 @@ function OLoc({ ten, children, className = "" }: { ten: string; children: ReactN
   );
 }
 
-function SoTien({ ten, so, nhan }: { ten: string; so: ReactNode; nhan?: "do" }) {
+function SoTien({ ten, so }: { ten: string; so: ReactNode }) {
   return (
     <div>
       <dt className="text-meta text-ink-muted">{ten}</dt>
-      <dd className={`tabular-nums text-emph font-semibold ${nhan === "do" ? "text-danger" : "text-ink"}`}>{so}</dd>
+      <dd className="tabular-nums text-emph font-semibold text-ink">{so}</dd>
     </div>
   );
 }
@@ -51,14 +54,29 @@ function DaThu({ k }: { k: KhachHoaDon }) {
 
 const CHIP = "inline-block rounded-chip px-2 py-0.5 text-meta font-medium";
 /** Việc tồn là tiền phòng khám đang nợ khách → tô đỏ. */
-const NO_KHACH = new Set(["CHUA_TRA_LAI", "CHUA_LAM"]);
+/** Nút "Xử lý" của một việc tồn: đích do MÁY CHỦ quyết (`xu_ly`); màn chỉ vẽ.
+ *  Thiếu lego của màn đích → chữ nhắc thay vì nút (máy chủ vẫn tự kiểm quyền). */
+function NutXuLy({ v, quyen }: { v: ViecTon; quyen: readonly string[] | null }) {
+  const x = v.xu_ly;
+  if (!x) return null;
+  if (!x.href) return <p className="max-w-xs text-meta text-ink-muted">{x.huong_dan}</p>;
+  if (x.lego && !coQuyen(quyen, x.lego)) {
+    return <span className="text-meta text-ink-muted">Nhờ người có quyền thu xử lý</span>;
+  }
+  return (
+    <div className="space-y-1">
+      <Link href={x.href} className={buttonClass("secondary", "sm")}>{x.nhan ?? "Xử lý"}</Link>
+      {x.huong_dan ? <p className="max-w-xs text-meta text-ink-muted">{x.huong_dan}</p> : null}
+    </div>
+  );
+}
 
 function TrangThai({ k }: { k: KhachHoaDon }) {
   const ton = k.viec_ton ?? [];
   return (
     <div className="flex flex-col items-start gap-1">
       {ton.length ? (
-        <span className={`${CHIP} bg-warning-bg text-warning`}>
+        <span className={`${CHIP} bg-surface-muted text-ink-soft`}>
           {ton.length} việc tồn · {ton[0].ten_loai.toLowerCase()} {tien(ton[0].so_tien)}
         </span>
       ) : (
@@ -67,22 +85,37 @@ function TrangThai({ k }: { k: KhachHoaDon }) {
         </span>
       )}
       {k.co_phieu_huy ? <span className={`${CHIP} bg-surface-muted text-ink-soft`}>có phiếu huỷ</span> : null}
+      {[...new Set(k.phieu.flatMap(p => p.ten_lech ?? []))].filter(t => t !== "Huỷ phiếu").map(t => (
+        <span key={t} className={`${CHIP} bg-surface-muted text-ink-soft`}>{t.toLowerCase()}</span>
+      ))}
       {(k.canh_bao ?? []).filter(c => !c.startsWith("Phiếu huỷ")).map(c => (
-        <span key={c} className={`${CHIP} bg-warning-bg text-warning`}>{c}</span>
+        <span key={c} className={`${CHIP} bg-surface-muted text-ink-soft`}>{c}</span>
       ))}
     </div>
   );
 }
 
-export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
+/** Bộ lọc mở sẵn từ link (khối Dòng tiền của báo cáo cuối ngày). */
+export interface LocBanDau {
+  tu?: string; den?: string; ca?: string; co_so?: string;
+  nhom?: string; hinh_thuc?: string; loai?: string;
+  /** `viec-ton` = mở tab Việc tồn; `viec` = nhóm (`no_khach` / `no_phong_kham`) hoặc mã loại. */
+  tab?: string; viec?: string;
+}
+
+export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; banDau?: LocBanDau }) {
   const homNay = todayVn();
-  const [khoang, setKhoang] = useState<Khoang>({ tu: homNay, den: homNay });
+  const [khoang, setKhoang] = useState<Khoang>({ tu: banDau.tu ?? homNay, den: banDau.den ?? banDau.tu ?? homNay });
   const [tim, setTim] = useState("");
-  const [loai, setLoai] = useState("");
+  const [loai, setLoai] = useState(banDau.loai ?? "");
   const [trangThai, setTrangThai] = useState("");
-  const [ca, setCa] = useState("FULL");
-  const [coSoChon, setCoSoChon] = useState("");
-  const [tab, setTab] = useState<Tab>("khach");
+  const [ca, setCa] = useState(banDau.ca || "FULL");
+  const [coSoChon, setCoSoChon] = useState(banDau.co_so ?? "");
+  const [nhom, setNhom] = useState(banDau.nhom && banDau.nhom in NHOM_HOA_DON ? banDau.nhom : "");
+  const [hinhThuc, setHinhThuc] = useState(banDau.hinh_thuc ?? "");
+  const [tab, setTab] = useState<Tab>(banDau.tab === "viec-ton" ? "ton" : "khach");
+  const [viec, setViec] = useState(banDau.viec ?? "");
+  const quyen = useQuyen();
   const [access, setAccess] = useState<ReportCalendar | null>(null);
   const [data, setData] = useState<DanhSachData | null>(null);
   const [loi, setLoi] = useState<string | null>(null);
@@ -96,6 +129,7 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
     tu, den, tim, loai, ca, co_so: coSoChon,
     trang_thai: canKiemTra ? "" : trangThai,
     can_kiem_tra: String(canKiemTra),
+    nhom, hinh_thuc: hinhThuc,
   });
 
   useEffect(() => {
@@ -125,7 +159,9 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
   }, [chuoi]);
 
   const ds = data?.khach ?? [];
-  const ton = data?.viec_ton ?? [];
+  const tonDay = data?.viec_ton ?? [];
+  // Lọc Ở MÀN chỉ để thu hẹp danh sách (không tính tiền): nhóm do máy chủ gắn.
+  const ton = viec ? tonDay.filter(v => v.nhom_no === viec || v.loai === viec) : tonDay;
   const tk = data?.tong_khach;
   const moKhach = (patientId: string | null) => {
     const k = ds.find(x => x.id === patientId);
@@ -170,6 +206,19 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
             <option value="thuoc">Thuốc</option>
           </select>
         </OLoc>
+        <OLoc ten="Nhóm hoá đơn">
+          <select aria-label="Nhóm hoá đơn" className={`${INPUT} w-full`} value={nhom} onChange={e => setNhom(e.target.value)}>
+            <option value="">Mọi hoá đơn</option>
+            {Object.entries(NHOM_HOA_DON).map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+          </select>
+        </OLoc>
+        <OLoc ten="Hình thức">
+          <select aria-label="Hình thức thu" className={`${INPUT} w-full`} value={hinhThuc} onChange={e => setHinhThuc(e.target.value)}>
+            <option value="">Tiền mặt và chuyển khoản</option>
+            <option value="CASH">Tiền mặt</option>
+            <option value="TRANSFER">Chuyển khoản</option>
+          </select>
+        </OLoc>
         <OLoc ten="Trạng thái">
           <select aria-label="Trạng thái" className={`${INPUT} w-full`} value={trangThai} onChange={e => setTrangThai(e.target.value)}>
             <option value="">Tất cả trạng thái</option>
@@ -185,6 +234,20 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
 
       {data ? (
         <>
+          {data.tong.dung_khong_dung ? (
+            <div className="flex flex-wrap items-center gap-2 text-body">
+              <button type="button" onClick={() => setNhom("dung")} className={`${CHIP} bg-success-bg text-success`}>
+                Đúng {data.tong.dung_khong_dung.dung} hoá đơn
+              </button>
+              <button type="button" onClick={() => setNhom("khong_dung")} className={`${CHIP} bg-surface-muted text-ink-soft`}>
+                Không đúng {data.tong.dung_khong_dung.khong_dung} hoá đơn
+              </button>
+              {Object.entries(data.tong.dung_khong_dung.ly_do).filter(([, n]) => n > 0).map(([ma, n]) => (
+                <span key={ma} className="text-meta text-ink-muted">{TEN_LECH[ma] ?? ma} {n}</span>
+              ))}
+              {nhom ? <button type="button" onClick={() => setNhom("")} className="text-meta text-brand-700 underline-offset-2 hover:underline">Bỏ lọc nhóm</button> : null}
+            </div>
+          ) : null}
           <dl className="grid grid-cols-2 gap-4 rounded-card bg-surface p-4 ring-1 ring-hairline md:grid-cols-4">
             <SoTien ten="Tổng tiền hàng" so={tien(data.tong.tong_truoc_giam)} />
             <SoTien ten="Giảm giá" so={tien(data.tong.giam_gia)} />
@@ -192,16 +255,21 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
             <SoTien ten="Phiếu huỷ" so={tien(data.tong.gia_tri_huy ?? 0)} />
             <SoTien ten="Đã trả lại khách" so={tien(data.tong.da_hoan)} />
             <SoTien ten="Thực thu" so={tien(data.tong.thu_rong)} />
-            <SoTien ten="Chưa trả lại khách" so={tien(data.tong.chua_tra_lai ?? 0)} nhan={(data.tong.chua_tra_lai ?? 0) > 0 ? "do" : undefined} />
-            <SoTien ten="Việc còn tồn" so={`${data.tong.so_viec_ton ?? ton.length} việc`} nhan={ton.length ? "do" : undefined} />
+            <SoTien ten="Chưa trả lại khách" so={tien(data.tong.chua_tra_lai ?? 0)} />
+            <SoTien ten="Việc còn tồn" so={`${data.tong.so_viec_ton ?? tonDay.length} việc`} />
           </dl>
+          {data.co_so_ngung?.length ? (
+            <p className="text-meta text-ink-muted" data-testid="co-so-ngung">
+              Không tính cơ sở đã ngừng: {data.co_so_ngung.map(c => c.ten).join(", ")} (chọn đúng cơ sở ấy ở ô Cơ sở để xem lại khoản cũ).
+            </p>
+          ) : null}
 
           <div className="flex justify-end">
             <ThanhTab<Tab>
               nhan="Xem theo"
               chon={tab}
               onChon={setTab}
-              muc={[{ ma: "khach", nhan: "Theo khách" }, { ma: "ton", nhan: "Việc còn tồn", dem: ton.length }]}
+              muc={[{ ma: "khach", nhan: "Theo khách" }, { ma: "ton", nhan: "Việc còn tồn", dem: tonDay.length }]}
             />
           </div>
 
@@ -229,7 +297,7 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
                           <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(k.giam_gia)}</td>
                           <td className="whitespace-nowrap px-3 py-3 text-right"><DaThu k={k} /></td>
                           <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(k.da_hoan)}</td>
-                          <td className={`whitespace-nowrap px-3 py-3 text-right tabular-nums ${(k.chua_tra_lai ?? 0) > 0 ? "font-semibold text-danger" : ""}`}>
+                          <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">
                             {tien(k.chua_tra_lai ?? 0)}
                             {k.cho_hoan > 0 ? <span className="block text-meta font-normal text-ink-muted">gồm hoàn đang chờ {tien(k.cho_hoan)}</span> : null}
                           </td>
@@ -245,7 +313,7 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(tk?.giam_gia ?? 0)}</td>
                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(tk?.da_thu ?? 0)}</td>
                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(tk?.da_hoan ?? 0)}</td>
-                        <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums text-danger">{tien(tk?.chua_tra_lai ?? 0)}</td>
+                        <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(tk?.chua_tra_lai ?? 0)}</td>
                         <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(tk?.thu_rong ?? 0)}</td>
                         <td className="px-3 py-3 text-meta font-normal text-ink-muted">{tk?.so_khach_con_ton ?? 0} khách còn việc tồn</td>
                       </tr>
@@ -264,26 +332,36 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
                     <dl className="mt-3 grid grid-cols-2 gap-3">
                       <SoTien ten="Tiền đã thu" so={tien(k.da_thu)} />
                       <SoTien ten="Thực thu" so={tien(k.thu_rong)} />
-                      {(k.chua_tra_lai ?? 0) > 0 ? <SoTien ten="Chưa trả lại" so={tien(k.chua_tra_lai ?? 0)} nhan="do" /> : null}
+                      {(k.chua_tra_lai ?? 0) > 0 ? <SoTien ten="Chưa trả lại" so={tien(k.chua_tra_lai ?? 0)} /> : null}
                     </dl>
                   </button>
                 ))}
                 {ds.length ? (
                   <div className="grid grid-cols-2 gap-3 rounded-card bg-surface-muted p-4 font-semibold">
                     <span>TỔNG thực thu</span><span className="text-right tabular-nums">{tien(tk?.thu_rong ?? 0)}</span>
-                    <span>Chưa trả lại khách</span><span className="text-right tabular-nums text-danger">{tien(tk?.chua_tra_lai ?? 0)}</span>
+                    <span>Chưa trả lại khách</span><span className="text-right tabular-nums">{tien(tk?.chua_tra_lai ?? 0)}</span>
                   </div>
                 ) : null}
               </div>
             </>
           ) : (
             <>
-              {!ton.length ? <p className="rounded-card bg-surface p-4 text-body text-ink-muted ring-1 ring-hairline">Không còn việc tồn.</p> : null}
+              {tonDay.length ? (
+                <OLoc ten="Loại việc" className="max-w-xs">
+                  <select aria-label="Loại việc tồn" className={`${INPUT} w-full`} value={viec} onChange={e => setViec(e.target.value)}>
+                    <option value="">Mọi loại việc</option>
+                    <option value="no_khach">Khách còn nợ phòng khám</option>
+                    <option value="no_phong_kham">Phòng khám còn nợ khách</option>
+                    {[...new Map(tonDay.map(v => [v.loai, v.ten_loai])).entries()].map(([ma, ten]) => <option key={ma} value={ma}>{ten}</option>)}
+                  </select>
+                </OLoc>
+              ) : null}
+              {!ton.length ? <p className="rounded-card bg-surface p-4 text-body text-ink-muted ring-1 ring-hairline">{tonDay.length ? "Không có việc tồn thuộc loại đã chọn." : "Không còn việc tồn."}</p> : null}
               {ton.length ? (
                 <div className="hidden overflow-x-auto rounded-card bg-surface ring-1 ring-hairline md:block">
                   <table className="w-full text-body">
                     <thead className="bg-surface-muted text-left text-meta text-ink-muted">
-                      <tr>{["Phát sinh", "Khách", "Việc", "Số tiền", "Đã tồn"].map((t, i) => <th key={t} className={`px-3 py-2 font-semibold ${i === 3 ? "text-right" : ""}`}>{t}</th>)}</tr>
+                      <tr>{["Phát sinh", "Khách", "Việc", "Số tiền", "Đã tồn", "Xử lý"].map((t, i) => <th key={t} className={`px-3 py-2 font-semibold ${i === 3 ? "text-right" : ""}`}>{t}</th>)}</tr>
                     </thead>
                     <tbody>
                       {ton.map((v, i) => {
@@ -298,11 +376,12 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
                               <span className="block text-meta text-ink-muted">{v.ma_bn ?? "—"}</span>
                             </td>
                             <td className="px-3 py-3">
-                              <span className={`${CHIP} ${NO_KHACH.has(v.loai) ? "bg-danger-bg text-danger" : "bg-warning-bg text-warning"}`}>{v.ten_loai}</span>
+                              <span className={`${CHIP} bg-surface-muted text-ink-soft`}>{v.ten_loai}</span>
                               {v.mo_ta || v.nguoi ? <span className="mt-1 block text-meta text-ink-muted">{[v.mo_ta, v.nguoi].filter(Boolean).join(" · ")}</span> : null}
                             </td>
                             <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(v.so_tien)}</td>
                             <td className="px-3 py-3 whitespace-nowrap">{daTon(v.luc)}</td>
+                            <td className="px-3 py-3"><NutXuLy v={v} quyen={quyen} /></td>
                           </tr>
                         );
                       })}
@@ -314,10 +393,11 @@ export default function DanhSachHoaDon({ coSo }: { coSo: CoSo[] }) {
                 {ton.map((v, i) => (
                   <article key={`${v.loai}-${v.visit_id}-${v.ma}-${i}`} className="rounded-card bg-surface p-4 ring-1 ring-hairline">
                     <div className="flex items-start justify-between gap-2">
-                      <span className={`${CHIP} ${NO_KHACH.has(v.loai) ? "bg-danger-bg text-danger" : "bg-warning-bg text-warning"}`}>{v.ten_loai}</span>
+                      <span className={`${CHIP} bg-surface-muted text-ink-soft`}>{v.ten_loai}</span>
                       <b className="tabular-nums">{tien(v.so_tien)}</b>
                     </div>
                     <p className="mt-1 text-meta text-ink-muted">{v.ten ?? "—"} · {daTon(v.luc)}{v.mo_ta ? ` · ${v.mo_ta}` : ""}</p>
+                    <div className="mt-2"><NutXuLy v={v} quyen={quyen} /></div>
                   </article>
                 ))}
               </div>

@@ -7,6 +7,9 @@
 
 import type { StatusTone } from "@/components/ui/StatusChip";
 import { VN_TZ } from "../../../lib/datetime";
+import type { LoBiLoai } from "../../../lib/lo-bi-loai";
+
+export type { LoBiLoai };
 
 export type GiaiDoan =
   | "CHUA_SAN_SANG"
@@ -19,7 +22,7 @@ export type GiaiDoan =
 export interface LoGoiY {
   drug_batch_id: string;
   batch_code: string;
-  expiry_date: string;
+  expiry_date: string | null;
   unit: string;
   /** Thuốc trên kệ. */
   ton_vat_ly: number;
@@ -27,11 +30,20 @@ export interface LoGoiY {
   co_the_phan_lo: number;
 }
 
+/** Lô còn ở KHO (chưa ra quầy) — chỉ có khi cơ sở bật tách kho / quầy (G7). */
+export interface LoKhoCon {
+  drug_batch_id: string;
+  batch_code: string;
+  expiry_date: string | null;
+  unit: string;
+  ton: number;
+}
+
 export interface PhanLo {
   allocation_id: string;
   drug_batch_id: string;
   batch_code: string;
-  expiry_date: string;
+  expiry_date: string | null;
   quantity: number;
   handed_over_qty: number;
   con_giao: number;
@@ -71,6 +83,10 @@ export interface DongDon {
   da_chon: number;
   phan_lo: PhanLo[];
   lo_goi_y: LoGoiY[];
+  /** Lô bị loại khỏi gợi ý + lý do (khác đơn vị / khác cơ sở) — chỉ để giải thích. */
+  lo_bi_loai?: LoBiLoai[];
+  /** Lô thuốc này còn ở kho (tách kho / quầy) — để hiện "chuyển sang quầy?". */
+  kho_con?: LoKhoCon[];
   xuat: LanGiao[];
   /** Đã bán mà chưa giao (mọi lần thu). */
   chua_giao: number;
@@ -180,5 +196,7 @@ export const fmtSo = (n: number | null | undefined) =>
     : new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 }).format(n);
 
 /** Ngày dạng "YYYY-MM-DD" (hạn dùng) — nửa đêm UTC là 07:00 giờ VN, cùng ngày. */
-export const fmtNgay = (iso: string) =>
-  new Date(iso).toLocaleDateString("vi-VN", { timeZone: VN_TZ });
+export const fmtNgay = (iso: string | null) =>
+  !iso || Number.isNaN(Date.parse(iso))
+    ? "—"
+    : new Date(iso).toLocaleDateString("vi-VN", { timeZone: VN_TZ });

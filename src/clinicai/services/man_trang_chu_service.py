@@ -193,6 +193,16 @@ class ManTrangChuService:
                                   AS co_so
                        ) cs
                        WHERE w0.clinic_id = $1::uuid
+                         -- CẮT TRƯỚC khi gọi `co_so_cua_luot` từng dòng: việc
+                         -- đã đóng trước cuối ngày ĐẦU của khoảng không bao giờ
+                         -- thoả điều kiện đếm bên dưới (`created_at < n.het AND
+                         -- (đang mở OR đóng sau n.het)`) ở ngày nào. Không cắt
+                         -- thì 98.000 việc cả lịch sử đều bị gọi hàm (16/10/2026:
+                         -- 560ms mỗi lần mở Trang chủ, kết quả không đổi).
+                         AND (w0.status IN ('PENDING', 'IN_PROGRESS')
+                              OR coalesce(w0.finished_at, w0.updated_at) >=
+                                 (($2::date + 1)::timestamp
+                                    AT TIME ZONE 'Asia/Ho_Chi_Minh'))
                          AND coalesce(cs.co_so, $4::uuid)
                              IS NOT DISTINCT FROM coalesce($4::uuid, cs.co_so)
                   ) w
@@ -334,26 +344,7 @@ class ManTrangChuService:
                 week_roster,
                 co_so,
             )
-            # Bác sĩ trực ca từng ngày của TUẦN LỊCH HẸN (khác tuần roster!).
-            truc_ca = await conn.fetch(
-                """
-                SELECT w.work_date, w.staff_id, w.staff_name FROM work_roster w
-                  LEFT JOIN vi_tri_lam_viec vt
-                         ON vt.clinic_id = w.clinic_id AND vt.code = w.station
-                  LEFT JOIN clinic_room cr
-                         ON cr.id = vt.room_id AND cr.clinic_id = w.clinic_id
-                 WHERE w.clinic_id = $1::uuid
-                   AND w.work_date = ANY($2::date[])
-                   AND public.la_ca_kham_bac_si(w.clinic_id, w.station)
-                   AND w.status = 'APPROVED'
-                   AND w.staff_id IS NOT NULL
-                   AND coalesce(cr.location_id, $3::uuid)
-                       IS NOT DISTINCT FROM coalesce($3::uuid, cr.location_id)
-                """,
-                clinic_id,
-                ngay_tuan_hen,
-                co_so,
-            )
+            truc_ca = await _doc_truc_ca(conn, clinic_id, ngay_tuan_hen, co_so)
             trang_thai_kham: list[dict[str, Any]] = []
             hanh_trinh_gon: dict[str, Any] = {}
             if identity.co_vai({ClinicRole.RECEPTION}):
@@ -477,6 +468,75 @@ class ManTrangChuService:
             "tuan_hen": tuan_hen,
             "tien_trinh": [asdict(p) for p in tien_trinh],
         }
+
+    async def goi_lich_hen_tuan(
+        self,
+        *,
+        identity: StaffIdentity,
+        week_appt: date,
+    ) -> dict[str, Any]:
+        """Phần của gói Trang chủ mà BẢNG LỊCH HẸN TUẦN cần — và chỉ có thế.
+
+        Màn Tiếp đón (`/reception/queue`) dựng đúng bảng lịch hẹn của Trang chủ
+        nhưng trước đây gọi cả `goi_du_lieu`: chờ thêm số liệu, xu hướng 7 ngày,
+        tải bác sĩ, roster, "khách còn nợ"… (đo 16/10/2026: 1,15s so với ~0,25s)
+        rồi vứt đi, chỉ giữ `tuan_hen` + `truc_ca` + `tien_trinh`. Ba khối này
+        gọi ĐÚNG các hàm của `goi_du_lieu` (cùng service, cùng câu SQL trực ca,
+        cùng cơ sở đang đứng) nên hình dữ liệu y hệt từng byte; test canh.
+        Không nhận cờ từ client: gói gọn chỉ BỚT dữ liệu, không thêm.
+        """
+        clinic_id = identity.clinic_id
+        co_so = identity.location_id or None
+        ngay_tuan_hen = [week_appt + timedelta(days=i) for i in range(7)]
+        async with self._pool.acquire() as conn:
+            truc_ca = await _doc_truc_ca(conn, clinic_id, ngay_tuan_hen, co_so)
+        tuan_hen = await WeekAppointmentsService(self._pool).week(
+            clinic_id=clinic_id, week_start=week_appt, location_id=co_so
+        )
+        tien_trinh = await VisitProgressService(self._pool).for_range(
+            date_from=ngay_tuan_hen[0],
+            date_to=ngay_tuan_hen[-1],
+            clinic_id=clinic_id,
+            location_id=co_so,
+        )
+        return {
+            "truc_ca": [dict(r) for r in truc_ca],
+            "tuan_hen": tuan_hen,
+            "tien_trinh": [asdict(p) for p in tien_trinh],
+        }
+
+
+async def _doc_truc_ca(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    ngay_tuan_hen: list[date],
+    co_so: str | None,
+) -> list[asyncpg.Record]:
+    """Bác sĩ trực ca từng ngày của TUẦN LỊCH HẸN (khác tuần roster!).
+
+    Dùng chung cho gói đầy đủ của Trang chủ và gói gọn của bảng lịch hẹn
+    (`goi_lich_hen_tuan`) — một câu SQL, hai nơi gọi.
+    """
+    filas = await conn.fetch(
+        """
+        SELECT w.work_date, w.staff_id, w.staff_name FROM work_roster w
+          LEFT JOIN vi_tri_lam_viec vt
+                 ON vt.clinic_id = w.clinic_id AND vt.code = w.station
+          LEFT JOIN clinic_room cr
+                 ON cr.id = vt.room_id AND cr.clinic_id = w.clinic_id
+         WHERE w.clinic_id = $1::uuid
+           AND w.work_date = ANY($2::date[])
+           AND public.la_ca_kham_bac_si(w.clinic_id, w.station)
+           AND w.status = 'APPROVED'
+           AND w.staff_id IS NOT NULL
+           AND coalesce(cr.location_id, $3::uuid)
+               IS NOT DISTINCT FROM coalesce($3::uuid, cr.location_id)
+        """,
+        clinic_id,
+        ngay_tuan_hen,
+        co_so,
+    )
+    return list(filas)
 
 
 def _luot_kham(r: asyncpg.Record) -> dict[str, Any]:

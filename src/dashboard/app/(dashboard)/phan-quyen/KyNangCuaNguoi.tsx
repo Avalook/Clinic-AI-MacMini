@@ -80,7 +80,7 @@ export default function KyNangCuaNguoi({
   if (danhMuc.length === 0) {
     return (
       <p className="mt-3 rounded-control bg-warning-bg px-3 py-2 text-body text-warning">
-        Phòng khám chưa khai kỹ năng nào — dùng mục Ngoại lệ bên dưới để bật từng màn.
+        Phòng khám chưa khai kỹ năng nào — dùng mục Quyền theo màn bên dưới để bật từng màn.
       </p>
     );
   }

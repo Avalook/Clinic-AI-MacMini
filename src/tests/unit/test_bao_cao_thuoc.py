@@ -204,6 +204,7 @@ def test_hang_hoa_khuon_kiotviet() -> None:
     th = kq["thuoc"]
     assert [m["ma"] for m in th["dong"]] == ["SP000118", "SP000009"]  # DT giảm dần
     assert th["dong"][0] | {} == {
+        "khoa": "d1",  # G6: khoá mặt hàng (drug_catalog_id) để ghép tồn kho
         "ma": "SP000118",
         "ten": "Indurat 5mg",
         "don_vi": "viên",

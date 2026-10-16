@@ -1,5 +1,5 @@
 // Quy tắc nhập liệu CỨNG dùng chung (client form + server API), 1 nguồn sự thật.
-//   - SĐT: số VN 10 chữ số, BẮT ĐẦU BẰNG 0, đầu số hợp lệ (cố định 02; di động
+//   - SĐT: số VN 10 chữ số, BẮT ĐẦU BẰNG 0, đầu số hợp lệ (di động
 //     03/05/07/08/09). Không có số mở đầu bằng 1/2/4/6 hay thiếu số 0.
 //   - CCCD: 12 chữ số; 3 số đầu là mã tỉnh (001–096).
 // Trường rỗng = hợp lệ (các trường này tuỳ chọn); chỉ chặn khi CÓ nhập mà sai.
@@ -68,6 +68,17 @@ export function cccdError(v: string | null | undefined): string | null {
   const provinceCode = Number(t.slice(0, 3));
   if (provinceCode < 1 || provinceCode > 96)
     return "CCCD không hợp lệ (3 số đầu là mã tỉnh, 001–096).";
+  return null;
+}
+
+// Cùng luật với `_EMAIL_RE` + trần 254 ký tự ở `schemas/patient.py` (máy chủ vẫn
+// là nơi quyết định và chuẩn hoá về chữ thường) — ở đây chỉ để báo sớm cạnh ô.
+export const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+export function emailError(v: string | null | undefined): string | null {
+  const t = (v ?? "").trim();
+  if (!t) return null;
+  if (t.length > 254 || !EMAIL_RE.test(t)) return "Email không đúng định dạng.";
   return null;
 }
 

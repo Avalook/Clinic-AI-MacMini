@@ -101,15 +101,15 @@ def test_report_summary_matches_filtered_net_not_original_receipts() -> None:
 
     report = _report()
     report["khach_con_no"] = "hidden"
-    report["tai_chinh"] = {"doanh_thu": 990000}
+    report["tai_chinh"] = {"dong_tien": {"dong_tien_vao": 990000}}
     ws = load_workbook(BytesIO(xlsx_tom_tat(report))).active
     rows = dict(list(ws.values)[1:])
     assert rows["Tổng thu"] == 250000
     assert rows["Dịch vụ"] == 250000
-    assert "Doanh thu" not in rows
+    assert "Dòng tiền vào" not in rows
     assert "hidden" not in str(rows)
     detailed = load_workbook(BytesIO(xlsx_tom_tat(report, day_du=True))).active
-    assert dict(list(detailed.values)[1:])["Doanh thu"] == 990000
+    assert dict(list(detailed.values)[1:])["Dòng tiền vào"] == 990000
 
 
 def test_report_detail_and_inventory_keep_tables_and_numeric_data() -> None:
@@ -297,11 +297,11 @@ async def test_report_xlsx_endpoint_uses_authorized_scope(
     assert response.headers["cache-control"] == "private, no-store"
     assert report.call_args.kwargs["co_so"] == "allowed-location"
     data = _report()
-    data["tai_chinh"] = {"doanh_thu": 990000}
+    data["tai_chinh"] = {"dong_tien": {"dong_tien_vao": 990000}}
     report.return_value = data
     params["mau"] = "tom_tat_day_du"
     response = await reports.bao_cao_cuoi_ngay_xlsx(**params)
-    assert "Doanh thu" not in dict(
+    assert "Dòng tiền vào" not in dict(
         list(load_workbook(BytesIO(response.body)).active.values)[1:]
     )
     authorize.return_value = (
@@ -310,7 +310,9 @@ async def test_report_xlsx_endpoint_uses_authorized_scope(
     )
     response = await reports.bao_cao_cuoi_ngay_xlsx(**params)
     assert (
-        dict(list(load_workbook(BytesIO(response.body)).active.values)[1:])["Doanh thu"]
+        dict(list(load_workbook(BytesIO(response.body)).active.values)[1:])[
+            "Dòng tiền vào"
+        ]
         == 990000
     )
     authorize.return_value = ({"tai_chinh": False, "legacy": False}, "allowed-location")

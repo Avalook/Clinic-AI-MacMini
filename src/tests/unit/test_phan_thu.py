@@ -9,6 +9,7 @@ import pytest
 from clinicai.api.exceptions import ValidationError
 from clinicai.services.payment_service import (
     LY_DO_HOAN_TAC_MAC_DINH,
+    doc_so_thuc_nhan,
     ly_do_hoan_tac,
     ly_do_khong_hoan_tac,
 )
@@ -21,6 +22,7 @@ from clinicai.services.phan_thu import (
     doc_phan_db,
     hinh_thuc_chinh,
     nhan_phan,
+    so_tien_chuyen_khoan,
     tra_lai,
 )
 
@@ -130,3 +132,29 @@ def test_ly_do_khong_hoan_tac() -> None:
     # Thuốc có hoàn vẫn hoàn tác được (void thuốc tự xử lý phần đã hoàn).
     assert ly_do_khong_hoan_tac("PAID", "thuoc", True) is None
     assert ly_do_khong_hoan_tac("OPEN", "dich_vu", False)
+
+
+def test_so_tien_chuyen_khoan_chi_phan_qua_ngan_hang() -> None:
+    """G4d R1: số sao kê phải thấy = phần CK; không rõ phần → hình thức chung."""
+    chia = [
+        {"hinh_thuc": "CASH", "so_tien": 500_000},
+        {"hinh_thuc": "TRANSFER", "so_tien": 200_000},
+    ]
+    assert so_tien_chuyen_khoan(chia, "TRANSFER", 700_000) == 200_000
+    assert so_tien_chuyen_khoan([], "QR", 300_000) == 300_000
+    assert so_tien_chuyen_khoan([], "CASH", 300_000) == 0
+    assert so_tien_chuyen_khoan([{"hinh_thuc": None, "so_tien": 9}], "TRANSFER", 9) == 9
+
+
+@pytest.mark.parametrize("rac", ["abc", "-1", -5, True, "1e3", 10**11])
+def test_doc_so_thuc_nhan_rac_la_422(rac: Any) -> None:
+    with pytest.raises(ValidationError):
+        doc_so_thuc_nhan(rac)
+
+
+def test_doc_so_thuc_nhan() -> None:
+    assert doc_so_thuc_nhan(None) is None
+    assert doc_so_thuc_nhan("  ") is None
+    assert doc_so_thuc_nhan(0) == 0
+    assert doc_so_thuc_nhan("1.000.000") == 1_000_000
+    assert doc_so_thuc_nhan(250_000) == 250_000

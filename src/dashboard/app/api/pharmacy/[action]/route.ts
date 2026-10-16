@@ -14,6 +14,10 @@ import { getCallerAuthHeaders, proxyJsonToBackend } from "../../../../lib/backen
 
 /** Thao tác cho phép → đường backend. */
 const ACTIONS: Record<string, string> = {
+  "sua-lo": "/api/v1/pharmacy/sua-lo",
+  "huy-lo-het-han": "/api/v1/pharmacy/huy-lo-het-han",
+  "hoan-huy-lo": "/api/v1/pharmacy/hoan-huy-lo",
+  "so-ngay-canh-bao": "/api/v1/pharmacy/so-ngay-canh-bao",
   receive: "/api/v1/pharmacy/receive",
   dispense: "/api/v1/pharmacy/dispense",
   refuse: "/api/v1/pharmacy/refuse",
@@ -38,6 +42,19 @@ const ACTIONS: Record<string, string> = {
   "kiem-kho": "/api/v1/pharmacy/kiem-kho",
   // 30/09 (V8): khách chỉ đến mua thuốc — mở / lấy lại lượt Bán lẻ.
   "ban-le": "/api/v1/pharmacy/ban-le",
+  // 14/10 (G3b): gắn / gỡ mã vạch của thuốc (người có quyền kho).
+  "gan-ma-vach": "/api/v1/pharmacy/gan-ma-vach",
+  "go-ma-vach": "/api/v1/pharmacy/go-ma-vach",
+  // 14/10 (G7): tách KHO / QUẦY — phiếu chuyển (bắt buộc Idempotency-Key), hoàn tác,
+  // bật / tắt tách theo cơ sở (máy chủ kiểm `config.clinic.manage`).
+  "chuyen-kho": "/api/v1/pharmacy/chuyen-kho",
+  "hoan-tac-chuyen-kho": "/api/v1/pharmacy/hoan-tac-chuyen-kho",
+  "tach-kho-quay": "/api/v1/pharmacy/tach-kho-quay",
+  // 09/10: bán theo đơn khám cũ — nối / gỡ nối đơn gốc của lượt Bán lẻ.
+  "ban-le-theo-don": "/api/v1/pharmacy/ban-le/theo-don",
+  "ban-le-go-don": "/api/v1/pharmacy/ban-le/go-don",
+  // Từ khung chọn khách: mở lượt + nối đơn + thêm dòng trong một giao dịch.
+  "ban-le-mo-theo-don": "/api/v1/pharmacy/ban-le/mo-theo-don",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -45,6 +62,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /** Đường ĐỌC cho phép (29/09/2026 — kho kiểu KiotViet) → đường backend. Tham
  *  số chỉ chuyển nguyên văn; máy chủ đọc lại (ngày rác → hôm nay). */
 const DOC: Record<string, (q: URLSearchParams) => string | null> = {
+  "so-ngay-canh-bao": () => "/api/v1/pharmacy/so-ngay-canh-bao",
   "the-kho": (q) => {
     const id = q.get("id") ?? "";
     return UUID_RE.test(id) ? `/api/v1/pharmacy/the-kho/${id}` : null;
@@ -62,6 +80,23 @@ const DOC: Record<string, (q: URLSearchParams) => string | null> = {
   "ban-le": (q) => {
     const id = q.get("id") ?? "";
     return UUID_RE.test(id) ? `/api/v1/pharmacy/ban-le/${id}` : null;
+  },
+  // 14/10 (G3b): quét mã → thuốc / lô · dữ liệu in tem lô.
+  "tra-ma": (q) => `/api/v1/pharmacy/tra-ma?${new URLSearchParams({ ma: q.get("ma") ?? "" })}`,
+  "tem-lo": (q) =>
+    `/api/v1/pharmacy/tem-lo?${new URLSearchParams({
+      ids: q.get("ids") ?? "",
+      phieu: q.get("phieu") ?? "",
+    })}`,
+  // 09/10: chọn khách cũ → lịch sử đơn thuốc theo trang (chưa mở lượt).
+  "lich-su-don": (q) => {
+    const id = q.get("clinic_patient_id") ?? "";
+    return UUID_RE.test(id)
+      ? `/api/v1/pharmacy/ban-le/lich-su-don?${new URLSearchParams({
+          clinic_patient_id: id,
+          trang: q.get("trang") ?? "0",
+        })}`
+      : null;
   },
 };
 

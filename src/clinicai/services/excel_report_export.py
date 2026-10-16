@@ -7,6 +7,8 @@ from clinicai.services.bao_cao_cuoi_ngay_service import (
     TEN_HINH_THUC,
     TEN_LOAI,
     TEN_TRANG_THAI_THUOC,
+    TIEU_DE_CO_TON,
+    dong_co_ton,
 )
 
 
@@ -17,6 +19,10 @@ def xlsx_hang_hoa(bc: Mapping[str, Any], loai: Any) -> bytes:
     hh = (bc.get("hang_hoa") or {}).get(loai if loai in TEN_LOAI else "thuoc") or {
         "dong": []
     }
+    if hh.get("co_ton"):
+        # Khuôn có tồn kho: đúng thứ tự cột như màn (không "Đơn vị" riêng — đơn vị
+        # nằm trong tên hàng, mỗi đơn vị lô một dòng).
+        return excel_table([("Hàng hóa", TIEU_DE_CO_TON, dong_co_ton(hh))])
     keys = ("sl_ban", "doanh_thu", "sl_tra", "gia_tri_tra", "doanh_thu_thuan")
     rows = [
         [m.get("ma"), m["ten"], m.get("don_vi"), *[m[k] for k in keys]]
@@ -42,6 +48,32 @@ def xlsx_hang_hoa(bc: Mapping[str, Any], loai: Any) -> bytes:
     )
 
 
+def dong_tien_rows(dt: Mapping[str, Any]) -> list[list[Any]]:
+    """Các dòng khối Dòng tiền (14/10/2026) — đúng chữ khách đưa, TM / CK từng
+    mục có tiền đi qua. Thuần; khối rỗng → không dòng nào."""
+    if not dt:
+        return []
+
+    def tm_ck(nhan: str, o: Mapping[str, Any]) -> list[list[Any]]:
+        return [
+            [nhan, o.get("tong")],
+            [f"  {nhan} — tiền mặt", o.get("tien_mat")],
+            [f"  {nhan} — chuyển khoản", o.get("chuyen_khoan")],
+        ]
+
+    return [
+        ["Dòng tiền vào", dt.get("dong_tien_vao")],
+        ["  Tiền thu — tiền mặt", (dt.get("tien_thu") or {}).get("tien_mat")],
+        ["  Tiền thu — chuyển khoản", (dt.get("tien_thu") or {}).get("chuyen_khoan")],
+        *tm_ck("Trả lại tiền khách hàng", dt.get("tra_lai") or {}),
+        ["Nợ", dt.get("no")],
+        ["Giảm giá", dt.get("giam_gia")],
+        *tm_ck("Nợ thu được", dt.get("no_thu_duoc") or {}),
+        *tm_ck("Thực thu", dt.get("thuc_thu") or {}),
+        ["Doanh thu thuần", dt.get("doanh_thu_thuan")],
+    ]
+
+
 def xlsx_tom_tat(bc: Mapping[str, Any], day_du: bool = False) -> bytes:
     """Match the summary displayed on screen; never include hidden detail rows."""
     from clinicai.services.excel_export import excel_table
@@ -59,18 +91,7 @@ def xlsx_tom_tat(bc: Mapping[str, Any], day_du: bool = False) -> bytes:
         *[[r["ten"], r["thuc_thu"]] for r in bc["theo_hinh_thuc"]],
     ]
     if day_du and bc.get("tai_chinh"):
-        rows.extend(
-            [
-                [label, bc["tai_chinh"].get(key)]
-                for label, key in (
-                    ("Doanh thu", "doanh_thu"),
-                    ("Hoàn tiền mặt", "hoan_tien_mat"),
-                    ("Hoàn chuyển khoản", "hoan_chuyen_khoan"),
-                    ("Giảm giá", "giam_gia"),
-                    ("Doanh thu thuần", "doanh_thu_thuan"),
-                )
-            ]
-        )
+        rows.extend(dong_tien_rows(bc["tai_chinh"].get("dong_tien") or {}))
     rows.append(["Phiếu thu", bc["tong"]["so_phieu_thu"]])
     return excel_table([("Tóm tắt", ["Mục", "Giá trị"], rows)])
 
@@ -244,13 +265,9 @@ def xlsx_bao_cao(bc: Mapping[str, Any]) -> bytes:
     if bc.get("tai_chinh"):
         sheets.append(
             (
-                "Tài chính",
+                "Dòng tiền",
                 ["Mục", "Giá trị"],
-                [
-                    [k, v]
-                    for k, v in bc["tai_chinh"].items()
-                    if not isinstance(v, (dict, list))
-                ],
+                dong_tien_rows(bc["tai_chinh"].get("dong_tien") or {}),
             )
         )
     tt = bc.get("thuoc_theo_khach")

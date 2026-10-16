@@ -70,6 +70,7 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('patient', 'sdt_tim_kiem', 'giu'),         -- trigger tính lại từ SĐT đã che
     ('patient', 'ward_name', 'giu'),
     ('patient', 'province_name', 'giu'),
+    ('patient', 'email', 'rieng'),
     ('patient_next_of_kin', 'full_name', 'rieng'),
     ('patient_next_of_kin', 'phone', 'rieng'),
     ('patient_next_of_kin', 'zalo_id', 'rieng'),
@@ -189,6 +190,27 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('command_receipt', 'result', 'json'),
     ('du_lieu_da_xoa', 'du_lieu', 'json_manh'),
     ('lan_don_du_lieu_thu', 'khach', 'json_manh'),
+    -- hoá đơn công ty (G5c): tên / địa chỉ / MST / email có thể là của hộ kinh doanh = một người
+    ('khach_cong_ty', 'ten_cong_ty', 'xoa'),
+    ('khach_cong_ty', 'dia_chi_cong_ty', 'xoa'),
+    ('khach_cong_ty', 'ma_so_thue', 'xoa'),
+    ('khach_cong_ty', 'email_nhan_hd', 'xoa'),
+    ('khach_cong_ty', 'nguoi_mua', 'xoa'),
+    ('hoa_don_cong_ty', 'ten_cong_ty', 'xoa'),
+    ('hoa_don_cong_ty', 'dia_chi_cong_ty', 'xoa'),
+    ('hoa_don_cong_ty', 'ma_so_thue', 'xoa'),
+    ('hoa_don_cong_ty', 'email_nhan_hd', 'xoa'),
+    ('hoa_don_cong_ty', 'nguoi_mua', 'xoa'),
+    ('hoa_don_cong_ty_lich_su', 'cu_ten', 'xoa'),
+    ('hoa_don_cong_ty_lich_su', 'cu_dia_chi', 'xoa'),
+    ('hoa_don_cong_ty_lich_su', 'cu_ma_so_thue', 'xoa'),
+    ('hoa_don_cong_ty_lich_su', 'cu_email', 'xoa'),
+    ('hoa_don_cong_ty_lich_su', 'cu_nguoi_mua', 'xoa'),
+    ('hoa_don_cong_ty_lich_su', 'moi_ten', 'xoa'),
+    ('hoa_don_cong_ty_lich_su', 'moi_dia_chi', 'xoa'),
+    ('hoa_don_cong_ty_lich_su', 'moi_ma_so_thue', 'xoa'),
+    ('hoa_don_cong_ty_lich_su', 'moi_email', 'xoa'),
+    ('hoa_don_cong_ty_lich_su', 'moi_nguoi_mua', 'xoa'),
     -- đã xét, GIỮ: nhân sự / tài khoản / cơ sở (không phải khách)
     ('staff', 'full_name', 'giu'),
     ('staff', 'phone', 'giu'),
@@ -237,6 +259,8 @@ BEGIN
     -- NHÁNH ĐANG THỬ thêm thì chưa có lúc che (che chạy trên lược đồ prod, trước
     -- bước 5 áp migration nhánh) — thiếu là vô hại (08/10/2026, clinic_location.phone).
     WHERE c.cach <> 'giu'
+      -- patient.email: xem khối che email ở dưới (cột thêm bởi migration nhánh).
+      AND NOT (c.bang = 'patient' AND c.cot = 'email')
       AND NOT EXISTS (SELECT 1 FROM information_schema.columns i
                       WHERE i.table_schema = 'public' AND i.table_name = c.bang
                         AND i.column_name = c.cot);
@@ -423,6 +447,24 @@ UPDATE public.cskh_log l SET
 FROM (SELECT x.id, c.n FROM public.cskh_log x
       LEFT JOIN _che_khach c ON c.id = x.clinic_patient_id) m
 WHERE m.id = l.id;
+
+-- patient.email: cột do migration 20261014110000 thêm — bản sao prod chưa có nó
+-- tới khi đợt ấy lên prod, mà che chạy trên lược đồ prod (trước bước 5 áp
+-- migration nhánh). Thiếu cột = không có email nào để che → bỏ qua; có thì che
+-- (16/10/2026: thiếu cột làm hỏng đợt nạp lại staging hai đêm liền).
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_schema = 'public' AND table_name = 'patient'
+                 AND column_name = 'email') THEN
+        EXECUTE $q$
+            UPDATE public.patient p SET
+                email = CASE WHEN p.email IS NULL THEN NULL
+                             ELSE 'khach' || lpad(c.n::text, 4, '0') || '@vi-du.invalid' END
+            FROM _che_khach c WHERE c.id = p.clinic_patient_id
+        $q$;
+    END IF;
+END $$;
 
 -- patient CUỐI CÙNG: trigger của nó tính lại sdt_tim_kiem từ SĐT đã che (kể
 -- cả patient_sdt_them vừa che ở trên).

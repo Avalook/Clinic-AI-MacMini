@@ -2,7 +2,7 @@
 //   POST   { visitId, clinicPatientId?, kind, billRevision?, amount?, method? }
 //          → một LẦN THU. method CASH (mặc định) → ĐÃ THU; TRANSFER/QR → CHỜ XÁC MINH.
 //          Số tiền do máy chủ tính (contract tiền–thuốc C3); amount chỉ để đối chiếu.
-//   POST   { action: "xac-minh", paymentCycleId, visitId, kind, reference }
+//   POST   { action: "xac-minh", paymentCycleId, visitId, kind, reference, soTienThucNhan }
 //          → chuyển khoản/QR đã nhận. Mọi lệnh sau khi đã có lần thu nhắm ĐÚNG
 //          paymentCycleId (review CP2 #1) — lệnh cũ đến muộn không trượt sang lần sau.
 //   POST   { action: "huy-cho", paymentCycleId, visitId, kind, reason } → huỷ lần chờ.
@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     billRevision?: string;
     method?: string;
     reference?: string;
+    soTienThucNhan?: number | null;
     reason?: string;
     paymentCycleId?: string;
     /** Quầy màn đang đứng — máy chủ gác thuốc / dịch vụ thu riêng (01/10/2026). */
@@ -75,6 +76,8 @@ export async function POST(request: Request) {
     discountValue?: number | null;
     discount_reason?: string | null;
     discountReason?: string | null;
+    /** "Xuất hoá đơn về công ty" (16/10/2026): công ty trong hồ sơ khách. */
+    congTyId?: string | null;
   };
   // CP5 — hoàn tiền (tạm thời chỉ Quản lý, máy chủ kiểm; số tiền máy chủ tính).
   if (p.action === "hoan-tien") {
@@ -131,6 +134,7 @@ export async function POST(request: Request) {
       visit_id: p.visitId,
       kind: p.kind,
       reference: p.reference,
+      so_tien_thuc_nhan: p.soTienThucNhan ?? null,
       quay: p.quay ?? null,
     });
   }
@@ -159,6 +163,7 @@ export async function POST(request: Request) {
       discount_type: p.discount_type ?? p.discountType ?? null,
       discount_value: p.discount_value ?? p.discountValue ?? null,
       discount_reason: p.discount_reason ?? p.discountReason ?? null,
+      cong_ty_id: p.congTyId ?? null,
       ...(p.chon ? { chon: p.chon } : {}),
       ...(p.phan ? { phan: p.phan } : {}),
     },

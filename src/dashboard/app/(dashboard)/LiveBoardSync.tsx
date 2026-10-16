@@ -31,6 +31,10 @@
 // sang cửa sổ bên cạnh rồi bấm lại) thì tab vẫn hiện suốt, dòng SSE vẫn mở —
 // dữ liệu đang mới, không cần làm mới. Ở đây chỉ còn lỗ 1: VÀO màn.
 //
+// KHÔNG gắn cho màn TỰ TẢI (`lib/man-tu-tai`): trang mà phần server không có dữ
+// liệu sống thì lượt dựng này chỉ tốn ~900ms CPU mỗi lần vào màn mà không làm mới
+// gì (14/10/2026). Test `tai-lai-dong-loat-boundary` canh hai chiều.
+//
 // KHÔNG dùng cho màn nhập liệu. `router.refresh()` vẽ lại server component;
 // state trong form thì giữ nguyên, nhưng đây là màn ĐỌC nên không cần bàn tới
 // chuyện đó — dán nó lên một form đang gõ dở là tự chuốc lấy phiền.

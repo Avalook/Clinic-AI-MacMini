@@ -37,6 +37,9 @@ export interface DoctorApptRow {
     patient_objection: string | null;
     address: string | null;
     guardian_name: string | null;
+    national_id_number?: string | null;
+    email?: string | null;
+    updated_at?: string | null;
   } | null;
   service: {
     name: string;

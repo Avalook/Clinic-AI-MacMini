@@ -50,9 +50,12 @@ from clinicai.api.v1.routers.episodes import router as episodes_router
 from clinicai.api.v1.routers.events import router as events_router
 from clinicai.api.v1.routers.ho_so_kham import router as ho_so_kham_router
 from clinicai.api.v1.routers.hoa_don import router as hoa_don_router
+from clinicai.api.v1.routers.hoa_don_cong_ty import router as hoa_don_cong_ty_router
+from clinicai.api.v1.routers.hoa_don_misa import router as hoa_don_misa_router
 from clinicai.api.v1.routers.hoan_tac import router as hoan_tac_router
 from clinicai.api.v1.routers.home import router as home_router
 from clinicai.api.v1.routers.identity import router as identity_router
+from clinicai.api.v1.routers.ke_toan import router as ke_toan_router
 from clinicai.api.v1.routers.lab import router as lab_router
 from clinicai.api.v1.routers.lam_them_tai_quay import router as lam_them_router
 from clinicai.api.v1.routers.lieu_trinh import router as lieu_trinh_router
@@ -78,6 +81,10 @@ from clinicai.api.v1.routers.theo_doi_thu_thuat import (
 from clinicai.api.v1.routers.thu_ky import router as thu_ky_router
 from clinicai.api.v1.routers.tools import router as tools_router
 from clinicai.api.v1.routers.ultrasound import router as ultrasound_router
+from clinicai.api.v1.routers.vat_tu_kho import router as vat_tu_kho_router
+from clinicai.api.v1.routers.vat_tu_nhap_duyet import (
+    router as vat_tu_nhap_duyet_router,
+)
 from clinicai.api.v1.routers.visit_progress import (
     router as visit_progress_router,
 )
@@ -85,14 +92,15 @@ from clinicai.api.v1.routers.voice import router as voice_router
 from clinicai.api.v1.routers.work_items import router as work_items_router
 from clinicai.api.v1.routers.xem_luot import router as xem_luot_router
 from clinicai.core.change_broker import ChangeBroker
-from clinicai.core.database import close_pool, create_pool
+from clinicai.core.database import close_pool, create_pool, doc_pool_max_size_api
 from clinicai.core.exceptions import ClinicAIBaseException
 from clinicai.core.logging import setup_logging
+from clinicai.core.quan_sat import gan_do_pool
 from clinicai.core.sentry import init_sentry
 from clinicai.llm.anthropic_client import AnthropicClient
 from clinicai.orchestrator.checkpointer import make_checkpointer
 from clinicai.orchestrator.service import OrchestratorService
-from clinicai.services import canh_gac_kho_tep
+from clinicai.services import canh_gac_kho_tep, canh_gac_pool
 from clinicai.services.kho_loi import ghi_loi
 from clinicai.voice.transcribe import PhoWhisperTranscriber
 
@@ -119,7 +127,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 "TẠM THỜI. Tắt bằng MO_QUYEN_TAM_THOI=0 rồi dựng lại container."
             ),
         )
-    app.state.db_pool = await create_pool()
+    app.state.db_pool = await create_pool(max_size=doc_pool_max_size_api())
+    # ĐO BỂ KẾT NỐI (14/10/2026): thời gian chờ mượn + số người chờ (vòng nền ở
+    # dưới ghi mỗi phút một dòng `api_nhip_phut` + cảnh báo `POOL_API_DAY`).
+    gan_do_pool(app.state.db_pool)
     # Bộ nhận thay đổi cho màn hình (thay Supabase Realtime). Nó tự nối lại khi
     # rớt và KHÔNG được phép làm chết app khi database chưa sẵn sàng — mất nó
     # thì màn hình rơi về nhịp làm mới dự phòng, chứ không ai đăng nhập hỏng.
@@ -130,6 +141,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     do_kho: asyncio.Task[None] | None = None
     if canh_gac_kho_tep.bat():
         do_kho = asyncio.create_task(canh_gac_kho_tep.chay_nen(app.state.db_pool))
+    do_pool: asyncio.Task[None] | None = None
+    if canh_gac_pool.bat():
+        do_pool = asyncio.create_task(canh_gac_pool.chay_nen(app.state.db_pool))
     try:
         async with AsyncExitStack() as stack:
             checkpointer = await stack.enter_async_context(make_checkpointer())
@@ -169,6 +183,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         if do_kho is not None:
             do_kho.cancel()
+        if do_pool is not None:
+            do_pool.cancel()
+            # Chờ nó đóng bể phụ xong rồi mới đóng bể chính.
+            await asyncio.gather(do_pool, return_exceptions=True)
         await app.state.change_broker.stop()
         await close_pool(app.state.db_pool)
 
@@ -287,6 +305,18 @@ app.include_router(
     hoa_don_router, prefix="/api/v1", tags=["hoa-don"], dependencies=_GUARDED
 )
 app.include_router(
+    hoa_don_cong_ty_router,
+    prefix="/api/v1",
+    tags=["hoa-don"],
+    dependencies=_GUARDED,
+)
+app.include_router(
+    hoa_don_misa_router, prefix="/api/v1", tags=["hoa-don"], dependencies=_GUARDED
+)
+app.include_router(
+    ke_toan_router, prefix="/api/v1", tags=["ke-toan"], dependencies=_GUARDED
+)
+app.include_router(
     audit_log_router, prefix="/api/v1", tags=["audit-log"], dependencies=_GUARDED
 )
 app.include_router(
@@ -375,6 +405,15 @@ app.include_router(
     quay_thuoc_router, prefix="/api/v1", tags=["quay-thuoc"], dependencies=_GUARDED
 )
 app.include_router(
+    vat_tu_kho_router, prefix="/api/v1", tags=["vat-tu-kho"], dependencies=_GUARDED
+)
+app.include_router(
+    vat_tu_nhap_duyet_router,
+    prefix="/api/v1",
+    tags=["vat-tu-kho"],
+    dependencies=_GUARDED,
+)
+app.include_router(
     booking_router, prefix="/api/v1", tags=["booking"], dependencies=_GUARDED
 )
 app.include_router(
@@ -429,6 +468,9 @@ async def exclusion_violation_handler(
     # mỗi khung (clinic_policy.py:31-32) — ba lịch cùng bác sĩ cùng giờ là hợp
     # lệ. Trần theo số đếm phải là trigger, và nó đã có: enforce_slot_capacity.
     known = {
+        "lo_het_han": "Lô này đã hết hạn — đổi lô hoặc hoàn phần chưa giao.",
+        "lo_o_kho": "Lô này đang ở KHO — chuyển sang quầy rồi mới bán / giao.",
+        "lo_het_han_quay": "Lô đã hết hạn — không chuyển ra quầy.",
         "slot_override_no_overlap": (
             "Đã có một điều chỉnh khác phủ khung giờ này — sửa hoặc xoá nó trước."
         ),

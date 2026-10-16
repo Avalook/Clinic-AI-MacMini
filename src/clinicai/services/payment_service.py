@@ -81,7 +81,9 @@ from clinicai.services.phan_thu import (
     ap_phan,
     chuan_hinh_thuc,
     doc_phan,
+    doc_phan_db,
     hinh_thuc_chinh,
+    so_tien_chuyen_khoan,
 )
 from clinicai.services.service_selection_service import (
     QUYEN_CHON_DICH_VU,
@@ -144,10 +146,30 @@ CHO_XAC_MINH = "PENDING_VERIFICATION"
 KHONG_CON_KHOAN = "KHONG_CON_KHOAN"
 #: Hành động trong command_receipt của lệnh thu tiền dịch vụ.
 _THU_DICH_VU = "payment.record.dich_vu"
-# Mã nguyên nhân cần đối soát (CP6) — đúng hai mã DB chấp nhận
+# Mã nguyên nhân cần đối soát (CP6) — đúng các mã DB chấp nhận
 # (payment_cycle_doi_soat_ma_hop_le). Thêm mã = thêm vào CHECK cùng lúc.
 DOI_SOAT_HOA_DON_DOI = "HOA_DON_DOI"
 DOI_SOAT_CHUA_GHI_BAN = "CHUA_GHI_BAN"
+#: Ngân hàng báo nhận khác phần chuyển khoản của lần thu (G4d, R1).
+DOI_SOAT_SO_TIEN_LECH = "SO_TIEN_LECH"
+
+
+def doc_so_thuc_nhan(raw: object) -> int | None:
+    """Số tiền ngân hàng thật nhận người bấm gõ: trống → None (không khai);
+    số nguyên đồng ≥ 0; rác → ValidationError (tiền không đoán)."""
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return None
+    if isinstance(raw, bool):
+        raise ValidationError("Số tiền ngân hàng nhận phải là một con số.")
+    try:
+        so = int(str(raw).strip().replace(".", "").replace(",", ""))
+    except ValueError:
+        raise ValidationError("Số tiền ngân hàng nhận phải là một con số.") from None
+    if so < 0 or so > 10_000_000_000:
+        raise ValidationError("Số tiền ngân hàng nhận không hợp lệ.")
+    return so
+
+
 MIN_VOID_REASON_LENGTH = 5
 MAX_VOID_REASON_LENGTH = 500
 
@@ -1043,12 +1065,20 @@ class PaymentService:
         reference: object,
         identity: StaffIdentity,
         quay: str | None = None,
+        so_tien_thuc_nhan: object = None,
     ) -> dict[str, Any]:
         """Xác minh lần chuyển khoản/QR ĐÃ NHẬN TIỀN → PAID.
 
         Mã giao dịch ngân hàng là TUỲ CHỌN (Tuyền 24/09/2026: "không được bắt
         buộc điền mã mới cho thanh toán xong, open đi"). Có mã thì lưu làm bằng
         chứng; không có thì người bấm (`confirmed_by`) là dấu vết.
+
+        SỐ NGÂN HÀNG THẬT NHẬN (G4d, R1 — Tuyền chốt C 14/10): BẮT XÁC NHẬN —
+        màn điền sẵn phần chuyển khoản, thu ngân xác nhận hoặc sửa theo ngân
+        hàng báo; thiếu → 422 (sau các kiểm quầy / loại / trạng thái; gửi lại
+        cho lần đã xác minh vẫn như cũ). Khác phần chuyển khoản → vẫn ghi đã
+        thu theo hoá đơn, lưu số thật nhận + mã đối soát ``SO_TIEN_LECH``;
+        người đối soát quyết thu thêm / trả lại (máy không tự ghi nợ).
 
         GẮN VỚI ẢNH CHỤP CỦA LẦN THU (review CP2 #3): tiền khách chuyển là cho
         đúng hoá đơn đã chụp lúc tạo lần chờ, với đúng số tiền ấy. Hoá đơn hiện
@@ -1063,6 +1093,7 @@ class PaymentService:
         ma = (reference.strip() if isinstance(reference, str) else "") or None
         if ma is not None and len(ma) > 100:
             raise ValidationError("Mã giao dịch ngân hàng dài quá 100 ký tự.")
+        thuc_nhan = doc_so_thuc_nhan(so_tien_thuc_nhan)
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 lan, phan_lo = await self._khoa_lan_thu(
@@ -1089,6 +1120,13 @@ class PaymentService:
                     raise ConflictError(
                         "Lần thu này không còn chờ xác minh (đã huỷ) — "
                         "không xác minh được."
+                    )
+                if thuc_nhan is None:
+                    # Tuyền chốt C (14/10): BẮT XÁC NHẬN số ngân hàng thật nhận —
+                    # màn điền sẵn phần chuyển khoản, thu ngân xác nhận hoặc sửa.
+                    raise ValidationError(
+                        "Nhập số tiền ngân hàng thật nhận (đã điền sẵn phần"
+                        " chuyển khoản — xác nhận hoặc sửa theo ngân hàng báo)."
                     )
                 patient_id = await conn.fetchval(
                     "SELECT clinic_patient_id::text FROM visit"
@@ -1139,6 +1177,20 @@ class PaymentService:
                     khong_ban_duoc += await _dong_da_dinh_chinh(
                         conn, identity.clinic_id, phan_lo
                     )
+                so_ck = so_tien_chuyen_khoan(
+                    doc_phan_db(
+                        await conn.fetchval(
+                            "SELECT phan_thu_hieu_luc($1::uuid, $2::uuid, $3, $4)",
+                            identity.clinic_id,
+                            payment_cycle_id,
+                            lan["method"],
+                            lan["amount"],
+                        )
+                    ),
+                    lan["method"],
+                    int(lan["amount"]),
+                )
+                lech_so = thuc_nhan is not None and thuc_nhan != so_ck
                 # CP6: mã NGUYÊN NHÂN, không chỉ cờ — lịch sử phải nói đúng vì
                 # sao lần thu này cần đối soát. DB ép cờ = có ít nhất một mã.
                 ly_do_doi_soat = [
@@ -1146,6 +1198,7 @@ class PaymentService:
                     for ma_ld, co in (
                         (DOI_SOAT_HOA_DON_DOI, lech),
                         (DOI_SOAT_CHUA_GHI_BAN, bool(khong_ban_duoc)),
+                        (DOI_SOAT_SO_TIEN_LECH, lech_so),
                     )
                     if co
                 ]
@@ -1167,7 +1220,7 @@ class PaymentService:
                     UPDATE payment_cycle
                         SET status = 'PAID', paid_at = now(), confirmed_by = $2::uuid,
                             reference = $3, payment_id = $4::uuid, can_doi_soat = $5,
-                            doi_soat_ly_do = $6::text[]
+                            doi_soat_ly_do = $6::text[], so_tien_thuc_nhan = $7
                       WHERE payment_cycle_id = $1::uuid
                         AND status = 'PENDING_VERIFICATION'
                     """,
@@ -1177,6 +1230,7 @@ class PaymentService:
                     payment_id,
                     can_doi_soat,
                     ly_do_doi_soat,
+                    thuc_nhan,
                 )
                 if kind == "dich_vu":
                     await _phat_da_thu_dich_vu(
@@ -1222,7 +1276,7 @@ class PaymentService:
                         method=lan["method"],
                         note="; ".join(khong_ban_duoc),
                     )
-                if lech:
+                if lech or lech_so:
                     await _log_payment_event(
                         conn,
                         event_type="payment.reconciliation_needed",
@@ -1233,12 +1287,20 @@ class PaymentService:
                         amount=int(lan["amount"]),
                         identity=identity,
                         method=lan["method"],
+                        note=(
+                            f"Ngân hàng nhận {thuc_nhan:,}đ, phần chuyển khoản"
+                            f" {so_ck:,}đ".replace(",", ".")
+                            if lech_so
+                            else None
+                        ),
                     )
         return {
             "payment_cycle_id": payment_cycle_id,
             "status": "PAID",
             "can_doi_soat": can_doi_soat,
             "doi_soat_ly_do": ly_do_doi_soat,
+            "so_tien_chuyen_khoan": so_ck,
+            "so_tien_thuc_nhan": thuc_nhan,
         }
 
     async def huy_cho_xac_minh(
@@ -1533,6 +1595,16 @@ class PaymentService:
                     truoc="PAID",
                     ly_do=normalized_reason,
                 )
+                tu_ghi_no = (
+                    await _tu_ghi_no_sau_ve(
+                        conn,
+                        identity=identity,
+                        visit_id=visit_id,
+                        ly_do=normalized_reason,
+                    )
+                    if kind == "dich_vu"
+                    else None
+                )
                 if kind == "thuoc":
                     # Lượt BÁN LẺ tự đóng lúc thu → hoàn tác thì mở lại để thu
                     # lại được (01/10/2026). Lượt khám thường: không làm gì.
@@ -1544,7 +1616,11 @@ class PaymentService:
             payment_cycle_id=payment_cycle_id,
             by_staff_id=identity.staff_id,
         )
-        return {"payment_cycle_id": payment_cycle_id, "status": "VOIDED"}
+        return {
+            "payment_cycle_id": payment_cycle_id,
+            "status": "VOIDED",
+            "tu_ghi_no": tu_ghi_no,
+        }
 
     async def hoan_tac(
         self,
@@ -1610,6 +1686,39 @@ class PaymentService:
         return {**kq, "visit_id": lan["visit_id"], "kind": lan["kind"]}
 
 
+async def _tu_ghi_no_sau_ve(
+    conn: asyncpg.Connection,
+    *,
+    identity: StaffIdentity,
+    visit_id: str,
+    ly_do: str,
+) -> dict[str, Any] | None:
+    """HUỶ PHIẾU SAU KHI KHÁCH ĐÃ VỀ (G4d · D — Tuyền chốt 14/10, cách không
+    khoá): dịch vụ đã làm mà phiếu bị huỷ thì khách thành "không nợ, không
+    trả". Không chặn lệnh huỷ — máy tự ghi khoản ấy thành nợ CHỜ XỬ LÝ (lý do
+    huỷ + người bấm), hiện ở việc tồn / Khách còn nợ; quầy thu lại hoặc miễn
+    (thu 0đ, giảm 100%) sau. Lượt còn mở: cổng check-out đã hỏi nợ — không ghi."""
+    if (
+        await conn.fetchval(
+            "SELECT closed_at FROM public.visit"
+            " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
+            identity.clinic_id,
+            visit_id,
+        )
+        is None
+    ):
+        return None
+    from clinicai.services.cong_no_service import ghi_no_trong
+
+    return await ghi_no_trong(
+        conn,
+        identity=identity,
+        visit_id=visit_id,
+        ly_do=f"Huỷ phiếu sau khi khách đã về — chờ thu hoặc miễn: {ly_do}"[:500],
+        nguon="HUY_PHIEU",
+    )
+
+
 async def _phat_hoan_tac(
     conn: asyncpg.Connection,
     *,
@@ -1650,6 +1759,11 @@ async def _chot_lua_chon(
     định, khoá, "Bắt buộc" — mọi luật giữ nguyên. Lựa chọn không đổi (lễ tân
     đã tick-lưu từng dòng) thì không ghi gì và không cần quyền chọn dịch vụ;
     đổi thì hỏi quyền ấy và lượt phải còn mở (như lệnh xác nhận).
+
+    Ngoại lệ (14/10/2026): lượt "khách về giữa chừng" (INCOMPLETE) mà còn GHI NỢ
+    thì khách quay lại trả nợ ở quầy được — UI luôn gửi kèm `chon`, và lượt đã
+    đóng không nợ thì check-out đã chặn từ đầu nên chỉ nợ mới dẫn tới đây. Lượt
+    INCOMPLETE không nợ vẫn 409 như cũ: không mở rộng quyền sửa lượt đã rời.
     """
 
     async def _truoc_khi_ghi() -> None:
@@ -1660,7 +1774,18 @@ async def _chot_lua_chon(
                 QUYEN_CHON_DICH_VU,
                 cau="Bạn không có quyền xác nhận lựa chọn dịch vụ.",
             )
-        await khoa_luot(conn, identity.clinic_id, inp.visit_id)
+        con_no = await conn.fetchval(
+            "SELECT 1 FROM public.cong_no WHERE clinic_id = $1::uuid"
+            " AND visit_id = $2::uuid AND trang_thai = 'CHUA_THU' LIMIT 1",
+            identity.clinic_id,
+            inp.visit_id,
+        )
+        await khoa_luot(
+            conn,
+            identity.clinic_id,
+            inp.visit_id,
+            cho_phep_ve_giua_chung=bool(con_no),
+        )
 
     kq = await ap_lua_chon(conn, identity, inp, truoc_khi_ghi=_truoc_khi_ghi)
     return {

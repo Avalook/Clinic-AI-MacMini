@@ -237,6 +237,26 @@ KHOI: dict[str, KhoiCongViec] = {
             "lich_lam_viec", "Lịch làm việc", "roster", "Xem lịch làm việc, ca trực"
         ),
         KhoiCongViec("bang_gia", "Bảng giá dịch vụ", "catalogue", "Sửa giá dịch vụ"),
+        # 14/10/2026 — Kho vật tư là màn RIÊNG, không suy từ Kho thuốc: sổ, tồn,
+        # mức tối thiểu, báo cáo tiêu hao nằm ở bảng vat_tu_* (migration
+        # 20261014181100).
+        KhoiCongViec(
+            "kho_vat_tu",
+            "Kho vật tư",
+            "supplies",
+            "Phiếu kho, kiểm đếm, mức tối thiểu, báo cáo tiêu hao vật tư",
+        ),
+        # 14/10/2026 (G8b) — người DUYỆT vật tư cần duyệt (vòng Mirena…, phiếu
+        # nhập chờ duyệt). Trước: vai Quản lý viết cứng ở Python + trigger. Nay là
+        # lego: mặc định chỉ Quản lý (như cũ), Quản lý cấp thêm cho Trưởng ca ở màn
+        # Phân quyền. KHÔNG nằm trong "mở full" — mở cho mọi người thì "duyệt" vô nghĩa.
+        KhoiCongViec(
+            "duyet_vat_tu",
+            "Duyệt vật tư",
+            "supplies",
+            "Duyệt bán thêm / nhập vật tư thuộc loại cần duyệt — mặc định Quản lý,"
+            " Quản lý cấp thêm cho Trưởng ca",
+        ),
         KhoiCongViec("bao_cao", "Báo cáo", "report", "Báo cáo, lịch đổ về"),
         KhoiCongViec(
             "cai_dat",
@@ -261,6 +281,16 @@ KHOI: dict[str, KhoiCongViec] = {
             "Đối tác",
             "partner",
             "Khách được phân cho mình, điền thông tin, gửi tài liệu",
+        ),
+        # KẾ TOÁN (14/10/2026): xem tài chính đầy đủ + xuất hoá đơn + đặt thuế.
+        # KHÔNG vào "mở full lego" (KHOI_CHI_QUAN_LY): có khối này là thấy Dòng
+        # tiền / hoá đơn của MỌI ca, mọi cơ sở không cần lịch trực — Quản lý cấp
+        # cho người cụ thể (gói mẫu "Kế toán"), không phát cho mọi nhân viên.
+        KhoiCongViec(
+            "ke_toan",
+            "Kế toán",
+            "accounting",
+            "Xem tài chính đầy đủ, hoá đơn, xuất Excel, thống kê theo hàng hoá",
         ),
         # NỘI BỘ (09/10/2026): trung tâm giám sát AI ở giamsat.dr4women.io.vn —
         # chỉ đội vận hành ClinicAI. KHÔNG nằm trong preset nào, không bày trên
@@ -589,11 +619,39 @@ QUYEN: dict[str, Quyen] = {
             MucRuiRo.TIEN,
         ),
         Quyen(
+            "vat_tu.manage",
+            "Kho vật tư: phiếu kho, kiểm đếm, mức tối thiểu, báo cáo tiêu hao",
+            "kho_vat_tu",
+            "supplies",
+            MucRuiRo.VAN_HANH,
+        ),
+        Quyen(
+            "vat_tu.approve",
+            "Duyệt bán thêm / nhập vật tư thuộc loại cần duyệt",
+            "duyet_vat_tu",
+            "supplies",
+            MucRuiRo.TIEN,
+        ),
+        Quyen(
             "report.view",
             "Xem báo cáo",
             "bao_cao",
             "report",
             MucRuiRo.QUAN_TRI,
+        ),
+        Quyen(
+            "accounting.finance.full",
+            "Xem tài chính đầy đủ (Dòng tiền, hoá đơn, theo hàng hoá), mọi ca",
+            "ke_toan",
+            "accounting",
+            MucRuiRo.TIEN,
+        ),
+        Quyen(
+            "accounting.tax.manage",
+            "Đặt thuế suất GTGT (nhóm, mặt hàng)",
+            "ke_toan",
+            "accounting",
+            MucRuiRo.TIEN,
         ),
         Quyen(
             "config.clinic.manage",
@@ -833,7 +891,7 @@ PRESET_TRUOC_MO_FULL: dict[str, tuple[str, ...]] = {
 
 #: Khối CHỈ Quản lý có (không mở cho mọi người).
 KHOI_CHI_QUAN_LY: frozenset[str] = frozenset(
-    {"quan_tri_quyen", "nhan_su", "cai_dat", "danh_muc"}
+    {"quan_tri_quyen", "nhan_su", "cai_dat", "danh_muc", "ke_toan", "duyet_vat_tu"}
 )
 
 #: Khối mở cho MỌI nhân sự nội bộ.
@@ -844,6 +902,23 @@ KHOI_MO_FULL: list[str] = [
 for _vai in PRESET:
     if _vai not in ("PARTNER", "MANAGEMENT"):
         PRESET[_vai] = list(KHOI_MO_FULL)
+
+# GÓI MẪU "KẾ TOÁN" (Tuyền 14/10/2026): quản lý áp gói này cho người cụ thể (và
+# thêm/bớt lego tuỳ ý). Cố ý KHÔNG có `thu_tien_dv`, `thu_tien_thuoc`: kế toán
+# không thu tiền — máy chủ chặn theo capability của hai khối ấy, không theo tên
+# vai. Đặt SAU vòng mở-full ở trên.
+PRESET["KE_TOAN"] = [
+    "bao_cao",
+    "ke_toan",
+    "ds_benh_nhan",
+    "lich_lam_viec",
+    "kho_vat_tu",
+]
+# VAI "KẾ TOÁN" `ACCOUNTANT` (Tuyền 16/10/2026) chỉ là NHÃN để chọn khi thêm nhân
+# viên; người mới tạo với vai này được cấp sẵn đúng gói trên (cơ chế chung: nhóm
+# mẫu mã = mã vai, `cap_preset_mac_dinh`). Vai KHÔNG tự cấp quyền — rút/đổi khối
+# trên màn Phân quyền là hết. Giữ hai gói đồng bộ bằng cách chép, không viết lại.
+PRESET["ACCOUNTANT"] = list(PRESET["KE_TOAN"])
 
 
 # ── QUYỀN THEO MÀN (Tuyền chốt 23/09/2026) ───────────────────────────────
@@ -881,7 +956,7 @@ def _lego(
     return Man(ma, ten, cac_duong[0], khoi, mac_dinh_cho, cac_duong, khoi_theo_phong)
 
 
-# THỨ TỰ = thứ tự thanh bên. Màn quản lý hiện 21 dòng, mỗi dòng một công tắc.
+# THỨ TỰ = thứ tự thanh bên. Màn quản lý hiện 22 dòng, mỗi dòng một công tắc.
 MAN: dict[str, Man] = {
     m.ma: m
     for m in (
@@ -1016,11 +1091,27 @@ MAN: dict[str, Man] = {
             "bang_gia", "Bảng giá", ["/cashier/dich-vu"], ["bang_gia"], "Thu ngân, QL"
         ),
         _lego(
+            "kho_vat_tu",
+            "Kho vật tư",
+            ["/kho-vat-tu"],
+            ["kho_vat_tu"],
+            "Mọi người (QL chỉnh mức tối thiểu)",
+        ),
+        _lego(
             "bao_cao",
             "Báo cáo",
             ["/reports", "/hoa-don", "/xuat-hoa-don", "/lich-do-ve"],
             ["bao_cao"],
             "Quản lý",
+        ),
+        # Kế toán (14/10/2026): chỗ làm việc của kế toán — thống kê theo hàng hoá
+        # (G5a); thuế suất, hoá đơn công ty, trạng thái MISA vào đây ở G5b.
+        _lego(
+            "ke_toan",
+            "Kế toán",
+            ["/ke-toan"],
+            ["ke_toan"],
+            "Kế toán",
         ),
         _lego(
             "cai_dat",

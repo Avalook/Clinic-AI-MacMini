@@ -85,6 +85,9 @@ interface Props {
   /** Khách này đã khám mấy lần, và có đang trong chuỗi tái khám không.
    *  Khoá = clinic_patient_id. Thiếu khoá = chưa khám lần nào. */
   lanKham?: Record<string, { soLanKham: number; laTaiKham: boolean }>;
+  /** Tab "Thêm": chỉ lưu hồ sơ xong thì sang `/customers` (cửa lego của trang
+   *  đích, do trang quyết). */
+  veQuanLyKhach?: boolean;
 }
 
 /** Nhãn "khám lần mấy". CÙNG LUẬT với `nhanLanKham` ở màn Quản lý khách hàng —
@@ -310,6 +313,7 @@ export default function BookingHub({
   appts,
   lanKham,
   vai = null,
+  veQuanLyKhach = false,
 }: Props) {
   const router = useRouter();
   // Kênh "Trực tiếp" (tự check-in) theo LEGO Tiếp đón — mở full lego 30/09/2026.
@@ -1298,6 +1302,7 @@ export default function BookingHub({
                     provinces={provinces}
                     variant="full"
                     nhung
+                    veQuanLyKhach={veQuanLyKhach}
                     onHuy={() => setMode("grid")}
                   />
                 </div>

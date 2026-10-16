@@ -148,10 +148,10 @@ class TestDuongDoc:
 
     @pytest.mark.asyncio
     async def test_ton_kho_bao_luon_lo_het_han(self) -> None:
-        conn = _Conn([{"id": "b1", "het_han": True}])
+        conn = _Conn(60, [{"id": "b1", "het_han": True}])
         ra = await PharmacyService(_PoolCo(conn)).ton_kho(identity=_identity())
         assert ra[0]["het_han"] is True
-        assert "expiry_date" in conn.da_chay[0]
+        assert any("expiry_date" in sql for sql in conn.da_chay)
 
     @pytest.mark.asyncio
     async def test_thong_bao_cua_toi_loc_theo_vai_va_nguoi(self) -> None:
@@ -234,19 +234,15 @@ class TestNhaThuoc:
             )
         assert "số lô" in str(e.value).lower()
 
-    @pytest.mark.asyncio
-    async def test_nhap_lo_thieu_han_dung_thi_tu_choi(self) -> None:
-        # Thuốc không có hạn dùng trong sổ là thuốc không ai biết khi nào bỏ.
-        with pytest.raises(ValidationError) as e:
-            await PharmacyService(_Pool()).nhap_lo(
-                identity=_identity(),
-                drug_catalog_id="c0000000-0000-4000-8000-000000000001",
-                so_luong=10,
-                batch_code="LO-1",
-                expiry_date=None,
-                unit="viên",
-            )
-        assert "hạn dùng" in str(e.value).lower()
+    def test_nhap_lo_thieu_han_dung_thi_cho_phep(self) -> None:
+        from clinicai.services.pharmacy_service import kiem_dong_nhap
+
+        assert (
+            kiem_dong_nhap(
+                so_luong=10, batch_code="LO-1", expiry_date=None, unit="viên"
+            )[3]
+            is None
+        )
 
     @pytest.mark.asyncio
     async def test_tu_choi_lay_thuoc_phai_co_ly_do(self) -> None:
@@ -294,6 +290,7 @@ class TestCapPhatNoiTruocRangBuoc:
         # CP3: tìm lượt → khoá dòng → lần thu thuốc (cũ → luồng cấp phát cũ,
         # đúng luồng các câu từ chối này thuộc về) → lô.
         # `True` = lô đúng cơ sở của lượt (`lo_dung_co_so_luot`, 08/10/2026).
+        lo = {"noi_chua": "QUAY", **lo} if isinstance(lo, dict) else lo
         return _Conn("v1", {**don, "visit_id": "v1"}, _LAN_THU_CU, lo, True)
 
     @pytest.mark.asyncio
@@ -384,7 +381,7 @@ class TestCapPhatNoiTruocRangBuoc:
             "expiry_date": hom_qua,
             "name_base": "Androgel",
         }
-        with pytest.raises(ValidationError) as e:
+        with pytest.raises(ConflictError) as e:
             await PharmacyService(_PoolCo(self._conn(don, lo))).cap_phat(
                 identity=_identity(),
                 prescription_id="p1",
@@ -556,6 +553,18 @@ class TestDuongChinhDiTronVen:
             )
 
 
+def _hang_lo(lo_id: str, thuoc: str, han: date) -> dict[str, Any]:
+    """Một hàng `drug_batch` của lô đã có (G7: tối đa hai hàng KHO / QUẦY)."""
+    return {
+        "id": lo_id,
+        "drug_catalog_id": thuoc,
+        "expiry_date": han,
+        "noi_chua": "QUAY",
+        "ma_tem": "LT00000001",
+        "unit": "viên",
+    }
+
+
 class TestNhapLoVaoKho:
     """Nhập lô — nơi một số lô gõ nhầm thành hai thứ thuốc chung một dòng tồn."""
 
@@ -576,7 +585,8 @@ class TestNhapLoVaoKho:
     async def test_lo_moi_thi_tao_roi_ghi_so(self) -> None:
         conn = _Conn(
             {"id": "c1", "name_base": "Paracetamol"},  # thuốc có trong danh mục
-            None,  # chưa có lô này
+            False,  # cơ sở chưa bật tách kho / quầy (G7)
+            [],  # chưa có lô này
             "b-moi",  # INSERT drug_batch RETURNING id
             100,  # tồn sau khi trigger cộng
         )
@@ -590,7 +600,8 @@ class TestNhapLoVaoKho:
     async def test_lo_da_co_dung_thuoc_dung_han_thi_nhap_them(self) -> None:
         conn = _Conn(
             {"id": "c1", "name_base": "Paracetamol"},
-            {"id": "b-cu", "drug_catalog_id": "c1", "expiry_date": date(2027, 1, 31)},
+            False,
+            [_hang_lo("b-cu", "c1", date(2027, 1, 31))],
             150,
         )
         ra = await self._nhap(_PoolCo(conn))
@@ -600,11 +611,8 @@ class TestNhapLoVaoKho:
     async def test_so_lo_da_dung_cho_thuoc_khac_thi_chan(self) -> None:
         conn = _Conn(
             {"id": "c1", "name_base": "Paracetamol"},
-            {
-                "id": "b-cu",
-                "drug_catalog_id": "c-khac",
-                "expiry_date": date(2027, 1, 31),
-            },
+            False,
+            [_hang_lo("b-cu", "c-khac", date(2027, 1, 31))],
         )
         with pytest.raises(ConflictError) as e:
             await self._nhap(_PoolCo(conn))
@@ -614,7 +622,8 @@ class TestNhapLoVaoKho:
     async def test_cung_so_lo_khac_han_dung_thi_chan(self) -> None:
         conn = _Conn(
             {"id": "c1", "name_base": "Paracetamol"},
-            {"id": "b-cu", "drug_catalog_id": "c1", "expiry_date": date(2026, 5, 1)},
+            False,
+            [_hang_lo("b-cu", "c1", date(2026, 5, 1))],
         )
         with pytest.raises(ConflictError) as e:
             await self._nhap(_PoolCo(conn))
@@ -689,6 +698,7 @@ class TestCapPhatDiTronVen:
                 "quantity_on_hand": 50,
                 "expiry_date": date(2027, 12, 31),
                 "name_base": "Paracetamol",
+                "noi_chua": "QUAY",
             },
             True,  # lô đúng cơ sở của lượt (08/10/2026)
             {"dispensed_qty": 4, "dispense_status": "CAP_MOT_PHAN"},

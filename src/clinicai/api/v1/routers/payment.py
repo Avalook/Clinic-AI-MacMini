@@ -26,8 +26,11 @@ from clinicai.api.identity import (
     get_current_identity,
 )
 from clinicai.core.database import get_db_pool
+from clinicai.core.exceptions import ResourceNotFoundError
+from clinicai.core.exceptions import ValidationError as LoiDuLieu
 from clinicai.services.cashier_scope_service import CashierScopeService
 from clinicai.services.doi_hinh_thuc_service import DoiHinhThucService
+from clinicai.services.hoa_don_cong_ty_service import HoaDonCongTyService
 from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.payment_access_service import authorize_payment
 from clinicai.services.payment_service import PaymentService
@@ -89,6 +92,9 @@ class PaymentRecordRequest(BaseModel):
     discount_type: Literal["AMOUNT", "PERCENT"] | None = None
     discount_value: float | None = None
     discount_reason: str | None = Field(default=None, max_length=500)
+    # "Xuất hoá đơn về công ty" (16/10/2026): MỘT công ty trong hồ sơ khách; theo
+    # LƯỢT thu này, không theo hồ sơ. Bỏ trống = xuất cho cá nhân như cũ.
+    cong_ty_id: UUID | None = None
 
 
 class PaymentVoidRequest(BaseModel):
@@ -143,7 +149,11 @@ async def record_payment(
             discount_value=body.discount_value,
             discount_reason=body.discount_reason,
         )
-        return {"ok": True, **lan_thu}
+        return {
+            "ok": True,
+            **lan_thu,
+            **await _gan_cong_ty(pool, identity, body, lan_thu),
+        }
     if body.chon is not None:
         raise ValidationError("Lựa chọn dịch vụ chỉ đi kèm lần thu tiền dịch vụ.")
     idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
@@ -170,10 +180,37 @@ async def record_payment(
             discount_value=body.discount_value,
             discount_reason=body.discount_reason,
         )
-        result = {"ok": True, **lan_thu}
+        result = {
+            "ok": True,
+            **lan_thu,
+            **await _gan_cong_ty(pool, identity, body, lan_thu),
+        }
         await idem.save(pool, result, status_code=200)
 
     return result
+
+
+async def _gan_cong_ty(
+    pool: asyncpg.Pool,
+    identity: StaffIdentity,
+    body: PaymentRecordRequest,
+    lan_thu: dict[str, Any],
+) -> dict[str, Any]:
+    """Tick "xuất hoá đơn về công ty" đi cùng lệnh thu. Tiền ĐÃ ghi — công ty gắn
+    lỗi thì trả câu báo (`cong_ty_loi`) để quầy thấy và gắn lại ở màn Hoá đơn,
+    không ném làm lệnh thu trông như thất bại."""
+    cycle = lan_thu.get("payment_cycle_id")
+    if body.cong_ty_id is None or not cycle:
+        return {}
+    try:
+        kq = await HoaDonCongTyService(pool).gan_khi_thu(
+            identity=identity,
+            payment_cycle_id=str(cycle),
+            khach_cong_ty_id=str(body.cong_ty_id),
+        )
+    except (LoiDuLieu, ResourceNotFoundError) as e:
+        return {"cong_ty_loi": str(e)}
+    return {"cong_ty": {"gan": bool(kq.get("ok"))}}
 
 
 def _phan(body: PaymentRecordRequest) -> list[dict[str, Any]] | None:
@@ -213,6 +250,8 @@ class XacMinhRequest(BaseModel):
     kind: PaymentKind
     #: Tuỳ chọn (24/09/2026) — thu QR/chuyển khoản xong không bắt nhập mã.
     reference: str | None = Field(default=None, max_length=100)
+    #: Tuỳ chọn (G4d, R1) — số ngân hàng báo nhận; lệch → cờ đối soát.
+    so_tien_thuc_nhan: int | None = Field(default=None, ge=0, le=10_000_000_000)
     quay: QuayThu | None = None
 
 
@@ -237,6 +276,7 @@ async def xac_minh_dien_tu(
         reference=body.reference,
         identity=identity,
         quay=body.quay,
+        so_tien_thuc_nhan=body.so_tien_thuc_nhan,
     )
     return {"ok": True, **kq}
 

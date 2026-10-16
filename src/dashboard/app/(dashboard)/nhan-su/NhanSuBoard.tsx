@@ -28,6 +28,8 @@ const DEPARTMENTS: { value: string; label: string }[] = [
   { value: "CASHIER_THUOC", label: "Thu ngân thuốc" },
   { value: "CASHIER_DV", label: "Thu ngân dịch vụ" },
   { value: "PHARMACIST", label: "Dược sĩ" },
+  { value: "ACCOUNTANT", label: "Kế toán" },
+  { value: "PARTNER", label: "Đối tác" },
   { value: "TRUONG_CA", label: "Trưởng ca" },
   { value: "MANAGEMENT", label: "Quản lý" },
 ];

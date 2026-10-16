@@ -58,6 +58,27 @@ def _don_vi(value: str | None) -> str:
     return " ".join(unicodedata.normalize("NFC", value or "").casefold().split())
 
 
+#: Lý do một lô của thuốc này KHÔNG được gợi ý cho dòng đơn (chỉ để màn nói ĐÚNG
+#: lý do khi quét tem — không đổi luật chọn lô). Hết hạn / hết hàng / đã huỷ do
+#: kết quả quét (`ma_vach_service.trang_thai_lo`) nói; ở đây là hai lý do chỉ
+#: màn Nhà thuốc biết (lô nhìn từ DÒNG ĐƠN): khác cơ sở của lượt, khác đơn vị kê.
+LY_DO_LO_KHAC_CO_SO = "KHAC_CO_SO"
+LY_DO_LO_KHAC_DON_VI = "KHAC_DON_VI"
+
+
+def ly_do_lo_bi_loai(lo: Any, *, co_so: str, don_vi_ke: str) -> str | None:
+    """Lô `lo` có bị loại khỏi gợi ý của dòng đơn không; có thì vì sao.
+
+    Đúng hai luật của `_dong` (kho riêng từng cơ sở; luồng mới chỉ lô cùng đơn vị
+    kê — đơn thiếu đơn vị thì không lọc), tách ra để dùng chung cho cả việc LỌC
+    lẫn việc GIẢI THÍCH, hai nơi không lệch nhau."""
+    if lo["co_so_id"] != co_so:
+        return LY_DO_LO_KHAC_CO_SO
+    if don_vi_ke and _don_vi(lo["unit"]) != don_vi_ke:
+        return LY_DO_LO_KHAC_DON_VI
+    return None
+
+
 def _so(v: Any) -> Decimal:
     return Decimal(str(v if v is not None else 0))
 
@@ -310,12 +331,31 @@ async def man_nha_thuoc(
         lo_rows = await conn.fetch(
             """
             SELECT id::text, drug_catalog_id::text, batch_code, expiry_date, unit,
-                   quantity_on_hand, location_id::text AS co_so_id,
+                   ma_tem, quantity_on_hand, location_id::text AS co_so_id,
                    public.drug_batch_kha_dung($1::uuid, id) AS co_the_phan_lo
               FROM public.drug_batch
              WHERE clinic_id = $1::uuid AND drug_catalog_id = ANY($2::uuid[])
-               AND expiry_date >= $3 AND location_id = ANY($4::uuid[])
-             ORDER BY expiry_date, batch_code
+               AND (expiry_date IS NULL OR expiry_date >= $3)
+               AND location_id = ANY($4::uuid[]) AND noi_chua = 'QUAY'
+             ORDER BY expiry_date NULLS LAST, batch_code
+            """,
+            identity.clinic_id,
+            thuoc_ids,
+            hom_nay,
+            co_so_ids,
+        )
+        # G7: hàng còn ở KHO (chưa ra quầy) — quầy hết mà kho còn thì nói ra để
+        # người có quyền chuyển ngay tại màn (luật open), không bán từ kho.
+        kho_rows = await conn.fetch(
+            """
+            SELECT id::text, drug_catalog_id::text, batch_code, expiry_date, unit,
+                   quantity_on_hand, location_id::text AS co_so_id
+              FROM public.drug_batch
+             WHERE clinic_id = $1::uuid AND drug_catalog_id = ANY($2::uuid[])
+               AND noi_chua = 'KHO' AND quantity_on_hand > 0
+               AND (expiry_date IS NULL OR expiry_date >= $3)
+               AND location_id = ANY($4::uuid[])
+             ORDER BY expiry_date NULLS LAST, batch_code
             """,
             identity.clinic_id,
             thuoc_ids,
@@ -339,8 +379,9 @@ async def man_nha_thuoc(
                   JOIN public.drug_catalog c
                     ON c.id = b.drug_catalog_id AND c.clinic_id = b.clinic_id
                  WHERE b.clinic_id = $1::uuid AND b.quantity_on_hand > 0
-                   AND b.expiry_date >= $2 AND b.location_id = ANY($3::uuid[])
-                 ORDER BY b.expiry_date, b.batch_code
+                   AND (b.expiry_date IS NULL OR b.expiry_date >= $2)
+                   AND b.location_id = ANY($3::uuid[]) AND b.noi_chua = 'QUAY'
+                 ORDER BY b.expiry_date NULLS LAST, b.batch_code
                 """,
                 identity.clinic_id,
                 hom_nay,
@@ -450,6 +491,10 @@ async def man_nha_thuoc(
     for b in lo_rows:
         lo_theo_thuoc.setdefault(b["drug_catalog_id"], []).append(b)
 
+    kho_theo_thuoc: dict[str, list[asyncpg.Record]] = {}
+    for b in kho_rows:
+        kho_theo_thuoc.setdefault(b["drug_catalog_id"], []).append(b)
+
     luot: dict[str, dict[str, Any]] = {}
     for r in dong:
         vid = r["visit_id"]
@@ -505,19 +550,31 @@ async def man_nha_thuoc(
                     else Decimal(0)
                 ),
             }
-            g["dong"].append(
-                _dong(
-                    r,
-                    gd,
-                    lt,
-                    pl_theo_dong,
-                    lo_theo_thuoc,
-                    lo_cu,
-                    co_quyen_ghi,
-                    them,
-                    co_so=_co_so(r, identity),
-                )
+            d = _dong(
+                r,
+                gd,
+                lt,
+                pl_theo_dong,
+                lo_theo_thuoc,
+                lo_cu,
+                co_quyen_ghi,
+                them,
+                co_so=_co_so(r, identity),
             )
+            dv = _don_vi(r["unit"])
+            d["kho_con"] = [
+                {
+                    "drug_batch_id": b["id"],
+                    "batch_code": b["batch_code"],
+                    "expiry_date": b["expiry_date"],
+                    "unit": b["unit"],
+                    "ton": _so(b["quantity_on_hand"]),
+                }
+                for b in kho_theo_thuoc.get(r["drug_catalog_id"] or "", [])
+                if b["co_so_id"] == _co_so(r, identity)
+                and (not dv or _don_vi(b["unit"]) == dv)
+            ]
+            g["dong"].append(d)
     # Lượt bán lẻ chưa có dòng đơn: vẫn hiện (giai đoạn "chờ thu"), lên đầu.
     ban_le_trong = [
         {
@@ -620,20 +677,31 @@ def _dong(
             if ten
             and any(x and (x in ten or ten in x) for x in (b["ten_a"], b["ten_b"]))
         ]
+    lo_bi_loai: list[dict[str, Any]] = []
     if ung_vien and not lich_su:
         dv = _don_vi(r["unit"])
         for b in ung_vien:
-            # Kho riêng từng cơ sở: chỉ lô của cơ sở của lượt.
-            if b["co_so_id"] != co_so:
-                continue
-            # Luồng mới: chỉ lô cùng đơn vị kê. Luồng cũ (legacy) giữ luật cũ:
-            # đơn thiếu đơn vị thì hiểu theo đơn vị lô.
-            if dv and _don_vi(b["unit"]) != dv:
+            # Kho riêng từng cơ sở: chỉ lô của cơ sở của lượt. Luồng mới: chỉ lô
+            # cùng đơn vị kê. Luồng cũ (legacy) giữ luật cũ: đơn thiếu đơn vị
+            # thì hiểu theo đơn vị lô. Lô bị loại vẫn được GHI LẠI kèm lý do để
+            # màn quét tem nói đúng ("tính theo hộp, đơn kê theo gói").
+            ly_do = ly_do_lo_bi_loai(b, co_so=co_so, don_vi_ke=dv)
+            if ly_do:
+                lo_bi_loai.append(
+                    {
+                        "drug_batch_id": b["id"],
+                        "batch_code": b["batch_code"],
+                        "ly_do": ly_do,
+                        "don_vi_lo": b["unit"],
+                        "don_vi_ke": r["unit"],
+                    }
+                )
                 continue
             lo_goi_y.append(
                 {
                     "drug_batch_id": b["id"],
                     "batch_code": b["batch_code"],
+                    "ma_tem": b.get("ma_tem"),
                     "expiry_date": b["expiry_date"],
                     "unit": b["unit"],
                     "ton_vat_ly": _so(b["quantity_on_hand"]),
@@ -658,6 +726,8 @@ def _dong(
         "da_chon": da_chon,
         "phan_lo": ds_pl,
         "lo_goi_y": lo_goi_y,
+        # Lô của thuốc này bị loại khỏi gợi ý + lý do — chỉ để giải thích.
+        "lo_bi_loai": lo_bi_loai,
         "xuat": them["xuat"],
         "chua_giao": them["chua_giao"],
         "can_hoan": them["can_hoan"],

@@ -2,6 +2,54 @@
 
 Cập nhật: **08/10/2026** — mục "08/10" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
 
+## 16/10/2026 — ĐỢT `gop-staging-1410m` TRÊN STAGING, CI MÁY XANH; VIỆC TỒN ĐỌNG (Tuyền: CHƯA ưu tiên)
+
+**Cập nhật 16/10 sáng (sau CI xanh — CẦN CI MÁY LẠI trước khi lên prod):** (a) thêm PR "đặt cờ vật tư hàng loạt theo loại"
+(`claude/vat-tu-hang-loat-theo-loai`, đã bấm thật trên staging: đếm → xác nhận → ghi → Hoàn tác; chưa bấm ở 375px);
+(b) `ghi_chu_khach_service` "Đã trả" cộng theo `payment_cycle` (prod có 17 lần thu / 19,65tr không có dòng `payment`);
+(c) `QUYEN_CONG_TY` chỉ còn `accounting.finance.full` + `config.clinic.manage` (Tuyền chốt: kế toán + quản lý ghi công ty xuất hoá đơn);
+(d) công thức tồn cuối ca (đầu + nhập − bán + trả + khác) và doanh thu thuần (vào − trả lại − giảm giá) Tuyền đã đồng ý;
+Bio vừa ở Chỉ định CLS vừa ở Thu ngân là ĐÚNG ý. Đối soát chỉ đọc 16/10: tiền thuốc/kho khớp sổ, hoàn tiền không vượt thu;
+chưa giải thích: 1 phiếu staging `payment` 700k > dòng hoá đơn 650k. Lego Kế toán đã có trên staging, chưa có trên prod (chờ lên đợt).
+**Bấm kịch bản đầy đủ 16/10 10:30 (HT, staging):** tạo khách + đặt lịch → Tiếp đón (vào thẳng Bàn tư vấn) → sinh hiệu → tư vấn → Bàn khám
+→ chỉ định Bio + đầu dò Bio 1 lần → Thu ngân 600k tiền mặt → Phòng Sàn chậu Nhận/Bắt đầu/phiếu/Xong → Báo cáo cuối ngày 600k khớp: ĐẠT.
+**KHO THUỐC THẬT-HAY-LOGIC (16/10 10:40, đối chiếu DB staging + prod chỉ đọc):** Eulac (lô hộp = bán hộp) gán lô → lô 20→18, sổ DISPENSE −2,
+tồn lô = tổng sổ, báo cáo Hàng hoá 40→38: THẬT. **Androgel bán "gói" nhưng lô nhập "hộp"** → `pharmacy_service` lọc lô theo đơn vị
+(`_don_vi(b.unit)==dv`) → "Chưa có lô gán được" → giao thuốc KHÔNG trừ kho (doanh thu 170k, SL bán 0, "Đã giao chưa gắn lô"). Lệch đơn vị:
+113/163 lô staging, 110/160 lô PROD. Lô prod hiện là lô mẫu `DEMO1709-*` (tồn thật chưa nạp — xem `lo-thuoc-that-khong-han-0810`).
+**CHỜ TUYỀN QUYẾT (mức 3):** (a) quy đổi đơn vị (1 hộp = N gói/viên) hay bắt nhập lô theo đơn vị bán; (b) nạp tồn thật trước hay sau khi lên prod.
+**Trạng thái đợt:** nhánh `gop-staging-1410m` @ 8400b369 (+ commit docs này), CI máy XANH ở a2f7fc3b, staging đang chạy a2f7fc3b; 29 migration
+(thêm `20261016400000_vai_ke_toan`); Tuyền: "chưa lên prod, tính sau". Runbook còn ghi 28 migration → sửa thành 29 + điền SHA khi lên.
+Việc nhỏ thấy thêm (chưa sửa): (1) Bàn khám dưới ~1536px rộng ẩn cột hàng chờ sau nút "☰ Hàng chờ" — dễ bỏ sót; (2) Thu ngân: danh sách chờ
+tự làm mới nên khung phải/ nút Tạo bill nhích chỗ giữa lúc bấm (bấm lần hai không tạo gì thêm, đã kiểm "Đã thanh toán hôm nay" = 1 phiếu);
+(3) lịch đặt "Phụ khoa" nhưng Thu ngân vẫn ghi "Chưa chọn dịch vụ khám — đang tính 0đ" nếu thu ngân không chọn loại khám.
+
+Đợt ~211 commit / 28 migration đã bấm trên staging; runbook lên prod: `docs/RUNBOOK-LEN-PROD-DOT-1610.md`; hướng dẫn bấm:
+`docs/HUONG-DAN-BAM-THU-NOTION-1610.md`. **Việc tồn đọng, làm sau (Tuyền chốt 16/10):**
+1. **Hàm sức chứa** `lich_vuot_suc_chua()` — tính một lần cho mỗi cặp (bác sĩ, giờ): `docs/KE-HOACH-HAM-SUC-CHUA.md`
+   (mức 3; Tuyền "ok làm nhưng chưa ưu tiên").
+2. **Hạn cho việc "Gọi xác nhận lịch" tồn khi lên prod:** cho **quản lý tự chỉnh ngày** (mốc bắt đầu tính hạn) thay vì cứng — chưa
+   làm; khi chưa có thì mặc định như hiện nay (hạn theo ngày đặt, việc cũ hiện quá hạn).
+3. `danh_sach_khach` tính "hoạt động gần nhất" cho mọi khách trước khi sắp xếp (cần cột/keyset); gom N+1 quầy thu.
+4. Màn **xử lý thuốc khách trả** (thuốc về quầy nhưng chưa bán lại được — chờ quyết định phòng khám: nhập lại bán được hay huỷ).
+5. Nút "Bật tách kho / quầy": bấm lần đầu không đổi trạng thái (nghi gửi 2 lần) — kiểm.
+6. Chip trạng thái "Đã ghi phản hồi thuốc" tô đỏ khi khách còn việc quá hạn — xem có nên luôn trung tính.
+7. Nhãn "Quầy thêm" trên dòng thuốc lấy từ đơn bác sĩ ("Bán theo đơn") — đổi nhãn.
+8. Nhận khách tại phòng: cho nhận khi bác sĩ vừa chỉ định (hiện chỉ sau Hoàn tất) — Tuyền: giữ như hiện nay.
+9a. Danh mục vật tư: Lễ tân tick "Cần duyệt nhập" thì giao diện tick rồi tự quay về, KHÔNG báo lỗi (máy chủ từ chối đúng quyền) — hiện thông báo "Bạn không có quyền sửa danh mục".
+9b. Chuông kiểm kê lệch còn chữ "tồn máy" — đổi "tồn trên hệ thống".
+9. Mẫu Excel kiểm kê của anh Thắng + mẫu Excel kế toán: chưa nhận → chưa đối chiếu.
+
+## 15/10/2026 — GỌI XÁC NHẬN MỌI LỊCH ĐẶT HỘ (PR nhánh `claude/goi-xac-nhan-lich-dat-ho-a`)
+
+Tuyền chốt: "gọi xác nhận MỌI lịch đặt hộ" (phương án A). Việc `CHO_XAC_NHAN`
+("Gọi xác nhận lịch") của `v_viec_cskh` sinh cho mọi lịch còn sống, kênh ≠ `WALK_IN`,
+khám trong hôm nay → hôm nay + 7 — **ĐÃ THAY** luật cũ "lịch đặt trong 7 ngày không
+sinh việc" (mục 9 bên dưới). Hạn = `GREATEST(ngày khám − 7, ngày đặt)`. Migration
+`20261015110000` chỉ đổi view + nhãn `luat_cskh`; không backfill. Bài canh
+`test_dat_lich_chi_ba_noi_ghi.py`: khi có cổng khách tự đặt (thêm đường ghi lịch thứ 4)
+phải làm **phương án B** — cột nguồn đặt trên `appointment`, lọc view theo cột ấy.
+
 ## 08/10/2026 — ĐỢT `dot/0710-nhan-tai-phong` ĐANG TRÊN STAGING, CHỜ BẤM THỬ RỒI LÊN PROD
 
 **Staging chạy `2d4abbbe`** (deploy 08/10 sáng, đã áp mọi migration — thử khô "Không còn
@@ -2023,7 +2071,9 @@ nhánh `lat-1-luot-kham` (lẫn với lát 1 chưa commit — tách PR theo file
    và 14/9): migration 20260915000010 đổi 2 nhánh `v_viec_cskh` — hạn = ngày
    khám − so_ngay, quá mốc là đỏ, việc nhắc 1 ngày không biến mất ngày khám;
    lịch đặt trong vòng 7 ngày không sinh việc 7 ngày (giả định của Claude —
-   cuộc gọi đặt lịch vừa xảy ra). Test SQL `nhac_lich_truoc_7_ngay_va_1_ngay.sql`.
+   cuộc gọi đặt lịch vừa xảy ra). **15/10/2026: ĐÃ THAY LUẬT** — mọi lịch đặt hộ
+   (kênh ≠ WALK_IN) đều có việc "Gọi xác nhận lịch", kể cả đặt sát ngày; xem mục
+   15/10 đầu file. Test SQL `nhac_lich_truoc_7_ngay_va_1_ngay.sql`.
 
 10. **AI đứng sau cờ + bác sĩ quyết báo kết quả:** không có ANTHROPIC_API_KEY
     thì API vẫn khởi động (endpoint AI trả 503 AI_DISABLED, orchestrator

@@ -41,11 +41,21 @@ async def _co(
 
 
 def test_21_lego_theo_thu_tu_thanh_ben() -> None:
-    assert len(MAN) == 21
+    # 21 lego của 25/09 + "Kế toán" (G5a) + "Kho vật tư" (G8a) = 23.
+    assert len(MAN) == 23
     assert list(MAN)[:3] == ["tiep_don", "do_sinh_hieu", "tu_van"]
     assert list(MAN)[-1] == "doi_tac"
     # Lego 19 chỉ nằm trong gói mẫu Quản lý.
     assert [v for v, ks in PRESET.items() if "nhan_su" in ks] == ["MANAGEMENT"]
+    # Kế toán: Quản lý + gói mẫu Kế toán + gói theo VAI Kế toán (ACCOUNTANT,
+    # 16/10/2026, chép y gói trên); gói Kế toán KHÔNG thu tiền.
+    assert [v for v, ks in PRESET.items() if "ke_toan" in ks] == [
+        "MANAGEMENT",
+        "KE_TOAN",
+        "ACCOUNTANT",
+    ]
+    assert not {"thu_tien_dv", "thu_tien_thuoc"} & set(PRESET["KE_TOAN"])
+    assert PRESET["ACCOUNTANT"] == PRESET["KE_TOAN"]
 
 
 async def test_bat_tat_lego_co_hieu_luc_ngay(

@@ -43,6 +43,7 @@ import {
   toTitleCaseVi,
   phoneError,
   cccdError,
+  emailError,
   birthYearError,
   unaccentVi,
 } from "../../../../lib/validation";
@@ -359,6 +360,7 @@ export default function NewPatientForm({
   nhung = false,
   onHuy,
   veTiepDon = false,
+  veQuanLyKhach = false,
 }: {
   /** Khoá bản nhập dở theo NGƯỜI đang đăng nhập — quầy dùng chung máy,
    *  nháp của người trước không được hiện cho người sau (luu-nhap.ts). */
@@ -390,6 +392,11 @@ export default function NewPatientForm({
    *  (Tuyền 29/09/2026). Trang gọi hỏi `moDuocMan("/reception/queue")` — cùng
    *  luật cửa của trang đích (lego, không theo vai). false → hành vi cũ. */
   veTiepDon?: boolean;
+  /** Chỉ LƯU HỒ SƠ (không đặt lịch) xong thì sang màn QUẢN LÝ KHÁCH HÀNG, mở
+   *  đúng khách vừa tạo (`/customers?selected=`) để CSKH gọi xác nhận / đặt lịch
+   *  hộ (Tuyền 15/10/2026) — THẮNG `veTiepDon` cho đường này. Trang gọi hỏi
+   *  `moDuocMan("/customers")` (lego, không theo vai). false → đường cũ. */
+  veQuanLyKhach?: boolean;
 }) {
   const walkin = variant === "walkin";
   // Kênh "Trực tiếp" kéo theo tự check-in → theo LEGO Tiếp đón (30/09/2026).
@@ -417,6 +424,7 @@ export default function NewPatientForm({
   const [phone, setPhone] = useState("");
   const [phone2, setPhone2] = useState("");
   const [cccd, setCccd] = useState("");
+  const [email, setEmail] = useState("");
   // Cơ sở CỦA NGƯỜI ĐẶT trước, rồi mới tới đầu danh sách (16/09/2026): danh
   // sách xếp theo tên nên `locations[0]` là "Kim Ngưu" với mọi người — hồ sơ
   // khách mới của CSKH ở cơ sở khác rơi sai cơ sở mà không ai để ý.
@@ -750,6 +758,7 @@ export default function NewPatientForm({
   const phoneErr = phoneError(phone);
   const phone2Err = phoneError(phone2);
   const cccdErr = cccdError(cccd);
+  const emailErr = emailError(email);
 
   async function bookFor(clinicPatientId: string): Promise<boolean> {
     // Cùng lớp đỡ như save(): state có thể còn rỗng nếu danh sách cơ sở tới
@@ -807,7 +816,7 @@ export default function NewPatientForm({
   useEffect(() => {
     if (!khoaNhapKhach || typeof window === "undefined") return;
     const giaTri: Record<string, string | boolean> = {
-      fullName, dobIso, dobYearOnly, birthYear, phone, phone2, cccd,
+      fullName, dobIso, dobYearOnly, birthYear, phone, phone2, cccd, email,
       gender, ethnicity, nationality, occupation, objection,
       provinceCode, wardCode, addressDetail, vanDe, linhVuc,
     };
@@ -826,7 +835,7 @@ export default function NewPatientForm({
     return () => clearTimeout(t);
   }, [
     khoaNhapKhach, fullName, dobIso, dobYearOnly, birthYear, phone, phone2,
-    cccd, gender, ethnicity, nationality, occupation, objection,
+    cccd, email, gender, ethnicity, nationality, occupation, objection,
     provinceCode, wardCode, addressDetail, vanDe, linhVuc,
   ]);
 
@@ -841,6 +850,7 @@ export default function NewPatientForm({
     setPhone(chu("phone"));
     setPhone2(chu("phone2"));
     setCccd(chu("cccd"));
+    setEmail(chu("email"));
     setGender(chu("gender"));
     setEthnicity(chu("ethnicity") || "Kinh");
     setNationality(chu("nationality") || "Việt Nam");
@@ -861,11 +871,20 @@ export default function NewPatientForm({
     setNhapDo(null);
   }
 
-  function goToProfile(id: string, code?: string) {
+  function goToProfile(id: string, code?: string, moi = false) {
     // TẠO XONG LÀ NHÁP HẾT VIỆC — để lại thì lần mở sau mời khôi phục một
     // khách đã nằm trong hệ thống, và người trực tạo trùng.
     if (khoaNhapKhach && typeof window !== "undefined") {
       xoaNhap(window.localStorage, khoaNhapKhach);
+    }
+    // CHỈ LƯU HỒ SƠ → SANG QUẢN LÝ KHÁCH HÀNG (Tuyền 15/10/2026: "chọn 'Chỉ lưu
+    // hồ sơ — chưa đặt lịch' thì trang nhảy đến Quản lý khách hàng, không nhảy ra
+    // màn khác"). Khách ấy mang việc "Gọi điện xác nhận" ở đó (man_khach_hang_service
+    // CHO_DAT_LICH). Chỉ áp cho khách MỚI vừa tạo (`moi`): "Dùng bệnh nhân này"
+    // (khách có sẵn) giữ đường cũ.
+    if (moi && veQuanLyKhach && !walkin && !wantsAppointment) {
+      router.push(`/customers?selected=${encodeURIComponent(id)}`);
+      return;
     }
     // CSKH nhập nhanh hồ sơ chưa có lịch cần chăm sóc tiếp tại đúng khách,
     // kể cả tài khoản được cấp thêm quyền Tiếp đón.
@@ -874,9 +893,10 @@ export default function NewPatientForm({
       return;
     }
     // TẠO XONG → VỀ MÀN TIẾP ĐÓN (Tuyền 29/09/2026: "lễ tân thêm khách mới
-    // xong thì nhảy về màn Tiếp đón khách để làm việc tiếp"). Áp cho mọi đường
-    // lưu thành công: chỉ lưu hồ sơ, lưu + đặt lịch (khách Trực tiếp hôm nay đã
-    // tự check-in nên hiện ngay trong danh sách), và "Dùng bệnh nhân này". Ai
+    // xong thì nhảy về màn Tiếp đón khách để làm việc tiếp"). Áp cho: lưu + đặt
+    // lịch (khách Trực tiếp hôm nay đã tự check-in nên hiện ngay trong danh
+    // sách) và "Dùng bệnh nhân này". CHỈ LƯU HỒ SƠ đã rẽ sang Quản lý khách hàng
+    // ở trên (15/10/2026) khi người này vào được màn ấy. Ai
     // được vào màn ấy do trang quyết theo lego (`veTiepDon`), không theo vai.
     if (veTiepDon) {
       router.push("/reception/queue");
@@ -900,7 +920,7 @@ export default function NewPatientForm({
     }
   }
 
-  async function proceed(clinicPatientId: string, code?: string) {
+  async function proceed(clinicPatientId: string, code?: string, moi = false) {
     const booked = await bookFor(clinicPatientId);
     if (!booked) {
       // Patient exists; let the operator open the profile to retry booking.
@@ -908,7 +928,7 @@ export default function NewPatientForm({
       setDupes(null);
       return;
     }
-    goToProfile(clinicPatientId, code);
+    goToProfile(clinicPatientId, code, moi);
   }
 
   // Cơ sở mặc định TÍNH RA, không phải đặt bằng effect.
@@ -948,6 +968,7 @@ export default function NewPatientForm({
       phoneError(phone) ||
       phoneError(phone2) ||
       cccdError(cccd) ||
+      emailError(email) ||
       (dobYearOnly ? birthYearErr : dobErr);
     if (ve) {
       setError(ve);
@@ -1022,6 +1043,8 @@ export default function NewPatientForm({
           phone_primary: phone,
           phone_secondary: phone2,
           national_id_number: cccd,
+          // Rỗng thì KHÔNG gửi khoá (máy chủ chuẩn hoá chữ thường + kiểm lại).
+          email: email.trim() || undefined,
           location_id: effLocationId,
           gender,
           ethnicity,
@@ -1055,6 +1078,7 @@ export default function NewPatientForm({
       await proceed(
         json.patient.clinic_patient_id as string,
         json.patient.patient_code as string,
+        true,
       );
     } catch {
       setError("Không lưu được hồ sơ. Kiểm tra kết nối rồi thử lại.");
@@ -1314,6 +1338,22 @@ export default function NewPatientForm({
             />
             {cccdErr && (
               <p className="mt-1 text-meta text-danger">{cccdErr}</p>
+            )}
+          </div>
+          <div>
+            <label className={LABEL}>Email (nếu có)</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={INPUT + (emailErr ? " border-danger" : "")}
+              placeholder="ten@example.com"
+              inputMode="email"
+              autoComplete="off"
+              maxLength={254}
+            />
+            {emailErr && (
+              <p className="mt-1 text-meta text-danger">{emailErr}</p>
             )}
           </div>
           <div>

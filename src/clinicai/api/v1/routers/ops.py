@@ -13,6 +13,7 @@ from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.clock import doc_ngay_xem, hom_nay_vn
 from clinicai.core.database import get_db_pool
+from clinicai.core.quan_sat import quan_sat
 from clinicai.core.telemetry import SLOW_REQUEST_MS, telemetry
 from clinicai.llm import chi_phi
 from clinicai.permissions.cua_quyen import cua_quyen
@@ -47,6 +48,23 @@ async def get_ops_status(
 ) -> OpsStatusResponse:
     response.headers["Cache-Control"] = "private, no-store"
     return await OpsStatusService(pool).collect()
+
+
+@router.get("/ops/pool")
+async def get_pool(
+    response: Response,
+    _identity: StaffIdentity = Depends(_MANAGEMENT_GUARD),
+) -> dict[str, object]:
+    """Bể kết nối của API: số tức thời + tổng hợp phút vừa chốt (14/10/2026).
+
+    Không đụng DB (đọc bộ nhớ tiến trình) nên trả lời được CẢ LÚC bể đang cạn.
+    Chỉ số đếm và mẫu đường dẫn đã chuẩn hoá — xem core/quan_sat.
+    """
+    response.headers["Cache-Control"] = "no-store"
+    return {
+        "tuc_thoi": quan_sat.tuc_thoi(),
+        "phut_gan_nhat": quan_sat.phut_gan_nhat,
+    }
 
 
 @router.get("/ops/telemetry")

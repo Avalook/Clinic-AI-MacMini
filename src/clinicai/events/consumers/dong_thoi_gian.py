@@ -86,6 +86,7 @@ CHI_TIET_HIEN: dict[str, Sequence[str]] = {
     "cong_no.da_thu": ["so_tien", "so_thu", "so_giam"],
     # Kê ↔ mua ↔ giao: đối chiếu hai bản đơn (Tuyền 24/09).
     "medicine.dispensed": ["so_ke", "so_mua", "so_da_giao"],
+    "medicine.returned": ["so_luong", "ket_cuc_tien"],
     # Nhóm 3 (24/09/2026).
     "result_file.uploaded": ["cho_xac_nhan"],
     "partner.order_received": ["service_name", "ly_do"],

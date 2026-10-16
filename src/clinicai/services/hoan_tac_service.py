@@ -770,6 +770,19 @@ class HoanTacService:
                     " khoản này thành TIỀN THỪA ở quầy thu (hoàn cho khách hoặc trừ"
                     " vào dịch vụ khác)."
                 )
+            # Đầu dò / vật tư ĐI KÈM chỉ định đã thu (Bio, G9): nằm ở dòng hoá
+            # đơn riêng nên KHÔNG tự thành "tiền thừa" — nói rõ để quầy hoàn.
+            from clinicai.services.bio_chi_dinh_service import (
+                bio_da_thu_cua_chi_dinh,
+            )
+
+            bio_thu = await bio_da_thu_cua_chi_dinh(conn, cid, oid)
+            if bio_thu > 0:
+                hau_qua.append(
+                    f"Đầu dò đi kèm chỉ định này đã thu {_tien(bio_thu)} — khoản"
+                    " này KHÔNG tự thành tiền thừa; nếu khách không dùng đầu dò"
+                    " thì quầy thu hoàn tiền dòng đầu dò."
+                )
             if tien["cho_xac_minh"] > 0:
                 hau_qua.append(
                     f"Có khoản chuyển khoản {_tien(tien['cho_xac_minh'])} đang chờ"

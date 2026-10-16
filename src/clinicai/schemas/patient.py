@@ -11,6 +11,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from clinicai.core.phone import normalize_vn_phone
 
 _CCCD_RE = re.compile(r"^\d{12}$")
+_CCCD_9_OR_12_RE = re.compile(r"^(\d{9}|\d{12})$")
+_SO_BAN_RE = re.compile(r"^02\d{8}$")
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _LINH_VUC = {"PK", "SK", "NT", "HMVS", "NK"}
 _GENDER = {"Nam", "Nữ", "Khác"}
 
@@ -46,6 +49,7 @@ class PatientCreateDTO(BaseModel):
     patient_objection: str | None = None
     address: str | None = None
     guardian_name: str | None = None
+    email: str | None = None
     # Địa chỉ có cấu trúc (sau sáp nhập: tỉnh → phường, bỏ huyện)
     province_code: str | None = None
     province_name: str | None = None
@@ -75,6 +79,7 @@ class PatientCreateDTO(BaseModel):
         "patient_objection",
         "address",
         "guardian_name",
+        "email",
         "province_code",
         "province_name",
         "ward_code",
@@ -102,10 +107,13 @@ class PatientCreateDTO(BaseModel):
         if v is None:
             return None
         normalized = normalize_vn_phone(v)
-        if normalized is None:
-            msg = "phone must be a supported Vietnamese mobile number"
-            raise ValueError(msg)
-        return normalized
+        if normalized is not None:
+            return normalized
+        raw = v.strip()
+        if _SO_BAN_RE.match(raw):
+            return raw
+        msg = "phone must be a supported Vietnamese mobile or landline number"
+        raise ValueError(msg)
 
     @field_validator("national_id_number")
     @classmethod
@@ -114,6 +122,19 @@ class PatientCreateDTO(BaseModel):
             msg = "national_id_number must be exactly 12 digits"
             raise ValueError(msg)
         return v
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def _validate_create_email(cls, v: object) -> str | None:
+        v = _blank_to_none(v)
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            raise ValueError("Email phải là chuỗi ký tự")
+        s = v.strip().lower()
+        if not _EMAIL_RE.match(s) or len(s) > 254:
+            raise ValueError("Email không đúng định dạng")
+        return s
 
     @field_validator("birth_year")
     @classmethod
@@ -145,11 +166,27 @@ class PatientUpdateDTO(BaseModel):
 
     full_name: str | None = None
     date_of_birth: date | None = None
+    birth_year: int | None = None
     phone_primary: str | None = None
     phone_secondary: str | None = None
     national_id_number: str | None = None
     location_id: UUID | None = None
     is_active: bool | None = None
+    gender: str | None = None
+    ethnicity: str | None = None
+    nationality: str | None = None
+    occupation: str | None = None
+    patient_objection: str | None = None
+    address: str | None = None
+    guardian_name: str | None = None
+    province_code: str | None = None
+    province_name: str | None = None
+    ward_code: str | None = None
+    ward_name: str | None = None
+    address_detail: str | None = None
+    van_de_di_kham: str | None = None
+    linh_vuc: str | None = None
+    email: str | None = None
 
     # KHÔNG PHẢI MỘT CỘT. Đây là thẻ khoá lạc quan: mốc `updated_at` mà máy khách
     # ĐÃ ĐỌC khi mở hồ sơ. Máy chủ chỉ ghi đè nếu hồ sơ dưới database vẫn đúng mốc
@@ -166,13 +203,47 @@ class PatientUpdateDTO(BaseModel):
     # Bỏ trống = không khoá (giữ nguyên hành vi cũ cho các lời gọi chưa cập nhật).
     sua_luc: datetime | None = None
 
+    @field_validator(
+        "gender",
+        "ethnicity",
+        "nationality",
+        "occupation",
+        "patient_objection",
+        "address",
+        "guardian_name",
+        "province_code",
+        "province_name",
+        "ward_code",
+        "ward_name",
+        "address_detail",
+        "van_de_di_kham",
+        "linh_vuc",
+        mode="before",
+    )
+    @classmethod
+    def _empty_to_none_update(cls, v: object) -> object:
+        return _blank_to_none(v)
+
     @field_validator("full_name")
     @classmethod
     def full_name_not_blank(cls, v: str | None) -> str | None:
-        if v is not None and not v.strip():
-            msg = "full_name must not be blank"
-            raise ValueError(msg)
-        return v.strip() if v else v
+        if v is None or not v.strip():
+            raise ValueError("Họ và tên không được để trống")
+        return v.strip()
+
+    @field_validator("location_id")
+    @classmethod
+    def location_id_not_none(cls, v: UUID | None) -> UUID | None:
+        if v is None:
+            raise ValueError("Cơ sở không được để trống")
+        return v
+
+    @field_validator("is_active")
+    @classmethod
+    def is_active_not_none(cls, v: bool | None) -> bool | None:
+        if v is None:
+            raise ValueError("Trạng thái hoạt động không được để trống")
+        return v
 
     @field_validator("phone_primary", "phone_secondary", mode="before")
     @classmethod
@@ -183,9 +254,46 @@ class PatientUpdateDTO(BaseModel):
         if not isinstance(v, str):
             raise ValueError("phone must be a string")
         normalized = normalize_vn_phone(v)
-        if normalized is None:
-            raise ValueError("phone must be a supported Vietnamese mobile number")
-        return normalized
+        if normalized is not None:
+            return normalized
+        raw = v.strip()
+        if _SO_BAN_RE.match(raw):
+            return raw
+        msg = "phone must be a supported Vietnamese mobile or landline number"
+        raise ValueError(msg)
+
+    @field_validator("national_id_number", mode="before")
+    @classmethod
+    def validate_national_id(cls, v: object) -> str | None:
+        v = _blank_to_none(v)
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            raise ValueError("Số CCCD phải là chuỗi chữ số")
+        s = v.strip()
+        if not _CCCD_9_OR_12_RE.match(s):
+            raise ValueError("Số CCCD phải gồm 9 hoặc 12 chữ số")
+        return s
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def validate_email(cls, v: object) -> str | None:
+        v = _blank_to_none(v)
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            raise ValueError("Email phải là chuỗi ký tự")
+        s = v.strip().lower()
+        if not _EMAIL_RE.match(s) or len(s) > 254:
+            raise ValueError("Email không đúng định dạng")
+        return s
+
+    @field_validator("gender")
+    @classmethod
+    def validate_gender(cls, v: str | None) -> str | None:
+        if v is not None and v not in _GENDER:
+            raise ValueError("Giới tính phải là Nam, Nữ hoặc Khác")
+        return v
 
 
 def _mask_national_id(value: str | None) -> str | None:
@@ -233,6 +341,14 @@ class PatientDTO(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+    gender: str | None = None
+    ethnicity: str | None = None
+    nationality: str | None = None
+    occupation: str | None = None
+    patient_objection: str | None = None
+    address: str | None = None
+    guardian_name: str | None = None
+    email: str | None = None
 
     @field_validator("national_id_number", mode="before")
     @classmethod

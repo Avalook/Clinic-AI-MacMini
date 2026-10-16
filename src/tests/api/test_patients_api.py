@@ -375,3 +375,94 @@ def test_update_patient_not_found_returns_404(
     assert "not found" in data["message"]
 
     mock_service.update_patient.assert_called_once()
+
+
+@patch("clinicai.api.v1.patients.PatientService")
+def test_create_patient_email_duoc_chuan_hoa_va_chuyen_cho_service(
+    mock_service_class: MagicMock, client: TestClient
+) -> None:
+    """Form tạo khách gửi email → service nhận bản đã cắt khoảng trắng, chữ thường."""
+    mock_service = mock_service_class.return_value
+    mock_dto = PatientDTO(
+        clinic_patient_id=uuid.uuid4(),
+        patient_code="BN-2026-123457",
+        full_name="Nguyen Van A",
+        location_id=uuid.uuid4(),
+        is_active=True,
+        email="mai.lan@example.com",
+        created_at=datetime.datetime.now(datetime.timezone.utc),
+        updated_at=datetime.datetime.now(datetime.timezone.utc),
+    )
+    mock_service.create_patient = AsyncMock(
+        return_value=PatientCreateResult(patient=mock_dto)
+    )
+
+    response = client.post(
+        "/api/v1/patients",
+        json={
+            "full_name": "Nguyen Van A",
+            "location_id": str(uuid.uuid4()),
+            "email": "  Mai.Lan@Example.COM ",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["email"] == "mai.lan@example.com"
+    args, _ = mock_service.create_patient.call_args
+    assert args[0].email == "mai.lan@example.com"
+
+
+@pytest.mark.parametrize("email", ["", "   ", None])
+@patch("clinicai.api.v1.patients.PatientService")
+def test_create_patient_khong_email_la_none(
+    mock_service_class: MagicMock, client: TestClient, email: str | None
+) -> None:
+    mock_service = mock_service_class.return_value
+    mock_dto = PatientDTO(
+        clinic_patient_id=uuid.uuid4(),
+        patient_code="BN-2026-123458",
+        full_name="Nguyen Van A",
+        location_id=uuid.uuid4(),
+        is_active=True,
+        created_at=datetime.datetime.now(datetime.timezone.utc),
+        updated_at=datetime.datetime.now(datetime.timezone.utc),
+    )
+    mock_service.create_patient = AsyncMock(
+        return_value=PatientCreateResult(patient=mock_dto)
+    )
+
+    response = client.post(
+        "/api/v1/patients",
+        json={
+            "full_name": "Nguyen Van A",
+            "location_id": str(uuid.uuid4()),
+            "email": email,
+        },
+    )
+
+    assert response.status_code == 201
+    args, _ = mock_service.create_patient.call_args
+    assert args[0].email is None
+
+
+@pytest.mark.parametrize(
+    "email", ["khong-phai-email", "abc@", "@domain.com", "a" * 250 + "@b.com", 123]
+)
+@patch("clinicai.api.v1.patients.PatientService")
+def test_create_patient_email_rac_tra_422_khong_500(
+    mock_service_class: MagicMock, client: TestClient, email: object
+) -> None:
+    mock_service = mock_service_class.return_value
+    mock_service.create_patient = AsyncMock()
+
+    response = client.post(
+        "/api/v1/patients",
+        json={
+            "full_name": "Nguyen Van A",
+            "location_id": str(uuid.uuid4()),
+            "email": email,
+        },
+    )
+
+    assert response.status_code == 422
+    mock_service.create_patient.assert_not_awaited()

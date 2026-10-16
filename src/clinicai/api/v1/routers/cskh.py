@@ -27,12 +27,13 @@ from clinicai.services.cskh_service import (
     CskhService,
     clinic_today,
 )
-from clinicai.services.danh_sach_khach_cskh import danh_sach_khach
+from clinicai.services.danh_sach_khach_cskh import danh_sach_khach, la_bat
 from clinicai.services.ghi_chu_khach_service import (
     QUYEN_KHUNG_KHACH,
     GhiChuKhachService,
 )
 from clinicai.services.man_khach_hang_service import ManKhachHangService
+from clinicai.services.phan_hoi_thuoc_service import PhanHoiThuocService
 from clinicai.services.recall_job_service import RecallJobService
 from clinicai.services.recall_service import RecallService
 from clinicai.services.tuong_tac_cskh_service import (
@@ -70,13 +71,15 @@ async def danh_sach_khach_cskh(
     selected: str | None = None,
     tu: str | None = None,
     den: str | None = None,
+    phan_hoi_thuoc: str | None = None,
     identity: StaffIdentity = Depends(_MAN_KHACH_HANG_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Một trang khách (50) của màn Quản lý khách hàng + tổng số khớp bộ lọc.
 
     ``tu``/``den`` (yyyy-mm-dd, giờ VN) = khoảng của thanh ngày ngang; có thì
-    thắng ``period``. Rác → bỏ qua, không 422 (`cua_so_khoang`)."""
+    thắng ``period``. Rác → bỏ qua, không 422 (`cua_so_khoang`).
+    ``phan_hoi_thuoc=1`` = chỉ khách có phản hồi sau dùng thuốc (rác → tắt)."""
     return await danh_sach_khach(
         pool,
         identity=identity,
@@ -87,6 +90,7 @@ async def danh_sach_khach_cskh(
         chon=selected,
         tu=tu,
         den=den,
+        co_phan_hoi_thuoc=la_bat(phan_hoi_thuoc),
     )
 
 
@@ -148,6 +152,64 @@ async def go_ghi_chu(
 ) -> dict[str, Any]:
     return await GhiChuKhachService(pool).go(
         identity=identity, ghi_chu_id=str(ghi_chu_id)
+    )
+
+
+# ── Phản hồi sau dùng thuốc (10/10/2026) — cùng cửa khung khách ─────────────
+
+
+@router.get("/cskh/khach/{clinic_patient_id}/phan-hoi-thuoc")
+async def phan_hoi_thuoc_cua_khach(
+    clinic_patient_id: UUID,
+    identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lượt có đơn thuốc (để chọn) + phản hồi sau dùng thuốc còn hiệu lực."""
+    return await PhanHoiThuocService(pool).doc(
+        identity=identity, clinic_patient_id=str(clinic_patient_id)
+    )
+
+
+class PhanHoiThuocBody(BaseModel):
+    noi_dung: str = Field(min_length=1, max_length=2000)
+    #: Bỏ trống = lượt có đơn gần nhất.
+    visit_id: UUID | None = None
+    kenh: Literal["GOI", "ZALO", "SMS", "TRUC_TIEP"] = "GOI"
+
+
+@router.post("/cskh/khach/{clinic_patient_id}/phan-hoi-thuoc", status_code=201)
+async def ghi_phan_hoi_thuoc(
+    clinic_patient_id: UUID,
+    body: PhanHoiThuocBody,
+    identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+    idem: IdempotencyGuard = Depends(idempotency_guard),
+) -> dict[str, Any]:
+    """Chống ghi trùng như `/cskh/tuong-tac`: rớt mạng sau khi bấm rồi bấm lại
+    cùng `Idempotency-Key` → trả lại kết quả cũ, không thêm dòng thứ hai."""
+    idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
+    if idem.is_replay:
+        return idem.cached_response  # type: ignore[return-value]
+    async with tra_khoa_neu_bi_tu_choi(idem, pool):
+        dong_moi = await PhanHoiThuocService(pool).ghi(
+            identity=identity,
+            clinic_patient_id=str(clinic_patient_id),
+            noi_dung=body.noi_dung,
+            visit_id=str(body.visit_id) if body.visit_id else None,
+            kenh=body.kenh,
+        )
+        await idem.save(pool, dong_moi, status_code=201)
+    return dong_moi
+
+
+@router.post("/cskh/phan-hoi-thuoc/{phan_hoi_id}/go")
+async def go_phan_hoi_thuoc(
+    phan_hoi_id: UUID,
+    identity: StaffIdentity = Depends(_KHUNG_KHACH_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    return await PhanHoiThuocService(pool).go(
+        identity=identity, phan_hoi_id=str(phan_hoi_id)
     )
 
 

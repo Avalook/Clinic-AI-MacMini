@@ -31,7 +31,7 @@ export default async function TrangPhanQuyen({
         <h1 className="text-2xl font-semibold text-ink">Phân quyền</h1>
         <p className="text-sm text-ink-muted">
           Chọn một người rồi tick những kỹ năng họ làm — đúng như danh sách nhân
-          sự của phòng khám. Trường hợp đặc biệt thì mở mục Ngoại lệ.
+          sự của phòng khám. Cấp quyền theo màn (Báo cáo, Kế toán…) ở mục Quyền theo màn bên dưới.
         </p>
         {/* Mở full lego (Tuyền 30/09/2026) — migration 20260930900000. */}
         <p

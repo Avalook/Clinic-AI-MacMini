@@ -12,7 +12,7 @@ from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.services.bao_cao_cuoi_ngay_service import khung_ca
 from clinicai.services.cashier_board_service import doc_khoang_ngay
-from clinicai.services.co_so_bao_cao import doc_co_so
+from clinicai.services.co_so_bao_cao import doc_co_so, doc_co_so_ngung, sql_loc_ton
 from clinicai.services.hoa_don_excel import xlsx_hoa_don as xlsx_hoa_don
 from clinicai.services.hoa_don_projection import gom_hoa_don as gom_hoa_don
 from clinicai.services.hoa_don_projection import gom_viec_ton
@@ -23,12 +23,39 @@ from clinicai.services.hoan_tac_service import (
 from clinicai.services.quay_thu_service import _DONG_SQL
 from clinicai.services.report_access_service import ReportAccessService
 
+
+def _ngay_vn(v: Any) -> str | None:
+    return (
+        v.astimezone(CLINIC_TZ).date().isoformat() if isinstance(v, datetime) else None
+    )
+
+
+def luc_that(r: dict[str, Any]) -> Any:
+    """Mốc để hiện "đã tồn bao lâu". Dòng sổ ``DAU_KY`` có ``luc`` = mốc BẬT SỔ
+    (nên hiện "1 giờ" cho khoản nợ có từ hôm trước) → lấy ngày thật của lượt
+    (đóng, không thì tạo). Dòng sổ khác: giờ sự kiện sinh ra khoản ấy."""
+    if r.get("loai") == "DAU_KY":
+        return r.get("luot_dong_luc") or r.get("luot_tao_luc") or r.get("luc")
+    return r.get("luc")
+
+
+def quay_cua_no(chi_tiet: list[dict[str, Any]]) -> str:
+    """Quầy thu khoản nợ: chỉ toàn thuốc → ``thuoc``; còn lại → ``dich_vu``."""
+    khoan = [x for x in chi_tiet if x.get("loai") != "CK_CHO"]
+    return (
+        "thuoc"
+        if khoan and all(x.get("loai") == "prescription" for x in khoan)
+        else "dich_vu"
+    )
+
+
 _BILLS = """
 SELECT pc.payment_cycle_id::text id, pc.visit_id::text visit_id, pc.kind,
  pc.amount, pc.status, pc.created_at, pc.paid_at, pc.closed_at, pc.close_reason,
  pc.original_amount, pc.discount_amount, pc.discount_type, pc.discount_value,
  pc.discount_reason, discount_staff.full_name nguoi_giam,
- pc.can_doi_soat, p.clinic_patient_id::text patient_id, p.full_name ten,
+ pc.can_doi_soat, pc.doi_soat_ly_do, pc.so_tien_thuc_nhan,
+ p.clinic_patient_id::text patient_id, p.full_name ten,
  p.patient_code ma_bn, p.phone_primary so_dien_thoai,
  creator.full_name nguoi_lap, confirmer.full_name nguoi_thu, closer.full_name nguoi_huy,
  hinh_thuc_hieu_luc(pc.clinic_id,pc.payment_cycle_id,pc.method) method,
@@ -43,7 +70,10 @@ LEFT JOIN staff creator ON creator.id=pc.created_by
 LEFT JOIN staff confirmer ON confirmer.id=pc.confirmed_by
 LEFT JOIN staff closer ON closer.id=pc.closed_by
 LEFT JOIN staff discount_staff ON discount_staff.id=pc.discount_by
-WHERE pc.clinic_id=$1::uuid AND pc.paid_at IS NOT NULL
+-- Lần chờ chuyển khoản bị HUỶ (chưa từng thu) vẫn hiện (G4d, R1): huỷ nhầm
+-- khi tiền đã về thì sổ không còn dấu nào khác — kế toán đối chiếu sao kê ở đây.
+WHERE pc.clinic_id=$1::uuid
+ AND (pc.paid_at IS NOT NULL OR pc.status='CANCELLED')
  AND ($4::uuid IS NULL OR coalesce(v.location_id,a.location_id)=$4::uuid)
  AND ($5::text IS NULL OR pc.kind=$5)
  AND ((pc.paid_at >= $2 AND pc.paid_at < $3)
@@ -54,7 +84,7 @@ WHERE pc.clinic_id=$1::uuid AND pc.paid_at IS NOT NULL
        OR (r.status='PENDING' AND r.created_at >= $2 AND r.created_at < $3)
        OR (r.status IN ('FAILED','CANCELLED')
          AND r.closed_at >= $2 AND r.closed_at < $3))))
-ORDER BY pc.paid_at DESC,pc.payment_cycle_id
+ORDER BY coalesce(pc.paid_at,pc.closed_at) DESC,pc.payment_cycle_id
 """
 _REFUNDS = """
 SELECT r.refund_id::text id,r.payment_cycle_id::text cycle_id,r.amount,r.status,
@@ -97,13 +127,19 @@ _KHACH_CUA_LUOT = """
  LEFT JOIN patient p ON p.clinic_patient_id=v.clinic_patient_id
   AND p.clinic_id=v.clinic_id
 """
-_LOC = "($2::uuid IS NULL OR coalesce(v.location_id,a.location_id)=$2::uuid)"
+_CO_SO_LUOT = "coalesce(v.location_id,a.location_id)"
+#: Không chọn cơ sở → KHÔNG đếm khoản của cơ sở đã ngừng hoạt động (14/10/2026);
+#: chọn đúng cơ sở ngừng thì vẫn thấy. Chỉ ẩn khỏi màn tồn đọng, sổ không đổi.
+_LOC = sql_loc_ton("$2", _CO_SO_LUOT)
 _KHACH_PC = _KHACH_CUA_LUOT.format(luot="pc.visit_id", clinic="pc.clinic_id")
 _TON_HOAN = f"""
 SELECT r.refund_id::text refund_id, r.visit_id::text visit_id, r.kind, r.amount,
  r.status, r.reason, r.created_at, r.closed_at, s.full_name nguoi,
- p.clinic_patient_id::text patient_id, p.full_name ten, p.patient_code ma_bn
+ p.clinic_patient_id::text patient_id, p.full_name ten, p.patient_code ma_bn,
+ pc0.paid_at thu_luc
 FROM payment_refund r {_KHACH_CUA_LUOT.format(luot="r.visit_id", clinic="r.clinic_id")}
+LEFT JOIN payment_cycle pc0
+ ON pc0.clinic_id=r.clinic_id AND pc0.payment_cycle_id=r.payment_cycle_id
 LEFT JOIN staff s ON s.id=r.created_by
 WHERE r.clinic_id=$1::uuid AND r.status='PENDING' AND {_LOC}
  AND ($3::text IS NULL OR r.kind=$3)
@@ -116,15 +152,6 @@ FROM payment_cycle pc {_KHACH_PC}
 LEFT JOIN staff s ON s.id=pc.created_by
 WHERE pc.clinic_id=$1::uuid AND pc.status='PENDING_VERIFICATION' AND {_LOC}
  AND ($3::text IS NULL OR pc.kind=$3)
-"""
-_TON_NO = f"""
-SELECT n.id::text id, n.visit_id::text visit_id, n.so_tien, n.ly_do, n.ghi_luc,
- s.full_name nguoi, p.clinic_patient_id::text patient_id, p.full_name ten,
- p.patient_code ma_bn
-FROM cong_no n {_KHACH_CUA_LUOT.format(luot="n.visit_id", clinic="n.clinic_id")}
-LEFT JOIN staff s ON s.id=n.ghi_boi
-WHERE n.clinic_id=$1::uuid AND n.trang_thai='CHUA_THU' AND {_LOC}
- AND $3::text IS NULL
 """
 #: ĐÃ THU nhưng KHÁCH VỀ CHƯA LÀM (Tuyền 13/10, Khách 8763): dịch vụ đã thu vẫn
 #: ở trạng thái chờ / đã xếp / đang làm khi lượt đã đóng (check-out) hoặc là lượt
@@ -140,7 +167,9 @@ WHERE o.clinic_id=$1::uuid
  AND o.exec_status IN ('authorized','assigned','in_progress')
  AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
  AND (v.closed_at IS NOT NULL OR v.created_at < $4)
- AND o.created_at >= now() - interval '90 days' AND {_LOC}
+ AND o.created_at >= now() - interval '90 days'
+ -- Gắn vào hoá đơn của kỳ (lịch sử) → KHÔNG bỏ cơ sở ngừng; chỉ lọc khi chọn cơ sở.
+ AND ($2::uuid IS NULL OR {_CO_SO_LUOT}=$2::uuid)
  AND ($3::text IS NULL OR $3='dich_vu')
  AND ($5::text[] IS NULL OR o.visit_id::text = ANY($5::text[]))
 """
@@ -199,22 +228,6 @@ def _gop_thua(
     return out
 
 
-#: Tiền thừa chỉ dò trong lượt có thu dịch vụ 90 ngày gần nhất — đủ cho việc
-#: tồn thật, không quét cả lịch sử mỗi lần mở màn.
-TIEN_THUA_SO_NGAY = 90
-_TON_THUA_LUOT = f"""
-SELECT v.visit_id::text visit_id, p.clinic_patient_id::text patient_id,
- p.full_name ten, p.patient_code ma_bn,
- coalesce(max(o.updated_at), max(pc.paid_at)) luc
-FROM payment_cycle pc {_KHACH_PC}
-LEFT JOIN service_order o ON o.clinic_id=v.clinic_id AND o.visit_id=v.visit_id
- AND o.exec_status IN ('cancelled','not_performed')
-WHERE pc.clinic_id=$1::uuid AND pc.kind='dich_vu' AND pc.status='PAID'
- AND pc.paid_at >= now() - interval '{TIEN_THUA_SO_NGAY} days' AND {_LOC}
- AND ($3::text IS NULL OR $3='dich_vu')
-GROUP BY v.visit_id, p.clinic_patient_id, p.full_name, p.patient_code
-"""
-
 _REFUND_LINES = """
 SELECT rl.refund_id::text refund_id,bl.name_snapshot ten,rl.quantity so_luong,
  rl.amount thanh_tien,bl.id::text id
@@ -241,7 +254,11 @@ class DanhSachHoaDonService:
         co_so: str | None = None,
         ca: str | None = None,
         can_kiem_tra: bool = False,
+        nhom: str | None = None,
+        hinh_thuc: str | None = None,
     ) -> dict[str, Any]:
+        """``nhom`` / ``hinh_thuc``: lọc phiếu (link từ khối Dòng tiền) — rác thì
+        không lọc (``hoa_don_projection.NHOM_LOC``)."""
         a, b = doc_khoang_ngay(tu, den)
         access, location = await ReportAccessService(self.pool).authorize(
             identity, tu=a.isoformat(), den=b.isoformat(), ca=ca, co_so=co_so
@@ -299,11 +316,32 @@ class DanhSachHoaDonService:
                     )
                 )[0],
             )
+            # Mỗi khoản "chưa trả lại" kèm NGÀY của lượt nó thuộc về (giờ VN) — màn
+            # chi tiết ghi "lượt ngày dd/mm" để khoản của lượt khác ngày không mồ côi.
+            ngay_luot = {
+                r["visit_id"]: _ngay_vn(r["created_at"])
+                for r in await conn.fetch(
+                    "SELECT visit_id::text AS visit_id, created_at FROM public.visit"
+                    " WHERE clinic_id = $1::uuid AND visit_id::text = ANY($2::text[])",
+                    identity.clinic_id,
+                    list(tien_thua),
+                )
+            }
+            for vid, muc in tien_thua.items():
+                for d in muc["dong"]:
+                    d["luot_ngay"] = ngay_luot.get(vid)
             ton = await self._viec_ton(
                 conn,
                 identity.clinic_id,
                 doc_co_so(location),
                 loai if loai in ("thuoc", "dich_vu") else None,
+            )
+            # Cơ sở đã ngừng KHÔNG tính vào việc tồn khi không chọn cơ sở — màn
+            # ghi một dòng trung tính để không ai tưởng mất số.
+            ngung = (
+                await doc_co_so_ngung(conn, identity.clinic_id)
+                if doc_co_so(location) is None
+                else []
             )
         return {
             "tu": a.isoformat(),
@@ -311,6 +349,7 @@ class DanhSachHoaDonService:
             "access": access,
             "ca": ca,
             "co_so": location,
+            "co_so_ngung": ngung,
             **gom_hoa_don(
                 rows,
                 refunds,
@@ -319,6 +358,8 @@ class DanhSachHoaDonService:
                 tim=tim,
                 trang_thai=trang_thai,
                 can_kiem_tra=can_kiem_tra,
+                nhom=nhom,
+                hinh_thuc=hinh_thuc,
                 doi_hinh_thuc=doi_ht,
                 tien_thua=tien_thua,
                 viec_ton=ton,
@@ -329,17 +370,68 @@ class DanhSachHoaDonService:
     async def _viec_ton(
         conn: asyncpg.Connection, clinic_id: str, co_so: str | None, loai: str | None
     ) -> list[dict[str, Any]]:
-        """Việc còn tồn của mọi ngày: hoàn đang chờ, CK chưa về, ghi nợ chưa
-        thu, tiền thừa chưa trả. Quầy / CSKH xử lý bằng nút có sẵn thì tự hết."""
-        args = (clinic_id, co_so, loai)
-        hoan = [dict(r) for r in await conn.fetch(_TON_HOAN, *args)]
-        ck = [dict(r) for r in await conn.fetch(_TON_CK, *args)]
-        no = [dict(r) for r in await conn.fetch(_TON_NO, *args)]
-        luot = {r["visit_id"]: dict(r) for r in await conn.fetch(_TON_THUA_LUOT, *args)}
-        thua = await tien_thua_cua_luot(conn, clinic_id, sorted(luot))
-        chua_lam, luot_cl = await _chua_lam(conn, clinic_id, co_so, loai)
-        for k, v in luot_cl.items():
-            luot.setdefault(k, v)
-        return gom_viec_ton(
-            hoan=hoan, ck=ck, no=no, tien_thua=_gop_thua(thua, chua_lam), luot=luot
+        """Việc còn tồn của mọi ngày: hoàn đang chờ, CK chưa về, khách còn nợ,
+        phòng khám còn nợ khách. Quầy / CSKH xử lý bằng nút có sẵn thì tự hết.
+
+        Nợ hai chiều đọc từ SỔ NỢ (14/10/2026) — mọi lượt đã về còn số dư, không
+        hạn ngày, gồm cả nợ không ai bấm "Ghi nợ" (huỷ phiếu sau khi về, bấm Xong
+        muộn…). Phần chuyển khoản đang chờ đã có dòng "CK chưa về" riêng → dòng
+        nợ chỉ còn phần chưa chuyển (không hiện cùng một số hai lần)."""
+        from clinicai.services.so_no_service import (
+            PHAI_THU,
+            PHAI_TRA,
+            THUOC,
+            doc_so_du_mo,
         )
+
+        args = (clinic_id, co_so, loai)
+        hoan = [
+            # Ngày thu gốc (giờ VN) — nút "Xử lý hoàn tiền" mở quầy đúng ngày ấy.
+            {**dict(r), "ngay_thu": _ngay_vn(r["thu_luc"])}
+            for r in await conn.fetch(_TON_HOAN, *args)
+        ]
+        ck = [dict(r) for r in await conn.fetch(_TON_CK, *args)]
+
+        def hop_loai(x: dict[str, Any]) -> bool:
+            if loai is None:
+                return True
+            la_thuoc = x.get("loai") == "prescription"
+            return la_thuoc if loai == "thuoc" else not la_thuoc
+
+        no: list[dict[str, Any]] = []
+        for r in await doc_so_du_mo(conn, clinic_id, PHAI_THU, co_so):
+            # Phần CK đang chờ (đọc hiện tại) đã có dòng "CK chưa về" riêng.
+            con = r["so_du"] - r["dang_cho_ck"]
+            if loai is not None:
+                # Lọc một loại: tỉ lệ theo các khoản của dòng sổ cuối.
+                ds = [x for x in r["chi_tiet"] if x.get("loai") != "CK_CHO"]
+                tong = sum(int(x.get("so_tien") or 0) for x in ds)
+                hop = sum(int(x.get("so_tien") or 0) for x in ds if hop_loai(x))
+                con = con * hop // tong if tong > 0 else 0
+            if con > 0:
+                no.append(
+                    {
+                        **r,
+                        "id": r["cong_no_id"] or r["id"],
+                        "so_tien": con,
+                        "ghi_luc": luc_that(r),
+                        "quay": quay_cua_no(r["chi_tiet"]),
+                    }
+                )
+        tra: dict[str, dict[str, Any]] = {}
+        luot: dict[str, dict[str, Any]] = {}
+        # PHAI_TRA gồm cả thuốc (G4d · R3/T2: đã thu chưa giao, khách trả giữ
+        # lại, dòng đã thu bị đính chính) — lọc một loại thì chỉ giữ khoản của nó.
+        for r in await doc_so_du_mo(conn, clinic_id, PHAI_TRA, co_so):
+            dong = [
+                x
+                for x in r["chi_tiet"]
+                if loai is None or (x.get("loai") == THUOC) == (loai == "thuoc")
+            ]
+            if dong:
+                tra[r["visit_id"]] = {
+                    "tong": sum(int(x.get("so_tien") or 0) for x in dong),
+                    "dong": dong,
+                }
+                luot[r["visit_id"]] = {**r, "luc": luc_that(r)}
+        return gom_viec_ton(hoan=hoan, ck=ck, no=no, tien_thua=tra, luot=luot)

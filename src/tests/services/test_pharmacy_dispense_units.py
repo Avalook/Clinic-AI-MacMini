@@ -51,6 +51,7 @@ def connection(rx_unit: str | None, batch_unit: str | None) -> Any:
                 "quantity_on_hand": Decimal("100"),
                 "unit": batch_unit,
                 "expiry_date": date(2099, 12, 31),
+                "noi_chua": "QUAY",
                 "name_base": "Thuốc thử",
             },
             {"dispensed_qty": Decimal("2"), "dispense_status": "CAP_DU"},

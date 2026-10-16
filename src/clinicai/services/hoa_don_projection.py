@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
+from clinicai.core.clock import CLINIC_TZ
 from clinicai.services.quay_thu_service import ma_phieu
 
 
@@ -92,12 +93,25 @@ def _su_kien(
                 "sau_giay": giay,
             }
         )
+    if row.get("status") == "CANCELLED":
+        ev.append(
+            {
+                "luc": _iso(row.get("closed_at")),
+                "loai": "HUY_CHO_CK",
+                "nguoi": row.get("nguoi_huy"),
+                "mo_ta": "Huỷ lần chờ chuyển khoản — chưa ghi thu",
+                "ly_do": row.get("close_reason"),
+                "so_tien": 0,
+            }
+        )
     return sorted(ev, key=lambda e: e["luc"] or "9999")
 
 
 def _state(status: Any, amount: int, returned: int, pending: int) -> str:
     if status == "VOIDED":
         return "DA_HUY"
+    if status == "CANCELLED":
+        return "CK_DA_HUY"
     if pending:
         return "CHO_HOAN"
     if returned > 0 and returned >= amount:
@@ -166,6 +180,9 @@ def _bill(
     amount = int(row["amount"])
     completed = sum(r["so_tien"] for r in rs if r["trang_thai"] == "COMPLETED")
     pending = sum(r["so_tien"] for r in rs if r["trang_thai"] == "PENDING")
+    # Lần chờ CK đã huỷ (G4d, R1): hiện để đối chiếu sao kê, KHÔNG phải tiền
+    # đã thu — mọi cột tiền = 0, số tiền lần chờ chỉ để đọc ("so_tien").
+    chua_thu = row["status"] == "CANCELLED"
     return {
         "id": row["id"],
         "ma": ma_phieu(row["id"]),
@@ -175,14 +192,17 @@ def _bill(
         "trang_thai_goc": row["status"],
         "so_tien": amount,
         **_discount(row),
-        "da_thu": amount,
+        **({"tong_truoc_giam": 0, "giam_gia": 0} if chua_thu else {}),
+        "da_thu": 0 if chua_thu else amount,
         "da_hoan": completed,
         "cho_hoan": pending,
         # Phiếu đã huỷ không còn tiền của phòng khám: thu ròng 0 — cùng định
         # nghĩa với báo cáo cuối ngày (thực thu = thu − huỷ − hoàn). Để nguyên
         # số tiền thì tổng thu ròng bị thổi lên đúng bằng tiền phiếu huỷ (staging
         # 12/10: 77.505.000 so với 74.250.000 của báo cáo).
-        "thu_rong": 0 if row["status"] == "VOIDED" else amount - completed,
+        "thu_rong": 0
+        if row["status"] in ("VOIDED", "CANCELLED")
+        else amount - completed,
         "hinh_thuc": row.get("method"),
         "lap_luc": _iso(row.get("created_at")),
         "thu_luc": _iso(row.get("paid_at")),
@@ -192,6 +212,12 @@ def _bill(
         "nguoi_huy": row.get("nguoi_huy"),
         "ly_do_huy": row.get("close_reason"),
         "can_doi_soat": bool(row.get("can_doi_soat")),
+        "doi_soat_ly_do": list(row.get("doi_soat_ly_do") or []),
+        "so_tien_thuc_nhan": (
+            int(row["so_tien_thuc_nhan"])
+            if row.get("so_tien_thuc_nhan") is not None
+            else None
+        ),
         "thu_trong_ky": bool(row.get("trong_ky")),
         "huy_trong_ky": bool(row.get("huy_trong_ky")),
         "dong": [_line(d) for d in my_lines],
@@ -228,6 +254,9 @@ def _customer(
                 else None,
                 "Có khoản hoàn thất bại"
                 if any(r["trang_thai"] == "FAILED" for r in p["hoan"])
+                else None,
+                "Có lần chờ chuyển khoản đã huỷ — đối chiếu sao kê"
+                if p["trang_thai"] == "CK_DA_HUY"
                 else None,
             )
             if message is not None
@@ -284,6 +313,79 @@ def _period(customers: list[dict[str, Any]]) -> dict[str, int]:
     )
 
 
+#: Phiếu "không đúng" (Tuyền 14/10/2026: mọi thứ lệch đường chuẩn thu đủ → làm
+#: đủ → về) — mỗi lý do một mã. Giảm giá có lý do + người giảm là thao tác hợp lệ
+#: → không tính lệch, có bộ lọc riêng.
+TEN_LECH: dict[str, str] = {
+    "HUY": "Huỷ phiếu",
+    "HOAN": "Có trả lại tiền",
+    "DOI_HINH_THUC": "Đổi hình thức thu",
+    "CAN_DOI_SOAT": "Cần đối soát",
+    "HUY_CHO_CK": "Huỷ lần chờ chuyển khoản",
+    "NO_KHACH": "Khách còn nợ",
+    "NO_PHONG_KHAM": "Phòng khám còn nợ khách",
+}
+_VIEC_NO_KHACH = frozenset({"GHI_NO", "CK_CHUA_VE"})
+_VIEC_NO_PHONG_KHAM = frozenset(
+    {"CHUA_TRA_LAI", "CHUA_LAM", "HOAN_CHUA_XONG", "HOAN_THAT_BAI"}
+)
+#: Nhóm lọc của màn (``nhom``); rác = không lọc.
+NHOM_LOC = frozenset(
+    {
+        "dung",
+        "khong_dung",
+        "tra_lai",
+        "giam_gia",
+        "doi_hinh_thuc",
+        "no_khach",
+        "no_phong_kham",
+        "ck_da_huy",
+    }
+)
+
+
+def lech_cua_phieu(
+    bill: Mapping[str, Any], viec_luot: Mapping[str, set[str]]
+) -> list[str]:
+    """Các lý do phiếu lệch đường chuẩn (rỗng = phiếu đúng). Thuần.
+
+    ``viec_luot``: visit_id → các loại việc tồn còn mở của lượt."""
+    viec = viec_luot.get(str(bill.get("visit_id"))) or set()
+    co = {
+        "HUY": bill["trang_thai"] == "DA_HUY",
+        "HOAN": bool(bill["hoan"]),
+        "DOI_HINH_THUC": any(e.get("loai") == "DOI_HINH_THUC" for e in bill["su_kien"]),
+        "CAN_DOI_SOAT": bool(bill["can_doi_soat"]),
+        "HUY_CHO_CK": bill["trang_thai"] == "CK_DA_HUY",
+        "NO_KHACH": bool(viec & _VIEC_NO_KHACH),
+        "NO_PHONG_KHAM": bool(viec & _VIEC_NO_PHONG_KHAM),
+    }
+    return [ma for ma in TEN_LECH if co[ma]]
+
+
+def hop_nhom(bill: Mapping[str, Any], nhom: str | None) -> bool:
+    """Phiếu có thuộc nhóm lọc không. Thuần."""
+    lech = bill["lech"]
+    return {
+        None: True,
+        "dung": not lech,
+        "khong_dung": bool(lech),
+        "tra_lai": "HUY" in lech or "HOAN" in lech,
+        "giam_gia": int(bill.get("giam_gia") or 0) > 0,
+        "doi_hinh_thuc": "DOI_HINH_THUC" in lech,
+        "no_khach": "NO_KHACH" in lech,
+        "no_phong_kham": "NO_PHONG_KHAM" in lech,
+        "ck_da_huy": "HUY_CHO_CK" in lech,
+    }.get(nhom, True)
+
+
+def hop_hinh_thuc(bill: Mapping[str, Any], hinh_thuc: str | None) -> bool:
+    if hinh_thuc not in ("CASH", "TRANSFER"):
+        return True
+    ht = "TRANSFER" if bill.get("hinh_thuc") in ("TRANSFER", "QR") else "CASH"
+    return ht == hinh_thuc
+
+
 def gom_hoa_don(
     receipts: list[dict[str, Any]],
     refunds: list[dict[str, Any]],
@@ -296,18 +398,42 @@ def gom_hoa_don(
     doi_hinh_thuc: Sequence[Mapping[str, Any]] = (),
     tien_thua: Mapping[str, Mapping[str, Any]] | None = None,
     viec_ton: Sequence[Mapping[str, Any]] = (),
+    nhom: str | None = None,
+    hinh_thuc: str | None = None,
 ) -> dict[str, Any]:
     """Group by patient; period movement is separate from bill lifetime.
 
     ``viec_ton`` là danh sách việc còn tồn của MỌI ngày (không theo kỳ) — trả
     nguyên để màn có tab riêng, và gắn vào khách tương ứng. ``trang_thai`` =
     ``CON_VIEC_TON`` lọc theo khách thay vì theo phiếu.
-    """
+
+    ``nhom`` / ``hinh_thuc`` (14/10/2026 — link từ khối Dòng tiền): lọc phiếu.
+    ``tong.dung_khong_dung`` đếm phiếu ĐÚNG / KHÔNG ĐÚNG + số phiếu từng lý do,
+    tính TRƯỚC khi lọc nhóm (để thấy cả hai phía)."""
     loc_phieu = trang_thai if trang_thai in TRANG_THAI_PHIEU else None
+    nhom = nhom if nhom in NHOM_LOC else None
+    viec_luot: dict[str, set[str]] = {}
+    for v in viec_ton:
+        if v.get("visit_id"):
+            viec_luot.setdefault(str(v["visit_id"]), set()).add(str(v["loai"]))
+    so_dung = so_khong_dung = 0
+    ly_do: dict[str, int] = {ma: 0 for ma in TEN_LECH}
     groups: dict[str, dict[str, Any]] = {}
     for row in receipts:
         bill = _bill(row, refunds, lines, refund_lines, doi_hinh_thuc)
         if loc_phieu and loc_phieu != bill["trang_thai"]:
+            continue
+        if not hop_hinh_thuc(bill, hinh_thuc):
+            continue
+        bill["lech"] = lech_cua_phieu(bill, viec_luot)
+        bill["ten_lech"] = [TEN_LECH[ma] for ma in bill["lech"]]
+        if bill["lech"]:
+            so_khong_dung += 1
+        else:
+            so_dung += 1
+        for ma in bill["lech"]:
+            ly_do[ma] += 1
+        if not hop_nhom(bill, nhom):
             continue
         key = row.get("patient_id") or row["id"]
         if key not in groups:
@@ -341,7 +467,15 @@ def gom_hoa_don(
     tong_khach["thu_rong"] = sum(int(g["thu_rong"]) for g in selected)
     tong_khach["so_khach_con_ton"] = sum(bool(g["viec_ton"]) for g in selected)
     return {
-        "tong": {**_period(selected), "so_viec_ton": len(viec_ton)},
+        "tong": {
+            **_period(selected),
+            "so_viec_ton": len(viec_ton),
+            "dung_khong_dung": {
+                "dung": so_dung,
+                "khong_dung": so_khong_dung,
+                "ly_do": ly_do,
+            },
+        },
         "tong_khach": tong_khach,
         "khach": selected,
         "viec_ton": list(viec_ton),
@@ -349,8 +483,106 @@ def gom_hoa_don(
 
 
 TRANG_THAI_PHIEU = frozenset(
-    {"DA_THU", "CHO_HOAN", "HOAN_MOT_PHAN", "HOAN_TOAN_BO", "DA_HUY"}
+    {"DA_THU", "CHO_HOAN", "HOAN_MOT_PHAN", "HOAN_TOAN_BO", "DA_HUY", "CK_DA_HUY"}
 )
+
+
+def _ngay_vn(v: Any) -> str | None:
+    """Ngày (giờ VN, YYYY-MM-DD) của một mốc giờ; không phải giờ → None."""
+    if not isinstance(v, datetime):
+        return None
+    return v.astimezone(CLINIC_TZ).date().isoformat()
+
+
+#: Việc tồn → màn xử lý (G4a nối màn, 14/10/2026). `lego` = quyền màn đích cần
+#: (màn chỉ dùng để ẨN nút — máy chủ vẫn tự kiểm ở mọi lệnh).
+LEGO_QUAY = {"dich_vu": "payment.service.collect", "thuoc": "payment.medicine.collect"}
+LEGO_CHECK_OUT = "reception.checkin.perform"
+
+
+def duong_xu_ly(v: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Đích của nút "Xử lý" cho một dòng việc tồn. Thuần.
+
+    Quầy thu hôm nay đã gom lượt cũ còn việc (nợ, CK chờ, tiền phòng khám nợ
+    khách) nên KHÔNG truyền ngày — chỉ ``?luot=``. Việc chưa có màn xử lý riêng
+    (khách đã về mà chưa làm) trả ``huong_dan`` bằng chữ, không link giả."""
+    loai = str(v.get("loai"))
+    vid = v.get("visit_id")
+    if not vid:
+        return None
+    quay = "thuoc" if v.get("kind") == "thuoc" else "dich_vu"
+    # Đường quầy thu là `/thu-ngan/dich-vu` (gạch NGANG), mã quầy là `dich_vu`.
+    duong = "thuoc" if quay == "thuoc" else "dich-vu"
+    if loai == "GHI_NO":
+        return {
+            "href": f"/thu-ngan/{duong}?luot={vid}",
+            "nhan": "Thu nợ / miễn",
+            "lego": LEGO_QUAY[quay],
+        }
+    if loai == "CK_CHUA_VE":
+        return {
+            "href": f"/thu-ngan/{duong}?luot={vid}",
+            "nhan": "Xác nhận đã nhận tiền",
+            "lego": LEGO_QUAY[quay],
+        }
+    if loai == "CHUA_TRA_LAI":
+        if v.get("luot_con_mo"):
+            return {
+                "href": f"/reception/checkout?luot={vid}",
+                "nhan": "Mở lượt để xử lý",
+                "lego": LEGO_CHECK_OUT,
+            }
+        if quay == "thuoc":
+            # Tiền thuốc đã thu mà chưa giao / khách trả lại: hoàn ở QUẦY THUỐC
+            # (lần thu thuốc nằm trong "Giao dịch" của quầy ấy, lego thu thuốc).
+            return {
+                "href": f"/thu-ngan/thuoc?luot={vid}",
+                "nhan": "Hoàn tiền thuốc",
+                "lego": LEGO_QUAY["thuoc"],
+            }
+        return {
+            "href": f"/thu-ngan/dich-vu?luot={vid}",
+            "nhan": "Hoàn tiền thừa",
+            "lego": LEGO_QUAY["dich_vu"],
+        }
+    if loai == "CHUA_LAM":
+        if v.get("luot_con_mo"):
+            return {
+                "href": f"/reception/checkout?luot={vid}",
+                "nhan": "Đóng lượt / làm tiếp",
+                "lego": LEGO_CHECK_OUT,
+            }
+        return {
+            "huong_dan": (
+                "Mời khách quay lại làm, hoặc đánh dấu “không làm” ở phòng dịch vụ"
+                " để tiền thành tiền thừa rồi hoàn ở quầy thu."
+            ),
+        }
+    if loai in ("HOAN_CHUA_XONG", "HOAN_THAT_BAI"):
+        ngay = v.get("ngay_thu")
+        if not ngay:
+            return None
+        return {
+            "href": f"/thu-ngan/{duong}?ngay={ngay}",
+            "nhan": "Xử lý hoàn tiền",
+            "lego": LEGO_QUAY[quay],
+            "huong_dan": (
+                "Mở tab “Đã thanh toán ngày …”, tìm khách, xác nhận chuyển xong"
+                " (kèm mã giao dịch) hoặc ghi không thành."
+            ),
+        }
+    return None
+
+
+def _mo_ta_chua_lam(ten: Any, luot: Mapping[str, Any]) -> str:
+    """ "Đã thu – khách về chưa làm": nói đúng trạng thái lượt. Sổ coi "đã về" =
+    đã đóng HOẶC tạo trước hôm nay (cố ý, R14) — lượt hôm trước CHƯA đóng vẫn có
+    thể hiện ở "Lượt tồn đọng" của màn Check-out, nên không được viết "đã đóng"."""
+    if isinstance(luot.get("luot_dong_luc"), datetime):
+        return f"{ten} chưa làm — lượt đã đóng, khách đã về"
+    ngay = _ngay_vn(luot.get("luot_tao_luc"))
+    hom = f" ({ngay[8:10]}/{ngay[5:7]})" if ngay else ""
+    return f"{ten} chưa làm — lượt hôm trước{hom} chưa đóng; đóng lượt hoặc làm tiếp"
 
 
 def gom_viec_ton(
@@ -369,17 +601,30 @@ def gom_viec_ton(
     out: list[dict[str, Any]] = []
 
     def them(loai: str, luc: Any, khach: Mapping[str, Any], **x: Any) -> None:
-        out.append(
-            {
-                "loai": loai,
-                "ten_loai": TEN_VIEC_TON[loai],
-                "luc": luc if isinstance(luc, str) or luc is None else _iso(luc),
-                "patient_id": khach.get("patient_id"),
-                "ten": khach.get("ten"),
-                "ma_bn": khach.get("ma_bn"),
-                **x,
-            }
+        # NGÀY THẬT của lượt (không phải giờ dòng sổ) + lượt còn mở từ hôm trước
+        # hay đã đóng — để mô tả đúng và chọn đúng màn xử lý.
+        dong, tao = khach.get("luot_dong_luc"), khach.get("luot_tao_luc")
+        row = {
+            "loai": loai,
+            "ten_loai": TEN_VIEC_TON[loai],
+            "luc": luc if isinstance(luc, str) or luc is None else _iso(luc),
+            "patient_id": khach.get("patient_id"),
+            "ten": khach.get("ten"),
+            "ma_bn": khach.get("ma_bn"),
+            "luot_ngay": _ngay_vn(dong or tao),
+            "luot_con_mo": isinstance(tao, datetime) and not isinstance(dong, datetime),
+            **x,
+        }
+        row["xu_ly"] = duong_xu_ly(row)
+        # Nhóm của dòng cho bộ lọc / link từ báo cáo (máy chủ quyết, màn chỉ lọc).
+        row["nhom_no"] = (
+            "no_khach"
+            if loai in _VIEC_NO_KHACH
+            else "no_phong_kham"
+            if loai in _VIEC_NO_PHONG_KHAM
+            else None
         )
+        out.append(row)
 
     for r in hoan:
         them(
@@ -392,6 +637,8 @@ def gom_viec_ton(
             kind=r.get("kind"),
             mo_ta=r.get("reason"),
             nguoi=r.get("nguoi"),
+            # Ngày thu gốc — nút "Xử lý hoàn tiền" mở quầy đúng ngày ấy.
+            ngay_thu=r.get("ngay_thu"),
         )
     for c in ck:
         them(
@@ -413,7 +660,7 @@ def gom_viec_ton(
             so_tien=int(n["so_tien"]),
             ma=None,
             visit_id=n.get("visit_id"),
-            kind=None,
+            kind=n.get("quay"),
             mo_ta=n.get("ly_do"),
             nguoi=n.get("nguoi"),
         )
@@ -421,6 +668,7 @@ def gom_viec_ton(
         k = luot.get(vid) or {}
         for d in t.get("dong", []):
             chua_lam = d.get("loai") == "CHUA_LAM"
+            thuoc = d.get("loai") == "THUOC"
             them(
                 "CHUA_LAM" if chua_lam else "CHUA_TRA_LAI",
                 k.get("luc"),
@@ -428,10 +676,13 @@ def gom_viec_ton(
                 so_tien=int(d["so_tien"]),
                 ma=None,
                 visit_id=vid,
-                kind="dich_vu",
+                kind="thuoc" if thuoc else "dich_vu",
                 mo_ta=(
-                    f"{d['ten']} chưa làm — lượt đã đóng, khách đã về"
+                    _mo_ta_chua_lam(d["ten"], k)
                     if chua_lam
+                    else f"Thuốc {d['ten']}: đã thu mà chưa giao / khách trả lại"
+                    " — phải trả khách"
+                    if thuoc
                     else f"Bỏ {d['ten']} sau khi đã thu"
                     if d.get("loai") != "KHONG_LAM"
                     else f"Không làm {d['ten']} sau khi đã thu"

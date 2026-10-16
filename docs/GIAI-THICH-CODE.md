@@ -137,6 +137,7 @@ Nguồn: `src/dashboard/lib/roles.ts` (13 mã) + `src/clinicai/api/identity.py`.
 | `NURSE_ULTRASOUND` | Điều dưỡng / Phụ siêu âm | Sinh hiệu, lấy mẫu, thủ thuật, phụ SA | `/lab-queue`, `/service-queue`, `/sono` |
 | `CASHIER` · `CASHIER_THUOC` · `CASHIER_DV` | Thu ngân (chung / thuốc / dịch vụ) | Đối soát, thu tiền, đóng lượt | `/cashier/thuoc`, `/cashier/dich-vu` |
 | `PHARMACIST` | Dược sĩ | Nhà thuốc: soạn, kiểm, tư vấn, bàn giao thuốc; tồn kho | `/pharmacy`, `/pharmacy/inventory` |
+| `ACCOUNTANT` | Kế toán | **Chỉ là nhãn vai** (16/10/2026); quyền là lego `ke_toan` — thiếu lego là 403. Tạo với vai này được cấp sẵn gói mẫu "Kế toán" | `/ke-toan`, `/xuat-hoa-don`, `/hoa-don`, `/reports` |
 | `TRUONG_CA` | Trưởng ca | Toàn cảnh hàng đợi, gỡ nghẽn, duyệt điều phối | `/truong-ca/*` (5 màn) |
 | `MANAGEMENT` | Quản lý | Tài khoản, luật đặt lịch, bảng giá, báo cáo | `/settings`, `/ops`, `/reports` |
 | `DISPLAY` | Màn hình phòng chờ | **Không phải người** — cái TV treo tường | `/display` |
@@ -1141,16 +1142,16 @@ trong **hợp** của các ca, nên phải gộp trước khi hỏi `covers`.
 
 ---
 
-### 4.3. `core/database.py` — bể kết nối asyncpg (87 dòng)
+### 4.3. `core/database.py` — bể kết nối asyncpg
 
 | Hàm / hằng | Giải thích |
 |---|---|
-| `POOL_MIN_SIZE=2`, `POOL_MAX_SIZE=10` | Kích thước bể |
+| `POOL_MIN_SIZE=2`, `POOL_MAX_SIZE=20`, `WORKER_POOL_MAX_SIZE=10` | Kích thước bể. API lấy `POOL_MAX_SIZE` (đặt lại bằng biến môi trường cùng tên, qua `doc_pool_max_size_api()`; ngoài khoảng 2–60 hoặc không phải số → 20); các worker (su-kien, day-tep…) giữ 10. Nâng 10→20 ngày 14/10/2026; ngân sách kết nối Postgres ở thân PR. Staging ghim 10 ở `docker-compose.staging.yml` |
 | `COMMAND_TIMEOUT=15` | Timeout **mỗi truy vấn**, chặn truy vấn chạy hoang giữ chỗ trong bể |
 | `STARTUP_RETRIES=3`, `STARTUP_BACKOFF=2.0` | Thử lại lúc khởi động, backoff tuyến tính `2s, 4s` |
 | `normalize_dsn(dsn)` | Cắt hậu tố `+asyncpg` kiểu SQLAlchemy: `postgresql+asyncpg://` → `postgresql://` |
 | `_normalize_dsn` | Bí danh cũ, giữ cho các chỗ gọi nội bộ đã có |
-| `create_pool()` | Tạo bể từ `DATABASE_URL`, thử lại 3 lần rồi `RuntimeError` để container thoát |
+| `create_pool(max_size=None)` | Tạo bể từ `DATABASE_URL`, thử lại 3 lần rồi `RuntimeError` để container thoát. `max_size=None` = trần worker; API truyền `doc_pool_max_size_api()` |
 | `close_pool(pool)` | Đóng bể lúc shutdown |
 | `get_db_pool(request)` | Dependency FastAPI, `yield request.app.state.db_pool` |
 

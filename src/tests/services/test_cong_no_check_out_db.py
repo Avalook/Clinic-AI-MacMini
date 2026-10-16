@@ -20,7 +20,7 @@ import pytest
 import pytest_asyncio
 
 from clinicai.api.exceptions import ValidationError
-from clinicai.events.catalogue import CONG_NO
+from clinicai.events.catalogue import CONG_NO, SO_NO
 from clinicai.services.bao_cao_cuoi_ngay_service import BaoCaoCuoiNgayService
 from clinicai.services.checkout_service import CheckoutService
 from clinicai.services.cong_no_service import CongNoService, doc_khach_con_no
@@ -181,7 +181,9 @@ async def test_ghi_no_thi_qua_co_ban_ghi_bao_cao_dem_thu_sau_la_da_thu(
         == r["id"]
     )
 
-    # Báo cáo cuối ngày + trang chủ quản lý đếm khách còn nợ.
+    # Báo cáo cuối ngày + trang chủ quản lý đếm khách còn nợ (đọc SỔ NỢ, ghi
+    # khi bên nhận chạy — worker thật chạy ngay sau check-out).
+    await chay_ben_nhan(pool, SO_NO)
     async with pool.acquire() as conn:
         tong = await doc_khach_con_no(conn, CLINIC)
     assert tong["so_tien"] >= 300000 and tong["so_khach"] >= 1
@@ -195,7 +197,7 @@ async def test_ghi_no_thi_qua_co_ban_ghi_bao_cao_dem_thu_sau_la_da_thu(
 
     # Hôm sau khách quay lại trả ở quầy → bên nhận cong_no: ĐÃ THU.
     await _thu(pool, visit, ca.thu_ngan)
-    await chay_ben_nhan(pool, CONG_NO)
+    await chay_ben_nhan(pool, CONG_NO, SO_NO)
     r2 = await pool.fetchrow(
         "SELECT trang_thai, thu_luc FROM cong_no WHERE id = $1::uuid", r["id"]
     )

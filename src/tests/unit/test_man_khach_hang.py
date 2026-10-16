@@ -60,9 +60,24 @@ class TestKhoaPhongKham:
     def test_moi_cau_sql_deu_khoa_clinic_id(self) -> None:
         nguon = inspect.getsource(ManKhachHangService.goi_du_lieu)
         cau = re.findall(r'"""\s*(SELECT[\s\S]*?)"""', nguon)
-        assert len(cau) == 10, f"phải đúng 10 câu, thấy {len(cau)}"
+        # 10 khối cũ + câu gộp phản hồi thuốc theo khách (16/10/2026).
+        assert len(cau) == 11, f"phải đúng 11 câu, thấy {len(cau)}"
         for c in cau:
             assert "clinic_id = $1::uuid" in c, f"câu thiếu khoá phòng khám:\n{c[:90]}"
+
+    def test_doc_v_viec_cskh_dung_mot_lan_khong_doc_v_trang_thai_cskh(self) -> None:
+        """16/10/2026: `v_viec_cskh` gọi `lich_vuot_suc_chua()` (~225ms/lần trên DB
+        lớn). Đọc nó (hoặc `v_trang_thai_cskh`, vốn đọc nó hai lần) nhiều lần trong
+        một request là cái đã làm màn này 1,2s. Trạng thái suy từ MỘT lần đọc."""
+        nguon = inspect.getsource(ManKhachHangService.goi_du_lieu)
+        cau = re.findall(r'"""\s*(SELECT[\s\S]*?)"""', nguon)
+        doc_viec = [c for c in cau if re.search(r"\bv_viec_cskh\b", c)]
+        assert len(doc_viec) == 1, (
+            f"v_viec_cskh phải đúng một câu, thấy {len(doc_viec)}"
+        )
+        assert not any("v_trang_thai_cskh" in c for c in cau), (
+            "không đọc v_trang_thai_cskh trong request này — dùng trang_thai_tu_viec"
+        )
 
     def test_ids_di_bang_tham_so_khong_noi_chuoi(self) -> None:
         """Nối chuỗi ids vào SQL là mở cửa SQL injection — dù caller là máy
@@ -83,6 +98,8 @@ class _Conn:
 
     async def fetch(self, sql: str, *args: object) -> list[dict[str, Any]]:
         self.cac_cau.append(sql)
+        if "'PHAN_HOI_THUOC'" in sql:  # câu gộp riêng, cùng bảng với sổ tương tác
+            return self._tra_loi.get("phan_hoi_thuoc", [])
         bang_chinh = re.search(r"FROM (\w+)", sql)
         for bang, dong in self._tra_loi.items():
             if bang_chinh and bang_chinh.group(1) == bang:
@@ -153,8 +170,9 @@ async def test_muoi_cau_chay_tren_mot_ket_noi() -> None:
     người mở màn cùng lúc mà mỗi người giữ mười kết nối là chết cả api."""
     conn = _Conn({})
     await ManKhachHangService(_Pool(conn)).goi_du_lieu(clinic_id=CLINIC, ids=["p1"])
-    # 10 khối + 1 câu nhãn đếm lượt (services/nhan_luot.py, 08/10/2026).
-    assert len(conn.cac_cau) == 11, "đúng mười một câu, cùng một kết nối"
+    # 10 khối + câu gộp phản hồi thuốc (16/10/2026) + 1 câu nhãn đếm lượt
+    # (services/nhan_luot.py, 08/10/2026).
+    assert len(conn.cac_cau) == 12, "đúng mười hai câu, cùng một kết nối"
 
 
 # ── Endpoint: chặn đầu vào xấu ─────────────────────────────────────────────
@@ -190,3 +208,64 @@ async def test_id_khong_phai_uuid_thi_tu_choi() -> None:
             identity=_ai(),
             pool=None,
         )
+
+
+class TestPhanHoiThuocCot:
+    """Cột "Phản hồi thuốc" của bảng khách (16/10/2026) — phần thuần."""
+
+    def test_rut_gon_gop_dong_cat_va_them_dau_cham(self) -> None:
+        assert mkh.rut_gon("  Ổn \n\n  hơn  nhiều ") == "Ổn hơn nhiều"
+        dai = "a" * 100
+        ra = mkh.rut_gon(dai)
+        assert ra is not None and len(ra) == 40 and ra.endswith("…")
+        assert mkh.rut_gon("x" * 40) == "x" * 40, "đúng 40 ký tự thì không cắt"
+
+    def test_rut_gon_dau_vao_rac_tra_rong_khong_nem(self) -> None:
+        rac_cac_kieu: list[Any] = [None, "", "   \n ", 5, [], {}, b"abc"]
+        for rac in rac_cac_kieu:
+            assert mkh.rut_gon(rac) is None
+        # Giới hạn rác → mặc định, không ném.
+        for toi_da in (0, -3, 1, None, "9", True):
+            ra = mkh.rut_gon("b" * 100, toi_da)  # type: ignore[arg-type]
+            assert ra is not None and len(ra) == 40
+
+    def test_tom_tat_hinh_dang_va_dong_rac(self) -> None:
+        import datetime as dt
+
+        luc = dt.datetime(2026, 10, 14, 9, 30, tzinfo=dt.UTC)
+        ra = mkh.tom_tat_phan_hoi_thuoc(
+            [
+                {
+                    "clinic_patient_id": uuid4(),
+                    "xay_ra_luc": luc,
+                    "kenh": "GOI",
+                    "noi_dung": "Đỡ nhiều",
+                    "so_phan_hoi": 3,
+                },
+                {
+                    "clinic_patient_id": "p2",
+                    "xay_ra_luc": None,
+                    "kenh": "ZALO",
+                    "noi_dung": None,
+                    "so_phan_hoi": 1,
+                },
+            ]
+        )
+        assert ra[0]["so_phan_hoi"] == 3 and ra[0]["luc"] == luc.isoformat()
+        assert ra[0]["tom_tat"] == "Đỡ nhiều" and ra[0]["noi_dung"] == "Đỡ nhiều"
+        assert isinstance(ra[0]["clinic_patient_id"], str)
+        assert ra[1]["luc"] is None and ra[1]["tom_tat"] is None
+        assert ra[1]["noi_dung"] is None
+        assert mkh.tom_tat_phan_hoi_thuoc([]) == []
+
+    def test_cau_gop_co_dinh_so_cau_khong_theo_so_khach(self) -> None:
+        """Một câu gộp theo khách (không N+1): đúng MỘT câu đọc PHAN_HOI_THUOC,
+        chạy bằng `ANY($2::uuid[])` chứ không lặp theo khách."""
+        nguon = inspect.getsource(ManKhachHangService.goi_du_lieu)
+        cau = [
+            c
+            for c in re.findall(r'"""\s*(SELECT[\s\S]*?)"""', nguon)
+            if "'PHAN_HOI_THUOC'" in c
+        ]
+        assert len(cau) == 1
+        assert "ANY($2::uuid[])" in cau[0] and "huy_luc IS NULL" in cau[0]

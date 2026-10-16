@@ -44,11 +44,13 @@ from clinicai.permissions.can import can
 from clinicai.services.anh_chuyen_khoan_service import anh_cua_cac_lan_thu
 from clinicai.services.cashier_scope_service import visible_refunds
 from clinicai.services.chot_0d import da_chot_0d, doc_chot_0d
+from clinicai.services.co_so_bao_cao import sql_cua_co_so_ngung
 from clinicai.services.doi_hinh_thuc_service import trang_thai_doi
+from clinicai.services.hoa_don_cong_ty_service import cong_ty_cua_khach
 from clinicai.services.hoan_tac_service import tien_thua_cua_luot
 from clinicai.services.hoan_tien_service import hoan_cua_cac_lan_thu
 from clinicai.services.moc_kham_xong import kham_xong_sql
-from clinicai.services.phan_thu import doc_phan_db
+from clinicai.services.phan_thu import doc_phan_db, so_tien_chuyen_khoan
 from clinicai.services.so_sua_chi_dinh_service import da_bo_cua_cac_luot
 
 if TYPE_CHECKING:
@@ -131,6 +133,18 @@ _CU_CK_CHUA_VE = """EXISTS(SELECT 1 FROM public.payment_cycle pc
                    WHERE pc.clinic_id=old.clinic_id AND pc.visit_id=old.visit_id
                      AND pc.status='PENDING_VERIFICATION')"""
 
+
+def _chua_ngung(visit: str) -> str:
+    """Điều kiện SQL cho vế "lượt CŨ còn việc tồn": không chọn cơ sở ($5 NULL) thì
+    bỏ lượt của cơ sở đã NGỪNG hoạt động (Tuyền 14/10/2026) — chỉ ẩn khỏi hàng chờ,
+    nợ / tiền thừa vẫn nằm trong sổ; chọn đúng cơ sở ngừng ($5) thì vẫn thấy."""
+    return (
+        "($5::uuid IS NOT NULL OR NOT "
+        + sql_cua_co_so_ngung("$1", f"public.co_so_cua_luot($1::uuid, {visit})")
+        + ")"
+    )
+
+
 # Một câu, một vòng mạng. Sáu tập dữ liệu gói trong một JSON.
 _SQL = (
     """
@@ -201,9 +215,39 @@ WITH v AS (
             SELECT n.visit_id FROM public.cong_no n
              WHERE $4::boolean AND n.clinic_id = $1::uuid
                AND n.trang_thai = 'CHUA_THU'
+               AND """
+    + _chua_ngung("n.visit_id")
+    + """
+            UNION ALL
+            -- VIỆC TỒN CỦA MỌI NGÀY (G4a nối màn, 14/10/2026): nút "Xử lý" ở
+            -- /hoa-don mở đúng khách tại đây, nên mọi khoản việc tồn phải có chỗ
+            -- xử lý, không bị cắt bởi hạn ngày của vế "đã về" bên dưới:
+            --  · chuyển khoản CHỜ xác minh bất kể tuổi lượt ("Đã nhận tiền");
+            --  · tiền phòng khám còn nợ khách (sổ nợ, chiều PHAI_TRA còn số dư)
+            --    — khối "Tiền thừa" có nút hoàn.
+            SELECT pc.visit_id FROM public.payment_cycle pc
+             WHERE $4::boolean AND pc.clinic_id = $1::uuid
+               AND pc.status = 'PENDING_VERIFICATION'
+               AND """
+    + _chua_ngung("pc.visit_id")
+    + """
+            UNION ALL
+            SELECT n.visit_id FROM public.so_no n
+             WHERE $4::boolean AND n.clinic_id = $1::uuid
+               AND n.chieu = 'PHAI_TRA' AND n.so_du > 0
+               AND """
+    + _chua_ngung("n.visit_id")
+    + """
+               AND NOT EXISTS (SELECT 1 FROM public.so_no m
+                                WHERE m.clinic_id = n.clinic_id
+                                  AND m.visit_id = n.visit_id
+                                  AND m.chieu = n.chieu AND m.seq > n.seq)
             UNION ALL
             SELECT old.visit_id FROM public.visit old
              WHERE $4::boolean AND old.clinic_id=$1::uuid AND old.created_at<$2
+               AND """
+    + _chua_ngung("old.visit_id")
+    + """
                AND NOT """
     + _LUOT_CU_DA_VE
     + """
@@ -218,6 +262,9 @@ WITH v AS (
             UNION ALL
             (SELECT old.visit_id FROM public.visit old
               WHERE $4::boolean AND old.clinic_id=$1::uuid AND old.created_at<$2
+                AND """
+    + _chua_ngung("old.visit_id")
+    + """
                 AND old.created_at >= $2 - interval '"""
     + str(CU_DA_VE_SO_NGAY)
     + """ days'
@@ -626,6 +673,10 @@ class CashierBoardService:
                 "luc": r["created_at"].isoformat(),
                 # Chia TM + CK của lần chờ (01/10/2026) + ảnh chuyển khoản.
                 "phan": doc_phan_db(r["phan"]),
+                # Số sao kê phải thấy (G4d, R1) — ô "ngân hàng thật nhận" so với nó.
+                "so_tien_chuyen_khoan": so_tien_chuyen_khoan(
+                    doc_phan_db(r["phan"]), r["method"], int(r["amount"])
+                ),
                 "anh_ck": anh_cho.get(r["payment_cycle_id"], []),
             }
             for r in cho_rows
@@ -733,8 +784,16 @@ class CashierBoardService:
                 if want_svc
                 else {}
             )
+            # Công ty trong hồ sơ khách (16/10/2026): quầy hiện ô tick "xuất hoá
+            # đơn về công ty" nếu khách có; tick theo LƯỢT thu, không theo hồ sơ.
+            cong_ty = await cong_ty_cua_khach(
+                conn,
+                identity.clinic_id,
+                [i.get("clinic_patient_id") for i in out["items"]],
+            )
             for item in out["items"]:
                 item["tien_thua"] = thua.get(item["visit_id"])
+                item["cong_ty"] = cong_ty.get(str(item.get("clinic_patient_id")), [])
                 if want_svc:
                     item["da_bo_chi_dinh"] = da_bo.get(item["visit_id"], [])
         if want_svc:

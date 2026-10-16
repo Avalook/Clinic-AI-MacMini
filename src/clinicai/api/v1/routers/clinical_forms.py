@@ -16,6 +16,7 @@ from clinicai.core.database import get_db_pool
 from clinicai.permissions.y_khoa import cua_ghi_y_khoa, cua_y_khoa, ghi_mo_ho_so
 from clinicai.services.andrology_review_service import AndrologyReviewService
 from clinicai.services.clinical_form_service import ClinicalFormService
+from clinicai.services.phan_hoi_thuoc_service import doc_theo_khach
 
 router = APIRouter()
 
@@ -58,11 +59,19 @@ async def read_exam_history(
     identity: StaffIdentity = Depends(_FORM_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Các lượt khám trước của một bệnh nhân — đủ nội dung phiếu, mới nhất trước."""
+    """Các lượt khám trước của một bệnh nhân — đủ nội dung phiếu, mới nhất trước.
+
+    `phan_hoi_thuoc`: phản hồi sau dùng thuốc CSKH ghi, đọc theo KHÁCH (không
+    theo `items` — lượt có đơn mà chưa có phiếu vẫn phải hiện ở Bàn khám)."""
+    async with pool.acquire() as conn:
+        phan_hoi = await doc_theo_khach(
+            conn, identity.clinic_id, str(clinic_patient_id)
+        )
     return {
         "items": await ClinicalFormService(pool).lich_su_kham(
             clinic_patient_id=str(clinic_patient_id), identity=identity
-        )
+        ),
+        "phan_hoi_thuoc": phan_hoi,
     }
 
 
