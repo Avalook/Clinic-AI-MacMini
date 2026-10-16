@@ -123,15 +123,20 @@ interface Phieu {
   thuc_hien_boi: string | null;
 }
 
+/** Cửa phiếu mặc định (nhân sự phòng khám). */
+const DUONG_PHIEU = "/api/phieu";
+
 /** Khoảng lặng trước khi tự lưu. Gõ liên tục thì không bắn từng phím. */
 const CHO_TU_LUU_MS = 1500;
 
 async function goi<T>(
   than: Record<string, unknown>,
   keepalive = false,
+  /** Cửa phiếu: `/api/phieu` (nhân sự) hoặc `/api/doi-tac/phieu` (việc đối tác). */
+  duong: string = DUONG_PHIEU,
 ): Promise<{ ok: true; data: T } | { ok: false; loi: string; status: number }> {
   try {
-    const r = await fetch("/api/phieu", {
+    const r = await fetch(duong, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(than),
@@ -152,7 +157,11 @@ export default function PhieuKetQua({
   nguoiCoThe,
   onHoanTat,
   onCacBen,
+  duong = DUONG_PHIEU,
 }: {
+  /** Cửa lệnh phiếu — `/api/doi-tac/phieu` ở màn đối tác (16/10/2026): cùng
+   *  phiếu, cùng engine, qua cửa đối tác (máy chủ chỉ cho việc đối tác). */
+  duong?: string;
   serviceOrderId: string;
   /** Mẫu kết quả để điền — máy chủ chọn: đã gắn, hoặc mặc định (CHUNG nhập tự do). */
   mau: MauKetQua[];
@@ -220,11 +229,12 @@ export default function PhieuKetQua({
         },
       },
       keepalive,
+      duong,
     );
     if (!kq.ok) return { ok: false, loi: kq.loi, thuLai: nenThuLai(kq.status) } as const;
     revision.current = kq.data.revision;
     return { ok: true } as const;
-  }, []);
+  }, [duong]);
   const tuLuu = useTuLuu({ gui: guiLuu, choMs: CHO_TU_LUU_MS });
   const lamSach = tuLuu.lamSach;
 
@@ -254,10 +264,14 @@ export default function PhieuKetQua({
     // Phiếu điều trị do `PhieuDieuTri` tự mở (cùng phiếu, cùng engine).
     if (!chonMau || chonMau === MAU_PHIEU_DIEU_TRI) return;
     let huy = false;
-    void goi<Phieu>({
-      thao_tac: "mo",
-      du_lieu: { service_order_id: serviceOrderId, form_id: `KQ_${chonMau}` },
-    }).then((kq) => {
+    void goi<Phieu>(
+      {
+        thao_tac: "mo",
+        du_lieu: { service_order_id: serviceOrderId, form_id: `KQ_${chonMau}` },
+      },
+      false,
+      duong,
+    ).then((kq) => {
       if (huy) return;
       if (kq.ok) {
         setLoi(null);
@@ -267,7 +281,7 @@ export default function PhieuKetQua({
     return () => {
       huy = true;
     };
-  }, [chonMau, serviceOrderId, nhan]);
+  }, [chonMau, serviceOrderId, nhan, duong]);
 
   // (Trước đợt 3: hẹn lưu bị XOÁ lúc rời màn — gõ xong đóng khung ngay là mất
   // chữ. Nay `useTuLuu` lưu nốt khi rời màn / đóng tab.)
@@ -308,7 +322,7 @@ export default function PhieuKetQua({
         thuc_hien_boi: nguoiRef.current || null,
         ly_do_sua: lyDoSua.trim() || null,
       },
-    });
+    }, false, duong);
     setDangHoanTat(false);
     if (!kq.ok) {
       setLoiNut(kq.loi);
@@ -344,7 +358,7 @@ export default function PhieuKetQua({
     if (!phieu) return;
     setDangHoanTat(true);
     setLoiNut(null);
-    const kq = await goi<Phieu>({ thao_tac: "mo-sua", phieu_id: phieu.id });
+    const kq = await goi<Phieu>({ thao_tac: "mo-sua", phieu_id: phieu.id }, false, duong);
     setDangHoanTat(false);
     if (!kq.ok) {
       setLoiNut(kq.loi);
@@ -365,7 +379,7 @@ export default function PhieuKetQua({
       phieu_id: phieu.id,
       // Bản nháp là của CHUNG: huỷ bằng số cũ là xoá cái người khác vừa gõ.
       du_lieu: { expected_revision: revision.current },
-    });
+    }, false, duong);
     setDangHoanTat(false);
     if (!kq.ok) {
       setLoiNut(kq.loi);
@@ -374,10 +388,14 @@ export default function PhieuKetQua({
     revision.current = kq.data.revision;
     setLyDoSua("");
     // Quay về bản chính thức — nó chưa từng bị đụng tới.
-    void goi<Phieu>({
-      thao_tac: "mo",
-      du_lieu: { service_order_id: serviceOrderId, form_id: `KQ_${chonMau}` },
-    }).then((r) => {
+    void goi<Phieu>(
+      {
+        thao_tac: "mo",
+        du_lieu: { service_order_id: serviceOrderId, form_id: `KQ_${chonMau}` },
+      },
+      false,
+      duong,
+    ).then((r) => {
       if (r.ok) nhan(r.data);
     });
   };

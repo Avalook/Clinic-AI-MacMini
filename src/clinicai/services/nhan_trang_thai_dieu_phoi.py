@@ -2,8 +2,8 @@
 
 "Màn điều phối của trưởng ca phải có nhãn trạng thái rõ cho từng khách và từng
 dịch vụ, để nhìn là biết, không chuyển bừa": Đang chờ (STT / số người trước,
-phút chờ) · Đã gọi · Đang làm / đang khám (từ HH:MM · N′) · Xong · Chờ kết quả
-đối tác · Khách về.
+phút chờ) · Đã gọi · Đang làm / đang khám (từ HH:MM · N′) · Xong · Đã nhận mẫu ·
+chờ kết quả / Có kết quả (việc đối tác, 16/10/2026) · Khách về.
 
 HÀM THUẦN. Máy chủ quyết trạng thái + mốc giờ (`tu_luc`); màn chỉ vẽ nhãn và
 tính số phút theo đồng hồ của nó. Đầu vào rác / thiếu → vẫn ra một nhãn, không
@@ -79,16 +79,23 @@ def trang_thai_dich_vu(
     lam_tu: Any,
     so_truoc: Any,
     tai_chinh_xong: bool,
+    nhan_mau_luc: Any = None,
 ) -> dict[str, Any]:
-    """Nhãn của MỘT chỉ định trên màn trưởng ca."""
+    """Nhãn của MỘT chỉ định trên màn trưởng ca.
+
+    Việc đối tác (16/10/2026) — CHỈ hai chữ riêng: "Đã nhận mẫu · chờ kết quả"
+    và "Có kết quả"; phòng khám làm xong mà đối tác chưa nhận mẫu là "Xong",
+    chưa vào phòng là "Chờ làm" (chữ chung)."""
     ex, cu = execution_status or "", exec_status or ""
     if ex == "CANCELLED" or cu == "cancelled":
         return _ra(KHONG_LAM, "Đã huỷ")
     if ex == "NOT_PERFORMED" or cu == "not_performed":
         return _ra(KHONG_LAM, "Không làm")
     if ex == "COMPLETED" or cu == "performed":
-        if doi_tac and ket_qua_luc is None:
-            return _ra(CHO_KQ_DOI_TAC, "Chờ kết quả đối tác", xong_luc)
+        if doi_tac and ket_qua_luc is not None:
+            return _ra(XONG, "Có kết quả", xong_luc)
+        if doi_tac and nhan_mau_luc is not None:
+            return _ra(CHO_KQ_DOI_TAC, "Đã nhận mẫu · chờ kết quả", xong_luc)
         return _ra(XONG, "Xong", xong_luc)
     if khach_ve:
         return _ra(KHACH_VE, "Khách về")
@@ -106,7 +113,8 @@ def trang_thai_dich_vu(
     if not tai_chinh_xong:
         return _ra(CHUA_THU, "Chưa thu tiền", cho_dat=True)
     if doi_tac:
-        return _ra(DOI_TAC_LAM, "Đối tác làm")
+        # Chờ ở "Sắp đến" của Phòng đối tác — chữ chung (16/10/2026).
+        return _ra(DOI_TAC_LAM, "Chờ làm")
     return _ra(CHO_XEP, "Chờ xếp phòng", cho_dat=True)
 
 
@@ -135,7 +143,7 @@ def trang_thai_khach(
     if hang == "blocked":
         return _ra(CHO_BUOC_KHAC, "Chờ bước khác")
     if cho_kq_doi_tac:
-        return _ra(CHO_KQ_DOI_TAC, "Chờ kết quả đối tác")
+        return _ra(CHO_KQ_DOI_TAC, "Đã nhận mẫu · chờ kết quả")
     return _ra(CHUA_VAO_HANG, "Chưa vào hàng")
 
 

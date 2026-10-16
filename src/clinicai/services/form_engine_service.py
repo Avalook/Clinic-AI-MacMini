@@ -125,6 +125,47 @@ def la_anh_xem_duoc(loai_tep: str | None, mime: str | None) -> bool:
     return loai_tep == "ANH" and (mime or "") != MIME_DICOM
 
 
+async def doi_quyen_dien(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    *,
+    service_order_id: str | None = None,
+    phieu_id: str | None = None,
+) -> None:
+    """Cửa ĐIỀN phiếu kết quả: quyền `result.form.fill` — hoặc lego Đối tác
+    (`partner.work`) cho đúng VIỆC ĐỐI TÁC (Tuyền 16/10/2026: đối tác "điền
+    phiếu kết quả theo mẫu của loại chỉ định" rồi Trả kết quả).
+
+    Vế sau chỉ mở cho chỉ định của bàn đối tác (`LA_VIEC_DOI_TAC_SQL`) — tài
+    khoản đối tác vẫn không điền được phiếu của chỉ định nào khác. Người có
+    quyền điền thường đi đúng đường cũ, không đọc thêm gì.
+    """
+    if await can(conn, identity, QUYEN_DIEN):
+        return
+    if await can(conn, identity, "partner.work"):
+        from clinicai.services.doi_tac_service import LA_VIEC_DOI_TAC_SQL
+
+        oid = service_order_id
+        if oid is None and phieu_id is not None:
+            oid = await conn.fetchval(
+                "SELECT service_order_id::text FROM form_instance"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                identity.clinic_id,
+                phieu_id,
+            )
+        if oid is not None and await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM service_order o"
+            "  LEFT JOIN node_definition n"
+            "    ON n.clinic_id = o.clinic_id AND n.code = o.node_code"
+            " WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid"
+            "   AND o.exec_status <> 'cancelled' AND " + LA_VIEC_DOI_TAC_SQL + ")",
+            identity.clinic_id,
+            oid,
+        ):
+            return
+    await doi_quyen(conn, identity, QUYEN_DIEN)
+
+
 class FormEngineService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -145,7 +186,7 @@ class FormEngineService:
         hơn: phiếu đang điền dở phải giữ nguyên bản nó bắt đầu.
         """
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(conn, identity, QUYEN_DIEN)
+            await doi_quyen_dien(conn, identity, service_order_id=service_order_id)
 
             co = await conn.fetchrow(
                 "SELECT * FROM form_instance"
@@ -523,7 +564,7 @@ class FormEngineService:
         """Tự lưu. KHÔNG phát sự kiện — nháp không phải sự thật nghiệp vụ."""
         sach = _kiem_du_lieu(du_lieu)
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(conn, identity, QUYEN_DIEN)
+            await doi_quyen_dien(conn, identity, phieu_id=phieu_id)
             dong = await conn.fetchrow(
                 "SELECT i.trang_thai, i.dang_sua, i.revision, i.form_id,"
                 " i.service_order_id::text, o.visit_id::text AS visit_id"
@@ -667,7 +708,7 @@ class FormEngineService:
                 and truoc["trang_thai"] == "READY"
                 and not truoc["dang_sua"]
             ):
-                await doi_quyen(conn, identity, QUYEN_DIEN)
+                await doi_quyen_dien(conn, identity, phieu_id=phieu_id)
             else:
                 truoc = None
         if truoc is not None:
@@ -682,7 +723,7 @@ class FormEngineService:
                 ),
             }
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(conn, identity, QUYEN_DIEN)
+            await doi_quyen_dien(conn, identity, phieu_id=phieu_id)
             dong = await conn.fetchrow(
                 "SELECT i.*, d.khung,"
                 "       (SELECT o.visit_id::text FROM service_order o"
@@ -930,7 +971,7 @@ class FormEngineService:
         — bằng đúng số revision hợp lệ, nên không lớp chống ghi đè nào bắt được.
         """
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(conn, identity, QUYEN_DIEN)
+            await doi_quyen_dien(conn, identity, phieu_id=phieu_id)
             dong = await conn.fetchrow(
                 "SELECT trang_thai, dang_sua, revision FROM form_instance"
                 " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
@@ -1072,7 +1113,7 @@ class FormEngineService:
         lệnh PHÁ HUỶ thì chưa — đúng chỗ cần nó nhất.
         """
         async with self._pool.acquire() as conn, conn.transaction():
-            await doi_quyen(conn, identity, QUYEN_DIEN)
+            await doi_quyen_dien(conn, identity, phieu_id=phieu_id)
             dong = await conn.fetchrow(
                 "SELECT dang_sua, revision, service_order_id::text AS order_id"
                 "  FROM form_instance"

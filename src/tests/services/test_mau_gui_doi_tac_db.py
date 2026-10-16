@@ -363,8 +363,14 @@ async def test_thu_ho_o_phong_thu_thuat_xong_thi_len_ban_doi_tac(
         pool, nv, {"chi_dinh_id": v.order}, _tep(tmp_path, "gpb.pdf")
     )
     assert kq["ok"] is True
+    # 16/10/2026: tải tệp chưa phải trả kết quả — [Trả kết quả] mới "Có kết quả".
+    viec = _tren_ban(await svc.viec_doi_tac(identity=nv), v.order)
+    assert viec is not None and viec["trang_thai"] == "DA_NHAN_MAU"
+    assert viec["tra_ket_qua_duoc"] is True
+    await svc.tra_ket_qua(order_id=v.order, identity=nv)
     viec = _tren_ban(await svc.viec_doi_tac(identity=nv), v.order)
     assert viec is not None and viec["trang_thai"] == "DA_GUI_KET_QUA"
+    assert viec["trang_thai_chu"] == "Có kết quả"
     assert [t["ten"] for t in viec["tep"]] == ["gpb.pdf"]
 
     # NGÀY CŨ: việc từ hôm qua vẫn tìm lại được và gửi bổ sung được.

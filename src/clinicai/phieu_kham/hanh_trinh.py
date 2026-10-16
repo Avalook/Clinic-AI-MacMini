@@ -365,6 +365,20 @@ def dung_moc(
 BO, CHO_THU, CHO_LAM, DANG_LAM, DA_XONG = "BO", "CHO_THU", "CHO_LAM", "DANG_LAM", "XONG"
 
 
+def chu_doi_tac_the(o: dict[str, Any]) -> str | None:
+    """Chữ riêng của một việc đối tác — HÀM THUẦN: "Có kết quả" (đối tác đã trả
+    kết quả) · "Đã nhận mẫu · chờ kết quả" · None (chưa nhận mẫu → chữ chung)."""
+    if not o.get("viec_doi_tac"):
+        return None
+    from clinicai.services.doi_tac_service import CHU_CO_KET_QUA, CHU_DA_NHAN_MAU
+
+    if o.get("ket_qua_luc") is not None:
+        return CHU_CO_KET_QUA
+    if o.get("nhan_mau_luc") is not None:
+        return CHU_DA_NHAN_MAU
+    return None
+
+
 def dung_tung_dich_vu(chi_dinh: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Bảng "Từng dịch vụ" dưới dải mốc (27/09/2026, bản giao diện mẫu).
 
@@ -394,10 +408,14 @@ def dung_tung_dich_vu(chi_dinh: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "lan": o["lan"],
                 "lam_them": o.get("lam_them"),
                 "xong_boi": o.get("xong_boi"),
+                # Phòng đối tác là một PHÒNG như mọi phòng (16/10/2026): tên phòng.
                 "noi": "Đối tác"
-                if o["ngoai"]
+                if o["ngoai"] and not o.get("phong_doi_tac")
                 else (noi_lam(o["phong"], o.get("bac_si_lam")) or "Phòng dịch vụ"),
                 "trang_thai": tt,
+                # Chữ riêng của việc đối tác — CHỈ hai chữ (Tuyền 16/10/2026);
+                # None = dùng chữ chung của trạng thái.
+                "doi_tac_chu": chu_doi_tac_the(o),
                 "gui": o["tao_luc"],
                 "thu": o.get("tra_luc") if o["da_tra"] else None,
                 "bat_dau": o.get("bat_dau_luc"),
@@ -429,6 +447,13 @@ _SQL_CHI_DINH = """
                bl.full_name AS bac_si_lam,
                pf.full_name AS nguoi_lam_xong,
                coalesce(n.lam_ben_ngoai, false) AS ngoai,
+               -- Việc đối tác (bước làm bên ngoài / mẫu gửi đối tác) + phòng
+               -- làm có phải PHÒNG ĐỐI TÁC (16/10/2026).
+               (coalesce(n.lam_ben_ngoai, false) OR EXISTS (
+                    SELECT 1 FROM doi_tac_nhan_viec dnv
+                     WHERE dnv.clinic_id = o.clinic_id
+                       AND dnv.service_order_id = o.id)) AS viec_doi_tac,
+               coalesce(r.la_doi_tac, false) AS phong_doi_tac,
                EXISTS (
                    SELECT 1 FROM payment_bill_line bl
                      JOIN payment_cycle c
@@ -486,29 +511,30 @@ def _chi_dinh(r: asyncpg.Record) -> dict[str, Any]:
         "tao_luc": r["created_at"],
         "chon": r["selection_status"] != "NOT_SELECTED",
         "da_tra": bool(r["da_tra"]),
-        # Việc đối tác: ĐỐI TÁC NHẬN MẪU là xong (Tuyền 29/09/2026) — kết quả
-        # về sau không làm hành trình "chưa xong".
+        # Việc đối tác KHÔNG giữ khách (28/09 + 16/10/2026): phòng khám làm xong
+        # (điều dưỡng lấy mẫu / Phòng đối tác "Đã nhận mẫu") là xong; đối tác
+        # nhận mẫu / trả kết quả về sau chỉ đổi CHỮ ("Đã nhận mẫu · chờ kết
+        # quả" → "Có kết quả"), không làm hành trình "chưa xong".
         "xong": r["ket_qua_luc"] is not None
         or r["nhan_mau_luc"] is not None
-        or (r["execution_status"] == "COMPLETED" and not r["ngoai"]),
+        or r["execution_status"] == "COMPLETED",
         "phong": r["phong"],
         # Bác sĩ quầy chọn trong phòng nhiều bác sĩ (30/09/2026).
         "bac_si_lam": r["bac_si_lam"],
         "ngoai": bool(r["ngoai"]),
+        "viec_doi_tac": bool(r["viec_doi_tac"]),
+        "phong_doi_tac": bool(r["phong_doi_tac"]),
         "tra_luc": r["tra_luc"],
         "bat_dau_luc": r["started_at"],
-        # Đang làm ở phòng; việc đối tác: phòng khám lấy mẫu xong là mẫu
-        # đang ở đối tác (chưa có kết quả thì chưa xong).
-        "dang_lam": r["execution_status"] == "IN_PROGRESS"
-        or (
-            bool(r["ngoai"])
-            and r["execution_status"] == "COMPLETED"
-            and r["nhan_mau_luc"] is None
-            and r["ket_qua_luc"] is None
-        ),
-        # Có kết quả là "xong" với bác sĩ; chưa có (dịch vụ không có phiếu
-        # kết quả) thì giờ làm xong.
-        "xong_luc": r["ket_qua_luc"] or r["nhan_mau_luc"] or r["finished_at"],
+        "dang_lam": r["execution_status"] == "IN_PROGRESS",
+        # Giờ xong: nội bộ — có kết quả là "xong" với bác sĩ, chưa có thì giờ làm
+        # xong; việc đối tác — giờ phòng khám làm xong (kết quả đối tác về hôm
+        # khác không kéo giờ xong của buổi khám).
+        "xong_luc": (r["finished_at"] or r["nhan_mau_luc"] or r["ket_qua_luc"])
+        if r["viec_doi_tac"]
+        else (r["ket_qua_luc"] or r["nhan_mau_luc"] or r["finished_at"]),
+        "nhan_mau_luc": r["nhan_mau_luc"],
+        "ket_qua_luc": r["ket_qua_luc"],
         "doi_tac_thu": bool(r["doi_tac_thu"]),
         "doi_tac_da_thu": bool(r["doi_tac_da_thu"]),
         # Hai trường thô cho khung Hành trình khách (29/09/2026): việc đối tác
