@@ -11,6 +11,10 @@
 //                     + hoàn tác (Trả kết quả / Nhận mẫu).
 //   ThuHoDoiTac     — ô TUỲ CHỌN ghi số tiền đã thu hộ (sổ của khối Đối tác,
 //                     không vào tiền phòng khám); để trống là không ghi gì.
+//                     MỘT quy tắc điền sẵn ở mọi màn: giá > 0 thì điền sẵn giá.
+//   KhoiViecDoiTac  — cả khối "Việc đối tác" (chip + tiến độ + ghi chú + thu
+//                     hộ + [Nhận mẫu] + kết quả) — phòng đối tác và `/doi-tac`
+//                     cùng gọi, khác nhau chỉ ở cờ truyền vào.
 //
 // Không luật nào ở đây: nút nào hiện là cờ máy chủ (`nhan_mau_duoc`,
 // `tra_ket_qua_duoc`…), mọi lệnh đi `/api/doi-tac/*` → `DoiTacService`.
@@ -21,6 +25,7 @@ import { CircleCheck } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import NutHoanTac, { type DuLieuHoanTac, type KetQuaHoanTac } from "@/components/ui/NutHoanTac";
+import { type ThongBao } from "@/components/ui/ThongBaoHoanTac";
 import PhieuKetQua, { type MauKetQua } from "./PhieuKetQua";
 
 export type TrangThaiDoiTac = "CHO_LAY_MAU" | "DA_LAY_MAU" | "DA_NHAN_MAU" | "DA_GUI_KET_QUA";
@@ -65,6 +70,9 @@ export interface ViecDoiTacChung {
   nhan_mau_duoc?: boolean;
   co_noi_dung_ket_qua?: boolean;
   tra_ket_qua_duoc?: boolean;
+  /** Ghi chú đã ghi lúc lấy mẫu / nhận mẫu. */
+  ghi_chu_lay_mau?: string | null;
+  ghi_chu_tai_lieu?: string | null;
 }
 
 const TEN_HINH_THUC: Record<DaThuDoiTac["hinh_thuc"], string> = {
@@ -142,6 +150,7 @@ export function KetQuaDoiTac({
   viec,
   duongPhieu,
   onDoi,
+  onBao,
   moLaiPhong = false,
 }: {
   viec: ViecDoiTacChung;
@@ -149,6 +158,8 @@ export function KetQuaDoiTac({
   duongPhieu: string;
   /** Vừa ghi / hoàn tác — màn tải lại. */
   onDoi: () => void;
+  /** Thông báo kèm Hoàn tác ở cấp màn (`ThongBaoHoanTac`) sau [Trả kết quả]. */
+  onBao?: (tb: ThongBao) => void;
   /** Phòng đối tác: hoàn tác nhận mẫu mở lại cả lần làm của phòng. */
   moLaiPhong?: boolean;
 }) {
@@ -168,8 +179,15 @@ export function KetQuaDoiTac({
       chi_dinh_id: viec.chi_dinh_id,
     });
     setDangGui(false);
-    if (kq.loi) setLoi(kq.loi);
-    else onDoi();
+    if (kq.loi) {
+      setLoi(kq.loi);
+      return;
+    }
+    onBao?.({
+      cau: `Đã trả kết quả ${viec.ten_dich_vu}`,
+      goi: hoanTacDoiTac("huy-tra-ket-qua", viec.chi_dinh_id),
+    });
+    onDoi();
   };
 
   return (
@@ -349,6 +367,126 @@ export function ThuHoDoiTac({ viec, onDoi }: { viec: ViecDoiTacChung; onDoi: () 
         </Button>
       </div>
       {loi ? <p role="alert" className="text-meta text-danger">{loi}</p> : null}
+    </div>
+  );
+}
+
+/** Thanh tiến độ việc đối tác — chỉ tô đoạn ĐÃ TỚI (16/10/2026: bản cũ tô màu
+ *  "bước đang ở" làm "Chờ làm" trông như đã nhận mẫu). */
+export function TienDoDoiTac({ trangThai }: { trangThai: TrangThaiDoiTac }) {
+  const buoc = [
+    { nhan: CHU_DOI_TAC.DA_NHAN_MAU, toi: XONG_DOI_TAC.has(trangThai) },
+    { nhan: CHU_DOI_TAC.DA_GUI_KET_QUA, toi: trangThai === "DA_GUI_KET_QUA" },
+  ];
+  return (
+    <ol className="grid grid-cols-2 gap-1" aria-label="Tiến độ việc đối tác">
+      {buoc.map((b) => (
+        <li key={b.nhan} className="min-w-0">
+          <span className={`block h-1.5 rounded-full ${b.toi ? "bg-success" : "bg-line"}`} />
+          <span
+            className={`mt-1 block truncate text-label ${b.toi ? "font-semibold text-ink" : "text-ink-faint"}`}
+          >
+            {b.nhan}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** [Nhận mẫu] kèm ghi chú tuỳ chọn (24/09/2026: "phải có ghi chú lại chứ"). */
+function NhanMauDoiTac({
+  nhan,
+  dangGui,
+  onBam,
+}: {
+  nhan: string;
+  dangGui: boolean;
+  onBam: (ghiChu: string) => void;
+}) {
+  const [ghiChu, setGhiChu] = useState("");
+  return (
+    <div className="space-y-2">
+      <label className="block">
+        <span className="text-label font-semibold text-ink-muted">Ghi chú nhận mẫu (tuỳ chọn)</span>
+        <textarea
+          value={ghiChu}
+          onChange={(e) => setGhiChu(e.target.value)}
+          rows={2}
+          maxLength={2000}
+          placeholder="VD: nhận mẫu lúc 10h, mẫu đủ; hẹn trả kết quả sau 3 ngày…"
+          className="mt-1 w-full rounded-control border border-line bg-surface px-3 py-2 text-body text-ink"
+        />
+      </label>
+      <div className="flex justify-end">
+        <Button size="lg" variant="primary" disabled={dangGui} onClick={() => onBam(ghiChu)}>
+          <CircleCheck className="size-4" aria-hidden="true" />
+          {dangGui ? "Đang ghi…" : nhan}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** KHỐI "VIỆC ĐỐI TÁC" — MỘT khối cho Phòng đối tác (`/phong/<phòng đối tác>`)
+ *  và bàn `/doi-tac` (Tuyền 16/10/2026: "sửa một chỗ là cả hai đổi"). Chỗ gọi
+ *  chỉ quyết có bày [Nhận mẫu] / phần kết quả ở đây hay không (phòng đã có nút
+ *  chính của lần làm); nút nào bấm được vẫn là cờ máy chủ. */
+export function KhoiViecDoiTac({
+  viec,
+  nhanMau = null,
+  ketQua,
+  duongPhieu,
+  moLaiPhong = false,
+  onDoi,
+  onBao,
+}: {
+  viec: ViecDoiTacChung;
+  /** Bày [Nhận mẫu] ở khối (khi máy chủ cho `nhan_mau_duoc`). null = không. */
+  nhanMau?: { nhan: string; dangGui: boolean; onBam: (ghiChu: string) => void } | null;
+  /** Bày phiếu kết quả + [Trả kết quả] + hoàn tác. */
+  ketQua: boolean;
+  duongPhieu: string;
+  moLaiPhong?: boolean;
+  onDoi: () => void;
+  onBao?: (tb: ThongBao) => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-control border border-line px-3 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-meta font-semibold text-ink">Việc đối tác</p>
+        <ChipDoiTac viec={viec} />
+      </div>
+      <TienDoDoiTac trangThai={viec.trang_thai} />
+      {viec.ghi_chu_lay_mau || viec.ghi_chu_tai_lieu ? (
+        <div className="space-y-0.5 text-meta text-ink-soft">
+          {viec.ghi_chu_lay_mau ? (
+            <p className="whitespace-pre-wrap">Ghi chú lấy mẫu: {viec.ghi_chu_lay_mau}</p>
+          ) : null}
+          {viec.ghi_chu_tai_lieu ? (
+            <p className="whitespace-pre-wrap">Ghi chú nhận mẫu: {viec.ghi_chu_tai_lieu}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {/* `key` theo việc + giá + lần ghi: ô số tiền luôn mở đúng quy tắc điền
+          sẵn (giá > 0), không giữ số của lần vẽ trước. */}
+      {viec.doi_tac_thu ? (
+        <ThuHoDoiTac
+          key={`${viec.chi_dinh_id}:${viec.gia_tham_khao ?? ""}:${viec.da_thu?.id ?? ""}`}
+          viec={viec}
+          onDoi={onDoi}
+        />
+      ) : null}
+      {nhanMau && viec.nhan_mau_duoc ? <NhanMauDoiTac {...nhanMau} /> : null}
+      {ketQua ? (
+        <KetQuaDoiTac
+          viec={viec}
+          duongPhieu={duongPhieu}
+          onDoi={onDoi}
+          onBao={onBao}
+          moLaiPhong={moLaiPhong}
+        />
+      ) : null}
     </div>
   );
 }
