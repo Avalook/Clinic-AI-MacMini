@@ -128,7 +128,8 @@ def test_hd_cong_ty_chi_xuat_thong_tin_cong_ty() -> None:
     assert ct["email"] == "ketoan@hoasen.vn"
     # Không một thông tin cá nhân nào lọt vào hoá đơn công ty.
     assert ct["so_dien_thoai"] == "" and ct["cccd"] == ""
-    assert ct["nguoi_mua"] == ""
+    # Người mua = KHÁCH THẬT, kể cả khi xuất về công ty (Tuyền 16/10).
+    assert ct["nguoi_mua"] == "Nguyễn Thị A"
     blob = repr(ct)
     for rieng_tu in ("0901234567", "001190000001", "12 Kim Ngưu", "ca-nhan@example"):
         assert rieng_tu not in blob
@@ -151,10 +152,11 @@ def test_hd_cong_ty_khong_doi_so_tien() -> None:
         assert (a["tong"], a["dong"]) == (b["tong"], b["dong"])
 
 
-def test_nguoi_mua_dien_tay_thi_ghi() -> None:
+def test_nguoi_mua_luon_la_khach_that_khong_theo_o_cua_cong_ty() -> None:
+    """Ô "người mua" của công ty (cũ) không còn quyết cột F của file."""
     ct = {"p1": {**CONG_TY["p1"], "nguoi_mua": "Trần Văn B"}}
     assert dung_hoa_don(KHACH, {}, THEM_KHACH, None, None, ct)[0]["nguoi_mua"] == (
-        "Trần Văn B"
+        "Nguyễn Thị A"
     )
 
 
@@ -165,18 +167,19 @@ def test_excel_cot_cde_va_hi_trong() -> None:
         "ct": [ws.cell(DONG_DAU, c).value for c in range(3, 10)],
         "cn": [ws.cell(DONG_DAU + 1, c).value for c in range(3, 10)],
     }
-    # C tên cty · D địa chỉ cty · E MST · F người mua trống · G email cty · H/I trống.
+    # C tên cty · D địa chỉ cty · E MST · F khách thật · G email cty · H/I trống.
     assert dong["ct"] == [
         "Công ty TNHH Hoa Sen",
         "99 Trần Duy Hưng, Hà Nội",
         "0123456789",
-        None,
+        "Nguyễn Thị A",
         "ketoan@hoasen.vn",
         None,
         None,
     ]
-    assert dong["cn"][0] == "Nguyễn Thị A" and dong["cn"][5] == "0901234567"
-    assert dong["cn"][6] == "001190000001"
+    # Không xuất về công ty: C TRỐNG, F = khách thật, SĐT/CCCD cá nhân còn nguyên.
+    assert dong["cn"][0] is None and dong["cn"][3] == "Nguyễn Thị A"
+    assert dong["cn"][5] == "0901234567" and dong["cn"][6] == "001190000001"
 
 
 def test_cong_ty_rong_ten_khong_thanh_hd_cong_ty() -> None:

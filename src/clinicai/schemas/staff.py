@@ -26,6 +26,8 @@ class PrimaryDepartment(str, Enum):
     TRUONG_CA = "TRUONG_CA"
     PHARMACIST = "PHARMACIST"
     ACCOUNTANT = "ACCOUNTANT"
+    # Đối tác bên ngoài (lab, chụp phim…) vào làm ở /doi-tac — chỉ thấy màn đó.
+    PARTNER = "PARTNER"
 
 
 class Gender(str, Enum):

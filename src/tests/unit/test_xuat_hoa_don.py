@@ -280,7 +280,8 @@ def test_file_giu_nguyen_mau_va_sua_duoc() -> None:
     ]
     # Hoá đơn 1 có 2 dòng: số thứ tự lặp, thông tin khách chỉ ở dòng đầu.
     ten, dia_chi = "Nguyễn Thị A", "1 Kim Ngưu, Hà Nội"
-    assert rows[0][:5] == ["1", "12/10/2026", ten, dia_chi, None]
+    # C "Tên khách hàng" TRỐNG khi không xuất về công ty; khách thật ở F (16/10).
+    assert rows[0][:5] == ["1", "12/10/2026", None, dia_chi, None]
     assert rows[0][5:10] == [ten, None, "0901", "001", "Chuyển khoản"]
     assert rows[0][10:] == [None, None, "Khám phụ khoa", "Lần", 1, 300000, 300000]
     assert rows[1][0] == "1" and rows[1][2] is None

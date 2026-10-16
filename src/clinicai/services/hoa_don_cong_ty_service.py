@@ -534,6 +534,101 @@ class HoaDonCongTyService:
             )
         return ung
 
+    async def gan_khi_thu(
+        self,
+        *,
+        identity: StaffIdentity,
+        payment_cycle_id: str,
+        khach_cong_ty_id: str,
+    ) -> dict[str, Any]:
+        """Tick "xuất hoá đơn về công ty" ở QUẦY THU (Tuyền 16/10): chép MỘT công ty
+        trong hồ sơ khách vào bản chụp của phiếu vừa thu — THEO LƯỢT, không theo hồ
+        sơ (hồ sơ chỉ giữ danh sách công ty; lượt nào tick mới xuất về công ty).
+
+        Thu ngân chỉ CHỌN công ty đã có trong hồ sơ của đúng khách này — không gõ
+        mới, không sửa (ghi/sửa công ty vẫn là Kế toán + Quản lý, `QUYEN_CONG_TY`).
+        Quyền thu tiền do nơi gọi kiểm (`authorize_payment`). Chạy lại được: phiếu
+        đã có bản chụp (kể cả đã bỏ chọn) thì KHÔNG ghi đè — gửi lại cùng lệnh thu
+        không làm sống lại thứ người khác vừa bỏ ở màn Hoá đơn.
+        """
+        cid = _uuid_hoac_none(payment_cycle_id)
+        kid = _uuid_hoac_none(khach_cong_ty_id)
+        if cid is None or kid is None:
+            raise ValidationError("Mã hoá đơn hoặc mã công ty không hợp lệ.")
+        async with self.pool.acquire() as conn, conn.transaction():
+            ck = await conn.fetchrow(
+                "SELECT v.clinic_patient_id FROM payment_cycle pc JOIN visit v"
+                " ON v.visit_id=pc.visit_id AND v.clinic_id=pc.clinic_id"
+                " WHERE pc.clinic_id=$1::uuid AND pc.payment_cycle_id=$2::uuid"
+                " FOR UPDATE OF pc",
+                identity.clinic_id,
+                cid,
+            )
+            if ck is None:
+                raise ResourceNotFoundError("Không tìm thấy hoá đơn này.")
+            ct = await conn.fetchrow(
+                f"SELECT {_COT_KHACH} FROM public.khach_cong_ty"
+                " WHERE clinic_id=$1::uuid AND id=$2::uuid"
+                " AND clinic_patient_id=$3::uuid AND an_luc IS NULL",
+                identity.clinic_id,
+                kid,
+                ck["clinic_patient_id"],
+            )
+            if ct is None:
+                raise ValidationError(
+                    "Công ty này không có trong hồ sơ của khách (hoặc đã bị ẩn)."
+                )
+            da_co = await conn.fetchval(
+                "SELECT 1 FROM public.hoa_don_cong_ty"
+                " WHERE clinic_id=$1::uuid AND payment_cycle_id=$2::uuid",
+                identity.clinic_id,
+                cid,
+            )
+            if da_co:
+                return {"ok": True, "payment_cycle_id": str(cid), "doi": False}
+            ban = BanGhiCongTy(
+                ten_cong_ty=ct["ten_cong_ty"],
+                dia_chi_cong_ty=ct["dia_chi_cong_ty"],
+                ma_so_thue=ct["ma_so_thue"],
+                email_nhan_hd=ct["email_nhan_hd"],
+                # "Người mua" trên file = khách thật (lấy từ hồ sơ khi xuất), không
+                # chép ô này của công ty nữa.
+                nguoi_mua="",
+            )
+            await conn.execute(
+                "INSERT INTO public.hoa_don_cong_ty(clinic_id, payment_cycle_id,"
+                " ten_cong_ty, dia_chi_cong_ty, ma_so_thue, email_nhan_hd,"
+                " nguoi_mua, khach_cong_ty_id, bo_luc, ghi_boi, ghi_luc)"
+                " VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8::uuid,NULL,"
+                "$9::uuid,now())",
+                identity.clinic_id,
+                cid,
+                ban.ten,
+                ban.dia_chi,
+                ban.mst,
+                ban.email,
+                ban.nguoi_mua,
+                kid,
+                identity.staff_id,
+            )
+            await conn.execute(
+                "UPDATE public.khach_cong_ty SET dung_luc=now()"
+                " WHERE clinic_id=$1::uuid AND id=$2::uuid",
+                identity.clinic_id,
+                kid,
+            )
+            await self._them_lich_su(conn, identity, cid, "ghi", cu=None, moi=ban)
+            await record_event(
+                conn,
+                event_type="hoa_don_cong_ty.ghi",
+                aggregate_type="payment_cycle",
+                aggregate_id=str(cid),
+                identity=identity,
+                origin="api:payments",
+                payload={"hanh_dong": "ghi", "tu": "quay_thu"},
+            )
+        return {"ok": True, "payment_cycle_id": str(cid), "doi": True}
+
     async def bo_hoa_don(
         self, *, identity: StaffIdentity, payment_cycle_id: str
     ) -> dict[str, Any]:
@@ -651,3 +746,27 @@ async def doc_cong_ty_cho_phieu(
         ids,
     )
     return {r["id"]: dict(r) for r in rows}
+
+
+async def cong_ty_cua_khach(
+    conn: asyncpg.Connection, clinic_id: str, patient_ids: Sequence[Any]
+) -> dict[str, list[dict[str, Any]]]:
+    """{clinic_patient_id: [công ty đang dùng được]} — cho quầy thu hiện ô tick
+    "xuất hoá đơn về công ty". Không kiểm quyền (nơi gọi là bảng quầy thu đã qua cổng
+    quyền thu ngân); công ty ẩn không có mặt; dùng gần nhất lên đầu. Id rác → bỏ."""
+    ids = [u for u in (_uuid_hoac_none(x) for x in patient_ids) if u is not None]
+    if not ids:
+        return {}
+    rows = await conn.fetch(
+        "SELECT clinic_patient_id::text pid, id::text id, ten_cong_ty,"
+        " dia_chi_cong_ty, ma_so_thue, email_nhan_hd"
+        " FROM public.khach_cong_ty"
+        " WHERE clinic_id=$1::uuid AND clinic_patient_id=ANY($2::uuid[])"
+        f" AND an_luc IS NULL {_THU_TU_KHACH}",
+        clinic_id,
+        ids,
+    )
+    out: dict[str, list[dict[str, Any]]] = {}
+    for r in rows:
+        out.setdefault(r["pid"], []).append({k: r[k] for k in r.keys() if k != "pid"})
+    return out

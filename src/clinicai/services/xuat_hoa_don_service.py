@@ -243,9 +243,10 @@ def dung_hoa_don(
             )
         if cho_hoan:
             ghi_chu.append(f"Đang chờ hoàn {cho_hoan:,}đ".replace(",", "."))
-        # HĐ công ty (Q15/Q19): đơn vị mua = công ty; CHỈ địa chỉ + email của công
-        # ty — không đưa SĐT / CCCD / địa chỉ / email cá nhân của khách vào file.
-        # Ô "người mua" để trống trừ khi người ghi có điền.
+        # HĐ công ty (Q15, Tuyền 16/10): đơn vị mua = công ty; CHỈ địa chỉ + email
+        # của công ty — không đưa SĐT / CCCD / địa chỉ / email cá nhân của khách vào
+        # file. "Người mua" LUÔN là khách thật (cả hai loại hoá đơn); "Tên khách
+        # hàng" (đơn vị mua) chỉ có khi xuất về công ty — xem `xlsx_misa`.
         la_hd_cong_ty = bool(ct.get("ten_cong_ty"))
         out.append(
             {
@@ -265,9 +266,7 @@ def dung_hoa_don(
                     else kh.get("dia_chi") or ""
                 ),
                 "ma_so_thue": ct.get("ma_so_thue") or "",
-                "nguoi_mua": (
-                    ct.get("nguoi_mua") or "" if la_hd_cong_ty else k.get("ten") or ""
-                ),
+                "nguoi_mua": k.get("ten") or "",
                 "email": (
                     ct.get("email_nhan_hd") or ""
                     if la_hd_cong_ty
@@ -323,7 +322,9 @@ def xlsx_misa(hoa_don: Sequence[Mapping[str, Any]]) -> bytes:
             van_ban = {
                 1: str(hd["stt"]),
                 2: hd["ngay"],
-                3: hd["ten_cong_ty"] if la_ct else hd["ten_khach"],
+                # Không xuất về công ty thì ô "Tên khách hàng" để TRỐNG (khách thật
+                # đã ở "Người mua") — Tuyền 16/10.
+                3: hd["ten_cong_ty"] if la_ct else "",
                 4: hd["dia_chi"],
                 5: hd["ma_so_thue"],
                 6: hd["nguoi_mua"],
