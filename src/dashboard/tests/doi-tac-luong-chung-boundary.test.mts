@@ -11,6 +11,7 @@ import test from "node:test";
 //      chờ nhận"; chỉ hai chữ riêng của đối tác.
 //   3. Phòng đối tác ở /phong: nút cuối "Đã nhận mẫu" gọi CÙNG lệnh với bàn.
 
+import { docLenhDoiTac } from "../lib/lenh-doi-tac.ts";
 import { canSeeNav, canSeeNavGoc, hienTrenThanhBen, vaoDuocMan } from "../lib/roles.ts";
 
 test("đối tác: thanh bên chỉ /doi-tac — không Trang chủ, không Kế toán", () => {
@@ -98,4 +99,26 @@ test("khối đối tác: tiến độ chỉ tô đoạn đã tới; thu hộ m�
   assert.ok(khoi.includes("viec.gia_tham_khao != null && viec.gia_tham_khao > 0"));
   const bang = doc("../app/doi-tac/BangDoiTac.tsx");
   assert.ok(!bang.includes("BUOC"), "thanh tiến độ tự vẽ cũ đã bỏ");
+});
+
+test("lệnh đối tác: Hoàn tác nhận mẫu ở Phòng đối tác chuyển cờ mo_lai_phong sang máy chủ", () => {
+  // Bấm staging 16/10: route bỏ rơi cờ → phòng vẫn "Đã xong" sau Hoàn tác.
+  const id = "7980ecdb-56b4-4b8a-9ca2-f3a08989940e";
+  assert.deepEqual(docLenhDoiTac({ lenh: "huy-nhan-mau", chi_dinh_id: id, mo_lai_phong: true }), {
+    lenh: "huy-nhan-mau",
+    chi_dinh_id: id,
+    du_lieu: { ly_do: null, xac_nhan: false, mo_lai_phong: true },
+  });
+  // Bàn /doi-tac không gửi cờ → false, tài khoản đối tác không mở lại phòng.
+  assert.equal(docLenhDoiTac({ lenh: "huy-nhan-mau", chi_dinh_id: id })?.du_lieu.mo_lai_phong, false);
+  assert.equal(
+    docLenhDoiTac({ lenh: "huy-tra-ket-qua", chi_dinh_id: id, mo_lai_phong: true })?.du_lieu.mo_lai_phong,
+    undefined,
+  );
+  assert.deepEqual(docLenhDoiTac({ lenh: "tra-ket-qua", chi_dinh_id: id, ly_do: "x" })?.du_lieu, {});
+  assert.equal(docLenhDoiTac({ lenh: "xoa", chi_dinh_id: id }), null);
+  assert.equal(docLenhDoiTac({ lenh: "huy-nhan-mau", chi_dinh_id: "../../x" }), null);
+  assert.equal(docLenhDoiTac(null), null);
+  const goi = doc("../app/(dashboard)/phong/[ma]/PhongDichVu.tsx");
+  assert.ok(goi.includes('hoanTacDoiTac("huy-nhan-mau", dong.ref_id, { mo_lai_phong: true })'));
 });
