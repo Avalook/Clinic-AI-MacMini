@@ -183,8 +183,12 @@ class BangLuotKham:
                         cid,
                         ids,
                     )
+                from clinicai.services.service_routing_service import (
+                    PHONG_DOI_TAC_NHAN_SQL,
+                )
+
                 chi_dinh = await conn.fetch(
-                    """
+                    f"""
                     SELECT o.id::text AS id, o.visit_id::text AS visit_id,
                            o.consultation_id::text AS consultation_id,
                            o.service_code, o.service_name, o.node_code, o.exec_status,
@@ -195,6 +199,7 @@ class BangLuotKham:
                            au.full_name AS authorized_by_name,
                            pf.full_name AS performed_by_name,
                            coalesce(nd.lam_ben_ngoai, false) AS doi_tac,
+                           {PHONG_DOI_TAC_NHAN_SQL} AS vao_phong_doi_tac,
                            o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc,
                            o.selection_status, o.execution_status,
                            o.routing_revision,
@@ -484,7 +489,9 @@ class BangLuotKham:
                         selection_status=o.get("selection_status"),
                         execution_status=o.get("execution_status"),
                         exec_status=o["exec_status"],
-                        doi_tac=bool(o["doi_tac"]),
+                        # Phòng đối tác nhận việc này → đổi phòng như phòng
+                        # thường (16/10/2026).
+                        doi_tac=bool(o["doi_tac"]) and not o["vao_phong_doi_tac"],
                     ),
                     # Việc gửi đối tác: không phòng nào của phòng khám xếp được,
                     # màn hình nói trạng thái ĐỐI TÁC thay vì "chờ xếp phòng".

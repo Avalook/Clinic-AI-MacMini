@@ -376,8 +376,10 @@ class XemLuotService:
     async def _dich_vu(
         conn: asyncpg.Connection, cid: str, vid: str, noi_dung: bool
     ) -> list[dict[str, Any]]:
+        from clinicai.services.service_routing_service import PHONG_DOI_TAC_NHAN_SQL
+
         rows = await conn.fetch(
-            """
+            f"""
             SELECT o.id::text AS id, o.service_name, o.node_code, o.exec_status,
                    o.created_at, o.authorized_at, o.assigned_at, o.started_at,
                    o.finished_at, o.ket_qua_luc, o.duyet_luc,
@@ -389,6 +391,7 @@ class XemLuotService:
                    o.selection_status, o.execution_status, o.routing_revision,
                    o.room_id::text AS room_id,
                    coalesce(nd.lam_ben_ngoai, false) AS doi_tac,
+                   {PHONG_DOI_TAC_NHAN_SQL} AS vao_phong_doi_tac,
                    (SELECT count(*) FROM v_tep_ket_qua_hieu_luc t
                      WHERE t.clinic_id = o.clinic_id AND t.service_order_id = o.id)
                                                               AS so_tep,
@@ -446,7 +449,8 @@ class XemLuotService:
                     selection_status=r.get("selection_status"),
                     execution_status=r.get("execution_status"),
                     exec_status=r["exec_status"],
-                    doi_tac=bool(r.get("doi_tac")),
+                    # Phòng đối tác nhận việc này → đổi phòng được (16/10/2026).
+                    doi_tac=bool(r.get("doi_tac")) and not r.get("vao_phong_doi_tac"),
                 ),
                 "so_tep": int(r["so_tep"] or 0),
                 "ly_do_khong_lam": r["not_performed_reason"],

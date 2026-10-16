@@ -183,6 +183,9 @@ _VIEC_SQL = (
                    p.full_name AS ten_khach, p.patient_code AS ma_khach,
                    p.clinic_patient_id::text AS clinic_patient_id,
                    v.appointment_id::text AS appointment_id,
+                   -- Thẻ khách / thẻ dịch vụ CHUNG với phòng dịch vụ (16/10/2026):
+                   -- số check-in, số booking, mã phòng khám.
+                   ap.so_tiep_don, ap.so_booking, sp.ma_kiotviet,
                    o.created_at, o.finished_at, o.ket_qua_luc,
                    o.doi_tac_cho_tai_lieu_luc,
                    nv.ghi_chu_lay_mau, nv.ghi_chu_tai_lieu,
@@ -213,7 +216,8 @@ _VIEC_SQL = (
               LEFT JOIN doi_tac_nhan_viec nv
                 ON nv.clinic_id = o.clinic_id AND nv.service_order_id = o.id
               LEFT JOIN LATERAL (
-                   SELECT s.name, s.doi_tac_lay_mau, s.unit_price, s.billing_owner
+                   SELECT s.name, s.doi_tac_lay_mau, s.unit_price, s.billing_owner,
+                          s.ma_kiotviet
                      FROM service_price s
                     WHERE s.clinic_id = o.clinic_id
                       AND s.service_code = o.service_code AND s.active
@@ -353,6 +357,7 @@ class DoiTacService:
                 {
                     "chi_dinh_id": oid,
                     "ten_dich_vu": r["ten_dich_vu"],
+                    "ma_kiotviet": r["ma_kiotviet"],
                     "appointment_id": r["appointment_id"],
                     "chi_dinh_luc": _iso(r["created_at"]),
                     "trang_thai": tt,
@@ -509,6 +514,9 @@ class DoiTacService:
                     "clinic_patient_id": r["clinic_patient_id"],
                     "ten_khach": r["ten_khach"],
                     "ma_khach": r["ma_khach"],
+                    # Lượt mới nhất của khách (truy vấn lấy mới nhất trước).
+                    "so_tiep_don": r["so_tiep_don"],
+                    "so_booking": r["so_booking"],
                     "cho_tu": None,
                     "viec": [],
                 },

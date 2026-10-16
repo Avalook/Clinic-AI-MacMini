@@ -9,22 +9,36 @@
     và hành trình; hoàn tác được.
 (d) Thu hộ: ô số tiền tuỳ chọn — rỗng = không ghi gì, rác = lỗi rõ; không vào
     `payment_*`.
+(f) Phòng đối tác như MỌI phòng khi xếp (Tuyền 16/10/2026): gợi ý / quầy thu /
+    trưởng ca / đổi phòng / dây H4 đưa việc đối tác làm trọn vào phòng đối tác
+    (phòng không có lịch trực vẫn là ứng viên "đang vận hành"); việc thường KHÔNG
+    vào phòng đối tác dù phòng ấy được gắn dịch vụ thường.
 """
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from clinicai.api.exceptions import ValidationError
+from clinicai.phieu_kham.hanh_trinh import NOI_PHONG_DOI_TAC, doc_hanh_trinh
 from clinicai.services import nhan_tai_phong as ntp
+from clinicai.services import service_routing_service as sr
+from clinicai.services.dispatch_service import DispatchService
 from clinicai.services.doi_tac_service import DoiTacService
 from clinicai.services.luot_kham_service import LuotKhamConflictError
+from clinicai.services.quay_thu_service import PhongQuay
 from clinicai.services.service_execution_service import ServiceExecutionService
 from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
-from tests.services.test_nhan_tai_phong_db import _nhan, bat  # noqa: F401
+from tests.services.test_nhan_tai_phong_db import _chi_o, _nhan, bat  # noqa: F401
 from tests.services.test_service_routing_db import (  # noqa: F401
     RB,
+    _assign,
     _cd,
+    _hang,
+    _loi,
+    _o,
     _phong,
     rb,
 )
@@ -248,3 +262,206 @@ async def test_tai_khoan_doi_tac_chi_dien_phieu_viec_doi_tac(bat: RB) -> None:  
     ] is False
     with pytest.raises(SafetyGateError):
         await DoiTacService(bat.pool).mot_viec(order_id=thuong, identity=dt)
+
+
+# ── (f) Xếp phòng: phòng đối tác như mọi phòng (Tuyền 16/10/2026) ────────────
+
+
+async def _la_doi_tac(b: RB, ids: list[str]) -> set[bool]:
+    return {
+        bool(r["la_doi_tac"])
+        for r in await b.pool.fetch(
+            "SELECT la_doi_tac FROM clinic_room WHERE id = ANY($1::uuid[])", ids
+        )
+    }
+
+
+async def _goi_y(b: RB, oid: str) -> dict[str, Any]:
+    return await b.svc.recommend(order_id=oid, identity=b.truong_ca)
+
+
+async def _hpv(b: RB, phong_dt: str) -> str:
+    """HPV đối tác tự lấy mẫu trên bước KHÔNG làm bên ngoài (như prod) — dịch vụ
+    gắn cả phòng đối tác lẫn phòng thường ("mở hết phòng" 01/10)."""
+    hpv = await _cd(b)
+    await b.pool.execute(
+        "UPDATE service_price SET doi_tac_lay_mau = true WHERE clinic_id = $1::uuid"
+        " AND service_code = (SELECT service_code FROM service_order"
+        " WHERE id = $2::uuid)",
+        CLINIC,
+        hpv,
+    )
+    await _chi_o(b, hpv, phong_dt, b.sa1)
+    return hpv
+
+
+async def test_goi_y_viec_doi_tac_ra_phong_doi_tac_viec_thuong_khong(rb: RB) -> None:  # noqa: F811
+    phong_dt, tron, dd = await _chuan_bi(rb)
+    hpv = await _hpv(rb, phong_dt)
+    # Việc thường được gắn CẢ phòng đối tác (bẫy "mở hết phòng" 01/10).
+    thuong = await _cd(rb)
+    await _chi_o(rb, thuong, phong_dt, rb.sa1)
+
+    for oid in (tron, hpv):
+        g = await _goi_y(rb, oid)
+        assert g["trang_thai"] == sr.GOI_Y_CO_PHONG and g["cau"] is None
+        ids = [c["room_id"] for c in g["candidates"]]
+        assert phong_dt in ids and await _la_doi_tac(rb, ids) == {True}
+        # Phòng đối tác không có lịch trực vẫn "đang vận hành".
+        [dt] = [c for c in g["candidates"] if c["room_id"] == phong_dt]
+        assert "STAFF_ON_SHIFT" in dt["reason_codes"]
+        assert g["che_do"] == sr.CHE_DO_XEP
+    # HPV chỉ gắn (phòng đối tác, SA1): ứng viên duy nhất là phòng đối tác.
+    assert [c["room_id"] for c in (await _goi_y(rb, hpv))["candidates"]] == [phong_dt]
+    for oid in (dd, thuong):
+        ids = [c["room_id"] for c in (await _goi_y(rb, oid))["candidates"]]
+        assert ids and phong_dt not in ids and await _la_doi_tac(rb, ids) == {False}
+
+    # Quầy thu: ô "Phòng làm dịch vụ (khách đã chốt)" có việc đối tác + phòng
+    # chọn được = phòng đối tác; việc thường không có phòng đối tác.
+    async with rb.pool.acquire() as conn:
+        da_tra = await sr.da_tra_cho_vao_phong(conn, CLINIC, [rb.visit_id])
+        pq = PhongQuay(conn, CLINIC)
+        theo = {c["id"]: c for c in da_tra[rb.visit_id]}
+        assert {tron, hpv, dd, thuong} <= set(theo)
+        for oid, mong in ((hpv, True), (thuong, False)):
+            phong = await pq.cua(
+                theo[oid]["node_code"], rb.visit_id, theo[oid]["service_code"]
+            )
+            ids = [p["id"] for p in phong]
+            assert (phong_dt in ids) is mong
+            assert await _la_doi_tac(rb, ids) == {mong}
+    # Trưởng ca: danh sách phòng chuyển sang + nút đổi phòng.
+    td = {
+        c["id"]: c
+        for c in await DispatchService(rb.pool).chi_dinh(
+            clinic_id=CLINIC, visit_id=rb.visit_id
+        )
+    }
+    for oid, mong in ((tron, True), (hpv, True), (dd, False), (thuong, False)):
+        ids = [str(p["id"]) for p in td[oid]["phong_lam_duoc"]]
+        assert (phong_dt in ids) is mong, oid
+    assert td[tron]["doi_phong_duoc"] is True
+
+
+async def test_khong_phong_doi_tac_nao_giu_cau_cu(rb: RB) -> None:  # noqa: F811
+    phong_dt, tron, _dd = await _chuan_bi(rb)
+    # Tắt MỌI phòng đối tác của phòng khám trong giao dịch thử rồi trả lại.
+    cu = await rb.pool.fetch(
+        "SELECT id::text AS id FROM clinic_room WHERE clinic_id = $1::uuid"
+        " AND la_doi_tac AND is_active",
+        CLINIC,
+    )
+    ids = [r["id"] for r in cu]
+    await rb.pool.execute(
+        "UPDATE clinic_room SET is_active = false WHERE id = ANY($1::uuid[])", ids
+    )
+    try:
+        g = await _goi_y(rb, tron)
+        assert g["trang_thai"] == sr.GOI_Y_DOI_TAC_LAM
+        assert g["cau"] == sr.CAU_DOI_TAC_LAM and g["candidates"] == []
+        async with rb.pool.acquire() as conn:
+            da_tra = await sr.da_tra_cho_vao_phong(conn, CLINIC, [rb.visit_id])
+        assert tron not in {c["id"] for c in da_tra.get(rb.visit_id, [])}
+    finally:
+        await rb.pool.execute(
+            "UPDATE clinic_room SET is_active = true WHERE id = ANY($1::uuid[])", ids
+        )
+    assert phong_dt in ids
+
+
+async def test_xep_tay_vao_phong_doi_tac_va_tu_choi_sai_loai(rb: RB) -> None:  # noqa: F811
+    phong_dt, tron, dd = await _chuan_bi(rb)
+    thuong = await _cd(rb)
+    await _chi_o(rb, thuong, phong_dt, rb.sa1)
+    # Việc đối tác vào phòng thường: từ chối, câu nói đúng lý do.
+    e = await _loi(_assign(rb, tron, rb.khac_node, 0), "SERVICE_PARTNER_PERFORMED")
+    assert sr.CAU_VIEC_DOI_TAC_CHI_PHONG_DOI_TAC in str(e)
+    # Việc phòng khám làm vào phòng đối tác (kể cả khi phòng ấy được gắn dịch vụ).
+    for oid in (dd, thuong):
+        await _loi(_assign(rb, oid, phong_dt, 0), "PHONG_DOI_TAC_KHONG_LAM")
+    # Xếp tay (trưởng ca / quầy) việc đối tác vào phòng đối tác: được.
+    kq = await _assign(rb, tron, phong_dt, 0)
+    assert kq["changed"] is True
+    o = await _o(rb, tron)
+    assert (o["routing_status"], o["room_id"]) == ("ASSIGNED", phong_dt)
+    [h] = [h for h in await _hang(rb, tron) if h["status"] == "waiting"]
+    assert h["room_id"] == phong_dt
+    # Quầy đặt phòng dự kiến / đổi phòng cùng luật.
+    with pytest.raises(LuotKhamConflictError) as loi:
+        await rb.svc.dat_phong_du_kien(
+            order_id=thuong, room_id=phong_dt, identity=rb.truong_ca, nguon="truong_ca"
+        )
+    assert loi.value.error_code == "PHONG_DOI_TAC_KHONG_LAM"
+
+
+async def test_h4_tu_xep_hpv_vao_phong_doi_tac_di_tron_luong(rb: RB) -> None:  # noqa: F811
+    """Kê HPV (đối tác tự lấy mẫu) → khách chốt / thu (dây H4) → TỰ XẾP vào phòng
+    đối tác, có chỗ "đang chờ" → Bắt đầu → Đã nhận mẫu → khách rời hàng.
+    Mọi màn đọc hàng chờ thấy phòng đối tác như phòng thường."""
+    phong_dt, _tron, _dd = await _chuan_bi(rb)
+    hpv = await _hpv(rb, phong_dt)
+    async with rb.pool.acquire() as conn:
+        # Bàn khám "Từng dịch vụ" TRƯỚC khi xếp: LÀM Ở = Phòng đối tác.
+        ht = await doc_hanh_trinh(conn, clinic_id=CLINIC, visit_id=rb.visit_id)
+        assert ht is not None
+        [dong] = [d for d in ht["tung_dich_vu"] if d["id"] == hpv]
+        assert dong["noi"] == NOI_PHONG_DOI_TAC
+        xep = await rb.svc.tu_xep_da_thu(
+            conn,
+            clinic_id=CLINIC,
+            visit_id=rb.visit_id,
+            staff_id=rb.truong_ca.staff_id,
+            causation_id=rb.visit_id,
+        )
+    assert hpv in xep
+    o = await _o(rb, hpv)
+    assert (o["routing_status"], o["room_id"]) == ("ASSIGNED", phong_dt)
+    [h] = [h for h in await _hang(rb, hpv) if h["status"] == "waiting"]
+    assert h["room_id"] == phong_dt
+    ten = await rb.pool.fetchval(
+        "SELECT name FROM clinic_room WHERE id = $1::uuid", phong_dt
+    )
+    async with rb.pool.acquire() as conn:
+        # Bàn khám: LÀM Ở = tên phòng đối tác; sơ đồ /phong: thẻ phòng đối tác
+        # đếm "đang chờ".
+        ht = await doc_hanh_trinh(conn, clinic_id=CLINIC, visit_id=rb.visit_id)
+        assert ht is not None
+        [dong] = [d for d in ht["tung_dich_vu"] if d["id"] == hpv]
+        assert dong["noi"] == ten
+        dem = await ntp.dem_theo_phong(conn, CLINIC, bat=False)
+        assert (dem.get(phong_dt) or {}).get("dang_cho") == 1
+    # Trưởng ca thấy việc ở phòng đối tác.
+    [td] = [
+        c
+        for c in await DispatchService(rb.pool).chi_dinh(
+            clinic_id=CLINIC, visit_id=rb.visit_id
+        )
+        if c["id"] == hpv
+    ]
+    assert td["room_id"] == phong_dt and td["work_status"] == "waiting"
+
+    don = await rb.pool.fetchrow(
+        "SELECT execution_revision, routing_revision FROM service_order"
+        " WHERE id = $1::uuid",
+        hpv,
+    )
+    await ServiceExecutionService(rb.pool).bat_dau(
+        order_id=hpv,
+        expected_execution_revision=int(don["execution_revision"]),
+        expected_routing_revision=int(don["routing_revision"]),
+        identity=rb.truong_ca,
+    )
+    assert [h["status"] for h in await _hang(rb, hpv)][-1] == "serving"
+    nhan = await DoiTacService(rb.pool).doi_tac_cho_tai_lieu(
+        order_id=hpv, identity=rb.truong_ca, ghi_chu="mẫu đủ"
+    )
+    assert nhan["ok"] is True
+    assert not [
+        h
+        for h in await _hang(rb, hpv)
+        if h["status"] not in ("done", "left", "cancelled")
+    ], "khách rời hàng phòng đối tác"
+    # Bàn /doi-tac vẫn thấy việc (chờ kết quả).
+    viec = await DoiTacService(rb.pool).mot_viec(order_id=hpv, identity=rb.truong_ca)
+    assert viec["trang_thai"] == "DA_NHAN_MAU"

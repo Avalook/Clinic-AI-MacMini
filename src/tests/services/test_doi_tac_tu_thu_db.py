@@ -335,15 +335,23 @@ async def test_ghi_nhan_va_huy_da_thu(pool: asyncpg.Pool) -> None:
     dt = await _nguoi_vai(q, "PARTNER")
     svc = DoiTacService(pool)
 
-    viec = [
-        v
-        for k in (await svc.viec_doi_tac(identity=dt))["khach"]
-        for v in k["viec"]
-        if v["chi_dinh_id"] == oid
-    ][0]
+    ds = (await svc.viec_doi_tac(identity=dt))["khach"]
+    khach = next(k for k in ds if any(v["chi_dinh_id"] == oid for v in k["viec"]))
+    viec = next(v for v in khach["viec"] if v["chi_dinh_id"] == oid)
     assert viec["doi_tac_thu"] is True
     assert viec["gia_tham_khao"] == 900_000
     assert viec["da_thu"] is None
+    # Thẻ khách / thẻ dịch vụ chung với phòng (16/10/2026): số check-in, số
+    # booking của lượt + mã phòng khám của dịch vụ.
+    so = await pool.fetchrow(
+        "SELECT ap.so_tiep_don, ap.so_booking FROM visit v"
+        " LEFT JOIN appointment ap ON ap.id = v.appointment_id"
+        " WHERE v.visit_id = $1::uuid",
+        q.visit_id,
+    )
+    assert khach["so_tiep_don"] == so["so_tiep_don"]
+    assert khach["so_booking"] == so["so_booking"]
+    assert "ma_kiotviet" in viec
 
     with pytest.raises(ValidationError):
         await svc.ghi_nhan_da_thu(

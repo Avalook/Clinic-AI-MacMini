@@ -419,10 +419,10 @@ async def cho_khach_quyet(
                 "bac_si_lam_id": r["bac_si_lam_id"],
                 "doi_tac": bool(r["doi_tac"]),
                 "doi_tac_thu": bool(r["doi_tac_thu"]),
-                # Dịch vụ đối tác (27/09/2026): vẫn chọn phòng LẤY MẪU của phòng
-                # khám nếu có (Lấy mẫu, Phòng thủ thuật); phòng đối tác không nằm
-                # trong tập (eligible_rooms bỏ `la_doi_tac`) → chụp phim ngoài
-                # không có ô chọn phòng. Máy chủ quyết, màn chỉ đọc danh sách.
+                # Dịch vụ đối tác: mẫu điều dưỡng lấy chọn phòng LẤY MẪU của
+                # phòng khám; việc đối tác làm trọn chỉ chọn PHÒNG ĐỐI TÁC
+                # (eligible_rooms ghép theo loại việc, 16/10/2026) — không có
+                # phòng đối tác thì không có ô chọn phòng. Máy chủ quyết.
                 "phong_chon_duoc": phong,
                 "can_xep_phong": bool(phong),
                 # Dây Nhận tại phòng BẬT: chọn phòng = hướng dẫn (07/10/2026).

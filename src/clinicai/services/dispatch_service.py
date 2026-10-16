@@ -33,8 +33,10 @@ from clinicai.services.nhan_trang_thai_dieu_phoi import (
     trang_thai_khach,
 )
 from clinicai.services.service_routing_service import (
+    DOI_TAC_LAM_TRON_SQL,
     NGUON_TAI_PHONG,
     NGUON_TU_NGUOI,
+    PHONG_DOI_TAC_NHAN_SQL,
 )
 
 logger = structlog.get_logger()
@@ -385,7 +387,8 @@ class DispatchService:
                     selection_status=r["selection_status"],
                     execution_status=r["execution_status"],
                     exec_status=r["exec_status"],
-                    doi_tac=bool(r["doi_tac"]),
+                    # Phòng đối tác nhận việc này → đổi phòng được (16/10/2026).
+                    doi_tac=bool(r["doi_tac"]) and not r["vao_phong_doi_tac"],
                 ),
             }
             for r in rows
@@ -1058,12 +1061,13 @@ async def _buoc_theo_chi_dinh(
 #: Trạng thái chỉ định đã XONG — không còn là việc phải xếp phòng nữa.
 _CHI_DINH_XONG: tuple[str, ...] = ("performed", "not_performed", "cancelled")
 
-_CHI_DINH_SQL = """
+_CHI_DINH_SQL = f"""
 SELECT o.id::text,
        o.service_code, o.service_name, o.node_code, o.exec_status, o.version,
        o.selection_status, o.execution_status, o.routing_revision,
        n.name AS node_name,
        coalesce(n.lam_ben_ngoai, false) AS doi_tac,
+       {PHONG_DOI_TAC_NHAN_SQL} AS vao_phong_doi_tac,
        o.room_id::text AS room_id, r.name AS room_name, r.floor AS room_floor,
        q.status AS work_status,
        -- NHÃN TRẠNG THÁI (Tuyền 29/09/2026): mốc giờ + vị trí trong hàng.
@@ -1102,7 +1106,9 @@ SELECT o.id::text,
           LEFT JOIN public.dispatch_threshold d3
                  ON d3.room_id IS NULL AND d3.clinic_id = r3.clinic_id
          WHERE r3.clinic_id = o.clinic_id AND r3.is_active AND r3.accepting
-           AND NOT r3.la_doi_tac
+           -- Ghép theo loại việc (16/10/2026): việc đối tác làm trọn chỉ sang
+           -- phòng đối tác, việc phòng khám làm chỉ sang phòng thường.
+           AND r3.la_doi_tac = loai.doi_tac_lam
            -- Chỉ phòng ở cơ sở của lượt (08/10/2026) — không thì chọn được
            -- phòng cơ sở kia rồi mới bị chặn khi xếp.
            AND coalesce(r3.location_id, public.co_so_cua_luot(v.clinic_id, v.visit_id))
@@ -1116,6 +1122,7 @@ SELECT o.id::text,
   JOIN public.visit v
     ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id
    AND v.status = ANY($3::text[])
+  CROSS JOIN LATERAL (SELECT {DOI_TAC_LAM_TRON_SQL} AS doi_tac_lam) loai
   LEFT JOIN public.node_definition n
          ON n.code = o.node_code AND n.clinic_id = o.clinic_id
   LEFT JOIN public.clinic_room r ON r.id = o.room_id

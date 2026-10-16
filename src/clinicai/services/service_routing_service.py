@@ -184,6 +184,54 @@ async def can_route_invalidate(
 # EligibleRoomQuery + RuleBasedRoomAdvisor
 # ---------------------------------------------------------------------------
 
+#: ĐỐI TÁC LÀM TRỌN (alias ``o`` = service_order; chỉ đọc ``o.clinic_id``,
+#: ``o.node_code``, ``o.service_code``) — việc đối tác tự làm, không phải nhân
+#: viên phòng khám làm:
+#:   * dịch vụ đánh dấu đối tác tự lấy mẫu / tự làm (`doi_tac_lay_mau`); hoặc
+#:   * bước làm bên ngoài (`node_definition.lam_ben_ngoai`) mà KHÔNG phòng nội bộ
+#:     nào của phòng khám làm bước ấy — chụp phim DICHVU-HINHANH-NGOAI trên prod
+#:     (Kim Ngưu 12 phòng phủ mọi bước trừ bước này).
+#: Bước làm bên ngoài CÓ phòng nội bộ (lấy máu, lấy dịch — điều dưỡng lấy mẫu ở
+#: phòng Lấy mẫu rồi gửi đối tác) vẫn xếp phòng thường.
+#: Việc đối tác làm trọn CHỈ vào PHÒNG ĐỐI TÁC (`la_doi_tac`), việc phòng khám
+#: làm CHỈ vào phòng thường — ghép theo LOẠI VIỆC, không theo bước/dịch vụ gắn
+#: phòng: phòng đối tác gắn mọi bước làm bên ngoài, và "mở hết phòng" 01/10 gắn
+#: cả dịch vụ thường cho nó (Tuyền 16/10/2026).
+DOI_TAC_LAM_TRON_SQL = """(
+       EXISTS (
+           SELECT 1 FROM service_price sp
+            WHERE sp.clinic_id = o.clinic_id AND sp.service_code = o.service_code
+              AND sp.doi_tac_lay_mau)
+    OR (EXISTS (
+           SELECT 1 FROM node_definition nd
+            WHERE nd.clinic_id = o.clinic_id AND nd.code = o.node_code
+              AND nd.lam_ben_ngoai)
+        AND NOT EXISTS (
+           SELECT 1 FROM clinic_room r2
+            WHERE r2.clinic_id = o.clinic_id
+              AND r2.is_active AND NOT r2.la_doi_tac
+              AND phong_lam_duoc(r2.clinic_id, r2.id, o.node_code, o.service_code)))
+)"""
+
+#: Có PHÒNG ĐỐI TÁC đang bật, cùng cơ sở với lượt, làm được chỉ định ``o`` không
+#: (alias ``o`` = service_order). Có → việc đối tác làm trọn xếp phòng như mọi
+#: việc khác; không có phòng đối tác nào → giữ hành vi cũ "Đối tác làm — không
+#: cần xếp phòng" (không réo quầy "chờ xếp phòng" vô nghĩa).
+PHONG_DOI_TAC_LAM_DUOC_SQL = """EXISTS (
+       SELECT 1 FROM clinic_room rd
+        WHERE rd.clinic_id = o.clinic_id AND rd.la_doi_tac AND rd.is_active
+          AND coalesce(rd.location_id = co_so_cua_luot(o.clinic_id, o.visit_id),
+                       true)
+          AND phong_lam_duoc(rd.clinic_id, rd.id, o.node_code, o.service_code))"""
+
+#: Chỉ định ``o`` có chỗ để xếp phòng không: việc phòng khám làm luôn có; việc
+#: đối tác làm trọn chỉ khi có phòng đối tác làm được nó.
+XEP_PHONG_DUOC_SQL = f"(NOT {DOI_TAC_LAM_TRON_SQL} OR {PHONG_DOI_TAC_LAM_DUOC_SQL})"
+
+#: Việc đối tác làm trọn CÓ phòng đối tác nhận (alias ``o``) — nút "Đổi phòng"
+#: của bàn khám / xem lượt / trưởng ca không giấu nó như "đối tác làm".
+PHONG_DOI_TAC_NHAN_SQL = f"({DOI_TAC_LAM_TRON_SQL} AND {PHONG_DOI_TAC_LAM_DUOC_SQL})"
+
 #: MỘT truy vấn: phòng cùng phòng khám, đang mở, đang nhận khách, làm được chỉ
 #: định (node + dịch vụ) — kèm tải hàng chờ sống và tín hiệu "hôm nay có người
 #: trực ở phòng". Tải và lịch trực là TÍN HIỆU xếp hạng, không phải điều kiện.
@@ -191,18 +239,29 @@ async def can_route_invalidate(
 #: "Làm được" = hàm Postgres ``phong_lam_duoc`` (30/09/2026): dịch vụ có gắn phòng
 #: ở ``clinic_room_service`` thì CHỈ các phòng ấy; không gắn thì theo node như
 #: cũ. Mọi chỗ tính "phòng làm được chỉ định này" gọi đúng hàm ấy.
-_ELIGIBLE_SQL = """
+#:
+#: Loại việc (``DOI_TAC_LAM_TRON_SQL``) tính trên chỉ định GIẢ ``o`` dựng từ tham
+#: số (phòng khám, bước, dịch vụ) — mọi nơi gọi ``eligible_rooms`` (quầy thu, gợi
+#: ý / đổi phòng, dây H4) tự ghép đúng loại phòng mà không phải truyền cờ.
+_ELIGIBLE_SQL = f"""
+WITH o AS (
+    SELECT $1::uuid AS clinic_id, $2::text AS node_code, $5::text AS service_code
+), loai AS MATERIALIZED (
+    SELECT {DOI_TAC_LAM_TRON_SQL} AS doi_tac_lam FROM o
+)
 SELECT r.id::text AS room_id, r.code, r.sort,
        -- Phòng chuyên ★ (07/10/2026): chỉ để GỢI Ý hướng dẫn, không xếp hạng.
        phong_chuyen(r.clinic_id, r.id, $2, $5) AS chuyen,
-       EXISTS (
+       -- Phòng đối tác không có vị trí / lịch làm việc (người của đối tác) —
+       -- luôn coi là đang vận hành, không bị đẩy xuống "không có người trực".
+       (r.la_doi_tac OR EXISTS (
            SELECT 1 FROM work_roster w
              JOIN vi_tri_lam_viec v
                ON v.clinic_id = w.clinic_id AND v.code = w.station
             WHERE w.clinic_id = r.clinic_id AND v.room_id = r.id
               AND w.status <> 'REJECTED'
               AND w.work_date = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-       ) AS co_nguoi_truc,
+       )) AS co_nguoi_truc,
        -- SỐ NGƯỜI THẬT (Tuyền 24/09/2026: "số người đang chờ phải là số người
        -- thực tế đã được chỉ định"): mỗi khách một lần, chỉ lượt check-in HÔM
        -- NAY (lượt bỏ dở hôm trước không tính), và KHÔNG tính chính khách đang
@@ -214,10 +273,12 @@ SELECT r.id::text AS room_id, r.code, r.sort,
            AND (vq.checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
                = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
            AND ($4::uuid IS NULL OR q.visit_id <> $4::uuid))::int AS tai
-  FROM clinic_room r
+  FROM clinic_room r CROSS JOIN loai
  WHERE r.clinic_id = $1::uuid
    AND phong_lam_duoc(r.clinic_id, r.id, $2, $5)
-   AND r.is_active AND r.accepting AND NOT r.la_doi_tac
+   AND r.is_active AND r.accepting
+   -- Ghép theo LOẠI VIỆC (16/10/2026): đối tác làm trọn ⇔ phòng đối tác.
+   AND r.la_doi_tac = loai.doi_tac_lam
    -- CÙNG CƠ SỞ với lượt khám (24/09/2026): phòng khám có nhiều cơ sở thì
    -- khách ở Kim Ngưu không được xếp sang phòng Hào Nam. Trước đây câu này
    -- không lọc cơ sở — bộ mô phỏng ngày khám bắt được một xét nghiệm máu bị xếp
@@ -225,7 +286,9 @@ SELECT r.id::text AS room_id, r.code, r.sort,
    AND ($3::uuid IS NULL OR r.location_id = $3::uuid)
    -- TỰ XẾP chỉ vào phòng ĐÚNG CHỨC NĂNG (01/10/2026, sau "mở hết phòng"):
    -- phòng có node của dịch vụ. Xếp TAY (quầy / đổi phòng) không bật cờ này.
-   AND (NOT $6::boolean OR EXISTS (
+   -- Phòng đối tác: chức năng của nó CHÍNH LÀ việc đối tác làm trọn (đã ghép
+   -- loại ở trên) — không đòi thêm node.
+   AND (NOT $6::boolean OR r.la_doi_tac OR EXISTS (
         SELECT 1 FROM clinic_room_node rn
          WHERE rn.clinic_id = r.clinic_id AND rn.room_id = r.id
            AND rn.node_code = $2))
@@ -420,38 +483,17 @@ def gan_bac_si_vao_ung_vien(
 # V10 (làm trước, thu sau): KHÔNG còn đòi đã trả tiền; xếp / đổi phòng vẫn đi
 # qua lệnh `assign` (quyền, cửa `duoc_lam`, revision, cơ sở).
 
-#: ĐỐI TÁC LÀM TRỌN (alias ``o`` = service_order) — khách KHÔNG vào phòng nào
-#: của phòng khám, nên không có gì để xếp:
-#:   * dịch vụ đánh dấu đối tác tự lấy mẫu / tự làm (`doi_tac_lay_mau`); hoặc
-#:   * bước làm bên ngoài (`node_definition.lam_ben_ngoai`) mà KHÔNG phòng nội bộ
-#:     nào của phòng khám làm bước ấy — chụp phim DICHVU-HINHANH-NGOAI trên prod
-#:     (Kim Ngưu 12 phòng phủ mọi bước trừ bước này).
-#: Bước làm bên ngoài CÓ phòng nội bộ (lấy máu, lấy dịch — điều dưỡng lấy mẫu ở
-#: phòng Lấy mẫu rồi gửi đối tác) vẫn xếp phòng như thường.
-#: 27/09/2026 (đợt 3): trước đây chỉ xét cờ dịch vụ — chụp phim cờ tắt thì quầy
-#: hiện "Chưa có phòng nào làm được dịch vụ này" và dây H4 bỏ qua im lặng.
-DOI_TAC_LAM_TRON_SQL = """(
-       EXISTS (
-           SELECT 1 FROM service_price sp
-            WHERE sp.clinic_id = o.clinic_id AND sp.service_code = o.service_code
-              AND sp.doi_tac_lay_mau)
-    OR (EXISTS (
-           SELECT 1 FROM node_definition nd
-            WHERE nd.clinic_id = o.clinic_id AND nd.code = o.node_code
-              AND nd.lam_ben_ngoai)
-        AND NOT EXISTS (
-           SELECT 1 FROM clinic_room r2
-            WHERE r2.clinic_id = o.clinic_id
-              AND r2.is_active AND NOT r2.la_doi_tac
-              AND phong_lam_duoc(r2.clinic_id, r2.id, o.node_code, o.service_code)))
-)"""
-
 #: Khoá nội bộ của ``da_tra_cho_vao_phong`` — dùng tính phòng chọn được, bỏ
 #: trước khi trả màn.
 KHOA_NOI_BO = frozenset({"node_code", "service_code"})
 
-#: Câu cho chỉ định đối tác làm trọn — màn vẽ nguyên câu này, không tự đặt.
+#: Câu cho chỉ định đối tác làm trọn khi KHÔNG có phòng đối tác nào làm được nó
+#: — màn vẽ nguyên câu này, không tự đặt.
 CAU_DOI_TAC_LAM = "Đối tác làm — không cần xếp phòng."
+#: Xếp việc đối tác làm trọn vào phòng thường (16/10/2026).
+CAU_VIEC_DOI_TAC_CHI_PHONG_DOI_TAC = (
+    "Dịch vụ này đối tác làm — chỉ xếp vào phòng đối tác."
+)
 #: Phòng đối tác chỉ nhận việc đối tác làm trọn (16/10/2026).
 CAU_PHONG_DOI_TAC_KHONG_LAM = (
     "Phòng đối tác chỉ nhận dịch vụ đối tác làm trọn — dịch vụ này phòng khám làm."
@@ -578,8 +620,9 @@ _DA_TRA_CHUA_LAM = f"""
    AND o.exec_status IN ('authorized', 'assigned')
    AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
    AND v.status IN ('OPEN', 'IN_PROGRESS')
-   -- Đối tác làm trọn: khách không vào phòng nào của phòng khám.
-   AND NOT {DOI_TAC_LAM_TRON_SQL}
+   -- Đối tác làm trọn: chỉ khi có phòng đối tác làm được nó (16/10/2026);
+   -- không có thì không có gì để xếp.
+   AND {XEP_PHONG_DUOC_SQL}
    -- Phòng đã gọi / đang làm thì không đổi được nữa (lệnh cũng từ chối).
    AND NOT EXISTS (
        SELECT 1 FROM queue_entry q
@@ -674,7 +717,9 @@ async def cho_nhan_vao_phong(
           LEFT JOIN appointment a
             ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
          WHERE pr.clinic_id = $1::uuid AND pr.id = $2::uuid
-           AND pr.is_active AND pr.accepting AND NOT pr.la_doi_tac
+           AND pr.is_active AND pr.accepting
+           -- Ghép theo loại việc: đối tác làm trọn ⇔ phòng đối tác (16/10/2026).
+           AND pr.la_doi_tac = {DOI_TAC_LAM_TRON_SQL}
            AND coalesce(o.routing_status, 'UNASSIGNED') = 'UNASSIGNED'
            AND (pr.location_id IS NULL
                 OR coalesce(v.location_id, a.location_id) IS NULL
@@ -1049,7 +1094,7 @@ class ServiceRoutingService:
             o = await conn.fetchrow(
                 f"""
                 SELECT o.node_code, o.service_code, o.visit_id::text AS visit_id,
-                       {DOI_TAC_LAM_TRON_SQL} AS doi_tac_lam,
+                       {XEP_PHONG_DUOC_SQL} AS xep_duoc,
                        o.execution_status, o.exec_status, o.selection_status,
                        o.phong_du_kien_id::text AS phong_du_kien_id,
                        o.bac_si_lam_id::text AS bac_si_lam_id,
@@ -1078,8 +1123,12 @@ class ServiceRoutingService:
             )
             if o is None:
                 raise _loi("ORDER_NOT_FOUND", "Không tìm thấy chỉ định này.")
+            # Việc đối tác làm trọn mà KHÔNG có phòng đối tác nào làm được →
+            # không có gì để xếp. Có phòng đối tác → xếp như mọi việc khác
+            # (ứng viên = phòng đối tác, ``eligible_rooms`` ghép theo loại việc).
+            khong_xep = not o["xep_duoc"]
             che_do = CHE_DO_KHONG
-            if not o["doi_tac_lam"]:
+            if not khong_xep:
                 tien = await finance_gate.can_start(conn, cid, oid)
                 che_do = che_do_doi_phong(
                     execution_status=o["execution_status"],
@@ -1094,7 +1143,7 @@ class ServiceRoutingService:
                 )
             ung_vien = (
                 []
-                if o["doi_tac_lam"]
+                if khong_xep
                 else rank_rooms(
                     await eligible_rooms(
                         conn,
@@ -1118,7 +1167,7 @@ class ServiceRoutingService:
         luc = datetime.now(timezone.utc).isoformat()
         # Màn chỉ vẽ câu này và chỉ bày ô chọn phòng khi CO_PHONG (27/09/2026):
         # chụp phim ở quầy từng hiện "Chưa có phòng nào làm được…" + ô chọn rỗng.
-        if o["doi_tac_lam"]:
+        if khong_xep:
             trang_thai, cau = GOI_Y_DOI_TAC_LAM, CAU_DOI_TAC_LAM
         elif not ung_vien:
             trang_thai, cau = GOI_Y_KHONG_CO_PHONG, CAU_KHONG_CO_PHONG
@@ -1326,31 +1375,8 @@ class ServiceRoutingService:
         )
         if giu:
             raise _loi(giu, rules.cau_giu_dieu_phoi(giu))
-        # PHÒNG ĐỐI TÁC (Tuyền 16/10/2026): việc đối tác làm trọn đi CÙNG luồng
-        # phòng (Sắp đến → Nhận → Bắt đầu) — nhưng chỉ vào phòng `la_doi_tac` và
-        # chỉ bằng Nhận tại phòng; quầy / dây H4 / trưởng ca vẫn không xếp nó.
-        # Chiều ngược: phòng đối tác gắn mọi bước làm bên ngoài (kể cả lấy máu
-        # điều dưỡng lấy rồi gửi mẫu) mà KHÔNG nhận việc phòng khám tự làm.
-        doi_tac_lam = bool(
-            await conn.fetchval(
-                f"SELECT {DOI_TAC_LAM_TRON_SQL} FROM service_order o"
-                f" WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid",
-                cid,
-                oid,
-            )
-        )
-        phong_doi_tac = bool(
-            await conn.fetchval(
-                "SELECT la_doi_tac FROM clinic_room"
-                " WHERE clinic_id = $1::uuid AND id = $2::uuid",
-                cid,
-                rid,
-            )
-        )
-        if doi_tac_lam and not (tai_phong and phong_doi_tac):
-            raise _loi("SERVICE_PARTNER_PERFORMED", CAU_DOI_TAC_LAM)
-        if phong_doi_tac and not doi_tac_lam:
-            raise _loi("PHONG_DOI_TAC_KHONG_LAM", CAU_PHONG_DOI_TAC_KHONG_LAM)
+        # Loại việc ↔ loại phòng (phòng đối tác) kiểm trong ``_kiem_phong`` —
+        # mọi lối (quầy, trưởng ca, đổi phòng, H4, Nhận tại phòng) cùng một luật.
         await self._kiem_phong(
             conn,
             cid,
@@ -1657,9 +1683,10 @@ class ServiceRoutingService:
                AND coalesce(o.routing_status, 'UNASSIGNED') = 'UNASSIGNED'
                AND o.exec_status = 'authorized'
                AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
-               -- Đối tác làm trọn: khách không xếp hàng ở phòng nào của phòng
-               -- khám — không xếp, cũng không réo "chờ xếp phòng".
-               AND NOT {DOI_TAC_LAM_TRON_SQL}
+               -- Đối tác làm trọn: tự xếp vào PHÒNG ĐỐI TÁC như phòng thường
+               -- (16/10/2026); không có phòng đối tác nào làm được thì không
+               -- xếp, cũng không réo "chờ xếp phòng".
+               AND {XEP_PHONG_DUOC_SQL}
              ORDER BY o.created_at, o.id
             """,
             clinic_id,
@@ -2328,11 +2355,21 @@ class ServiceRoutingService:
         co_so: str | None = None,
     ) -> None:
         """Phòng nhận được chỉ định ``o`` (dòng ``_ORDER_SQL``) không — cùng luật
-        ``phong_lam_duoc`` với gợi ý phòng / dây H4."""
+        ``phong_lam_duoc`` + ghép loại việc với gợi ý phòng / dây H4.
+
+        PHÒNG ĐỐI TÁC (Tuyền 16/10/2026): việc đối tác làm trọn CHỈ vào phòng
+        ``la_doi_tac``; phòng đối tác KHÔNG nhận việc phòng khám tự làm — kể cả
+        khi nó được gắn bước / dịch vụ ấy (gắn mọi bước làm bên ngoài, "mở hết
+        phòng" 01/10 gắn cả dịch vụ thường). Kiểm TRƯỚC "phòng không làm dịch
+        vụ" để câu từ chối nói đúng lý do."""
         r = await conn.fetchrow(
-            """
+            f"""
             SELECT r.is_active, r.accepting, r.location_id::text AS location_id,
-                   phong_lam_duoc(r.clinic_id, r.id, $3, $4) AS lam_duoc
+                   r.la_doi_tac,
+                   phong_lam_duoc(r.clinic_id, r.id, $3, $4) AS lam_duoc,
+                   (SELECT {DOI_TAC_LAM_TRON_SQL} FROM service_order o
+                     WHERE o.clinic_id = $1::uuid AND o.id = $5::uuid)
+                       AS doi_tac_lam
               FROM clinic_room r
              WHERE r.clinic_id = $1::uuid AND r.id = $2::uuid
                FOR SHARE OF r
@@ -2341,9 +2378,14 @@ class ServiceRoutingService:
             rid,
             str(o["node_code"]),
             o["service_code"],
+            str(o["id"]),
         )
         if r is None:
             raise _loi("ROOM_NOT_FOUND", "Không tìm thấy phòng này.")
+        if r["doi_tac_lam"] and not r["la_doi_tac"]:
+            raise _loi("SERVICE_PARTNER_PERFORMED", CAU_VIEC_DOI_TAC_CHI_PHONG_DOI_TAC)
+        if r["la_doi_tac"] and not r["doi_tac_lam"]:
+            raise _loi("PHONG_DOI_TAC_KHONG_LAM", CAU_PHONG_DOI_TAC_KHONG_LAM)
         if not r["is_active"]:
             raise _loi("ROOM_INACTIVE", "Phòng đã ngừng hoạt động.")
         if not r["accepting"]:
