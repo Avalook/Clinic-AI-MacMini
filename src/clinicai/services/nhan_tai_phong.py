@@ -83,18 +83,19 @@ XONG = "xong"
 PHONG_KHAC = "o_phong_khac"
 
 #: Chỉ định CHƯA VÀO PHÒNG NÀO (alias ``o`` service_order, ``v`` visit): bác sĩ
-#: đã duyệt, khách chưa bỏ, chưa bắt đầu, lượt còn mở, không phải đối tác làm
-#: trọn, không bị bác sĩ dặn "làm sau khi đọc kết quả vòng trước". KHÔNG xét
-#: nguồn sinh ra chỉ định và KHÔNG đòi khách đã chốt / đã thu. Lượt INCOMPLETE
-#: (khách về giữa chừng) cố ý loại: khách đã rời phòng khám thì không "sắp đến".
-CHUA_VAO_PHONG_SQL = f"""
+#: đã duyệt, khách chưa bỏ, chưa bắt đầu, lượt còn mở, không bị bác sĩ dặn "làm
+#: sau khi đọc kết quả vòng trước". KHÔNG xét nguồn sinh ra chỉ định và KHÔNG đòi
+#: khách đã chốt / đã thu. Lượt INCOMPLETE (khách về giữa chừng) cố ý loại: khách
+#: đã rời phòng khám thì không "sắp đến". Việc ĐỐI TÁC LÀM TRỌN cũng "chưa vào
+#: phòng" — nhưng chỉ PHÒNG ĐỐI TÁC làm được nó (`_CHI_DINH_SQL` ghép phòng theo
+#: `la_doi_tac = doi_tac_lam`, Tuyền 16/10/2026).
+CHUA_VAO_PHONG_SQL = """
        o.exec_status IN ('authorized', 'assigned')
    AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
    AND coalesce(o.routing_status, 'UNASSIGNED')
        IN ('UNASSIGNED', 'REASSIGNMENT_REQUIRED')
    AND coalesce(o.execution_status, 'PENDING') = 'PENDING'
    AND v.status IN ('OPEN', 'IN_PROGRESS') AND v.closed_at IS NULL
-   AND NOT {DOI_TAC_LAM_TRON_SQL}
    AND (o.hold_until_round IS NULL OR EXISTS (
         SELECT 1 FROM review_round rr
          WHERE rr.clinic_id = o.clinic_id AND rr.visit_id = o.visit_id
@@ -110,6 +111,9 @@ WITH o AS MATERIALIZED (
            o.service_name, o.selection_status, o.routing_revision,
            o.execution_status, o.room_id, o.phong_du_kien_id, o.created_at,
            ({CHUA_VAO_PHONG_SQL}) AS chua_vao,
+           -- PHÒNG ĐỐI TÁC (16/10/2026): việc đối tác làm trọn chỉ vào phòng
+           -- `la_doi_tac`; phòng thường không bao giờ thấy nó.
+           ({DOI_TAC_LAM_TRON_SQL}) AS doi_tac_lam,
            coalesce(v.location_id, a.location_id) AS co_so, v.checked_in_at,
            p.full_name, p.patient_code, a.so_tiep_don, a.so_booking,
            q.id AS q_id, q.status AS q_status, q.room_id AS q_room_id
@@ -132,7 +136,6 @@ WITH o AS MATERIALIZED (
            = (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
        AND o.exec_status NOT IN ('draft', 'cancelled')
        AND o.selection_status IS DISTINCT FROM 'NOT_SELECTED'
-       AND NOT {DOI_TAC_LAM_TRON_SQL}
 )
 SELECT pr.id::text AS room_id, pr.accepting,
        o.id::text AS id, o.visit_id::text AS visit_id,
@@ -160,7 +163,10 @@ SELECT pr.id::text AS room_id, pr.accepting,
   JOIN clinic_room pr
     ON pr.id = ung.room_id AND pr.clinic_id = o.clinic_id
    AND ($2::uuid IS NULL OR pr.id = $2::uuid)
-   AND pr.is_active AND NOT pr.la_doi_tac
+   -- BẪY (16/10/2026): phòng đối tác gắn MỌI bước làm bên ngoài, kể cả lấy máu
+   -- do điều dưỡng lấy rồi gửi mẫu — nên ghép theo loại việc, không theo bước:
+   -- phòng đối tác chỉ nhận việc đối tác làm trọn, phòng thường loại chúng.
+   AND pr.is_active AND pr.la_doi_tac = o.doi_tac_lam
    AND (pr.location_id IS NULL OR o.co_so IS NULL OR pr.location_id = o.co_so)
    AND {phong_lam_duoc_sql("pr", "o")}
   LEFT JOIN clinic_room hd
@@ -381,7 +387,7 @@ async def _chi_dinh(
 #: cho cả danh sách Sắp đến (không N+1).
 _KHACH_HOM_NAY_SQL = """
 SELECT v.visit_id::text AS visit_id, p.full_name, p.patient_code,
-       a.so_tiep_don, a.so_booking,
+       a.so_tiep_don, a.so_booking, pr.la_doi_tac AS phong_doi_tac,
        q.lane AS q_lane, q.status AS q_status, q.room_id::text AS q_room_id,
        qr.name AS q_phong, st.nhom AS nhom_kham, st.form_code AS phieu_kham,
        EXISTS (SELECT 1 FROM clinic_room_node rn
@@ -413,7 +419,7 @@ SELECT v.visit_id::text AS visit_id, p.full_name, p.patient_code,
         LIMIT 1) q ON true
   LEFT JOIN clinic_room qr ON qr.id = q.room_id AND qr.clinic_id = v.clinic_id
  WHERE pr.clinic_id = $1::uuid AND pr.id = $2::uuid
-   AND pr.is_active AND NOT pr.la_doi_tac
+   AND pr.is_active
    AND v.clinic_id = $1::uuid
    AND v.closed_at IS NULL AND v.status <> 'INCOMPLETE'
    AND v.checked_in_at IS NOT NULL
@@ -532,6 +538,10 @@ def gom_sap_den(
         cua = cd.get(vid, [])
         nhan = [c for c in cua if c["nhan_duoc"]]
         if vid in xong_day and not nhan:
+            continue
+        # PHÒNG ĐỐI TÁC (16/10/2026): chỉ khách CÓ việc đối tác làm trọn — người
+        # đứng bàn đối tác không cần (và không nên) thấy mọi khách trong ngày.
+        if k.get("phong_doi_tac") and not cua:
             continue
         out.append(
             {

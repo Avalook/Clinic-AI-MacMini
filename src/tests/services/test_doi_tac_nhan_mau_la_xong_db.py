@@ -173,6 +173,13 @@ async def test_nhan_mau_la_xong_luot_khep_duoc_ket_qua_ve_sau_co_chuong(
         await _gui_ket_qua(
             kb.pool, doi_tac, {"chi_dinh_id": mau_id}, _tep(tmp_path, "kq-2.pdf")
         )
+        # 16/10/2026: chuông kết quả đối tác réo lúc bấm [Trả kết quả].
+        await chay_ben_nhan(kb.pool, CHUONG, VONG_DOC)
+        assert not await kb.pool.fetchval(
+            "SELECT count(*) FROM thong_bao WHERE nguon_id = $1",
+            f"ket_qua_doi_tac:{mau_id}",
+        )
+        await svc.tra_ket_qua(order_id=mau_id, identity=doi_tac)
         await chay_ben_nhan(kb.pool, CHUONG, VONG_DOC)
         chuong = await kb.pool.fetch(
             "SELECT vai_nhan, nguoi_nhan_staff_id::text AS nguoi, tieu_de"
