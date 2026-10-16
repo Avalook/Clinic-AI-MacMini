@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-16 08:36. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-16 09:47. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -195,10 +195,10 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 ### `/kho-vat-tu` — Kho vật tư
 - page: `src/dashboard/app/(dashboard)/kho-vat-tu/page.tsx` · quyền: lego `kho_vat_tu` (Kho vật tư · mặc định: Mọi người (QL chỉnh mức tối thiểu))
 - thành phần: app/(dashboard)/cashier/VatTuBangGia.tsx, ChoDuyetVatTu.tsx, DanhSachPhieuVatTu.tsx, KhoVatTu.tsx, TonVatTu.tsx, app/(dashboard)/cashier/VatTuThuocTinh.tsx, DanhMucVatTu.tsx, LapPhieuVatTu.tsx (+2)
-- gọi API Next: `/api/vat-tu-kho/[action]`, `/api/service-price`, `/api/cashier`
+- gọi API Next: `/api/service-price/vat-tu-hang-loat`, `/api/vat-tu-kho/[action]`, `/api/service-price`, `/api/cashier`
 - gọi thẳng backend (server): `/api/v1/vat-tu-kho/ton`, `/api/v1/vat-tu-kho/phieu`, `/api/v1/vat-tu-kho/cho-duyet`
-- service: vat_tu_kho_service.{doc_ton, tao_phieu, hoan_phieu} · vat_tu_kho_man_service.{doc_noi_chua, doc_vat_tu_chon, doc_phieu, dat_muc_toi_thieu} · vat_tu_tieu_hao_service.doc_tieu_hao · can · vat_tu_nhap_duyet_service.{doc_cho_duyet, duyet, rut_lai, tu_choi} · DanhMucDichVuService.doc (+4 service)
-- test: test_cashier_scope_db.py, test_vat_tu_nhap_duyet_db.py, test_danh_muc_dich_vu_chuan_db.py, test_vat_tu_kho_man_db.py, test_cashier_scope.py (+14)
+- service: vat_tu_danh_muc_service · vat_tu_kho_service.{doc_ton, tao_phieu, hoan_phieu} · vat_tu_kho_man_service.{doc_noi_chua, doc_vat_tu_chon, doc_phieu, dat_muc_toi_thieu} · vat_tu_tieu_hao_service.doc_tieu_hao · can · vat_tu_nhap_duyet_service.{doc_cho_duyet, duyet, rut_lai, tu_choi} (+5 service)
+- test: test_cashier_scope_db.py, test_vat_tu_nhap_duyet_db.py, test_danh_muc_dich_vu_chuan_db.py, test_vat_tu_kho_man_db.py, test_cashier_scope.py (+15)
 
 ### `/lab-queue`
 - page: `src/dashboard/app/(dashboard)/lab-queue/page.tsx` · quyền: ?
@@ -595,7 +595,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: HoaDonMisaService.{doc_danh_sach, danh_dau, doc_chi_tiet, huy_danh_dau, +2} · XuatHoaDonService.xem · xuat_hoa_don_service
 - test: test_hoa_don_misa_db.py, test_thue_gtgt_db.py, test_sua_ho_so_khach_db.py, test_xuat_hoa_don.py
 
-## 2. API Next → backend (138)
+## 2. API Next → backend (139)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -1475,6 +1475,11 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_danh_muc_dich_vu_chuan_db.py, src/tests/services/test_vat_tu_danh_muc_db.py, src/tests/services/test_gia_thuoc_hai_nguon_khop_db.py (+1)
 - màn dùng: /cashier/dich-vu, /cashier/thuoc, /kho-vat-tu
 
+#### `/api/service-price/vat-tu-hang-loat` · `src/dashboard/app/api/service-price/vat-tu-hang-loat/route.ts`
+- POST `/api/v1/service-prices/vat-tu/hang-loat` → `src/clinicai/api/v1/routers/config.py:dat_co_vat_tu_hang_loat` → dat_co_hang_loat
+- test: src/tests/services/test_vat_tu_hang_loat_db.py
+- màn dùng: /kho-vat-tu
+
 #### `/api/sono` · `src/dashboard/app/api/sono/route.ts`
 - POST `/api/v1/sono/queue` → `src/clinicai/api/v1/routers/service_log.py:create_sono_row` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
 - PATCH `/api/v1/sono/queue/{row_id}` → `src/clinicai/api/v1/routers/service_log.py:progress_sono_row` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
@@ -1628,7 +1633,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_hoa_don_misa_db.py
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (199)
+## 3. Service → màn (200)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1818,6 +1823,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `UltrasoundBoardService` | `src/clinicai/services/ultrasound_board_service.py` | /ban-kham, /ban-kham/[phong], /patient-list, /tu-van |
 | `UltrasoundService` | `src/clinicai/services/ultrasound_service.py` | — (chỉ API/worker) |
 | `update_task_status` | `src/clinicai/tools/task/update_task_status.py` | — (chỉ API/worker) |
+| `vat_tu_danh_muc_service` | `src/clinicai/services/vat_tu_danh_muc_service.py` | /kho-vat-tu |
 | `vat_tu_kho_man_service` | `src/clinicai/services/vat_tu_kho_man_service.py` | /kho-vat-tu |
 | `vat_tu_kho_service` | `src/clinicai/services/vat_tu_kho_service.py` | /kho-vat-tu |
 | `vat_tu_nhap_duyet_service` | `src/clinicai/services/vat_tu_nhap_duyet_service.py` | /kho-vat-tu |

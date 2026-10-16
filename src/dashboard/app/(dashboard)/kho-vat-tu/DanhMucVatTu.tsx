@@ -5,11 +5,13 @@
 // kinh doanh (chỉ PHÂN LOẠI — không chặn bán), giá bán, giá nhập, đơn vị. Ghi qua
 // `PATCH /api/service-price` (cùng quyền Bảng giá); sửa ở đâu cũng thấy ở đó ngay.
 // Mức tối thiểu là của TỪNG nơi chứa nên nằm ở tab "Tồn theo nơi chứa".
+// Đầu tab có khối "Đặt cho cả loại" (`DatCoTheoLoai.tsx`): đặt một cờ cho cả loại VPP / VTYT.
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import VatTuBangGia, { type DongVatTu } from "../cashier/VatTuBangGia";
+import DatCoTheoLoai from "./DatCoTheoLoai";
 
 export default function DanhMucVatTu({ ds, suaDuoc }: { ds: DongVatTu[]; suaDuoc: boolean }) {
   const router = useRouter();
@@ -50,6 +52,7 @@ export default function DanhMucVatTu({ ds, suaDuoc }: { ds: DongVatTu[]; suaDuoc
           Bạn xem được danh mục; muốn sửa cần bật khối “Bảng giá dịch vụ” ở màn Phân quyền.
         </p>
       )}
+      {suaDuoc ? <DatCoTheoLoai ds={ds} /> : null}
       <VatTuBangGia ds={ds} ban={ban || !suaDuoc} onSua={sua} />
       {loi ? (
         <p role="alert" className="text-body text-danger">

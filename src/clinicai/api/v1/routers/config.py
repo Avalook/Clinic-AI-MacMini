@@ -41,6 +41,7 @@ from clinicai.services.config_service import (
 from clinicai.services.danh_muc_dich_vu_service import DanhMucDichVuService
 from clinicai.services.lich_truc_phien_ban_service import LichTrucPhienBanService
 from clinicai.services.ngoai_le_ca_truc_service import NgoaiLeCaTrucService
+from clinicai.services.vat_tu_danh_muc_service import dat_co_hang_loat
 
 router = APIRouter()
 
@@ -177,6 +178,17 @@ class PriceUpdateRequest(BaseModel):
     billing_owner: str | None = Field(default=None, max_length=32)
     #: Nhóm hàng — rỗng = bỏ nhóm (01/10/2026).
     nhom: str | None = Field(default=None, max_length=120)
+
+
+class VatTuHangLoatRequest(BaseModel):
+    """Đặt một cờ cho cả loại vật tư; `ap_dung=false` (mặc định) chỉ ĐẾM xem trước."""
+
+    loai: str = Field(max_length=32)
+    co: str = Field(max_length=32)
+    bat: StrictBool
+    ap_dung: StrictBool = False
+    #: Khoanh vào đúng những dòng này (dùng cho Hoàn tác); trống = cả loại.
+    ids: list[str] | None = Field(default=None, max_length=2000)
 
 
 class DisplayZoneToggle(BaseModel):
@@ -540,6 +552,27 @@ async def update_price(
         ),
     )
     return {"ok": True}
+
+
+@router.post("/service-prices/vat-tu/hang-loat")
+async def dat_co_vat_tu_hang_loat(
+    body: VatTuHangLoatRequest,
+    identity: StaffIdentity = Depends(_PRICE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đặt cờ vật tư (kinh doanh / cần QL duyệt bán / cần duyệt nhập) cho cả một loại.
+
+    Cùng quyền sửa thuộc tính từng món. Luật ở `vat_tu_danh_muc_service`.
+    """
+    return await dat_co_hang_loat(
+        pool,
+        identity=identity,
+        loai=body.loai,
+        co=body.co,
+        bat=body.bat,
+        ap_dung=body.ap_dung,
+        ids=body.ids,
+    )
 
 
 @router.delete("/service-prices/{price_id}")
