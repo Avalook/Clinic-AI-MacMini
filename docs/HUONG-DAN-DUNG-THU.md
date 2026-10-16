@@ -3,6 +3,9 @@
 Dành cho người muốn **bấm hết mọi thứ để tìm lỗi**. Viết theo thứ tự một ngày làm
 việc thật, không theo thứ tự menu.
 
+Hướng dẫn cho CSKH (khách chưa có lịch hẹn) và Thu ngân (áp giảm giá): xem
+**[HUONG-DAN-CSKH-VA-THU-NGAN.md](HUONG-DAN-CSKH-VA-THU-NGAN.md)**.
+
 Đọc kèm: mục **[Biết trước để khỏi mất công](#biết-trước-để-khỏi-mất-công)** —
 liệt kê những chỗ đã biết là chưa xong, để anh không tốn thời gian báo lại.
 
