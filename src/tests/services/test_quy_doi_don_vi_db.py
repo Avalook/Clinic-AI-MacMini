@@ -171,6 +171,8 @@ async def test_nhap_dung_don_vi_ban_thi_nguyen_trang(co: Co) -> None:
     kq = await _nhap(co, drug, 7, "Viên", cost_price=1000, he_so="999")
     lo = await _lo(co, kq["drug_batch_id"])
     assert (lo["quantity_on_hand"], lo["cost_price"]) == (D(7), D(1000))
+    # Gõ "Viên" → lô lưu đúng chữ của danh mục ("viên"), không để hai cách viết.
+    assert lo["unit"] == "viên"
     assert "quy_doi" not in kq
     assert (
         await co.q.pool.fetchval(
