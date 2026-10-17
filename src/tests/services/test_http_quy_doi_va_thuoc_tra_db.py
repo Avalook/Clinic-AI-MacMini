@@ -9,6 +9,7 @@ Service đã có test riêng; ở đây canh LỚP NGOÀI: người không có q
 # ruff: noqa: F811 — fixture q được import.
 from __future__ import annotations
 
+import dataclasses
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
@@ -59,6 +60,21 @@ async def _khong_quyen(pool: asyncpg.Pool) -> StaffIdentity:
         location_id=loc,
         location_name="Cơ sở test",
     )
+
+
+async def _chi_xem_kho(pool: asyncpg.Pool, location_id: str) -> StaffIdentity:
+    """Được cấp ĐÚNG khối `xem_nha_thuoc` (pharmacy.view), không có `nha_thuoc`
+    (pharmacy.dispense) — vai mà các tài khoản mẫu không có (cùng fixture
+    supabase/fixtures/tai_khoan_chi_xem_kho.sql)."""
+    ai = dataclasses.replace(await _khong_quyen(pool), location_id=location_id)
+    await pool.execute(
+        "INSERT INTO capability_grant (clinic_id, staff_id, capability, scope_type,"
+        " tu_khoi, ly_do) SELECT $1::uuid, $2::uuid, c.ma, 'CLINIC', 'xem_nha_thuoc',"
+        " 'test chỉ xem' FROM capability c WHERE c.work_pack = 'xem_nha_thuoc'",
+        CLINIC,
+        ai.staff_id,
+    )
+    return ai
 
 
 def _dat_nguoi(pool: asyncpg.Pool, ai: StaffIdentity) -> None:
@@ -126,6 +142,59 @@ async def test_nguoi_khong_quyen_bi_403_va_khong_doi_gi(q: Quay) -> None:
     assert (
         await q.pool.fetchval(
             "SELECT count(*) FROM drug_batch WHERE batch_code = 'KHONG-QUYEN'"
+        )
+        == 0
+    )
+
+
+async def test_nguoi_chi_xem_doc_duoc_nhung_lenh_ghi_bi_403(q: Quay) -> None:
+    tra, lo = await _lan_tra(q)
+    ton, kd = await _ton(q, lo), await _kd(q, lo)
+    thuoc = await q.pool.fetchval(
+        "SELECT drug_catalog_id::text FROM drug_batch WHERE id = $1::uuid", lo
+    )
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as c:
+            _dat_nguoi(q.pool, await _chi_xem_kho(q.pool, q.duoc_si.location_id))
+            ds = await c.get(f"{API}/thuoc-tra-cho-kiem")
+            assert ds.status_code == 200
+            assert tra in [d["id"] for d in ds.json()["dong"]]
+            r = await c.get(f"{API}/quy-doi", params={"drug_catalog_id": thuoc})
+            assert r.status_code == 200
+            for lenh in ("BAN_LAI", "HUY"):
+                r = await c.post(
+                    f"{API}/xu-ly-thuoc-tra",
+                    json={
+                        "drug_return_id": tra,
+                        "quyet_dinh": lenh,
+                        "ly_do": "Hỏng nắp",
+                    },
+                )
+                assert r.status_code == 403, lenh
+            r = await c.post(
+                f"{API}/receive",
+                json={
+                    "drug_catalog_id": thuoc,
+                    "so_luong": 1,
+                    "batch_code": "CHI-XEM",
+                    "unit": "viên",
+                },
+            )
+            assert r.status_code == 403
+    finally:
+        _bo_ghi_de()
+    assert (await _ton(q, lo), await _kd(q, lo)) == (ton, kd)
+    assert (
+        await q.pool.fetchval(
+            "SELECT disposition FROM drug_return WHERE id=$1::uuid", tra
+        )
+        is None
+    )
+    assert (
+        await q.pool.fetchval(
+            "SELECT count(*) FROM drug_batch WHERE batch_code='CHI-XEM'"
         )
         == 0
     )
