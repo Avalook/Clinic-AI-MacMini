@@ -236,7 +236,7 @@ Tác động lên bảng §2.1: `normalize_vn_phone` giữ nguyên nghĩa "chỉ
 
 | # | Câu hỏi | Ví dụ số | Đề xuất mặc định |
 |---|---|---|---|
-| **S-Q1** | ~~Có nhận số nước ngoài không?~~ **ĐÃ CHỐT 17/10 (Tuyền/Quang): CÓ** — đã có khách nước ngoài, hiện không nhập được nên phải ghi vào ghi chú | `+1 415 555 2671`, `+82 10 1234 5678` | Xem §2.3b. Còn 2 chi tiết nhỏ ở bảng dưới (S-Q1b, S-Q1c) |
+| **S-Q1** | ~~Có nhận số nước ngoài không?~~ **ĐÃ CHỐT 17/10 (Tuyền/Quang): CÓ** — đã có khách nước ngoài, hiện không nhập được nên phải ghi vào ghi chú | `+1 415 555 2671`, `+82 10 1234 5678` | Xem §2.3b. Không còn câu hỏi nào (cách nhập + thư viện kiểm: tự chọn theo chuẩn app phổ biến) |
 | **S-Q2** | Số bàn `02…` có nhận không? | `028 1234 567` (bàn) | **Giữ nhận** như hiện nay (đã cho phép ở FE+BE), đánh loại `CO_DINH`, không gửi Zalo. Hiện **0** hồ sơ prod dùng số bàn. |
 | **S-Q3** | **48 hồ sơ số sai** (nhập Notion: 9 số mà thiếu 1 số, hoặc 10 số đầu lạ) xử lý thế nào? | ví dụ dạng `09` + 7 số (thiếu 1), `65xxxxxxxx` | **Không tự sửa.** Xuất danh sách (mã khách, không in số) cho CSKH gọi hỏi lại; sửa trên màn hồ sơ. 1 hồ sơ "viết khác dạng" sửa tay luôn. |
 | **S-Q4** | Ô SĐT nhân sự / cơ sở dùng cùng luật? | nhân sự gõ `0912345678` hay `024 3xxx xxxx` | **Cùng hàm**, nhận cả số bàn. Hiện nhân sự có 18/97 số, cơ sở 1 số viết `9999 999 999`. |
