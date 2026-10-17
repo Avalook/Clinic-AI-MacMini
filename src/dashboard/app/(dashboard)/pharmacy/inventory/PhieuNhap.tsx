@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { canhBaoNhapKhacDonViBan } from "@/lib/lo-bi-loai";
 import { homNayVn } from "@/lib/validation";
 import { INPUT, LABEL } from "../../form-ui";
 import DanhSachPhieu from "./DanhSachPhieu";
@@ -131,6 +132,11 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
     if (!go || lo.length === 0) return null;
     return lo.some((x) => x.trim().toLowerCase() === go) ? null : lo.join(", ");
   };
+
+  // Cảnh báo nhỏ, KHÔNG chặn: nhập theo đơn vị khác đơn vị BÁN của thuốc → khi bán
+  // kho không trừ được (lô "hộp", bán "gói"). Trả câu cảnh báo hoặc null.
+  const canhBaoBan = (d: Dong): string | null =>
+    canhBaoNhapKhacDonViBan(d.don_vi, dangDung.find((t) => t.ten === d.ten)?.don_vi_ban);
 
   const tong = dong.reduce(
     (s, d) => s + (Number(d.so_luong.replace(",", ".")) || 0) * (Number(d.gia_nhap) || 0),
@@ -280,6 +286,11 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                     <span role="status" className="mt-1 block text-meta text-warning">
                       Lô đang có tính theo {khacDonViLo(d)} — nhập “{d.don_vi.trim()}” sẽ thành tồn
                       riêng.
+                    </span>
+                  ) : null}
+                  {canhBaoBan(d) ? (
+                    <span role="status" className="mt-1 block text-meta text-warning">
+                      {canhBaoBan(d)}
                     </span>
                   ) : null}
                 </label>

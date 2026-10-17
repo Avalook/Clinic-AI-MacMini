@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import Button from "@/components/ui/Button";
+import { canhBaoNhapKhacDonViBan } from "@/lib/lo-bi-loai";
 import { INPUT, LABEL } from "../../form-ui";
 import type { ThuocKho } from "./DanhMucKho";
 import { guiKho } from "./gui-kho";
@@ -32,6 +33,8 @@ export default function NhapLo({
 
   const dangDung = thuoc.filter((t) => t.dang_dung);
   const chon = dangDung.find((t) => t.ten === f.ten) ?? null;
+  // Cảnh báo (không chặn): nhập theo đơn vị khác đơn vị bán → bán sẽ không trừ kho.
+  const canhBaoDonVi = canhBaoNhapKhacDonViBan(f.don_vi, chon?.don_vi_ban);
 
   const doiTen = (ten: string) => {
     const t = dangDung.find((x) => x.ten === ten);
@@ -139,6 +142,11 @@ export default function NhapLo({
         {o("gia_nhap", "Giá nhập (đ / đơn vị)")}
         {o("ghi_chu", "Ghi chú (nhà cung cấp, số hoá đơn…)")}
       </div>
+      {canhBaoDonVi ? (
+        <p role="status" className="text-meta text-warning">
+          {canhBaoDonVi}
+        </p>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"

@@ -202,16 +202,18 @@ export default function InventoryBoard({
       {moNhap ? <NhapLo thuoc={thuoc} onXong={() => setMoNhap(false)} /> : null}
 
       <div className={`${TBL_WRAP} overflow-x-auto`}>
-        <table className="w-full min-w-2xl text-left text-body">
+        {/* Điện thoại: bỏ Mã lô (hiện dưới tên thuốc) và Giá nhập để cột TỒN nằm trong
+            màn hình, không phải vuốt ngang mới thấy (đo 17/10 ở 375px). */}
+        <table className="w-full text-left text-body sm:min-w-2xl">
           <thead className={TBL_HEAD}>
             <tr>
               <th className="px-3 py-2">Thuốc</th>
-              <th className="px-3 py-2">Mã lô</th>
+              <th className="hidden px-3 py-2 sm:table-cell">Mã lô</th>
               {tachKhoQuay ? <th className="px-3 py-2">Nơi chứa</th> : null}
               <th className="px-3 py-2">Hạn dùng</th>
               <th className="px-3 py-2 text-right">Tồn</th>
               <th className="px-3 py-2">Đơn vị</th>
-              <th className="px-3 py-2 text-right">Giá nhập</th>
+              <th className="hidden px-3 py-2 text-right sm:table-cell">Giá nhập</th>
               <th className="px-3 py-2">Trạng thái</th>
               <th className="px-3 py-2" />
             </tr>
@@ -246,8 +248,11 @@ export default function InventoryBoard({
                           {b.drug?.variant ? ` (${b.drug.variant})` : ""}
                         </>
                       )}
+                      <span className="block text-meta font-normal text-ink-muted sm:hidden">
+                        {b.batch_code}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 text-ink-muted">{b.batch_code}</td>
+                    <td className="hidden px-3 py-2 text-ink-muted sm:table-cell">{b.batch_code}</td>
                     {tachKhoQuay ? (
                       <td className="px-3 py-2">
                         <Chip tone={b.noi_chua === "KHO" ? "neutral" : "success"}>
@@ -260,7 +265,7 @@ export default function InventoryBoard({
                       {fmtQty(b.quantity_on_hand)}
                     </td>
                     <td className="px-3 py-2 text-ink-muted">{b.unit}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-ink-muted">
+                    <td className="hidden px-3 py-2 text-right tabular-nums text-ink-muted sm:table-cell">
                       {tienVnd(b.cost_price)}
                     </td>
                     <td className="px-3 py-2">

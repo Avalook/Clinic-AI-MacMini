@@ -955,6 +955,22 @@ class PharmacyService:
                         and Decimal(str(b["quantity_on_hand"]))
                         >= Decimal(str(r["so_luong"]))
                     ],
+                    # Lô của thuốc ở QUẦY nhưng tính theo đơn vị KHÁC (lô "hộp",
+                    # giao "gói") — không gán được, nên nói ra thay vì chỉ "chưa có
+                    # lô gán được". Chỉ để giải thích, không đổi luật gán.
+                    "lo_khac_don_vi": [
+                        {
+                            "drug_batch_id": b["id"],
+                            "batch_code": b["batch_code"],
+                            "unit": b["unit"],
+                            "ton": Decimal(str(b["quantity_on_hand"])),
+                        }
+                        for b in lo
+                        if dv
+                        and b["drug_catalog_id"] == r["drug_catalog_id"]
+                        and b["co_so_id"] == co_so
+                        and _don_vi(b["unit"]) != dv
+                    ],
                 }
             )
         return {"dong": ra, "so_dong": len(ra)}
