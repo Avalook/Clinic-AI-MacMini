@@ -35,6 +35,7 @@ import {
   tachDanhMucKhac,
   thanhTienDong,
   gopCanhBao,
+  ghepSoLuongDonVi,
   type ChiDinhVaKetQua,
   type KetQuaMotChiDinh,
   type MauThuoc,
@@ -606,4 +607,17 @@ test("nguoiKeDon: TKYK nhập hộ không đứng tên kê, không thành chân 
   // Máy chủ cũ chưa trả người kê → không đoán.
   const rong = nguoiKeDon([{ id: "1", drug_catalog_id: null, drug_name_raw: "x", quantity: "1", dosage_instructions: "", caution: "" }]);
   assert.deepEqual(rong, { bacSi: [], nguoiNhap: [], nguoiKy: null });
+});
+
+test("ghepSoLuongDonVi: gõ luôn đơn vị vào ô số lượng không thành 'gói gói' (17/10)", () => {
+  assert.equal(ghepSoLuongDonVi("2", "gói"), "2 gói");
+  assert.equal(ghepSoLuongDonVi("2 gói", "gói"), "2 gói", "đã có đúng đơn vị → giữ nguyên");
+  assert.equal(ghepSoLuongDonVi("2 Gói", "gói"), "2 Gói", "không phân biệt hoa thường");
+  assert.equal(ghepSoLuongDonVi(" 2 gói ", " gói "), "2 gói", "cắt khoảng trắng hai đầu");
+  assert.equal(ghepSoLuongDonVi("2", ""), "2", "chưa có đơn vị → chỉ số");
+  assert.equal(ghepSoLuongDonVi("", "gói"), "gói", "chưa gõ số: không chế số (máy chủ báo thiếu số)");
+  // Đơn vị khác với đơn vị gõ: vẫn ghép như cũ (không đoán ý người dùng).
+  assert.equal(ghepSoLuongDonVi("2 hộp", "gói"), "2 hộp gói");
+  // Ô số lượng CHỈ là chữ trùng đơn vị ("gói" + "gói"): không được nuốt thành rỗng.
+  assert.equal(ghepSoLuongDonVi("gói", "gói"), "gói gói");
 });

@@ -802,12 +802,24 @@ export function gopSoLuongQuayDien(hienTai: DongThuoc[], may: DongThuoc[]): Dong
   return doi ? ra : null;
 }
 
+/** "2" + "gói" → "2 gói". Người dùng hay gõ luôn "2 gói" vào ô số lượng: ghép tiếp thì
+ *  thành "2 gói gói" và máy chủ đọc đơn vị là "gói gói" — không lô nào khớp, thuốc đã
+ *  giao mà kho không trừ được (17/10/2026, bấm thật Androgel). Chữ gõ đã kết thúc bằng
+ *  đúng đơn vị thì giữ nguyên, không ghép thêm. */
+export function ghepSoLuongDonVi(soLuong: string, donVi: string): string {
+  const so = soLuong.trim();
+  const dv = donVi.trim();
+  if (!dv) return so;
+  if (so.toLowerCase().endsWith(dv.toLowerCase()) && so.length > dv.length) return so;
+  return [so, dv].filter(Boolean).join(" ");
+}
+
 export function donTuDong(d: DongThuoc) {
   return {
     id: d.id ?? null,
     drug_catalog_id: d.drug_catalog_id,
     drug_name: d.ten_thuoc.trim(),
-    quantity: [d.so_luong.trim(), d.don_vi.trim()].filter(Boolean).join(" "),
+    quantity: ghepSoLuongDonVi(d.so_luong, d.don_vi),
     dosage: [d.duong_dung.trim(), d.cach_dung.trim()].filter(Boolean).join(NOI),
     caution: d.luu_y.trim(),
   };
