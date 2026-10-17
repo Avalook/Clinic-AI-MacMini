@@ -41,6 +41,7 @@ import { buttonClass } from "@/components/ui/Button";
 import NutInPhieu from "@/components/ui/NutInPhieu";
 import type { BookingPolicy } from "../../../lib/booking-policy";
 import NutCheckIn from "@/components/ui/NutCheckIn";
+import TenKhach from "@/components/ui/TenKhach";
 import { CA_TUAN, locTheoNgay, ngayDangChon, tabNgay } from "./loc-ngay";
 import type { MaXacMinh } from "@/lib/xac-minh";
 import { MA_DA_ROI, type TrangThaiHienThi } from "@/lib/trang-thai-lich";
@@ -923,15 +924,22 @@ export default function WeeklyAppointmentsTable({
                                               !
                                             </span>
                                           )}
-                                        {a.patient?.full_name ?? "—"}
+                                        <TenKhach
+                                          ten={a.patient?.full_name ?? "—"}
+                                          ma={a.patient?.patient_code}
+                                          sdt={a.patient?.phone_primary}
+                                        />
                                       </button>
                                     ) : (
                                       <span className="block font-medium">
-                                        {a.patient?.full_name ?? "—"}
+                                        <TenKhach
+                                          ten={a.patient?.full_name ?? "—"}
+                                          ma={a.patient?.patient_code}
+                                          sdt={a.patient?.phone_primary}
+                                        />
                                       </span>
                                     )}
                                     <span className="block text-meta text-ink-muted">
-                                      {a.patient?.phone_primary ?? a.patient?.patient_code}
                                       {a.so_tiep_don != null ? ` · Quầy ${a.so_tiep_don}` : ""}
                                       {isWalkinChannel(a.booking_channel) ? " · vãng lai" : ""}
                                     </span>

@@ -5,6 +5,7 @@
 
 import { useMemo, useState } from "react";
 import { VN_TZ } from "../../../../lib/datetime";
+import TenKhach from "@/components/ui/TenKhach";
 
 interface ConsultPatient {
   full_name: string | null;
@@ -79,9 +80,10 @@ export default function ConsultBoard({ records }: Props) {
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-ink">
-                    {r.patient?.full_name ?? "Chưa có tên"}
-                  </span>
+                  <TenKhach
+                    ten={r.patient?.full_name ?? "Chưa có tên"}
+                    sdt={r.patient?.phone_primary}
+                  />
                   <span className="shrink-0 text-xs text-ink-faint">
                     {fmtDate(r.created_at)}
                   </span>
@@ -101,13 +103,8 @@ export default function ConsultBoard({ records }: Props) {
           <div className="rounded-control border border-line bg-surface p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold text-ink">
-                  {selected.patient?.full_name ?? "Chưa có tên"}
-                </h3>
-                <p className="mt-0.5 text-xs text-ink-muted">
-                  {selected.patient?.phone_primary ?? "—"} ·{" "}
-                  {selected.source_ref ?? "Chưa có mã đơn"}
-                </p>
+                <TenKhach ten={selected.patient?.full_name ?? "Chưa có tên"} sdt={selected.patient?.phone_primary} />
+                <p className="mt-0.5 text-xs text-ink-muted">{selected.source_ref ?? "Chưa có mã đơn"}</p>
               </div>
               <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
                 {fmtDate(selected.created_at)}

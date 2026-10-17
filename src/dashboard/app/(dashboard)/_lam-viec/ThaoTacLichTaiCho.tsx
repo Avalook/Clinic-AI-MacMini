@@ -23,6 +23,7 @@ import { useEffect, useState } from "react";
 import Button, { buttonClass } from "@/components/ui/Button";
 import ChipChon from "@/components/ui/ChipChon";
 import PopoverNeo from "@/components/ui/PopoverNeo";
+import TenKhach from "@/components/ui/TenKhach";
 import { fmtTime, ngayVN } from "@/lib/datetime";
 import { doctorName } from "@/lib/doctor-name";
 import { nhanLoi } from "@/lib/loi-api";
@@ -54,9 +55,10 @@ function DauLich({ tieuDe, lich }: { tieuDe: string; lich: LichTaiCho }) {
         {lich.ten.trim().split(/\s+/).pop()?.charAt(0).toUpperCase() || "?"}
       </span>
       <div className="min-w-0">
-        <p className="truncate text-emph font-semibold text-ink">
-          {tieuDe} · {lich.ten || "—"}
-        </p>
+        <div className="min-w-0">
+          <p className="truncate text-meta text-ink-muted">{tieuDe}</p>
+          <TenKhach ten={lich.ten || "—"} sdt={lich.sdt} />
+        </div>
         <p className="truncate text-meta text-ink-muted">
           Lịch: {dayShort(ngay)} {fmtDayMonth(ngay)} · {fmtTime(lich.slot_start)}
           {lich.bac_si ? ` · ${doctorName(lich.bac_si)}` : ""}
