@@ -296,6 +296,7 @@ Có thể chạy song song 2 nhánh (H* và S*) vì không chung file, trừ `co
 
 | Rủi ro | Mức | Cách giảm |
 |---|---|---|
+| Đụng logic cũ khi nhận số quốc tế (phải sửa cùng S1/S4) | `patient_sdt_them.so_dien_thoai` có `CHECK ^0[0-9]{9}$` → **nới CHECK** (migration add-only, S4) mới lưu được `+…`; `phone_variants()` trả `[]` cho số quốc tế → kiểm trùng/khoá tạo đồng thời/MPI im lặng bỏ qua → phải trả `[canonical]`; `mpi_service.score` so `normalize_vn_phone` → quốc tế luôn `None` → phải so chuẩn mới |
 | Thêm SĐT vào chuông/nhật ký → SĐT nằm trong DB/log | cao | chỉ P1 hẹp 5 loại; `_SENSITIVE_KEYS`; hỏi H-Q4 |
 | Lộ SĐT ra TV/Telegram/đối tác do dùng chung payload | cao | bài kiểm sẵn có giữ nguyên; `sdt_che` do máy chủ quyết; bài kiểm "đếm" |
 | Test Python ghim cột/dict (`test_danh_sach_hoa_don.py:566,634`, `test_quay_thu.py:406`, `test_xuat_hoa_don.py:17`, các test `==` cả dict `hang_cho/bang/overview` — **chưa kiểm hết**) | trung bình | thêm cột ở CUỐI; chạy đúng tệp bằng `test-nhanh.sh` trước khi sửa để biết nền |
