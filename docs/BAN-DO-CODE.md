@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-16 13:53. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-17 10:19. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -75,7 +75,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/service-price`
 - gọi thẳng backend (server): `/api/v1/service-prices`
 - service: DanhMucDichVuService.doc · PriceListService.{phong_lam, add, update, remove, +1}
-- test: test_danh_muc_dich_vu_chuan_db.py, test_vat_tu_danh_muc_db.py, test_lay_mau_doi_tac_db.py, test_gia_thuoc_hai_nguon_khop_db.py, test_mau_gui_doi_tac_db.py
+- test: test_danh_muc_dich_vu_chuan_db.py, test_vat_tu_danh_muc_db.py, test_doi_chieu_doi_tac_db.py, test_gia_thuoc_hai_nguon_khop_db.py, test_lay_mau_doi_tac_db.py (+1)
 
 ### `/chon-co-so`
 - page: `src/dashboard/app/(auth)/chon-co-so/page.tsx` · quyền: ?
@@ -132,7 +132,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: app/(auth)/login/actions.ts, app/(dashboard)/NotificationContext.tsx, app/(dashboard)/Shell.tsx, BangDoiTac.tsx, app/(dashboard)/BottomNav.tsx, app/(dashboard)/GlobalHeader.tsx, app/(dashboard)/Nav.tsx, app/(dashboard)/QuyenContext.tsx (+6)
 - gọi API Next: `/api/auth/nhat-ky-doi-mat-khau`, `/api/thong-bao`, `/api/thong-bao/[id]/da-xu-ly`, `/api/doi-tac`, `/api/doi-tac/da-lay-mau`, `/api/doi-tac/cho-tai-lieu`, `/api/doi-tac/da-thu-tien`, `/api/doi-tac/huy-da-thu`, `/api/ops/agent`, `/api/loi` (+7)
 - service: audit · ThongBaoService.{cua_toi, danh_dau_da_doc, da_xu_ly} · DoiTacService.{viec_doi_tac, doi_tac_da_lay_mau, doi_tac_cho_tai_lieu, ghi_nhan_da_thu, +1} · nhan_tep_luong · TepKetQuaService.{tai_len, khoi_phuc_tep, xoa_tep, mo_de_doc, +3} · agent_tom_tat.{doc, tao} (+25 service)
-- test: test_so_sua_chi_dinh_db.py, test_hoan_tac_moi_thao_tac_db.py, test_tep_ket_qua.py, test_cashier_scope_db.py, test_xac_nhan_tep_ket_qua_db.py (+57)
+- test: test_so_sua_chi_dinh_db.py, test_hoan_tac_moi_thao_tac_db.py, test_tep_ket_qua.py, test_cashier_scope_db.py, test_xac_nhan_tep_ket_qua_db.py (+58)
 
 ### `/duyet-ket-qua` — Duyệt kết quả
 - page: `src/dashboard/app/(dashboard)/duyet-ket-qua/page.tsx` · quyền: ?
@@ -198,7 +198,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/service-price/vat-tu-hang-loat`, `/api/vat-tu-kho/[action]`, `/api/service-price`, `/api/cashier`
 - gọi thẳng backend (server): `/api/v1/vat-tu-kho/ton`, `/api/v1/vat-tu-kho/phieu`, `/api/v1/vat-tu-kho/cho-duyet`
 - service: vat_tu_danh_muc_service · vat_tu_kho_service.{doc_ton, tao_phieu, hoan_phieu} · vat_tu_kho_man_service.{doc_noi_chua, doc_vat_tu_chon, doc_phieu, dat_muc_toi_thieu} · vat_tu_tieu_hao_service.doc_tieu_hao · can · vat_tu_nhap_duyet_service.{doc_cho_duyet, duyet, rut_lai, tu_choi} (+5 service)
-- test: test_cashier_scope_db.py, test_vat_tu_nhap_duyet_db.py, test_danh_muc_dich_vu_chuan_db.py, test_vat_tu_kho_man_db.py, test_cashier_scope.py (+15)
+- test: test_cashier_scope_db.py, test_danh_muc_dich_vu_chuan_db.py, test_vat_tu_kho_man_db.py, test_vat_tu_nhap_duyet_db.py, test_cashier_scope.py (+16)
 
 ### `/lab-queue`
 - page: `src/dashboard/app/(dashboard)/lab-queue/page.tsx` · quyền: ?
@@ -593,7 +593,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/xuat-hoa-don`
 - gọi thẳng backend (server): `/api/v1/catalog/locations`, `/api/v1/catalog/service-types`
 - service: XuatHoaDonService.xem · HoaDonMisaService.gan_trang_thai · xuat_hoa_don_service
-- test: test_thue_gtgt_db.py, test_hoa_don_misa_db.py, test_sua_ho_so_khach_db.py, test_xuat_hoa_don.py
+- test: test_thue_gtgt_db.py, test_doi_chieu_hoa_don_db.py, test_hoa_don_misa_db.py, test_xuat_hoa_don.py
 
 ## 2. API Next → backend (137)
 
@@ -952,12 +952,12 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 
 #### `/api/doi-tac/da-thu-tien` · `src/dashboard/app/api/doi-tac/da-thu-tien/route.ts`
 - POST `/api/v1/doi-tac/viec/{chi_dinh_id}/da-thu-tien` → `src/clinicai/api/v1/routers/doi_tac.py:da_thu_tien` → DoiTacService.ghi_nhan_da_thu
-- test: src/tests/services/test_doi_tac_tu_thu_db.py, src/tests/services/test_mau_gui_doi_tac_db.py
+- test: src/tests/services/test_doi_chieu_doi_tac_db.py, src/tests/services/test_doi_tac_tu_thu_db.py
 - màn dùng: /doi-tac
 
 #### `/api/doi-tac/huy-da-thu` · `src/dashboard/app/api/doi-tac/huy-da-thu/route.ts`
 - POST `/api/v1/doi-tac/viec/{chi_dinh_id}/huy-da-thu` → `src/clinicai/api/v1/routers/doi_tac.py:huy_da_thu` → DoiTacService.huy_da_thu
-- test: src/tests/services/test_doi_tac_tu_thu_db.py
+- test: src/tests/services/test_doi_chieu_doi_tac_db.py, src/tests/services/test_doi_tac_tu_thu_db.py
 - màn dùng: /doi-tac
 
 #### `/api/don-du-lieu-thu` · `src/dashboard/app/api/don-du-lieu-thu/route.ts`
@@ -1545,7 +1545,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - POST `/api/v1/vat-tu-kho/phieu` → `src/clinicai/api/v1/routers/vat_tu_kho.py:lap_phieu` → vat_tu_kho_service.tao_phieu
 - POST `/api/v1/vat-tu-kho/phieu/{phieu_id}/hoan` → `src/clinicai/api/v1/routers/vat_tu_kho.py:hoan_phieu` → vat_tu_kho_service.hoan_phieu
 - PUT `/api/v1/vat-tu-kho/muc-toi-thieu` → `src/clinicai/api/v1/routers/vat_tu_kho.py:muc_toi_thieu` → vat_tu_kho_man_service.dat_muc_toi_thieu
-- test: src/tests/services/test_vat_tu_nhap_duyet_db.py, src/tests/services/test_vat_tu_kho_man_db.py, src/tests/services/test_vat_tu_kho_db.py (+3)
+- test: src/tests/services/test_vat_tu_kho_man_db.py, src/tests/services/test_vat_tu_kho_db.py, src/tests/services/test_vat_tu_nhap_duyet_db.py (+4)
 - màn dùng: /kho-vat-tu
 
 #### `/api/visits/[id]/charges` · `src/dashboard/app/api/visits/[id]/charges/route.ts`
@@ -1617,7 +1617,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 #### `/api/xuat-hoa-don` · `src/dashboard/app/api/xuat-hoa-don/route.ts`
 - GET `/api/v1/hoa-don/xuat` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don` → XuatHoaDonService.xem, HoaDonMisaService.gan_trang_thai
 - GET `/api/v1/hoa-don/xuat/xlsx` → `src/clinicai/api/v1/routers/hoa_don.py:xuat_hoa_don_excel` → xlsx_misa
-- test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_hoa_don_misa_db.py, src/tests/services/test_sua_ho_so_khach_db.py (+1)
+- test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_doi_chieu_hoa_don_db.py, src/tests/services/test_hoa_don_misa_db.py (+1)
 - màn dùng: /xuat-hoa-don
 
 ## 3. Service → màn (200)
