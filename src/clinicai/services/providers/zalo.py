@@ -112,8 +112,7 @@ async def gui_zns(
             "da_gui": False,
             "ly_do": "SDT_KHONG_HOP_LE",
             "chi_tiet": (
-                "ZNS chỉ gửi tới số di động Việt Nam; "
-                "số quốc tế/số bàn cần gọi tay."
+                "ZNS chỉ gửi tới số di động Việt Nam; số quốc tế/số bàn cần gọi tay."
             ),
         }
 

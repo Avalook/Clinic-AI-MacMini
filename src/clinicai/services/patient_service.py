@@ -26,6 +26,7 @@ from clinicai.services.audit import record_event
 
 logger = structlog.get_logger()
 
+
 def validate_phone(value: str | None, label: str) -> None:
     """Keep a guard for callers that bypass normal schema validation."""
     if value and chuan_hoa_sdt(value) is None:
@@ -574,9 +575,7 @@ class PatientService:
         phone = chuan_hoa_sdt(so_dien_thoai)
         chuan = phone.so if phone is not None else None
         if chuan is None:
-            raise ValidationError(
-                LOI_SDT
-            )
+            raise ValidationError(LOI_SDT)
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 ho_so = await conn.fetchrow(

@@ -47,14 +47,10 @@ class MPIService:
 
         # Phone match
         candidate_phone = (
-            chuan_hoa_sdt(candidate.phone_primary)
-            if candidate.phone_primary
-            else None
+            chuan_hoa_sdt(candidate.phone_primary) if candidate.phone_primary else None
         )
         existing_phone = (
-            chuan_hoa_sdt(existing.phone_primary)
-            if existing.phone_primary
-            else None
+            chuan_hoa_sdt(existing.phone_primary) if existing.phone_primary else None
         )
         if (
             candidate_phone is not None

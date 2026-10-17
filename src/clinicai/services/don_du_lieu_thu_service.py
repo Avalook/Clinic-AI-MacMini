@@ -93,7 +93,6 @@ TRANG_THAI_LUOT = {
 # ── Hàm thuần ───────────────────────────────────────────────────────────────
 
 
-
 def doc_ngay(chuoi: str | None) -> date | None:
     """`YYYY-MM-DD` → date; rỗng / rác → None (không ném — luật ngày giờ)."""
     s = (chuoi or "").strip()
