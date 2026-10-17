@@ -217,8 +217,9 @@ Hiện khách nước ngoài không nhập được nên nhân viên ghi số v�
 |---|---|
 | **Lưu cùng cột `phone_primary` / `phone_secondary` / `patient_sdt_them`**, hai dạng không lẫn nhau | VN: `0912345678` · quốc tế: `+14155552671` (E.164: `+`, mã nước 1–3 số, tổng 8–15 số) |
 | Nhận vào | `+1 415 555 2671`, `+82 10-1234-5678`, `(+1) 415.555.2671`, `001 415 555 2671` → đều ra `+14155552671` / `+821012345678`. `+84…` luôn quy về `0…` (không bao giờ lưu `+84`). |
-| Từ chối | số quốc tế không có `+`/`00` (`14155552671` — không đoán được mã nước); ngắn hơn 8 hoặc dài hơn 15 số; có chữ |
-| Kiểm tới đâu | chỉ độ dài + mã nước không bắt đầu bằng 0 (không biết nước nào có đầu số gì). Muốn kiểm từng nước phải thêm thư viện `phonenumbers` — **không đề xuất ngay** (S-Q1c) |
+| Ô chọn nước (như app chuẩn) | `<OSdt>` có ô chọn nước **mặc định 🇻🇳 +84**. Gõ `0912…` → hiểu là VN. Gõ `+…` hoặc `00…` → tự nhận nước theo mã, ô chọn nước tự nhảy. Muốn nhập số nước ngoài không gõ `+` → chọn nước ở ô bên cạnh rồi gõ số nội địa (`415 555 2671` + chọn 🇺🇸 → `+14155552671`). Backend nhận thêm tham số `quoc_gia` (mặc định `VN`). |
+| Từ chối | số không hợp lệ theo nước đã chọn; số ngắn hơn 8 hoặc dài hơn 15 số; có chữ. Thông báo nói rõ "số này không phải số VN — chọn nước khác hoặc bắt đầu bằng +" |
+| Kiểm tới đâu | **VN: luật tự viết như nay** (đầu số 03/05/07/08/09, 10 số). **Nước khác: dùng thư viện `phonenumbers` (bản Python của libphonenumber, chuẩn mà Google/Zalo-các-app dùng)** — kiểm đúng độ dài/đầu số từng nước, chỉ gọi khi số KHÔNG phải VN. Thêm 1 phụ thuộc (thuần Python); quyết kỹ thuật tự chọn, không cần hỏi chủ |
 | Hiện | `+1 415 555 2671` (cách nhóm theo mã nước thô); che: `+1 415 ••• 2671` |
 | Tìm | ô tìm hiểu `+`/`00` + số; so khớp theo chuỗi số (đã có `sdt_tim_kiem`); nhận thêm dạng ngắn (gõ `415555`) |
 | Kiểm trùng / khoá tạo đồng thời | số quốc tế khớp **nguyên chuỗi chuẩn** (không có "3 cách viết" như số VN) |
@@ -269,7 +270,7 @@ Tác động lên bảng §2.1: `normalize_vn_phone` giữ nguyên nghĩa "chỉ
 |---|---|---|---|---|
 | **S1** | `core/phone.py` hàm mới (VN + quốc tế) + vỏ cũ; thay bản Zalo/staff/schema; test rác (bảng §2.3, hơn 50 ca, **thử ngược**) | 2 | 300 | 4 |
 | **S2** | Tìm theo SĐT: `mau_tim_sdt` dùng ở `mau_so`, `man_dat_lich_doc`, `ban_le_service` (thêm số thêm), CSKH; bỏ lọc `includes()` thô ở 3 file TS bằng API/hàm chung | 2 | 250 | 3 |
-| **S3** | `<OSdt>` (components/ui) thay 6 ô nhập; `validation.ts` chỉ còn nắn nhẹ; route Next bỏ `PHONE_RE`, chuyển tiếp; bài kiểm "đếm" ô SĐT phải dùng `<OSdt>` (Luật 12.2) | 2 | 350 | 4 |
+| **S3** | `<OSdt>` (components/ui, có ô chọn nước mặc định 🇻🇳) thay 6 ô nhập; `validation.ts` chỉ còn nắn nhẹ; route Next bỏ `PHONE_RE`, chuyển tiếp; bài kiểm "đếm" ô SĐT phải dùng `<OSdt>` (Luật 12.2) | 2 | 350 | 4 |
 | **S4** | Trigger migration + test + staging-mask (mức 3, diễn tập migration) | 3 | 120 | 2 |
 | **S5** | `scripts/do-sdt-ban-sao.py` + danh sách 48 + hướng dẫn CSKH | 1 | 150 | 1,5 |
 
@@ -289,7 +290,7 @@ Cách kiểm: pytest `scripts/test-nhanh.sh` (test rác + DB), bấm thật 375/
 ```
 Có thể chạy song song 2 nhánh (H* và S*) vì không chung file, trừ `core/phone.py` (S1 làm trước, rồi H0 chỉ import). Mỗi việc một dải giờ migration riêng (chỉ S4 có migration) và cổng web/API riêng (CLAUDE.md mục 2).
 
-**Tổng ước: Việc 1 ≈ 31 giờ (gồm tuỳ chọn 7 giờ) · Việc 2 ≈ 15 giờ · cộng ≈ 46 giờ ≈ 6 ngày làm**, chưa kể chờ duyệt, CI, staging.
+**Tổng ước: Việc 1 ≈ 31 giờ (gồm tuỳ chọn 7 giờ) · Việc 2 ≈ 16 giờ · cộng ≈ 47 giờ ≈ 6 ngày làm**, chưa kể chờ duyệt, CI, staging.
 
 ### 3.2 Rủi ro
 
@@ -319,8 +320,6 @@ Ví dụ chung: hai khách **Nguyễn Thị Hoa** — `KHACH-2301`, SĐT `0912 3
 | **H-Q4** | **Chuông** "Hẹn tái khám — cần gọi chốt giờ: Nguyễn Thị Hoa (KHACH-2301)" có thêm SĐT không? (SĐT sẽ được **lưu** trong bảng thông báo, chuông cũ không đổi) | A: thêm cho 5 loại chuông "gọi khách" · B: thêm cột để đọc luôn mới (mức 3) · C: không | **A**, làm sau cùng (H7) |
 | **H-Q5** | **File Excel/CSV gửi kế toán** (Lịch sử thu, hoá đơn): thêm cột "Điện thoại" ở cuối? File MISA thì **không đổi**. | A: có · B: không | **A cho 2 file này**, báo cáo cuối ngày để sau |
 | **H-Q6** | Khách có 2 số (`0912…` và số người nhà), hoặc chưa có số: hiện gì? | A: chỉ số chính, trống thì ẩn · B: hiện cả hai | **A** (prod: 306/8.787 hồ sơ trống số; chỉ 1 số thêm toàn hệ thống) |
-| **S-Q1b** | Gõ số nước ngoài **không có dấu `+`**: `14155552671` | A: từ chối, bắt gõ `+` hoặc `00` · B: đoán | **A** (không đoán được mã nước) |
-| **S-Q1c** | Kiểm số nước ngoài tới đâu? | A: chỉ độ dài (8–15 số, như chuẩn E.164) · B: thêm thư viện `phonenumbers` kiểm theo từng nước (thêm 1 phụ thuộc) | **A** — đủ cho việc lưu và nhìn phân biệt; B khi cần gửi tin |
 | **S-Q2** | Số bàn `028 1234 567` có nhận không? | A: có (như nay) · B: không | **A** (0 hồ sơ prod dùng; không gửi Zalo) |
 | **S-Q3** | **48 hồ sơ số sai** (nhập Notion, vd `09` + 7 số, thiếu 1 chữ số) xử lý ai? | A: xuất danh sách cho CSKH gọi hỏi lại · B: máy tự sửa | **A** — máy không đoán được số nào đúng |
 | **S-Q4** | SĐT nhân sự / cơ sở dùng cùng luật? (nhân sự hiện nhận 9–11 số bất kỳ) | A: cùng luật · B: để lỏng | **A** |
