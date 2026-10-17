@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import TenKhach from "@/components/ui/TenKhach";
 import { nhanLoi } from "@/lib/loi-api";
 
 import NutXemLuot from "../_lam-viec/NutXemLuot";
@@ -182,15 +183,12 @@ export default function BangViecCanXuLy() {
                   <p className="text-sm font-semibold text-ink">
                     {NHAN[v.node_code] ?? v.node_name ?? v.node_code}
                   </p>
-                  <p className="mt-0.5 text-meta text-ink-muted">
-                    {[
-                      v.patient?.full_name,
-                      v.patient?.patient_code,
-                      v.created_at ? `mở lúc ${gio(v.created_at)}` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
+                  <div className="mt-0.5">
+                    <TenKhach ten={v.patient?.full_name ?? "—"} ma={v.patient?.patient_code} />
+                    <p className="text-meta text-ink-muted">
+                      {v.created_at ? `mở lúc ${gio(v.created_at)}` : null}
+                    </p>
+                  </div>
                   {v.visit_id ? <NutXemLuot visitId={v.visit_id} nhan="Xem lượt" /> : null}
                 </div>
                 <Button

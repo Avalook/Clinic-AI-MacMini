@@ -16,8 +16,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
-import SoLuot from "@/components/ui/SoLuot";
 import StatusChip from "@/components/ui/StatusChip";
+import TenKhach from "@/components/ui/TenKhach";
 import XemLuot from "../_lam-viec/XemLuot";
 import BanLeThu from "./BanLeThu";
 import DongThuoc, { CHAM } from "./DongThuoc";
@@ -189,15 +189,18 @@ export default function PharmacyBoard({
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="flex min-w-0 flex-wrap items-center gap-1.5 text-emph font-medium text-ink">
-                        {l.ten_khach ?? "Chưa có tên"}
-                        <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
+                      <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        <TenKhach
+                          ten={l.ten_khach ?? "Chưa có tên"}
+                          ma={l.patient_code}
+                          sdt={l.phone}
+                          soLuot={{ booking: l.so_booking, checkin: l.so_tiep_don }}
+                        />
                         {l.ban_le ? <Chip tone="brand">Bán lẻ</Chip> : null}
                       </span>
                       <StatusChip tone={xongHet(l) ? "completed" : gd.tone} label={xongHet(l) ? "Xong" : gd.nhan} />
                     </div>
                     <div className="mt-1 truncate text-meta text-ink-muted">
-                      {l.patient_code ?? "—"} ·{" "}
                       {l.dong.length === 0
                         ? "khách mua thuốc — chưa kê"
                         : `${l.dong.length} thuốc: ${l.dong.map((d) => d.drug_name_raw ?? "—").join(", ")}`}
@@ -221,15 +224,16 @@ export default function PharmacyBoard({
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <h3 className="flex flex-wrap items-center gap-2 text-title font-semibold text-ink">
-                    {luot.ten_khach ?? "Chưa có tên"}
-                    <SoLuot booking={luot.so_booking} checkin={luot.so_tiep_don} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <TenKhach
+                      ten={luot.ten_khach ?? "Chưa có tên"}
+                      ma={luot.patient_code}
+                      sdt={luot.phone}
+                      soLuot={{ booking: luot.so_booking, checkin: luot.so_tiep_don }}
+                    />
                     {luot.ban_le ? <Chip tone="brand">Bán lẻ — khách chỉ mua thuốc</Chip> : null}
                     {vuaMo === luot.visit_id ? <Chip tone="brand">Vừa mở</Chip> : null}
-                  </h3>
-                  <p className="text-meta text-ink-muted">
-                    {luot.patient_code ?? "—"} · {luot.phone ?? "—"}
-                  </p>
+                  </div>
                 </div>
                 <StatusChip
                   size="md"

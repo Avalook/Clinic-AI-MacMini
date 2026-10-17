@@ -30,6 +30,7 @@ import ChipChon from "@/components/ui/ChipChon";
 import NutCheckIn from "@/components/ui/NutCheckIn";
 import PriorityChip from "@/components/ui/PriorityChip";
 import SoLuot from "@/components/ui/SoLuot";
+import TenKhach from "@/components/ui/TenKhach";
 import { doctorName } from "@/lib/doctor-name";
 import {
   docHuongXep,
@@ -123,24 +124,27 @@ function DongKhach({
     d.gio_hen,
     d.loai_kham,
     d.bac_si ? doctorName(d.bac_si) : null,
-    d.sdt,
   ]);
 
   return (
     <li className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 border-b border-line px-4 py-3 last:border-b-0 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
       <SoLuot dang="tron" bookingTruoc booking={d.so_booking} checkin={d.so_tiep_don} />
       <div className="min-w-0">
-        {/* TÊN KHÔNG CẮT: tên dài xuống dòng (bản mẫu "Nguyễn Thị Phương Mai
-            Anh") — lễ tân đọc tên để gọi khách. */}
-        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 break-words text-title font-semibold text-ink">
-          <span>{d.ten ?? "Chưa rõ tên"}</span>
+        {/* TenKhach giữ tên một dòng và cho số/mã xuống dòng theo bố cục màn hình. */}
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+          <TenKhach
+            ten={d.ten ?? "Chưa rõ tên"}
+            ma={d.ma_khach}
+            sdt={d.sdt}
+            giuTenDayDu
+          />
           {d.loai_khach ? <Chip tone="info">{d.loai_khach}</Chip> : null}
           {d.uu_tien ? (
             <span title={d.uu_tien_ly_do ?? "Khách ưu tiên"}>
               <PriorityChip priority="P0" />
             </span>
           ) : null}
-        </p>
+        </div>
         {phu ? <p className="mt-0.5 text-meta text-ink-muted">{phu}</p> : null}
         {lieuTrinh ? (
           <p className="mt-0.5 break-words text-meta font-medium text-brand-700">{lieuTrinh}</p>

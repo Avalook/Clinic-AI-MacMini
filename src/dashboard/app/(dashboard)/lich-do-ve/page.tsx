@@ -22,6 +22,7 @@ import { currentWeekStartVn, shiftWeek, weekStartOf, fmtDayMonth, dayLabel } fro
 import { thongKeTheoKhungGio, tongKet, khungGioVN, type LichDeDem } from "../../../lib/thong-ke-khung-gio";
 import { nhanPhanLoaiKham } from "../../../lib/phan-loai-kham";
 import { chipClass } from "../../../components/ui/Chip";
+import TenKhach from "../../../components/ui/TenKhach";
 import { VN_TZ } from "../../../lib/datetime";
 
 export const dynamic = "force-dynamic";
@@ -227,12 +228,7 @@ export default async function LichDoVePage({
                             )}
                           </td>
                           <td className={TD}>
-                            <span className="block font-medium text-ink">
-                              {a.patient?.full_name ?? "—"}
-                            </span>
-                            <span className="block font-mono text-label text-ink-muted">
-                              {a.patient?.patient_code}
-                            </span>
+                            <TenKhach ten={a.patient?.full_name ?? "—"} ma={a.patient?.patient_code} />
                           </td>
                           <td className={`${TD} text-ink-soft`}>
                             {a.service?.name ?? (

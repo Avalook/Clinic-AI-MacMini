@@ -19,6 +19,7 @@ import { useMemo, useState, useTransition,
 } from "react";
 
 import StatCard, { StatRow } from "@/components/ui/StatCard";
+import TenKhach from "@/components/ui/TenKhach";
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
 import Chip, { chipClass } from "@/components/ui/Chip";
 import { buttonClass } from "@/components/ui/Button";
@@ -1557,12 +1558,7 @@ export default function CustomersView({
                         } ${active ? "bg-brand-50/60" : "hover:bg-surface-sunken"}`}
                       >
                         <div className="min-w-0">
-                          <span className="block truncate text-sm font-bold text-ink">
-                            {row.full_name}
-                          </span>
-                          <span className="mt-0.5 block truncate font-mono text-xs text-ink-muted">
-                            {row.patient_code}
-                          </span>
+                          <TenKhach ten={row.full_name} ma={row.patient_code} sdt={row.phone_primary} />
                           <KenhDoiHuy k={row} gon />
                         </div>
                         <div className="flex flex-wrap items-center gap-1">
@@ -1859,8 +1855,7 @@ export default function CustomersView({
               {/* Bỏ vòng tròn chữ tắt cạnh tên (Tuyền 27/09/2026). */}
               <div className="flex items-start gap-3 border-b border-line pb-4">
                 <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-base font-semibold text-ink">{selected.full_name}</h2>
-                  <p className="mt-0.5 font-mono text-xs text-ink-muted">{selected.patient_code}</p>
+                  <TenKhach ten={selected.full_name} ma={selected.patient_code} sdt={selected.phone_primary} />
                   <DauUuTien
                     key={selected.clinic_patient_id}
                     clinicPatientId={selected.clinic_patient_id}
@@ -1868,9 +1863,9 @@ export default function CustomersView({
                     lyDo={selected.uu_tien_ly_do ?? null}
                     onDoi={() => router.refresh()}
                   />
-                  <p className="mt-1 text-sm text-ink-muted">
-                    {selected.phone_primary ?? "Chưa có số điện thoại"}
-                  </p>
+                  {!selected.phone_primary ? (
+                    <p className="mt-1 text-sm text-ink-muted">Chưa có số điện thoại</p>
+                  ) : null}
                   {/* SỐ THÊM của chính khách — mỗi số một dòng NGAY DƯỚI số
                       cũ (Tuyền 15/08/2026): khách dùng 2–3 số, người trực
                       phải thấy đủ trước khi bấm gọi. */}

@@ -7,6 +7,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { buttonClass } from "@/components/ui/Button";
+import TenKhach from "@/components/ui/TenKhach";
 import { ChonCoSoO, type CoSo } from "@/components/ui/ChonCoSo";
 import LichKhoangNgay from "@/components/ui/LichKhoangNgay";
 import ThanhTab from "@/components/ui/ThanhTab";
@@ -325,10 +326,10 @@ export default function DanhSachHoaDon({ coSo, banDau = {} }: { coSo: CoSo[]; ba
                 {ds.map(k => (
                   <button type="button" key={k.id} onClick={() => setKhach(k)} className="block w-full rounded-card bg-surface p-4 text-left ring-1 ring-hairline">
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <span className="text-emph font-semibold text-brand-700">{k.ten}</span>
+                      <TenKhach ten={k.ten} ma={k.ma_bn} sdt={k.so_dien_thoai} />
                       <TrangThai k={k} />
                     </div>
-                    <p className="mt-1 text-meta text-ink-muted">{k.ma_bn || "—"} · {k.so_phieu} phiếu</p>
+                    <p className="mt-1 text-meta text-ink-muted">{k.so_phieu} phiếu</p>
                     <dl className="mt-3 grid grid-cols-2 gap-3">
                       <SoTien ten="Tiền đã thu" so={tien(k.da_thu)} />
                       <SoTien ten="Thực thu" so={tien(k.thu_rong)} />

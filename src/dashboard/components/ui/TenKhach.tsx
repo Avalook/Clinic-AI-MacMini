@@ -9,18 +9,25 @@ export type TenKhachProps = {
   /** Nơi gọi chọn chế độ; nơi nhạy cảm phải nhận sẵn số đã che từ API. */
   che?: "day_du" | "che" | "an";
   bo?: "ngang" | "doc";
+  /** Giữ nguyên tên dài ở hàng chờ tiếp đón để nhân viên đọc gọi khách. */
+  giuTenDayDu?: boolean;
   soLuot?: ComponentProps<typeof SoLuot>;
 };
 
 export default function TenKhach({
-  ten, ma, sdt, che = "day_du", bo = "ngang", soLuot,
+  ten, ma, sdt, che = "day_du", bo = "ngang", giuTenDayDu = false, soLuot,
 }: TenKhachProps) {
   const so = che === "an" ? null : che === "che" ? cheSdt(sdt) : dinhDangSdt(sdt);
   return (
     <span className="flex min-w-0 max-w-full items-start gap-2">
       {soLuot ? <SoLuot {...soLuot} /> : null}
       <span className={`flex min-w-0 flex-1 flex-col gap-1 ${bo === "ngang" ? "md:flex-row md:flex-wrap md:items-baseline md:gap-x-2" : ""}`}>
-        <span title={ten} className={`min-w-0 truncate text-body font-semibold text-ink ${bo === "ngang" ? "md:flex-1" : ""}`}>{ten}</span>
+        <span
+          title={ten}
+          className={`min-w-0 ${giuTenDayDu ? "whitespace-normal break-words" : "truncate"} text-body font-semibold text-ink ${bo === "ngang" ? "md:flex-1" : ""}`}
+        >
+          {ten}
+        </span>
         {ma || so ? (
           <span className={`flex min-w-0 max-w-full flex-wrap items-baseline gap-1 text-meta text-ink-muted ${bo === "ngang" ? "md:contents" : ""}`}>
             {ma ? <span className={`min-w-0 break-all ${bo === "ngang" ? "md:order-3 md:basis-full" : ""}`}>{ma}</span> : null}

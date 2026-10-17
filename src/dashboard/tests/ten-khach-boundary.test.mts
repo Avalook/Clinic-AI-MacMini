@@ -45,6 +45,6 @@ test("bộ đếm nhận tên trực tiếp và không đếm props, chuỗi/com
 test("số chỗ vẽ tên trực tiếp chỉ được giảm khi chuyển sang TenKhach", () => {
   const root = new URL("../app/(dashboard)/", import.meta.url).pathname;
   const count = files(root).reduce((sum, path) => sum + demTenNguon(readFileSync(path, "utf8")), 0);
-  const TRAN = 272; // Ghim đúng số đo H0; hạ trần khi chuyển màn ở H1 trở đi.
+  const TRAN = 255; // Hạ từ số đo H0 khi các màn H1 chuyển sang TenKhach.
   assert.equal(count, TRAN, `Hiện ${count} chỗ; không thêm tên trực tiếp. Nếu giảm, hạ TRAN.`);
 });

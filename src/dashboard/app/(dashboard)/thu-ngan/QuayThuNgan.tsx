@@ -36,7 +36,7 @@ import { taoMotLuot } from "@/lib/mot-luot";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import NutHoanTienThua from "../_lam-viec/NutHoanTienThua";
-import SoLuot from "@/components/ui/SoLuot";
+import TenKhach from "@/components/ui/TenKhach";
 import { nhanPhan, tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
 import { gio, nhanLamTruocThuSau, type LamTruoc } from "../_lam-viec/OLamTruocThuSau";
 import AnhChuyenKhoan, { taiAnhChuyenKhoan, type AnhCk } from "./AnhChuyenKhoan";
@@ -735,11 +735,15 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                       on ? "border-l-brand-500 bg-surface-selected" : "border-l-transparent hover:bg-surface-sunken"
                     }`}
                   >
-                    <SoLuot dang="tron" checkin={l.so_tiep_don} booking={l.so_booking} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-emph font-semibold text-ink">{l.full_name ?? "—"}</span>
+                      <TenKhach
+                        ten={l.full_name ?? "—"}
+                        ma={l.patient_code}
+                        sdt={l.phone}
+                        soLuot={{ dang: "tron", checkin: l.so_tiep_don, booking: l.so_booking }}
+                      />
                       <span className="block truncate text-meta text-ink-muted">
-                        {[l.loai_kham, l.bac_si].filter(Boolean).join(" · ") || (l.patient_code ?? "")}
+                        {[l.loai_kham, l.bac_si].filter(Boolean).join(" · ")}
                       </span>
                       {l.lam_truoc?.lam_truoc_thu_sau ? (
                         <span className="mt-1 flex min-w-0 flex-col items-start gap-0.5">
@@ -765,11 +769,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
           >
             <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line px-4 py-3">
               <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-1.5 text-body font-semibold text-ink">
-                  {l.full_name ?? "—"}
-                  <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
-                </p>
-                <p className="text-meta text-ink-muted">{l.patient_code ?? ""}</p>
+                <TenKhach ten={l.full_name ?? "—"} ma={l.patient_code} sdt={l.phone} soLuot={{ booking: l.so_booking, checkin: l.so_tiep_don }} />
                 {l.lam_truoc?.lam_truoc_thu_sau ? (
                   <p className="mt-1">
                     <Chip tone="info">{nhanLamTruocThuSau(l.lam_truoc)}</Chip>
@@ -931,11 +931,7 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
             >
               <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line px-4 py-3">
                 <div className="min-w-0">
-                  <p className="flex flex-wrap items-center gap-1.5 text-body font-semibold text-ink">
-                    {l.full_name ?? "—"}
-                    <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
-                  </p>
-                  <p className="text-meta text-ink-muted">{l.patient_code ?? ""}</p>
+                  <TenKhach ten={l.full_name ?? "—"} ma={l.patient_code} sdt={l.phone} soLuot={{ booking: l.so_booking, checkin: l.so_tiep_don }} />
                 </div>
                 <NutXemLuot visitId={l.visit_id} nhan="Xem hành trình" />
               </header>
@@ -964,13 +960,8 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
             >
               <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line px-4 py-3">
                 <div className="min-w-0">
-                  <p className="flex flex-wrap items-center gap-1.5 text-body font-semibold text-ink">
-                    {l.full_name ?? "—"}
-                    <SoLuot booking={l.so_booking} checkin={l.so_tiep_don} />
-                  </p>
-                  <p className="text-meta text-ink-muted">
-                    {[l.loai_kham, l.patient_code].filter(Boolean).join(" · ")}
-                  </p>
+                  <TenKhach ten={l.full_name ?? "—"} ma={l.patient_code} sdt={l.phone} soLuot={{ booking: l.so_booking, checkin: l.so_tiep_don }} />
+                  <p className="text-meta text-ink-muted">{l.loai_kham ?? ""}</p>
                 </div>
                 <NutXemLuot visitId={l.visit_id} nhan="Xem hành trình" />
               </header>
