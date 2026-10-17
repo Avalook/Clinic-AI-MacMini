@@ -50,6 +50,8 @@ const ACTIONS: Record<string, string> = {
   "chuyen-kho": "/api/v1/pharmacy/chuyen-kho",
   "hoan-tac-chuyen-kho": "/api/v1/pharmacy/hoan-tac-chuyen-kho",
   "tach-kho-quay": "/api/v1/pharmacy/tach-kho-quay",
+  // 17/10 (việc B): quyết định thuốc khách trả chờ kiểm — nhập lại bán được / huỷ (một lần).
+  "xu-ly-thuoc-tra": "/api/v1/pharmacy/xu-ly-thuoc-tra",
   // 09/10: bán theo đơn khám cũ — nối / gỡ nối đơn gốc của lượt Bán lẻ.
   "ban-le-theo-don": "/api/v1/pharmacy/ban-le/theo-don",
   "ban-le-go-don": "/api/v1/pharmacy/ban-le/go-don",

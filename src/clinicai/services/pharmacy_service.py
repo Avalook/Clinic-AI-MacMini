@@ -1881,6 +1881,168 @@ class PharmacyService:
             "hoan": hoan,
         }
 
+    async def thuoc_tra_cho_kiem(
+        self, *, identity: StaffIdentity
+    ) -> list[dict[str, Any]]:
+        """Thuốc khách đã trả mà CHƯA quyết xử lý (`drug_return.disposition` rỗng),
+        của kho cơ sở đang làm. Phần này đã nằm trong tồn vật lý nhưng bị trừ khỏi
+        lượng bán được (`drug_batch_kha_dung`) cho tới khi có quyết định."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT r.id::text AS id, r.returned_qty, r.reason, r.returned_at,
+                       r.drug_batch_id::text AS drug_batch_id,
+                       b.batch_code, b.unit, b.cost_price, b.expiry_date,
+                       coalesce(c.name_base, p.drug_name_raw) AS thuoc,
+                       s.full_name AS nguoi_tra, pt.full_name AS ten_khach,
+                       pt.patient_code
+                  FROM public.drug_return r
+                  JOIN public.drug_batch b
+                    ON b.id = r.drug_batch_id AND b.clinic_id = r.clinic_id
+                  JOIN public.prescription p
+                    ON p.id = r.prescription_id AND p.clinic_id = r.clinic_id
+                  LEFT JOIN public.drug_catalog c ON c.id = b.drug_catalog_id
+                  LEFT JOIN public.staff s ON s.id = r.returned_by
+                  LEFT JOIN public.visit v
+                    ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
+                  LEFT JOIN public.patient pt
+                    ON pt.clinic_patient_id = v.clinic_patient_id
+                   AND pt.clinic_id = v.clinic_id
+                 WHERE r.clinic_id = $1::uuid AND r.disposition IS NULL
+                   AND b.location_id = $2::uuid
+                 ORDER BY r.returned_at, r.id
+                """,
+                identity.clinic_id,
+                identity.location_id,
+            )
+        return [
+            {
+                "id": r["id"],
+                "thuoc": r["thuoc"],
+                "batch_code": r["batch_code"],
+                "unit": r["unit"],
+                "so_luong": Decimal(str(r["returned_qty"])),
+                "gia_von": r["cost_price"],
+                "ly_do_tra": r["reason"],
+                "tra_luc": r["returned_at"],
+                "nguoi_tra": r["nguoi_tra"],
+                "khach": r["ten_khach"],
+                "ma_bn": r["patient_code"],
+            }
+            for r in rows
+        ]
+
+    async def xu_ly_thuoc_tra(
+        self,
+        *,
+        identity: StaffIdentity,
+        drug_return_id: str,
+        quyet_dinh: object,
+        ly_do: str | None = None,
+    ) -> dict[str, Any]:
+        """Quyết định MỘT LẦN cho thuốc khách trả đang chờ kiểm (HOLD J1/J2 gỡ).
+
+          * ``BAN_LAI`` — nhập lại bán được: chỉ đặt quyết định; lượng bán được
+            (`drug_batch_kha_dung`) tự thôi trừ phần này. Lý do tuỳ chọn.
+          * ``HUY`` — huỷ (hỏng, hết hạn, đã mở…): BẮT lý do, ghi một dòng sổ
+            ``DISCARD`` (tồn vật lý giảm, ref `drug_return`) CÙNG giao dịch với
+            quyết định — huỷ mà tồn không giảm là sai sổ (DB ép bằng CHECK).
+
+        Quyết định không sửa lại (trigger `drug_return_guard`); gửi lần hai →
+        câu báo đã xử lý. Không đụng tiền: tiền của lần trả đã chốt lúc trả.
+        """
+        if quyet_dinh not in ("BAN_LAI", "HUY"):
+            raise ValidationError("Chọn nhập lại bán được, hoặc huỷ.")
+        ly = (ly_do or "").strip()
+        if quyet_dinh == "HUY" and len(ly) < 3:
+            raise ValidationError(
+                "Huỷ thuốc khách trả thì ghi lý do (tối thiểu 3 ký tự)."
+            )
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                tra = await conn.fetchrow(
+                    """
+                    SELECT r.id::text AS id, r.returned_qty, r.disposition,
+                           r.drug_batch_id::text AS drug_batch_id,
+                           r.prescription_id::text AS prescription_id
+                      FROM public.drug_return r
+                      JOIN public.drug_batch b
+                        ON b.id = r.drug_batch_id AND b.clinic_id = r.clinic_id
+                     WHERE r.id = $1::uuid AND r.clinic_id = $2::uuid
+                       AND b.location_id = $3::uuid
+                       FOR UPDATE OF r
+                    """,
+                    drug_return_id,
+                    identity.clinic_id,
+                    identity.location_id,
+                )
+                if tra is None:
+                    raise NotFoundError("Không tìm thấy lần khách trả thuốc này.")
+                if tra["disposition"] is not None:
+                    raise ConflictError("Lần trả này đã được xử lý rồi.")
+                luong = Decimal(str(tra["returned_qty"]))
+                await khoa_lo(
+                    conn, clinic_id=identity.clinic_id, lo_ids=[tra["drug_batch_id"]]
+                )
+                txn_id: str | None = None
+                if quyet_dinh == "HUY":
+                    ton = Decimal(
+                        str(
+                            await self._ton_cua_lo(conn, identity, tra["drug_batch_id"])
+                        )
+                    )
+                    if ton < luong:
+                        raise ConflictError(
+                            f"Lô chỉ còn {so(ton)} trên sổ, ít hơn {so(luong)} khách "
+                            "trả — kiểm kho trước khi huỷ."
+                        )
+                    txn_id = await self._ghi_so_trong(
+                        conn,
+                        identity=identity,
+                        drug_batch_id=tra["drug_batch_id"],
+                        txn_type=HUY,
+                        quantity=-luong,
+                        reason=f"Huỷ thuốc khách trả: {ly}",
+                        ref_type="drug_return",
+                        ref_id=tra["id"],
+                    )
+                await conn.execute(
+                    """
+                    UPDATE public.drug_return
+                       SET disposition = $3, disposition_by = $4::uuid,
+                           disposition_at = now(), disposition_reason = $5,
+                           disposition_txn_id = $6::uuid
+                     WHERE id = $1::uuid AND clinic_id = $2::uuid
+                       AND disposition IS NULL
+                    """,
+                    tra["id"],
+                    identity.clinic_id,
+                    quyet_dinh,
+                    identity.staff_id,
+                    ly or None,
+                    txn_id,
+                )
+                await _log(
+                    conn,
+                    identity=identity,
+                    event_type="pharmacy.drug_return_decided",
+                    aggregate_type="prescription",
+                    aggregate_id=tra["prescription_id"],
+                    payload={
+                        "drug_return_id": tra["id"],
+                        "drug_batch_id": tra["drug_batch_id"],
+                        "quyet_dinh": quyet_dinh,
+                        "quantity": str(luong),
+                        "discard_txn_id": txn_id,
+                    },
+                )
+        return {
+            "ok": True,
+            "drug_return_id": drug_return_id,
+            "quyet_dinh": quyet_dinh,
+            "discard_txn_id": txn_id,
+        }
+
     # ── Phân lô (contract tiền–thuốc CP3) ─────────────────────────────────
 
     async def phan_lo(

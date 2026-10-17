@@ -1237,6 +1237,42 @@ async def huy_phan_chua_giao(
     return kq
 
 
+@router.get("/pharmacy/thuoc-tra-cho-kiem")
+async def thuoc_tra_cho_kiem(
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thuốc khách đã trả mà chưa quyết xử lý (nhập lại bán được / huỷ)."""
+    dong = await PharmacyService(pool).thuoc_tra_cho_kiem(identity=identity)
+    return {"dong": jsonable_encoder(dong)}
+
+
+class XuLyThuocTraRequest(BaseModel):
+    drug_return_id: UUID
+    #: BAN_LAI | HUY — máy chủ báo câu tiếng Việt khi thiếu / sai.
+    quyet_dinh: str | None = None
+    ly_do: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/pharmacy/xu-ly-thuoc-tra")
+async def xu_ly_thuoc_tra(
+    body: XuLyThuocTraRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Quyết định MỘT LẦN cho thuốc khách trả: nhập lại bán được, hoặc huỷ (ghi
+    DISCARD cùng giao dịch). Gửi lại → "đã xử lý rồi" (không cần Idempotency-Key)."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await PharmacyService(pool).xu_ly_thuoc_tra(
+            identity=identity,
+            drug_return_id=str(body.drug_return_id),
+            quyet_dinh=body.quyet_dinh,
+            ly_do=body.ly_do,
+        )
+    )
+    return kq
+
+
 class KhachTraRequest(BaseModel):
     dispense_txn_id: UUID
     so_luong: float = Field(gt=0)
