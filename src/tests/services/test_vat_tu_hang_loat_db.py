@@ -48,7 +48,9 @@ async def _tao(
             " VALUES ($1::uuid, $2, $3, 'vat_tu', $4, $5, $6, $7, $8)"
             " RETURNING id::text",
             CLINIC,
-            f"VT_HL_{uuid.uuid4().hex}",
+            # VT_TEST_ để bài đếm dòng Excel (test_vat_tu_ban_them_db) bỏ qua hàng
+            # này — trước đây mã VT_HL_ rò vào số đếm khi hai file chạy chung DB.
+            f"VT_TEST_HL_{uuid.uuid4().hex}",
             ten,
             loai,
             kinh_doanh,
