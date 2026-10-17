@@ -8,11 +8,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from clinicai.core.phone import normalize_vn_phone
+from clinicai.core.phone import LOI_SDT, chuan_hoa_sdt
 
 _CCCD_RE = re.compile(r"^\d{12}$")
 _CCCD_9_OR_12_RE = re.compile(r"^(\d{9}|\d{12})$")
-_SO_BAN_RE = re.compile(r"^02\d{8}$")
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _LINH_VUC = {"PK", "SK", "NT", "HMVS", "NK"}
 _GENDER = {"Nam", "Nữ", "Khác"}
@@ -106,14 +105,10 @@ class PatientCreateDTO(BaseModel):
     def _phone_10_digits(cls, v: str | None) -> str | None:
         if v is None:
             return None
-        normalized = normalize_vn_phone(v)
-        if normalized is not None:
-            return normalized
-        raw = v.strip()
-        if _SO_BAN_RE.match(raw):
-            return raw
-        msg = "phone must be a supported Vietnamese mobile or landline number"
-        raise ValueError(msg)
+        phone = chuan_hoa_sdt(v)
+        if phone is None:
+            raise ValueError(LOI_SDT)
+        return phone.so
 
     @field_validator("national_id_number")
     @classmethod
@@ -251,16 +246,10 @@ class PatientUpdateDTO(BaseModel):
         v = _blank_to_none(v)
         if v is None:
             return None
-        if not isinstance(v, str):
-            raise ValueError("phone must be a string")
-        normalized = normalize_vn_phone(v)
-        if normalized is not None:
-            return normalized
-        raw = v.strip()
-        if _SO_BAN_RE.match(raw):
-            return raw
-        msg = "phone must be a supported Vietnamese mobile or landline number"
-        raise ValueError(msg)
+        phone = chuan_hoa_sdt(v)
+        if phone is None:
+            raise ValueError(LOI_SDT)
+        return phone.so
 
     @field_validator("national_id_number", mode="before")
     @classmethod

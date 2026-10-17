@@ -223,6 +223,64 @@ async def test_create_patient_phone_duplicate_matches_country_code_variant() -> 
 
 
 @pytest.mark.asyncio
+async def test_foreign_phone_duplicate_and_lock_use_canonical_number() -> None:
+    pool, conn = _mock_pool_and_conn()
+    conn.fetch.return_value = [
+        {
+            "clinic_patient_id": FAKE_UUID,
+            "patient_code": "DEMO-PHONE",
+            "full_name": "DEMO Phone",
+            "date_of_birth": None,
+        }
+    ]
+    result = await PatientService(pool).create_patient(
+        PatientCreateDTO(
+            full_name="DEMO Phone",
+            phone_primary="001 415 555 2671",
+            location_id=FAKE_LOCATION,
+        ),
+        identity,
+    )
+    assert result.duplicate is True
+    assert conn.fetch.await_args.args[1] == ["+14155552671"]
+    lock_sql, lock_key = conn.execute.await_args_list[0].args
+    assert "pg_advisory_xact_lock" in lock_sql
+    assert lock_key == f"patient-phone:{identity.clinic_id}:+14155552671"
+    conn.fetchrow.assert_awaited_once()  # location lookup only; no INSERT
+
+
+@pytest.mark.asyncio
+async def test_foreign_phone_lookup_and_warning_use_canonical_number() -> None:
+    pool, conn = _mock_pool_and_conn()
+    conn.fetch.return_value = []
+    service = PatientService(pool)
+    assert await service.get_by_phone("+1 415 555 2671", identity.clinic_id) == []
+    assert conn.fetch.await_args.args[1] == ["+14155552671"]
+    assert (
+        await service.find_phone_duplicates("0014155552671", identity.clinic_id) == []
+    )
+    assert conn.fetch.await_args.args[1] == ["+14155552671"]
+
+
+@pytest.mark.parametrize(
+    "raw", ["+14155552671", "0912345678", "0281234567", "  ", None]
+)
+def test_storage_phone_guard_accepts_canonical_and_blank(raw: str | None) -> None:
+    from clinicai.services.patient_service import validate_phone
+
+    validate_phone(raw, "SĐT")
+
+
+@pytest.mark.parametrize("raw", ["901234567", "+84901234567", "abc", "091234567"])
+def test_storage_phone_guard_requires_canonical(raw: str) -> None:
+    from clinicai.core.exceptions import ValidationError
+    from clinicai.services.patient_service import validate_phone
+
+    with pytest.raises(ValidationError):
+        validate_phone(raw, "SĐT")
+
+
+@pytest.mark.asyncio
 async def test_create_patient_force_bypasses_phone_duplicate() -> None:
     """force=True skips the phone soft-block and inserts anyway."""
     pool, conn = _mock_pool_and_conn()

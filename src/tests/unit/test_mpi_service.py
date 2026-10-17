@@ -111,6 +111,33 @@ def test_score_phone_country_code_variant_matches() -> None:
     assert MPIService.score(candidate, existing) >= 50.0
 
 
+def test_score_foreign_phone_matches_only_same_number() -> None:
+    candidate = _make_dto({"full_name": "A", "phone_primary": "+14155552671"})
+    existing = _make_dto({"full_name": "B", "phone_primary": "0014155552671"})
+    other = _make_dto({"full_name": "B", "phone_primary": "+821012345678"})
+    assert MPIService.score(candidate, existing) == 50.0
+    assert MPIService.score(candidate, other) == 0.0
+
+
+def test_score_landline_preserves_existing_no_phone_points() -> None:
+    candidate = _make_dto({"full_name": "A", "phone_primary": "0281234567"})
+    existing = _make_dto({"full_name": "B", "phone_primary": "0281234567"})
+    assert MPIService.score(candidate, existing) == 0.0
+
+
+@pytest.mark.asyncio
+async def test_find_candidates_foreign_phone_canonical() -> None:
+    pool, conn = _mock_pool_and_conn()
+    conn.fetch.return_value = []
+    data = PatientCreateDTO(
+        full_name="DEMO Phone",
+        phone_primary="+1 415 555 2671",
+        location_id=FAKE_LOCATION,
+    )
+    assert await MPIService.find_candidates(pool, data, str(FAKE_LOCATION)) == []
+    assert conn.fetch.await_args.args[1] == ["+14155552671"]
+
+
 def test_score_national_id_match() -> None:
     """Exact national_id match should yield 40 pts (+ name fuzzy)."""
     candidate = _make_dto(

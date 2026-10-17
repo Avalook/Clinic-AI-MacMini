@@ -13,7 +13,7 @@ from uuid import UUID
 import asyncpg
 import structlog
 
-from clinicai.core.phone import normalize_vn_phone, phone_variants
+from clinicai.core.phone import chuan_hoa_sdt, phone_variants
 from clinicai.schemas.patient import PatientCreateDTO, PatientDTO
 
 logger = structlog.get_logger()
@@ -47,16 +47,16 @@ class MPIService:
 
         # Phone match
         candidate_phone = (
-            normalize_vn_phone(candidate.phone_primary)
-            if candidate.phone_primary
-            else None
+            chuan_hoa_sdt(candidate.phone_primary) if candidate.phone_primary else None
         )
         existing_phone = (
-            normalize_vn_phone(existing.phone_primary)
-            if existing.phone_primary
-            else None
+            chuan_hoa_sdt(existing.phone_primary) if existing.phone_primary else None
         )
-        if candidate_phone is not None and candidate_phone == existing_phone:
+        if (
+            candidate_phone is not None
+            and candidate_phone.loai != "CO_DINH"
+            and candidate_phone == existing_phone
+        ):
             total += _PHONE_WEIGHT
 
         # National ID match (both must be non-null)

@@ -37,6 +37,8 @@ from typing import Any, Literal
 import httpx
 import structlog
 
+from clinicai.core.phone import chuan_hoa_sdt as chuan_sdt
+
 logger = structlog.get_logger()
 
 #: Endpoint ZNS thật. Đổi được bằng biến môi trường cho môi trường thử của Zalo.
@@ -79,23 +81,9 @@ def dang_bat() -> bool:
 
 
 def chuan_hoa_sdt(sdt: str) -> str | None:
-    """Số Việt Nam về dạng 84xxxxxxxxx mà ZNS nhận.
-
-    Phòng khám lưu số kiểu "0989862764"; ZNS đòi "84989862764". Gửi nguyên số
-    có `0` đứng đầu thì Zalo trả -136 và người trực đọc thành "số sai" — trong
-    khi số hoàn toàn đúng, chỉ sai định dạng.
-    """
-    so = "".join(c for c in (sdt or "") if c.isdigit())
-    if not so:
-        return None
-    if so.startswith("84"):
-        pass
-    elif so.startswith("0"):
-        so = "84" + so[1:]
-    else:
-        so = "84" + so
-    # Số di động VN: 84 + 9 chữ số.
-    return so if len(so) == 11 else None
+    """ZNS supports Vietnamese mobile numbers only."""
+    phone = chuan_sdt(sdt)
+    return "84" + phone.so[1:] if phone and phone.loai == "DI_DONG" else None
 
 
 async def gui_zns(
@@ -123,7 +111,9 @@ async def gui_zns(
         return {
             "da_gui": False,
             "ly_do": "SDT_KHONG_HOP_LE",
-            "chi_tiet": "Số điện thoại không đúng định dạng di động Việt Nam.",
+            "chi_tiet": (
+                "ZNS chỉ gửi tới số di động Việt Nam; số quốc tế/số bàn cần gọi tay."
+            ),
         }
 
     than = {

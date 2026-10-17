@@ -9,6 +9,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from clinicai.core.phone import LOI_SDT, chuan_hoa_sdt
+
 
 class PrimaryDepartment(str, Enum):
     """Valid primary departments for staff members."""
@@ -110,15 +112,12 @@ class StaffUpdateDTO(BaseModel):
     @field_validator("phone")
     @classmethod
     def sdt_hop_le(cls, v: str | None) -> str | None:
-        if v is None:
+        if v is None or not v.strip():
             return None
-        v = v.strip().replace(" ", "")
-        if not v:
-            return None
-        if not (v.isdigit() and 9 <= len(v) <= 11):
-            msg = "Số điện thoại phải là 9–11 chữ số"
-            raise ValueError(msg)
-        return v
+        phone = chuan_hoa_sdt(v)
+        if phone is None:
+            raise ValueError(LOI_SDT)
+        return phone.so
 
     @field_validator("email")
     @classmethod

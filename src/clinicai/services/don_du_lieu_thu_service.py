@@ -38,6 +38,7 @@ from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import hom_nay_vn
 from clinicai.core.kho_tep import KHO_CFS, KHO_VPS, chay_tren_kho
+from clinicai.core.phone import che_sdt as che_sdt
 from clinicai.permissions.can import doi_quyen
 from clinicai.services import media_service
 
@@ -90,12 +91,6 @@ TRANG_THAI_LUOT = {
 
 
 # ── Hàm thuần ───────────────────────────────────────────────────────────────
-def che_sdt(sdt: str | None) -> str:
-    """Che 3 số giữa: 0334567897 → 0334***897. Rỗng / quá ngắn → trả nguyên."""
-    s = (sdt or "").strip()
-    if len(s) < 7:
-        return s
-    return f"{s[:-6]}***{s[-3:]}"
 
 
 def doc_ngay(chuoi: str | None) -> date | None:

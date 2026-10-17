@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime
 import json
-import re
 from typing import Any
 from uuid import UUID
 
@@ -14,7 +13,7 @@ import structlog
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
-from clinicai.core.phone import normalize_vn_phone
+from clinicai.core.phone import LOI_SDT, chuan_hoa_sdt
 from clinicai.core.phone import phone_variants as _phone_variants
 from clinicai.schemas.patient import (
     DuplicateMatch,
@@ -27,18 +26,15 @@ from clinicai.services.audit import record_event
 
 logger = structlog.get_logger()
 
-# Ten digits, leading zero, a plausible Vietnamese prefix. Enforced server-side
-# because the form is not the only caller.
-PHONE_RE = re.compile(r"^0(2|3|5|7|8|9)\d{8}$")
-
 
 def validate_phone(value: str | None, label: str) -> None:
-    """Raise when a phone number is present but malformed."""
-    phone = (value or "").strip()
-    if phone and not PHONE_RE.match(phone):
-        raise ValidationError(
-            f"{label} không hợp lệ (10 số, bắt đầu bằng 0; đầu số 02/03/05/07/08/09)."
-        )
+    """Storage guard: schemas normalize input before service writes."""
+    raw = (value or "").strip()
+    if not raw:
+        return
+    phone = chuan_hoa_sdt(raw)
+    if phone is None or phone.so != raw:
+        raise ValidationError(f"{label}: {LOI_SDT}")
 
 
 # Columns written on INSERT, in order (patient_code prepended at call site).
@@ -580,11 +576,10 @@ class PatientService:
         """
         if loai not in ("CHINH", "NGUOI_NHA"):
             raise ValidationError("Loại số phải là CHINH hoặc NGUOI_NHA.")
-        chuan = normalize_vn_phone(so_dien_thoai)
+        phone = chuan_hoa_sdt(so_dien_thoai)
+        chuan = phone.so if phone is not None else None
         if chuan is None:
-            raise ValidationError(
-                "Số điện thoại không hợp lệ — cần 10 chữ số bắt đầu bằng 0."
-            )
+            raise ValidationError(LOI_SDT)
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 ho_so = await conn.fetchrow(
@@ -666,7 +661,8 @@ class PatientService:
         còn của họ — cột tìm kiếm gộp tự tươi nhờ trigger. Vết "đã từng có,
         ai gỡ, lúc nào" nằm ở event_log, với 4 số cuối như lúc thêm.
         """
-        chuan = normalize_vn_phone(so_dien_thoai)
+        phone = chuan_hoa_sdt(so_dien_thoai)
+        chuan = phone.so if phone is not None else None
         if chuan is None:
             raise ValidationError("Số điện thoại không hợp lệ.")
         async with self._pool.acquire() as conn:
