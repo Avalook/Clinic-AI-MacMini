@@ -180,7 +180,7 @@ async def ban_le_tim_khach(
 
 class KhachMoiBanLe(BaseModel):
     ho_ten: str = Field(min_length=1, max_length=200)
-    sdt: str | None = Field(default=None, max_length=20)
+    sdt: str | None = Field(default=None, max_length=100)
     # Chuỗi/số tuỳ ý: rác → bỏ trống (service `nam_sinh`), không 422.
     nam_sinh: Any = None
     gioi_tinh: str | None = Field(default=None, max_length=20)

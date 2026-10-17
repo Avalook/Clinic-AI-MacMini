@@ -2200,6 +2200,18 @@ timezone = ["pytz (>=2020.1)"]
 xml = ["lxml (>=5.3.0)"]
 
 [[package]]
+name = "phonenumbers"
+version = "9.0.16"
+description = "Python version of Google's common library for parsing, formatting, storing and validating international phone numbers."
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "phonenumbers-9.0.16-py2.py3-none-any.whl", hash = "sha256:3c019f10305c311005672f3a0cea4139fef0b949319a60635ee803cfaef4a2e2"},
+    {file = "phonenumbers-9.0.16.tar.gz", hash = "sha256:4002542d987c453b333b54450a9f60a280ed7ec932afd7d5fa8dbe6c2379f10a"},
+]
+
+[[package]]
 name = "pluggy"
 version = "1.6.0"
 description = "plugin and hook calling mechanisms for python"
@@ -4133,4 +4145,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "601941fa652ae93b18496e22cdb7d105ef9eb69daef4d4de12056360be1c14da"
+content-hash = "3eb9f7879e6d5760394f714f50a7e9a7de11ca9410aad0f054e868eceecf311b"

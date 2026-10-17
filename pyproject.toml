@@ -36,7 +36,8 @@ dependencies = [
     # Xuất Excel thật (.xlsx) ở báo cáo / lịch sử thu / danh sách hoá đơn
     # (13/10/2026). Từng nằm ở nhóm dev → ảnh prod (`--only main`) không có →
     # API chết ngay lúc khởi động (deploy staging 13/10 bắt được).
-    "openpyxl (>=3.1.5,<4.0.0)"
+    "openpyxl (>=3.1.5,<4.0.0)",
+    "phonenumbers (==9.0.16)"
 ]
 
 
