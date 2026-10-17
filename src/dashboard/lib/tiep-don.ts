@@ -79,6 +79,16 @@ export function chuanHoa(s: string): string {
     .trim();
 }
 
+/** So khớp SĐT khi lọc nhanh tại chỗ; chấp nhận dạng gõ VN và tiền tố quốc tế. */
+export function khopSdt(q: string, sdt: string | null | undefined): boolean {
+  if (!/^[0-9\s()+.\-]+$/.test(q) || q.length > 100) return false;
+  let digits = q.replace(/\D/g, "");
+  if (digits.startsWith("0084")) digits = `0${digits.slice(4)}`;
+  else if (digits.startsWith("84")) digits = `0${digits.slice(2)}`;
+  else if (q.trim().startsWith("00")) digits = digits.slice(2);
+  return digits.length >= 3 && (sdt ?? "").replace(/\D/g, "").includes(digits);
+}
+
 /** Những gì ô tìm so được của MỘT khách — chung cho danh sách tiếp đón và
  *  bảng Lịch hẹn, để gõ một từ khoá hai bảng lọc như nhau. */
 interface KhachTim {
@@ -98,8 +108,7 @@ function khop(d: KhachTim, kim: string): boolean {
   );
   if (chu.includes(kim)) return true;
   // SĐT: so theo CHỮ SỐ — "0900 001" khớp "0900001237".
-  const so = kim.replace(/\D/g, "");
-  return so.length >= 3 && (d.sdt ?? "").replace(/\D/g, "").includes(so);
+  return khopSdt(kim, d.sdt);
 }
 
 function trongTab(d: DongTiepDon, tab: TabTiepDon): boolean {

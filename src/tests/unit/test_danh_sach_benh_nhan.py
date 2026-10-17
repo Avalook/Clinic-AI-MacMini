@@ -120,6 +120,13 @@ def test_chuoi_tim_va_mau_so() -> None:
     assert mau_so("0912 345") == "%0912345%"
     assert mau_so("0912.345-678") == "%0912345678%"
     assert mau_so("345") == "%345%"
+    # Dạng gõ khác nhau của cùng số VN đều tìm theo số đã chuẩn hoá.
+    assert mau_so("+84 912 345 678") == "%0912345678%"
+    assert mau_so("84912345678") == "%0912345678%"
+    assert mau_so("0084912345678") == "%0912345678%"
+    # Quốc tế giữ mã nước; tiền tố gọi quốc tế 00 được bỏ.
+    assert mau_so("+1 415 555 2671") == "%14155552671%"
+    assert mau_so("001 415 555 2671") == "%14155552671%"
     assert mau_so("12") is None  # quá ngắn — khớp gần như mọi số
     assert mau_so("Lan 0912") is None  # có chữ → không phải SĐT
     assert mau_so("") is None

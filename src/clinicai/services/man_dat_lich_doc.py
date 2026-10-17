@@ -170,7 +170,8 @@ WITH k AS (
            p.created_at,
            coalesce(lower(p.patient_code) = lower($2)
                     OR ($4::text IS NOT NULL
-                        AND $4 = ANY(string_to_array(p.sdt_tim_kiem, ' '))),
+                        AND $4 = ANY(string_to_array(
+                            replace(p.sdt_tim_kiem, '+', ''), ' '))),
                     false) AS dung
       FROM patient p
      WHERE p.clinic_id = $1::uuid
@@ -228,7 +229,7 @@ async def tim_khach(
     if t is None:
         return {"patients": [], "lan_kham": {}}
     mau = mau_so(t)
-    chu_so = re.sub(r"\D", "", t) if mau else None
+    chu_so = mau[1:-1] if mau else None
     cid = identity.clinic_id
     async with pool.acquire() as conn:
         khach = await conn.fetch(_TIM_SQL, cid, t, f"%{t}%", chu_so, mau, TRAN_TIM)

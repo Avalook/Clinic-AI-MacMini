@@ -29,6 +29,7 @@ from pydantic import ValidationError as PydanticValidationError
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.core.phone import mau_tim_sdt
 from clinicai.permissions.can import can
 from clinicai.schemas.patient import PatientCreateDTO
 from clinicai.services.audit import record_event
@@ -86,6 +87,8 @@ class BanLeService:
         if len(tu) < 2:
             return {"items": []}
         so = re.sub(r"\D", "", tu)
+        so_chuan = mau_tim_sdt(tu)
+        mau_so = f"%{so_chuan}%" if so_chuan and len(so_chuan) >= 3 else None
         async with self._pool.acquire() as conn:
             await _doi_quyen_mo(conn, identity)
             rows = await conn.fetch(
@@ -96,17 +99,20 @@ class BanLeService:
                  WHERE p.clinic_id = $1::uuid AND p.is_active
                    AND ((length($3) >= 3
                          AND (p.phone_primary LIKE '%' || $3 || '%'
-                              OR p.phone_secondary LIKE '%' || $3 || '%'))
+                              OR p.phone_secondary LIKE '%' || $3 || '%'
+                              OR p.sdt_tim_kiem LIKE '%' || $3 || '%'))
+                        OR ($4::text IS NOT NULL AND p.sdt_tim_kiem LIKE $4)
                         OR upper(p.patient_code) = upper($2)
                         OR p.full_name_unaccent LIKE '%' || lower(replace(replace(
                                public.f_unaccent($2), 'đ', 'd'), 'Đ', 'D')) || '%')
                  ORDER BY (upper(p.patient_code) = upper($2)) DESC, p.full_name,
                           p.clinic_patient_id
-                 LIMIT $4
+                 LIMIT $5
                 """,
                 identity.clinic_id,
                 tu,
                 so,
+                mau_so,
                 _TRAN_TIM,
             )
         return {"items": [dict(r) for r in rows]}

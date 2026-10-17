@@ -36,16 +36,19 @@ def _tat_kho_thuoc(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "0")
 
 
-async def _khach(q: Quay, ten: str = "Khách mua thuốc") -> str:
+async def _khach(
+    q: Quay, ten: str = "Khách mua thuốc", *, sdt: str | None = None
+) -> str:
     return str(
         await q.pool.fetchval(
-            "INSERT INTO patient (clinic_id, patient_code, full_name, location_id)"
-            " SELECT $1::uuid, $2, $3, primary_location_id FROM staff"
-            " WHERE id = $4::uuid RETURNING clinic_patient_id::text",
+            "INSERT INTO patient (clinic_id, patient_code, full_name, location_id,"
+            " phone_primary) SELECT $1::uuid, $2, $3, primary_location_id, $5"
+            " FROM staff WHERE id = $4::uuid RETURNING clinic_patient_id::text",
             CLINIC,
             f"BL-{uuid.uuid4().hex[:8]}",
             ten,
             q.thu_ngan.staff_id,
+            sdt,
         )
     )
 
@@ -252,3 +255,22 @@ async def test_khach_moi_tao_ho_so_va_trung_sdt(q: Quay) -> None:
     tim = await svc.tim_khach(q=sdt[-6:], identity=q.duoc_si)
     assert kq["clinic_patient_id"] in {x["clinic_patient_id"] for x in tim["items"]}
     assert (await svc.tim_khach(q=" a ", identity=q.duoc_si))["items"] == []
+
+
+async def test_tim_khach_ban_le_theo_so_quoc_te_va_so_them(q: Quay) -> None:
+    svc = BanLeService(q.pool)
+    quoc_te = await _khach(q, "Khách dùng số nước ngoài", sdt="+14155552671")
+    for tu in ("+1 415 555", "001 415 555", "14155552671"):
+        kq = await svc.tim_khach(q=tu, identity=q.duoc_si)
+        assert quoc_te in {row["clinic_patient_id"] for row in kq["items"]}, tu
+
+    co_so_them = await _khach(q, "Khách có số thêm")
+    await q.pool.execute(
+        "INSERT INTO patient_sdt_them (clinic_id, clinic_patient_id, so_dien_thoai)"
+        " VALUES ($1::uuid, $2::uuid, $3)",
+        CLINIC,
+        co_so_them,
+        "0933333333",
+    )
+    kq = await svc.tim_khach(q="093333", identity=q.duoc_si)
+    assert co_so_them in {row["clinic_patient_id"] for row in kq["items"]}

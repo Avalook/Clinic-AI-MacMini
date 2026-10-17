@@ -30,6 +30,7 @@ import {
   vnLocalToUtcISO,
 } from "@/lib/datetime";
 import { dayLabel } from "@/lib/roster";
+import { khopSdt } from "@/lib/tiep-don";
 import { useDoiCa } from "../dung-doi-ca";
 import { useBookingPolicy } from "../BookingPolicyContext";
 import LichSapToiCuaKhach, {
@@ -617,7 +618,7 @@ export default function BookingHub({
       (p) =>
         p.full_name.toLowerCase().includes(q) ||
         // Gộp mọi số của hồ sơ — khách đọc số nào (kể cả số thêm) cũng ra.
-        (p.sdt_tim_kiem ?? p.phone_primary ?? "").includes(q) ||
+        khopSdt(searchQuery, p.sdt_tim_kiem ?? p.phone_primary) ||
         p.patient_code.toLowerCase().includes(q),
     );
   }, [patients, searchQuery]);
