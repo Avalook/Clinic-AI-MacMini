@@ -20,15 +20,16 @@ import KiemKeCa from "./KiemKeCa";
 import KiemKho from "./KiemKho";
 import PhieuNhap from "./PhieuNhap";
 import TheKho from "./TheKho";
+import ThuocTraChoKiem, { type DongTraChoKiem } from "./ThuocTraChoKiem";
 import XuatNhapTon from "./XuatNhapTon";
 
 type Khu = "kho" | "quay";
 type Tab =
   | "ton" | "nhap" | "lich_su" | "danh_muc" | "kiem_kho" | "chuyen_kho"
-  | "kiem_dau" | "kiem_cuoi" | "bao_cao" | "cho_gan_lo";
+  | "kiem_dau" | "kiem_cuoi" | "bao_cao" | "cho_gan_lo" | "tra_cho_kiem";
 
 const TAB_KHO: readonly Tab[] = ["ton", "nhap", "lich_su", "danh_muc", "kiem_kho", "chuyen_kho"];
-const TAB_QUAY: readonly Tab[] = ["kiem_dau", "kiem_cuoi", "bao_cao", "cho_gan_lo"];
+const TAB_QUAY: readonly Tab[] = ["kiem_dau", "kiem_cuoi", "bao_cao", "cho_gan_lo", "tra_cho_kiem"];
 const TAB_HOP_LE: readonly Tab[] = [...TAB_KHO, ...TAB_QUAY];
 
 /** Tên tab CŨ trong link đã lưu / link từ báo cáo hàng hoá → tab mới tương ứng. */
@@ -51,6 +52,7 @@ export default function KhoThuoc({
   batches,
   thuoc,
   choGanLo = [],
+  thuocTraChoKiem = [],
   ghiDuoc = false,
   moBanLe = false,
   cauHinhHan,
@@ -64,6 +66,8 @@ export default function KhoThuoc({
   thuoc: ThuocKho[];
   /** Thuốc đã giao chưa gán lô (giao không lô, 28/09/2026). */
   choGanLo?: DongChoGanLo[];
+  /** Thuốc khách đã trả, chưa quyết nhập lại bán được / huỷ (17/10/2026). */
+  thuocTraChoKiem?: DongTraChoKiem[];
   /** Có quyền ghi kho (`pharmacy.dispense`) — chỉ ẩn/hiện nút. */
   ghiDuoc?: boolean;
   /** V8: được mở lượt "Khách mua thuốc" — máy chủ quyết (lego nhà thuốc / thu tiền). */
@@ -113,6 +117,11 @@ export default function KhoThuoc({
       nhan: `Đã giao, chưa trừ kho (${choGanLo.length})`,
       nhac: choGanLo.length > 0,
     },
+    {
+      ma: "tra_cho_kiem" as const,
+      nhan: `Thuốc trả chờ kiểm (${thuocTraChoKiem.length})`,
+      nhac: thuocTraChoKiem.length > 0,
+    },
   ];
 
   return (
@@ -128,7 +137,7 @@ export default function KhoThuoc({
         {(
           [
             { ma: "kho" as const, nhan: "KHO", mota: "Nhập và theo dõi thuốc", nhac: false },
-            { ma: "quay" as const, nhan: "QUẦY", mota: "Kiểm ca, báo cáo cuối ngày", nhac: choGanLo.length > 0 },
+            { ma: "quay" as const, nhan: "QUẦY", mota: "Kiểm ca, báo cáo cuối ngày", nhac: choGanLo.length > 0 || thuocTraChoKiem.length > 0 },
           ] as const
         ).map((k) => {
           const dang = k.ma === khu;
@@ -164,6 +173,8 @@ export default function KhoThuoc({
         <DanhMucKho thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} />
       ) : tab === "cho_gan_lo" ? (
         <ChoGanLo dong={choGanLo} />
+      ) : tab === "tra_cho_kiem" ? (
+        <ThuocTraChoKiem dong={thuocTraChoKiem} ghiDuoc={ghiDuoc} />
       ) : tab === "nhap" ? (
         <PhieuNhap thuoc={thuoc} ghiDuoc={ghiDuoc} />
       ) : tab === "chuyen_kho" ? (
