@@ -13,6 +13,7 @@ import { INPUT, LABEL } from "../../form-ui";
 import type { ThuocKho } from "./DanhMucKho";
 import { guiKho } from "./gui-kho";
 import OQuetMa, { type KetQuaQuet } from "./OQuetMa";
+import QuyDoiNhap from "./QuyDoiNhap";
 
 const TRONG = { ten: "", so_lo: "", han: "", so_luong: "", don_vi: "", gia_nhap: "", ghi_chu: "" };
 
@@ -29,6 +30,9 @@ export default function NhapLo({
   const [f, setF] = useState(TRONG);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
+  // Nhập khác đơn vị bán: 1 <đơn vị nhập> = heSo đơn vị bán (xem QuyDoiNhap).
+  const [heSo, setHeSo] = useState("");
+  const [xacNhanHeSo, setXacNhanHeSo] = useState(false);
 
   const dangDung = thuoc.filter((t) => t.dang_dung);
   const chon = dangDung.find((t) => t.ten === f.ten) ?? null;
@@ -76,6 +80,8 @@ export default function NhapLo({
       unit: f.don_vi.trim(),
       cost_price: f.gia_nhap.trim() === "" ? null : f.gia_nhap.trim(),
       ly_do: f.ghi_chu.trim() || null,
+      he_so: heSo.trim() || null,
+      xac_nhan_he_so: xacNhanHeSo,
     });
     setDang(false);
     if (!kq.ok) {
@@ -139,6 +145,16 @@ export default function NhapLo({
         {o("gia_nhap", "Giá nhập (đ / đơn vị)")}
         {o("ghi_chu", "Ghi chú (nhà cung cấp, số hoá đơn…)")}
       </div>
+      <QuyDoiNhap
+        ma="nhap-lo"
+        idThuoc={chon?.id}
+        donVi={f.don_vi}
+        soLuong={f.so_luong}
+        heSo={heSo}
+        xacNhan={xacNhanHeSo}
+        onHeSo={setHeSo}
+        onXacNhan={setXacNhanHeSo}
+      />
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"

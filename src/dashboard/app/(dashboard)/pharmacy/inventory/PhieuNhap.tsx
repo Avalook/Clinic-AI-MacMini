@@ -16,6 +16,7 @@ import DanhSachPhieu from "./DanhSachPhieu";
 import type { ThuocKho } from "./DanhMucKho";
 import { guiKho, tienVnd } from "./gui-kho";
 import OQuetMa, { type KetQuaQuet } from "./OQuetMa";
+import QuyDoiNhap from "./QuyDoiNhap";
 
 interface Dong {
   k: number;
@@ -25,6 +26,9 @@ interface Dong {
   so_luong: string;
   don_vi: string;
   gia_nhap: string;
+  /** Nhập khác đơn vị bán: 1 <đơn vị> = he_so đơn vị bán (xem QuyDoiNhap). */
+  he_so: string;
+  xac_nhan_he_so: boolean;
 }
 
 let demDong = 0;
@@ -36,6 +40,8 @@ const dongMoi = (): Dong => ({
   so_luong: "",
   don_vi: "",
   gia_nhap: "",
+  he_so: "",
+  xac_nhan_he_so: false,
 });
 
 const khoaMoi = () =>
@@ -125,8 +131,12 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
 
   // Cảnh báo nhỏ, KHÔNG chặn: đơn vị gõ khác mọi đơn vị lô đang có của thuốc
   // → tồn sẽ tách thành hai dòng đơn vị. Trả chuỗi đơn vị lô để hiện, hoặc null.
+  // Thuốc đã có đơn vị bán thì kho luôn ghi theo đơn vị bán (quy đổi lúc nhập,
+  // QuyDoiNhap) — không còn tồn riêng nên khỏi cảnh báo.
   const khacDonViLo = (d: Dong): string | null => {
-    const lo = dangDung.find((t) => t.ten === d.ten)?.don_vi_lo ?? [];
+    const t = dangDung.find((x) => x.ten === d.ten);
+    if (t?.don_vi_ban) return null;
+    const lo = t?.don_vi_lo ?? [];
     const go = d.don_vi.trim().toLowerCase();
     if (!go || lo.length === 0) return null;
     return lo.some((x) => x.trim().toLowerCase() === go) ? null : lo.join(", ");
@@ -161,6 +171,8 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
           so_luong: d.so_luong.trim(),
           unit: d.don_vi.trim() || null,
           gia_nhap: d.gia_nhap.trim() || null,
+          he_so: d.he_so.trim() || null,
+          xac_nhan_he_so: d.xac_nhan_he_so,
         })),
       },
       khoa,
@@ -304,6 +316,18 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                       Bỏ
                     </Button>
                   ) : null}
+                </div>
+                <div className="col-span-2 empty:hidden lg:col-span-7">
+                  <QuyDoiNhap
+                    ma={`pn-${d.k}`}
+                    idThuoc={dangDung.find((t) => t.ten === d.ten)?.id}
+                    donVi={d.don_vi}
+                    soLuong={d.so_luong}
+                    heSo={d.he_so}
+                    xacNhan={d.xac_nhan_he_so}
+                    onHeSo={(v) => suaDong(d.k, { he_so: v })}
+                    onXacNhan={(v) => suaDong(d.k, { xac_nhan_he_so: v })}
+                  />
                 </div>
               </li>
             ))}
