@@ -1899,6 +1899,8 @@ class PharmacyService:
                   FROM public.drug_return r
                   JOIN public.drug_batch b
                     ON b.id = r.drug_batch_id AND b.clinic_id = r.clinic_id
+                  /* rx:gom-ca-lich-su: thuốc đã trả vẫn phải hiện dù dòng đơn
+                     sau đó bị bác sĩ đính chính */
                   JOIN public.prescription p
                     ON p.id = r.prescription_id AND p.clinic_id = r.clinic_id
                   LEFT JOIN public.drug_catalog c ON c.id = b.drug_catalog_id
