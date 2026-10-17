@@ -11,7 +11,7 @@
 |---|---|---|
 | Trùng tên | **1.126 tên** có ≥2 hồ sơ; **4.249 / 8.787 hồ sơ (48%)** nằm trong nhóm trùng tên | Nhóm trùng tên lớn nhất có 9 hồ sơ; 191 tên có đúng 3 hồ sơ. Mã kiểu `KHACH-4821` (4.548 hồ sơ nhập Notion) không có nghĩa gì để nhìn phân biệt. |
 | SĐT phân biệt được không | Trong 1.126 nhóm trùng tên, **1.066 nhóm** SĐT phân biệt hết; 23 nhóm có người **không có số**; chỉ **12 nhóm** hai hồ sơ cùng một số (nghi trùng người thật) | Hiện SĐT giải quyết gần hết. 4 số cuối đụng nhau ở 16 nhóm → nên hiện **cả số**, không chỉ 4 số cuối. |
-| Dữ liệu SĐT cũ | **8.432 / 8.787 đã đúng dạng `0xxxxxxxxx`**; 306 trống; 1 viết khác dạng; **48 sai (đều từ nhập Notion, mã `KHACH-…`)**; **0 số nước ngoài, 0 số có `+`/dấu cách/dấu chấm** | Ô nhập **đã chặn khá chặt** — "số nước ngoài, nhiều định dạng" **không có trong dữ liệu**. Vấn đề thật là *5 bản chuẩn hoá lệch nhau* + vài ô nhập thủng + tìm kiếm không hiểu `+84`. **Không cần chuyển đổi hàng loạt.** |
+| Dữ liệu SĐT cũ | **8.432 / 8.787 đã đúng dạng `0xxxxxxxxx`**; 306 trống; 1 viết khác dạng; **48 sai (đều từ nhập Notion, mã `KHACH-…`)**; **0 số nước ngoài, 0 số có `+`/dấu cách/dấu chấm** trong cột SĐT — vì ô nhập đang **chặn** số nước ngoài, nhân viên phải ghi số ấy vào ghi chú (Tuyền/Quang 17/10; đếm được ≥1 trong sổ ghi chú, còn lại nằm ở chỗ khác chưa quét) | Ô nhập **chặn khá chặt** nên dữ liệu sạch, nhưng **thiếu một đường cho số nước ngoài** (đã chốt: sẽ nhận). Vấn đề thật là *5 bản chuẩn hoá lệch nhau* + vài ô nhập thủng + tìm kiếm không hiểu `+84`. **Không cần chuyển đổi hàng loạt.** |
 | Chỗ hiện tên | xem §1 | Phần lớn API **đã trả `phone_primary`** vì đã JOIN `patient` → hiện SĐT gần như miễn phí về tải. |
 
 ## 1. Việc 1 — Hiện SĐT cạnh tên ở mọi chỗ hiện tên
@@ -194,20 +194,40 @@ che_sdt(so: str) -> str                              # "0912 ••• 678"
 | `+84 912 345 678` · `(+84) 912345678` · `84912345678` · `0084912345678` | `0912345678` | |
 | `912345678` (thiếu 0) | `0912345678` | giữ như nay |
 | `0281234567` (số bàn Hà Nội/HCM) | `0281234567`, loại `CO_DINH` | giữ như nay; không gửi Zalo |
-| `+1 415 555 2671` · `+82 10 1234 5678` | **từ chối** | xem câu hỏi Q1 |
+| `+1 415 555 2671` · `+82 10 1234 5678` · `001 415 555 2671` | **nhận**, lưu `+14155552671` (loại `QUOC_TE`, chỉ kiểm độ dài 8–15 số) | **Tuyền/Quang chốt 17/10: có nhận** — hiện phải gõ vào ghi chú |
 | `091234567` (thiếu 1 số) · `0912345678 9` · `0123456789` (đầu số lạ) | từ chối | |
 | `0912345678 gặp chị Hoa` · `abc` · `''` · `None` · `12345` · chuỗi 5.000 ký tự | `None` (không ném, không 500) | luật repo |
 | số full-width `０９１２…`, có ký tự vô hình/NBSP | chuẩn hoá được hoặc `None`, không ném | thêm vào test rác |
 
-**Nơi lưu dạng chuẩn — chọn `0xxxxxxxxx` (national 10 số), KHÔNG chuyển sang E.164:**
+**Nơi lưu dạng chuẩn — số VN giữ `0xxxxxxxxx` (national 10 số), KHÔNG chuyển cả hệ thống sang E.164 (số quốc tế mới lưu `+…`, xem §2.3b):**
 
 | | `0xxxxxxxxx` (đề xuất, = hiện nay) | E.164 `+84…` |
 |---|---|---|
 | Dữ liệu prod | 8.432/8.434 số dùng được **đã đúng dạng** | phải đổi ~8.4k dòng + `patient_sdt_them` + `sdt_tim_kiem` + staging mask |
 | Sửa code | thêm hàm, bỏ bản trùng | đổi 4 truy vấn, `phone_variants`, CHECK, mọi chỗ hiển thị |
-| Số nước ngoài | không chứa | chứa được |
+| Số nước ngoài | lưu thêm dạng `+<mã nước><số>` cùng cột (hai dạng không lẫn nhau) → **chọn cách này**, không cần chuyển 8,4k dòng | chứa được nhưng phải chuyển hết |
 | Gửi Zalo/SMS | `sang_e164()` lúc gửi | sẵn |
 | Rủi ro | thấp | **cao** (đổi hành vi tìm kiếm đột ngột, đúng điều cần tránh) |
+
+### 2.3b Số nước ngoài — ĐÃ CHỐT NHẬN (17/10)
+
+Hiện khách nước ngoài không nhập được nên nhân viên ghi số vào ghi chú → không tìm được, không gọi nhanh, không thấy cạnh tên. Thiết kế (add-only, không đổi dữ liệu cũ):
+
+| | |
+|---|---|
+| **Lưu cùng cột `phone_primary` / `phone_secondary` / `patient_sdt_them`**, hai dạng không lẫn nhau | VN: `0912345678` · quốc tế: `+14155552671` (E.164: `+`, mã nước 1–3 số, tổng 8–15 số) |
+| Nhận vào | `+1 415 555 2671`, `+82 10-1234-5678`, `(+1) 415.555.2671`, `001 415 555 2671` → đều ra `+14155552671` / `+821012345678`. `+84…` luôn quy về `0…` (không bao giờ lưu `+84`). |
+| Từ chối | số quốc tế không có `+`/`00` (`14155552671` — không đoán được mã nước); ngắn hơn 8 hoặc dài hơn 15 số; có chữ |
+| Kiểm tới đâu | chỉ độ dài + mã nước không bắt đầu bằng 0 (không biết nước nào có đầu số gì). Muốn kiểm từng nước phải thêm thư viện `phonenumbers` — **không đề xuất ngay** (S-Q1c) |
+| Hiện | `+1 415 555 2671` (cách nhóm theo mã nước thô); che: `+1 415 ••• 2671` |
+| Tìm | ô tìm hiểu `+`/`00` + số; so khớp theo chuỗi số (đã có `sdt_tim_kiem`); nhận thêm dạng ngắn (gõ `415555`) |
+| Kiểm trùng / khoá tạo đồng thời | số quốc tế khớp **nguyên chuỗi chuẩn** (không có "3 cách viết" như số VN) |
+| Gửi Zalo/SMS | số quốc tế **không gửi ZNS** (ZNS chỉ số VN) — đánh dấu "không gửi được", CSKH gọi tay |
+| Gõ nhầm | vẫn cảnh báo "số này đã thuộc hồ sơ khác" như nay |
+| Trigger Postgres | regex nhận **hai dạng**: `^(0[0-9]{9}|\+[1-9][0-9]{7,14})$` |
+| Số đang nằm trong ghi chú | **không tự tách** (máy không biết số nào là số khách). Đo thử: `ghi_chu_khach` 1 dòng; nơi khác (Notion, ô chữ) chưa quét hết → PR S5 xuất danh sách cho CSKH chuyển sang ô SĐT |
+
+Tác động lên bảng §2.1: `normalize_vn_phone` giữ nguyên nghĩa "chỉ VN"; hàm mới `chuan_hoa_sdt` trả `loai ∈ {DI_DONG, CO_DINH, QUOC_TE}`. FE: ô `<OSdt>` bỏ cắt cứng 10 số; ô báo lỗi nói rõ "số nước ngoài cần bắt đầu bằng +".
 
 **Dạng gốc người gõ:** *không lưu.* Dạng gốc không có giá trị nghiệp vụ, chỉ gây hai cách viết cho một số. Vết "ai gõ gì" nằm ở nhật ký thao tác (đang chỉ ghi 4 số cuối — giữ nguyên).
 
@@ -215,11 +235,11 @@ che_sdt(so: str) -> str                              # "0912 ••• 678"
 
 | # | Câu hỏi | Ví dụ số | Đề xuất mặc định |
 |---|---|---|---|
-| **Q1** | **Có nhận số nước ngoài không?** Có khách nước ngoài (Tây, Việt kiều) có số không phải `+84`? | khách gõ `+1 415 555 2671` hoặc `+82 10 1234 5678` | **Không nhận ở ô SĐT** (0/8.787 hồ sơ hiện có số kiểu này). Ô báo "Chỉ nhận số Việt Nam; khách nước ngoài để trống và ghi số vào ghi chú". Khi có khách thật: thêm cột riêng `sdt_quoc_te` (E.164, add-only) — **không** nhồi vào `phone_primary` làm hỏng tìm kiếm. |
-| **Q2** | Số bàn `02…` có nhận không? | `028 1234 567` (bàn) | **Giữ nhận** như hiện nay (đã cho phép ở FE+BE), đánh loại `CO_DINH`, không gửi Zalo. Hiện **0** hồ sơ prod dùng số bàn. |
-| **Q3** | **48 hồ sơ số sai** (nhập Notion: 9 số mà thiếu 1 số, hoặc 10 số đầu lạ) xử lý thế nào? | ví dụ dạng `09` + 7 số (thiếu 1), `65xxxxxxxx` | **Không tự sửa.** Xuất danh sách (mã khách, không in số) cho CSKH gọi hỏi lại; sửa trên màn hồ sơ. 1 hồ sơ "viết khác dạng" sửa tay luôn. |
-| **Q4** | Ô SĐT nhân sự / cơ sở dùng cùng luật? | nhân sự gõ `0912345678` hay `024 3xxx xxxx` | **Cùng hàm**, nhận cả số bàn. Hiện nhân sự có 18/97 số, cơ sở 1 số viết `9999 999 999`. |
-| **Q5** | Khi nhập số trùng với khách khác | `0912345678` đã thuộc 2 hồ sơ | **Giữ nguyên**: cảnh báo, không chặn (mẹ-con dùng chung số hợp lệ; 333 số đang dùng chung 691 hồ sơ). Không thêm UNIQUE. |
+| **S-Q1** | ~~Có nhận số nước ngoài không?~~ **ĐÃ CHỐT 17/10 (Tuyền/Quang): CÓ** — đã có khách nước ngoài, hiện không nhập được nên phải ghi vào ghi chú | `+1 415 555 2671`, `+82 10 1234 5678` | Xem §2.3b. Còn 2 chi tiết nhỏ ở bảng dưới (S-Q1b, S-Q1c) |
+| **S-Q2** | Số bàn `02…` có nhận không? | `028 1234 567` (bàn) | **Giữ nhận** như hiện nay (đã cho phép ở FE+BE), đánh loại `CO_DINH`, không gửi Zalo. Hiện **0** hồ sơ prod dùng số bàn. |
+| **S-Q3** | **48 hồ sơ số sai** (nhập Notion: 9 số mà thiếu 1 số, hoặc 10 số đầu lạ) xử lý thế nào? | ví dụ dạng `09` + 7 số (thiếu 1), `65xxxxxxxx` | **Không tự sửa.** Xuất danh sách (mã khách, không in số) cho CSKH gọi hỏi lại; sửa trên màn hồ sơ. 1 hồ sơ "viết khác dạng" sửa tay luôn. |
+| **S-Q4** | Ô SĐT nhân sự / cơ sở dùng cùng luật? | nhân sự gõ `0912345678` hay `024 3xxx xxxx` | **Cùng hàm**, nhận cả số bàn. Hiện nhân sự có 18/97 số, cơ sở 1 số viết `9999 999 999`. |
+| **S-Q5** | Khi nhập số trùng với khách khác | `0912345678` đã thuộc 2 hồ sơ | **Giữ nguyên**: cảnh báo, không chặn (mẹ-con dùng chung số hợp lệ; 333 số đang dùng chung 691 hồ sơ). Không thêm UNIQUE. |
 
 ### 2.5 Dữ liệu cũ & Postgres
 
@@ -237,17 +257,17 @@ che_sdt(so: str) -> str                              # "0912 ••• 678"
 48 số sai: tất cả mã `KHACH-…`, tạo chủ yếu 11/2025 (đợt nhập Notion). Mọi hồ sơ trong sổ đều `is_active`.
 
 **Kế hoạch chuyển đổi (add-only, không đổi hành vi tìm đột ngột):**
-1. **Không chạy migration đổi dữ liệu hàng loạt** — chỉ 1 hồ sơ + 1 cơ sở cần sửa, làm trên màn. 48 số sai chờ người xác minh (Q3).
+1. **Không chạy migration đổi dữ liệu hàng loạt** — chỉ 1 hồ sơ + 1 cơ sở cần sửa, làm trên màn. 48 số sai chờ người xác minh (S-Q3).
 2. Hàm mới **chỉ mở rộng** điều được nhận (hiểu `+84` ở ô tìm), không thu hẹp: số cũ vẫn tìm ra như cũ (`sdt_tim_kiem` giữ).
-3. **Migration mức 3, add-only:** trigger `BEFORE INSERT OR UPDATE OF phone_primary, phone_secondary` — **chỉ nổ khi giá trị số THAY ĐỔI** và không khớp `^0[0-9]{9}$`. *Vì sao không dùng `CHECK … NOT VALID` thuần:* Postgres vẫn kiểm CHECK trên **mọi** UPDATE hàng đó, nên 48 hồ sơ sai sẽ không check-in/sửa được (lỗi khó hiểu giữa giờ khám). Khi 48 hồ sơ đã sạch mới nâng lên `CHECK` + `VALIDATE`.
-4. Kẽ hở tranh chấp (SO-LUAT Phần 6): tạo khách đồng thời đã có khoá `pg_advisory_xact_lock(phone)` — sau chuẩn hoá khoá luôn theo dạng chuẩn (bỏ `sorted(variants)[0]` khi dữ liệu sạch). Không thêm UNIQUE (Q5).
+3. **Migration mức 3, add-only:** trigger `BEFORE INSERT OR UPDATE OF phone_primary, phone_secondary` — **chỉ nổ khi giá trị số THAY ĐỔI** và không khớp `^(0[0-9]{9}|\+[1-9][0-9]{7,14})$`. *Vì sao không dùng `CHECK … NOT VALID` thuần:* Postgres vẫn kiểm CHECK trên **mọi** UPDATE hàng đó, nên 48 hồ sơ sai sẽ không check-in/sửa được (lỗi khó hiểu giữa giờ khám). Khi 48 hồ sơ đã sạch mới nâng lên `CHECK` + `VALIDATE`.
+4. Kẽ hở tranh chấp (SO-LUAT Phần 6): tạo khách đồng thời đã có khoá `pg_advisory_xact_lock(phone)` — sau chuẩn hoá khoá luôn theo dạng chuẩn (bỏ `sorted(variants)[0]` khi dữ liệu sạch). Không thêm UNIQUE (S-Q5).
 5. **Staging mask** (`scripts/staging-che-du-lieu.sql`) phải sinh số hợp lệ — test `test_staging_che_du_lieu.py` thêm ca "số đã che qua được trigger".
 
 ### 2.6 PR (<400 dòng mỗi PR) và ước giờ — Việc 2
 
 | PR | Nội dung | Mức | ~Dòng | ~Giờ |
 |---|---|---|---|---|
-| **S1** | `core/phone.py` hàm mới + vỏ cũ; thay bản Zalo/staff/schema; test rác (bảng §2.3, hơn 40 ca, **thử ngược**) | 2 | 250 | 3 |
+| **S1** | `core/phone.py` hàm mới (VN + quốc tế) + vỏ cũ; thay bản Zalo/staff/schema; test rác (bảng §2.3, hơn 50 ca, **thử ngược**) | 2 | 300 | 4 |
 | **S2** | Tìm theo SĐT: `mau_tim_sdt` dùng ở `mau_so`, `man_dat_lich_doc`, `ban_le_service` (thêm số thêm), CSKH; bỏ lọc `includes()` thô ở 3 file TS bằng API/hàm chung | 2 | 250 | 3 |
 | **S3** | `<OSdt>` (components/ui) thay 6 ô nhập; `validation.ts` chỉ còn nắn nhẹ; route Next bỏ `PHONE_RE`, chuyển tiếp; bài kiểm "đếm" ô SĐT phải dùng `<OSdt>` (Luật 12.2) | 2 | 350 | 4 |
 | **S4** | Trigger migration + test + staging-mask (mức 3, diễn tập migration) | 3 | 120 | 2 |
@@ -269,7 +289,7 @@ Cách kiểm: pytest `scripts/test-nhanh.sh` (test rác + DB), bấm thật 375/
 ```
 Có thể chạy song song 2 nhánh (H* và S*) vì không chung file, trừ `core/phone.py` (S1 làm trước, rồi H0 chỉ import). Mỗi việc một dải giờ migration riêng (chỉ S4 có migration) và cổng web/API riêng (CLAUDE.md mục 2).
 
-**Tổng ước: Việc 1 ≈ 31 giờ (gồm tuỳ chọn 7 giờ) · Việc 2 ≈ 13,5 giờ · cộng ≈ 45 giờ ≈ 6 ngày làm**, chưa kể chờ duyệt, CI, staging.
+**Tổng ước: Việc 1 ≈ 31 giờ (gồm tuỳ chọn 7 giờ) · Việc 2 ≈ 15 giờ · cộng ≈ 46 giờ ≈ 6 ngày làm**, chưa kể chờ duyệt, CI, staging.
 
 ### 3.2 Rủi ro
 
@@ -293,13 +313,14 @@ Ví dụ chung: hai khách **Nguyễn Thị Hoa** — `KHACH-2301`, SĐT `0912 3
 
 | # | Câu hỏi | Chọn A / B | Đề xuất |
 |---|---|---|---|
-| **H-Q1** | **Phiếu thu / phiếu hướng dẫn in 80mm (tờ khách cầm đi giữa các phòng)** in SĐT thế nào? | A: `0912 345 678` · B: `0912 ••• 678` · C: không in | **B** — khách phân biệt được số của mình, người ngồi cạnh không đọc được cả số |
+| **H-Q1** | ✅ **ĐÃ CHỐT 17/10 (Tuyền/Quang): B — che giữa.** Phiếu thu / phiếu hướng dẫn in 80mm (tờ khách cầm đi giữa các phòng)** in SĐT thế nào? | A: `0912 345 678` · B: `0912 ••• 678` · C: không in | **B** — khách phân biệt được số của mình, người ngồi cạnh không đọc được cả số |
 | **H-Q2** | **Cổng đối tác** (phòng xét nghiệm ngoài) thấy gì cạnh tên? Họ hiện thấy tên + mã. | A: không thêm · B: 4 số cuối `…5678` · C: cả số | **A** (an toàn; đối tác làm việc theo mã BN). Nếu đối tác phàn nàn trùng tên → B |
 | **H-Q3** | **Cảnh báo trùng khi tạo khách** ("đã có 3 hồ sơ trùng họ tên") hiện cố ý không trả SĐT. Có đảo lại không? | A: hiện cả số · B: hiện `0912 ••• 678` · C: giữ nguyên | **A** — nhân viên đã thấy cả số ở danh sách bệnh nhân; đây đúng là chỗ trùng tên cắn nhất |
 | **H-Q4** | **Chuông** "Hẹn tái khám — cần gọi chốt giờ: Nguyễn Thị Hoa (KHACH-2301)" có thêm SĐT không? (SĐT sẽ được **lưu** trong bảng thông báo, chuông cũ không đổi) | A: thêm cho 5 loại chuông "gọi khách" · B: thêm cột để đọc luôn mới (mức 3) · C: không | **A**, làm sau cùng (H7) |
 | **H-Q5** | **File Excel/CSV gửi kế toán** (Lịch sử thu, hoá đơn): thêm cột "Điện thoại" ở cuối? File MISA thì **không đổi**. | A: có · B: không | **A cho 2 file này**, báo cáo cuối ngày để sau |
 | **H-Q6** | Khách có 2 số (`0912…` và số người nhà), hoặc chưa có số: hiện gì? | A: chỉ số chính, trống thì ẩn · B: hiện cả hai | **A** (prod: 306/8.787 hồ sơ trống số; chỉ 1 số thêm toàn hệ thống) |
-| **S-Q1** | Có nhận **số nước ngoài** (`+1 415 555 2671`, `+82 10 1234 5678`) ở ô SĐT không? Prod hiện **0/8.787** hồ sơ có. | A: không, báo lỗi rõ · B: có, cột riêng | **A**; khi có khách thật thì B (cột `sdt_quoc_te`, add-only) |
+| **S-Q1b** | Gõ số nước ngoài **không có dấu `+`**: `14155552671` | A: từ chối, bắt gõ `+` hoặc `00` · B: đoán | **A** (không đoán được mã nước) |
+| **S-Q1c** | Kiểm số nước ngoài tới đâu? | A: chỉ độ dài (8–15 số, như chuẩn E.164) · B: thêm thư viện `phonenumbers` kiểm theo từng nước (thêm 1 phụ thuộc) | **A** — đủ cho việc lưu và nhìn phân biệt; B khi cần gửi tin |
 | **S-Q2** | Số bàn `028 1234 567` có nhận không? | A: có (như nay) · B: không | **A** (0 hồ sơ prod dùng; không gửi Zalo) |
 | **S-Q3** | **48 hồ sơ số sai** (nhập Notion, vd `09` + 7 số, thiếu 1 chữ số) xử lý ai? | A: xuất danh sách cho CSKH gọi hỏi lại · B: máy tự sửa | **A** — máy không đoán được số nào đúng |
 | **S-Q4** | SĐT nhân sự / cơ sở dùng cùng luật? (nhân sự hiện nhận 9–11 số bất kỳ) | A: cùng luật · B: để lỏng | **A** |
