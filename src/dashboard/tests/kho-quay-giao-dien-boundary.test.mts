@@ -41,7 +41,13 @@ const MOCK = {
   "@/components/ui/Button": Nut,
   "@/components/ui/Chip": Chip,
   "../../form-ui": { INPUT: "i", TBL_DIV: "d", TBL_HEAD: "h", TBL_WRAP: "w" },
-  "./gui-kho": { guiKho: async () => ({ ok: true, data: null }), soKho: (n: unknown) => String(n), tienVnd: String },
+  "./gui-kho": {
+    guiKho: async () => ({ ok: true, data: null }),
+    soKho: (n: unknown) => String(n),
+    tienVnd: String,
+    tongTonTheoDonVi: () => [],
+    tonTheoDonVi: () => "0",
+  },
   "./NhapLo": () => null,
 };
 

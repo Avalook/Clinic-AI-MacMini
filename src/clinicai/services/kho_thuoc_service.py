@@ -34,6 +34,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, doc_ngay_xem, hom_nay_vn
 from clinicai.core.tran import canh_bao_neu_day
+from clinicai.phieu_kham.khung import doc_ngay
 from clinicai.services.pharmacy_service import (
     DIEU_CHINH,
     PharmacyService,
@@ -466,11 +467,21 @@ async def tao_phieu_nhap(
     for i, d in enumerate(dong, start=1):
         if not str(d.get("drug_catalog_id") or "").strip():
             raise ValidationError(f"Dòng {i}: chọn thuốc trong danh mục.")
+        # Hạn dùng là DỮ LIỆU ghi vào lô, không phải ô lọc xem: `doc_ngay_xem` đổi
+        # rác thành rỗng nên "31/12/2027" hay "2027-02-31" từng được lưu im lặng
+        # là "chưa có hạn" (lô không bị cảnh báo hết hạn). Rỗng thật vẫn được.
+        han_goc = d.get("expiry_date")
+        han_nhap = han_goc if isinstance(han_goc, date) else doc_ngay(han_goc)
+        if han_nhap is None and str(han_goc or "").strip():
+            raise ValidationError(
+                f"Dòng {i}: hạn dùng “{str(han_goc).strip()[:20]}” không đúng định dạng"
+                " — nhập dd/mm/yyyy hoặc để trống."
+            )
         try:
             luong, ma_lo, _dv, han = kiem_dong_nhap(
                 so_luong=d.get("so_luong"),
                 batch_code=d.get("batch_code"),
-                expiry_date=doc_ngay_xem(d.get("expiry_date")),
+                expiry_date=han_nhap,
                 unit=d.get("unit") or "-",
             )
         except ValidationError as exc:

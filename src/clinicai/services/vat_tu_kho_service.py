@@ -40,7 +40,20 @@ def _uuid(v: Any) -> str:
         raise ValidationError("Mã mặt hàng/phòng/phiếu không hợp lệ.") from exc
 
 
-def _so(v: Any, *, cho_0: bool = False, le: int = 3) -> Decimal:
+#: Trần hợp lý cho MỘT dòng phiếu — cột Postgres cho tới 10^15 nhưng một phòng
+#: khám không nhập / xuất / đếm cả triệu cái trong một dòng; số lớn hơn gần như
+#: chắc chắn là gõ thừa số 0 (trước đây 1 nghìn tỷ cái vẫn được ghi vào sổ).
+SO_LUONG_TOI_DA = Decimal(1_000_000)
+GIA_TOI_DA = Decimal(1_000_000_000)
+
+
+def _so(
+    v: Any,
+    *,
+    cho_0: bool = False,
+    le: int = 3,
+    toi_da: Decimal = SO_LUONG_TOI_DA,
+) -> Decimal:
     try:
         so = Decimal(str(v))
     except (ValueError, InvalidOperation) as exc:
@@ -49,6 +62,11 @@ def _so(v: Any, *, cho_0: bool = False, le: int = 3) -> Decimal:
         raise ValidationError("Số lượng/giá nhập không hợp lệ.")
     if so >= Decimal(10) ** (18 - le) or so != so.quantize(Decimal(10) ** -le):
         raise ValidationError(f"Số vượt độ chính xác lưu trữ ({le} chữ số thập phân).")
+    if so > toi_da:
+        gioi_han = f"{toi_da:,.0f}".replace(",", ".")
+        raise ValidationError(
+            f"Số quá lớn (tối đa {gioi_han}) — kiểm tra lại có gõ thừa số 0 không."
+        )
     return so
 
 
@@ -72,7 +90,7 @@ def _dong(loai: str, d: dict[str, Any]) -> dict[str, Any]:
         # None = người lập không gõ giá → lấy giá danh mục tại LÚC lập (bản chụp).
         "gia": None
         if d.get("gia_nhap") in (None, "")
-        else _so(d["gia_nhap"], cho_0=True, le=0),
+        else _so(d["gia_nhap"], cho_0=True, le=0, toi_da=GIA_TOI_DA),
     }
 
 

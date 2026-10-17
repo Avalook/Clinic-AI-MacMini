@@ -16,7 +16,7 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import type { ThuocKho } from "./DanhMucKho";
-import { guiKho, tienVnd } from "./gui-kho";
+import { guiKho, tienVnd, tonTheoDonVi, tongTonTheoDonVi } from "./gui-kho";
 import NhapLo from "./NhapLo";
 
 interface InvDrug {
@@ -120,16 +120,14 @@ export default function InventoryBoard({
   }, [batches, filter, search]);
 
   const summary = useMemo(() => {
-    let totalUnits = 0;
     let soonCount = 0;
     let expiredCount = 0;
     for (const b of batches) {
-      totalUnits += Number(b.quantity_on_hand);
       // Chỉ đếm lô còn thuốc trên kệ (`canh_bao_han` máy chủ trả).
       if (b.canh_bao_han && b.trang_thai_han === "sap_het_han") soonCount++;
       if (b.canh_bao_han && b.trang_thai_han === "het_han") expiredCount++;
     }
-    return { totalUnits, soonCount, expiredCount };
+    return { tonTheoDonVi: tongTonTheoDonVi(batches), soonCount, expiredCount };
   }, [batches]);
 
   const guiLo = async () => {
@@ -168,7 +166,7 @@ export default function InventoryBoard({
       {loi ? <p role="alert" className="text-meta text-danger">{loi}</p> : null}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {the(batches.length, "Lô thuốc")}
-        {the(fmtQty(summary.totalUnits), "Tổng tồn (đơn vị)")}
+        {the(tonTheoDonVi(summary.tonTheoDonVi), "Tổng tồn (theo từng đơn vị)")}
         {the(summary.soonCount, "Lô sắp hết hạn", summary.soonCount > 0 ? "text-warning" : undefined)}
         {the(summary.expiredCount, "Lô hết hạn còn trên kệ", summary.expiredCount > 0 ? "text-danger" : undefined)}
       </div>
