@@ -34,6 +34,7 @@ from uuid import UUID
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.phone import mau_tim_sdt
 from clinicai.services.danh_sach_khach_cskh import COT_KENH_DOI_HUY
 from clinicai.services.lich_su_luot import LOAI_DU_LIEU_SQL
 from clinicai.services.nhan_luot import doc_nhan_luot, tra_nhan
@@ -260,10 +261,8 @@ def mau_so(t: str) -> str | None:
     """Ô tìm CHỈ có số (kèm dấu cách / chấm / gạch / +) → mẫu tìm trong cột gộp
     mọi SĐT, bỏ dấu ngăn: "0912 345" khớp "0912345678". Dưới 3 chữ số → bỏ
     (khớp quá rộng); có chữ cái → không phải số điện thoại."""
-    if not t or not re.fullmatch(r"[\d\s.+\-]+", t):
-        return None
-    so = re.sub(r"\D", "", t)
-    return f"%{so}%" if len(so) >= 3 else None
+    so = mau_tim_sdt(t)
+    return f"%{so}%" if so and len(so) >= 3 else None
 
 
 def ma_khach(v: Any) -> str | None:

@@ -24,6 +24,7 @@ import Chip, { chipClass } from "@/components/ui/Chip";
 import { buttonClass } from "@/components/ui/Button";
 import { fmtDate, fmtDateTimeOrDate, conToi, mocMs, nowMs } from "@/lib/datetime";
 import { unaccentVi } from "@/lib/validation";
+import { khopSdt } from "@/lib/tiep-don";
 import { nhanLyDoHuy } from "@/lib/ly-do-huy";
 import { nhanLanChamCuoi } from "./mot-cham";
 import {
@@ -834,9 +835,15 @@ export default function CustomersView({
     const needle = unaccentVi(term.trim());
     if (!needle) return rows;
     return rows.filter((row) => {
-      return [row.full_name, row.patient_code, row.phone_primary ?? ""]
+      const khopTenHoacMa = [row.full_name, row.patient_code]
         .map(unaccentVi)
         .some((value) => value.includes(needle));
+      const khopSo = [
+        row.phone_primary,
+        row.phone_secondary,
+        ...(row.patient_sdt_them ?? []).map((so) => so.so_dien_thoai),
+      ].some((so) => khopSdt(term, so));
+      return khopTenHoacMa || khopSo;
     });
   }, [rows, term]);
 

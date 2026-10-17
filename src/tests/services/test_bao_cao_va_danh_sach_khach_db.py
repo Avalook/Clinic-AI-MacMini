@@ -266,6 +266,31 @@ async def test_danh_sach_khach_xep_theo_hoat_dong_gan_nhat(
     assert [r["clinic_patient_id"] for r in lai["rows"]] == thu_tu
 
 
+async def test_danh_sach_khach_tim_sdt_theo_dang_nhap_va_so_quoc_te(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    ca = await _dung(pool)
+    pid_vn = await _khach_ten(pool, ca, "Khách Việt tìm bằng +84")
+    await pool.execute(
+        "UPDATE patient SET phone_primary = '0912345678'"
+        " WHERE clinic_patient_id = $1::uuid",
+        pid_vn,
+    )
+    pid_quoc_te = await _khach_ten(pool, ca, "Khách quốc tế tìm CSKH")
+    await pool.execute(
+        "UPDATE patient SET phone_primary = '+14155552671'"
+        " WHERE clinic_patient_id = $1::uuid",
+        pid_quoc_te,
+    )
+
+    for q in ("+84 912 345 678", "84912345678", "0084912345678"):
+        kq = await danh_sach_khach(pool, identity=ca.le_tan, q=q)
+        assert pid_vn in {row["clinic_patient_id"] for row in kq["rows"]}, q
+    for q in ("+1 415 555", "001 415 555"):
+        kq = await danh_sach_khach(pool, identity=ca.le_tan, q=q)
+        assert pid_quoc_te in {row["clinic_patient_id"] for row in kq["rows"]}, q
+
+
 async def test_danh_sach_khach_cung_moc_xep_theo_ma_khong_nhay(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:

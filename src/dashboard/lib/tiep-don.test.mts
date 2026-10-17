@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   chuanHoa,
   dangLoc,
+  khopSdt,
   docHuongXep,
   dongPhu,
   laHuongXep,
@@ -72,7 +73,19 @@ test("ô tìm: tên không dấu, mã khách, #booking, SĐT theo chữ số", (
   assert.deepEqual(ids(locTiepDon(BUOI, "tat_ca", "#15")), ["3"]);
   assert.deepEqual(ids(locTiepDon(BUOI, "tat_ca", "002 474")), ["2"]);
   assert.deepEqual(ids(locTiepDon(BUOI, "tat_ca", "0900002474")), ["2"]);
+  assert.deepEqual(ids(locTiepDon(BUOI, "tat_ca", "+84 900 002 474")), ["2"]);
+  assert.deepEqual(ids(locTiepDon(BUOI, "tat_ca", "84900002474")), ["2"]);
+  assert.deepEqual(ids(locTiepDon(BUOI, "tat_ca", "0084900002474")), ["2"]);
   assert.deepEqual(ids(locTiepDon(BUOI, "tat_ca", "không ai")), []);
+});
+
+test("khopSdt hiểu tiền tố quốc tế và không biến từ thường thành số tìm kiếm", () => {
+  assert.equal(khopSdt("+1 415", "+14155552671"), true);
+  assert.equal(khopSdt("001 415", "+14155552671"), true);
+  assert.equal(khopSdt("849123", "0912345678"), true);
+  assert.equal(khopSdt("00849123", "0912345678"), true);
+  assert.equal(khopSdt("nguyen 123", "0912345678"), false);
+  assert.equal(khopSdt("12", "0912345678"), false);
 });
 
 test("đầu vào rác không ném", () => {

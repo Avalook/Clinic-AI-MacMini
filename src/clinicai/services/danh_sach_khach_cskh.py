@@ -28,6 +28,7 @@ import asyncpg
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.phone import mau_tim_sdt
 
 KHACH_MOT_TRANG = 50
 _LICH_CHET = ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"]
@@ -221,6 +222,8 @@ async def danh_sach_khach(
     theo_hen = theo == "appt"
     t = _chuoi_tim(q)
     mau = f"%{t}%" if t else None
+    so = mau_tim_sdt(t)
+    mau_sdt = f"%{so}%" if so and len(so) >= 3 else None
     rows = await pool.fetch(
         f"""
         SELECT {_COT}, hd.luc AS hoat_dong_gan_nhat, count(*) OVER () AS tong
@@ -240,7 +243,8 @@ async def danh_sach_khach(
                 OR p.sdt_tim_kiem ILIKE $6
                 OR p.full_name_unaccent ILIKE
                    '%' || lower(replace(replace(f_unaccent($7), 'đ', 'd'), 'Đ', 'D'))
-                   || '%')
+                   || '%'
+                OR ($11::text IS NOT NULL AND p.sdt_tim_kiem LIKE $11))
            -- Bộ lọc "Có phản hồi sau dùng thuốc" (16/10/2026): cùng luật đếm với
            -- cột "Phản hồi thuốc" (man_khach_hang_service) — còn hiệu lực, có lượt.
            AND (NOT $10::boolean OR EXISTS (
@@ -265,6 +269,7 @@ async def danh_sach_khach(
         (trang - 1) * KHACH_MOT_TRANG,
         KHACH_MOT_TRANG,
         co_phan_hoi_thuoc is True,
+        mau_sdt,
     )
     tong = int(rows[0]["tong"]) if rows else 0
     dong = [_dong(r) for r in rows]

@@ -159,6 +159,9 @@ async def test_khach_cu_notion_tim_ra_bang_ten_khong_dau_ma_va_mot_phan_so(
         ma.lower(),  # mã, khác hoa thường
         f"{sdt[:4]} {sdt[4:7]}",  # một phần số, có dấu cách
         f"{sdt[:4]}.{sdt[4:7]}-{sdt[7:]}",  # đủ số, chấm + gạch
+        f"+84 {sdt[1:4]} {sdt[4:7]} {sdt[7:]}",
+        f"84{sdt[1:]}",
+        f"0084{sdt[1:]}",
     ):
         out = await tim_khach(pool, identity=ca.le_tan, q=q)
         assert pid in _ma(out), q
@@ -169,6 +172,18 @@ async def test_khach_cu_notion_tim_ra_bang_ten_khong_dau_ma_va_mot_phan_so(
         assert p["location_id"] == ca.loc
         for k in ("full_name", "sdt_tim_kiem", "date_of_birth", "gender", "address"):
             assert k in p
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_tim_khach_dat_lich_nhan_so_quoc_te_va_dau_00(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    ca = await _dung(pool)
+    pid = await _khach(pool, ca, "Khách quốc tế tìm lịch", sdt="+14155552671")
+    for q in ("+1 415 555", "001 415 555", "14155552671"):
+        out = await tim_khach(pool, identity=ca.le_tan, q=q)
+        assert pid in _ma(out), q
 
 
 @pytest.mark.db
