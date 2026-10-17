@@ -584,6 +584,7 @@ class TestNhapLoVaoKho:
     @pytest.mark.asyncio
     async def test_lo_moi_thi_tao_roi_ghi_so(self) -> None:
         conn = _Conn(
+            None,  # thuốc chưa khai đơn vị bán → không quy đổi
             {"id": "c1", "name_base": "Paracetamol"},  # thuốc có trong danh mục
             False,  # cơ sở chưa bật tách kho / quầy (G7)
             [],  # chưa có lô này
@@ -599,6 +600,7 @@ class TestNhapLoVaoKho:
     @pytest.mark.asyncio
     async def test_lo_da_co_dung_thuoc_dung_han_thi_nhap_them(self) -> None:
         conn = _Conn(
+            None,  # thuốc chưa khai đơn vị bán → không quy đổi
             {"id": "c1", "name_base": "Paracetamol"},
             False,
             [_hang_lo("b-cu", "c1", date(2027, 1, 31))],
@@ -610,6 +612,7 @@ class TestNhapLoVaoKho:
     @pytest.mark.asyncio
     async def test_so_lo_da_dung_cho_thuoc_khac_thi_chan(self) -> None:
         conn = _Conn(
+            None,  # thuốc chưa khai đơn vị bán → không quy đổi
             {"id": "c1", "name_base": "Paracetamol"},
             False,
             [_hang_lo("b-cu", "c-khac", date(2027, 1, 31))],
@@ -621,6 +624,7 @@ class TestNhapLoVaoKho:
     @pytest.mark.asyncio
     async def test_cung_so_lo_khac_han_dung_thi_chan(self) -> None:
         conn = _Conn(
+            None,  # thuốc chưa khai đơn vị bán → không quy đổi
             {"id": "c1", "name_base": "Paracetamol"},
             False,
             [_hang_lo("b-cu", "c1", date(2026, 5, 1))],

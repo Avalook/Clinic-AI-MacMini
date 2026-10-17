@@ -34,8 +34,8 @@ from __future__ import annotations
 import json
 import unicodedata
 from datetime import date
-from decimal import Decimal
-from typing import Any
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Any, NamedTuple
 
 import asyncpg
 import structlog
@@ -490,8 +490,13 @@ class PharmacyService:
         unit: str,
         cost_price: Any = None,
         ly_do: str | None = None,
+        he_so: Any = None,
+        xac_nhan_he_so: bool = False,
     ) -> dict[str, Any]:
         """Nhập một lô vào kho. Tạo lô nếu chưa có, rồi ghi một dòng RECEIVE.
+
+        Nhập khác đơn vị bán của thuốc thì đổi về đơn vị bán ngay ở đây
+        (`quy_doi_dong_nhap`): kho chỉ giữ một đơn vị.
 
         Số lô và đơn vị bắt buộc; hạn dùng được bổ sung sau.
         Số lô để tra khi cần thu hồi.
@@ -506,16 +511,26 @@ class PharmacyService:
         )
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                lo_id, _txn = await nhap_vao_lo(
+                qd = await quy_doi_dong_nhap(
                     conn,
                     identity=identity,
                     drug_catalog_id=drug_catalog_id,
                     so_luong=luong,
-                    batch_code=ma_lo,
-                    expiry_date=han,
                     unit=don_vi,
                     cost_price=cost_price,
-                    ly_do=ly_do,
+                    he_so=he_so,
+                    xac_nhan_he_so=xac_nhan_he_so,
+                )
+                lo_id, _txn = await nhap_vao_lo(
+                    conn,
+                    identity=identity,
+                    drug_catalog_id=drug_catalog_id,
+                    so_luong=qd.so_luong,
+                    batch_code=ma_lo,
+                    expiry_date=han,
+                    unit=qd.don_vi,
+                    cost_price=qd.cost_price,
+                    ly_do=" · ".join(x for x in (ly_do, qd.ghi_chu) if x) or None,
                     ref_type="manual",
                     ref_id=None,
                 )
@@ -524,10 +539,21 @@ class PharmacyService:
         logger.info(
             "pharmacy_batch_received",
             batch_id=str(lo_id),
-            quantity=str(luong),
+            quantity=str(qd.so_luong),
             by_staff_id=identity.staff_id,
         )
-        return {"ok": True, "drug_batch_id": str(lo_id), "quantity_on_hand": ton}
+        kq: dict[str, Any] = {
+            "ok": True,
+            "drug_batch_id": str(lo_id),
+            "quantity_on_hand": ton,
+        }
+        if qd.goc is not None:
+            kq["quy_doi"] = {
+                "so_luong": str(qd.so_luong),
+                "don_vi": qd.don_vi,
+                "ghi_chu": qd.ghi_chu,
+            }
+        return kq
 
     async def cap_phat(
         self,
@@ -2491,6 +2517,173 @@ def kiem_dong_nhap(
     return _so(so_luong, ten="Số lượng nhập"), ma_lo, don_vi, han
 
 
+#: Hệ số quy đổi tối đa (khớp CHECK `thuoc_quy_doi.he_so`).
+HE_SO_TOI_DA = Decimal(10_000)
+#: Hệ số lần này lệch quá ngần ấy lần so với hệ số đã nhớ thì bắt xác nhận —
+#: gõ thừa/thiếu một số 0 là lỗi hay gặp nhất và làm lệch tồn cả chục lần.
+NGUONG_HE_SO_LA = Decimal(10)
+_BA_SO_LE = Decimal("0.001")
+#: Trần của `inventory_txn.quantity` numeric(12,3), chừa chỗ cho số lẻ.
+_LUONG_TOI_DA_SAU_DOI = Decimal(999_999_999)
+
+
+class DongQuyDoi(NamedTuple):
+    """Một dòng nhập SAU khi đổi về đơn vị bán (hoặc nguyên trạng nếu không đổi)."""
+
+    so_luong: Decimal
+    don_vi: str
+    cost_price: Any
+    #: (số gốc, đơn vị gốc, hệ số) — None = dòng không phải quy đổi.
+    goc: tuple[Decimal, str, Decimal] | None = None
+
+    @property
+    def ghi_chu(self) -> str | None:
+        if self.goc is None:
+            return None
+        so_goc, dv_goc, hs = self.goc
+        return (
+            f"Quy đổi {_so_dep(so_goc)} {dv_goc} × {_so_dep(hs)} = "
+            f"{_so_dep(self.so_luong)} {self.don_vi}"
+        )
+
+
+def _so_dep(x: Decimal) -> str:
+    return format(x.normalize(), "f")
+
+
+async def xet_quy_doi(
+    conn: asyncpg.Connection,
+    *,
+    identity: StaffIdentity,
+    drug_catalog_id: str,
+    unit: str,
+    he_so: Any = None,
+) -> dict[str, Any]:
+    """Nhập theo `unit` thì có phải đổi về đơn vị bán không, và hệ số nào.
+
+    Trả `{can_doi, don_vi_ban, he_so_da_nho, he_so, la}`: `he_so` là hệ số sẽ dùng
+    (gõ vào, không thì đã nhớ; None = còn thiếu), `la` = hệ số gõ lệch hơn
+    `NGUONG_HE_SO_LA` lần so với hệ số đã nhớ. Hệ số gõ rác → ValidationError."""
+    ban = (
+        await conn.fetchval(
+            "SELECT don_vi_ban FROM public.drug_catalog"
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            drug_catalog_id,
+            identity.clinic_id,
+        )
+        or ""
+    ).strip()
+    if not ban or not _don_vi(unit) or _don_vi(unit) == _don_vi(ban):
+        return {
+            "can_doi": False,
+            "don_vi_ban": ban or None,
+            "he_so_da_nho": None,
+            "he_so": None,
+            "la": False,
+        }
+    nho = await conn.fetchval(
+        "SELECT he_so FROM public.thuoc_quy_doi"
+        " WHERE clinic_id = $1::uuid AND drug_catalog_id = $2::uuid AND don_vi = $3",
+        identity.clinic_id,
+        drug_catalog_id,
+        _don_vi(unit),
+    )
+    if he_so is None or str(he_so).strip() == "":
+        return {
+            "can_doi": True,
+            "don_vi_ban": ban,
+            "he_so_da_nho": nho,
+            "he_so": nho,
+            "la": False,
+        }
+    hs = _so(he_so, ten="Hệ số quy đổi")
+    if hs > HE_SO_TOI_DA:
+        raise ValidationError(
+            f"Hệ số quy đổi quá lớn (tối đa {HE_SO_TOI_DA:,.0f}) — "
+            "kiểm tra lại có gõ thừa số 0 không."
+        )
+    hs = hs.quantize(_BA_SO_LE, rounding=ROUND_HALF_UP)
+    if hs <= 0:
+        raise ValidationError("Hệ số quy đổi phải lớn hơn 0 (tối đa 3 số lẻ).")
+    la = nho is not None and max(hs / nho, nho / hs) > NGUONG_HE_SO_LA
+    return {
+        "can_doi": True,
+        "don_vi_ban": ban,
+        "he_so_da_nho": nho,
+        "he_so": hs,
+        "la": la,
+    }
+
+
+async def quy_doi_dong_nhap(
+    conn: asyncpg.Connection,
+    *,
+    identity: StaffIdentity,
+    drug_catalog_id: str,
+    so_luong: Decimal,
+    unit: str,
+    cost_price: Any,
+    he_so: Any = None,
+    xac_nhan_he_so: bool = False,
+) -> DongQuyDoi:
+    """Đổi một dòng nhập về ĐƠN VỊ BÁN của thuốc, ĐỨNG TRƯỚC `nhap_vao_lo`.
+
+    Kho chỉ giữ một đơn vị = `drug_catalog.don_vi_ban`; nhập khác đơn vị thì kho
+    ghi số đã đổi (6 hộp × 10 = 60 gói, giá 450.000đ/hộp → 45.000đ/gói), nếu
+    không giao thuốc ghi tiền mà không trừ được kho. Không đoán: thiếu hệ số thì
+    từ chối bằng một câu nói rõ cần gõ gì. Thuốc chưa khai đơn vị bán, hoặc nhập
+    đúng đơn vị bán → nguyên trạng."""
+    x = await xet_quy_doi(
+        conn, identity=identity, drug_catalog_id=drug_catalog_id, unit=unit, he_so=he_so
+    )
+    if not x["can_doi"]:
+        return DongQuyDoi(so_luong, unit, cost_price)
+    ban = x["don_vi_ban"]
+    hs = x["he_so"]
+    if hs is None:
+        raise ValidationError(
+            f"Thuốc này bán theo “{ban}”, bạn nhập theo “{unit}”: "
+            f"nhập hệ số — 1 {unit} = ? {ban}."
+        )
+    if x["la"] and not xac_nhan_he_so:
+        raise ValidationError(
+            f"Hệ số lần này (1 {unit} = {_so_dep(hs)} {ban}) lệch hơn "
+            f"{NGUONG_HE_SO_LA:.0f} lần so với lần trước "
+            f"(1 {unit} = {_so_dep(x['he_so_da_nho'])} {ban}). "
+            "Nếu đúng, tích “Đúng, hệ số này” rồi lưu lại."
+        )
+    luong = (so_luong * hs).quantize(_BA_SO_LE, rounding=ROUND_HALF_UP)
+    if luong <= 0 or luong > _LUONG_TOI_DA_SAU_DOI:
+        raise ValidationError(
+            f"Sau khi đổi ra “{ban}” số lượng là {_so_dep(luong)} — "
+            "kiểm tra lại số lượng và hệ số."
+        )
+    gia = None
+    if cost_price is not None:
+        # numeric(12,0): giá vốn mỗi đơn vị bán làm tròn đồng.
+        gia = (Decimal(str(cost_price)) / hs).quantize(
+            Decimal(1), rounding=ROUND_HALF_UP
+        )
+    if x["he_so_da_nho"] != hs:
+        await conn.execute(
+            """
+            INSERT INTO public.thuoc_quy_doi
+                (clinic_id, drug_catalog_id, don_vi, he_so, cap_nhat_boi)
+            VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid)
+            ON CONFLICT (clinic_id, drug_catalog_id, don_vi)
+            DO UPDATE SET he_so = EXCLUDED.he_so,
+                          cap_nhat_boi = EXCLUDED.cap_nhat_boi,
+                          cap_nhat_luc = now()
+            """,
+            identity.clinic_id,
+            drug_catalog_id,
+            _don_vi(unit),
+            hs,
+            identity.staff_id,
+        )
+    return DongQuyDoi(luong, ban, gia, (so_luong, unit, hs))
+
+
 async def nhap_vao_lo(
     conn: asyncpg.Connection,
     *,
@@ -2562,6 +2755,12 @@ async def nhap_vao_lo(
             )
     if lo is not None:
         lo_id = lo["id"]
+        # Cộng "60 gói" vào lô đang tính "hộp" là trộn hai đơn vị vào một số dư.
+        if lo["unit"] and _don_vi(lo["unit"]) != _don_vi(unit):
+            raise ConflictError(
+                f"Số lô {batch_code} đang tính theo đơn vị {lo['unit']} — "
+                "nhập cùng đơn vị."
+            )
         if cost_price is not None:
             # Lô cũ chưa có giá nhập → lấy giá của lần nhập này (không ghi đè giá cũ).
             await conn.execute(

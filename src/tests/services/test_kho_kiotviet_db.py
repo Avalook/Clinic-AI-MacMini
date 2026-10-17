@@ -242,7 +242,12 @@ async def test_ton_khac_don_vi_khong_cong_chung(q: Quay) -> None:
     """Tuyền bấm thử 29/09: lô cũ 20 hộp + phiếu nhập 50 viên → thẻ kho báo
     "70 viên". Hộp và viên không cộng được — tồn tách theo đơn vị lô."""
     a = await _thuoc_moi(q)
-    await _phieu_nhap(q, [{**_dong_nhap(a, 20), "unit": "hộp"}])
+    # Lô CŨ tính "hộp": từ 17/10 nhập mới khác đơn vị bán được đổi ngay ở cửa nhập
+    # (test_quy_doi_don_vi_db), nên lô kiểu này chỉ còn là dữ liệu cũ — dựng bằng SQL.
+    await _phieu_nhap(q, [{**_dong_nhap(a, 20), "unit": "viên"}])
+    await q.pool.execute(
+        "UPDATE drug_batch SET unit = 'hộp' WHERE drug_catalog_id = $1::uuid", a
+    )
     await _phieu_nhap(q, [{**_dong_nhap(a, 50), "unit": "viên"}])
     the = await kho.the_kho(q.pool, identity=q.duoc_si, drug_catalog_id=a)
     assert the["thuoc"]["ton_hien_tai"] is None

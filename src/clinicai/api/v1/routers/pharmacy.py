@@ -581,6 +581,10 @@ class DongPhieuNhap(BaseModel):
     so_luong: Any = None
     unit: str | None = Field(default=None, max_length=50)
     gia_nhap: Any = None
+    # Nhập khác đơn vị bán: 1 <unit> = he_so đơn vị bán. Bỏ trống = dùng hệ số
+    # đã nhớ; chưa nhớ thì máy chủ hỏi (xem `quy_doi_dong_nhap`).
+    he_so: Any = None
+    xac_nhan_he_so: bool = False
 
 
 class PhieuNhapRequest(BaseModel):
@@ -922,6 +926,9 @@ class NhapLoRequest(BaseModel):
     unit: str = Field(min_length=1, max_length=50)
     cost_price: float | None = Field(default=None, ge=0)
     ly_do: str | None = Field(default=None, max_length=500)
+    # Chuỗi/số tuỳ ý: hệ số rác → câu tiếng Việt từ service, không 422 chung chung.
+    he_so: Any = None
+    xac_nhan_he_so: bool = False
 
     @field_validator("expiry_date", mode="before")
     @classmethod
@@ -945,7 +952,33 @@ async def nhap_lo(
         unit=body.unit,
         cost_price=body.cost_price,
         ly_do=body.ly_do,
+        he_so=body.he_so,
+        xac_nhan_he_so=body.xac_nhan_he_so,
     )
+
+
+@router.get("/pharmacy/quy-doi")
+async def xem_quy_doi_nhap(
+    drug_catalog_id: UUID,
+    unit: str = Query(default="", max_length=50),
+    he_so: str | None = Query(default=None, max_length=20),
+    so_luong: str | None = Query(default=None, max_length=20),
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Xem trước một dòng nhập: có phải đổi về đơn vị bán không, hệ số nào (đã nhớ
+    hoặc vừa gõ), kết quả "= N <đơn vị bán>", và có cần xác nhận hệ số lạ không."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await kho_thuoc_service.xem_truoc_quy_doi(
+            pool,
+            identity=identity,
+            drug_catalog_id=str(drug_catalog_id),
+            unit=unit,
+            he_so=he_so,
+            so_luong=so_luong,
+        )
+    )
+    return kq
 
 
 class CapPhatRequest(BaseModel):

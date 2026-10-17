@@ -41,7 +41,9 @@ from clinicai.services.pharmacy_service import (
     ghi_nhat_ky,
     kiem_dong_nhap,
     nhap_vao_lo,
+    quy_doi_dong_nhap,
     tach_kho_quay_bat,
+    xet_quy_doi,
 )
 
 #: Loại dòng sổ đổi tồn VẬT LÝ (khác SALE / SALE_REVERSAL).
@@ -303,6 +305,43 @@ async def xuat_nhap_ton(
     return {"tu": a.isoformat(), "den": b.isoformat(), "dong": [dict(r) for r in rows]}
 
 
+async def xem_truoc_quy_doi(
+    pool: asyncpg.Pool,
+    *,
+    identity: StaffIdentity,
+    drug_catalog_id: str,
+    unit: str,
+    he_so: Any = None,
+    so_luong: Any = None,
+) -> dict[str, Any]:
+    """Xem trước một dòng nhập: có phải đổi về đơn vị bán, hệ số nào, "= N đơn vị
+    bán", và có cần xác nhận hệ số lạ không. Chỉ đọc — không nhớ hệ số.
+    Số lượng rác → không có dòng "= N" (không ném)."""
+    async with pool.acquire() as conn:
+        x = await xet_quy_doi(
+            conn,
+            identity=identity,
+            drug_catalog_id=drug_catalog_id,
+            unit=unit,
+            he_so=he_so,
+        )
+    kq: dict[str, Any] = {
+        "can_doi": x["can_doi"],
+        "don_vi_ban": x["don_vi_ban"],
+        "he_so_da_nho": x["he_so_da_nho"],
+        "he_so": x["he_so"],
+        "can_xac_nhan": x["la"],
+        "so_luong_quy_doi": None,
+    }
+    if x["can_doi"] and x["he_so"] is not None:
+        try:
+            luong = _so(so_luong, ten="Số lượng nhập")
+        except ValidationError:
+            return kq
+        kq["so_luong_quy_doi"] = (luong * x["he_so"]).quantize(Decimal("0.001"))
+    return kq
+
+
 async def danh_sach_phieu(
     pool: asyncpg.Pool, *, identity: StaffIdentity, loai: str
 ) -> list[dict[str, Any]]:
@@ -489,6 +528,8 @@ async def tao_phieu_nhap(
                 "don_vi": (d.get("unit") or "").strip() or None,
                 "han": han,
                 "gia": gia_so,
+                "he_so": d.get("he_so"),
+                "xac_nhan_he_so": bool(d.get("xac_nhan_he_so")),
             }
         )
     trung = {
@@ -525,37 +566,54 @@ async def tao_phieu_nhap(
                     if not don_vi:
                         raise ValidationError(f"Dòng {stt}: nhập đơn vị (viên, hộp…).")
                     try:
-                        lo_id, txn_id = await nhap_vao_lo(
+                        qd = await quy_doi_dong_nhap(
                             conn,
                             identity=identity,
                             drug_catalog_id=x["drug_catalog_id"],
                             so_luong=x["so_luong"],
-                            batch_code=x["ma_lo"],
-                            expiry_date=x["han"],
                             unit=don_vi,
                             cost_price=x["gia"],
-                            ly_do=f"Phiếu nhập {ma}",
+                            he_so=x["he_so"],
+                            xac_nhan_he_so=x["xac_nhan_he_so"],
+                        )
+                        lo_id, txn_id = await nhap_vao_lo(
+                            conn,
+                            identity=identity,
+                            drug_catalog_id=x["drug_catalog_id"],
+                            so_luong=qd.so_luong,
+                            batch_code=x["ma_lo"],
+                            expiry_date=x["han"],
+                            unit=qd.don_vi,
+                            cost_price=qd.cost_price,
+                            ly_do=" · ".join(
+                                s for s in (f"Phiếu nhập {ma}", qd.ghi_chu) if s
+                            ),
                             ref_type="phieu_kho",
                             ref_id=phieu_id,
                         )
-                    except (NotFoundError, ConflictError) as exc:
+                    except (NotFoundError, ConflictError, ValidationError) as exc:
                         raise type(exc)(f"Dòng {stt}: {exc.message}") from exc
+                    goc = qd.goc
                     await conn.execute(
                         """
                         INSERT INTO phieu_kho_dong
                             (clinic_id, phieu_kho_id, loai, stt, drug_catalog_id,
-                             drug_batch_id, so_luong, gia_nhap, inventory_txn_id)
+                             drug_batch_id, so_luong, gia_nhap, inventory_txn_id,
+                             so_luong_goc, don_vi_goc, he_so)
                         VALUES ($1::uuid, $2::uuid, 'NHAP', $3, $4::uuid, $5::uuid,
-                                $6, $7, $8::uuid)
+                                $6, $7, $8::uuid, $9, $10, $11)
                         """,
                         identity.clinic_id,
                         phieu_id,
                         stt,
                         x["drug_catalog_id"],
                         lo_id,
-                        x["so_luong"],
-                        x["gia"],
+                        qd.so_luong,
+                        qd.cost_price,
                         txn_id,
+                        goc[0] if goc else None,
+                        goc[1] if goc else None,
+                        goc[2] if goc else None,
                     )
                 await ghi_nhat_ky(
                     conn,

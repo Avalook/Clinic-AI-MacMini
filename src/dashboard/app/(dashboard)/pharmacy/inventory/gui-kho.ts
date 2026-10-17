@@ -34,7 +34,7 @@ export async function guiKho(
 
 /** Đọc một đường GET của proxy `/api/pharmacy/[action]` (quét mã, dữ liệu tem). */
 export async function docKho<T>(
-  thaoTac: "tra-ma" | "tem-lo",
+  thaoTac: "tra-ma" | "tem-lo" | "quy-doi",
   thamSo: Record<string, string>,
 ): Promise<{ ok: true; data: T } | { ok: false; loi: string }> {
   try {
