@@ -968,7 +968,7 @@ async def xem_quy_doi_nhap(
 ) -> dict[str, Any]:
     """Xem trước một dòng nhập: có phải đổi về đơn vị bán không, hệ số nào (đã nhớ
     hoặc vừa gõ), kết quả "= N <đơn vị bán>", và có cần xác nhận hệ số lạ không."""
-    return jsonable_encoder(
+    kq: dict[str, Any] = jsonable_encoder(
         await kho_thuoc_service.xem_truoc_quy_doi(
             pool,
             identity=identity,
@@ -978,6 +978,7 @@ async def xem_quy_doi_nhap(
             so_luong=so_luong,
         )
     )
+    return kq
 
 
 class CapPhatRequest(BaseModel):
