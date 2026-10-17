@@ -1,5 +1,7 @@
 """The approved phone table, garbage input, and compatibility contracts."""
 
+from uuid import UUID
+
 import pytest
 
 from clinicai.core.phone import (
@@ -149,7 +151,7 @@ def test_schema_paths_share_normalizer(raw: str) -> None:
         PatientCreateDTO(
             full_name="DEMO Phone",
             phone_primary=raw,
-            location_id="00000000-0000-0000-0000-000000000001",
+            location_id=UUID("00000000-0000-0000-0000-000000000001"),
         ).phone_primary
         == expected.so
     )
