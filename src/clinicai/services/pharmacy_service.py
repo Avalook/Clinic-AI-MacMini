@@ -2801,7 +2801,11 @@ async def quy_doi_dong_nhap(
         conn, identity=identity, drug_catalog_id=drug_catalog_id, unit=unit, he_so=he_so
     )
     if not x["can_doi"]:
-        return DongQuyDoi(so_luong, unit, cost_price)
+        # Gõ "Viên" mà thuốc bán theo "viên": lưu đúng chữ của danh mục, kẻo màn
+        # hiện hai cách viết của cùng một đơn vị.
+        ban = x["don_vi_ban"]
+        trung = bool(ban) and _don_vi(unit) == _don_vi(ban)
+        return DongQuyDoi(so_luong, ban if trung else unit, cost_price)
     ban = x["don_vi_ban"]
     hs = x["he_so"]
     if hs is None:
