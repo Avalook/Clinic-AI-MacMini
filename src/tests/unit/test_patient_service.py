@@ -262,6 +262,24 @@ async def test_foreign_phone_lookup_and_warning_use_canonical_number() -> None:
     assert conn.fetch.await_args.args[1] == ["+14155552671"]
 
 
+@pytest.mark.parametrize(
+    "raw", ["+14155552671", "0912345678", "0281234567", "  ", None]
+)
+def test_storage_phone_guard_accepts_canonical_and_blank(raw: str | None) -> None:
+    from clinicai.services.patient_service import validate_phone
+
+    validate_phone(raw, "SĐT")
+
+
+@pytest.mark.parametrize("raw", ["901234567", "+84901234567", "abc", "091234567"])
+def test_storage_phone_guard_requires_canonical(raw: str) -> None:
+    from clinicai.core.exceptions import ValidationError
+    from clinicai.services.patient_service import validate_phone
+
+    with pytest.raises(ValidationError):
+        validate_phone(raw, "SĐT")
+
+
 @pytest.mark.asyncio
 async def test_create_patient_force_bypasses_phone_duplicate() -> None:
     """force=True skips the phone soft-block and inserts anyway."""

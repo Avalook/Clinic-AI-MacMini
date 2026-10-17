@@ -28,8 +28,12 @@ logger = structlog.get_logger()
 
 
 def validate_phone(value: str | None, label: str) -> None:
-    """Keep a guard for callers that bypass normal schema validation."""
-    if value and chuan_hoa_sdt(value) is None:
+    """Storage guard: schemas normalize input before service writes."""
+    raw = (value or "").strip()
+    if not raw:
+        return
+    phone = chuan_hoa_sdt(raw)
+    if phone is None or phone.so != raw:
         raise ValidationError(f"{label}: {LOI_SDT}")
 
 
