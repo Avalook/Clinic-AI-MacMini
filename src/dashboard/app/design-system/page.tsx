@@ -7,6 +7,7 @@
  * sit behind — or appear to need — a clinical session.
  */
 
+import TenKhach from "@/components/ui/TenKhach";
 import { notFound } from "next/navigation";
 
 import StatusChip, { type StatusTone } from "@/components/ui/StatusChip";
@@ -65,6 +66,27 @@ export default function DesignSystemPage() {
           Token và thành phần nền — đổi globals.css thì kiểm ở đây trước.
         </p>
       </header>
+
+      <Section title="Tên khách · SĐT" note="Dữ liệu giả; đủ ba kiểu hiển thị và hai bố cục. Mã khách luôn giữ lại.">
+        <div className="grid min-w-0 gap-4 md:grid-cols-2">
+          {(["ngang", "doc"] as const).flatMap((bo) =>
+            (["day_du", "che", "an"] as const).map((che) => (
+              <div key={`${bo}-${che}`} className="min-w-0 rounded-control border border-hairline p-3">
+                <h3 className="mb-3 text-meta font-semibold text-ink-muted">{bo} · {che}</h3>
+                <div className="flex min-w-0 flex-col gap-4">
+                  {[
+                    { ten: "Nguyễn Thị Mẫu Tên Rất Dài Để Kiểm Tra Cắt Chữ Trên Điện Thoại", ma: "DEMO-001", sdt: "0912345678" },
+                    { ten: "Khách chưa có số", ma: "DEMO-002", sdt: "" },
+                    { ten: "Khách quốc tế", ma: "DEMO-003", sdt: "+14155552671" },
+                    { ten: "Khách số cũ sai dạng", ma: "DEMO-MA-KHACH-RAT-DAI-DE-KIEM-TRA-KHONG-TRAN-MAN-HINH", sdt: "0912" },
+                  ].map((khach) => <TenKhach key={khach.ma} {...khach} bo={bo} che={che} />)}
+                  <TenKhach ten="Khách có số lượt" ma="DEMO-005" sdt="0987654321" bo={bo} che={che} soLuot={{ booking: 12, checkin: 5 }} />
+                </div>
+              </div>
+            )),
+          )}
+        </div>
+      </Section>
 
       <Section title="Màu thương hiệu" note="Teal mang hành động chính và mục nav đang chọn; không màu nào khác cạnh tranh với nó.">
         <div className="flex flex-wrap gap-2">
