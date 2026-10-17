@@ -106,18 +106,20 @@ export default function QuyDoiNhap({
             className={`${INPUT} w-32`}
           />
         </label>
-        {xem?.so_luong_quy_doi != null ? (
+        {/* Máy chủ vừa báo lỗi (hệ số rác…) thì kết quả của lần xem TRƯỚC không được
+            hiện cạnh câu báo — "= 10 gói" kế bên "hệ số phải là một con số" là nói dối. */}
+        {!loi && xem?.so_luong_quy_doi != null ? (
           <p className="pb-2 font-semibold text-ink tabular-nums">
             = {soKho(xem.so_luong_quy_doi)} {ban}
           </p>
         ) : null}
-        {nho != null && heSo.trim() === "" ? (
+        {!loi && nho != null && heSo.trim() === "" ? (
           <p className="pb-2 text-meta text-ink-muted">
             Đã nhớ lần trước: 1 {donVi.trim()} = {soKho(nho)} {ban}.
           </p>
         ) : null}
       </div>
-      {xem?.can_xac_nhan ? (
+      {!loi && xem?.can_xac_nhan ? (
         <label className="flex items-center gap-2 text-warning">
           <input
             type="checkbox"
