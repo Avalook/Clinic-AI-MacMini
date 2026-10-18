@@ -1076,6 +1076,10 @@ async def test_scenario_r_partner_status_da_gui_tep(
     from tests.chay_nguoi_dua_tin import danh_dau_doi_tac_da_nhan
 
     await danh_dau_doi_tac_da_nhan(pool, oid)
+    # 16/10/2026: tải tệp chưa phải trả kết quả — đối tác bấm [Trả kết quả].
+    from clinicai.services.doi_tac_service import DoiTacService
+
+    await DoiTacService(pool).tra_ket_qua(order_id=oid, identity=partner)
     res_dt = await svc_lk.viec_doi_tac(identity=partner)
     khach_list = res_dt["khach"]
     khach_item = next((k for k in khach_list if k["clinic_patient_id"] == pid), None)

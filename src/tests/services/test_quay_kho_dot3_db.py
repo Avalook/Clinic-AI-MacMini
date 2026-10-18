@@ -181,6 +181,29 @@ async def _dat_day(pool: asyncpg.Pool, ca: Ca, ma: str, gia_tri: Any) -> None:  
 async def test_chup_phim_goi_y_bao_doi_tac_lam_khong_hien_o_chon_phong(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
+    # Ca KHÔNG có phòng đối tác nào (16/10/2026: có phòng đối tác thì việc đối
+    # tác làm trọn xếp vào đó — `test_phong_doi_tac_luong_chung_db`). Tắt mọi
+    # phòng đối tác trong bài này, trả lại sau.
+    dt = [
+        r["id"]
+        for r in await pool.fetch(
+            "SELECT id::text AS id FROM clinic_room WHERE clinic_id = $1::uuid"
+            " AND la_doi_tac AND is_active",
+            CLINIC,
+        )
+    ]
+    await pool.execute(
+        "UPDATE clinic_room SET is_active = false WHERE id = ANY($1::uuid[])", dt
+    )
+    try:
+        await _chup_phim_khong_phong_doi_tac(pool)
+    finally:
+        await pool.execute(
+            "UPDATE clinic_room SET is_active = true WHERE id = ANY($1::uuid[])", dt
+        )
+
+
+async def _chup_phim_khong_phong_doi_tac(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
     tc = await _vai(pool, ca, "TRUONG_CA")
     ma = await _dich_vu_chup_phim(pool)

@@ -115,6 +115,37 @@ export function XemTaiLieu({ tep }: { tep: Pick<Tep, "id" | "mime" | "ten_hien_t
   );
 }
 
+/** Tệp như bàn đối tác trả (`DoiTacService._dung_viec` → `tep`) — lịch sử đủ,
+ *  kể cả tệp thu hồi / đã xoá (ghi rõ). */
+export interface TepDoiTac extends CoXoaTep {
+  id: string;
+  ten: string | null;
+  loai: string | null;
+  mime?: string | null;
+  so_byte: number;
+  luc: string | null;
+  boi?: string | null;
+  thu_hoi?: boolean;
+  da_xoa?: boolean;
+  da_xoa_ly_do?: string | null;
+  khoi_phuc_duoc?: boolean;
+}
+
+/** CỬA ĐỐI TÁC của ô tệp (16/10/2026 — bàn `/doi-tac` dùng CHUNG ô này với
+ *  phòng dịch vụ): danh sách tệp đi kèm danh sách việc (không gọi cửa CSKH),
+ *  tải lên qua cửa đối tác `/api/doi-tac`, và chỉ xem trước được khi máy chủ
+ *  cho mở tệp (`xem_tep` — vai PARTNER bên ngoài: không, chỉ thấy dòng chữ). */
+export interface CuaDoiTac {
+  tep: TepDoiTac[];
+  xemTep: boolean;
+}
+
+const NHAN_LOAI_TEP = "image/*,video/mp4,video/quicktime,video/webm,application/pdf,.docx,.xlsx";
+
+function gioHoacTrong(iso: string | null): string | null {
+  return iso ? gio(iso) : null;
+}
+
 export default function KhungTep({
   clinicPatientId,
   serviceOrderId,
@@ -122,6 +153,7 @@ export default function KhungTep({
   tieuDe = "Ảnh · video · phiếu kết quả",
   onDaTaiLen,
   ben,
+  cuaDoiTac,
 }: {
   clinicPatientId: string;
   serviceOrderId: string;
@@ -132,18 +164,60 @@ export default function KhungTep({
   /** Mẫu hai bên (26/09/2026): ô tải của MỘT bên — tệp gửi lên gắn `ben`, danh
    *  sách chỉ hiện tệp của bên ấy (tệp cũ chưa gắn bên xếp vào bên đầu). */
   ben?: { so: number; ten: string };
+  /** Bàn đối tác — xem `CuaDoiTac`. Đổi tệp thì `onDaTaiLen` để chỗ gọi nạp lại. */
+  cuaDoiTac?: CuaDoiTac;
 }) {
-  const [teps, setTeps] = useState<Tep[] | null>(null);
+  const [tepDoc, setTeps] = useState<Tep[] | null>(null);
   // Tệp đã xoá mềm của chỉ định này (≤30 ngày) — dòng "Hoàn tác" (V9).
-  const [daXoa, setDaXoa] = useState<TepDaXoa[]>([]);
+  const [daXoaDoc, setDaXoa] = useState<TepDaXoa[]>([]);
   const [loi, setLoi] = useState<string | null>(null);
   const [dangTai, setDangTai] = useState<string | null>(null);
   const [mo, setMo] = useState<{ i: number; luoi: boolean } | null>(null);
   const [lanNap, setLanNap] = useState(0);
   // Số nguyên, không phải object: cha tạo object `ben` mới mỗi lần vẽ.
   const benSo = ben?.so;
+  const laDoiTac = cuaDoiTac !== undefined;
+  const tepDoiTac = cuaDoiTac?.tep;
+  // Máy chủ cho mở tệp (xem trước, tải về) — cửa thường luôn cho.
+  const xemDuoc = cuaDoiTac ? cuaDoiTac.xemTep : true;
+  const tuDoiTac = useMemo(() => {
+    if (!tepDoiTac) return null;
+    const con: Tep[] = tepDoiTac
+      .filter((t) => !t.thu_hoi && !t.da_xoa)
+      .map((t) => ({
+        id: t.id,
+        ten_hien_thi: t.ten,
+        loai_tep: t.loai ?? "TAI_LIEU",
+        mime: t.mime ?? "",
+        so_byte: t.so_byte,
+        tai_len_luc: t.luc ?? "",
+        tai_len_boi: t.boi ?? null,
+        service_order_id: serviceOrderId,
+        xoa_duoc: t.xoa_duoc,
+        xoa_loai: t.xoa_loai,
+        xoa_ly_do: t.xoa_ly_do,
+      }));
+    const xoa: TepDaXoa[] = tepDoiTac
+      .filter((t) => t.da_xoa)
+      .map((t) => ({
+        id: t.id,
+        ten_hien_thi: t.ten,
+        service_order_id: serviceOrderId,
+        appointment_id: null,
+        da_xoa_luc: t.luc ?? "",
+        da_xoa_ly_do: t.da_xoa_ly_do ?? null,
+        da_xoa_loai: null,
+        da_xoa_boi: null,
+        khoi_phuc_duoc: t.khoi_phuc_duoc,
+      }));
+    return { con, xoa };
+  }, [tepDoiTac, serviceOrderId]);
+  const teps = tuDoiTac ? tuDoiTac.con : tepDoc;
+  const daXoa = tuDoiTac ? tuDoiTac.xoa : daXoaDoc;
 
   useEffect(() => {
+    // Cửa đối tác: tệp đi kèm danh sách việc — không đọc cửa CSKH.
+    if (laDoiTac) return;
     let huy = false;
     void fetch(
       `/api/cskh/ket-qua?clinic_patient_id=${encodeURIComponent(clinicPatientId)}`,
@@ -177,7 +251,7 @@ export default function KhungTep({
     return () => {
       huy = true;
     };
-  }, [clinicPatientId, serviceOrderId, lanNap, benSo]);
+  }, [clinicPatientId, serviceOrderId, lanNap, benSo, laDoiTac]);
 
   const taiLen = useCallback(
     async (files: FileList | File[] | null) => {
@@ -192,12 +266,17 @@ export default function KhungTep({
         const nhan = `Đang gửi ${i + 1}/${ds.length}: ${f.name} (${doCoTep(f.size)})`;
         setDangTai(nhan);
         const fd = new FormData();
-        fd.append("clinic_patient_id", clinicPatientId);
-        fd.append("service_order_id", serviceOrderId);
-        if (benSo !== undefined) fd.append("ben", String(benSo));
+        if (laDoiTac) {
+          // Cửa đối tác: chỉ nói "kết quả của việc này" — máy chủ tự tra khách.
+          fd.append("chi_dinh_id", serviceOrderId);
+        } else {
+          fd.append("clinic_patient_id", clinicPatientId);
+          fd.append("service_order_id", serviceOrderId);
+          if (benSo !== undefined) fd.append("ben", String(benSo));
+        }
         fd.append("file", f);
         try {
-          const r = await guiTepCoTienDo("/api/cskh/ket-qua", fd, (pt) =>
+          const r = await guiTepCoTienDo(laDoiTac ? "/api/doi-tac" : "/api/cskh/ket-qua", fd, (pt) =>
             setDangTai(
               pt >= 100
                 ? `Đang cất vào kho ${i + 1}/${ds.length}: ${f.name} — đừng đóng trang`
@@ -217,7 +296,7 @@ export default function KhungTep({
       setLanNap((n) => n + 1);
       onDaTaiLen?.();
     },
-    [clinicPatientId, serviceOrderId, onDaTaiLen, benSo],
+    [clinicPatientId, serviceOrderId, onDaTaiLen, benSo, laDoiTac],
   );
 
   /** Tải về từng tệp một (không nén) — trình duyệt hỏi một lần cho nhiều tệp. */
@@ -267,7 +346,7 @@ export default function KhungTep({
         {coTep ? (
           <span className="flex items-center gap-2 text-label text-ink-muted">
             {teps!.length} tệp đã lưu
-            {teps!.length > 1 ? (
+            {teps!.length > 1 && xemDuoc ? (
               <button
                 type="button"
                 onClick={taiTatCa}
@@ -286,11 +365,17 @@ export default function KhungTep({
             onChon={(ds) => void taiLen(ds)}
             disabled={dangTai !== null}
             gon={coTep}
-            accept="image/*,.dcm,application/dicom,video/mp4,video/quicktime,video/webm,application/pdf,.docx,.xlsx"
+            accept={
+              laDoiTac
+                ? NHAN_LOAI_TEP
+                : "image/*,.dcm,application/dicom,video/mp4,video/quicktime,video/webm,application/pdf,.docx,.xlsx"
+            }
             nhan={dangTai ?? "Gửi ảnh, video, PDF, Word vào đây"}
             phu={
               dangTai === null
-                ? "Kéo thả tệp vào ô này hoặc bấm để chọn · ảnh JPG/PNG/WEBP/GIF, DICOM (chỉ tải về), video MP4/MOV/WebM, PDF, Word (.docx), Excel (.xlsx)"
+                ? laDoiTac
+                  ? "Kéo thả tệp vào ô này hoặc bấm để chọn · ảnh, video MP4/MOV/WebM, PDF, Word (.docx), Excel (.xlsx)"
+                  : "Kéo thả tệp vào ô này hoặc bấm để chọn · ảnh JPG/PNG/WEBP/GIF, DICOM (chỉ tải về), video MP4/MOV/WebM, PDF, Word (.docx), Excel (.xlsx)"
                 : undefined
             }
           />
@@ -312,7 +397,40 @@ export default function KhungTep({
 
       {/* XEM NGAY TRONG Ô (lát 5): ≤3 tệp hiện từng tấm lớn, nhiều hơn xếp
           chồng theo loại; bấm mở hộp xem lật được qua MỌI tệp của chỉ định. */}
-      {coTep ? (
+      {/* Không được mở tệp (vai đối tác bên ngoài): lịch sử bằng chữ — tên,
+          cỡ, giờ, ai tải, thu hồi / đã xoá — kèm nút Xoá theo cờ máy chủ. */}
+      {!xemDuoc && tepDoiTac && tepDoiTac.length > 0 ? (
+        <ol className="mt-2 space-y-1" aria-label="Lịch sử tải tệp">
+          {tepDoiTac.map((t) => (
+            <li
+              key={t.id}
+              className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-control bg-surface-muted px-3 py-1.5 text-meta"
+            >
+              <span
+                className={`min-w-0 truncate ${t.thu_hoi || t.da_xoa ? "text-ink-faint line-through" : "text-ink"}`}
+              >
+                {t.ten ?? "Tệp kết quả"}
+              </span>
+              <span className="text-ink-muted">
+                {[
+                  coChu(t.so_byte),
+                  gioHoacTrong(t.luc),
+                  t.boi ?? null,
+                  t.thu_hoi ? "đã thu hồi" : null,
+                  t.da_xoa ? `đã xoá${t.da_xoa_ly_do ? ` — ${t.da_xoa_ly_do}` : ""}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+              {!t.thu_hoi && !t.da_xoa && choTaiLen ? (
+                <NutXoaTep tepId={t.id} ten={t.ten} co={t} onDaXoa={napLai} />
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+
+      {coTep && xemDuoc ? (
         <div className="mt-3">
           <AnhKetQua
             tep={xem}
@@ -325,7 +443,7 @@ export default function KhungTep({
 
       {choTaiLen ? <DaXoaGanDay ds={daXoa} onXong={napLai} /> : null}
 
-      {mo && coTep ? (
+      {mo && coTep && xemDuoc ? (
         <Lightbox
           tieuDe={ben ? ben.ten : tieuDe}
           tep={xem}

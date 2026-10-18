@@ -91,6 +91,9 @@ export interface TheDichVu extends CoBamDon {
   lam_them?: string | null;
   /** Làm thêm tại quầy đã đóng: người đóng (Hoàn tất kết quả ở quầy). */
   xong_boi?: string | null;
+  /** Chữ riêng của việc đối tác máy chủ viết (16/10/2026): "Đã nhận mẫu · chờ
+   *  kết quả" / "Có kết quả"; null = chữ chung theo trạng thái. */
+  doi_tac_chu?: string | null;
 }
 
 export interface BuocHanhTrinh extends CoBamDon {
@@ -322,6 +325,8 @@ export function ghiChuKham(b: BuocHanhTrinh): string {
 
 /** Dòng trạng thái của một thẻ dịch vụ: "Xong 11:05" / "Đang làm 6′" / … */
 export function nhanThe(t: TheDichVu, bayGio: number, dungDongHo = false): string {
+  // Việc đối tác — CHỈ hai chữ riêng, máy chủ viết (16/10/2026).
+  if (t.doi_tac_chu) return t.doi_tac_chu;
   switch (t.trang_thai) {
     case "XONG":
       return t.xong ? `Xong ${gio(t.xong)}` : "Xong";
@@ -330,7 +335,7 @@ export function nhanThe(t: TheDichVu, bayGio: number, dungDongHo = false): strin
       return p != null ? `Đang làm ${p}′` : "Đang làm";
     }
     case "DOI_TAC":
-      return "Chờ kết quả đối tác";
+      return "Đã nhận mẫu · chờ kết quả";
     case "CHO_THU":
       return "Chờ thu tiền";
     case "CHO_LAM":

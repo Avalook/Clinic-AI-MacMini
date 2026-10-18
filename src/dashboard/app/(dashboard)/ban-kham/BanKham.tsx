@@ -202,11 +202,13 @@ const TEN_TRANG_THAI_CHI_DINH: Record<string, string> = {
 };
 
 /** Việc đối tác: nói trạng thái bên đối tác, không nói "chờ xếp phòng". */
+// 16/10/2026 (Tuyền): CHỈ hai chữ riêng của đối tác; trước khi nhận mẫu là chữ
+// chung "Chờ làm" — cùng bộ chữ máy chủ (`doi_tac_service.CHU_TRANG_THAI_DOI_TAC`).
 const TEN_TRANG_THAI_DOI_TAC: Record<string, string> = {
-  CHO_LAY_MAU: "Đã gửi đối tác",
-  DA_LAY_MAU: "Đối tác đã lấy mẫu",
-  DA_NHAN_MAU: "Đối tác đã nhận mẫu · xong",
-  DA_GUI_KET_QUA: "Đối tác đã gửi kết quả",
+  CHO_LAY_MAU: "Chờ làm",
+  DA_LAY_MAU: "Chờ làm",
+  DA_NHAN_MAU: "Đã nhận mẫu · chờ kết quả",
+  DA_GUI_KET_QUA: "Có kết quả",
 };
 
 type Khung = "benh-an" | "chi-dinh";

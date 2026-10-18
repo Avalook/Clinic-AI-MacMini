@@ -555,6 +555,32 @@ class DoiTacDaNhanMau(PayloadSuKien):
     service_order_id: str
 
 
+class DoiTacTraKetQua(PayloadSuKien):
+    """`partner.result_returned` — đối tác bấm "Trả kết quả" (Tuyền 16/10/2026):
+    tệp / phiếu đã đủ, việc đối tác "Có kết quả" ở mọi màn."""
+
+    visit_id: str
+    service_order_id: str
+
+
+class DoiTacHoanTacNhanMau(PayloadSuKien):
+    """`partner.sample_receipt_undone` — hoàn tác "Nhận mẫu" (gỡ mốc). Lý do
+    nằm ở nhật ký người bấm, payload chỉ mang cờ."""
+
+    visit_id: str
+    service_order_id: str
+    co_ly_do: bool = False
+
+
+class DoiTacHoanTacTraKetQua(PayloadSuKien):
+    """`partner.result_return_undone` — hoàn tác "Trả kết quả" (gỡ mốc "Có kết
+    quả"; tệp + phiếu giữ nguyên)."""
+
+    visit_id: str
+    service_order_id: str
+    co_ly_do: bool = False
+
+
 class DoiTacNhanViec(PayloadSuKien):
     """`partner.order_received` — một chỉ định làm bên ngoài vừa sang bàn đối tác.
 
@@ -2029,7 +2055,8 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="doi_tac",
             payload=DoiTacDaLayMau,
             nhan="Đối tác đã lấy mẫu",
-            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, VONG_DOC],
+            # Bàn đối tác nhận việc nếu lúc chốt chưa nhận (16/10/2026).
+            consumers=[DONG_THOI_GIAN_LUOT, HANH_TRINH, VONG_DOC, DOI_TAC_NHAN_VIEC],
             theo_thu_tu=True,
         ),
         SuKien(
@@ -2040,6 +2067,37 @@ DANH_MUC: dict[str, SuKien] = {
             payload=DoiTacDaNhanMau,
             nhan="Đối tác đã nhận mẫu — việc đối tác xong",
             consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="partner.sample_receipt_undone",
+            version=1,
+            aggregate_type="service_order",
+            source_module="doi_tac",
+            payload=DoiTacHoanTacNhanMau,
+            nhan="Hoàn tác nhận mẫu của đối tác",
+            consumers=[DONG_THOI_GIAN_LUOT],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="partner.result_returned",
+            version=1,
+            aggregate_type="service_order",
+            source_module="doi_tac",
+            payload=DoiTacTraKetQua,
+            nhan="Đối tác đã trả kết quả",
+            # Chuông: bác sĩ chính + CSKH (thay cho chuông lúc tải tệp).
+            consumers=[DONG_THOI_GIAN_LUOT, CHUONG],
+            theo_thu_tu=True,
+        ),
+        SuKien(
+            ten="partner.result_return_undone",
+            version=1,
+            aggregate_type="service_order",
+            source_module="doi_tac",
+            payload=DoiTacHoanTacTraKetQua,
+            nhan="Hoàn tác trả kết quả của đối tác",
+            consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
         SuKien(

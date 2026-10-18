@@ -26,9 +26,15 @@ test("khách đã xong có lối sang khách kế tiếp — bấm tay, không t
 });
 
 test("nút In phiếu nằm ở đầu khung khách, ngoài mọi điều kiện trạng thái", () => {
-  const dau = phong.indexOf('<div className="flex flex-wrap items-center gap-2">');
-  const nutIn = phong.indexOf("<NutInPhieu href={`/print/ket-qua/${dong.ref_id}`}");
-  const batDau = phong.indexOf("{chuaLam && th ? (", dau);
+  // Đầu thẻ dịch vụ là khuôn chung `TheDichVu` (16/10/2026, dùng chung với
+  // /doi-tac): [In phiếu] đứng ĐẦU hàng nút, trước nút chính của chỗ gọi.
+  const the = doc("../app/(dashboard)/_lam-viec/TheDichVu.tsx");
+  const dau = the.indexOf('<div className="flex flex-wrap items-center gap-2">');
+  const nutIn = the.indexOf("<NutInPhieu href={inHref}");
+  const nut = the.indexOf("{nut}", dau);
   assert.ok(dau > 0 && nutIn > dau, "NutInPhieu phải nằm trong hàng nút đầu khung");
-  assert.ok(nutIn < batDau, "NutInPhieu đứng trước mọi nút có điều kiện");
+  assert.ok(nutIn < nut, "NutInPhieu đứng trước mọi nút có điều kiện");
+  // Phòng truyền đường in KHÔNG điều kiện.
+  assert.ok(phong.includes("inHref={`/print/ket-qua/${dong.ref_id}`}"));
+  assert.ok(phong.includes("<TheDichVu"));
 });

@@ -29,6 +29,7 @@ from clinicai.phieu_kham.mau_dieu_tri import MAU_KHONG_HOAN_TAT
 from clinicai.phieu_kham.mau_goi_y import mau_cho_cac_dich_vu
 from clinicai.services.doi_tac_service import (
     LA_VIEC_DOI_TAC_SQL,
+    chu_trang_thai_doi_tac,
     trang_thai_doi_tac,
 )
 from clinicai.services.lam_them_tai_quay_service import nhan_lam_them
@@ -273,6 +274,9 @@ async def doc_ket_qua_theo_chi_dinh(
                     else None
                 ),
             }
+        )
+        kq[-1]["doi_tac_chu"] = (
+            chu_trang_thai_doi_tac(kq[-1]["doi_tac"]) if kq[-1]["doi_tac"] else None
         )
     return kq
 

@@ -102,6 +102,10 @@ async def test_tu_choi_tep_duy_nhat_thi_chi_dinh_ve_chua_co_ket_qua(
         ten_hien_thi="kq.pdf",
         service_order_id=oid,
     )
+    # 16/10/2026: mốc "Có kết quả" của việc đối tác là nút [Trả kết quả].
+    from clinicai.services.doi_tac_service import DoiTacService
+
+    await DoiTacService(pool).tra_ket_qua(order_id=oid, identity=partner)
     assert await pool.fetchval(
         "SELECT ket_qua_luc IS NOT NULL FROM service_order WHERE id = $1::uuid", oid
     )

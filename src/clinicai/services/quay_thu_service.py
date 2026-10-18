@@ -1023,9 +1023,11 @@ async def _phong_lam_duoc_cua_luot(
     conn: asyncpg.Connection, cid: str, visit_id: str
 ) -> dict[str, list[dict[str, Any]]]:
     """Chỉ định → các phòng đang nhận khách làm được nó, cùng cơ sở (tên + ★)."""
+    from clinicai.services.service_routing_service import DOI_TAC_LAM_TRON_SQL
+
     out: dict[str, list[dict[str, Any]]] = {}
     for r in await conn.fetch(
-        """
+        f"""
         SELECT o.id::text AS id, r.name AS ten,
                phong_chuyen(r.clinic_id, r.id, o.node_code, o.service_code)
                    AS chuyen
@@ -1035,7 +1037,9 @@ async def _phong_lam_duoc_cua_luot(
             ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
           JOIN clinic_room r
             ON r.clinic_id = o.clinic_id AND r.is_active AND r.accepting
-           AND NOT r.la_doi_tac
+           -- Ghép theo loại việc (16/10/2026): việc đối tác làm trọn in tên
+           -- phòng đối tác, việc phòng khám làm in phòng thường.
+           AND r.la_doi_tac = {DOI_TAC_LAM_TRON_SQL}
            AND phong_lam_duoc(r.clinic_id, r.id, o.node_code, o.service_code)
            AND (r.location_id IS NULL
                 OR coalesce(v.location_id, a.location_id) IS NULL
