@@ -269,6 +269,8 @@ class PharmacyService:
                          FROM public.thuoc_giao_chua_gan_lo g
                          JOIN public.prescription p ON p.id = g.prescription_id
                           AND p.clinic_id = g.clinic_id
+                        /* rx:gom-ca-lich-su: đơn đã giao vẫn phải đối chiếu
+                           tồn kho dù bác sĩ đã đính chính dòng đơn */
                         WHERE g.clinic_id = b.clinic_id
                           AND g.drug_catalog_id = b.drug_catalog_id
                           AND g.drug_batch_id IS NULL
