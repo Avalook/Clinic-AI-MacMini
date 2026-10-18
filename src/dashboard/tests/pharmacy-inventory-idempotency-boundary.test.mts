@@ -17,7 +17,7 @@ const nhapLo = readFileSync(
 );
 
 test("điều chỉnh, huỷ và nhập lô giữ khoá theo payload qua lần gửi lại", () => {
-  assert.match(guiKhoSource, /receive.*adjust.*discard/s);
+  assert.match(guiKhoSource, /receive[\s\S]*adjust[\s\S]*discard/);
   assert.match(guiKhoSource, /sessionStorage/);
   assert.match(guiKhoSource, /Idempotency-Key/);
   assert.match(guiKhoSource, /removeItem/);
@@ -119,6 +119,7 @@ test("mất response rồi nạp lại module vẫn đọc lại key đã lưu t
   assert.equal(first.ok, false);
   assert.equal(luu.size, 1);
 
+  // @ts-expect-error -- tsx's test runner supports query strings to reload this module.
   const reloaded = await import("../app/(dashboard)/pharmacy/inventory/gui-kho.ts?reload=1");
   globalThis.fetch = async (_input, init) => {
     keys.push((init?.headers as Record<string, string>)["Idempotency-Key"]);

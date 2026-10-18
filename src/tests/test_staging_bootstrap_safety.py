@@ -338,7 +338,8 @@ class TestScriptDungTruocDocker:
         assert "FROM PUBLIC, anon, authenticated, service_role;" in acl
 
         stock_acl = (
-            REPO / "supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql"
+            REPO / "supabase/migrations/"
+            "20261019120000_restrict_stock_postgrest_reads.sql"
         ).read_text(encoding="utf-8")
         assert "REVOKE ALL PRIVILEGES ON TABLE" in stock_acl
         assert "FROM anon, authenticated;" in stock_acl

@@ -1,24 +1,46 @@
 -- Kho thuốc P1 (19/10/2026): số hữu hạn + nhận retry an toàn trong cùng giao dịch.
 -- Bảng request nằm ngoài schema public nên PostgREST không đưa nó ra API.
 
-ALTER TABLE public.inventory_txn
-    ADD CONSTRAINT inventory_txn_quantity_finite
-    CHECK (lower(quantity::text) NOT IN ('nan', 'infinity', '-infinity'));
+DO $constraints$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+         WHERE conrelid = 'public.inventory_txn'::regclass
+           AND conname = 'inventory_txn_quantity_finite'
+    ) THEN
+        ALTER TABLE public.inventory_txn
+            ADD CONSTRAINT inventory_txn_quantity_finite
+            CHECK (lower(quantity::text) NOT IN ('nan', 'infinity', '-infinity'));
+    END IF;
 
-ALTER TABLE public.drug_batch
-    ADD CONSTRAINT drug_batch_quantity_finite
-    CHECK (lower(quantity_on_hand::text) NOT IN ('nan', 'infinity', '-infinity'));
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+         WHERE conrelid = 'public.drug_batch'::regclass
+           AND conname = 'drug_batch_quantity_finite'
+    ) THEN
+        ALTER TABLE public.drug_batch
+            ADD CONSTRAINT drug_batch_quantity_finite
+            CHECK (lower(quantity_on_hand::text) NOT IN ('nan', 'infinity', '-infinity'));
+    END IF;
 
-ALTER TABLE public.drug_batch
-    ADD CONSTRAINT drug_batch_cost_price_finite
-    CHECK (
-        cost_price IS NULL
-        OR lower(cost_price::text) NOT IN ('nan', 'infinity', '-infinity')
-    );
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+         WHERE conrelid = 'public.drug_batch'::regclass
+           AND conname = 'drug_batch_cost_price_finite'
+    ) THEN
+        ALTER TABLE public.drug_batch
+            ADD CONSTRAINT drug_batch_cost_price_finite
+            CHECK (
+                cost_price IS NULL
+                OR lower(cost_price::text) NOT IN ('nan', 'infinity', '-infinity')
+            );
+    END IF;
+END
+$constraints$;
 
 CREATE SCHEMA IF NOT EXISTS app_private;
 
-CREATE TABLE app_private.pharmacy_inventory_request (
+CREATE TABLE IF NOT EXISTS app_private.pharmacy_inventory_request (
     clinic_id uuid NOT NULL
         REFERENCES public.clinic (id) ON DELETE RESTRICT,
     staff_id uuid NOT NULL
@@ -53,6 +75,9 @@ BEGIN
         USING ERRCODE = 'insufficient_privilege';
 END
 $$;
+
+DROP TRIGGER IF EXISTS pharmacy_inventory_request_immutable
+    ON app_private.pharmacy_inventory_request;
 
 CREATE TRIGGER pharmacy_inventory_request_immutable
     BEFORE UPDATE OR DELETE ON app_private.pharmacy_inventory_request
