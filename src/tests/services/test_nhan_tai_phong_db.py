@@ -33,7 +33,11 @@ from clinicai.services.luot_kham_service import LuotKhamConflictError
 from clinicai.services.quay_thu_service import phong_in_huong_dan
 from clinicai.services.service_execution_service import ServiceExecutionService
 from clinicai.services.service_routing_service import phong_chuyen_duy_nhat
-from clinicai.services.service_selection_service import SelectionInput, ap_lua_chon
+from clinicai.services.service_selection_service import (
+    SelectionInput,
+    ServiceSelectionService,
+    ap_lua_chon,
+)
 from tests.services.test_luot_kham_service_db import (
     CLINIC,
     KichBan,
@@ -411,13 +415,29 @@ async def test_huy_bat_dau_nham_roi_bo_chi_dinh_cap_nhat_tien_thu(
     assert "ghi_chu" not in json.loads(phieu["du_lieu"])
     assert phieu["revision"] == 2
 
-    huy = await HoanTacService(bat.pool).huy_chi_dinh(
-        order_id=order,
-        identity=bat.bac_si,
-        ly_do="Chỉ định nhầm, khách không làm",
-        xac_nhan=True,
+    selection_revision = await bat.pool.fetchval(
+        "SELECT revision FROM service_selection_state"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
+        CLINIC,
+        bat.visit_id,
     )
-    assert huy["da_thu_tien"] is False
+    chon_lai = await ServiceSelectionService(bat.pool).confirm(
+        visit_id=bat.visit_id,
+        order_ids_seen=[order],
+        selected_order_ids=[],
+        expected_selection_revision=int(selection_revision or 0),
+        identity=bat.le_tan,
+        idempotency_key=f"cancel-mistaken-service-{uuid.uuid4()}",
+    )
+    assert chon_lai["not_selected_order_ids"] == [order]
+    trang_thai = await bat.pool.fetchrow(
+        "SELECT selection_status FROM service_order"
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+        CLINIC,
+        order,
+    )
+    assert trang_thai is not None and trang_thai["selection_status"] == "NOT_SELECTED"
+    assert await _song(bat, order) is None
 
     async with bat.pool.acquire() as conn:
         sau = await hoa_don_con_no(
