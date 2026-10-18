@@ -1,0 +1,28 @@
+:root{--nen:#fafaf8;--chu:#1c1c1a;--mo:#6b6b66;--vien:#dcdcd4;--the:#fff;
+--do:#b3261e;--cam:#b55d00;--vang:#8a6d00;--xanh:#1f6f43;--xam:#55554f}
+@media(prefers-color-scheme:dark){:root{--nen:#161614;--chu:#ecece6;--mo:#9a9a92;
+--vien:#34342f;--the:#1f1f1c;--do:#ff8a80;--cam:#ffb74d;--vang:#e6c84f;--xanh:#6fcf97;--xam:#b0b0a8}}
+*{box-sizing:border-box}body{margin:0;background:var(--nen);color:var(--chu);
+font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px 80px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 8px}
+.mo{color:var(--mo);font-size:13px}.luoi{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.o{background:var(--the);border:1px solid var(--vien);border-radius:8px;padding:8px 12px}
+.o b{font-size:20px;display:block}
+details.the{background:var(--the);border:1px solid var(--vien);border-radius:8px;margin:8px 0}
+details.the>summary{cursor:pointer;padding:10px 12px;list-style:none;display:flex;gap:8px;
+align-items:baseline;flex-wrap:wrap}
+.chip{font-size:12px;border:1px solid var(--vien);border-radius:99px;padding:1px 8px;white-space:nowrap}
+.P0{color:var(--do)}.P1{color:var(--cam)}.P2{color:var(--vang)}.suy_ra{color:var(--cam)}
+.quan_sat{color:var(--xanh)}.chua_biet{color:var(--xam)}
+.than{padding:0 12px 12px;border-top:1px solid var(--vien)}
+dl{margin:8px 0;display:grid;grid-template-columns:150px 1fr;gap:4px 12px}
+dt{color:var(--mo)}dd{margin:0;overflow-wrap:anywhere}
+code{font:13px ui-monospace,monospace;background:var(--nen);padding:1px 4px;border-radius:4px}
+.nut{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+button{font:inherit;border:1px solid var(--vien);background:var(--nen);color:var(--chu);
+border-radius:6px;padding:6px 12px;cursor:pointer}button:disabled{opacity:.45;cursor:default}
+.da{color:var(--mo);font-size:13px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+td,th{border-bottom:1px solid var(--vien);padding:6px 8px;text-align:left;vertical-align:top}
+@media(max-width:640px){dl{grid-template-columns:1fr}}

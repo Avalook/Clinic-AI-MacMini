@@ -167,3 +167,4 @@ scripts/staff-emails.csv
 
 # CI chạy trên máy (scripts/ci-may.sh) — log từng job
 .ci-may/
+scripts/soat_he_thong/ket-qua/
