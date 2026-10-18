@@ -29,6 +29,8 @@ from . import chi_phi
 from .chi_phi import LoiGoiError, TuChoiError
 
 DUONG_KHOA = Path.home() / ".config" / "clinicai-ai" / ".env.ai"
+#: Nhiều cổng chặn User-Agent mặc định của Python (Cloudflare 403) — tự khai tên.
+UA = "clinicai-soat-he-thong/1.0"
 HF_URL = "https://router.huggingface.co/v1/chat/completions"
 HOST_CHO_PHEP_MAC_DINH = {"router.huggingface.co"}
 
@@ -109,7 +111,11 @@ def goi(
     req = urllib.request.Request(
         url,
         than,
-        {"Authorization": f"Bearer {khoa}", "Content-Type": "application/json"},
+        {
+            "Authorization": f"Bearer {khoa}",
+            "Content-Type": "application/json",
+            "User-Agent": UA,
+        },
     )
     tls = urllib.request.HTTPSHandler(context=ssl.create_default_context())
     opener = urllib.request.build_opener(_KhongTheoChuyenHuong, tls)
@@ -139,3 +145,29 @@ def goi(
     ch = (d.get("choices") or [{}])[0].get("message") or {}
     van_ban = ch.get("content") or ""
     return KetQuaGoi(van_ban, vao, ra, usd, giay)
+
+
+def liet_ke_mo_hinh_avis() -> list[str]:
+    """Danh sách mã model AVIS cho khoá này (GET /models, không tốn token)."""
+    base = _doc_khoa().get("AVIS_BASE_URL", "").rstrip("/")
+    if not base:
+        raise TuChoiError("Chưa có AVIS_BASE_URL trong .env.ai.")
+    url = base + "/models"
+    _kiem_url(url)
+    khoa = _doc_khoa().get("AVIS_API_KEY", "")
+    if not khoa:
+        raise TuChoiError("Thiếu AVIS_API_KEY.")
+    req = urllib.request.Request(
+        url, headers={"Authorization": f"Bearer {khoa}", "User-Agent": UA}
+    )
+    tls = urllib.request.HTTPSHandler(context=ssl.create_default_context())
+    opener = urllib.request.build_opener(_KhongTheoChuyenHuong, tls)
+    try:
+        with opener.open(req, timeout=60) as r:
+            d = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        raise LoiGoiError(f"AVIS /models: HTTP {e.code}") from None
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+        raise LoiGoiError(f"AVIS /models: {type(e).__name__}") from None
+    ds = d.get("data", d) if isinstance(d, dict) else d
+    return sorted(str(m.get("id", m)) if isinstance(m, dict) else str(m) for m in ds)

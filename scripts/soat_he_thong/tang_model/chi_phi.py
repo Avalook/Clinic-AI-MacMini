@@ -38,6 +38,12 @@ BANG_GIA: dict[str, tuple[float, float]] = {
     "Qwen/Qwen3-Coder-30B-A3B-Instruct": (0.228, 0.912),
     "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": (0.27, 0.85),
     "avis:claude-opus-5": (5.0, 25.0),
+    "avis:claude-opus-5-5": (
+        5.0,
+        25.0,
+    ),  # giả định bằng Opus 5 (chưa có bảng giá riêng)
+    "avis:claude-sonnet-5-5": (2.0, 10.0),
+    "avis:claude-haiku-5-5": (1.5, 7.5),  # thận trọng, cao hơn Haiku 4.5
     "avis:claude-sonnet-5": (2.0, 10.0),
     "avis:claude-haiku-4.5": (1.0, 5.0),
 }

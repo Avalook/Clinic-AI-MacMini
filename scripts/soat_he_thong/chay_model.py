@@ -28,11 +28,20 @@ from soat_he_thong.khuon import DoPhu  # noqa: E402
 from soat_he_thong.nguon import GOC, Nguon  # noqa: E402
 from soat_he_thong.tang_model import soat_toan_bo, thuoc_do  # noqa: E402
 from soat_he_thong.tang_model.chi_phi import SoChiPhi, TuChoiError  # noqa: E402
-from soat_he_thong.tang_model.khach import goi  # noqa: E402
+from soat_he_thong.tang_model.khach import goi, liet_ke_mo_hinh_avis  # noqa: E402
 
 
 def _so(tran: float) -> SoChiPhi:
     return SoChiPhi(KET_QUA / "chi-phi.jsonl", tran, KET_QUA)
+
+
+def avis_models(_a: argparse.Namespace) -> int:
+    ds = liet_ke_mo_hinh_avis()
+    print(f"{len(ds)} model. Có chữ claude/anthropic:")
+    for m in ds:
+        if "claude" in m.lower() or "anthropic" in m.lower():
+            print("  ", m)
+    return 0
 
 
 def kiem_tra(a: argparse.Namespace) -> int:
@@ -160,6 +169,7 @@ def soat(a: argparse.Namespace) -> int:
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="Tầng model của agent soát")
     sp = ap.add_subparsers(dest="lenh", required=True)
+    sp.add_parser("avis-models")
     k = sp.add_parser("kiem-tra")
     k.add_argument("--model", required=True)
     t = sp.add_parser("thuoc-do")
@@ -178,7 +188,12 @@ def main(argv: list[str]) -> int:
     q.add_argument("--docker", help="kèm bất biến dữ liệu trong container DB local")
     a = ap.parse_args(argv)
     try:
-        return {"kiem-tra": kiem_tra, "thuoc-do": do_thuoc, "soat": soat}[a.lenh](a)
+        return {
+            "avis-models": avis_models,
+            "kiem-tra": kiem_tra,
+            "thuoc-do": do_thuoc,
+            "soat": soat,
+        }[a.lenh](a)
     except TuChoiError as e:
         print(f"Từ chối: {e}", file=sys.stderr)
         return 2
