@@ -143,11 +143,20 @@ export default function TonVatTu({
 
       {hien.length === 0 ? (
         ton.length === 0 ? (
-          <section className="space-y-2 rounded-card border border-line bg-surface p-5 text-center">
-            <h3 className="text-emph font-semibold text-ink">Chưa có số tồn được ghi nhận</h3>
-            <p className="text-body text-ink-muted">
-              Nếu vừa nhận hàng, chọn “Nhập hàng”. Nếu đã có hàng nhưng chưa đưa vào sổ, đếm thực tế rồi chọn “Kiểm kê tồn ban đầu”.
+          <section className="flex flex-col items-center gap-3 rounded-card border border-line bg-surface p-5 text-center">
+            <h3 className="text-emph font-semibold text-ink">Kho chưa có số tồn</h3>
+            <p className="max-w-2xl text-body text-ink-muted">
+              Vừa nhận vật tư? Ghi nhận số lượng và nơi cất để bắt đầu theo dõi trong kho. Nếu đã có hàng từ trước,
+              hãy kiểm đếm số thực tế để tạo số tồn ban đầu.
             </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button type="button" variant="primary" onClick={() => onLamNhanh("nhap")}>
+                Bắt đầu nhập hàng
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => onLamNhanh("kiem")}>
+                Đã có hàng? Kiểm kê tồn ban đầu
+              </Button>
+            </div>
           </section>
         ) : (
           <p className="rounded-card border border-line bg-surface px-4 py-6 text-center text-body text-ink-muted">

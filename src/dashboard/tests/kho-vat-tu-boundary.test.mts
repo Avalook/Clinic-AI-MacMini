@@ -72,6 +72,8 @@ test("màn tồn giải thích kết quả thao tác và không đưa cài đặ
   assert.match(ton, /Còn bao nhiêu vật tư ở từng kho và phòng/);
   assert.match(ton, /Nhập hàng/);
   assert.match(ton, /Kiểm kê tồn ban đầu/);
+  assert.match(ton, /Bắt đầu nhập hàng/);
+  assert.match(ton, /onClick=\{\(\) => onLamNhanh\("nhap"\)\}/);
   assert.doesNotMatch(ton, /Đặt mức tối thiểu cho vật tư chưa có trong bảng/);
 });
 
