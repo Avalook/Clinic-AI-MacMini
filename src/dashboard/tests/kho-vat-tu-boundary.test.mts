@@ -63,6 +63,7 @@ test("điều hướng dùng việc nhân viên làm, không bắt họ hiểu t
   assert.match(khung, /nhan: "Lịch sử & báo cáo"/);
   assert.match(khung, /nhan: "Quản lý"/);
   assert.match(khung, /nhan: "Yêu cầu nhập cần duyệt"/);
+  assert.match(khung, /<LapPhieuVatTu\s+key=\{tab\}/);
   assert.doesNotMatch(khung, /nhan: "Phiếu"/);
 });
 

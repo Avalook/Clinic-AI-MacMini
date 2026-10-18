@@ -85,6 +85,7 @@ export default function KhoVatTu({
             </p>
           </div>
           <LapPhieuVatTu
+            key={tab}
             noiChua={noiChua}
             vatTu={chon}
             ton={ton}
