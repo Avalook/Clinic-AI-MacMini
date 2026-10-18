@@ -773,7 +773,7 @@ function KhachTrongPhong({
 
       {hoiHuy && dangLam && th?.lan_dang_chay ? (
         <XacNhanTaiCho
-          cau="Huỷ lần bắt đầu này? Nội dung đã nhập ở phiếu nháp sẽ bị xoá; phiếu đã hoàn tất được giữ lại. Dịch vụ quay về chờ; nếu không thu dịch vụ này, sau đó cần bỏ chỉ định tại Bàn khám để dịch vụ khỏi hoá đơn."
+          cau="Huỷ lần bắt đầu này? Toàn bộ nội dung phiếu nháp sẽ được xoá về mặc định. Dịch vụ quay về chờ. Nếu khách không làm dịch vụ này, hãy bỏ chọn dịch vụ trước khi thu tiền để tổng hoá đơn được cập nhật."
           nhanDongY="Huỷ bắt đầu"
           dangGui={dangGui}
           onDongY={() =>

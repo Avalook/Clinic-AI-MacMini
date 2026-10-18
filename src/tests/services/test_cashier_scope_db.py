@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
 import asyncpg
 import pytest
@@ -138,6 +138,16 @@ async def test_history_sql_halfopen_scope_before_totals(
         q.thu_ngan.staff_id,
     )
     try:
+        # Lịch sử scope không kiểm giờ hiện tại; đưa đồng hồ sau khi mọi ca bắt
+        # đầu để không phụ thuộc thời điểm CI chạy trong ngày.
+        from clinicai.services import cashier_scope_service
+
+        cu = stamp.astimezone(CLINIC_TZ)
+        monkeypatch.setattr(
+            cashier_scope_service,
+            "now_vn",
+            lambda: datetime.combine(cu.date(), time(23), tzinfo=CLINIC_TZ),
+        )
         assigned = await scope_service.days(q.thu_ngan, kind="thuoc")
         location = assigned["items"][0]["co_so_ids"][0]
         await pool.execute(

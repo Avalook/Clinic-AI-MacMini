@@ -313,13 +313,34 @@ async def test_nhap_phieu_nhap_thi_huy_bat_dau_va_don_nhap(kb: KB) -> None:
     assert kq["execution_status"] == "PENDING"
     assert await _trang_thai(kb, kb.order_id) == ("PENDING", "waiting")
     nhap = await kb.pool.fetchrow(
-        "SELECT id, du_lieu, revision FROM form_instance"
-        " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid",
+        "SELECT i.id, i.du_lieu, i.du_lieu_dang_sua, i.revision,"
+        "       i.trang_thai, i.nhap_boi_dang_sua, i.thuc_hien_boi_dang_sua,"
+        "       d.khung"
+        "  FROM form_instance i JOIN form_definition d"
+        "    ON d.clinic_id = i.clinic_id AND d.form_id = i.form_id"
+        "   AND d.version = i.version"
+        " WHERE i.clinic_id = $1::uuid AND i.service_order_id = $2::uuid",
         CLINIC,
         kb.order_id,
     )
     assert nhap is not None
-    assert json.loads(nhap["du_lieu"]).get("ghi_chu", {}).get("gia_tri") != "nhập nhầm"
+    khung = nhap["khung"]
+    if isinstance(khung, str):
+        khung = json.loads(khung)
+    gia_tri_mac_dinh = {
+        field["ma"]: {
+            "gia_tri": field["mac_dinh"],
+            "nguon": "TEMPLATE_DEFAULT",
+        }
+        for section in khung
+        for field in section.get("block", [])
+        if field.get("mac_dinh") not in (None, "")
+    }
+    assert json.loads(nhap["du_lieu"]) == gia_tri_mac_dinh
+    assert nhap["du_lieu_dang_sua"] is None
+    assert nhap["trang_thai"] == "DRAFT"
+    assert nhap["nhap_boi_dang_sua"] is None
+    assert nhap["thuc_hien_boi_dang_sua"] is None
     assert nhap["revision"] == 2
     with pytest.raises(ValidationError, match="tải lại"):
         await FormEngineService(kb.pool).luu_nhap(
@@ -357,7 +378,7 @@ async def test_nhap_phieu_nhap_thi_huy_bat_dau_va_don_nhap(kb: KB) -> None:
     assert (await _bat_dau(kb, kb.order_id))["attempt_no"] == 2
 
 
-async def test_phieu_hoan_tat_van_huy_bat_dau_va_giu_phieu(kb: KB) -> None:
+async def test_khong_huy_bat_dau_khi_phieu_da_hoan_tat(kb: KB) -> None:
     mo = await _bat_dau(kb, kb.order_id)
     await _phieu(kb, kb.order_id, revision=1)
     await kb.pool.execute(
@@ -370,16 +391,17 @@ async def test_phieu_hoan_tat_van_huy_bat_dau_va_giu_phieu(kb: KB) -> None:
     )
 
     th = await kb.svc.xem(order_id=kb.order_id, identity=kb.bs)
-    assert th["huy_bat_dau_duoc"] is True
-    kq = await kb.svc.huy_bat_dau(
-        order_id=kb.order_id,
-        attempt_id=mo["attempt_id"],
-        expected_execution_revision=mo["execution_revision"],
-        identity=kb.bs,
-        idempotency_key=str(uuid.uuid4()),
-    )
-    assert kq["execution_status"] == "PENDING"
-    assert await _trang_thai(kb, kb.order_id) == ("PENDING", "waiting")
+    assert th["huy_bat_dau_duoc"] is False
+    with pytest.raises(LuotKhamConflictError) as exc:
+        await kb.svc.huy_bat_dau(
+            order_id=kb.order_id,
+            attempt_id=mo["attempt_id"],
+            expected_execution_revision=mo["execution_revision"],
+            identity=kb.bs,
+            idempotency_key=str(uuid.uuid4()),
+        )
+    assert exc.value.error_code == "RESULT_ALREADY_COMPLETED"
+    assert await _trang_thai(kb, kb.order_id) == ("IN_PROGRESS", "serving")
     phieu = await kb.pool.fetchrow(
         "SELECT trang_thai, du_lieu, revision FROM form_instance"
         " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid",
@@ -390,6 +412,8 @@ async def test_phieu_hoan_tat_van_huy_bat_dau_va_giu_phieu(kb: KB) -> None:
     assert phieu["trang_thai"] == "READY"
     assert json.loads(phieu["du_lieu"])["ghi_chu"]["gia_tri"] == "nhập nhầm"
     assert phieu["revision"] == 1
+    lan = await _lan(kb, kb.order_id)
+    assert lan[-1]["status"] == "IN_PROGRESS"
 
 
 async def test_huy_bat_dau_khi_chua_bat_dau_thi_bao_ro(kb: KB) -> None:

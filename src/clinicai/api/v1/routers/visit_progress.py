@@ -261,10 +261,12 @@ async def active_visits(
                AND nd.is_active
              WHERE v.clinic_id = $1::uuid
                AND v.status IN ('OPEN', 'IN_PROGRESS')
+               AND v.closed_at IS NULL
+               AND v.current_node_code IS DISTINCT FROM 'LUOTKHAM-15'
                AND v.checked_in_at >= (
-                   now() AT TIME ZONE
-                   'Asia/Ho_Chi_Minh'
-               )::date::timestamptz
+                   date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
+                   AT TIME ZONE 'Asia/Ho_Chi_Minh'
+               )
                -- Chỉ lượt của cơ sở đang đứng (08/10/2026); không biết → giữ.
                AND coalesce(v.location_id, a.location_id, $2::uuid)
                    IS NOT DISTINCT FROM coalesce($2::uuid, v.location_id, a.location_id)

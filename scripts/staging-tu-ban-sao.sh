@@ -106,8 +106,10 @@ psql_db <<'SQL'
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
 SQL
+# Restore the explicit function allowlist; pg_dump --no-acl loses the ACLs
+# while the restored migration ledger says earlier GRANTs are already applied.
+psql_db -f supabase/migrations/20261019100000_harden_public_function_acl.sql
 
 # ---- 4. sổ migration khớp dữ liệu vừa nạp ------------------------------------
 # Sổ ghi (`supabase_migrations.schema_migrations`) KHÔNG nằm trong bản sao lưu

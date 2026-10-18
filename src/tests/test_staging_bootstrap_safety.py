@@ -318,6 +318,24 @@ class TestScriptDungTruocDocker:
         assert "nice -n 19" in sh and "ionice -c3" in sh
         assert "label=com.docker.compose.project=$STG_APP_PROJECT" in sh
 
+    def test_restore_staging_khong_mo_execute_tat_ca_function(self) -> None:
+        for ten in ("staging-tu-ban-sao.sh", "staging-nap-ban-sao.sh"):
+            script = (REPO / "scripts" / ten).read_text(encoding="utf-8")
+            assert (
+                "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon" not in script
+            )
+            assert "20261019100000_harden_public_function_acl.sql" in script
+
+        acl = (
+            REPO / "supabase/migrations/20261019100000_harden_public_function_acl.sql"
+        ).read_text(encoding="utf-8")
+        assert (
+            "REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC, anon" in acl
+        )
+        assert "ALTER DEFAULT PRIVILEGES FOR ROLE postgres\n" in acl
+        assert "FROM authenticated;" in acl
+        assert "FROM PUBLIC, anon, authenticated, service_role;" in acl
+
 
 class TestCaddy:
     def test_caddy_prod_nap_site_phu_qua_thu_muc(self) -> None:

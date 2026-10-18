@@ -209,8 +209,8 @@ def phieu_da_dien(trang_thai: str | None, revision: int | None) -> bool:
     Mở khách ở phòng là màn tự MỞ phiếu (tạo nháp mang giá trị mặc định của
     mẫu, revision 0) — nháp ấy chưa ai gõ gì, không tính. Đã lưu ít nhất một
     lần (revision > 0) hay đã Hoàn tất (READY) mới tính là có dữ liệu khi
-    chuyển khách đang làm sang phòng khác. Huỷ bắt đầu nhầm có luật riêng:
-    DRAFT được dọn cùng giao dịch, còn READY luôn được giữ nguyên.
+    chuyển khách đang làm sang phòng khác. Huỷ bắt đầu nhầm chỉ dùng khi chưa
+    có phiếu READY; DRAFT được dọn cùng giao dịch.
     """
     return trang_thai == "READY" or int(revision or 0) > 0
 
@@ -225,14 +225,14 @@ _PHIEU_DA_DIEN_SQL = (
 def huy_bat_dau_duoc(
     execution_status: str | None,
     co_lan_dang_chay: bool,
+    co_phieu_ready: bool = False,
 ) -> bool:
-    """Màn phòng hiện nút huỷ khi còn lần làm đang chạy.
+    """Màn phòng hiện nút huỷ khi lần làm còn chạy và chưa có kết quả READY.
 
-    Huỷ bắt đầu chỉ lùi lần làm về PENDING; phiếu DRAFT được dọn, còn phiếu
-    READY được giữ nguyên làm hồ sơ. Trạng thái dịch vụ mới quyết định có thể
-    huỷ lần làm hay không.
+    Phiếu DRAFT sẽ được xoá nội dung về mặc định khi huỷ. Kết quả READY là hồ
+    sơ chính thức, nên phải dùng luồng sửa/hoàn tác kết quả có kiểm soát.
     """
-    if execution_status != "IN_PROGRESS" or not co_lan_dang_chay:
+    if execution_status != "IN_PROGRESS" or not co_lan_dang_chay or co_phieu_ready:
         return False
     return True
 
@@ -989,16 +989,22 @@ class ServiceExecutionService:
                     "EXECUTION_STATE_INVALID", "Chỉ định không đang được làm."
                 )
             lan = await self._lan_dang_chay(conn, cid, order_id, attempt_id)
-            await conn.fetch(
+            phieu_khoa = await conn.fetch(
                 "SELECT id, trang_thai FROM form_instance"
                 " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
                 " FOR UPDATE",
                 cid,
                 order_id,
             )
+            if any(phieu["trang_thai"] == "READY" for phieu in phieu_khoa):
+                raise LuotKhamConflictError(
+                    "RESULT_ALREADY_COMPLETED",
+                    "Phiếu kết quả đã hoàn tất; không thể huỷ bắt đầu dịch vụ.",
+                )
             # Huỷ bắt đầu nhầm là quyết định bỏ lần làm dở: dọn nội dung
-            # phiếu DRAFT cùng giao dịch; phiếu READY và lịch sử append-only
-            # được giữ lại làm hồ sơ nếu kết quả đã được hoàn tất trước đó.
+            # phiếu DRAFT cùng giao dịch. Phiếu READY bị chặn ở trên vì là kết
+            # quả chính thức; không được trả chỉ định về chờ trong khi giữ kết
+            # quả đã hoàn tất như thể nó vẫn hợp lệ.
             # Tăng revision để một lần tự lưu đang bay bị từ chối thay vì ghi
             # nội dung trở lại sau khi lệnh huỷ đã hoàn tất.
             await conn.execute(
@@ -1937,6 +1943,7 @@ class ServiceExecutionService:
             "huy_bat_dau_duoc": huy_bat_dau_duoc(
                 don["execution_status"],
                 dang_chay is not None,
+                co_phieu_ready=any(d["trang_thai"] == "READY" for d in phieu),
             ),
             "ly_do_khong_lam": sorted(LY_DO_KHONG_LAM),
             "ly_do_gian_doan": sorted(LY_DO_GIAN_DOAN),
