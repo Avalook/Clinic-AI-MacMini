@@ -187,10 +187,11 @@ export default function InventoryBoard({
           </Button>
         ))}
         <input
+          type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Tìm thuốc / mã lô…"
-          aria-label="Tìm lô thuốc"
+          placeholder="Nhập tên thuốc hoặc mã lô…"
+          aria-label="Lọc tồn kho theo tên thuốc hoặc mã lô"
           className={`${INPUT} sm:ml-auto sm:w-56`}
         />
         {ghiDuoc ? (

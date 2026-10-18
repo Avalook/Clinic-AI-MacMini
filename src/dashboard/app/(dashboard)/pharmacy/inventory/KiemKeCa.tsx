@@ -24,6 +24,8 @@ const NHAN_LOAI: Record<Loai, string> = {
   CUOI: "Cuối ca",
   DOT_XUAT: "Đột xuất",
 };
+const boDauThuoc = (s: string) =>
+  s.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/đ/gi, "d").toLowerCase();
 
 interface DongKiem {
   drug_catalog_id: string;
@@ -129,10 +131,10 @@ export default function KiemKeCa({
   // tại" máy chủ nhắc sẽ đè lên ca của báo cáo đang xem.
   const giuCaDau = useRef(caDau !== undefined);
   const [loai, setLoai] = useState<Loai>(loaiCoDinh ?? "CUOI");
-  const [nhac, setNhac] = useState<Nhac | null>(null);
   const [ds, setDs] = useState<TomTat[] | null>(null);
   const [phieu, setPhieu] = useState<Phieu | null>(null);
   const [nhap, setNhap] = useState<Record<string, string>>({});
+  const [timThuoc, setTimThuoc] = useState("");
   const [lyDo, setLyDo] = useState("");
   const [lyDoSua, setLyDoSua] = useState("");
   const [ketQuaDC, setKetQuaDC] = useState<string | null>(null);
@@ -156,7 +158,6 @@ export default function KiemKeCa({
       ]);
       if (bo) return;
       if (n.ok) {
-        setNhac(n.data);
         if (!giuCaDau.current) setCa(n.data.ca);
       }
       if (d.ok) setDs(d.data.items);
@@ -274,8 +275,6 @@ export default function KiemKeCa({
       if (p) {
         nap(p);
         void taiDs(ngay);
-        const nhacMoi = await goi<Nhac>("GET", `${URL_GOC}?nhac=1&ngay=${ngay}`);
-        if (nhacMoi.ok) setNhac(nhacMoi.data);
       }
     });
 
@@ -340,20 +339,13 @@ export default function KiemKeCa({
     : phieu?.phieu_truoc_id
       ? phieu.dong.map((d) => ({ khoa: khoaDong(d.drug_catalog_id, d.don_vi), ten: d.ten, dv: d.don_vi }))
       : dong;
+  const tuKhoa = boDauThuoc(timThuoc.trim());
+  // Chỉ lọc những gì đang nhìn thấy; `luu()` vẫn gửi mọi số đã nhập trong nháp.
+  const hangHien = hang.filter((d) => !tuKhoa || boDauThuoc(d.ten).includes(tuKhoa));
+  const soDaDem = hang.filter((d) => (nhap[d.khoa] ?? "").trim() !== "").length;
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-meta text-ink-muted">
-        Đếm số thuốc thực tế trên kệ quầy (kể cả thuốc đã thu tiền mà chưa giao). Chốt rồi mới thấy tồn trên hệ thống
-        và chênh lệch — chốt KHÔNG tự sửa tồn; điều chỉnh là bước riêng, có lý do, hoàn tác được.
-      </p>
-      {nhac && (nhac.thieu_dau_ca || nhac.thieu_cuoi_ca_truoc) ? (
-        <p role="status" className="rounded-control bg-warning-bg px-3 py-2 text-meta text-ink">
-          Nhắc (không chặn bán):{" "}
-          {nhac.thieu_dau_ca ? `${NHAN_CA[nhac.ca]} hôm nay chưa kiểm đầu ca. ` : ""}
-          {nhac.thieu_cuoi_ca_truoc ? "Ca trước chưa kiểm cuối ca." : ""}
-        </p>
-      ) : null}
       {loi ? (
         <p role="alert" className="text-meta text-danger">
           {loi}
@@ -406,16 +398,13 @@ export default function KiemKeCa({
         ) : null}
       </section>
 
-      <p className="text-meta text-ink-muted">Chọn ngày và ca rồi bấm Bắt đầu kiểm kê. Nếu đã có phiếu, hệ thống mở lại phiếu đó, không tạo trùng.</p>
-
       <section aria-label="Phiếu đã có trong ngày" className="space-y-2">
         <h3 className="text-title text-ink">Các lần kiểm kê trong ngày</h3>
-        <p className="text-meta text-ink-muted">Bấm một lần kiểm kê để xem hoặc nhập tiếp. Chưa chốt nghĩa là số đếm chưa được xác nhận.</p>
         <ul className="flex flex-wrap gap-2">
           {ds === null ? (
             <li className="text-meta text-ink-muted">Đang đọc…</li>
           ) : ds.length === 0 ? (
-            <li className="text-meta text-ink-muted">Chưa có phiếu nào.</li>
+            null
           ) : (
             ds.map((p) => (
               <li key={p.id}>
@@ -503,6 +492,20 @@ export default function KiemKeCa({
           ) : null}
 
           <div className={`${TBL_WRAP} overflow-x-auto`}>
+            <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
+              <label className="flex min-w-56 flex-1 items-center gap-2 text-meta text-ink-muted">
+                <span className="shrink-0">Tìm thuốc</span>
+                <input
+                  type="search"
+                  value={timThuoc}
+                  onChange={(e) => setTimThuoc(e.target.value)}
+                  placeholder="Gõ tên thuốc để lọc…"
+                  aria-label="Tìm thuốc cần kiểm kê"
+                  className={INPUT}
+                />
+              </label>
+              <span className="text-meta text-ink-muted">Đã đếm {soDaDem} / {hang.length} mặt hàng</span>
+            </div>
             <table className="w-full min-w-xl text-left text-body">
               <thead className={TBL_HEAD}>
                 <tr>
@@ -519,7 +522,13 @@ export default function KiemKeCa({
                 </tr>
               </thead>
               <tbody className={TBL_DIV}>
-                {hang.map((d) => {
+                {hangHien.length === 0 ? (
+                  <tr>
+                    <td colSpan={daChot ? 6 : 3} className="px-3 py-6 text-center text-ink-muted">
+                      Không tìm thấy thuốc phù hợp.
+                    </td>
+                  </tr>
+                ) : hangHien.map((d) => {
                   const k = phieu.dong.find(
                     (x) => khoaDong(x.drug_catalog_id, x.don_vi) === d.khoa,
                   );

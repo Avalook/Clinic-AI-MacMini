@@ -135,7 +135,7 @@ export default function ChoGanLo({ dong }: { dong: DongChoGanLo[] }) {
             <tr>
               <th className="px-3 py-2">Thuốc</th>
               <th className="hidden px-3 py-2 sm:table-cell">Khách</th>
-              <th className="px-3 py-2 text-right">Số giao</th>
+              <th className="px-3 py-2 text-right">SL đã giao cho khách</th>
               <th className="hidden px-3 py-2 sm:table-cell">Giao lúc</th>
               <th className="px-3 py-2">Gán lô</th>
             </tr>

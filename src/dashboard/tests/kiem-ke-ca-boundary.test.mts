@@ -74,7 +74,6 @@ test("KiemKeCa: người không có quyền ghi chỉ xem — không nút mở p
   ];
   const ghi = renderToStaticMarkup(React.createElement(Kiem, { batches, ghiDuoc: true }));
   assert.match(ghi, />Bắt đầu kiểm kê<\/button>/);
-  assert.match(ghi, /KHÔNG tự sửa tồn/);
   const xem = renderToStaticMarkup(React.createElement(Kiem, { batches, ghiDuoc: false }));
   assert.doesNotMatch(xem, />Bắt đầu kiểm kê<\/button>/);
   assert.doesNotMatch(doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx"), /window\.confirm/);
@@ -91,6 +90,34 @@ test("Chốt kiểm kê phải qua xác nhận TẠI CHỖ (XacNhanTaiCho), nút
   assert.match(nguon, /onDongY=\{\(\) => \{\s*setHoiChot\(null\);\s*void chot\(\);\s*\}\}/);
   assert.match(nguon, /onThoi=\{\(\) => setHoiChot\(null\)\}/);
   assert.doesNotMatch(nguon, /window\.confirm/);
+});
+
+test("Kiểm đầu/cuối ca: tìm từng thuốc, giữ số đã nhập khi lọc, bỏ hướng dẫn thừa", () => {
+  const kiem = doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx");
+  assert.match(kiem, /aria-label="Tìm thuốc cần kiểm kê"/);
+  assert.match(kiem, /const hangHien = hang\.filter/);
+  assert.match(kiem, /normalize\("NFD"\)/);
+  assert.match(kiem, /const gui = dong\s*\.filter/);
+  assert.match(kiem, /Đã đếm/);
+  assert.match(kiem, /hangHien\.map/);
+  assert.doesNotMatch(kiem, /Đếm số thuốc thực tế trên kệ quầy/);
+  assert.doesNotMatch(kiem, /Nhắc \(không chặn bán\)/);
+  assert.doesNotMatch(kiem, /Bấm một lần kiểm kê để xem hoặc nhập tiếp/);
+  assert.doesNotMatch(kiem, /Chưa có phiếu nào/);
+});
+
+test("Kho thuốc: lọc mã lô và các nhãn nói rõ nghĩa", () => {
+  const ton = doc("app/(dashboard)/pharmacy/inventory/InventoryBoard.tsx");
+  const nhap = doc("app/(dashboard)/pharmacy/inventory/PhieuNhap.tsx");
+  const dm = doc("app/(dashboard)/pharmacy/inventory/DanhMucKho.tsx");
+  const gan = doc("app/(dashboard)/pharmacy/inventory/ChoGanLo.tsx");
+  const baoCao = doc("app/(dashboard)/pharmacy/inventory/XuatNhapTon.tsx");
+  assert.match(ton, /aria-label="Lọc tồn kho theo tên thuốc hoặc mã lô"/);
+  assert.match(ton, /placeholder="Nhập tên thuốc hoặc mã lô/);
+  assert.match(nhap, /Thêm thuốc vào phiếu nhập/);
+  assert.match(dm, /Thông tin thuốc cần kiểm tra/);
+  assert.match(gan, /SL đã giao cho khách/);
+  assert.doesNotMatch(baoCao, /Các cột nghĩa là gì/);
 });
 
 const dong = (kho: unknown) => ({

@@ -42,7 +42,7 @@ type Loc = "dang_dung" | "sap_het" | "can_soat" | "da_tat" | "tat_ca";
 const NHAN_LOC: Record<Loc, string> = {
   dang_dung: "Đang dùng",
   sap_het: "Sắp hết hàng",
-  can_soat: "Chưa xác nhận thông tin",
+  can_soat: "Thông tin thuốc cần kiểm tra",
   da_tat: "Đã tắt",
   tat_ca: "Tất cả",
 };
@@ -298,7 +298,7 @@ export default function DanhMucKho({
                       {[t.ma_hang, t.biet_duoc].filter(Boolean).join(" · ")}
                     </span>
                     {t.sap_het_hang ? <Chip tone="danger">Sắp hết</Chip> : null}
-                    {t.can_soat && t.dang_dung ? <Chip tone="warning">Chưa xác nhận thông tin</Chip> : null}
+                    {t.can_soat && t.dang_dung ? <Chip tone="warning">Thông tin thuốc cần kiểm tra</Chip> : null}
                     {!t.dang_dung ? <Chip tone="neutral">Đã tắt</Chip> : null}
                   </td>
                   <td className="px-3 py-2 text-ink-muted">{t.don_vi_ban ?? "—"}</td>

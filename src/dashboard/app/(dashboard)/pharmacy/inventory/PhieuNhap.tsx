@@ -340,7 +340,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
               variant="secondary"
               onClick={() => setDong((ds) => [...ds, dongMoi()])}
             >
-              + Thêm dòng
+              + Thêm thuốc vào phiếu nhập
             </Button>
             <p className="text-body text-ink sm:ml-auto">
               Tổng tiền: <span className="font-semibold tabular-nums">{tienVnd(tong)}</span>
