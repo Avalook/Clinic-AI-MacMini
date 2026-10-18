@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-18 19:12. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-10-18 20:03. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -543,7 +543,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - gọi API Next: `/api/dispatch-read`, `/api/dispatch/[action]`, `/api/luot-kham`
 - gọi thẳng backend (server): `/api/v1/dispatch/overview`, `/api/v1/dispatch/alerts`, `/api/v1/dispatch/routes`, `/api/v1/dispatch/history`, `/api/v1/dispatch/*`
 - service: DispatchService.{overview, stations, alerts, history, +5} · DoiBacSiService.{doi, bac_si_trong_phong_kham} · LuotKhamService.{dispatch_order, cho_quyet} · ServiceRoutingService.{assign, invalidate, dat_phong_du_kien, chuyen_phong_dang_lam, +1} · BangLuotKham.{bang, phong_hom_nay, ket_qua_cho_duyet, chi_dinh_hom_nay, +1} · XemLuotService.doc (+8 service)
-- test: test_dieu_phoi_api_1509.py, test_loc_co_so_nhom_c_db.py, test_bio_chi_dinh_db.py, test_truong_ca_dieu_phoi_db.py, test_dieu_tri_ban_kham_db.py (+33)
+- test: test_dieu_phoi_api_1509.py, test_loc_co_so_nhom_a_db.py, test_loc_co_so_nhom_c_db.py, test_bio_chi_dinh_db.py, test_truong_ca_dieu_phoi_db.py (+31)
 
 ### `/truong-ca/hang-doi`
 - page: `src/dashboard/app/(dashboard)/truong-ca/hang-doi/page.tsx` · quyền: lego `dieu_phoi` (Điều phối khách · mặc định: Trưởng ca)
@@ -554,14 +554,14 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - thành phần: app/(dashboard)/truong-ca/HistoryClient.tsx, app/(dashboard)/truong-ca/load.ts, app/(dashboard)/truong-ca/types.ts
 - gọi thẳng backend (server): `/api/v1/dispatch/overview`, `/api/v1/dispatch/alerts`, `/api/v1/dispatch/routes`, `/api/v1/dispatch/history`, `/api/v1/dispatch/*`
 - service: DispatchService.{overview, stations, alerts, routes, +4} · DoiBacSiService.{bac_si_trong_phong_kham, doi}
-- test: test_dieu_phoi_api_1509.py, test_doi_bac_si_theo_quyen_db.py, test_lich_su_dieu_phoi_bam_tay_db.py, test_luat_1509_thu_ky_va_dieu_phoi.py, test_ban_le_thuoc_db.py (+4)
+- test: test_dieu_phoi_api_1509.py, test_loc_co_so_nhom_a_db.py, test_doi_bac_si_theo_quyen_db.py, test_luat_1509_thu_ky_va_dieu_phoi.py, test_dieu_phoi_chi_chi_dinh_da_duyet.py (+2)
 
 ### `/truong-ca/tv` — TV phòng chờ
 - page: `src/dashboard/app/(dashboard)/truong-ca/tv/page.tsx` · quyền: lego `dieu_phoi` (Điều phối khách · mặc định: Trưởng ca)
 - thành phần: app/(dashboard)/truong-ca/load.ts, app/(dashboard)/truong-ca/ten-phong.ts, app/(dashboard)/truong-ca/types.ts
 - gọi thẳng backend (server): `/api/v1/dispatch/overview`, `/api/v1/dispatch/alerts`, `/api/v1/dispatch/routes`, `/api/v1/dispatch/history`, `/api/v1/dispatch/*`
 - service: DispatchService.{overview, stations, alerts, routes, +4} · DoiBacSiService.{bac_si_trong_phong_kham, doi}
-- test: test_dieu_phoi_api_1509.py, test_doi_bac_si_theo_quyen_db.py, test_lich_su_dieu_phoi_bam_tay_db.py, test_luat_1509_thu_ky_va_dieu_phoi.py, test_ban_le_thuoc_db.py (+4)
+- test: test_dieu_phoi_api_1509.py, test_loc_co_so_nhom_a_db.py, test_doi_bac_si_theo_quyen_db.py, test_luat_1509_thu_ky_va_dieu_phoi.py, test_dieu_phoi_chi_chi_dinh_da_duyet.py (+2)
 
 ### `/tu-van` — Bàn khám tư vấn
 - page: `src/dashboard/app/(dashboard)/tu-van/page.tsx` · quyền: lego `tu_van` (Khám tư vấn · mặc định: Bác sĩ tư vấn)
@@ -918,7 +918,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - [routes] GET `/api/v1/dispatch/routes` → `src/clinicai/api/v1/routers/dispatch.py:routes` → DispatchService.routes
 - [bac-si] GET `/api/v1/dispatch/bac-si` → `src/clinicai/api/v1/routers/dispatch.py:danh_sach_bac_si` → DoiBacSiService.bac_si_trong_phong_kham
 - GET `/api/v1/dispatch/chi-dinh/{visit_id}` → `src/clinicai/api/v1/routers/dispatch.py:chi_dinh_cua_luot` → DispatchService.chi_dinh
-- test: src/tests/api/test_dieu_phoi_api_1509.py, src/tests/services/test_lich_su_dieu_phoi_bam_tay_db.py, src/tests/services/test_thu_tien_xep_phong_mang_sang_db.py (+6)
+- test: src/tests/services/test_loc_co_so_nhom_a_db.py, src/tests/api/test_dieu_phoi_api_1509.py, src/tests/services/test_thu_tien_xep_phong_mang_sang_db.py (+4)
 - màn dùng: /truong-ca
 
 #### `/api/dispatch/[action]` · `src/dashboard/app/api/dispatch/[action]/route.ts`
