@@ -265,6 +265,17 @@ async def my_notifications(
     return {"items": await ThongBaoService(pool).cua_toi(identity=identity)}
 
 
+@router.delete("/thong-bao/cua-toi", status_code=200)
+async def hide_my_notifications(
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Ẩn tất cả khỏi chuông của người gọi, không đóng việc của đồng nghiệp."""
+    from clinicai.services.thong_bao_service import ThongBaoService
+
+    return await ThongBaoService(pool).an_tat_ca_cua_toi(identity=identity)
+
+
 @router.post("/thong-bao/da-doc", status_code=200)
 async def mark_notifications_read(
     identity: StaffIdentity = Depends(get_current_identity),

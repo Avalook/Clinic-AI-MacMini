@@ -879,21 +879,17 @@ class PharmacyService:
         """Giao KHÔNG chọn lô (28/09/2026): tăng số đã giao + ghi sổ chờ gán lô.
 
         Không ghi `inventory_txn` (bắt lô NOT NULL, tồn lô ≥ 0) — kho trừ lúc
-        gán lô. Vẫn giữ hai chốt của lần giao: không quá số bác sĩ kê, không quá
-        số khách mua (số bán).
+        gán lô. Không giao quá số khách mua; số kê chỉ dùng làm mức dự phòng
+        cho đơn cũ chưa ghi riêng số mua.
         """
         da_cap = Decimal(str(don["dispensed_qty"] or 0))
-        ke = don["quantity_num"]
-        if ke is not None and da_cap + luong > Decimal(str(ke)):
-            con = Decimal(str(ke)) - da_cap
-            raise ValidationError(
-                f"Đơn kê {ke} {don['drug_name_raw']}, đã cấp {da_cap} — "
-                f"chỉ còn {con}. Không cấp quá số bác sĩ kê."
-            )
         mua = don.get("purchased_qty")
+        if mua is None:
+            mua = don["quantity_num"]
         if mua is not None and da_cap + luong > Decimal(str(mua)):
             raise ValidationError(
-                f"Khách mua {mua}, đã giao {da_cap} — không giao quá số đã bán."
+                f"Khách mua {mua}, đã giao {da_cap}, còn {Decimal(str(mua)) - da_cap} "
+                "— không giao quá số đã bán."
             )
         await conn.execute(
             "INSERT INTO thuoc_giao_chua_gan_lo"
@@ -1169,12 +1165,13 @@ class PharmacyService:
         không xác nhận rằng số kê và số tồn đã có cùng đơn vị.
         """
         da_cap = Decimal(str(don["dispensed_qty"] or 0))
-        ke = don["quantity_num"]
-        if ke is not None and da_cap + luong > Decimal(str(ke)):
-            con = Decimal(str(ke)) - da_cap
+        mua = don.get("purchased_qty")
+        if mua is None:
+            mua = don["quantity_num"]
+        if mua is not None and da_cap + luong > Decimal(str(mua)):
             raise ValidationError(
-                f"Đơn kê {ke} {don['drug_name_raw']}, đã cấp {da_cap} — "
-                f"chỉ còn {con}. Không cấp quá số bác sĩ kê."
+                f"Khách mua {mua}, đã giao {da_cap}, còn {Decimal(str(mua)) - da_cap} "
+                "— không giao quá số đã bán."
             )
 
         lo = await conn.fetchrow(
@@ -1344,16 +1341,10 @@ class PharmacyService:
     ) -> dict[str, Any]:
         """Số khách đồng ý mua (contract C2) — khác số kê và số đã giao.
 
-        0 ≤ số mua ≤ số kê, và không nhỏ hơn số đã giao. Mua một phần trên
-        production là HOLD J3 — mô hình hỗ trợ, việc bật cho quầy là quyết định
-        của Dr4Women. Không đổi được sau khi đã thu tiền thuốc.
+        Số mua không âm và không nhỏ hơn số đã giao/đã phân lô. Vượt số kê
+        chỉ nhắc để nhân viên quyết định. Không đổi sau khi đã thu tiền thuốc.
         """
-        try:
-            mua = Decimal(str(so_luong))
-        except Exception as exc:  # noqa: BLE001
-            raise ValidationError("Số lượng mua phải là một con số.") from exc
-        if mua < 0:
-            raise ValidationError("Số lượng mua không âm.")
+        mua = _so(so_luong, ten="Số lượng mua", cho_0=True)
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 don = await self._khoa_dong_chua_thu(conn, identity, prescription_id)
@@ -1366,8 +1357,6 @@ class PharmacyService:
                         "Dòng này chưa có số lượng (bác sĩ để trống) — "
                         "thu ngân thuốc điền ở màn Thu tiền thuốc, không chờ bác sĩ."
                     )
-                if mua > Decimal(str(ke)):
-                    raise ValidationError(f"Bác sĩ kê {ke} — không bán quá số kê.")
                 da_giao = Decimal(str(don["dispensed_qty"] or 0))
                 if mua < da_giao:
                     raise ValidationError(
@@ -1404,7 +1393,15 @@ class PharmacyService:
                         ),
                     },
                 )
-        return {"ok": True, "purchased_qty": mua}
+        return {
+            "ok": True,
+            "purchased_qty": mua,
+            "canh_bao": (
+                f"Số mua {mua} vượt số bác sĩ kê {ke}."
+                if mua > Decimal(str(ke))
+                else None
+            ),
+        }
 
     @staticmethod
     async def _bat_buoc_kham_xong(
@@ -2950,7 +2947,7 @@ async def nhap_vao_lo(
     noi = "KHO" if await tach_kho_quay_bat(conn, identity) else "QUAY"
     hang = await conn.fetch(
         """
-        SELECT id, drug_catalog_id, expiry_date, noi_chua, ma_tem, unit
+        SELECT id, drug_catalog_id, expiry_date, noi_chua, ma_tem, unit, cost_price
           FROM public.drug_batch
          WHERE clinic_id = $1::uuid AND location_id = $3::uuid AND batch_code = $2
          ORDER BY noi_chua
@@ -2987,6 +2984,16 @@ async def nhap_vao_lo(
             raise ConflictError(
                 f"Số lô {batch_code} đang tính theo đơn vị {lo['unit']} — "
                 "nhập cùng đơn vị."
+            )
+        if (
+            cost_price is not None
+            and lo["cost_price"] is not None
+            and Decimal(str(cost_price)) != Decimal(str(lo["cost_price"]))
+        ):
+            raise ValidationError(
+                f"Số lô {batch_code} đã có giá nhập {lo['cost_price']}, "
+                f"khác giá nhập mới {cost_price}. Hãy nhập thành lô riêng "
+                "để giữ đúng giá vốn từng lần nhập."
             )
         if cost_price is not None:
             # Lô cũ chưa có giá nhập → lấy giá của lần nhập này (không ghi đè giá cũ).

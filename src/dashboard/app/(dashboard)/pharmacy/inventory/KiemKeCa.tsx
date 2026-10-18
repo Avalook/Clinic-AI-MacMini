@@ -84,7 +84,7 @@ interface KetQuaDieuChinh {
   bo_qua: { ly_do: string }[];
 }
 
-type KetQua<T> = { ok: true; data: T } | { ok: false; loi: string };
+type KetQua<T> = { ok: true; data: T } | { ok: false; loi: string | null };
 
 async function goi<T>(method: "GET" | "POST", url: string, body?: unknown): Promise<KetQua<T>> {
   try {
@@ -99,7 +99,12 @@ async function goi<T>(method: "GET" | "POST", url: string, body?: unknown): Prom
       | null;
     if (r.ok && d) return { ok: true, data: d };
     const ct = typeof d?.detail === "string" ? d.detail : null;
-    return { ok: false, loi: d?.message ?? ct ?? d?.error ?? "Máy chủ từ chối." };
+    const thongDiep = d?.message ?? ct ?? d?.error ?? "Máy chủ từ chối.";
+    const loiKyThuat = /mã lỗi\s*[a-f\d-]+|lỗi chưa lường trước/i.test(thongDiep);
+    return {
+      ok: false,
+      loi: loiKyThuat ? null : thongDiep,
+    };
   } catch {
     return { ok: false, loi: "Mất kết nối — CHƯA lưu." };
   }
@@ -130,6 +135,7 @@ export default function KiemKeCa({
   // Ca mở từ link được giữ cho tới khi người dùng tự đổi ngày; không thì "ca hiện
   // tại" máy chủ nhắc sẽ đè lên ca của báo cáo đang xem.
   const giuCaDau = useRef(caDau !== undefined);
+  const daTuMoPhieu = useRef<string | null>(null);
   const [loai, setLoai] = useState<Loai>(loaiCoDinh ?? "CUOI");
   const [ds, setDs] = useState<TomTat[] | null>(null);
   const [phieu, setPhieu] = useState<Phieu | null>(null);
@@ -213,23 +219,39 @@ export default function KiemKeCa({
     setDang(false);
   };
 
-  const moPhieu = () =>
-    chay(async () => {
-      setKetQuaDC(null);
-      const r = await goi<Phieu>("POST", URL_GOC, { ngay, ca, loai });
-      if (!r.ok) {
-        setLoi(r.loi);
-        return;
-      }
-      nap(r.data);
-      void taiDs(ngay);
-    });
-
   const moCu = (id: string) =>
     chay(async () => {
       setKetQuaDC(null);
       await docLai(id);
     });
+
+  const loaiDangKiem = loaiCoDinh ?? loai;
+
+  useEffect(() => {
+    if (!ghiDuoc || ds === null) return;
+    const khoa = `${ngay}:${ca}:${loaiDangKiem}`;
+    if (daTuMoPhieu.current === khoa) return;
+    daTuMoPhieu.current = khoa;
+
+    void (async () => {
+      setDang(true);
+      setLoi(null);
+      const coSan = ds.find((p) => p.ca === ca && p.loai === loaiDangKiem);
+      const r = coSan
+        ? await goi<Phieu>("GET", `${URL_GOC}/${coSan.id}`)
+        : await goi<Phieu>("POST", URL_GOC, { ngay, ca, loai: loaiDangKiem });
+      // Strict Mode có thể chạy effect hai lượt khi mount. Giữ kết quả lượt đầu
+      // nếu vẫn đúng ca; bỏ kết quả cũ khi người dùng đã đổi ca / ngày.
+      if (daTuMoPhieu.current !== khoa) return;
+      setDang(false);
+      if (!r.ok) {
+        setLoi(r.loi);
+        return;
+      }
+      nap(r.data);
+      if (!coSan) void taiDs(ngay);
+    })();
+  }, [ca, ds, ghiDuoc, loaiDangKiem, ngay, taiDs]);
 
   /** Lưu nháp: gửi dòng có số + dòng đã có mà người dùng xoá trống (= bỏ dòng). */
   const luu = async (): Promise<boolean> => {
@@ -352,7 +374,7 @@ export default function KiemKeCa({
         </p>
       ) : null}
 
-      <section aria-label="Mở phiếu kiểm kê" className="flex flex-wrap items-end gap-2">
+      <section aria-label="Ca kiểm kê" className="flex flex-wrap items-end gap-2">
         <label className="block">
           <span className="mb-1 block text-meta text-ink-soft">Ngày</span>
           <input
@@ -360,6 +382,7 @@ export default function KiemKeCa({
             value={ngay}
             onChange={(e) => {
               giuCaDau.current = false;
+              daTuMoPhieu.current = null;
               setNgay(e.target.value || homNayVn());
               setPhieu(null);
               setDs(null);
@@ -369,16 +392,58 @@ export default function KiemKeCa({
             className={INPUT}
           />
         </label>
-        <label className="block">
+        <div
+          role="group"
+          aria-label="Ca và phiếu kiểm kê"
+          className="w-fit min-w-[24rem] max-w-full flex-none"
+        >
           <span className="mb-1 block text-meta text-ink-soft">Ca</span>
-          <select value={ca} onChange={(e) => { giuCaDau.current = true; setCa(e.target.value as Ca); setPhieu(null); setLoi(null); setKetQuaDC(null); }} className={INPUT}>
-            {(Object.keys(NHAN_CA) as Ca[]).map((c) => (
-              <option key={c} value={c}>
-                {NHAN_CA[c]}
-              </option>
-            ))}
-          </select>
-        </label>
+          <div className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-lg border border-line bg-surface px-1.5 py-1 shadow-card">
+            <select
+              aria-label="Ca"
+              value={ca}
+              onChange={(e) => {
+                giuCaDau.current = true;
+                daTuMoPhieu.current = null;
+                setCa(e.target.value as Ca);
+                setPhieu(null);
+                setLoi(null);
+                setKetQuaDC(null);
+              }}
+              className="min-h-9 w-40 shrink-0 rounded-md border-0 bg-transparent px-2 text-sm font-medium text-ink outline-none focus:ring-2 focus:ring-brand-600/15"
+            >
+              {(Object.keys(NHAN_CA) as Ca[]).map((c) => (
+                <option key={c} value={c}>
+                  {NHAN_CA[c]}
+                </option>
+              ))}
+            </select>
+            <ul aria-label="Phiếu kiểm trong ca này" className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+              {ds === null
+                ? null
+                : ds.filter((p) => !loaiCoDinh || p.loai === loaiCoDinh).map((p) => (
+                    <li key={p.id}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={phieu?.id === p.id ? "primary" : "secondary"}
+                        onClick={() => {
+                          daTuMoPhieu.current = `${ngay}:${p.ca}:${p.loai}`;
+                          setCa(p.ca);
+                          void moCu(p.id);
+                        }}
+                      >
+                        {NHAN_CA[p.ca]} · {NHAN_LOAI[p.loai]} ·{" "}
+                        {p.trang_thai === "CHOT" ? `đã chốt (${p.so_lech} lệch)` : "đang nhập — chưa chốt"}
+                        {p.phien_ban > 1 ? ` · bản sửa ${p.phien_ban}` : ""}
+                        {p.phieu_sau_id ? " · có bản sửa" : ""}
+                        {p.dieu_chinh_luc && !p.hoan_tac_luc ? " · đã điều chỉnh" : ""}
+                      </Button>
+                    </li>
+                  ))}
+            </ul>
+          </div>
+        </div>
         {loaiCoDinh ? null : (
           <label className="block">
             <span className="mb-1 block text-meta text-ink-soft">Loại</span>
@@ -391,22 +456,15 @@ export default function KiemKeCa({
             </select>
           </label>
         )}
-        {ghiDuoc ? (
-          <Button type="button" variant="primary" disabled={dang} onClick={() => void moPhieu()}>
-            Bắt đầu kiểm kê
-          </Button>
-        ) : null}
       </section>
 
-      <section aria-label="Phiếu đã có trong ngày" className="space-y-2">
-        <h3 className="text-title text-ink">Các lần kiểm kê trong ngày</h3>
-        <ul className="flex flex-wrap gap-2">
-          {ds === null ? (
-            <li className="text-meta text-ink-muted">Đang đọc…</li>
-          ) : ds.length === 0 ? (
-            null
-          ) : (
-            ds.map((p) => (
+      {loaiCoDinh && ds?.some((p) => p.loai === "DOT_XUAT") ? (
+        <details className="rounded-control border border-line bg-surface p-3">
+          <summary className="cursor-pointer text-body font-medium text-ink">
+            Phiếu kiểm đột xuất trong ngày
+          </summary>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {ds.filter((p) => p.loai === "DOT_XUAT").map((p) => (
               <li key={p.id}>
                 <Button
                   type="button"
@@ -414,17 +472,16 @@ export default function KiemKeCa({
                   variant={phieu?.id === p.id ? "primary" : "secondary"}
                   onClick={() => void moCu(p.id)}
                 >
-                  {NHAN_CA[p.ca]} · {NHAN_LOAI[p.loai]} ·{" "}
-                  {p.trang_thai === "CHOT" ? `đã chốt (${p.so_lech} lệch)` : "đang nhập — chưa chốt"}
-                  {p.phien_ban > 1 ? ` · bản sửa ${p.phien_ban}` : ""}
-                  {p.phieu_sau_id ? " · có bản sửa" : ""}
-                  {p.dieu_chinh_luc && !p.hoan_tac_luc ? " · đã điều chỉnh" : ""}
+                  {NHAN_CA[p.ca]} · Kiểm đột xuất ·{" "}
+                  {p.trang_thai === "CHOT"
+                    ? `đã chốt (${p.so_lech} lệch)`
+                    : "đang nhập — chưa chốt"}
                 </Button>
               </li>
-            ))
-          )}
-        </ul>
-      </section>
+            ))}
+          </ul>
+        </details>
+      ) : null}
 
       {phieu ? (
         <section

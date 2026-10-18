@@ -66,7 +66,7 @@ SELECT o.id::text AS id, o.service_code, o.service_name, o.selection_status
 
 _GOI_Y_SQL = """
 SELECT dv.service_code, sp.id::text AS id, sp.name, sp.don_vi, sp.unit_price,
-       sp.active, sp.can_ql_duyet
+       sp.active, sp.can_ql_duyet, sp.kinh_doanh_vat_tu
   FROM public.vat_tu_goi_y g
   JOIN public.service_price dv
     ON dv.id = g.dich_vu_id AND dv.clinic_id = g.clinic_id
@@ -145,7 +145,11 @@ async def _doc(
     for r in await conn.fetch(_GOI_Y_SQL, clinic_id, ma):
         # Chỉ hàng bán được và KHÔNG cần quản lý duyệt (luật duyệt ở quầy).
         if (
-            ly_do_khong_ban(active=r["active"], don_gia=r["unit_price"])
+            ly_do_khong_ban(
+                active=r["active"],
+                don_gia=r["unit_price"],
+                kinh_doanh=r["kinh_doanh_vat_tu"],
+            )
             or r["can_ql_duyet"]
         ):
             continue
@@ -264,7 +268,8 @@ class BioChiDinhService:
                         " đầu dò cho chỉ định này."
                     )
                 moi = await conn.fetchrow(
-                    "SELECT name, don_vi, unit_price, active, can_ql_duyet"
+                    "SELECT name, don_vi, unit_price, active, can_ql_duyet,"
+                    " kinh_doanh_vat_tu"
                     " FROM public.service_price WHERE clinic_id = $1::uuid"
                     " AND id = $2::uuid AND \"group\" = 'vat_tu'",
                     cid,
@@ -273,7 +278,9 @@ class BioChiDinhService:
                 if moi is None:
                     raise NotFoundError("Không tìm thấy đầu dò / vật tư này.")
                 khong_ban = ly_do_khong_ban(
-                    active=moi["active"], don_gia=moi["unit_price"]
+                    active=moi["active"],
+                    don_gia=moi["unit_price"],
+                    kinh_doanh=moi["kinh_doanh_vat_tu"],
                 )
                 if khong_ban:
                     raise ValidationError(f"“{moi['name']}” {khong_ban}.")

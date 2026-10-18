@@ -266,7 +266,7 @@ export default function DanhMucKho({
               <th className="px-3 py-2">Thuốc</th>
               <th className="px-3 py-2">Đơn vị</th>
               <th className="px-3 py-2 text-right">Giá bán</th>
-              <th className="px-3 py-2 text-right">Tồn</th>
+              <th className="px-3 py-2 text-right">Số lượng trong kho</th>
               <th className="px-3 py-2">Cách dùng</th>
               <th className="px-3 py-2" />
             </tr>

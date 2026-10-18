@@ -39,11 +39,11 @@ export default async function AuditLogPage() {
   // Kiểm tra quyền truy cập trang /audit-log — nếu không có quyền sẽ redirect hoặc từ chối
   await requireNavAccess("/audit-log");
 
-  // Gọi API backend FastAPI để lấy danh sách sự kiện audit (tối đa 200 dòng)
+  // Lấy toàn bộ nhật ký từ đầu ngày hiện tại theo giờ Việt Nam.
   const data = await fetchFromBackend<{
     items: AuditEvent[]; // Danh sách các sự kiện audit
     so_nguoi: number; // Số người thao tác
-  }>("/api/v1/audit/events?limit=200");
+  }>("/api/v1/audit/events");
 
   return (
     <>

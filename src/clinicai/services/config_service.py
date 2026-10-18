@@ -32,6 +32,7 @@ import re
 import unicodedata
 from datetime import date, datetime, timedelta
 from typing import Any, Literal
+from uuid import uuid4
 
 import asyncpg
 import structlog
@@ -107,7 +108,7 @@ PRICE_ROLES: frozenset[ClinicRole] = frozenset(
 #: Bốn nhãn ca. Giờ của từng ca do phòng khám khai — xem `core/shifts.py`.
 Shift = Literal["SANG", "CHIEU", "TOI", "FULL"]
 RosterDecision = Literal["approve", "reject"]
-PriceGroup = Literal["thuoc", "dich_vu"]
+PriceGroup = Literal["thuoc", "dich_vu", "vat_tu"]
 
 
 def week_start_of(work_date: date) -> date:
@@ -1599,7 +1600,7 @@ class PriceListService:
     async def list(
         self, *, group: PriceGroup, identity: StaffIdentity
     ) -> list[dict[str, Any]]:
-        """Bảng giá của một nhóm (thuốc hoặc dịch vụ), sắp theo mã.
+        """Bảng giá của một nhóm (thuốc, dịch vụ hoặc vật tư), sắp theo mã.
 
         TRẢ CẢ DÒNG ĐÃ TẮT (`active = false`). Thu ngân cần thấy chúng để biết
         một mã cũ đã ngừng dùng, chứ không phải để tưởng nó chưa từng tồn tại
@@ -1673,7 +1674,13 @@ class PriceListService:
         node_code: str | None = None,
         billing_owner: str | None = None,
         nhom: str | None = None,
+        vat_tu: dict[str, Any] | None = None,
     ) -> str:
+        from clinicai.services.vat_tu_danh_muc_service import patch_vat_tu
+
+        vt_patch = patch_vat_tu(vat_tu or {})
+        if group != "vat_tu" and vt_patch:
+            raise ValidationError("Thuộc tính vật tư chỉ dùng cho nhóm vật tư.")
         ma_kv = _ma_kiotviet(ma_kiotviet)
         nhom_hang = _nhom_hang(nhom)
         ben_chon = doc_ben_thu(billing_owner)
@@ -1684,8 +1691,9 @@ class PriceListService:
             # Dịch vụ không mã phòng khám (01/10/2026): mã nội bộ ổn định từ tên
             # — cùng cách migration danh mục chuẩn sinh `DV_<md5 tên>`.
             or (ma_dich_vu_theo_ten(label) if group == "dich_vu" and label else "")
+            or (f"VT_{uuid4().hex[:12].upper()}" if group == "vat_tu" and label else "")
         )
-        if not code or not label:
+        if (not code and group != "vat_tu") or not label:
             raise ValidationError("Thiếu mã hoặc tên dịch vụ")
 
         price = parse_price(unit_price)
@@ -1696,26 +1704,53 @@ class PriceListService:
                 conn, identity.clinic_id, node
             )
             try:
-                row_id = await conn.fetchval(
-                    """
-                    INSERT INTO service_price
-                        (clinic_id, service_code, name, "group", unit_price,
-                         ma_kiotviet, node_code, billing_owner,
-                         billing_owner_chon_tay, category)
-                    VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                    RETURNING id
-                    """,
-                    identity.clinic_id,
-                    code,
-                    label,
-                    group,
-                    price,
-                    ma_kv,
-                    node,
-                    ben_thu,
-                    ben_chon is not None,
-                    nhom_hang,
-                )
+                if group == "vat_tu":
+                    row_id = await conn.fetchval(
+                        """
+                        INSERT INTO service_price
+                            (clinic_id, service_code, name, "group", unit_price,
+                             ma_kiotviet, billing_owner, billing_owner_chon_tay,
+                             category, loai_vat_tu, gia_nhap_vat_tu, ma_vach_vat_tu,
+                             don_vi, kinh_doanh_vat_tu, can_duyet_nhap_vat_tu,
+                             can_ql_duyet, chon_nhanh)
+                        VALUES ($1::uuid, $2, $3, 'vat_tu', $4, $5, 'CLINIC', false,
+                                NULL, $6, $7, $8, $9, $10, $11, $12, false)
+                        RETURNING id
+                        """,
+                        identity.clinic_id,
+                        code,
+                        label,
+                        price,
+                        ma_kv,
+                        vt_patch.get("loai_vat_tu"),
+                        vt_patch.get("gia_nhap_vat_tu"),
+                        vt_patch.get("ma_vach_vat_tu"),
+                        vt_patch.get("don_vi"),
+                        vt_patch.get("kinh_doanh_vat_tu", False),
+                        vt_patch.get("can_duyet_nhap_vat_tu", False),
+                        vt_patch.get("can_ql_duyet", False),
+                    )
+                else:
+                    row_id = await conn.fetchval(
+                        """
+                        INSERT INTO service_price
+                            (clinic_id, service_code, name, "group", unit_price,
+                             ma_kiotviet, node_code, billing_owner,
+                             billing_owner_chon_tay, category)
+                        VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                        RETURNING id
+                        """,
+                        identity.clinic_id,
+                        code,
+                        label,
+                        group,
+                        price,
+                        ma_kv,
+                        node,
+                        ben_thu,
+                        ben_chon is not None,
+                        nhom_hang,
+                    )
             except asyncpg.UniqueViolationError as exc:
                 raise ConflictError(
                     f"Mã {ma_kv or code} đã có trong bảng giá — tìm dòng ấy mà sửa."

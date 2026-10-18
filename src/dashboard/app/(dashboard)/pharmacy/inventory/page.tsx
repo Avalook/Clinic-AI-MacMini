@@ -6,7 +6,7 @@
 
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../../lib/clinic-session";
-import { QUYEN_BAN_LE, quyenCuaToi } from "../../../../lib/quyen-cua-toi";
+import { quyenCuaToi } from "../../../../lib/quyen-cua-toi";
 import type { DongChoGanLo } from "./ChoGanLo";
 import type { ThuocKho } from "./DanhMucKho";
 import type { CauHinhHan, ExpiryState } from "./InventoryBoard";
@@ -100,7 +100,6 @@ export default async function PharmacyInventoryPage({
       choGanLo={choGanLo}
       thuocTraChoKiem={thuocTraChoKiem}
       ghiDuoc={quyen.has("pharmacy.dispense")}
-      moBanLe={QUYEN_BAN_LE.some((q) => quyen.has(q))}
       cauHinhHan={cauHinhHan ?? undefined}
       tachKhoQuay={data.tach_kho_quay === true}
       suaTachDuoc={tach?.sua_duoc === true}

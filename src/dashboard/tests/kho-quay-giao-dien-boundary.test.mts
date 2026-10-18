@@ -135,3 +135,10 @@ test("quầy hết lô mà kho còn chỉ thông tin, giao trước đối chi�
     assert.doesNotMatch(doc(f), /window\.confirm/);
   }
 });
+
+test("OQuetMa không kiểm tra camera trực tiếp trong lúc render", () => {
+  const quetMa = doc("app/(dashboard)/pharmacy/inventory/OQuetMa.tsx");
+  assert.match(quetMa, /const coCamera = useSyncExternalStore\(/);
+  assert.match(quetMa, /const cameraUnavailableOnServer = \(\) => false/);
+  assert.doesNotMatch(quetMa, /const coCamera =\s*typeof window/);
+});

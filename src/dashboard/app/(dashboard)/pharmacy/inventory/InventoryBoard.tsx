@@ -16,7 +16,7 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import type { ThuocKho } from "./DanhMucKho";
-import { guiKho, soKho, tienVnd, tonTheoDonVi, tongTonTheoDonVi } from "./gui-kho";
+import { guiKho, soKho, tienVnd } from "./gui-kho";
 import NhapLo from "./NhapLo";
 
 interface InvDrug {
@@ -59,7 +59,7 @@ const STATE_LABEL: Record<ExpiryState, string> = {
   con_han: "Còn hạn",
   sap_het_han: "Sắp hết hạn",
   het_han: "Hết hạn",
-  chua_co_han: "Chưa có hạn",
+  chua_co_han: "Chưa điền hạn",
 };
 
 const STATE_TONE: Record<ExpiryState, "success" | "warning" | "danger" | "neutral"> = {
@@ -122,16 +122,18 @@ export default function InventoryBoard({
     });
   }, [batches, filter, search]);
 
-  const summary = useMemo(() => {
-    let soonCount = 0;
-    let expiredCount = 0;
-    for (const b of batches) {
-      // Chỉ đếm lô còn thuốc trên kệ (`canh_bao_han` máy chủ trả).
-      if (b.canh_bao_han && b.trang_thai_han === "sap_het_han") soonCount++;
-      if (b.canh_bao_han && b.trang_thai_han === "het_han") expiredCount++;
-    }
-    return { tonTheoDonVi: tongTonTheoDonVi(batches), soonCount, expiredCount };
-  }, [batches]);
+  const statusCounts = useMemo(
+    () =>
+      batches.reduce<Record<"all" | ExpiryState, number>>(
+        (counts, batch) => ({
+          ...counts,
+          [batch.trang_thai_han]: counts[batch.trang_thai_han] + 1,
+          all: counts.all + 1,
+        }),
+        { all: 0, con_han: 0, sap_het_han: 0, het_han: 0, chua_co_han: 0 },
+      ),
+    [batches],
+  );
 
   const guiLo = async () => {
     if (!lo) return;
@@ -151,15 +153,15 @@ export default function InventoryBoard({
     router.refresh();
   };
 
-  const the = (so: string | number, nhan: string, tone?: string) => (
-    <div className="rounded-control border border-line bg-surface p-3">
-      <div className={`text-title font-semibold ${tone ?? "text-ink"}`}>{so}</div>
-      <div className="text-meta text-ink-muted">{nhan}</div>
-    </div>
-  );
-
   return (
-    <div className="flex flex-col gap-4">
+    <div
+      className="flex flex-col gap-4"
+      onClickCapture={(event) => {
+        if (!moNhap || !(event.target instanceof Element)) return;
+        if (event.target.closest("[data-nhap-lo-form], [data-mo-nhap-lo]")) return;
+        if (event.target.closest("button, a, [role=tab]")) setMoNhap(false);
+      }}
+    >
       {cauHinhHan?.sua_canh_bao_duoc ? (
         <div className="flex flex-wrap items-end gap-2">
           <label className="block"><span className="mb-1 block text-meta text-ink-soft">Cảnh báo trước hạn (số ngày)</span><input value={ngay} inputMode="numeric" onChange={(e) => setNgay(e.target.value)} className={`${INPUT} sm:w-40`} /></label>
@@ -167,25 +169,27 @@ export default function InventoryBoard({
         </div>
       ) : null}
       {loi ? <p role="alert" className="text-meta text-danger">{loi}</p> : null}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {the(batches.length, "Lô thuốc")}
-        {the(tonTheoDonVi(summary.tonTheoDonVi), "Tổng tồn (theo từng đơn vị)")}
-        {the(summary.soonCount, "Lô sắp hết hạn", summary.soonCount > 0 ? "text-warning" : undefined)}
-        {the(summary.expiredCount, "Lô hết hạn còn trên kệ", summary.expiredCount > 0 ? "text-danger" : undefined)}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
+      <div
+        className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5"
+        aria-label="Lọc lô theo tình trạng hạn dùng"
+      >
         {(["all", "con_han", "sap_het_han", "het_han", "chua_co_han"] as const).map((f) => (
           <Button
             key={f}
             type="button"
-            size="sm"
-            variant={filter === f ? "primary" : "secondary"}
+            size="md"
+            variant="secondary"
+            aria-pressed={filter === f}
             onClick={() => setFilter(f)}
+            className={`h-auto min-h-16 w-full flex-col items-start justify-center gap-1 whitespace-normal rounded-card p-3 text-left ${filter === f ? "bg-brand-50 text-brand-700 ring-brand-100 hover:bg-brand-100" : "bg-surface text-ink hover:bg-surface-muted"}`}
           >
-            {f === "all" ? "Tất cả" : STATE_LABEL[f]}
+            <span className="text-title font-semibold tabular-nums">{statusCounts[f]}</span>
+            <span className="text-meta">{f === "all" ? "Tất cả" : STATE_LABEL[f]}</span>
           </Button>
         ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
         <input
           type="search"
           value={search}
@@ -195,13 +199,23 @@ export default function InventoryBoard({
           className={`${INPUT} sm:ml-auto sm:w-56`}
         />
         {ghiDuoc ? (
-          <Button type="button" variant="primary" size="sm" onClick={() => setMoNhap(true)}>
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            data-mo-nhap-lo
+            onClick={() => setMoNhap((mo) => !mo)}
+          >
             + Nhập lô
           </Button>
         ) : null}
       </div>
 
-      {moNhap ? <NhapLo thuoc={thuoc} onXong={() => setMoNhap(false)} /> : null}
+      {moNhap ? (
+        <div data-nhap-lo-form>
+          <NhapLo thuoc={thuoc} onXong={() => setMoNhap(false)} />
+        </div>
+      ) : null}
 
       <div className={`${TBL_WRAP} overflow-x-auto`}>
         {/* Điện thoại: bỏ Mã lô (hiện dưới tên thuốc) và Giá nhập để cột TỒN nằm trong

@@ -28,6 +28,7 @@ interface DongTieuHao {
   cuoi: number | null;
   tieu_hao: number | null;
   trong_do_huy: number | null;
+  tra_nha_san_xuat: number | null;
   gia_nhap: number;
   gia_tri: number | null;
   dem_dau_luc: string | null;
@@ -181,7 +182,7 @@ export default function TieuHaoVatTu() {
                     </p>
                     <p className="text-meta text-ink-muted">
                       {d.du_du_lieu
-                        ? `Đầu ${soVatTu(d.dau)} · Nhận ${soVatTu(d.nhan)} · Trả ${soVatTu(d.tra)} · Cuối ${soVatTu(d.cuoi)} (đếm ${gio(d.dem_dau_luc)} → ${gio(d.dem_cuoi_luc)}${d.dau_trong_ky ? "; chưa có lần đếm trước kỳ nên lấy lần đếm đầu tiên trong kỳ" : ""})`
+                        ? `Đầu ${soVatTu(d.dau)} · Nhận ${soVatTu(d.nhan)} · Trả ${soVatTu(d.tra)}${d.tra_nha_san_xuat ? ` (trả nhà sản xuất ${soVatTu(d.tra_nha_san_xuat)})` : ""} · Cuối ${soVatTu(d.cuoi)} (đếm ${gio(d.dem_dau_luc)} → ${gio(d.dem_cuoi_luc)}${d.dau_trong_ky ? "; chưa có lần đếm trước kỳ nên lấy lần đếm đầu tiên trong kỳ" : ""})`
                         : d.ly_do_thieu}
                     </p>
                   </div>

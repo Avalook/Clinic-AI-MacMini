@@ -85,18 +85,24 @@ def _gioi_han(v: Any) -> int:
 
 
 async def doc_phieu(
-    pool: asyncpg.Pool, *, identity: StaffIdentity, gioi_han: Any = None
+    pool: asyncpg.Pool,
+    *,
+    identity: StaffIdentity,
+    gioi_han: Any = None,
+    bo_qua: Any = None,
 ) -> list[dict[str, Any]]:
     """Phiếu gần nhất của cơ sở đang làm, kèm dòng, người lập, đã đảo hay chưa."""
     rows = await pool.fetch(
         "SELECT p.id::text, p.ma_phieu, p.loai, p.tao_luc, p.ghi_chu,"
+        " p.nha_cung_cap,"
         " p.tao_boi::text AS nguoi_tao_id, s.full_name AS nguoi_tao,"
         " p.dao_phieu_id::text AS dao_phieu_id,"
         " EXISTS (SELECT 1 FROM vat_tu_phieu d WHERE d.dao_phieu_id=p.id"
         "   AND d.clinic_id=p.clinic_id) AS da_dao,"
         " (SELECT coalesce(jsonb_agg(jsonb_build_object("
         "   'vat_tu_id', x.vat_tu_id::text, 'ten', v.name, 'don_vi', v.don_vi,"
-        "   'noi_chua', coalesce(r.name, 'Kho cơ sở'), 'so_luong', x.so_luong,"
+        "   'room_id', t.room_id::text, 'noi_chua', coalesce(r.name, 'Kho cơ sở'),"
+        "   'so_luong', x.so_luong,"
         "   'thuc_te', x.thuc_te, 'gia_nhap', x.gia_nhap) ORDER BY x.id), '[]'::jsonb)"
         "   FROM vat_tu_txn x JOIN vat_tu_ton t ON t.id=x.ton_id"
         "   JOIN service_price v ON v.id=x.vat_tu_id"
@@ -104,12 +110,20 @@ async def doc_phieu(
         "   WHERE x.phieu_id=p.id AND x.clinic_id=p.clinic_id) AS dong"
         " FROM vat_tu_phieu p LEFT JOIN staff s ON s.id=p.tao_boi"
         " WHERE p.clinic_id=$1::uuid AND p.location_id=$2::uuid"
-        " ORDER BY p.tao_luc DESC, p.ma_phieu DESC LIMIT $3",
+        " ORDER BY p.tao_luc DESC, p.ma_phieu DESC LIMIT $3 OFFSET $4",
         identity.clinic_id,
         identity.location_id,
         _gioi_han(gioi_han),
+        _bo_qua(bo_qua),
     )
     return [{**dict(r), "dong": _json(r["dong"])} for r in rows]
+
+
+def _bo_qua(v: Any) -> int:
+    try:
+        return max(0, min(int(str(v)), 10_000_000))
+    except (ValueError, TypeError):
+        return 0
 
 
 def _json(v: Any) -> list[dict[str, Any]]:

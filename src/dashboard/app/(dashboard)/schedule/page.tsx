@@ -155,9 +155,6 @@ export default async function SchedulePage({
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold text-ink lg:text-2xl">Lịch làm việc</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Lịch trực do trưởng ca xếp và áp dụng theo tuần.
-          </p>
         </div>
         {/* NÚT "SỬA LỊCH" ĐÃ BỎ cùng trang /schedule/edit (Quang 09/08/2026).
             Xếp người nay làm ngay trong bảng bên dưới — bấm dấu "+" trong ô là
@@ -183,8 +180,7 @@ export default async function SchedulePage({
         </Link>
       </div>
 
-      {/* Dải trạng thái tuần cho mọi người xem. NÚT Áp dụng tuần nằm trên thanh
-          công cụ dính của bảng xếp ca (06/10/2026) — không bày hai nút. */}
+      {/* Người xem không cần dải cảnh báo của tuần chưa áp dụng. */}
       <ApDungTuan
         weekStart={week}
         daApDung={Boolean(tuanApDung)}

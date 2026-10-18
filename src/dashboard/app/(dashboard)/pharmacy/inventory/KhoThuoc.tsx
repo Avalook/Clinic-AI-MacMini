@@ -3,11 +3,10 @@
 // Báo cáo kho có lối vào trong KHO; giữ lối QUẦY và URL cũ để không mất liên kết.
 // `ghiDuoc` = có quyền `pharmacy.dispense` — chỉ để ẨN nút ghi; máy chủ vẫn tự kiểm quyền ở mọi lệnh.
 
-import Link from "next/link";
 import { useState } from "react";
 
 import ThanhTab from "@/components/ui/ThanhTab";
-import KhachMuaThuoc from "../KhachMuaThuoc";
+import XuatBangTrongVung from "@/components/ui/XuatBangTrongVung";
 import ChoGanLo, { type DongChoGanLo } from "./ChoGanLo";
 import DanhMucKho, { type ThuocKho } from "./DanhMucKho";
 import InventoryBoard, { type CauHinhHan, type InvBatch } from "./InventoryBoard";
@@ -21,10 +20,10 @@ import XuatNhapTon from "./XuatNhapTon";
 type Khu = "kho" | "quay";
 type Tab =
   | "bao_cao_kho" | "ton" | "nhap" | "lich_su" | "danh_muc" | "kiem_kho"
-  | "kiem_dau" | "kiem_cuoi" | "bao_cao" | "cho_gan_lo" | "tra_cho_kiem";
+  | "kiem_dau" | "kiem_cuoi" | "cho_gan_lo" | "tra_cho_kiem";
 
 const TAB_KHO: readonly Tab[] = ["ton", "nhap", "bao_cao_kho", "lich_su", "danh_muc", "kiem_kho"];
-const TAB_QUAY: readonly Tab[] = ["kiem_dau", "kiem_cuoi", "bao_cao", "cho_gan_lo", "tra_cho_kiem"];
+const TAB_QUAY: readonly Tab[] = ["kiem_dau", "kiem_cuoi", "cho_gan_lo", "tra_cho_kiem"];
 const TAB_HOP_LE: readonly Tab[] = [...TAB_KHO, ...TAB_QUAY];
 
 /** Tên tab CŨ trong link đã lưu / link từ báo cáo hàng hoá → tab mới tương ứng. */
@@ -32,6 +31,7 @@ const TAB_CU: Record<string, Tab> = {
   "kiem_ke_ca": "kiem_cuoi",
   "phieu_nhap": "nhap",
   "the_kho": "lich_su",
+  "bao_cao": "bao_cao_kho",
   "xnt": "bao_cao_kho",
 };
 
@@ -49,7 +49,6 @@ export default function KhoThuoc({
   choGanLo = [],
   thuocTraChoKiem = [],
   ghiDuoc = false,
-  moBanLe = false,
   cauHinhHan,
   tachKhoQuay = false,
   tabDau,
@@ -64,8 +63,6 @@ export default function KhoThuoc({
   thuocTraChoKiem?: DongTraChoKiem[];
   /** Có quyền ghi kho (`pharmacy.dispense`) — chỉ ẩn/hiện nút. */
   ghiDuoc?: boolean;
-  /** V8: được mở lượt "Khách mua thuốc" — máy chủ quyết (lego nhà thuốc / thu tiền). */
-  moBanLe?: boolean;
   cauHinhHan?: CauHinhHan;
   /** G7: cơ sở bật tách kho / quầy (mặc định tắt = một kho như cũ). */
   tachKhoQuay?: boolean;
@@ -102,7 +99,6 @@ export default function KhoThuoc({
   const mucQuay = [
     { ma: "kiem_dau" as const, nhan: "Kiểm đầu ca" },
     { ma: "kiem_cuoi" as const, nhan: "Kiểm cuối ca" },
-    { ma: "bao_cao" as const, nhan: "Báo cáo kho" },
     {
       ma: "cho_gan_lo" as const,
       nhan: `Đã giao, chưa trừ kho (${choGanLo.length})`,
@@ -117,12 +113,6 @@ export default function KhoThuoc({
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {/* Khách chỉ đến mua thuốc (V8): mở lượt bán lẻ rồi sang Nhà thuốc kê + thu. */}
-      {moBanLe ? (
-        <div className="flex flex-wrap items-start gap-2">
-          <KhachMuaThuoc sangNhaThuoc />
-        </div>
-      ) : null}
       {/* Hai KHU là hai nút TO, tách hẳn với dãy tab nhỏ bên dưới (Tuyền 16/10). */}
       <div role="tablist" aria-label="Khu của kho thuốc" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {(
@@ -154,12 +144,12 @@ export default function KhoThuoc({
           );
         })}
       </div>
-      {khu === "kho" ? (
-        <ThanhTab nhan="Kho thuốc" chon={tab} onChon={setTab} muc={mucKho} />
-      ) : (
-        <ThanhTab nhan="Quầy thuốc" chon={tab} onChon={setTab} muc={mucQuay} />
-      )}
-
+      <XuatBangTrongVung
+        tenTep={`kho-thuoc-${tab}`}
+        thanhCongCu={khu === "kho"
+          ? <ThanhTab nhan="Kho thuốc" chon={tab} onChon={setTab} muc={mucKho} />
+          : <ThanhTab nhan="Quầy thuốc" chon={tab} onChon={setTab} muc={mucQuay} />}
+      >
       {tab === "danh_muc" ? (
         <DanhMucKho thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} />
       ) : tab === "cho_gan_lo" ? (
@@ -177,21 +167,12 @@ export default function KhoThuoc({
         <KiemKho batches={batches} ghiDuoc={ghiDuoc} thuoc={thuoc} />
       ) : tab === "lich_su" ? (
         <TheKho thuoc={thuoc} chonId={theKhoId} onChon={setTheKhoId} />
-      ) : tab === "bao_cao_kho" || tab === "bao_cao" ? (
-        <div className="flex flex-col gap-3">
-          <p className="text-body text-ink-soft">
-            Số thuốc vào – ra – còn theo khoảng ngày (tồn đầu, nhập, bán, điều chỉnh, huỷ, khách trả, tồn cuối).
-            Báo cáo cả ngày kèm doanh thu từng thuốc ở{" "}
-            <Link href="/reports?tab=hang-hoa" className="text-brand-700 underline">
-              Báo cáo → Hàng hoá
-            </Link>
-            .
-          </p>
-          <XuatNhapTon onXemThe={xemThe} />
-        </div>
+      ) : tab === "bao_cao_kho" ? (
+        <XuatNhapTon onXemThe={xemThe} />
       ) : (
         <InventoryBoard batches={batches} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} cauHinhHan={cauHinhHan} tachKhoQuay={tachKhoQuay} />
       )}
+      </XuatBangTrongVung>
     </div>
   );
 }

@@ -77,8 +77,18 @@ async def test_tieu_hao_dau_nhan_tra_cuoi_huy_va_gia_chot(pool: asyncpg.Pool) ->
     tu = await _moc(pool)
     await _ghi(pool, identity, vt, "XUAT_PHONG", den=p, so=5)
     await _ghi(pool, identity, vt, "TRA_KHO", tu=p, so=2)
+    await _ghi(
+        pool,
+        identity,
+        vt,
+        "TRA_NCC",
+        tu=p,
+        so=1,
+        nha_cung_cap="Nhà cung cấp thử",
+        ghi_chu="Hàng lỗi",
+    )
     await _ghi(pool, identity, vt, "HUY", tu=p, so=1)
-    await _ghi(pool, identity, vt, "KIEM", tu=p, so=9)  # đếm cuối
+    await _ghi(pool, identity, vt, "KIEM", tu=p, so=8)  # đếm cuối
     den = await _moc(pool)
     # Đổi giá danh mục SAU khi đã ghi sổ: lịch sử không đổi theo.
     await pool.execute(
@@ -87,8 +97,9 @@ async def test_tieu_hao_dau_nhan_tra_cuoi_huy_va_gia_chot(pool: asyncpg.Pool) ->
     ds = await tinh_theo_moc(pool, identity=identity, tu_luc=tu, den_luc=den)
     d = _dong_cua(ds, vt, p)
     assert d["du_du_lieu"] is True
-    assert (d["dau"], d["nhan"], d["tra"], d["cuoi"]) == (10, 5, 2, 9)
+    assert (d["dau"], d["nhan"], d["tra"], d["cuoi"]) == (10, 5, 3, 8)
     assert d["tieu_hao"] == 4 and d["trong_do_huy"] == 1
+    assert d["tra_nha_san_xuat"] == 1
     assert d["gia_nhap"] == 100 and d["gia_tri"] == 400
     # Phòng còn lại chưa có sổ thì không có dòng; số đếm KHÁC tồn sổ vẫn dùng số đếm.
     assert not [x for x in ds if x["vat_tu_id"] == vt and x["room_id"] == rooms[1]]

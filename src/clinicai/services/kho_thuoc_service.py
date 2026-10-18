@@ -286,13 +286,15 @@ async def xuat_nhap_ton(
                    coalesce(sum(lo.tra_lai), 0) AS tra_lai,
                    coalesce(sum(lo.ton_cuoi), 0) AS ton_cuoi,
                    CASE WHEN bool_or(lo.cost_price IS NOT NULL AND lo.ton_cuoi <> 0)
+                             AND NOT bool_or(lo.cost_price IS NULL AND lo.ton_cuoi <> 0)
                         THEN sum(lo.ton_cuoi * lo.cost_price) END AS gia_tri_ton
               FROM public.drug_catalog c
               LEFT JOIN lo ON lo.drug_catalog_id = c.id
              WHERE c.clinic_id = $1::uuid
              GROUP BY c.id, lo.dv
-            HAVING c.is_active
-                OR coalesce(sum(abs(lo.ton_dau) + abs(lo.ton_cuoi) + lo.nhap
+            -- Báo cáo kho gồm thuốc có tồn hoặc phát sinh trong khoảng xem.
+            -- Danh mục đầy đủ, kể cả thuốc chưa nhập, nằm ở tab riêng.
+            HAVING coalesce(sum(abs(lo.ton_dau) + abs(lo.ton_cuoi) + lo.nhap
                                 + lo.xuat + abs(lo.dieu_chinh) + lo.huy
                                 + lo.tra_lai), 0) <> 0
              ORDER BY lower(c.name_raw), lo.dv

@@ -8,10 +8,9 @@
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
-import ThanhNgay from "@/components/ui/ThanhNgay";
 import { congNgay, ngayNgan, type Khoang } from "@/lib/thanh-ngay";
 import { homNayVn } from "@/lib/validation";
-import { TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
+import { INPUT, LABEL, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import { soKho, tienVnd } from "./gui-kho";
 
 interface DongXnt {
@@ -49,12 +48,12 @@ const COT: { ma: keyof DongXnt; nhan: string }[] = [
 
 export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => void }) {
   const [homNay] = useState(homNayVn);
-  const [khoang, setKhoang] = useState<Khoang | null>(() => ({
+  const [khoang, setKhoang] = useState<Khoang>(() => ({
     tu: congNgay(homNayVn(), -29),
     den: homNayVn(),
   }));
-  // "Tất cả" = một năm gần nhất (máy chủ cắt khoảng dài hơn 366 ngày).
-  const k = khoang ?? { tu: congNgay(homNay, -365), den: homNay };
+  const ngaySomNhat = congNgay(homNay, -365);
+  const k = khoang;
   const hoi = `${k.tu}|${k.den}`;
   // Kết quả gắn với khoảng đã hỏi — đang tải = kết quả chưa phải của `hoi`
   // (không setState đồng bộ trong effect).
@@ -110,21 +109,38 @@ export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => vo
 
   return (
     <div className="flex flex-col gap-3">
-      <div>
-        <h2 className="text-title font-semibold text-ink">Báo cáo kho theo thời gian</h2>
-        <p className="text-meta text-ink-muted">
-          Chọn khoảng ngày để xem tồn đầu, nhập, xuất và tồn cuối; tải Excel theo đúng khoảng đang xem.
-          Bấm tên thuốc để xem lịch sử từng lần nhập / xuất. Mục Tất cả giới hạn trong một năm gần nhất.
-        </p>
+      <div aria-label="Chọn khoảng ngày" className="flex flex-wrap items-end gap-3">
+        <label className="block w-full sm:w-44">
+          <span className={LABEL}>Từ ngày</span>
+          <input
+            aria-label="Từ ngày"
+            type="date"
+            value={k.tu}
+            min={ngaySomNhat}
+            max={homNay}
+            onChange={(e) => {
+              const tu = e.target.value;
+              if (tu) setKhoang({ tu, den: tu > k.den ? tu : k.den });
+            }}
+            className={INPUT}
+          />
+        </label>
+        <label className="block w-full sm:w-44">
+          <span className={LABEL}>Đến ngày</span>
+          <input
+            aria-label="Đến ngày"
+            type="date"
+            value={k.den}
+            min={ngaySomNhat}
+            max={homNay}
+            onChange={(e) => {
+              const den = e.target.value;
+              if (den) setKhoang({ tu: den < k.tu ? den : k.tu, den });
+            }}
+            className={INPUT}
+          />
+        </label>
       </div>
-      <ThanhNgay
-        nhan="Khoảng ngày xuất – nhập – tồn"
-        khoang={khoang}
-        homNay={homNay}
-        soNgaySau={0}
-        dangTai={dangTai}
-        onChon={setKhoang}
-      />
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-body text-ink-muted">
           {kq ? `Từ ${ngayNgan(kq.tu)} đến ${ngayNgan(kq.den)} · ${dong.length} thuốc` : ""}

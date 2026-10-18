@@ -50,9 +50,9 @@ async def _vt(
         await q.pool.fetchval(
             'INSERT INTO service_price (clinic_id, service_code, name, "group",'
             " unit_price, active, billing_owner, don_vi, can_ql_duyet, chon_nhanh,"
-            " category)"
+            " category, kinh_doanh_vat_tu)"
             " VALUES ($1::uuid, $2, $3, 'vat_tu', $4, $5, 'CLINIC', 'cái', $6, $7,"
-            " 'Nguyên liệu tiêu hao') RETURNING id::text",
+            " 'Nguyên liệu tiêu hao', true) RETURNING id::text",
             CLINIC,
             f"VT_TEST_{uuid.uuid4().hex[:10]}",
             f"{ten} {q.duoi}",
@@ -101,10 +101,16 @@ async def _thu(q: Quay) -> dict[str, Any]:
 
 
 def test_ly_do_khong_ban_thuan() -> None:
-    assert ly_do_khong_ban(active=True, don_gia=300_000) is None
-    assert "chưa có giá" in str(ly_do_khong_ban(active=True, don_gia=None))
-    assert "chưa có giá" in str(ly_do_khong_ban(active=True, don_gia=0))
-    assert "ngưng bán" in str(ly_do_khong_ban(active=False, don_gia=300_000))
+    assert ly_do_khong_ban(kinh_doanh=True, active=True, don_gia=300_000) is None
+    assert "chưa có giá" in str(
+        ly_do_khong_ban(kinh_doanh=True, active=True, don_gia=None)
+    )
+    assert "chưa có giá" in str(
+        ly_do_khong_ban(kinh_doanh=True, active=True, don_gia=0)
+    )
+    assert "ngưng bán" in str(
+        ly_do_khong_ban(kinh_doanh=True, active=False, don_gia=300_000)
+    )
     assert (
         dong_vat_tu(
             {"id": uuid.uuid4(), "service_code": "X", "name": "A", "unit_price": 0}

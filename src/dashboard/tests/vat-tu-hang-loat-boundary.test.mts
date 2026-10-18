@@ -55,7 +55,7 @@ test("mã loại và cờ ở màn khớp bảng trong service Python", () => {
 test("xem trước 'Sẽ đổi N vật tư' rồi mới Áp dụng; xác nhận tại chỗ, không window.confirm", () => {
   assert.match(khoi, /ap_dung: false/);
   assert.match(khoi, /ap_dung: true/);
-  assert.match(khoi, /Sẽ đổi \$\{so\} vật tư/);
+  assert.match(khoi, /Sẽ \$\{bat \? "gắn" : "gỡ"\} nhãn/);
   assert.match(khoi, /XacNhanTaiCho/);
   assert.doesNotMatch(khoi, /window\.confirm|\bconfirm\(/);
   // Nút Áp dụng khoá khi chưa đếm xong hoặc không có gì để đổi.

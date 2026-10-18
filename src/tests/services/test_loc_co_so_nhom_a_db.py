@@ -24,7 +24,7 @@ from clinicai.api.v1.routers.booking import cho_xep_bac_si
 from clinicai.api.v1.routers.queue import get_queue
 from clinicai.api.v1.routers.visit_progress import active_visits
 from clinicai.core.clock import CLINIC_TZ
-from clinicai.services import man_trang_chu_service
+from clinicai.services import dispatch_service, man_trang_chu_service
 from clinicai.services.bang_hanh_trinh_service import BangHanhTrinhService
 from clinicai.services.booking_service import BookingService
 from clinicai.services.dispatch_service import DispatchService
@@ -309,10 +309,18 @@ async def test_moi_man_chi_hien_cua_co_so_dang_dung(
 async def test_khong_chon_co_so_thay_ca_hai(
     pool: asyncpg.Pool,  # noqa: F811
     hai_co_so: tuple[CoSo, CoSo, date],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Danh tính không chọn cơ sở (`location_id = ""` → None) KHÔNG lọc — mẫu
     `coalesce(LOC, $n) IS NOT DISTINCT FROM coalesce($n, LOC)`; mẫu cũ
-    `coalesce(LOC, $n) = $n` gặp $n NULL thì loại sạch mọi dòng."""
+    `coalesce(LOC, $n) = $n` gặp $n NULL thì loại sạch mọi dòng.
+
+    Bảng điều phối giới hạn 400 dòng; test này kiểm phạm vi cơ sở, nên bỏ giới
+    hạn để fixture không bị dữ liệu từ test khác đẩy khỏi kết quả.
+    """
+    sql, marker, tail = dispatch_service._OVERVIEW_SQL.rpartition("LIMIT 400")
+    assert marker, "SQL điều phối đổi giới hạn; cần cập nhật test cô lập cơ sở"
+    monkeypatch.setattr(dispatch_service, "_OVERVIEW_SQL", f"{sql}LIMIT 100000{tail}")
     a, b, thu_hai = hai_co_so
     thay = await _thay(pool, dataclasses.replace(a.ai, location_id=""), thu_hai)
     for cs in (a, b):

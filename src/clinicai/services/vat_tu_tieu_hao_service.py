@@ -79,7 +79,7 @@ SELECT t.vat_tu_id::text, t.room_id::text, s.name AS ten, s.don_vi,
        (d.giao_dich IS NOT NULL AND c.giao_dich IS NOT NULL
         AND c.giao_dich > d.giao_dich) AS du_moc,
        coalesce(f.nhan, 0) AS nhan, coalesce(f.tra, 0) AS tra,
-       coalesce(f.huy, 0) AS huy,
+       coalesce(f.huy, 0) AS huy, coalesce(f.tra_ncc, 0) AS tra_ncc,
        coalesce((SELECT g.gia_nhap FROM dong g
                   WHERE g.vat_tu_id = t.vat_tu_id
                     AND (c.giao_dich IS NULL OR g.giao_dich <= c.giao_dich)
@@ -95,12 +95,15 @@ SELECT t.vat_tu_id::text, t.room_id::text, s.name AS ten, s.don_vi,
                  FILTER (WHERE f.so_goc > 0 AND f.loai_goc <> 'HUY') AS nhan,
              -sum(f.so_luong)
                  FILTER (WHERE f.so_goc < 0 AND f.loai_goc <> 'HUY') AS tra,
-             -sum(f.so_luong) FILTER (WHERE f.loai_goc = 'HUY') AS huy
+             -sum(f.so_luong) FILTER (WHERE f.loai_goc = 'HUY') AS huy,
+             -sum(f.so_luong) FILTER (WHERE f.loai_goc = 'TRA_NCC') AS tra_ncc
         FROM dong f
        WHERE f.ton_id = t.id
          AND d.giao_dich IS NOT NULL AND c.giao_dich IS NOT NULL
          AND f.giao_dich > d.giao_dich AND f.giao_dich <= c.giao_dich
-         AND f.loai_goc IN ('NHAP', 'XUAT_PHONG', 'TRA_KHO', 'CHUYEN_PHONG', 'HUY')
+         AND f.loai_goc IN (
+             'NHAP', 'XUAT_PHONG', 'TRA_KHO', 'CHUYEN_PHONG', 'HUY', 'TRA_NCC'
+         )
   ) f ON true
  WHERE t.clinic_id = $1::uuid AND t.location_id = $2::uuid AND t.room_id IS NOT NULL
    AND EXISTS (SELECT 1 FROM dong z WHERE z.ton_id = t.id)
@@ -165,6 +168,7 @@ async def tinh_theo_moc(
                 "cuoi": r["cuoi"] if kq else None,
                 "tieu_hao": kq["so_luong"] if kq else None,
                 "trong_do_huy": r["huy"] if kq else None,
+                "tra_nha_san_xuat": r["tra_ncc"] if kq else None,
                 "gia_nhap": r["gia_nhap"],
                 "gia_tri": kq["gia_tri"] if kq else None,
                 "dem_dau_luc": r["dau_luc"] if kq else None,

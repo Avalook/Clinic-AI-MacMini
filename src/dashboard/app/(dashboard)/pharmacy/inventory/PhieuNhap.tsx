@@ -240,9 +240,9 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
               <li
                 key={d.k}
                 aria-label={`Dòng ${i + 1}`}
-                className="grid grid-cols-2 gap-2 rounded-control border border-line bg-surface-muted p-3 lg:grid-cols-7"
+                className="grid grid-cols-1 gap-2 rounded-control border border-line bg-surface-muted p-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,.8fr)_minmax(0,1fr)_minmax(0,.7fr)_minmax(0,.7fr)_minmax(0,1fr)]"
               >
-                <label className="col-span-2 block">
+                <label className="block min-w-0">
                   <span className={LABEL}>
                     {i + 1}. Thuốc
                   </span>
@@ -263,7 +263,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                   />
                 </label>
                 <label className="block">
-                  <span className={LABEL}>Hạn dùng (có thể nhập sau)</span>
+                  <span className={LABEL}>Hạn dùng</span>
                   <input
                     type="date"
                     value={d.han}

@@ -14,12 +14,20 @@
 // (`/pharmacy/tra-ma`); ở đây chỉ chuyển kết quả cho màn gọi và mở hộp "gắn mã"
 // khi mã lạ.
 
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 
 import Button from "@/components/ui/Button";
 import { INPUT, LABEL } from "../../form-ui";
 import CameraQuet from "./CameraQuet";
 import { docKho, guiKho } from "./gui-kho";
+
+const subscribeCamera = () => () => {};
+const cameraAvailable = () =>
+  typeof window !== "undefined" &&
+  window.isSecureContext &&
+  typeof navigator !== "undefined" &&
+  !!navigator.mediaDevices?.getUserMedia;
+const cameraUnavailableOnServer = () => false;
 
 export interface LoQuet {
   id: string;
@@ -83,16 +91,15 @@ export default function OQuetMa({
   const [la, setLa] = useState<{ ma: string; gs1?: GS1Quet } | null>(null);
   const [tenChon, setTenChon] = useState("");
   const [moCamera, setMoCamera] = useState(false);
+  const coCamera = useSyncExternalStore(
+    subscribeCamera,
+    cameraAvailable,
+    cameraUnavailableOnServer,
+  );
   // Mã vừa quét ra một thuốc: cho gỡ nếu gắn nhầm (hoàn tác của "Gắn mã").
   const [vua, setVua] = useState<{ id: string; ten: string } | null>(null);
   const cuoi = useRef<{ ma: string; luc: number } | null>(null);
   const oRef = useRef<HTMLInputElement>(null);
-
-  const coCamera =
-    typeof window !== "undefined" &&
-    window.isSecureContext &&
-    typeof navigator !== "undefined" &&
-    !!navigator.mediaDevices?.getUserMedia;
 
   const tra = async (ma: string) => {
     const chu = ma.trim();

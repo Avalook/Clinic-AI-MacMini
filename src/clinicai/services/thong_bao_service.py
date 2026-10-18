@@ -347,6 +347,12 @@ class ThongBaoService:
                    AND t.da_xu_ly_luc IS NULL
                    AND (t.vai_nhan = ANY($2::text[])
                         OR t.nguoi_nhan_staff_id = $3::uuid)
+                   AND NOT EXISTS (
+                       SELECT 1 FROM public.thong_bao_an_cua_toi a
+                        WHERE a.clinic_id = t.clinic_id
+                          AND a.staff_id = $3::uuid
+                          AND a.thong_bao_id = t.id
+                   )
                    -- "Chỉ định bị bỏ" không có nút Xong: hết ngày thì thôi hiện
                    -- (việc của buổi khám ấy) — sổ vẫn giữ ở Lịch sử sửa.
                    AND NOT (t.nguon = 'bo_chi_dinh'
@@ -400,6 +406,37 @@ class ThongBaoService:
             by_staff_id=identity.staff_id,
         )
         return {"ok": True, "co_thay_doi": so is not None}
+
+    async def an_tat_ca_cua_toi(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        """Ẩn khỏi chuông riêng của người gọi; không đóng việc chung của vai."""
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                INSERT INTO public.thong_bao_an_cua_toi
+                    (clinic_id, staff_id, thong_bao_id)
+                SELECT t.clinic_id, $3::uuid, t.id
+                  FROM public.thong_bao t
+                 WHERE t.clinic_id = $1::uuid
+                   AND t.da_xu_ly_luc IS NULL
+                   AND (t.vai_nhan = ANY($2::text[])
+                        OR t.nguoi_nhan_staff_id = $3::uuid)
+                   AND NOT (t.nguon = 'bo_chi_dinh'
+                            AND t.tao_luc < (date_trunc(
+                                    'day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh')
+                                AT TIME ZONE 'Asia/Ho_Chi_Minh'))
+                ON CONFLICT (clinic_id, staff_id, thong_bao_id) DO NOTHING
+                RETURNING thong_bao_id
+                """,
+                identity.clinic_id,
+                identity.ds_vai(),
+                identity.staff_id,
+            )
+        logger.info(
+            "thong_bao_an_tat_ca_cua_toi",
+            so_an=len(rows),
+            by_staff_id=identity.staff_id,
+        )
+        return {"ok": True, "so_thong_bao_da_an": len(rows)}
 
     async def da_xu_ly(
         self, *, identity: StaffIdentity, thong_bao_id: str, ghi_chu: str | None

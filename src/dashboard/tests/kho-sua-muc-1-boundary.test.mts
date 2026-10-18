@@ -64,11 +64,14 @@ test("tổng tồn: gộp viết hoa / khoảng trắng khác nhau, bỏ đơn v
   assert.equal(tongTonTheoDonVi([]).length, 0);
 });
 
-test("màn kho thuốc không còn cộng mọi lô thành một con số", () => {
+test("màn kho thuốc không cộng đơn vị khác nhau và có dải lọc theo số lô", () => {
   const board = doc("app/(dashboard)/pharmacy/inventory/InventoryBoard.tsx");
   assert.ok(!board.includes("totalUnits"), "còn biến cộng lẫn đơn vị");
-  assert.ok(board.includes("tongTonTheoDonVi(batches)"));
-  assert.ok(board.includes("Tổng tồn (theo từng đơn vị)"));
+  assert.ok(!board.includes("tongTonTheoDonVi(batches)"));
+  assert.ok(!board.includes("Tổng tồn (theo từng đơn vị)"));
+  assert.ok(board.includes('aria-label="Lọc lô theo tình trạng hạn dùng"'));
+  assert.ok(board.includes("statusCounts[f]"));
+  assert.ok(!board.includes("Cảnh báo kho thuốc"));
 });
 
 test("lỗi thêm mặt hàng ở quầy bán hiện ngay trên nút bấm, có cuộn tới", () => {

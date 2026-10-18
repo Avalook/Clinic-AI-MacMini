@@ -59,7 +59,7 @@ test("Quầy có hai tab Kiểm đầu ca / Kiểm cuối ca; bảng realtime ng
   assert.match(doc("app/(dashboard)/RealtimeRefresher.tsx"), /"kiem_ke_ca",/);
 });
 
-test("KiemKeCa: người không có quyền ghi chỉ xem — không nút mở phiếu", () => {
+test("KiemKeCa: tự mở phiếu ca hiện tại; người không có quyền chỉ xem", () => {
   const Kiem = nap("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx", MOCK);
   const batches = [
     {
@@ -73,7 +73,7 @@ test("KiemKeCa: người không có quyền ghi chỉ xem — không nút mở p
     },
   ];
   const ghi = renderToStaticMarkup(React.createElement(Kiem, { batches, ghiDuoc: true }));
-  assert.match(ghi, />Bắt đầu kiểm kê<\/button>/);
+  assert.doesNotMatch(ghi, />Bắt đầu kiểm kê<\/button>/);
   const xem = renderToStaticMarkup(React.createElement(Kiem, { batches, ghiDuoc: false }));
   assert.doesNotMatch(xem, />Bắt đầu kiểm kê<\/button>/);
   assert.doesNotMatch(doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx"), /window\.confirm/);
@@ -104,6 +104,15 @@ test("Kiểm đầu/cuối ca: tìm từng thuốc, giữ số đã nhập khi l
   assert.doesNotMatch(kiem, /Nhắc \(không chặn bán\)/);
   assert.doesNotMatch(kiem, /Bấm một lần kiểm kê để xem hoặc nhập tiếp/);
   assert.doesNotMatch(kiem, /Chưa có phiếu nào/);
+  assert.match(kiem, /aria-label="Phiếu kiểm trong ca này"/);
+  assert.match(kiem, /aria-label="Ca và phiếu kiểm kê"/);
+  assert.match(kiem, /w-fit min-w-\[24rem\] max-w-full/);
+  assert.doesNotMatch(kiem, /min-w-\[24rem\] flex-1/);
+  assert.match(kiem, /loi: loiKyThuat \? null : thongDiep/);
+  assert.match(kiem, /loiKyThuat = \/mã lỗi/);
+  assert.match(kiem, /lỗi chưa lường trước\/i/);
+  assert.match(kiem, /await goi<Phieu>\("POST", URL_GOC, \{ ngay, ca, loai: loaiDangKiem \}\)/);
+  assert.doesNotMatch(kiem, /Phiếu đầu ca trong ngày|Phiếu cuối ca trong ngày/);
 });
 
 test("Kho thuốc: lọc mã lô và các nhãn nói rõ nghĩa", () => {

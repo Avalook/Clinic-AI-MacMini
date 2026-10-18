@@ -94,6 +94,8 @@ export default function GlobalHeader({
   // Popover States (Mutually Exclusive)
   const [calOpen, setCalOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [xoaThongBaoDangChay, setXoaThongBaoDangChay] = useState(false);
+  const [loiXoaThongBao, setLoiXoaThongBao] = useState("");
   // Thẻ tên → ô nhỏ có nút Thoát (27/09/2026, đợt 3).
   const [theTenOpen, setTheTenOpen] = useState(false);
   const [doiMatKhauOpen, setDoiMatKhauOpen] = useState(false);
@@ -202,8 +204,14 @@ export default function GlobalHeader({
   // Nguồn thật hiện có: quyết định duyệt/từ chối ca làm việc của CHÍNH mình
   // (NotificationContext, realtime + poll). Ít hơn ba dòng kia rất nhiều, và
   // chuông im khi không có gì — đó mới là điều làm nó đáng tin.
-  const { notifs, unread: unreadCount, markAllRead, danhDauDaXuLy, docLai } =
-    useNotifications();
+  const {
+    notifs,
+    unread: unreadCount,
+    markAllRead,
+    anTatCaThongBao,
+    danhDauDaXuLy,
+    docLai,
+  } = useNotifications();
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
@@ -444,17 +452,39 @@ export default function GlobalHeader({
           {/* Notifications Popover */}
           {notifOpen && (
             <div className="absolute right-0 top-10 z-50 w-80 rounded-2xl border border-line bg-surface p-4 shadow-panel space-y-3 animate-in fade-in slide-in-from-top-2 duration-150">
-              <div className="flex items-center justify-between border-b border-line pb-2">
+              <div className="flex items-center justify-between gap-3 border-b border-line pb-2">
                 <span className="text-xs font-bold text-ink">Thông báo mới</span>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={markAllRead}
-                    className="text-label font-medium text-brand-600 hover:underline"
-                  >
-                    Đánh dấu đã đọc
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={markAllRead}
+                      className="text-label font-medium text-brand-600 hover:underline"
+                    >
+                      Đánh dấu đã đọc
+                    </button>
+                  )}
+                  {notifs.length > 0 && (
+                    <button
+                      type="button"
+                      disabled={xoaThongBaoDangChay}
+                      onClick={async () => {
+                        setXoaThongBaoDangChay(true);
+                        setLoiXoaThongBao("");
+                        const ok = await anTatCaThongBao();
+                        if (!ok) setLoiXoaThongBao("Chưa xoá được thông báo. Thử lại nhé.");
+                        setXoaThongBaoDangChay(false);
+                      }}
+                      className="text-label font-medium text-danger hover:underline disabled:opacity-50"
+                    >
+                      {xoaThongBaoDangChay ? "Đang xoá…" : "Xóa tất cả"}
+                    </button>
+                  )}
+                </div>
               </div>
+              {loiXoaThongBao ? (
+                <p role="alert" className="text-label text-danger">{loiXoaThongBao}</p>
+              ) : null}
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {notifs.length === 0 ? (
                   <p className="px-1 py-3 text-center text-xs text-ink-muted">

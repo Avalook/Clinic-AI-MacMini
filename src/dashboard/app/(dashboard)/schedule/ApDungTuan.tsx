@@ -96,6 +96,8 @@ export default function ApDungTuan({
     );
   }
 
+  if (!laQuanLy && !daApDung && !vuaApDung) return null;
+
   if (daApDung || vuaApDung) {
     return (
       <p className="flex items-center gap-2 rounded-control bg-success-bg px-3 py-2 text-xs text-success">

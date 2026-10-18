@@ -294,11 +294,12 @@ class TestCapPhatNoiTruocRangBuoc:
         return _Conn("v1", {**don, "visit_id": "v1"}, _LAN_THU_CU, lo, True)
 
     @pytest.mark.asyncio
-    async def test_cap_qua_so_ke_thi_noi_con_bao_nhieu(self) -> None:
+    async def test_cap_qua_so_mua_thi_noi_con_bao_nhieu(self) -> None:
         don = {
             "id": "p1",
             "drug_name_raw": "Androgel",
-            "quantity_num": 10,
+            "quantity_num": 5,
+            "purchased_qty": 10,
             "dispensed_qty": 4,
             "closed_at": None,
             "removed_at": None,

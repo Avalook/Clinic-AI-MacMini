@@ -1,13 +1,13 @@
 "use client";
 
-// Khối "Đặt cho cả loại" ở đầu tab DANH MỤC của Kho vật tư. Quản lý chọn Loại + Cờ + Bật/Tắt,
-// màn HIỆN TRƯỚC "Sẽ đổi N vật tư" (máy chủ đếm — `ap_dung: false`), bấm [Áp dụng] thì xác
+// Khối "Đặt cho cả loại" ở đầu tab DANH MỤC của Kho vật tư. Quản lý chọn Loại + Nhãn + thao tác,
+// màn HIỆN TRƯỚC số vật tư bị tác động (máy chủ đếm — `ap_dung: false`), bấm [Áp dụng] thì xác
 // nhận ngay tại chỗ rồi ghi (`ap_dung: true`). Sau khi áp có [Hoàn tác] = đặt giá trị ngược
 // cho đúng những vật tư vừa đổi (`ids` máy chủ trả).
 //
 // Mọi luật ở máy chủ (`vat_tu_danh_muc_service.dat_co_hang_loat`): chỉ vật tư đang bán,
-// chỉ đúng cờ được chọn, quyền = quyền sửa thuộc tính từng món. Màn chỉ vẽ và gửi lệnh.
-// Cờ nằm trên chính cột của từng vật tư nên Thu ngân dịch vụ / Chờ duyệt tự ăn theo.
+// chỉ đúng nhãn được chọn, quyền = quyền sửa thuộc tính từng món. Màn chỉ vẽ và gửi lệnh.
+// Nhãn nằm trên chính cột của từng vật tư nên Thu ngân dịch vụ / Chờ duyệt tự ăn theo.
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -128,13 +128,13 @@ export default function DatCoTheoLoai({ ds }: { ds: DongVatTu[] }) {
     >
       <h2 className="text-emph font-semibold text-ink">Đặt cho cả loại</h2>
       <p className="mb-3 text-meta text-ink-muted">
-        Đặt một cờ cho mọi vật tư đang bán của một loại, thay vì tick từng món. Hàng đã tạm ngưng giữ nguyên.
+        Gắn hoặc gỡ một nhãn cho vật tư đang bán thuộc loại đã chọn. Hàng tạm ngưng giữ nguyên.
       </p>
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="space-y-1 text-body">
           <span>Loại vật tư</span>
           <select
-            aria-label="Loại vật tư cần đặt cờ"
+            aria-label="Loại vật tư"
             className={O}
             value={loai}
             disabled={ban}
@@ -151,9 +151,9 @@ export default function DatCoTheoLoai({ ds }: { ds: DongVatTu[] }) {
           </select>
         </label>
         <label className="space-y-1 text-body">
-          <span>Cờ</span>
+          <span>Nhãn</span>
           <select
-            aria-label="Cờ cần đặt"
+            aria-label="Nhãn cần thay đổi"
             className={O}
             value={co}
             disabled={ban}
@@ -170,9 +170,9 @@ export default function DatCoTheoLoai({ ds }: { ds: DongVatTu[] }) {
           </select>
         </label>
         <label className="space-y-1 text-body">
-          <span>Đặt thành</span>
+          <span>Thao tác với nhãn</span>
           <select
-            aria-label="Bật hay tắt cờ"
+            aria-label="Thao tác với nhãn"
             className={O}
             value={bat ? "bat" : "tat"}
             disabled={ban}
@@ -181,8 +181,8 @@ export default function DatCoTheoLoai({ ds }: { ds: DongVatTu[] }) {
               setDaDoi(null);
             }}
           >
-            <option value="bat">Bật</option>
-            <option value="tat">Tắt</option>
+            <option value="bat">Gắn nhãn</option>
+            <option value="tat">Gỡ nhãn</option>
           </select>
         </label>
       </div>
@@ -193,7 +193,7 @@ export default function DatCoTheoLoai({ ds }: { ds: DongVatTu[] }) {
             ? "Đang đếm…"
             : so === 0
               ? `Không có vật tư nào cần đổi (${xem.so_trong_loai} vật tư thuộc loại này).`
-              : `Sẽ đổi ${so} vật tư.`}
+              : `Sẽ ${bat ? "gắn" : "gỡ"} nhãn “${tenCo(co)}” cho ${so} vật tư.`}
         {xem && xem.so_ngung_ban_bo_qua > 0 ? (
           <span className="text-meta text-ink-muted">
             {" "}
@@ -209,8 +209,8 @@ export default function DatCoTheoLoai({ ds }: { ds: DongVatTu[] }) {
       <div className="mt-2 flex flex-col gap-2">
         {hoi ? (
           <XacNhanTaiCho
-            cau={`${bat ? "Bật" : "Tắt"} “${tenCo(co)}” cho ${so} vật tư ${tenLoai(loai)}?`}
-            nhanDongY={`Đặt cho ${so} vật tư`}
+            cau={`${bat ? "Gắn" : "Gỡ"} nhãn “${tenCo(co)}” cho ${so} vật tư ${tenLoai(loai)}?`}
+            nhanDongY={`${bat ? "Gắn" : "Gỡ"} nhãn cho ${so} vật tư`}
             dangGui={ban}
             onDongY={() => void ap({ loai, co, bat }, false)}
             onThoi={() => setHoiKhoa(null)}
@@ -235,7 +235,7 @@ export default function DatCoTheoLoai({ ds }: { ds: DongVatTu[] }) {
         {daDoi ? (
           <div className="flex flex-wrap items-center gap-2" role="status">
             <p className="text-body text-success">
-              Đã {daDoi.bat ? "bật" : "tắt"} “{tenCo(daDoi.co)}” cho {daDoi.so} vật tư {tenLoai(daDoi.loai)}.
+              Đã {daDoi.bat ? "gắn" : "gỡ"} nhãn “{tenCo(daDoi.co)}” cho {daDoi.so} vật tư {tenLoai(daDoi.loai)}.
             </p>
             <Button
               type="button"
