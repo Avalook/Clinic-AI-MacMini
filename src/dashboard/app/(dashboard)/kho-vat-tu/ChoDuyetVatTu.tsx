@@ -95,7 +95,7 @@ export default function ChoDuyetVatTu({
   }
 
   const tenNoi = (roomId: string | null) =>
-    roomId ? (noiChua.find((n) => n.room_id === roomId)?.ten ?? "Phòng khác") : "Kho cơ sở";
+    roomId ? (noiChua.find((n) => n.room_id === roomId)?.ten ?? "Phòng khác") : "Kho";
   const cho = goi.items.filter((y) => y.trang_thai === "CHO_DUYET");
   const daQuyet = goi.items.filter((y) => y.trang_thai !== "CHO_DUYET");
 

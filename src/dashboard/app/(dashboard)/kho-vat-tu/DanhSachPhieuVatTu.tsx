@@ -58,6 +58,10 @@ function chuDong(d: DongPhieu): string {
   return `${d.so_luong > 0 ? "+" : ""}${soVatTu(d.so_luong)}${dv}`;
 }
 
+function tenNoiChua(ten: string): string {
+  return ten === "Kho cơ sở" ? "Kho" : ten;
+}
+
 function diemPhieu(p: PhieuVatTu): { tu: string[]; den: string[] } {
   const noi = (ds: DongPhieu[]) => [...new Set(ds.map((d) => d.room_id ?? "kho"))];
   const ra = noi(p.dong.filter((d) => d.so_luong < 0));
@@ -73,7 +77,7 @@ function diemPhieu(p: PhieuVatTu): { tu: string[]; den: string[] } {
 }
 function huongPhieu(p: PhieuVatTu): string {
   const diem = diemPhieu(p);
-  const tenNoi = (ma: string) => ma === "kho" ? "Kho cơ sở" : ma === "ncc" ? "Nhà cung cấp" : ma === "huy" ? "Hỏng / huỷ" : p.dong.find((d) => d.room_id === ma)?.noi_chua ?? "Phòng";
+  const tenNoi = (ma: string) => ma === "kho" ? "Kho" : ma === "ncc" ? "Nhà cung cấp" : ma === "huy" ? "Hỏng / huỷ" : p.dong.find((d) => d.room_id === ma)?.noi_chua ?? "Phòng";
   return `${diem.tu.map(tenNoi).join(", ") || "—"} → ${diem.den.map(tenNoi).join(", ") || "—"}`;
 }
 
@@ -119,7 +123,7 @@ export default function DanhSachPhieuVatTu({ ds }: { ds: PhieuVatTu[] }) {
   });
 
   const tuyChonNoi = [
-    ["kho", "Kho cơ sở"],
+    ["kho", "Kho"],
     ["ncc", "Nhà cung cấp"],
     ["huy", "Hỏng / huỷ"],
     ...cacNoi,
@@ -134,7 +138,7 @@ export default function DanhSachPhieuVatTu({ ds }: { ds: PhieuVatTu[] }) {
         <tbody>{hien.flatMap((p) => p.dong.map((d, i) => (
           <tr key={`${p.id}-${i}`}>
             <td>{p.ma_phieu}</td><td>{tenLoai(p.loai)}</td><td>{gio(p.tao_luc)}</td>
-            <td>{p.nguoi_tao ?? ""}</td><td>{d.noi_chua}</td><td>{d.ten}</td><td>{d.don_vi ?? ""}</td>
+            <td>{p.nguoi_tao ?? ""}</td><td>{tenNoiChua(d.noi_chua)}</td><td>{d.ten}</td><td>{d.don_vi ?? ""}</td>
             <td>{d.so_luong}</td><td>{d.thuc_te ?? ""}</td><td>{d.gia_nhap}</td>
             <td>{Number(d.so_luong) * Number(d.gia_nhap)}</td>
             <td>{p.da_dao ? "Đã hoàn tác" : p.loai === "HOAN" ? "Phiếu đảo" : "Đã ghi nhận"}</td>
@@ -191,16 +195,20 @@ export default function DanhSachPhieuVatTu({ ds }: { ds: PhieuVatTu[] }) {
           {hien.map((p) => {
             const dangMo = mo === p.id;
             const tong = p.dong.reduce((s, d) => s + Math.abs(Number(d.so_luong)) * Number(d.gia_nhap), 0);
+            const tenVatTu = p.dong.map((d) => d.ten).filter(Boolean);
+            const tenVatTuHien = tenVatTu.length > 2
+              ? `${tenVatTu.slice(0, 2).join(" · ")} · +${tenVatTu.length - 2} vật tư khác`
+              : tenVatTu.join(" · ") || p.ma_phieu;
             return (
               <li key={p.id} className="border-b border-hairline px-3 py-2 last:border-b-0">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                   <div className="min-w-0 flex-1 basis-56">
-                    <p className="text-emph font-medium text-ink">
-                      {p.ma_phieu} <Chip tone="neutral">{tenLoai(p.loai)}</Chip>
+                    <p className="text-emph font-medium text-ink" title={tenVatTu.join(" · ") || p.ma_phieu}>
+                      {tenVatTuHien} <Chip tone="neutral">{tenLoai(p.loai)}</Chip>
                       {p.da_dao ? <Chip tone="neutral" className="ml-1">Đã hoàn tác</Chip> : null}
                     </p>
                     <p className="text-meta text-ink-muted">
-                      {gio(p.tao_luc)} · {p.nguoi_tao ?? "—"}
+                      {p.ma_phieu} · {gio(p.tao_luc)} · {p.nguoi_tao ?? "—"}
                       {p.dao_phieu_id ? ` · đảo phiếu ${maPhieu.get(p.dao_phieu_id) ?? ""}` : ""}
                       {p.nha_cung_cap ? ` · Nhà sản xuất: ${p.nha_cung_cap}` : ""}
                       {p.ghi_chu ? ` · ${p.ghi_chu}` : ""}
@@ -230,7 +238,7 @@ export default function DanhSachPhieuVatTu({ ds }: { ds: PhieuVatTu[] }) {
                   <ul className="mt-2 space-y-1 rounded-control bg-surface-muted px-3 py-2 text-meta text-ink">
                     {p.dong.map((d, i) => (
                       <li key={`${d.vat_tu_id}-${d.noi_chua}-${i}`}>
-                        <span className="font-medium">{d.ten}</span> · {d.noi_chua} · {chuDong(d)}
+                        <span className="font-medium">{d.ten}</span> · {tenNoiChua(d.noi_chua)} · {chuDong(d)}
                       </li>
                     ))}
                   </ul>

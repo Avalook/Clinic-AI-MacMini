@@ -124,6 +124,8 @@ test("lịch sử có lọc loại thao tác, nơi và người thực hiện", 
   assert.match(ds, /nguoi_tao_id/);
   assert.match(ds, /room_id/);
   assert.match(api, /'room_id', t\.room_id::text/);
+  assert.match(ds, /tenVatTuHien/);
+  assert.match(ds, /tenNoiChua\(d\.noi_chua\)/);
 });
 
 test("quản lý theo nhóm dùng nhãn và thao tác thêm hoặc gỡ nhãn", () => {
@@ -177,11 +179,24 @@ test("quản lý có thể thêm vật tư vào danh mục; ngừng dùng là l�
 
 test("tồn kho chọn riêng kho hoặc một phòng, không trộn số lượng giữa các nơi", () => {
   const ton = doc(new URL("TonVatTu.tsx", thuMuc));
-  assert.match(ton, /Kho cơ sở/);
+  assert.match(ton, /nutPhamVi\("kho", "Kho"\)/);
+  assert.doesNotMatch(ton, /Kho cơ sở/);
   assert.match(ton, /Theo phòng/);
   assert.match(ton, /Phòng đang xem/);
   assert.doesNotMatch(ton, /Tất cả kho và phòng/);
   assert.match(ton, /Phòng \$\{phongDangXem\?\.ten/);
+});
+
+test("thao tác theo dòng mở hộp thoại và nhãn Kho thống nhất trên màn", () => {
+  const ton = doc(new URL("TonVatTu.tsx", thuMuc));
+  const lap = doc(new URL("LapPhieuVatTu.tsx", thuMuc));
+  const choDuyet = doc(new URL("ChoDuyetVatTu.tsx", thuMuc));
+  const ds = doc(new URL("DanhSachPhieuVatTu.tsx", thuMuc));
+  assert.match(ton, /<HopChiTiet/);
+  assert.match(lap, /<option value="">Kho<\/option>/);
+  assert.match(choDuyet, /: "Kho"/);
+  assert.match(ds, /ten === "Kho cơ sở" \? "Kho" : ten/);
+  assert.match(ds, /\["kho", "Kho"\]/);
 });
 
 test("bổ sung cho phòng luôn là cấp kho → phòng, không tự tăng tồn phòng bằng phiếu nhập", () => {

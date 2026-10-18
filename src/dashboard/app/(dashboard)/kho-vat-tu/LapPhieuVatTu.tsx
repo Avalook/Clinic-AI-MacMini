@@ -165,7 +165,7 @@ export default function LapPhieuVatTu({
         <span className="mb-1 block text-meta text-ink-soft">{nhan}</span>
         <OChon value={gia} onChange={(e) => dat(e.target.value)} className="w-full">
           {cho === "noi" ? (
-            <option value="">Kho cơ sở</option>
+            <option value="">Kho</option>
           ) : (
             <option value="">Chọn phòng…</option>
           )}
@@ -263,7 +263,7 @@ export default function LapPhieuVatTu({
             className="w-full"
           >
             <option value="HUY">Huỷ bỏ hàng hỏng</option>
-            <option value="TRA_KHO">Nhập lại kho cơ sở</option>
+            <option value="TRA_KHO">Nhập lại kho</option>
             <option value="TRA_NCC">Trả nhà sản xuất</option>
           </OChon>
         </label>

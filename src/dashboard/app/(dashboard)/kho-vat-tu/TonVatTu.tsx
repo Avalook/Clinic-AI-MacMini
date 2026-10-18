@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import HopChiTiet from "@/components/ui/HopChiTiet";
 import ONhap from "@/components/ui/ONhap";
 import { boDauVatTu } from "@/lib/vat-tu";
 import { guiVatTu, soVatTu } from "./gui-vat-tu";
@@ -185,7 +186,7 @@ export default function TonVatTu({
 
       <section aria-label="Chọn nơi xem tồn" className="flex flex-wrap items-end gap-2">
         <div className="flex min-h-10 items-center gap-2" aria-label="Phạm vi tồn">
-          {nutPhamVi("kho", "Kho cơ sở")}
+          {nutPhamVi("kho", "Kho")}
           {nutPhamVi("phong", "Theo phòng")}
         </div>
         {phamVi === "phong" ? (
@@ -212,7 +213,7 @@ export default function TonVatTu({
             </select>
           </label>
         ) : (
-          <p className="self-center text-meta text-ink-muted">Đang xem riêng tồn tại Kho cơ sở</p>
+          <p className="self-center text-meta text-ink-muted">Đang xem riêng tồn tại Kho</p>
         )}
         <ONhap
           type="search"
@@ -259,7 +260,7 @@ export default function TonVatTu({
       ) : hien.length === 0 ? (
         <section className="flex flex-col items-center gap-3 rounded-card border border-line bg-surface p-5 text-center">
           <h3 className="text-emph font-semibold text-ink">
-            {tonTheoNoi.length === 0 ? (phamVi === "kho" ? "Kho cơ sở chưa có tồn" : `Phòng ${phongDangXem?.ten ?? "này"} chưa có tồn`) : "Không có vật tư khớp bộ lọc"}
+            {tonTheoNoi.length === 0 ? (phamVi === "kho" ? "Kho chưa có tồn" : `Phòng ${phongDangXem?.ten ?? "này"} chưa có tồn`) : "Không có vật tư khớp bộ lọc"}
           </h3>
           <p className="max-w-2xl text-body text-ink-muted">
             {tonTheoNoi.length === 0
@@ -318,7 +319,7 @@ export default function TonVatTu({
                         <div className="flex items-center gap-1.5">
                           <ONhap
                             inputMode="decimal"
-                            aria-label={`Mức nhắc khi ${t.ten} còn dưới số lượng tại ${phamVi === "kho" ? "Kho cơ sở" : phongDangXem?.ten ?? "phòng"}`}
+                            aria-label={`Mức nhắc khi ${t.ten} còn dưới số lượng tại ${phamVi === "kho" ? "Kho" : phongDangXem?.ten ?? "phòng"}`}
                             value={mucSua[t.id] ?? String(t.ton_toi_thieu)}
                             onChange={(e) => setMucSua((c) => ({ ...c, [t.id]: e.target.value }))}
                             className="w-16 text-right tabular-nums"
@@ -353,28 +354,29 @@ export default function TonVatTu({
       )}
 
       {vatTuDangMo ? (
-        <section data-excel-ignore aria-label={`Thao tác ${vatTuDangMo.ten}`} className="min-w-0 space-y-3 rounded-card border border-line bg-surface-muted p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="min-w-0 flex-1 break-words font-medium">{vatTuDangMo.ten} · {phamVi === "kho" ? "Kho cơ sở" : phongDangXem?.ten}</h3>
-            <Button type="button" size="sm" variant="ghost" onClick={() => { setDongMo(null); setThaoTacMo(null); }}>Đóng</Button>
+        <HopChiTiet
+          tieuDe={`${vatTuDangMo.ten} · ${phamVi === "kho" ? "Kho" : phongDangXem?.ten ?? "Phòng"}`}
+          onDong={() => { setDongMo(null); setThaoTacMo(null); }}
+        >
+          <div data-excel-ignore className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {CAC_THAO_TAC[phamVi].map((muc) => (
+                <Button key={muc.loai} type="button" size="sm" variant={thaoTacMo === muc.loai ? "soft" : "secondary"} disabled={muc.loai === "XUAT_PHONG" && phamVi === "phong" && !phongDangXem?.dang_bat} onClick={() => setThaoTacMo(muc.loai)}>{muc.nhan}</Button>
+              ))}
+            </div>
+            {thaoTacMo ? <LapPhieuVatTu
+              key={`${vatTuDangMo.id}-${thaoTacMo}-${phongId}`}
+              noiChua={noiChua}
+              vatTu={[{ id: vatTuDangMo.vat_tu_id, name: vatTuDangMo.ten }]}
+              ton={ton}
+              loaiBanDau={thaoTacMo}
+              initialRoomId={phamVi === "phong" ? phongId || null : null}
+              fixedMaterial={vatTuDangMo.ten}
+              fixedMaterialId={vatTuDangMo.vat_tu_id}
+              onHuy={() => setThaoTacMo(null)}
+            /> : null}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {CAC_THAO_TAC[phamVi].map((muc) => (
-              <Button key={muc.loai} type="button" size="sm" variant={thaoTacMo === muc.loai ? "soft" : "secondary"} disabled={muc.loai === "XUAT_PHONG" && phamVi === "phong" && !phongDangXem?.dang_bat} onClick={() => setThaoTacMo(muc.loai)}>{muc.nhan}</Button>
-            ))}
-          </div>
-          {thaoTacMo ? <LapPhieuVatTu
-            key={`${vatTuDangMo.id}-${thaoTacMo}-${phongId}`}
-            noiChua={noiChua}
-            vatTu={[{ id: vatTuDangMo.vat_tu_id, name: vatTuDangMo.ten }]}
-            ton={ton}
-            loaiBanDau={thaoTacMo}
-            initialRoomId={phamVi === "phong" ? phongId || null : null}
-            fixedMaterial={vatTuDangMo.ten}
-            fixedMaterialId={vatTuDangMo.vat_tu_id}
-            onHuy={() => setThaoTacMo(null)}
-          /> : null}
-        </section>
+        </HopChiTiet>
       ) : null}
 
       {loi ? <p role="alert" className="text-body text-danger">{loi}</p> : null}
