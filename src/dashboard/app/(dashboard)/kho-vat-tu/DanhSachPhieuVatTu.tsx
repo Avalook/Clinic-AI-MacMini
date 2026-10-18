@@ -46,7 +46,7 @@ const gio = (iso: string) =>
     minute: "2-digit",
   });
 
-const tenLoai = (loai: string) => (loai === "HOAN" ? "Phiếu đảo (hoàn tác)" : (KIEU_PHIEU[loai]?.nhan ?? loai));
+const tenLoai = (loai: string) => (loai === "HOAN" ? "Đảo thao tác (hoàn tác)" : (KIEU_PHIEU[loai]?.nhan ?? loai));
 
 /** Một dòng sổ: số đếm (kiểm) hoặc số có dấu (+ vào / − ra) tại nơi chứa. */
 function chuDong(d: DongPhieu): string {
@@ -61,11 +61,11 @@ export default function DanhSachPhieuVatTu({ ds }: { ds: PhieuVatTu[] }) {
   const maPhieu = new Map(ds.map((p) => [p.id, p.ma_phieu]));
 
   return (
-    <section aria-label="Phiếu đã lập" className="space-y-2">
-      <h3 className="text-title text-ink">Phiếu đã lập</h3>
+    <section aria-label="Các lần nhập, cấp và kiểm kê" className="space-y-2">
+      <h3 className="text-title text-ink">Các lần nhập, cấp, trả và kiểm kê</h3>
       {ds.length === 0 ? (
         <p className="rounded-card border border-line bg-surface px-4 py-6 text-center text-body text-ink-muted">
-          Chưa có phiếu nào.
+          Chưa ghi nhận thao tác nào.
         </p>
       ) : (
         <ul className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
@@ -91,12 +91,12 @@ export default function DanhSachPhieuVatTu({ ds }: { ds: PhieuVatTu[] }) {
                     {p.loai === "NHAP" || p.loai === "HUY" ? ` · ${tienVatTu(tong)}` : ""}
                   </span>
                   <Button type="button" size="sm" variant="ghost" onClick={() => setMo(dangMo ? null : p.id)}>
-                    {dangMo ? "Thu gọn" : "Xem dòng"}
+                    {dangMo ? "Thu gọn" : "Xem mặt hàng"}
                   </Button>
                   {p.loai !== "HOAN" && !p.da_dao ? (
                     <NutHoanTac
-                      tieuDe="Hoàn tác phiếu này?"
-                      moTa="Lập phiếu đảo — tồn trở về như trước phiếu"
+                      tieuDe="Hoàn tác thao tác này?"
+                      moTa="Ghi một thao tác đảo để đưa tồn về như trước; lịch sử gốc vẫn được giữ."
                       goi={async () => {
                         const kq = await guiVatTu("hoan", { phieu_id: p.id }, `hoan-${p.id}`);
                         return kq.ok ? { ok: true } : { ok: false, loi: kq.loi };

@@ -11,7 +11,6 @@ import { useMemo, useState } from "react";
 import Button from "@/components/ui/Button";
 import ChipLoc from "@/components/ui/ChipLoc";
 import Chip from "@/components/ui/Chip";
-import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
 import { boDauVatTu } from "@/lib/vat-tu";
 import { guiVatTu, soVatTu } from "./gui-vat-tu";
@@ -40,11 +39,11 @@ const KHO = "kho";
 export default function TonVatTu({
   ton,
   noiChua,
-  vatTu,
+  onLamNhanh,
 }: {
   ton: DongTon[];
   noiChua: NoiChua[];
-  vatTu: { id: string; name: string }[];
+  onLamNhanh: (tab: "nhap" | "cap" | "kiem") => void;
 }) {
   const router = useRouter();
   const [noi, setNoi] = useState<string>("tat_ca");
@@ -54,8 +53,6 @@ export default function TonVatTu({
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
-  const [them, setThem] = useState({ ten: "", noi: KHO, muc: "" });
-
   const canChuY = ton.filter((t) => t.canh_bao).length;
   const hien = useMemo(() => {
     const khoa = boDauVatTu(tim.trim());
@@ -81,36 +78,47 @@ export default function TonVatTu({
     return true;
   }
 
-  const themMuc = async () => {
-    const vt = vatTu.find((v) => v.name === them.ten);
-    if (!vt) {
-      setLoi("Chọn vật tư có trong danh mục (gõ rồi chọn trong danh sách).");
-      return;
-    }
-    const ok = await luuMuc(
-      vt.id,
-      them.noi === KHO ? null : them.noi,
-      them.muc,
-      `Đã đặt mức tối thiểu “${vt.name}”.`,
-    );
-    if (ok) setThem({ ten: "", noi: KHO, muc: "" });
-  };
-
   return (
     <div className="flex flex-col gap-3">
+      <section aria-label="Giải thích tồn kho" className="rounded-card border border-line bg-surface p-4">
+        <h2 className="text-title font-semibold text-ink">Còn bao nhiêu vật tư ở từng kho và phòng</h2>
+        <p className="mt-1 text-body text-ink-muted">
+          Nhập hàng cộng vào nơi cất. Cấp cho phòng trừ ở kho cơ sở và cộng vào phòng. Kiểm kê dùng để so số đếm thật với số hệ thống.
+        </p>
+      </section>
+      <div className="flex flex-wrap items-center gap-2" aria-label="Thao tác thường dùng">
+        <Button type="button" variant="primary" onClick={() => onLamNhanh("nhap")}>
+          Nhập hàng
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => onLamNhanh("cap")}>
+          Cấp cho phòng
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => onLamNhanh("kiem")}>
+          Kiểm kê tồn ban đầu
+        </Button>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
-        <ChipLoc
-          nhan="Nơi chứa"
-          chon={noi}
-          onChon={setNoi}
-          muc={[
-            { ma: "tat_ca", nhan: "Tất cả nơi" },
-            ...noiChua.map((n) => ({
-              ma: n.room_id ?? KHO,
-              nhan: n.dang_bat ? n.ten : `${n.ten} (đã tắt)`,
-            })),
-          ]}
-        />
+        <label className="flex items-center gap-2 text-body text-ink-muted">
+          <span>Xem tồn tại</span>
+          <select
+            aria-label="Xem tồn tại kho hoặc phòng"
+            value={noi}
+            onChange={(e) => setNoi(e.target.value)}
+            className="min-h-10 rounded-control border border-line-strong bg-surface px-3 text-body text-ink"
+          >
+            <option value="tat_ca">Tất cả kho và phòng</option>
+            <optgroup label="Kho">
+              <option value="kho">Kho cơ sở</option>
+            </optgroup>
+            <optgroup label="Phòng">
+              {noiChua.filter((n) => n.room_id).map((n) => (
+                <option key={n.room_id} value={n.room_id ?? ""}>
+                  {n.dang_bat ? n.ten : `${n.ten} (đã ngừng hoạt động)`}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+        </label>
         <ONhap
           type="search"
           aria-label="Tìm vật tư"
@@ -129,13 +137,23 @@ export default function TonVatTu({
           { ma: "can", nhan: `Dưới mức / cần kiểm đếm (${canChuY})` },
         ]}
       />
+      <p className="text-meta text-ink-muted">
+        “Cảnh báo dưới” là mức nhắc bổ sung do quản lý đặt; nó không tự đổi số tồn và không tự tạo đơn nhập.
+      </p>
 
       {hien.length === 0 ? (
-        <p className="rounded-card border border-line bg-surface px-4 py-6 text-center text-body text-ink-muted">
-          {ton.length === 0
-            ? "Chưa có tồn nào — lập phiếu Nhập kho hoặc Kiểm đếm ở tab Phiếu, hoặc đặt mức tối thiểu bên dưới."
-            : "Không có dòng phù hợp."}
-        </p>
+        ton.length === 0 ? (
+          <section className="space-y-2 rounded-card border border-line bg-surface p-5 text-center">
+            <h3 className="text-emph font-semibold text-ink">Chưa có số tồn được ghi nhận</h3>
+            <p className="text-body text-ink-muted">
+              Nếu vừa nhận hàng, chọn “Nhập hàng”. Nếu đã có hàng nhưng chưa đưa vào sổ, đếm thực tế rồi chọn “Kiểm kê tồn ban đầu”.
+            </p>
+          </section>
+        ) : (
+          <p className="rounded-card border border-line bg-surface px-4 py-6 text-center text-body text-ink-muted">
+            Không có vật tư phù hợp với bộ lọc hiện tại.
+          </p>
+        )
       ) : (
         <ul className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
           {hien.map((t) => {
@@ -159,10 +177,10 @@ export default function TonVatTu({
                   ) : null}
                 </div>
                 <label className="flex items-center gap-1.5 text-meta text-ink-muted">
-                  <span>Mức tối thiểu</span>
+                  <span>Cảnh báo dưới</span>
                   <ONhap
                     inputMode="decimal"
-                    aria-label={`Mức tối thiểu ${t.ten} ở ${t.noi_chua}`}
+                    aria-label={`Cảnh báo khi ${t.ten} ở ${t.noi_chua} còn dưới số lượng`}
                     value={doi ? nhap[t.id] : String(t.ton_toi_thieu)}
                     onChange={(e) => setNhap((c) => ({ ...c, [t.id]: e.target.value }))}
                     className="w-24 text-right tabular-nums"
@@ -187,49 +205,6 @@ export default function TonVatTu({
           })}
         </ul>
       )}
-
-      <section aria-label="Đặt mức tối thiểu" className="space-y-2 rounded-card border border-line bg-surface p-4 shadow-card">
-        <h3 className="text-title text-ink">Đặt mức tối thiểu cho vật tư chưa có trong bảng</h3>
-        <datalist id="vat-tu-chon">
-          {vatTu.map((v) => (
-            <option key={v.id} value={v.name} />
-          ))}
-        </datalist>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="block min-w-0 flex-1 basis-48">
-            <span className="mb-1 block text-meta text-ink-soft">Vật tư</span>
-            <ONhap
-              list="vat-tu-chon"
-              value={them.ten}
-              placeholder="Gõ tên vật tư…"
-              onChange={(e) => setThem({ ...them, ten: e.target.value })}
-              className="w-full"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-meta text-ink-soft">Nơi chứa</span>
-            <OChon value={them.noi} onChange={(e) => setThem({ ...them, noi: e.target.value })}>
-              {noiChua.map((n) => (
-                <option key={n.room_id ?? KHO} value={n.room_id ?? KHO}>
-                  {n.ten}
-                </option>
-              ))}
-            </OChon>
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-meta text-ink-soft">Mức tối thiểu</span>
-            <ONhap
-              inputMode="decimal"
-              value={them.muc}
-              onChange={(e) => setThem({ ...them, muc: e.target.value })}
-              className="w-28 text-right tabular-nums"
-            />
-          </label>
-          <Button type="button" variant="primary" disabled={dang || !them.ten || !them.muc.trim()} onClick={() => void themMuc()}>
-            Đặt mức
-          </Button>
-        </div>
-      </section>
 
       {loi ? (
         <p role="alert" className="text-body text-danger">

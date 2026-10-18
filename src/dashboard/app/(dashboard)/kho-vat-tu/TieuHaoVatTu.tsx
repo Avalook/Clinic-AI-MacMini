@@ -149,7 +149,7 @@ export default function TieuHaoVatTu() {
       ) : null}
       {goi && goi.theo_phong.length === 0 ? (
         <p className="rounded-card border border-line bg-surface px-4 py-6 text-center text-body text-ink-muted">
-          Chưa có sổ vật tư ở phòng nào. Xuất kho cho phòng và kiểm đếm ở tab Phiếu để có báo cáo.
+          Chưa có số liệu phòng. Ghi thao tác “Cấp cho phòng”, sau đó kiểm kê đầu và cuối kỳ để xem mức dùng.
         </p>
       ) : null}
       {goi?.theo_phong.map((p) => {

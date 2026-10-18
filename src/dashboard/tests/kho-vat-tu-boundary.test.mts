@@ -54,6 +54,36 @@ test("giao diện lập phiếu gửi qua proxy, không gọi thẳng FastAPI", 
   assert.doesNotMatch(gui, /\/api\/v1\//);
 });
 
+test("điều hướng dùng việc nhân viên làm, không bắt họ hiểu từ 'phiếu'", () => {
+  const khung = doc(new URL("KhoVatTu.tsx", thuMuc));
+  assert.match(khung, /nhan: "Tồn kho"/);
+  assert.match(khung, /nhan: "Nhập hàng"/);
+  assert.match(khung, /nhan: "Cấp cho phòng"/);
+  assert.match(khung, /nhan: "Kiểm kê"/);
+  assert.match(khung, /nhan: "Lịch sử & báo cáo"/);
+  assert.match(khung, /nhan: "Quản lý"/);
+  assert.match(khung, /nhan: "Yêu cầu nhập cần duyệt"/);
+  assert.doesNotMatch(khung, /nhan: "Phiếu"/);
+});
+
+test("màn tồn giải thích kết quả thao tác và không đưa cài đặt ngưỡng vào bảng rỗng", () => {
+  const ton = doc(new URL("TonVatTu.tsx", thuMuc));
+  assert.match(ton, /Còn bao nhiêu vật tư ở từng kho và phòng/);
+  assert.match(ton, /Nhập hàng/);
+  assert.match(ton, /Kiểm kê tồn ban đầu/);
+  assert.doesNotMatch(ton, /Đặt mức tối thiểu cho vật tư chưa có trong bảng/);
+});
+
+test("lọc vị trí gọn, hướng dẫn xuất kho và kiểm kê phân biệt sổ với số đếm", () => {
+  const ton = doc(new URL("TonVatTu.tsx", thuMuc));
+  const lap = doc(new URL("LapPhieuVatTu.tsx", thuMuc));
+  assert.match(ton, /Xem tồn tại/);
+  assert.doesNotMatch(ton, /nhan="Nơi chứa"/);
+  assert.match(lap, /Tồn sổ/);
+  assert.match(lap, /số đếm thực tế/);
+  assert.match(lap, /chênh lệch/);
+});
+
 // ── G8b (15/10/2026): tab "Chờ duyệt" — phiếu NHẬP có dòng cần duyệt ────────────────────────
 // Máy chủ quyết quyền (lego Duyệt vật tư), lý do, "chỉ quyết một lần"; màn chỉ vẽ + gửi.
 
@@ -74,7 +104,7 @@ test("tab Chờ duyệt: xác nhận tại chỗ, nút theo cờ máy chủ tr�
 
 test("tab Chờ duyệt: tab có số đếm chỉ khi có yêu cầu chờ, và tab luôn có mặt cho người chỉ xem", () => {
   const khung = doc(new URL("KhoVatTu.tsx", thuMuc));
-  assert.match(khung, /ma: "cho_duyet", nhan: "Chờ duyệt", dem: dangCho > 0 \? dangCho : undefined/);
+  assert.match(khung, /ma: "cho_duyet", nhan: "Yêu cầu nhập cần duyệt", dem: dangCho > 0 \? dangCho : undefined/);
   assert.match(khung, /<ChoDuyetVatTu goi=\{choDuyet\}/);
 });
 

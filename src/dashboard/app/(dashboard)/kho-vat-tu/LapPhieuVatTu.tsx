@@ -12,8 +12,8 @@ import { useState } from "react";
 import Button from "@/components/ui/Button";
 import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
-import { guiVatTu, khoaMoi } from "./gui-vat-tu";
-import type { NoiChua } from "./TonVatTu";
+import { guiVatTu, khoaMoi, soVatTu } from "./gui-vat-tu";
+import type { DongTon, NoiChua } from "./TonVatTu";
 
 type Cho = null | "noi" | "phong";
 
@@ -30,27 +30,27 @@ interface Kieu {
 }
 
 export const KIEU_PHIEU: Record<string, Kieu> = {
-  NHAP: { nhan: "Nhập kho", tu: null, den: "noi", nhanTu: "", nhanDen: "Nhập vào", nhanSo: "Số lượng nhập" },
+  NHAP: { nhan: "Nhập hàng vào kho", tu: null, den: "noi", nhanTu: "", nhanDen: "Cất tại", nhanSo: "Số lượng nhận" },
   XUAT_PHONG: {
-    nhan: "Xuất kho → phòng",
+    nhan: "Cấp vật tư từ kho cho phòng",
     tu: null,
     den: "phong",
     nhanTu: "",
     nhanDen: "Phòng nhận",
-    nhanSo: "Số lượng xuất",
-    goiY: "Lấy từ Kho cơ sở. Kho hết trên sổ vẫn xuất được — tồn âm sẽ nhắc kiểm đếm.",
+    nhanSo: "Số lượng giao",
+    goiY: "Ghi vật tư đã lấy khỏi kho cơ sở và giao cho phòng. Nếu số chưa kịp ghi sổ, hệ thống vẫn ghi giao dịch và đánh dấu tồn cần đối chiếu.",
   },
   TRA_KHO: {
-    nhan: "Phòng trả kho",
+    nhan: "Phòng trả vật tư về kho",
     tu: "phong",
     den: null,
     nhanTu: "Phòng trả",
     nhanDen: "",
-    nhanSo: "Số lượng trả",
-    goiY: "Trả về Kho cơ sở.",
+    nhanSo: "Số lượng chưa dùng trả",
+    goiY: "Trừ số ở phòng trả và cộng lại Kho cơ sở. Chỉ nhập lượng thực sự chưa dùng.",
   },
   CHUYEN_PHONG: {
-    nhan: "Chuyển phòng → phòng",
+    nhan: "Chuyển vật tư giữa hai phòng",
     tu: "phong",
     den: "phong",
     nhanTu: "Từ phòng",
@@ -58,24 +58,24 @@ export const KIEU_PHIEU: Record<string, Kieu> = {
     nhanSo: "Số lượng chuyển",
   },
   DIEU_CHINH: {
-    nhan: "Kiểm đếm — chỉnh tồn theo số đếm",
+    nhan: "Kiểm kê và cập nhật tồn",
     tu: "noi",
     den: null,
     nhanTu: "Nơi kiểm",
     nhanDen: "",
     nhanSo: "Số đếm thực tế",
-    goiY: "Tồn trên sổ được chỉnh đúng bằng số đếm; có thể hoàn tác bằng phiếu đảo.",
+    goiY: "Gõ số đang có thật. Hệ thống tính chênh lệch và cập nhật tồn về đúng số đếm; nếu ghi nhầm, có thể hoàn tác từ Lịch sử thao tác.",
   },
   KIEM: {
-    nhan: "Kiểm đếm — chỉ ghi số đếm",
+    nhan: "Chỉ ghi số đếm để đối chiếu",
     tu: "noi",
     den: null,
     nhanTu: "Nơi kiểm",
     nhanDen: "",
     nhanSo: "Số đếm thực tế",
-    goiY: "Chỉ ghi lại số đếm, tồn trên sổ chưa đổi.",
+    goiY: "Lưu số đếm và chênh lệch để rà soát; số tồn hệ thống chưa đổi.",
   },
-  HUY: { nhan: "Huỷ hỏng", tu: "noi", den: null, nhanTu: "Huỷ ở", nhanDen: "", nhanSo: "Số lượng huỷ" },
+  HUY: { nhan: "Ghi nhận vật tư hỏng hoặc huỷ", tu: "noi", den: null, nhanTu: "Nơi có hàng hỏng", nhanDen: "", nhanSo: "Số lượng huỷ" },
 };
 
 interface Dong {
@@ -113,15 +113,19 @@ function baoYeuCau(d: {
 export default function LapPhieuVatTu({
   noiChua,
   vatTu,
+  ton,
   xemChoDuyet,
+  loaiBanDau,
 }: {
   noiChua: NoiChua[];
   vatTu: { id: string; name: string }[];
+  ton: DongTon[];
   /** Chuyển sang tab Chờ duyệt khi phiếu vừa gửi đang chờ. */
   xemChoDuyet?: () => void;
+  loaiBanDau: "NHAP" | "XUAT_PHONG" | "DIEU_CHINH";
 }) {
   const router = useRouter();
-  const [loai, setLoai] = useState("XUAT_PHONG");
+  const [loai, setLoai] = useState<string>(loaiBanDau);
   const [ghiChu, setGhiChu] = useState("");
   const [dong, setDong] = useState<Dong[]>(() => [dongMoi()]);
   const [khoa, setKhoa] = useState(khoaMoi);
@@ -197,7 +201,7 @@ export default function LapPhieuVatTu({
     const yeuCau = d ? baoYeuCau(d) : null;
     setDangCho(d?.cho_duyet === true);
     setBao(
-      yeuCau ?? `Đã lập phiếu ${d?.ma_phieu ?? ""} — tồn đã cập nhật. Sai thì bấm Hoàn tác ở danh sách bên dưới.`,
+      yeuCau ?? `Đã ghi nhận “${kieu.nhan}”${d?.ma_phieu ? ` · mã ${d.ma_phieu}` : ""}. Tồn đã cập nhật; nếu ghi nhầm, mở Lịch sử thao tác để hoàn tác.`,
     );
     setDong([dongMoi()]);
     setGhiChu("");
@@ -206,11 +210,10 @@ export default function LapPhieuVatTu({
   };
 
   return (
-    <section aria-label="Lập phiếu" className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
+    <section aria-label="Ghi nhận thao tác kho" className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
       <div className="flex flex-wrap items-end gap-3">
-        <h3 className="text-title text-ink">Lập phiếu</h3>
         <label className="block min-w-0 flex-1 basis-56">
-          <span className="mb-1 block text-meta text-ink-soft">Loại phiếu</span>
+          <span className="mb-1 block text-meta text-ink-soft">Thao tác cần ghi</span>
           <OChon
             value={loai}
             onChange={(e) => {
@@ -228,7 +231,9 @@ export default function LapPhieuVatTu({
           </OChon>
         </label>
       </div>
-      {kieu.goiY ? <p className="text-meta text-ink-muted">{kieu.goiY}</p> : null}
+      {kieu.goiY ? (
+        <p className="rounded-control bg-surface-muted px-3 py-2 text-body text-ink-muted">{kieu.goiY}</p>
+      ) : null}
 
       <datalist id="vat-tu-phieu">
         {vatTu.map((v) => (
@@ -255,7 +260,9 @@ export default function LapPhieuVatTu({
             {chon(kieu.tu, kieu.nhanTu, d.tu, (v) => suaDong(d.k, { tu: v }), false)}
             {chon(kieu.den, kieu.nhanDen, d.den, (v) => suaDong(d.k, { den: v }), true)}
             <label className="block">
-              <span className="mb-1 block text-meta text-ink-soft">{kieu.nhanSo}</span>
+              <span className="mb-1 block text-meta text-ink-soft">
+                {loai === "DIEU_CHINH" || loai === "KIEM" ? "Số đếm thực tế" : kieu.nhanSo}
+              </span>
               <ONhap
                 inputMode="decimal"
                 value={d.so}
@@ -263,39 +270,55 @@ export default function LapPhieuVatTu({
                 className="w-full text-right tabular-nums"
               />
             </label>
-            <div className="flex items-end gap-2">
+            {(loai === "DIEU_CHINH" || loai === "KIEM") && (() => {
+              const vatTuId = vatTu.find((v) => v.name === d.ten)?.id;
+              const roomId = d.tu || null;
+              const soTrenSo = ton.find((t) => t.vat_tu_id === vatTuId && t.room_id === roomId)?.so_luong ?? 0;
+              const soDem = Number(d.so.trim().replace(",", "."));
+              const chenhLech = d.so.trim() && Number.isFinite(soDem) ? soDem - soTrenSo : null;
+              const dau = chenhLech !== null && chenhLech > 0 ? "+" : "";
+              return (
+                <p className="col-span-2 text-meta text-ink-muted">
+                  Tồn sổ: {soVatTu(soTrenSo)}. {chenhLech === null
+                    ? "Nhập số đếm thực tế để xem chênh lệch."
+                    : `Chênh lệch dự kiến: ${dau}${soVatTu(chenhLech)}.`}
+                  {loai === "KIEM" ? " Chỉ ghi số đếm; tồn chưa đổi." : " Khi lưu, tồn sẽ cập nhật bằng số đếm thực tế."}
+                </p>
+              );
+            })()}
+            {loai === "NHAP" ? (
               <label className="block min-w-0 flex-1">
-                <span className="mb-1 block text-meta text-ink-soft">Giá nhập (đ)</span>
+                <span className="mb-1 block text-meta text-ink-soft">Giá mua một đơn vị (đ)</span>
                 <ONhap
                   inputMode="numeric"
                   value={d.gia}
-                  placeholder="theo danh mục"
+                  placeholder="Lấy giá đã cài nếu để trống"
                   onChange={(e) => suaDong(d.k, { gia: e.target.value })}
                   className="w-full text-right tabular-nums"
                 />
               </label>
-              {dong.length > 1 ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  aria-label={`Bỏ dòng ${i + 1}`}
-                  onClick={() => setDong((ds) => ds.filter((x) => x.k !== d.k))}
-                >
-                  Bỏ
-                </Button>
-              ) : null}
-            </div>
+            ) : null}
+            {dong.length > 1 ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                aria-label={`Bỏ dòng ${i + 1}`}
+                onClick={() => setDong((ds) => ds.filter((x) => x.k !== d.k))}
+              >
+                Bỏ dòng này
+              </Button>
+            ) : null}
           </li>
         ))}
       </ol>
 
       <label className="block">
-        <span className="mb-1 block text-meta text-ink-soft">Lý do / ghi chú</span>
+        <span className="mb-1 block text-meta text-ink-soft">Ghi chú / lý do (nên ghi khi kiểm kê hoặc huỷ)</span>
         <ONhap
           value={ghiChu}
           maxLength={1000}
-          placeholder={loai === "HUY" ? "Vì sao huỷ — vỡ, hết hạn…" : "Ghi chú cho phiếu (tuỳ chọn)"}
+          placeholder={loai === "HUY" ? "Vì sao huỷ — vỡ, hỏng…" : "Ghi chú thao tác (tuỳ chọn)"}
           onChange={(e) => setGhiChu(e.target.value)}
           className="w-full"
         />
@@ -306,7 +329,7 @@ export default function LapPhieuVatTu({
           + Thêm dòng
         </Button>
         <Button type="button" variant="primary" disabled={dang || thieu} onClick={() => void luu()} className="sm:ml-auto">
-          {dang ? "Đang lưu…" : "Lưu phiếu"}
+          {dang ? "Đang lưu…" : `Ghi nhận ${kieu.nhan.toLocaleLowerCase("vi")}`}
         </Button>
       </div>
       {loi ? (
