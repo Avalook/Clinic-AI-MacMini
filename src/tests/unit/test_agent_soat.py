@@ -49,17 +49,27 @@ CAM_IMPORT = {
     "paramiko",
     "smtplib",
     "ftplib",
-    "urllib",
     "shutil",
 }
 #: Chỉ những tệp này được dùng thư viện tương ứng.
 CHO_PHEP = {
-    "subprocess": {"doc_du_lieu.py"},  # docker exec vào container LOCAL
+    # docker exec vào container LOCAL; lệnh đọc lịch sử mã (show/diff) cho thước đo
+    "subprocess": {"doc_du_lieu.py", "thuoc_do.py"},
     "http.server": {"may_xem.py"},  # nghe 127.0.0.1
+    # Cổng DUY NHẤT ra Internet: HTTPS tới host trong danh sách, có trần chi tiêu.
+    "urllib.request": {"khach.py"},
+    "urllib.error": {"khach.py"},
 }
 #: Chỉ những tệp này được GHI tệp (và chỉ vào thư mục kết quả).
-CHO_PHEP_GHI = {"chay.py", "may_xem.py"}
-HAM_GHI = {"write_text", "write_bytes", "unlink", "rmdir", "mkdir", "rename"}
+CHO_PHEP_GHI = {
+    "chay.py",
+    "may_xem.py",
+    "chi_phi.py",
+    "thuoc_do.py",
+    "chay_model.py",
+    "soat_toan_bo.py",  # sổ "đã đọc" + ứng viên thô, trong thư mục kết quả
+}
+HAM_GHI = {"write_text", "write_bytes", "unlink", "rmdir", "mkdir", "rename", "open"}
 
 
 def _imports(cay: ast.Module) -> set[str]:
@@ -87,6 +97,8 @@ def test_agent_khong_import_mang_hay_ghi_tep_la(tep: Path) -> None:
         if isinstance(n, ast.Call)
         and isinstance(n.func, ast.Attribute)
         and n.func.attr in HAM_GHI
+        # `opener.open(req)` của urllib là gọi mạng (canh bằng CHO_PHEP), không ghi tệp.
+        and not (isinstance(n.func.value, ast.Name) and n.func.value.id == "opener")
     }
     if ghi:
         assert tep.name in CHO_PHEP_GHI, f"{tep.name} ghi tệp: {ghi}"
@@ -395,17 +407,32 @@ def _may_xem(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[int, Path
     return srv.server_address[1], tmp_path / "so-duyet.jsonl"
 
 
-def _gui(cong: int, kieu: str, **hdr: str) -> int:
+def _gui(cong: int, kieu: str, duong: str = "", **hdr: str) -> int:
     import http.client
 
     c = http.client.HTTPConnection("127.0.0.1", cong, timeout=5)
     h = {k.replace("_", "-"): v for k, v in hdr.items()}
     if kieu == "GET":
-        c.request("GET", "/", headers=h)
+        c.request("GET", duong or "/", headers=h)
     else:
         body = b'{"id": "0123456789ab", "quyet_dinh": "bo_qua", "ly_do": "da biet"}'
-        c.request("POST", "/duyet", body=body, headers=h)
+        c.request("POST", duong or "/duyet", body=body, headers=h)
     return c.getresponse().status
+
+
+def test_trang_theo_doi_va_nut_dung_khan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cong, _ = _may_xem(tmp_path, monkeypatch)
+    assert _gui(cong, "GET", "/tien-do") == 200
+    dung = tmp_path / "DUNG"
+    # Trang web lạ không bấm được nút dừng/chạy tiếp thay người.
+    assert _gui(cong, "POST", "/dung", Content_Type="text/plain") == 415
+    assert not dung.exists()
+    assert _gui(cong, "POST", "/dung", Content_Type="application/json") == 200
+    assert dung.exists()
+    assert _gui(cong, "POST", "/tiep", Content_Type="application/json") == 200
+    assert not dung.exists()
 
 
 def test_may_xem_ghi_dung_quyet_dinh_va_chan_csrf(

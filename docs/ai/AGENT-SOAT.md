@@ -98,6 +98,36 @@ phải có kế hoạch cho Tuyền duyệt trước khi sửa.
 Mỗi thẻ tự trả lời hộ bạn câu 4 trong checklist §24: *đây là sự thật, suy luận, dự báo hay đề
 xuất?* — đọc nhãn màu ở đầu thẻ trước khi đọc nội dung.
 
+## Tầng model (đợt 2, 18/10) — đọc ngữ nghĩa, vẫn chỉ đọc
+
+Bộ quét tĩnh chỉ thấy cái **đo được bằng cấu trúc**. Lỗi kiểu "gõ '2 gói' + đơn vị 'gói' ra
+'gói gói'" hay "ô Tổng tồn cộng hộp với viên" cần *đọc hiểu* — đó là việc của model.
+
+```
+chọn tệp (rủi ro cao trước) ─► ĐỌC: 1–2 model rẻ khác họ, khúc 330 dòng
+   ─► GOM ứng viên cùng chỗ + TRÍCH DẪN thật (script tìm lại dòng; bịa thì loại)
+   ─► BÁC BỎ: model mạnh hơn "cố chứng minh sai" từng nhóm ─► người duyệt (cùng báo cáo)
+```
+
+```bash
+# 0) kiểm khoá + giá (≈ $0.00001)
+.venv/bin/python scripts/soat_he_thong/chay_model.py kiem-tra --model openai/gpt-oss-120b:novita
+# 1) THƯỚC ĐO — 20 lỗi đã biết, model nhận tệp ở NGAY TRƯỚC commit sửa, đề không gợi ý
+.venv/bin/python scripts/soat_he_thong/chay_model.py thuoc-do --models <a>,<b> --tran 6
+# 2) QUÉT — có trần, có điểm dừng, chạy tiếp được (bỏ qua tệp chưa đổi)
+.venv/bin/python scripts/soat_he_thong/chay_model.py soat --models <a>,<b> --xac-nhan <c> --tran 8
+touch scripts/soat_he_thong/ket-qua/DUNG        # DỪNG KHẨN: mọi lần gọi sau đó bị chặn
+```
+
+| Lời hứa của tầng model | Canh bằng |
+|---|---|
+| Mọi byte ra Internet đi qua MỘT cổng `khach.py`; chỉ HTTPS, chỉ host trong danh sách, không theo chuyển hướng (không để header khoá sang chỗ lạ) | test AST: `urllib` chỉ ở `khach.py`; test `_kiem_url` |
+| Chỉ gửi **mã nguồn**; `.env`, fixtures, backup, dump, khoá… không bao giờ gửi; JWT/token/mật khẩu/SĐT/email thật trong mã bị che | `che_du_lieu` + test; **không có đường nào gửi dữ liệu database** |
+| Khoá chỉ đọc từ `~/.config/clinicai-ai/.env.ai` (ngoài repo), không in, không vào log/lỗi | `khach.py` (lỗi chỉ ghi mã HTTP) |
+| Trần chi tiêu của RIÊNG agent + tệp `DUNG` kiểm TRƯỚC mỗi lần gọi; mô hình lạ tính giá cao | `chi_phi.py` + test (trần 0 ⇒ không có dòng sổ nào = không có lần gọi) |
+| Sổ chi phí chỉ có giờ/mô hình/token/USD — không có nội dung mã | test |
+| Model không quyết gì: ứng viên của nó đi qua cùng cửa trích dẫn, tối đa `suy_ra` | `kiem_trich_dan`, `dinh_vi_lai` |
+
 ## Chưa làm — và vì sao
 
 | Cần | Tình trạng | Chặn bởi |

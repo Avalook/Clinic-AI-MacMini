@@ -28,7 +28,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     __package__ = "soat_he_thong"
 
-from soat_he_thong import bao_cao  # noqa: E402
+from soat_he_thong import bao_cao, tien_do  # noqa: E402
 from soat_he_thong.chay import KET_QUA, doc_so_duyet  # noqa: E402
 from soat_he_thong.khuon import DoPhu, PhatHien  # noqa: E402
 
@@ -39,7 +39,11 @@ HOST_HOP_LE = ("127.0.0.1", "localhost")
 
 
 def lan_moi_nhat() -> Path:
-    cac = sorted(p for p in KET_QUA.iterdir() if p.is_dir()) if KET_QUA.is_dir() else []
+    cac = (
+        sorted(p for p in KET_QUA.iterdir() if (p / "phat-hien.jsonl").is_file())
+        if KET_QUA.is_dir()
+        else []
+    )
     if not cac:
         raise SystemExit("Chưa có lần quét nào. Chạy chay.py trước.")
     return cac[-1]
@@ -107,13 +111,18 @@ def tao_handler(lan: Path) -> type[BaseHTTPRequestHandler]:
             if not self._host_ok():
                 self._tra(403, b"forbidden", "text/plain")
                 return
-            if self.path.split("?")[0] != "/":
+            duong = self.path.split("?")[0]
+            if duong == "/tien-do":
+                KET_QUA.mkdir(parents=True, exist_ok=True)
+                self._tra(200, tien_do.trang(KET_QUA).encode("utf8"))
+                return
+            if duong != "/":
                 self._tra(404, b"not found", "text/plain")
                 return
             self._tra(200, dung_bao_cao(lan).encode("utf8"))
 
         def do_POST(self) -> None:  # noqa: N802
-            if not self._host_ok() or self.path != "/duyet":
+            if not self._host_ok() or self.path not in ("/duyet", "/dung", "/tiep"):
                 self._tra(403, b"forbidden", "text/plain")
                 return
             # Chống CSRF từ trang web khác: bắt buộc JSON (kích hoạt preflight mà
@@ -142,6 +151,16 @@ def tao_handler(lan: Path) -> type[BaseHTTPRequestHandler]:
                 return
             if not isinstance(d, dict):
                 self._tra(400, b"json", "text/plain")
+                return
+            if self.path in ("/dung", "/tiep"):
+                # Công tắc dừng khẩn: có tệp DUNG là mọi lần gọi model bị chặn.
+                tep_dung = KET_QUA / "DUNG"
+                if self.path == "/dung":
+                    KET_QUA.mkdir(parents=True, exist_ok=True)
+                    tep_dung.write_text(f"dừng bởi {ten}\n", encoding="utf8")
+                else:
+                    tep_dung.unlink(missing_ok=True)
+                self._tra(200, b"ok", "text/plain")
                 return
             loi = ghi_quyet_dinh(duong_duyet, d, ten)
             if loi:

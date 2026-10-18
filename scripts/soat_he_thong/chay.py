@@ -53,6 +53,8 @@ def chay(
     ra: Path | None = None,
     docker: str | None = None,
     tep_nap: Path | None = None,
+    them: list[PhatHien] | None = None,
+    them_do_phu: list[DoPhu] | None = None,
 ) -> Path:
     nguon = Nguon()
     thu_muc = ra or KET_QUA / time.strftime("%Y%m%d-%H%M%S")
@@ -88,6 +90,9 @@ def chay(
                 ],
             )
         )
+
+    tat_ca += them or []
+    do_phu += them_do_phu or []
 
     giu, loai = kiem_trich_dan.loc(nguon, tat_ca)
     so_duyet = doc_so_duyet(KET_QUA / "so-duyet.jsonl")

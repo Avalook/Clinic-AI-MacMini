@@ -130,6 +130,8 @@ def html(
         "<title>Agent soát hệ thống</title>"
         f"<style>{_CSS}</style><main>"
         "<h1>Agent soát hệ thống ClinicAI</h1>"
+        "<div class=mo><a href='/tien-do'>Theo dõi tiến độ, chi phí, nút dừng →"
+        "</a></div>"
         "<div class=mo>Chỉ đọc · người duyệt · hiến pháp: docs/ai/HIEN-PHAP-AGENT.md. "
         "Phát hiện là <b>ứng viên để người kiểm</b>, không phải kết luận.</div>"
         f"<div class=luoi>{cac_o}</div>"
