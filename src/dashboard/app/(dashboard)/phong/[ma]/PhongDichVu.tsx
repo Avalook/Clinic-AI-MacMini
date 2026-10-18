@@ -762,7 +762,7 @@ function KhachTrongPhong({
             </Button>
           ) : null}
           {/* HUỶ BẮT ĐẦU NHẦM (V4, 30/09/2026): ngay cạnh chỗ vừa bấm Bắt đầu,
-              chỉ khi máy chủ nói được (đang làm, chưa điền phiếu). */}
+              chỉ khi máy chủ xác nhận còn lần làm đang chạy. */}
           {dangLam && th?.huy_bat_dau_duoc && !hoiHuy ? (
             <Button size="sm" variant="ghost" onClick={() => setHoiHuy(true)}>
               Huỷ bắt đầu nhầm
@@ -773,7 +773,7 @@ function KhachTrongPhong({
 
       {hoiHuy && dangLam && th?.lan_dang_chay ? (
         <XacNhanTaiCho
-          cau="Huỷ lần bắt đầu này? Phiếu nháp sẽ bị xoá, phiếu đã hoàn tất được giữ lại. Dịch vụ quay về chờ; nếu không thu dịch vụ này, sau đó cần bỏ chỉ định tại Bàn khám để dịch vụ khỏi hoá đơn."
+          cau="Huỷ lần bắt đầu này? Nội dung đã nhập ở phiếu nháp sẽ bị xoá; phiếu đã hoàn tất được giữ lại. Dịch vụ quay về chờ; nếu không thu dịch vụ này, sau đó cần bỏ chỉ định tại Bàn khám để dịch vụ khỏi hoá đơn."
           nhanDongY="Huỷ bắt đầu"
           dangGui={dangGui}
           onDongY={() =>

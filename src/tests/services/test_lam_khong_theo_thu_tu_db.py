@@ -18,6 +18,8 @@ from typing import Any
 
 import pytest
 
+from clinicai.core.exceptions import ValidationError
+from clinicai.services.form_engine_service import FormEngineService
 from clinicai.services.luot_kham_service import LuotKhamConflictError
 from tests.services import test_service_execution_db as _goc
 from tests.services.test_service_execution_db import CLINIC, KB
@@ -311,14 +313,21 @@ async def test_nhap_phieu_nhap_thi_huy_bat_dau_va_don_nhap(kb: KB) -> None:
     assert kq["execution_status"] == "PENDING"
     assert await _trang_thai(kb, kb.order_id) == ("PENDING", "waiting")
     nhap = await kb.pool.fetchrow(
-        "SELECT du_lieu, revision FROM form_instance"
+        "SELECT id, du_lieu, revision FROM form_instance"
         " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid",
         CLINIC,
         kb.order_id,
     )
     assert nhap is not None
-    assert nhap["du_lieu"]["ghi_chu"]["gia_tri"] != "nhập nhầm"
+    assert json.loads(nhap["du_lieu"]).get("ghi_chu", {}).get("gia_tri") != "nhập nhầm"
     assert nhap["revision"] == 2
+    with pytest.raises(ValidationError, match="tải lại"):
+        await FormEngineService(kb.pool).luu_nhap(
+            phieu_id=str(nhap["id"]),
+            du_lieu={"ghi_chu": {"gia_tri": "tự lưu đến trễ", "nguon": "USER"}},
+            expected_revision=1,
+            identity=kb.bs,
+        )
     lich_su = await kb.pool.fetchval(
         "SELECT du_lieu->'ghi_chu'->>'gia_tri' FROM form_instance_lich_su"
         " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
@@ -379,7 +388,7 @@ async def test_phieu_hoan_tat_van_huy_bat_dau_va_giu_phieu(kb: KB) -> None:
     )
     assert phieu is not None
     assert phieu["trang_thai"] == "READY"
-    assert phieu["du_lieu"]["ghi_chu"]["gia_tri"] == "nhập nhầm"
+    assert json.loads(phieu["du_lieu"])["ghi_chu"]["gia_tri"] == "nhập nhầm"
     assert phieu["revision"] == 1
 
 
