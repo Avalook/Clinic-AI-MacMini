@@ -479,12 +479,7 @@ export default function BanKham({
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        {tuVan ? (
-          <p className="text-sm text-ink-muted">
-            Hàng tư vấn chung — bác sĩ tư vấn nào rảnh thì nhận. Đo sinh hiệu trước,
-            nhưng khách chưa đo vẫn nhận được.
-          </p>
-        ) : (
+        {tuVan ? null : (
         <>
         <label className="text-sm font-semibold text-ink" htmlFor="chon-phong">
           Phòng
@@ -686,6 +681,7 @@ export default function BanKham({
               staffId={staffId}
               onDaBam={napLai}
               tuVan={tuVan}
+              giaoDienBanKham={!tuVan}
               chuaGui={chuaGui}
               onChuaGui={baoChuaGui}
             />
@@ -885,6 +881,7 @@ function HoSo({
   staffId,
   onDaBam,
   tuVan = false,
+  giaoDienBanKham = false,
   onHangCho,
   hangMo = true,
   soCho = 0,
@@ -907,6 +904,8 @@ function HoSo({
   onDaBam: () => void;
   /** Bàn khám tư vấn: Bắt đầu / Xong tư vấn thay cho Bắt đầu khám / Hoàn tất. */
   tuVan?: boolean;
+  /** Giao diện hồ sơ đang làm tại bàn khám; không áp dụng cho bàn tư vấn. */
+  giaoDienBanKham?: boolean;
 }) {
   const [xemLai, setXemLai] = useState<{ id: string; luot: LuotTruoc } | null>(null);
   const dangXem = xemLai && xemLai.id === dong?.id ? xemLai.luot : null;
@@ -1447,6 +1446,7 @@ function HoSo({
               onTrangThai={baoGate}
               onChuaGui={baoChuaGui}
               chanRay={laPhieuMoi ? nutHoanTat : undefined}
+              giaoDienBanKham={giaoDienBanKham}
             />
             {dong.form_code === "SK" ? (
               <ThaiKy

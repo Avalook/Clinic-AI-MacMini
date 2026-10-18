@@ -259,6 +259,32 @@ test("kiểm kê cho chọn chỉ lưu số đếm hoặc cập nhật tồn the
   assert.match(lap, /\bDIEU_CHINH\b/);
 });
 
+test("tồn theo phòng phân biệt lượng được cấp, đã dùng, tồn sổ và số đếm thực tế", () => {
+  const ton = doc(new URL("TonVatTu.tsx", thuMuc));
+  assert.match(ton, /ĐƯỢC CẤP/);
+  assert.match(ton, /ĐÃ DÙNG/);
+  assert.match(ton, /CÒN LẠI/);
+  assert.match(ton, /THỰC TẾ/);
+  assert.match(ton, /cap_trong_ky/);
+  assert.match(ton, /da_dung/);
+  assert.match(ton, /thuc_te_gan_nhat/);
+  assert.match(ton, /baoCao/);
+});
+
+test("ngày báo cáo nằm cùng hàng tab mức dùng và được chia sẻ với bảng tồn", () => {
+  const khung = doc(new URL("KhoVatTu.tsx", thuMuc));
+  const mucDung = doc(new URL("TieuHaoVatTu.tsx", thuMuc));
+  assert.match(khung, /aria-label="Từ ngày"/);
+  assert.match(khung, /aria-label="Đến ngày"/);
+  assert.match(khung, /baoCao=\{baoCao\}/);
+  assert.match(khung, /<TonVatTu[\s\S]*baoCao=\{baoCao\}/);
+  assert.match(khung, /<TieuHaoVatTu[\s\S]*baoCao=\{baoCao\}/);
+  assert.doesNotMatch(mucDung, /Kỳ \{ngay\(goi\.tu\)\}[\s\S]*Số liệu tính từ hai lần kiểm đếm/);
+  assert.doesNotMatch(mucDung, /Kỳ báo cáo/);
+  const choDuyet = doc(new URL("ChoDuyetVatTu.tsx", thuMuc));
+  assert.doesNotMatch(choDuyet, /Phiếu nhập có mặt hàng đặt “cần duyệt nhập” chưa vào kho/);
+});
+
 // ── G8b (15/10/2026): tab "Chờ duyệt" — phiếu NHẬP có dòng cần duyệt ────────────────────────
 // Máy chủ quyết quyền (lego Duyệt vật tư), lý do, "chỉ quyết một lần"; màn chỉ vẽ + gửi.
 

@@ -27,7 +27,7 @@ function SoPhong({ dem }: { dem: DemPhong }) {
     `${dem.dang_cho} đang chờ`,
     `${dem.dang_lam} đang làm`,
   ];
-  return <span className="text-meta tabular-nums text-ink-soft">{so.join(" · ")}</span>;
+  return <span className="text-body tabular-nums text-ink-soft">{so.join(" · ")}</span>;
 }
 
 export const dynamic = "force-dynamic";
@@ -66,11 +66,11 @@ export default async function DanhSachPhongPage() {
           <li key={p.id}>
             <Link
               href={`/phong/${p.id}`}
-              className="flex min-h-16 flex-col justify-center gap-1 rounded-card bg-surface p-4 shadow-card transition-colors hover:bg-surface-sunken"
+              className="flex min-h-20 flex-col justify-center gap-1 rounded-card bg-surface p-4 shadow-card transition-colors hover:bg-surface-sunken"
             >
-              <span className="text-emph font-semibold text-ink">{p.ten}</span>
+              <span className="text-title font-semibold text-ink">{p.ten}</span>
               {p.dem ? <SoPhong dem={p.dem} /> : null}
-              <span className="text-meta text-ink-muted">
+              <span className="text-body text-ink-muted">
                 {/* Không in tầng (27/09/2026 đợt 3): phòng khám đổi bố cục phòng liên tục.
                     Bản cũ còn in "Tầng Tầng 1" vì dữ liệu vốn đã có chữ "Tầng". */}
                 {cuaToi.has(p.id) ? "Hôm nay bạn đứng phòng này" : " "}

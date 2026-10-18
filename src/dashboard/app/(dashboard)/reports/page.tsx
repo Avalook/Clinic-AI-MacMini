@@ -10,7 +10,7 @@ import { ChonCoSoLink } from "@/components/ui/ChonCoSo";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
 import { moDuocMan, requireNavAccess } from "../../../lib/clinic-session";
 import { layCoSo } from "../../../lib/danh-muc";
-import { fmtDate, VN_TZ } from "../../../lib/datetime";
+import { VN_TZ } from "../../../lib/datetime";
 import PrintReportButton from "./PrintReportButton";
 import BaoCaoHangHoa from "./BaoCaoHangHoa";
 import CuoiNgay from "./CuoiNgay";
@@ -99,12 +99,6 @@ export default async function ReportsPage({
   // "" / thiếu = tất cả cơ sở. Mã lạ chuyển nguyên — máy chủ trả số 0.
   const coSoChon = co_so ? co_so.slice(0, 64) : null;
   const locCoSo = coSoChon ? `co_so=${encodeURIComponent(coSoChon)}` : "";
-  const tenCoSo = coSoChon
-    ? (coSo.find((c) => c.id === coSoChon)?.name ?? "Không có cơ sở này")
-    : coSo.length > 1
-      ? "Tất cả cơ sở"
-      : null;
-
   // 24/09/2026: mọi ô đếm đọc qua backend MỘT lượt (`/reports/tong-quan`) —
   // trang từng bắn 12 truy vấn Supabase rời ở 12 thời điểm khác nhau.
   const tq = await fetchFromBackend<{
@@ -206,10 +200,6 @@ export default async function ReportsPage({
       <header className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-ink lg:text-2xl">Báo cáo vận hành</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            KPI vận hành phòng khám · {tenCoSo ? `${tenCoSo} · ` : ""}
-            {fmtDate(new Date())} · chỉ đọc
-          </p>
         </div>
         <PrintReportButton />
       </header>

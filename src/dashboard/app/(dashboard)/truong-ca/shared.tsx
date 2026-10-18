@@ -179,8 +179,17 @@ export type ActFn = ReturnType<typeof useDispatchAction>["act"];
 // thật (realtime rớt thì lần đọc kế tiếp cũng hỏng theo, và `ok` sẽ tự nói).
 const STALE_AFTER_S = Math.round((HEARTBEAT_MS * 1.5) / 1000);
 
-export function LiveBadge({ seconds, ok }: { seconds: number; ok: boolean }) {
+export function LiveBadge({
+  seconds,
+  ok,
+  showCurrent = true,
+}: {
+  seconds: number;
+  ok: boolean;
+  showCurrent?: boolean;
+}) {
   const stale = !ok || seconds > STALE_AFTER_S;
+  if (!stale && !showCurrent) return null;
   return (
     <div
       style={{

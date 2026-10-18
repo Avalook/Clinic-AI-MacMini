@@ -24,10 +24,6 @@ export default async function PriceDichVuPage({
     <main className="page-in space-y-4 p-4 lg:p-5">
       <header>
         <h1 className="text-title font-semibold text-ink">Bảng giá dịch vụ &amp; phòng</h1>
-        <p className="text-body text-ink-muted">
-          Mọi dịch vụ phòng khám bán: nhóm hàng, đơn giá, bên thu và phòng làm được. Sửa là dùng
-          ngay cho lượt mới — ô chỉ định của bác sĩ, quầy thu, xếp phòng cùng đọc danh mục này.
-        </p>
       </header>
       <DanhMucDichVuPhong banDau={data} chiChuaPhong={loc === "chua-phong"} />
     </main>

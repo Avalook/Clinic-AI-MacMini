@@ -13,7 +13,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, Info } from "lucide-react";
+import { CalendarCheck } from "lucide-react";
 
 import Button from "../../../components/ui/Button";
 import Chip from "../../../components/ui/Chip";
@@ -108,34 +108,19 @@ export default function ApDungTuan({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2 rounded-control bg-warning-bg px-3 py-2 text-xs text-warning">
-        <Info className="size-4 shrink-0" aria-hidden="true" />
-        <span>
-          <strong>Lịch dự kiến — chưa áp dụng.</strong> Khách vẫn đặt được, nhưng
-          màn đặt lịch chưa chốt bác sĩ nào trực. Bấm áp dụng khi lịch đã chắc.
-        </span>
-        {laQuanLy && soCa > 0 && (
-          <button
-            type="button"
-            onClick={apDung}
-            disabled={dangGui}
-            className="ml-auto rounded-control bg-brand-600 px-3 py-1.5 text-xs font-medium text-surface transition-colors hover:bg-brand-700 disabled:opacity-50"
-          >
-            {dangGui ? "Đang áp dụng…" : `Áp dụng tuần (${soCa} ca)`}
-          </button>
-        )}
-        {laQuanLy && soCa === 0 && (
-          <span className="ml-auto text-ink-muted">
-            Chưa xếp ca nào — xếp lịch trước rồi mới áp dụng được.
-          </span>
-        )}
-      </div>
-      {loi && (
-        <p className="rounded-control bg-danger-bg px-3 py-2 text-xs text-danger">
-          {loi}
-        </p>
+    <div className="flex flex-wrap items-center gap-2">
+      {laQuanLy && (
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={apDung}
+          disabled={dangGui || soCa === 0}
+          title={soCa === 0 ? "Chưa xếp ca nào — xếp lịch trước rồi mới áp dụng được." : undefined}
+        >
+          {dangGui ? "Đang áp dụng…" : "Áp dụng tuần (" + soCa + " ca)"}
+        </Button>
       )}
+      {loi ? <span role="alert" className="text-meta text-danger">{loi}</span> : null}
     </div>
   );
 }

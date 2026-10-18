@@ -20,9 +20,6 @@ export default async function Page() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-ink lg:text-2xl">TV phòng chờ</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Mỗi phòng một TV — mở link trên máy TV (đăng nhập tài khoản TV) rồi để toàn màn hình.
-          </p>
         </div>
         <Link href="/display" target="_blank" className={buttonClass("secondary", "md")}>
           <Tv className="size-4" aria-hidden="true" /> TV chung cả phòng khám
@@ -36,8 +33,8 @@ export default async function Page() {
           return (
             <li key={r.id} className="flex items-center justify-between gap-2 rounded-card border border-line bg-surface p-3 shadow-card">
               <div className="min-w-0">
-                <p className="truncate text-body font-semibold text-ink">{ten}</p>
-                <p className="truncate text-meta text-ink-muted">{r.waiting} đang chờ</p>
+                <p className="truncate text-emph font-semibold text-ink">{ten}</p>
+                <p className="truncate text-body text-ink-muted">{r.waiting} đang chờ</p>
               </div>
               <Link href={href} target="_blank" className={`${buttonClass("soft", "sm")} shrink-0 gap-1.5`}>
                 <Tv className="size-4" aria-hidden="true" /> Mở TV

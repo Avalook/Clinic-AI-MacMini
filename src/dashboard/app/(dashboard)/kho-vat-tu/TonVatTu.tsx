@@ -11,6 +11,7 @@ import HopChiTiet from "@/components/ui/HopChiTiet";
 import ONhap from "@/components/ui/ONhap";
 import { boDauVatTu } from "@/lib/vat-tu";
 import { guiVatTu, soVatTu } from "./gui-vat-tu";
+import type { DongTieuHao, GoiTieuHao } from "./bao-cao-vat-tu";
 import type { DongVatTu } from "../cashier/VatTuBangGia";
 import LapPhieuVatTu from "./LapPhieuVatTu";
 
@@ -76,10 +77,20 @@ export default function TonVatTu({
   ton,
   noiChua,
   vatTu,
+  baoCao,
+  tuNgay,
+  denNgay,
+  dangBaoCao,
+  loiBaoCao,
 }: {
   ton: DongTon[];
   noiChua: NoiChua[];
   vatTu: DongVatTu[];
+  baoCao: GoiTieuHao | null;
+  tuNgay: string;
+  denNgay: string;
+  dangBaoCao: boolean;
+  loiBaoCao: string | null;
 }) {
   const router = useRouter();
   const [phamVi, setPhamVi] = useState<PhamVi>("kho");
@@ -98,6 +109,10 @@ export default function TonVatTu({
   const [moNhapHang, setMoNhapHang] = useState(false);
 
   const vatTuTheoId = useMemo(() => new Map(vatTu.map((v) => [v.id, v])), [vatTu]);
+  const thongKeTheoTon = useMemo(
+    () => new Map((baoCao?.items ?? []).map((d) => [`${d.room_id}:${d.vat_tu_id}`, d])),
+    [baoCao],
+  );
   const phongDangXem = noiChua.find((n) => n.room_id === phongId);
   const tonTheoNoi = useMemo(() => {
     if (phamVi === "kho") return ton.filter((t) => t.room_id === null);
@@ -163,6 +178,24 @@ export default function TonVatTu({
   );
 
   const vatTuDangMo = hien.find((t) => t.id === dongMo);
+  const ngayKy = `${tuNgay.split("-").reverse().join("/")}–${denNgay.split("-").reverse().join("/")}`;
+
+  function hienLuongKy(dong: DongTieuHao | undefined): string {
+    if (!baoCao) return dangBaoCao ? "Đang tải" : "—";
+    return dong ? soVatTu(dong.cap_trong_ky) : "—";
+  }
+
+  function hienDaDung(dong: DongTieuHao | undefined): string {
+    if (!baoCao) return dangBaoCao ? "Đang tải" : "—";
+    if (!dong?.du_du_lieu || dong.da_dung == null) return "Chưa đủ";
+    return soVatTu(dong.da_dung);
+  }
+
+  function hienThucTe(dong: DongTieuHao | undefined): string {
+    if (!baoCao) return dangBaoCao ? "Đang tải" : "—";
+    if (!dong || dong.thuc_te_gan_nhat == null) return "Chưa kiểm";
+    return soVatTu(dong.thuc_te_gan_nhat);
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -240,6 +273,11 @@ export default function TonVatTu({
           </Button>
         </div>
       ) : null}
+      {loiBaoCao ? (
+        <p role="alert" className="text-body text-danger">
+          Chưa cập nhật được số liệu cấp và kiểm kê trong kỳ. {loiBaoCao}
+        </p>
+      ) : null}
 
       {moNhapHang ? (
         <LapPhieuVatTu
@@ -279,7 +317,19 @@ export default function TonVatTu({
             <thead className="bg-surface-muted text-label font-semibold text-ink-muted">
               <tr>
                 <th className="w-[25%] px-3 py-2">VẬT TƯ</th>
-                <th className="px-3 py-2 text-right">SỐ LƯỢNG</th>
+                {phamVi === "phong" ? (
+                  <>
+                    <th className="px-3 py-2 text-right" title="Cấp từ kho hoặc chuyển từ phòng khác trong khoảng ngày đã chọn.">
+                      ĐƯỢC CẤP
+                      <span className="block text-meta font-normal normal-case">{ngayKy}</span>
+                    </th>
+                    <th className="px-3 py-2 text-right" title="Số dùng tính từ hai lần kiểm kê thật; hỏng hoặc huỷ được tách riêng.">ĐÃ DÙNG</th>
+                    <th className="px-3 py-2 text-right" title="Số lượng còn lại theo sổ kho.">CÒN LẠI</th>
+                    <th className="px-3 py-2 text-right" title="Số đếm thực tế mới nhất; có thể khác tồn theo sổ.">THỰC TẾ</th>
+                  </>
+                ) : (
+                  <th className="px-3 py-2 text-right">SỐ LƯỢNG</th>
+                )}
                 <th className="px-3 py-2">ĐƠN VỊ</th>
                 <th className="px-3 py-2 text-right" title="Theo giá nhập gần nhất; chưa phải giá vốn kế toán">GIÁ TRỊ ƯỚC TÍNH</th>
                 <th className="px-3 py-2">NHÃN</th>
@@ -293,6 +343,7 @@ export default function TonVatTu({
                 const loai = hang?.loai_vat_tu ?? null;
                 const giaTri = t.gia_tri_ton == null ? null : Number(t.gia_tri_ton);
                 const mo = dongMo === t.id;
+                const soLieu = t.room_id ? thongKeTheoTon.get(`${t.room_id}:${t.vat_tu_id}`) : undefined;
                 return (
                     <tr key={t.id} className={mo ? "bg-brand-soft" : undefined}>
                       <td className="px-3 py-2.5">
@@ -306,7 +357,22 @@ export default function TonVatTu({
                           </div>
                         </div>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold tabular-nums">{soVatTu(t.so_luong)}</td>
+                      {phamVi === "phong" ? (
+                        <>
+                          <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums" title="Số lượng được cấp trong kỳ đã chọn">
+                            {hienLuongKy(soLieu)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums" title={soLieu?.du_du_lieu ? "Số dùng theo hai lần kiểm kê thật." : soLieu?.ly_do_thieu ?? "Chưa đủ dữ liệu kiểm kê."}>
+                            {hienDaDung(soLieu)}
+                          </td>
+                          <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold tabular-nums">{soVatTu(t.so_luong)}</td>
+                          <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums" title={soLieu?.thuc_te_gan_nhat_luc ? `Đếm lần gần nhất: ${new Date(soLieu.thuc_te_gan_nhat_luc).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}` : "Chưa có số đếm thực tế."}>
+                            {hienThucTe(soLieu)}
+                          </td>
+                        </>
+                      ) : (
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-semibold tabular-nums">{soVatTu(t.so_luong)}</td>
+                      )}
                       <td className="whitespace-nowrap px-3 py-2.5 text-ink-muted">{t.don_vi ?? "—"}</td>
                       <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">{giaTri == null ? "—" : tienVnd(giaTri)}</td>
                       <td className="px-3 py-2.5">

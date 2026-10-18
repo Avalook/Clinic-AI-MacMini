@@ -395,33 +395,22 @@ export default function PatientListView({
     </button>
   );
 
-  const directory = (
+  const overviewTools = (
     <section
-      aria-label="Danh sách bệnh nhân"
-      className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+      aria-label="Tổng quan danh sách bệnh nhân"
+      className="min-w-0 rounded-card border border-line bg-surface shadow-card"
     >
-      <div className="border-b border-line px-4 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
-              <UsersRound size={16} className="text-brand-600" /> Danh sách bệnh nhân
-            </p>
-            <p className="mt-1 text-xs text-ink-muted">Tra cứu hồ sơ và lượt khám gần nhất</p>
-            {/* ĐƯỜNG VỀ BẢNG. Bấm một dòng là vào ba vùng; không có nút này thì
-                muốn tra người khác phải tải lại trang. */}
-            <button
-              type="button"
-              onClick={() => chonKhach(null)}
-              className="mt-1 text-xs font-semibold text-brand-700 hover:underline"
-            >
-              ← Về danh sách
-            </button>
-          </div>
-          <span className="rounded-chip bg-brand-50 px-2 py-1 text-xs font-semibold tabular-nums text-brand-800">
-            {phanTrang.soKhop}
-          </span>
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+        <div className="min-w-36">
+          <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <UsersRound size={16} className="text-brand-600" /> Danh sách bệnh nhân
+          </p>
+          <p className="mt-0.5 text-xs text-ink-muted">
+            <span className="tabular-nums">{phanTrang.soKhop}</span> hồ sơ
+            {dangTai ? <span className="ml-2 text-ink-faint">Đang tải…</span> : null}
+          </p>
         </div>
-        <label className="relative mt-4 block">
+        <label className="relative w-full min-w-48 flex-1 sm:w-auto">
           <Search
             size={16}
             aria-hidden="true"
@@ -435,7 +424,11 @@ export default function PatientListView({
             className="h-10 w-full rounded-control border border-line bg-white pl-9 pr-3 text-sm text-ink outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
           />
         </label>
-        <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Lọc danh sách bệnh nhân">
+        <div
+          className="flex w-full flex-wrap items-center gap-1.5 lg:w-auto"
+          aria-label="Lọc danh sách bệnh nhân"
+          role="group"
+        >
           {filters.map((item) => (
             <button
               key={item.key}
@@ -454,6 +447,26 @@ export default function PatientListView({
           ))}
           {nutChieuXep}
         </div>
+      </div>
+    </section>
+  );
+
+  const directory = (
+    <section
+      aria-label="Danh sách bệnh nhân"
+      className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <p className="text-xs font-semibold text-ink-muted">Hồ sơ phù hợp</p>
+        {/* ĐƯỜNG VỀ BẢNG. Bấm một dòng là vào ba vùng; không có nút này thì
+            muốn tra người khác phải tải lại trang. */}
+        <button
+          type="button"
+          onClick={() => chonKhach(null)}
+          className="text-xs font-semibold text-brand-700 hover:underline"
+        >
+          ← Về danh sách
+        </button>
       </div>
 
       <ul
@@ -815,8 +828,9 @@ export default function PatientListView({
 
   if (openV5?.visit_id && selected) {
     return (
-      <>
-        <p className="mb-2 text-xs text-ink-muted">Kéo thanh phân cách để đổi độ rộng hai vùng làm việc.</p>
+      <div className="min-w-0 space-y-4">
+        {overviewTools}
+        <p className="text-xs text-ink-muted">Kéo thanh phân cách để đổi độ rộng hai vùng làm việc.</p>
         <SplitPane
           className="md:h-[78vh]"
           initialLeftPct={42}
@@ -851,14 +865,15 @@ export default function PatientListView({
             </section>
           }
         />
-      </>
+      </div>
     );
   }
 
   if (openAppt) {
     return (
-      <>
-        <p className="mb-2 text-xs text-ink-muted">Kéo thanh phân cách để đổi độ rộng hai vùng làm việc.</p>
+      <div className="min-w-0 space-y-4">
+        {overviewTools}
+        <p className="text-xs text-ink-muted">Kéo thanh phân cách để đổi độ rộng hai vùng làm việc.</p>
         <SplitPane
           className="md:h-[78vh]"
           initialLeftPct={42}
@@ -878,7 +893,7 @@ export default function PatientListView({
             />
           }
         />
-      </>
+      </div>
     );
   }
 
@@ -887,61 +902,19 @@ export default function PatientListView({
   // đọc được một. Bấm một dòng mới mở ba vùng như cũ.
   if (!selected) {
     return (
-      <section
-        aria-label="Danh sách bệnh nhân"
-        className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-          <div>
-            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
-              <UsersRound size={16} className="text-brand-600" /> Danh sách bệnh nhân
-            </p>
-            <p className="mt-0.5 text-xs text-ink-muted">
-              <span className="tabular-nums">{phanTrang.soKhop}</span> hồ sơ · bấm một dòng để xem chi tiết
-              {dangTai ? <span className="ml-2 text-ink-faint">Đang tải…</span> : null}
-            </p>
-          </div>
-          <label className="relative w-full md:w-auto md:min-w-60 md:max-w-80 md:flex-1">
-            <Search
-              size={16}
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint"
-            />
-            <input
-              value={term}
-              onChange={(event) => setTerm(event.target.value)}
-              placeholder="Tìm tên, mã BN hoặc SĐT"
-              aria-label="Tìm tên, mã BN hoặc SĐT"
-              className="h-10 w-full rounded-control border border-line bg-white pl-9 pr-3 text-sm text-ink outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15"
-            />
-          </label>
-        </div>
-        <div className="flex flex-wrap gap-1.5 border-b border-line px-4 py-2">
-          {filters.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => doiLoc(item.key)}
-              aria-pressed={filter === item.key}
-              className={
-                "rounded-chip px-2.5 py-1.5 text-xs font-semibold transition-colors " +
-                (filter === item.key
-                  ? "bg-brand-600 text-white"
-                  : "bg-surface-muted text-ink-soft hover:bg-brand-50 hover:text-brand-800")
-              }
-            >
-              {item.label}
-            </button>
-          ))}
-          <span className="ml-auto">{nutChieuXep}</span>
-        </div>
-        {/* Từ 768px là bảng 6 cột (cuộn ngang nếu hẹp quá); dưới đó mỗi dòng
-            xếp dọc nên KHÔNG đặt bề rộng tối thiểu — 375px không cuộn ngang. */}
-        <div
-          className={`overflow-x-auto transition-opacity ${dangTai ? "opacity-60" : ""}`}
-          aria-busy={dangTai}
+      <div className="min-w-0 space-y-4">
+        {overviewTools}
+        <section
+          aria-label="Danh sách bệnh nhân"
+          className="min-w-0 overflow-hidden rounded-card border border-line bg-surface shadow-card"
         >
-          <div className="md:min-w-180">
+          {/* Từ 768px là bảng 6 cột (cuộn ngang nếu hẹp quá); dưới đó mỗi dòng
+              xếp dọc nên KHÔNG đặt bề rộng tối thiểu — 375px không cuộn ngang. */}
+          <div
+            className={`overflow-x-auto transition-opacity ${dangTai ? "opacity-60" : ""}`}
+            aria-busy={dangTai}
+          >
+            <div className="md:min-w-180">
             <div className="hidden gap-2 border-b border-hairline bg-surface-muted px-4 py-2 text-label font-semibold uppercase tracking-wide text-ink-muted md:grid md:grid-cols-[1.5fr_1fr_0.8fr_0.5fr_0.8fr_1fr]">
               <span>Khách hàng</span>
               <span>Số điện thoại</span>
@@ -991,27 +964,31 @@ export default function PatientListView({
                 ))}
               </div>
             )}
+            </div>
           </div>
-        </div>
-        <div className="flex flex-col items-center gap-2 border-t border-line px-4 py-3 sm:flex-row sm:justify-between">
-          <p className="text-xs tabular-nums text-ink-muted">{dongHienThi}</p>
-          <ThanhSoTrang
-            trang={phanTrang.trang}
-            soTrang={phanTrang.soTrang}
-            onChon={doiTrang}
-            nhan="Chuyển trang danh sách bệnh nhân"
-            dangTai={dangTai}
-          />
-        </div>
-      </section>
+          <div className="flex flex-col items-center gap-2 border-t border-line px-4 py-3 sm:flex-row sm:justify-between">
+            <p className="text-xs tabular-nums text-ink-muted">{dongHienThi}</p>
+            <ThanhSoTrang
+              trang={phanTrang.trang}
+              soTrang={phanTrang.soTrang}
+              onChon={doiTrang}
+              nhan="Chuyển trang danh sách bệnh nhân"
+              dangTai={dangTai}
+            />
+          </div>
+        </section>
+      </div>
     );
   }
 
   return (
-    <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(250px,0.82fr)_minmax(380px,1.42fr)_minmax(250px,0.8fr)]">
-      {directory}
-      {overview}
-      {visitPanel}
+    <div className="min-w-0 space-y-4">
+      {overviewTools}
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(250px,0.82fr)_minmax(380px,1.42fr)_minmax(250px,0.8fr)]">
+        {directory}
+        {overview}
+        {visitPanel}
+      </div>
     </div>
   );
 }

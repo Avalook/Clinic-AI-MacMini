@@ -43,6 +43,8 @@ export default function KhoiDichVuHoSo({
   choGhi,
   onDaDoi,
   vePhieuCu,
+  giaoDienBanKham = false,
+  congCu,
 }: {
   visitId: string;
   choGhi: boolean;
@@ -50,6 +52,10 @@ export default function KhoiDichVuHoSo({
   onDaDoi: () => void;
   /** Phiếu cũ của lượt, chỉ xem (shell dựng). */
   vePhieuCu: (formId: string) => ReactNode;
+  /** Tuỳ chỉnh riêng cho thẻ dịch vụ trên màn Bàn khám. */
+  giaoDienBanKham?: boolean;
+  /** Công cụ đặt cùng hàng với thông tin dịch vụ. */
+  congCu?: ReactNode;
 }) {
   const [goi, setGoi] = useState<GoiHoSo | null>(null);
   const [mo, setMo] = useState(false);
@@ -108,10 +114,11 @@ export default function KhoiDichVuHoSo({
         <span className="text-meta text-ink-muted">Dịch vụ của lượt</span>
         <b className="text-emph text-ink">{goi.dich_vu.ten ?? "Chưa gán"}</b>
         {choGhi && goi.doi_duoc ? (
-          <Button size="sm" variant="ghost" aria-expanded={mo} onClick={() => setMo((x) => !x)}>
+          <Button size="sm" variant={giaoDienBanKham ? "primary" : "ghost"} aria-expanded={mo} onClick={() => setMo((x) => !x)}>
             Đổi dịch vụ
           </Button>
         ) : null}
+        {congCu ? <div className="ml-auto">{congCu}</div> : null}
       </div>
       {choGhi && !goi.doi_duoc && goi.ly_do_khong_doi ? (
         <p className="text-meta text-ink-muted">{goi.ly_do_khong_doi}</p>

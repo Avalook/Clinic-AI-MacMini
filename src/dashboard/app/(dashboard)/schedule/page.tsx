@@ -243,19 +243,6 @@ export default async function SchedulePage({
         <section className="min-w-0 space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
           <div>
             <h2 className="font-semibold text-ink">Đăng ký / xếp ca</h2>
-            <p className="mt-0.5 text-sm text-ink-muted">
-              Form y hệt file Excel: hàng là vị trí, cột là ngày và ca. Bấm vào ô để{" "}
-              {isAdmin ? (
-                <>
-                  xếp người (dấu <b>+</b>), gỡ ca hoặc <b>Đổi người</b>.
-                </>
-              ) : (
-                <>
-                  <b>Đổi người</b> trong ca.
-                </>
-              )}{" "}
-              Ca xếp ở đây vào thẳng lịch chính thức của tuần.
-            </p>
           </div>
           <RosterRegisterTable
             key={week}

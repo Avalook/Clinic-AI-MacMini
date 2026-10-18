@@ -66,6 +66,11 @@ async def test_events_keeps_more_than_two_hundred_rows_for_the_day() -> None:
 
     assert len(result["items"]) == 250
     args = pool.fetch.await_args.args
+    assert len(args) == 4
     assert args[1] == identity.clinic_id
     assert args[3] - args[2] == timedelta(days=1)
     assert args[2].tzinfo is not None
+
+    query = args[0].upper()
+    assert "LIMIT" not in query
+    assert "OFFSET" not in query

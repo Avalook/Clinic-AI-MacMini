@@ -36,7 +36,8 @@ _KY = ("tuan", "thang")
 
 _SQL = """
 WITH dong AS (
-    SELECT x.id, x.ton_id, x.vat_tu_id, x.so_luong, x.thuc_te, x.gia_nhap,
+    SELECT x.id, x.dao_txn_id IS NOT NULL AS la_dong_dao,
+           x.ton_id, x.vat_tu_id, x.so_luong, x.thuc_te, x.gia_nhap,
            p.tao_luc, p.giao_dich,
            coalesce(po.loai, p.loai) AS loai_goc,
            coalesce(o.so_luong, x.so_luong) AS so_goc,
@@ -52,6 +53,9 @@ WITH dong AS (
        AND t.room_id IS NOT NULL
 ), dem AS (
     SELECT * FROM dong WHERE thuc_te IS NOT NULL AND NOT da_dao
+), dem_moi_nhat AS (
+    SELECT DISTINCT ON (ton_id) ton_id, giao_dich, tao_luc, thuc_te
+      FROM dem ORDER BY ton_id, giao_dich DESC
 ), dau AS (
     SELECT DISTINCT ON (ton_id) ton_id, giao_dich, tao_luc, thuc_te
       FROM dem WHERE tao_luc <= $3 ORDER BY ton_id, giao_dich DESC
@@ -80,6 +84,8 @@ SELECT t.vat_tu_id::text, t.room_id::text, s.name AS ten, s.don_vi,
         AND c.giao_dich > d.giao_dich) AS du_moc,
        coalesce(f.nhan, 0) AS nhan, coalesce(f.tra, 0) AS tra,
        coalesce(f.huy, 0) AS huy, coalesce(f.tra_ncc, 0) AS tra_ncc,
+       coalesce(cp.cap_trong_ky, 0) AS cap_trong_ky,
+       dm.thuc_te AS thuc_te_gan_nhat, dm.tao_luc AS thuc_te_gan_nhat_luc,
        coalesce((SELECT g.gia_nhap FROM dong g
                   WHERE g.vat_tu_id = t.vat_tu_id
                     AND (c.giao_dich IS NULL OR g.giao_dich <= c.giao_dich)
@@ -90,6 +96,19 @@ SELECT t.vat_tu_id::text, t.room_id::text, s.name AS ten, s.don_vi,
   JOIN public.clinic_room r ON r.id = t.room_id AND r.clinic_id = t.clinic_id
   LEFT JOIN moc_dau d ON d.ton_id = t.id
   LEFT JOIN cuoi c ON c.ton_id = t.id
+  LEFT JOIN dem_moi_nhat dm ON dm.ton_id = t.id
+  LEFT JOIN LATERAL (
+      SELECT sum(
+                 CASE
+                     WHEN f.la_dong_dao AND f.so_goc > 0 THEN f.so_luong
+                     WHEN NOT f.la_dong_dao AND f.so_luong > 0 THEN f.so_luong
+                     ELSE 0
+                 END
+             ) AS cap_trong_ky
+        FROM dong f
+       WHERE f.ton_id = t.id AND f.tao_luc >= $3 AND f.tao_luc < $4
+         AND f.loai_goc IN ('XUAT_PHONG', 'CHUYEN_PHONG')
+  ) cp ON true
   LEFT JOIN LATERAL (
       SELECT sum(f.so_luong)
                  FILTER (WHERE f.so_goc > 0 AND f.loai_goc <> 'HUY') AS nhan,
@@ -167,10 +186,18 @@ async def tinh_theo_moc(
                 "tra": tra if kq else None,
                 "cuoi": r["cuoi"] if kq else None,
                 "tieu_hao": kq["so_luong"] if kq else None,
+                "da_dung": kq["so_luong"] - Decimal(r["huy"]) if kq else None,
                 "trong_do_huy": r["huy"] if kq else None,
                 "tra_nha_san_xuat": r["tra_ncc"] if kq else None,
+                "cap_trong_ky": Decimal(r["cap_trong_ky"]),
+                "thuc_te_gan_nhat": r["thuc_te_gan_nhat"],
+                "thuc_te_gan_nhat_luc": r["thuc_te_gan_nhat_luc"],
                 "gia_nhap": r["gia_nhap"],
                 "gia_tri": kq["gia_tri"] if kq else None,
+                "gia_tri_da_dung": (kq["so_luong"] - Decimal(r["huy"]))
+                * Decimal(r["gia_nhap"])
+                if kq
+                else None,
                 "dem_dau_luc": r["dau_luc"] if kq else None,
                 "dau_trong_ky": bool(r["dau_trong_ky"]) if kq else False,
                 "dem_cuoi_luc": r["cuoi_luc"] if kq else None,
@@ -208,6 +235,7 @@ async def doc_tieu_hao(
                 "room_id": d["room_id"],
                 "phong": d["phong"],
                 "gia_tri": Decimal(0),
+                "gia_tri_da_dung": Decimal(0),
                 "so_dong": 0,
                 "chua_du": 0,
             },
@@ -215,6 +243,7 @@ async def doc_tieu_hao(
         t["so_dong"] += 1
         if d["du_du_lieu"]:
             t["gia_tri"] += d["gia_tri"]
+            t["gia_tri_da_dung"] += d["gia_tri_da_dung"]
         else:
             t["chua_du"] += 1
     return {
@@ -224,4 +253,7 @@ async def doc_tieu_hao(
         "items": ds,
         "theo_phong": list(tong.values()),
         "tong_gia_tri": sum((t["gia_tri"] for t in tong.values()), Decimal(0)),
+        "tong_gia_tri_da_dung": sum(
+            (t["gia_tri_da_dung"] for t in tong.values()), Decimal(0)
+        ),
     }

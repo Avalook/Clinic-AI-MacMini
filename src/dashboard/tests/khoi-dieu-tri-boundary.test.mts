@@ -83,7 +83,7 @@ test("thẻ điều trị = khung thẻ chỉ định + phần điều trị (m�
   assert.match(KQC, /nhan="Hoàn tác chỉ định"/);
   // Shell dựng MỘT bộ thuộc tính thẻ cho cả phiếu đầy đủ lẫn hồ sơ tối giản.
   assert.match(LUOT, /oDieuTri=\{chiMuc \|\| khoi1 \? undefined : theDieuTri\}/);
-  assert.match(LUOT, /<KhoiDieuTri visitId=\{visitId\} choGhi=\{choGhi\} chiDinh=\{dsDieuTri\} ketQua=\{propsKetQua\} \/>/);
+  assert.match(LUOT, /<KhoiDieuTri visitId=\{visitId\} choGhi=\{choGhi\} chiDinh=\{dsDieuTri\} ketQua=\{propsKetQua\} goiYTrong=\{giaoDienBanKham \? null : undefined\} \/>/);
   assert.match(LUOT, /ketQua=\{propsKetQua\}/);
 });
 

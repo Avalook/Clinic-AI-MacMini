@@ -40,7 +40,6 @@ export default function TabThuNgan({ quay, chiXem = false }: { quay: "dich_vu" |
         soNgaySau={0}
         onChon={(k) => chonNgay(k?.den ?? homNay)}
       /> : <NgayTruc state={phamVi} onChon={chonNgay} />}
-      {phamVi.ready && !thaoTac ? <p className="text-body text-ink-muted">Chỉ xem lịch sử ca đã trực.</p> : null}
       <div role="tablist" aria-label="Quầy thu ngân" className="flex flex-wrap gap-1">
         {TAB.filter(t => t.ma !== "cho" || thaoTac).map((t) => (
           <button
