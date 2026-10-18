@@ -23,8 +23,10 @@ import pytest_asyncio
 from clinicai.api.exceptions import ValidationError
 from clinicai.events.consumers.hanh_trinh import _tu_xep_bat
 from clinicai.services import nhan_tai_phong as ntp
+from clinicai.services.bill_service import hoa_don_con_no
 from clinicai.services.clinic_config_service import ClinicConfigService
 from clinicai.services.hoan_tac_service import HoanTacService
+from clinicai.services.lam_truoc_thu_sau import LamTruocThuSauService
 from clinicai.services.lenh_kham_core import khoa_luot
 from clinicai.services.luot_kham_doc import BangLuotKham
 from clinicai.services.luot_kham_service import LuotKhamConflictError
@@ -344,6 +346,87 @@ async def test_nhan_chua_chot_duoc_bat_dau_van_theo_luat_tien(bat: RB) -> None:
         )
         == "SELECTED"
     )
+
+
+async def test_huy_bat_dau_nham_roi_bo_chi_dinh_cap_nhat_tien_thu(
+    bat: RB,
+) -> None:
+    order = await _cd_o(bat, bat.sa1, selection="PENDING", gia=200_000)
+    await _nhan(bat, bat.sa1, order)
+    await LamTruocThuSauService(bat.pool).dat(
+        visit_id=bat.visit_id, bat=True, identity=bat.le_tan
+    )
+    lan = await _bat_dau(bat, order)
+
+    form = await bat.pool.fetchrow(
+        "SELECT form_id, version FROM form_definition"
+        " WHERE clinic_id = $1::uuid ORDER BY form_id LIMIT 1",
+        CLINIC,
+    )
+    assert form is not None
+    await bat.pool.execute(
+        "INSERT INTO form_instance (clinic_id, service_order_id, form_id,"
+        " version, revision, nhap_boi, du_lieu)"
+        " VALUES ($1::uuid, $2::uuid, $3, $4, 1, $5::uuid, $6::jsonb)",
+        CLINIC,
+        order,
+        form["form_id"],
+        form["version"],
+        bat.bac_si.staff_id,
+        json.dumps(
+            {"ghi_chu": {"gia_tri": "nhập nhầm", "nguon": "USER"}},
+            ensure_ascii=False,
+        ),
+    )
+    th = await _exe(bat).xem(order_id=order, identity=bat.bac_si)
+    assert th["huy_bat_dau_duoc"] is True
+
+    async with bat.pool.acquire() as conn:
+        truoc = await hoa_don_con_no(
+            conn,
+            clinic_id=CLINIC,
+            visit_id=bat.visit_id,
+            coi_nhu_chon=[order],
+        )
+    dong_truoc = [d for d in truoc.dong if d.source_id == order]
+    assert len(dong_truoc) == 1 and dong_truoc[0].thanh_tien == 200_000
+
+    ket_qua = await _exe(bat).huy_bat_dau(
+        order_id=order,
+        attempt_id=lan["attempt_id"],
+        expected_execution_revision=lan["execution_revision"],
+        identity=bat.bac_si,
+        idempotency_key=str(uuid.uuid4()),
+    )
+    assert ket_qua["execution_status"] == "PENDING"
+
+    phieu = await bat.pool.fetchrow(
+        "SELECT trang_thai, du_lieu, revision FROM form_instance"
+        " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid",
+        CLINIC,
+        order,
+    )
+    assert phieu is not None
+    assert phieu["trang_thai"] == "DRAFT"
+    assert "ghi_chu" not in json.loads(phieu["du_lieu"])
+    assert phieu["revision"] == 2
+
+    huy = await HoanTacService(bat.pool).huy_chi_dinh(
+        order_id=order,
+        identity=bat.bac_si,
+        ly_do="Chỉ định nhầm, khách không làm",
+        xac_nhan=True,
+    )
+    assert huy["da_thu_tien"] is False
+
+    async with bat.pool.acquire() as conn:
+        sau = await hoa_don_con_no(
+            conn,
+            clinic_id=CLINIC,
+            visit_id=bat.visit_id,
+            coi_nhu_chon=[order],
+        )
+    assert order not in {d.source_id for d in sau.dong}
 
 
 # ── Nhận chéo ────────────────────────────────────────────────────────────────

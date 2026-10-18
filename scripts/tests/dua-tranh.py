@@ -655,6 +655,7 @@ async def main() -> int:
                 await phien["duocsi"].goi(
                     "POST",
                     "/api/v1/pharmacy/receive",
+                    headers=khoa(),
                     json={
                         "drug_catalog_id": ma_thuoc,
                         "so_luong": 50,

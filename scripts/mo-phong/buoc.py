@@ -464,6 +464,7 @@ def dam_bao_lo_thuoc(drug_catalog_id: str, so_luong: int = 500) -> str:
             "expiry_date": (dt.date.today() + dt.timedelta(days=365)).isoformat(),
             "unit": "viên",
         },
+        headers=khoa(),
     )
     return id_mot(
         f"select id from drug_batch where drug_catalog_id='{drug_catalog_id}'"

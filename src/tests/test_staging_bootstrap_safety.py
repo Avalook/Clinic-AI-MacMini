@@ -325,6 +325,7 @@ class TestScriptDungTruocDocker:
                 "GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon" not in script
             )
             assert "20261019100000_harden_public_function_acl.sql" in script
+            assert "20261019120000_restrict_stock_postgrest_reads.sql" in script
 
         acl = (
             REPO / "supabase/migrations/20261019100000_harden_public_function_acl.sql"
@@ -335,6 +336,13 @@ class TestScriptDungTruocDocker:
         assert "ALTER DEFAULT PRIVILEGES FOR ROLE postgres\n" in acl
         assert "FROM authenticated;" in acl
         assert "FROM PUBLIC, anon, authenticated, service_role;" in acl
+
+        stock_acl = (
+            REPO / "supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql"
+        ).read_text(encoding="utf-8")
+        assert "REVOKE ALL PRIVILEGES ON TABLE" in stock_acl
+        assert "FROM anon, authenticated;" in stock_acl
+        assert "TO service_role;" in stock_acl
 
 
 class TestCaddy:

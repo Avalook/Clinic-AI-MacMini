@@ -239,8 +239,9 @@ SQL
     cat "$CHE_SQL"
 } | psql_stg --single-transaction >/dev/null
 # The dump omits ACLs and the migration ledger may already contain prior
-# GRANTs, so restore the explicit function allowlist on every database restore.
+# GRANTs, so restore the explicit function and stock-read ACLs on every restore.
 psql_stg -f "$STAGING_DIR/supabase/migrations/20261019100000_harden_public_function_acl.sql"
+psql_stg -f "$STAGING_DIR/supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql"
 xong "đã nạp + che (giao dịch đã commit)"
 xong "giữ lại $(psql_stg -tAc 'SELECT count(*) FROM auth.sessions' | tr -d ' \r') phiên đăng nhập"
 

@@ -123,15 +123,6 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
       }),
     );
 
-  // Cảnh báo nhỏ, KHÔNG chặn: đơn vị gõ khác mọi đơn vị lô đang có của thuốc
-  // → tồn sẽ tách thành hai dòng đơn vị. Trả chuỗi đơn vị lô để hiện, hoặc null.
-  const khacDonViLo = (d: Dong): string | null => {
-    const lo = dangDung.find((t) => t.ten === d.ten)?.don_vi_lo ?? [];
-    const go = d.don_vi.trim().toLowerCase();
-    if (!go || lo.length === 0) return null;
-    return lo.some((x) => x.trim().toLowerCase() === go) ? null : lo.join(", ");
-  };
-
   const tong = dong.reduce(
     (s, d) => s + (Number(d.so_luong.replace(",", ".")) || 0) * (Number(d.gia_nhap) || 0),
     0,
@@ -276,10 +267,10 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                     onChange={(e) => suaDong(d.k, { don_vi: e.target.value })}
                     className={INPUT}
                   />
-                  {khacDonViLo(d) ? (
-                    <span role="status" className="mt-1 block text-meta text-warning">
-                      Lô đang có tính theo {khacDonViLo(d)} — nhập “{d.don_vi.trim()}” sẽ thành tồn
-                      riêng.
+                  {d.so_lo.trim() ? (
+                    <span role="status" className="mt-1 block text-meta text-ink-soft">
+                      Nếu mã lô này đã có trong kho, đơn vị phải trùng với đơn vị của lô. Nhập
+                      khác đơn vị sẽ bị từ chối.
                     </span>
                   ) : null}
                 </label>

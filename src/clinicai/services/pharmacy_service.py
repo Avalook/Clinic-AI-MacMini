@@ -31,6 +31,7 @@ ràng buộc Postgres.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import unicodedata
 from datetime import date
@@ -81,6 +82,28 @@ def _so(value: Any, *, ten: str, cho_0: bool = False) -> Decimal:
 def _don_vi(value: str | None) -> str:
     """Chỉ chuẩn hoá cách viết; hộp, vỉ, viên luôn là các đơn vị khác nhau."""
     return " ".join(unicodedata.normalize("NFC", value or "").casefold().split())
+
+
+def _kiem_don_vi_cung_lo(hang: list[Any], *, batch_code: str, unit: str) -> None:
+    """Không gộp lô nếu bất kỳ nơi chứa hiện có nào dùng đơn vị khác."""
+    khac = next((row for row in hang if _don_vi(row["unit"]) != _don_vi(unit)), None)
+    if khac is not None:
+        raise ConflictError(
+            f"Số lô {batch_code} đang tính theo đơn vị {khac['unit']} — "
+            "nhập cùng đơn vị."
+        )
+
+
+def _so_chuan(value: Decimal) -> str:
+    """Chuỗi số ổn định cho dấu vân tay; 2, 2.0 và 2.000 là cùng một lượng."""
+    return format(value.normalize(), "f")
+
+
+def _dau_van_tay(payload: dict[str, Any]) -> str:
+    data = json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    return hashlib.sha256(data).hexdigest()
 
 
 def _so_chu(v: Any) -> str | None:
@@ -490,6 +513,7 @@ class PharmacyService:
         unit: str,
         cost_price: Any = None,
         ly_do: str | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Nhập một lô vào kho. Tạo lô nếu chưa có, rồi ghi một dòng RECEIVE.
 
@@ -501,12 +525,42 @@ class PharmacyService:
         một số dư mà sổ không giải thích được — đúng thứ mà cả thiết kế kho này
         dựng ra để tránh.
         """
+        gia: Decimal | None = None
+        if cost_price is not None:
+            try:
+                gia = Decimal(str(cost_price))
+            except Exception as exc:  # noqa: BLE001 — mọi kiểu rác đều về một câu
+                raise ValidationError("Giá nhập phải là một con số hữu hạn.") from exc
+            if not gia.is_finite() or gia < 0:
+                raise ValidationError("Giá nhập phải là một con số hữu hạn không âm.")
+
         luong, ma_lo, don_vi, han = kiem_dong_nhap(
             so_luong=so_luong, batch_code=batch_code, expiry_date=expiry_date, unit=unit
         )
+        dau_van_tay = _dau_van_tay(
+            {
+                "drug_catalog_id": str(drug_catalog_id),
+                "location_id": identity.location_id,
+                "batch_code": ma_lo,
+                "expiry_date": han.isoformat() if han else None,
+                "unit": _don_vi(don_vi),
+                "quantity": _so_chuan(luong),
+                "cost_price": _so_chuan(gia) if gia is not None else None,
+                "reason": (ly_do or "").strip() or None,
+            }
+        )
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                lo_id, _txn = await nhap_vao_lo(
+                replay = await self._tim_yeu_cau_gui_lai(
+                    conn,
+                    identity=identity,
+                    operation="receive",
+                    idempotency_key=idempotency_key,
+                    payload_sha256=dau_van_tay,
+                )
+                if replay is not None:
+                    return replay
+                lo_id, txn_id = await nhap_vao_lo(
                     conn,
                     identity=identity,
                     drug_catalog_id=drug_catalog_id,
@@ -514,12 +568,27 @@ class PharmacyService:
                     batch_code=ma_lo,
                     expiry_date=han,
                     unit=don_vi,
-                    cost_price=cost_price,
+                    cost_price=gia,
                     ly_do=ly_do,
                     ref_type="manual",
                     ref_id=None,
                 )
                 ton = await self._ton_cua_lo(conn, identity, lo_id)
+                ket_qua = {
+                    "ok": True,
+                    "drug_batch_id": str(lo_id),
+                    "quantity_on_hand": ton,
+                }
+                await self._luu_yeu_cau_gui_lai(
+                    conn,
+                    identity=identity,
+                    operation="receive",
+                    idempotency_key=idempotency_key,
+                    payload_sha256=dau_van_tay,
+                    inventory_txn_id=txn_id,
+                    drug_batch_id=str(lo_id),
+                    response=ket_qua,
+                )
 
         logger.info(
             "pharmacy_batch_received",
@@ -527,7 +596,7 @@ class PharmacyService:
             quantity=str(luong),
             by_staff_id=identity.staff_id,
         )
-        return {"ok": True, "drug_batch_id": str(lo_id), "quantity_on_hand": ton}
+        return ket_qua
 
     async def cap_phat(
         self,
@@ -1570,6 +1639,7 @@ class PharmacyService:
         drug_batch_id: str,
         so_luong: Any,
         ly_do: str,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Kiểm kê lệch. `so_luong` mang dấu: âm là bớt, dương là thêm."""
         ly = (ly_do or "").strip()
@@ -1579,6 +1649,8 @@ class PharmacyService:
             lech = Decimal(str(so_luong))
         except Exception as exc:  # noqa: BLE001
             raise ValidationError("Số lượng điều chỉnh phải là một con số.") from exc
+        if not lech.is_finite():
+            raise ValidationError("Số lượng điều chỉnh phải là một con số hữu hạn.")
         if lech == 0:
             raise ValidationError("Điều chỉnh 0 thì không phải một điều chỉnh.")
         return await self._ghi_kho_don_gian(
@@ -1588,6 +1660,7 @@ class PharmacyService:
             quantity=lech,
             ly_do=ly,
             event_type="pharmacy.adjusted",
+            idempotency_key=idempotency_key,
         )
 
     async def huy(
@@ -1597,6 +1670,7 @@ class PharmacyService:
         drug_batch_id: str,
         so_luong: Any,
         ly_do: str,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """Huỷ thuốc hỏng / hết hạn. Ra khỏi kho nhưng không ra khỏi sổ."""
         ly = (ly_do or "").strip()
@@ -1609,6 +1683,7 @@ class PharmacyService:
             quantity=-_so(so_luong, ten="Số lượng huỷ"),
             ly_do=ly,
             event_type="pharmacy.discarded",
+            idempotency_key=idempotency_key,
         )
 
     # ── Huỷ phần chưa giao / khách trả thuốc (contract tiền–thuốc CP5) ────
@@ -2311,6 +2386,81 @@ class PharmacyService:
             "dispense_status": row["dispense_status"],
         }
 
+    @staticmethod
+    async def _tim_yeu_cau_gui_lai(
+        conn: asyncpg.Connection,
+        *,
+        identity: StaffIdentity,
+        operation: str,
+        idempotency_key: str | None,
+        payload_sha256: str,
+    ) -> dict[str, Any] | None:
+        """Khoá theo key và đọc kết quả cũ bên trong cùng transaction ghi sổ."""
+        if idempotency_key is None:
+            return None
+        khoa_day_du = (
+            f"{identity.clinic_id}:{identity.staff_id}:{operation}:{idempotency_key}"
+        )
+        await conn.fetchval(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", khoa_day_du
+        )
+        row = await conn.fetchrow(
+            """
+            SELECT payload_sha256, response::text AS response
+              FROM app_private.pharmacy_inventory_request
+             WHERE clinic_id = $1::uuid AND staff_id = $2::uuid
+               AND operation = $3 AND idempotency_key = $4::uuid
+            """,
+            identity.clinic_id,
+            identity.staff_id,
+            operation,
+            idempotency_key,
+        )
+        if row is None:
+            return None
+        if row["payload_sha256"] != payload_sha256:
+            raise ConflictError(
+                "Mã gửi lại này đã dùng cho nội dung khác. Hãy tải lại kho và "
+                "tạo thao tác mới."
+            )
+        response: dict[str, Any] = json.loads(row["response"])
+        if isinstance(response.get("quantity_on_hand"), str):
+            response["quantity_on_hand"] = Decimal(response["quantity_on_hand"])
+        return response
+
+    @staticmethod
+    async def _luu_yeu_cau_gui_lai(
+        conn: asyncpg.Connection,
+        *,
+        identity: StaffIdentity,
+        operation: str,
+        idempotency_key: str | None,
+        payload_sha256: str,
+        inventory_txn_id: str,
+        drug_batch_id: str,
+        response: dict[str, Any],
+    ) -> None:
+        """Lưu key + kết quả sau ledger insert, trước khi transaction commit."""
+        if idempotency_key is None:
+            return
+        await conn.execute(
+            """
+            INSERT INTO app_private.pharmacy_inventory_request
+                (clinic_id, staff_id, operation, idempotency_key,
+                 payload_sha256, inventory_txn_id, drug_batch_id, response)
+            VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6::uuid, $7::uuid,
+                    $8::jsonb)
+            """,
+            identity.clinic_id,
+            identity.staff_id,
+            operation,
+            idempotency_key,
+            payload_sha256,
+            inventory_txn_id,
+            drug_batch_id,
+            json.dumps(response, ensure_ascii=False, default=str),
+        )
+
     async def _ghi_kho_don_gian(
         self,
         *,
@@ -2320,9 +2470,29 @@ class PharmacyService:
         quantity: Decimal,
         ly_do: str,
         event_type: str,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
+        operation = txn_type.lower()
+        dau_van_tay = _dau_van_tay(
+            {
+                "drug_batch_id": str(drug_batch_id),
+                "location_id": identity.location_id,
+                "quantity": _so_chuan(quantity),
+                "reason": ly_do,
+            }
+        )
         async with self._pool.acquire() as conn:
             async with conn.transaction():
+                replay = await self._tim_yeu_cau_gui_lai(
+                    conn,
+                    identity=identity,
+                    operation=operation,
+                    idempotency_key=idempotency_key,
+                    payload_sha256=dau_van_tay,
+                )
+                if replay is not None:
+                    return replay
+
                 # Điều chỉnh / huỷ tay ở màn Kho: chỉ lô của kho cơ sở đang làm.
                 lo = await conn.fetchrow(
                     """
@@ -2346,7 +2516,7 @@ class PharmacyService:
                         f"Lô này chỉ còn {ton} — không bớt được {-quantity}."
                     )
 
-                await self._ghi_so(
+                txn_id = await self._ghi_so_trong(
                     conn,
                     identity=identity,
                     drug_batch_id=drug_batch_id,
@@ -2357,6 +2527,17 @@ class PharmacyService:
                     ref_id=None,
                 )
                 con = await self._ton_cua_lo(conn, identity, drug_batch_id)
+                ket_qua = {"ok": True, "quantity_on_hand": con}
+                await self._luu_yeu_cau_gui_lai(
+                    conn,
+                    identity=identity,
+                    operation=operation,
+                    idempotency_key=idempotency_key,
+                    payload_sha256=dau_van_tay,
+                    inventory_txn_id=txn_id,
+                    drug_batch_id=drug_batch_id,
+                    response=ket_qua,
+                )
                 await _log(
                     conn,
                     identity=identity,
@@ -2369,7 +2550,7 @@ class PharmacyService:
                         "quantity_on_hand": str(con),
                     },
                 )
-        return {"ok": True, "quantity_on_hand": con}
+        return ket_qua
 
     async def _ghi_so(
         self,
@@ -2385,6 +2566,8 @@ class PharmacyService:
         payment_cycle_id: str | None = None,
         allocation_id: str | None = None,
     ) -> None:
+        if not quantity.is_finite():
+            raise ValidationError("Số lượng biến động kho phải là số hữu hạn.")
         # `execute`, không RETURNING: các đường cũ (giao, huỷ, điều chỉnh…)
         # không cần id dòng sổ — giữ đúng một lời gọi ghi như trước 29/09.
         await conn.execute(
@@ -2421,6 +2604,8 @@ class PharmacyService:
         chỉ đòi nó khi `ref_type` là 'manual' hoặc trống, nhưng một dòng sổ
         không biết ai làm thì về sau không đối soát được với ai cả.
         """
+        if not quantity.is_finite():
+            raise ValidationError("Số lượng biến động kho phải là số hữu hạn.")
         ma: str = await conn.fetchval(
             _SQL_GHI_SO + " RETURNING id::text",
             identity.clinic_id,
@@ -2560,6 +2745,7 @@ async def nhap_vao_lo(
                 f"{han_cu}, "
                 "khác hạn vừa nhập. Kiểm tra lại."
             )
+        _kiem_don_vi_cung_lo(hang, batch_code=batch_code, unit=unit)
     if lo is not None:
         lo_id = lo["id"]
         if cost_price is not None:
@@ -2573,11 +2759,6 @@ async def nhap_vao_lo(
             )
     else:
         # Hàng thứ hai của cùng lô (đã có ở nơi kia): dùng chung mã tem, đơn vị.
-        if hang and _don_vi(hang[0]["unit"]) != _don_vi(unit):
-            raise ConflictError(
-                f"Số lô {batch_code} đang tính theo đơn vị {hang[0]['unit']} — "
-                "nhập cùng đơn vị."
-            )
         lo_id = await conn.fetchval(
             """
             INSERT INTO public.drug_batch

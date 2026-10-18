@@ -85,7 +85,7 @@ export const VI_TRI_LICH_KHAM: Station = {
   nhom: "BAC_SI",
 };
 
-/** Vị trí LIỀN NHAU cùng phòng gom thành một nhóm — cột "Phòng" gộp ô. */
+/** Các vị trí cùng phòng gom thành một nhóm — cột "Phòng" gộp ô. */
 export interface NhomPhong {
   phong: string;
   maPhong: string;
@@ -99,20 +99,26 @@ export interface NhomPhong {
  *  (mã `VT-…`, không có ô tầng) biến khỏi bảng lịch mà không ai biết. Danh mục
  *  máy chủ trả đã lọc `is_active`; ở đây vị trí nào có trong danh mục là có hàng.
  *
- *  Chỉ gộp hai vị trí LIỀN NHAU cùng phòng: cùng tên mà nằm cách nhau thì là hai
- *  nhóm (thứ tự dòng do quản lý đặt, không tự xáo lại). */
+ *  Nhóm theo mã phòng, theo lần xuất hiện đầu tiên; vị trí trong phòng giữ
+ *  nguyên thứ tự danh mục. */
 export function phanPhong(stations: readonly Station[]): NhomPhong[] {
-  const ra: NhomPhong[] = [];
-  for (const s of stations) {
-    const cuoi = ra[ra.length - 1];
-    const khoa = s.maPhong || s.phong;
-    if (cuoi && (cuoi.maPhong || cuoi.phong) === khoa) cuoi.stations.push(s);
-    else ra.push({ phong: s.phong, maPhong: s.maPhong, stations: [s] });
-  }
-  return ra;
+  return stations.reduce<NhomPhong[]>((nhom, station) => {
+    const khoa = station.maPhong || station.phong;
+    const viTriNhom = khoa
+      ? nhom.findIndex((item) => (item.maPhong || item.phong) === khoa)
+      : -1;
+
+    if (viTriNhom < 0) {
+      return [...nhom, { phong: station.phong, maPhong: station.maPhong, stations: [station] }];
+    }
+
+    return nhom.map((item, index) =>
+      index === viTriNhom ? { ...item, stations: [...item.stations, station] } : item,
+    );
+  }, []);
 }
 
-/** Vị trí LIỀN NHAU cùng tầng → một nhóm — cột "Tầng" gộp ô, bên trong gom
+/** Các vị trí cùng tầng gom thành một nhóm — cột "Tầng" gộp ô, bên trong gom
  *  theo phòng như `phanPhong`. */
 export interface NhomTang {
   tang: string;
@@ -124,19 +130,25 @@ export interface NhomTang {
 /** Gom vị trí theo TẦNG rồi theo PHÒNG, giữ nguyên thứ tự danh mục (01/10/2026).
  *
  *  Cùng luật `phanPhong`: KHÔNG LỌC (vị trí không tầng — Trưởng ca — vẫn có
- *  hàng, ô Tầng để "—"), chỉ gộp hàng LIỀN NHAU. Một nhóm phòng không bao giờ
- *  vắt qua hai tầng: tách tầng trước, gom phòng trong từng tầng sau. */
+ *  hàng, ô Tầng để "—"). Một nhóm phòng không bao giờ vắt qua hai tầng:
+ *  tách tầng trước, gom phòng trong từng tầng sau. */
 export function phanTang(stations: readonly Station[]): NhomTang[] {
-  const khoi: Station[][] = [];
-  for (const s of stations) {
-    const cuoi = khoi[khoi.length - 1];
-    if (cuoi && cuoi[0].tang === s.tang) cuoi.push(s);
-    else khoi.push([s]);
-  }
-  return khoi.map((ds) => ({
-    tang: ds[0].tang,
-    phongs: phanPhong(ds),
-    soViTri: ds.length,
+  const tangs = stations.reduce<Array<{ tang: string; stations: Station[] }>>((nhom, station) => {
+    const viTriNhom = station.tang
+      ? nhom.findIndex((item) => item.tang === station.tang)
+      : -1;
+
+    if (viTriNhom < 0) return [...nhom, { tang: station.tang, stations: [station] }];
+
+    return nhom.map((item, index) =>
+      index === viTriNhom ? { ...item, stations: [...item.stations, station] } : item,
+    );
+  }, []);
+
+  return tangs.map(({ tang, stations: viTri }) => ({
+    tang,
+    phongs: phanPhong(viTri),
+    soViTri: viTri.length,
   }));
 }
 
