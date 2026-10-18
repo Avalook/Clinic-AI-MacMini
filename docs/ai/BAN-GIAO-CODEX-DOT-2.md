@@ -60,6 +60,11 @@ Hai bẫy đã gặp, đừng lặp lại: (1) model "suy nghĩ ẩn" đốt h�
   --thu-muc scripts/soat_he_thong/ket-qua/model-20261018-093737 --docker clinicai_thu_db
 ```
 
+**Trạng thái dở khi Quang dừng:** mới đọc 3/167 tệp; có 27 thẻ do model nêu (báo cáo
+`ket-qua/20261018-094328/bao-cao.html` đang hiện 89 thẻ = 62 tĩnh + 27 model) nhưng bước **bác bỏ bị
+DUNG chặn nên 27 thẻ ấy CHƯA được kiểm chứng** (mức bằng chứng "chưa biết"). Đừng đưa chúng cho ai sửa;
+chạy lại lệnh dưới sẽ đọc tiếp các tệp còn lại rồi bác bỏ lại toàn bộ.
+
 Phạm vi ≈ 0,67 triệu token (services, router, giao diện tiền/kho/lịch/quyền; bỏ migration cũ).
 Ước chi phí $4–6. Xong báo cáo nằm ở `ket-qua/<giờ>/bao-cao.html`.
 

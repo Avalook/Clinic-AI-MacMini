@@ -101,7 +101,9 @@ def soat(a: argparse.Namespace) -> int:
     )
     thu_muc.mkdir(parents=True, exist_ok=True)
     tien_to = tuple(x for x in (a.tien_to or "").split(",") if x) or None
-    cac_tep = soat_toan_bo.chon_tep(nguon, tien_to)[: a.toi_da_tep or None]
+    cac_tep = soat_toan_bo.chon_tep(nguon, tien_to, a.chi_rui_ro, a.khong_migration)[
+        : a.toi_da_tep or None
+    ]
     models = [m for m in a.models.split(",") if m]
     print(
         f"Đọc {len(cac_tep)} tệp × {len(models)} model · trần ${a.tran} "
@@ -181,6 +183,10 @@ def main(argv: list[str]) -> int:
     q.add_argument("--xac-nhan", required=True, help="model bác bỏ (mạnh hơn)")
     q.add_argument("--tran", type=float, default=4.0)
     q.add_argument("--tien-to", help="chỉ đọc tệp bắt đầu bằng các tiền tố này")
+    q.add_argument(
+        "--chi-rui-ro", action="store_true", help="chỉ tệp tiền/kho/lịch/quyền"
+    )
+    q.add_argument("--khong-migration", action="store_true", help="bỏ tệp .sql cũ")
     q.add_argument("--toi-da-tep", type=int, default=0)
     q.add_argument("--toi-da-nhom", type=int, default=120)
     q.add_argument("--song-song", type=int, default=4)

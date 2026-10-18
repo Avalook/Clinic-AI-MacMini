@@ -83,7 +83,12 @@ def la_rui_ro(duong: str) -> bool:
     return any(k in d for k in TU_KHOA_RUI_RO)
 
 
-def chon_tep(nguon: Nguon, tien_to: tuple[str, ...] | None = None) -> list[Path]:
+def chon_tep(
+    nguon: Nguon,
+    tien_to: tuple[str, ...] | None = None,
+    chi_rui_ro: bool = False,
+    bo_migration: bool = False,
+) -> list[Path]:
     """Mã nguồn cần đọc, rủi ro cao trước, tệp lớn sau; bỏ test, sinh tự động."""
     cac: list[Path] = []
     for goc in (nguon.py, nguon.dash / "app", nguon.dash / "lib", nguon.migrations_dir):
@@ -100,6 +105,10 @@ def chon_tep(nguon: Nguon, tien_to: tuple[str, ...] | None = None) -> list[Path]
             if not che_du_lieu.duoc_gui(rel):
                 continue
             if tien_to and not rel.startswith(tien_to):
+                continue
+            if chi_rui_ro and not la_rui_ro(rel):
+                continue
+            if bo_migration and rel.endswith(".sql"):
                 continue
             cac.append(p)
     return sorted(cac, key=lambda p: (not la_rui_ro(str(p)), -p.stat().st_size))
