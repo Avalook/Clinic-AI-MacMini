@@ -87,6 +87,11 @@ test("lọc vị trí gọn, hướng dẫn xuất kho và kiểm kê phân bi�
   assert.match(lap, /chênh lệch/);
 });
 
+test("nút ghi nhận phiếu huỷ không lặp cụm 'Ghi nhận'", () => {
+  const lap = doc(new URL("LapPhieuVatTu.tsx", thuMuc));
+  assert.match(lap, /loai === "HUY"\s*\?\s*kieu\.nhan\s*:\s*`Ghi nhận \$\{kieu\.nhan\.toLocaleLowerCase\("vi"\)\}`/);
+});
+
 // ── G8b (15/10/2026): tab "Chờ duyệt" — phiếu NHẬP có dòng cần duyệt ────────────────────────
 // Máy chủ quyết quyền (lego Duyệt vật tư), lý do, "chỉ quyết một lần"; màn chỉ vẽ + gửi.
 

@@ -329,7 +329,11 @@ export default function LapPhieuVatTu({
           + Thêm dòng
         </Button>
         <Button type="button" variant="primary" disabled={dang || thieu} onClick={() => void luu()} className="sm:ml-auto">
-          {dang ? "Đang lưu…" : `Ghi nhận ${kieu.nhan.toLocaleLowerCase("vi")}`}
+          {dang
+            ? "Đang lưu…"
+            : loai === "HUY"
+              ? kieu.nhan
+              : `Ghi nhận ${kieu.nhan.toLocaleLowerCase("vi")}`}
         </Button>
       </div>
       {loi ? (
