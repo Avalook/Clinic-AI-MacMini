@@ -194,7 +194,7 @@ async def test_hai_nguoi_cung_bam_chi_mot_nguoi_thang(q: Quay) -> None:
 
 
 async def test_postgres_chan_sua_lan_hai_xoa_va_sua_cot_khac(q: Quay) -> None:
-    tra, _lo, _rx, _ = await _lan_tra(q, 3)
+    tra, lo, _rx, _ = await _lan_tra(q, 3)
     # Cột khác ngoài quyết định: không sửa được kể cả lần đầu.
     with pytest.raises(asyncpg.PostgresError, match="không sửa cột khác"):
         await q.pool.execute(
@@ -217,6 +217,42 @@ async def test_postgres_chan_sua_lan_hai_xoa_va_sua_cot_khac(q: Quay) -> None:
             " disposition_at = now(), disposition_reason = 'không có dòng sổ'"
             " WHERE id=$1::uuid",
             tra,
+        )
+    receive = await q.pool.fetchval(
+        "SELECT id::text FROM inventory_txn WHERE clinic_id=$1::uuid"
+        " AND drug_batch_id=$2::uuid AND txn_type='RECEIVE' LIMIT 1",
+        q.duoc_si.clinic_id,
+        lo,
+    )
+    assert receive is not None
+    # Cùng clinic/lô là chưa đủ: dòng RECEIVE không thể chứng minh đã huỷ tồn.
+    with pytest.raises(asyncpg.CheckViolationError, match="đúng DISCARD"):
+        await q.pool.execute(
+            "UPDATE drug_return SET disposition='HUY', disposition_by=returned_by,"
+            " disposition_at=now(), disposition_reason='Huỷ lô trả',"
+            " disposition_txn_id=$2::uuid WHERE id=$1::uuid",
+            tra,
+            receive,
+        )
+    manual = await PharmacyService(q.pool).huy(
+        identity=q.duoc_si, drug_batch_id=lo, so_luong=1, ly_do="Huỷ kiểm thử"
+    )
+    discard_sai = await q.pool.fetchval(
+        "SELECT id::text FROM inventory_txn WHERE clinic_id=$1::uuid"
+        " AND drug_batch_id=$2::uuid AND txn_type='DISCARD' AND ref_type='manual'"
+        " ORDER BY performed_at DESC LIMIT 1",
+        q.duoc_si.clinic_id,
+        lo,
+    )
+    assert manual["ok"] and discard_sai is not None
+    # Cùng loại nhưng sai lượng và sai ref_type/ref_id cũng phải bị chặn.
+    with pytest.raises(asyncpg.CheckViolationError, match="đúng DISCARD"):
+        await q.pool.execute(
+            "UPDATE drug_return SET disposition='HUY', disposition_by=returned_by,"
+            " disposition_at=now(), disposition_reason='Huỷ lô trả',"
+            " disposition_txn_id=$2::uuid WHERE id=$1::uuid",
+            tra,
+            discard_sai,
         )
     await _xu_ly(q, tra, "BAN_LAI")
     with pytest.raises(asyncpg.PostgresError, match="đã xử lý"):

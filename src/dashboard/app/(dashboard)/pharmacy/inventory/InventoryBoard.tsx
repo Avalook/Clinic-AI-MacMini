@@ -16,7 +16,7 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import type { ThuocKho } from "./DanhMucKho";
-import { guiKho, tienVnd } from "./gui-kho";
+import { guiKho, tienVnd, tonTheoDonVi, tongTonTheoDonVi } from "./gui-kho";
 import NhapLo from "./NhapLo";
 
 interface InvDrug {
@@ -120,16 +120,14 @@ export default function InventoryBoard({
   }, [batches, filter, search]);
 
   const summary = useMemo(() => {
-    let totalUnits = 0;
     let soonCount = 0;
     let expiredCount = 0;
     for (const b of batches) {
-      totalUnits += Number(b.quantity_on_hand);
       // Chỉ đếm lô còn thuốc trên kệ (`canh_bao_han` máy chủ trả).
       if (b.canh_bao_han && b.trang_thai_han === "sap_het_han") soonCount++;
       if (b.canh_bao_han && b.trang_thai_han === "het_han") expiredCount++;
     }
-    return { totalUnits, soonCount, expiredCount };
+    return { tonTheoDonVi: tongTonTheoDonVi(batches), soonCount, expiredCount };
   }, [batches]);
 
   const guiLo = async () => {
@@ -168,7 +166,7 @@ export default function InventoryBoard({
       {loi ? <p role="alert" className="text-meta text-danger">{loi}</p> : null}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {the(batches.length, "Lô thuốc")}
-        {the(fmtQty(summary.totalUnits), "Tổng tồn (đơn vị)")}
+        {the(tonTheoDonVi(summary.tonTheoDonVi), "Tổng tồn (theo từng đơn vị)")}
         {the(summary.soonCount, "Lô sắp hết hạn", summary.soonCount > 0 ? "text-warning" : undefined)}
         {the(summary.expiredCount, "Lô hết hạn còn trên kệ", summary.expiredCount > 0 ? "text-danger" : undefined)}
       </div>
@@ -202,16 +200,18 @@ export default function InventoryBoard({
       {moNhap ? <NhapLo thuoc={thuoc} onXong={() => setMoNhap(false)} /> : null}
 
       <div className={`${TBL_WRAP} overflow-x-auto`}>
-        <table className="w-full min-w-2xl text-left text-body">
+        {/* Điện thoại: bỏ Mã lô (hiện dưới tên thuốc) và Giá nhập để cột TỒN nằm trong
+            màn hình, không phải vuốt ngang mới thấy (đo 17/10 ở 375px). */}
+        <table className="w-full text-left text-body sm:min-w-2xl">
           <thead className={TBL_HEAD}>
             <tr>
               <th className="px-3 py-2">Thuốc</th>
-              <th className="px-3 py-2">Mã lô</th>
+              <th className="hidden px-3 py-2 sm:table-cell">Mã lô</th>
               {tachKhoQuay ? <th className="px-3 py-2">Nơi chứa</th> : null}
               <th className="px-3 py-2">Hạn dùng</th>
               <th className="px-3 py-2 text-right">Tồn</th>
               <th className="px-3 py-2">Đơn vị</th>
-              <th className="px-3 py-2 text-right">Giá nhập</th>
+              <th className="hidden px-3 py-2 text-right sm:table-cell">Giá nhập</th>
               <th className="px-3 py-2">Trạng thái</th>
               <th className="px-3 py-2" />
             </tr>
@@ -246,8 +246,11 @@ export default function InventoryBoard({
                           {b.drug?.variant ? ` (${b.drug.variant})` : ""}
                         </>
                       )}
+                      <span className="block text-meta font-normal text-ink-muted sm:hidden">
+                        {b.batch_code}
+                      </span>
                     </td>
-                    <td className="px-3 py-2 text-ink-muted">{b.batch_code}</td>
+                    <td className="hidden px-3 py-2 text-ink-muted sm:table-cell">{b.batch_code}</td>
                     {tachKhoQuay ? (
                       <td className="px-3 py-2">
                         <Chip tone={b.noi_chua === "KHO" ? "neutral" : "success"}>
@@ -260,7 +263,7 @@ export default function InventoryBoard({
                       {fmtQty(b.quantity_on_hand)}
                     </td>
                     <td className="px-3 py-2 text-ink-muted">{b.unit}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-ink-muted">
+                    <td className="hidden px-3 py-2 text-right tabular-nums text-ink-muted sm:table-cell">
                       {tienVnd(b.cost_price)}
                     </td>
                     <td className="px-3 py-2">

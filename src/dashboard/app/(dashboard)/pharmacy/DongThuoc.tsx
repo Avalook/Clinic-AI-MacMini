@@ -14,6 +14,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import OChon from "@/components/ui/OChon";
+import { cauKhoCoLoKhacDonVi } from "@/lib/lo-bi-loai";
 import { INPUT } from "../form-ui";
 import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot-lan";
 import KhoConChuyenQuay from "./KhoConChuyenQuay";
@@ -55,6 +56,11 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
     dong.purchased_qty !== null ? String(dong.purchased_qty) : "",
   );
   const conCanLo = Math.max(0, dong.can_lo - dong.da_chon);
+  // Kho có lô nhưng khác đơn vị đơn kê → nói thẳng thay vì "kho chưa có lô".
+  const cauKhoKhacDonVi = cauKhoCoLoKhacDonVi(
+    dong.lo_bi_loai,
+    dong.ten_thuoc_kho ?? dong.drug_name_raw ?? "thuốc",
+  );
   // Rơi về lô đầu tiên khi chưa chọn: trình duyệt tô sẵn option đầu, nên giá
   // trị bên trong cũng phải là nó — không thì nút bị khoá mà không ai biết vì
   // sao (bấm thử 19/09: xác định thuốc xong, ô lô hiện X nhưng state còn rỗng).
@@ -351,10 +357,16 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
       {/* ── Chọn lô ── */}
       {tt.chon_lo ? (
         dong.lo_goi_y.length === 0 ? (
-          <p className="rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-muted">
-            Kho chưa có lô cho thuốc này — không sao: thu tiền và giao luôn được, gán lô
-            sau ở Kho thuốc.
-          </p>
+          cauKhoKhacDonVi ? (
+            <p role="status" className="rounded-control bg-warning-bg px-3 py-2 text-meta text-warning">
+              {cauKhoKhacDonVi}
+            </p>
+          ) : (
+            <p className="rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-muted">
+              Kho chưa có lô cho thuốc này — không sao: thu tiền và giao luôn được, gán lô
+              sau ở Kho thuốc.
+            </p>
+          )
         ) : (
           <div className="flex flex-wrap items-end gap-2">
             <label className={`${NHAN} flex-1`}>

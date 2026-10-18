@@ -61,6 +61,25 @@ export const tonTheoDonVi = (
     ? ds.map((x) => `${soKho(x.ton)} ${x.don_vi ?? ""}`.trim()).join(" · ")
     : "0";
 
+/** Cộng tồn các lô THEO TỪNG ĐƠN VỊ — hộp, viên, gói không bao giờ cộng chung
+ *  (một ô "Tổng tồn" cộng cả ba ra con số không có nghĩa gì). Bỏ đơn vị tồn 0;
+ *  gộp cách viết hoa/khoảng trắng khác nhau của cùng một đơn vị. */
+export function tongTonTheoDonVi(
+  lo: { unit: string | null; quantity_on_hand: number | string }[],
+): { don_vi: string; ton: number }[] {
+  const theo = new Map<string, { don_vi: string; ton: number }>();
+  for (const b of lo) {
+    const ten = (b.unit ?? "").trim();
+    const khoa = ten.toLowerCase();
+    const dong = theo.get(khoa) ?? { don_vi: ten, ton: 0 };
+    dong.ton += Number(b.quantity_on_hand) || 0;
+    theo.set(khoa, dong);
+  }
+  return [...theo.values()]
+    .filter((d) => d.ton !== 0)
+    .sort((a, b) => a.don_vi.localeCompare(b.don_vi, "vi"));
+}
+
 /** Số lượng kho (tới 3 chữ số lẻ). Máy chủ trả numeric dạng chuỗi → ép số. */
 export const soKho = (n: number | string | null | undefined): string =>
   new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 3 }).format(Number(n ?? 0));

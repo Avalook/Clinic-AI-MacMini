@@ -74,6 +74,22 @@ BEGIN
             RAISE EXCEPTION 'drug_return: người quyết không thuộc phòng khám'
                 USING ERRCODE = 'check_violation';
         END IF;
+        -- HUY phải trỏ đúng dòng DISCARD của chính lần trả này. FK bên dưới chỉ
+        -- ghim clinic/lô; nếu thiếu kiểm này một RECEIVE cùng lô hoặc DISCARD −1
+        -- có thể được dùng để quyết huỷ lần trả 3 viên mà không trừ đúng tồn.
+        IF NEW.disposition = 'HUY' AND NOT EXISTS (
+            SELECT 1 FROM public.inventory_txn t
+             WHERE t.id = NEW.disposition_txn_id
+               AND t.clinic_id = NEW.clinic_id
+               AND t.drug_batch_id = NEW.drug_batch_id
+               AND t.txn_type = 'DISCARD'
+               AND t.quantity = -NEW.returned_qty
+               AND t.ref_type = 'drug_return'
+               AND t.ref_id = NEW.id
+        ) THEN
+            RAISE EXCEPTION 'drug_return: HUY phải trỏ đúng DISCARD đủ số lượng của lần trả'
+                USING ERRCODE = 'check_violation';
+        END IF;
         RETURN NEW;
     END IF;
     SELECT * INTO xuat FROM public.inventory_txn

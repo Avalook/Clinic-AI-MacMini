@@ -70,7 +70,11 @@ async def _tra(q: Quay, xuat: str, so: Any, ket: Any, **kw: Any) -> dict[str, An
 
 async def _phai_tra_thuoc(q: Quay) -> int:
     async with q.pool.acquire() as conn:
-        sd, _ = await so_du_hien_tai(conn, CLINIC, q.visit_id, datetime.now(UTC))
+        # Giờ lấy từ CHÍNH DB: `closed_at` do đồng hồ trong Docker ghi, có lúc
+        # nhanh hơn đồng hồ máy Mac ~30ms → `datetime.now(UTC)` nằm trước lúc khách
+        # về và sổ nợ ra 0 (17/10: bài đạt lúc 12:20, đỏ lúc 12:33).
+        luc = await conn.fetchval("SELECT clock_timestamp()")
+        sd, _ = await so_du_hien_tai(conn, CLINIC, q.visit_id, luc)
     return sum(
         int(d["so_tien"]) for d in sd.chi_tiet.get("PHAI_TRA", []) if d["loai"] == THUOC
     )

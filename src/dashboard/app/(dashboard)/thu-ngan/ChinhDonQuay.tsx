@@ -140,7 +140,17 @@ export default function ChinhDonQuay({
     };
   }, [visitId]);
 
+  // Lỗi hiện NGAY CẠNH nút vừa bấm: câu của màn cha nằm trên đầu trang, có khi
+  // cao hơn nút cả màn hình (đo 17/10: 895px trên điện thoại) nên bấm xong tưởng
+  // không có gì xảy ra.
+  const [loiTaiCho, setLoiTaiCho] = useState<string | null>(null);
+  const loiRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (loiTaiCho) loiRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [loiTaiCho]);
+
   const xong = async (loi: string | null, cau: string) => {
+    setLoiTaiCho(loi);
     await tai();
     await onDoi(loi ? null : cau, loi);
   };
@@ -322,10 +332,18 @@ export default function ChinhDonQuay({
           key={goiYThuoc?.lan ?? 0}
           dong={them}
           mauThuoc={mauThuoc}
-          onDoi={setThem}
+          onDoi={(moi) => {
+            setLoiTaiCho(null);
+            setThem(moi);
+          }}
           ngoaiDanhMuc={false}
           tuKhoaDau={goiYThuoc?.ten}
         />
+        {loiTaiCho ? (
+          <p ref={loiRef} role="alert" className="text-meta text-danger">
+            {loiTaiCho}
+          </p>
+        ) : null}
         {them.length > 0 ? (
           <Button variant="primary" size="md" disabled={dang} onClick={() => void luuThem()}>
             Thêm {them.length} mặt hàng vào đơn bán

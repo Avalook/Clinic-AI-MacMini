@@ -717,6 +717,39 @@ async def _khoa_phieu_nhap(
     return p
 
 
+async def _kiem_don_vi_co_that(
+    conn: asyncpg.Connection,
+    identity: StaffIdentity,
+    dong: int,
+    thuoc: str,
+    don_vi: str,
+) -> None:
+    """Số đếm chỉ nhận cho (thuốc, đơn vị) mà cơ sở đã TỪNG có lô. Đếm theo đơn vị
+    không có thật ("tấn") từng được lưu, rồi điều chỉnh "thành công" mà không cộng
+    vào lô nào và không hoàn tác được. Thuốc không có trong danh mục vẫn là 404
+    như cũ (xử ở lệnh ghi bên dưới)."""
+    if not await conn.fetchval(
+        "SELECT 1 FROM public.drug_catalog WHERE id = $1::uuid"
+        " AND clinic_id = $2::uuid",
+        thuoc,
+        identity.clinic_id,
+    ):
+        return
+    if not await conn.fetchval(
+        "SELECT 1 FROM public.drug_batch WHERE clinic_id = $1::uuid"
+        " AND location_id = $2::uuid AND drug_catalog_id = $3::uuid"
+        " AND lower(btrim(unit)) = $4 LIMIT 1",
+        identity.clinic_id,
+        _co_so(identity),
+        thuoc,
+        don_vi,
+    ):
+        raise ValidationError(
+            f"Dòng {dong}: thuốc này chưa có lô nào theo đơn vị “{don_vi}” ở cơ sở"
+            " — chọn đúng đơn vị đang có trong kho."
+        )
+
+
 async def luu_dem(
     pool: asyncpg.Pool,
     *,
@@ -729,7 +762,7 @@ async def luu_dem(
     pid = _doc_uuid(phieu_id, "Mã phiếu")
     if not dong or len(dong) > DONG_TOI_DA:
         raise ValidationError(f"Gửi từ 1 đến {DONG_TOI_DA} dòng mỗi lần.")
-    ghi: list[tuple[str, str, Decimal | None]] = []
+    ghi: list[tuple[int, str, str, Decimal | None]] = []
     for i, d in enumerate(dong, 1):
         thuoc = _doc_uuid(d.get("drug_catalog_id"), f"Thuốc ở dòng {i}")
         dv = str(d.get("don_vi") or "").strip().lower()
@@ -737,15 +770,18 @@ async def luu_dem(
             raise ValidationError(f"Dòng {i}: thiếu đơn vị.")
         raw = d.get("dem")
         if raw is None or str(raw).strip() == "":
-            ghi.append((thuoc, dv, None))
+            ghi.append((i, thuoc, dv, None))
             continue
         so = so_hoac_none(raw)
         if so is None:
             raise ValidationError(f"Dòng {i}: số đếm phải là số không âm, hợp lý.")
-        ghi.append((thuoc, dv, so))
+        ghi.append((i, thuoc, dv, so))
     async with pool.acquire() as conn, conn.transaction():
         await _khoa_phieu_nhap(conn, identity, pid)
-        for thuoc, dv, so in ghi:
+        for i, thuoc, dv, so in ghi:
+            if so is not None:
+                await _kiem_don_vi_co_that(conn, identity, i, thuoc, dv)
+        for _i, thuoc, dv, so in ghi:
             if so is None:
                 await conn.execute(
                     "DELETE FROM public.kiem_ke_ca_dong WHERE kiem_ke_ca_id ="
@@ -1023,6 +1059,14 @@ async def dieu_chinh_theo_kiem_ke(
                         "ly_do": "Quầy không còn đủ tồn để trừ hết phần lệch",
                     }
                 )
+        if not ap_dung:
+            # Không dòng nào áp được thì KHÔNG đánh dấu "đã điều chỉnh": phiếu sẽ
+            # kẹt (không còn dòng sổ để hoàn tác, và không điều chỉnh lại được).
+            nguyen_nhan = "; ".join(sorted({str(b["ly_do"]) for b in bo_qua}))
+            raise ConflictError(
+                f"Không áp được dòng lệch nào ({nguyen_nhan}) — phiếu chưa bị đánh"
+                " dấu điều chỉnh."
+            )
         await conn.execute(
             "UPDATE public.kiem_ke_ca SET dieu_chinh_boi = $2::uuid, dieu_chinh_luc"
             " = now(), dieu_chinh_ly_do = $3 WHERE id = $1::uuid",

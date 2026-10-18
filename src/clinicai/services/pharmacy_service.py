@@ -64,6 +64,12 @@ TRA_NHAN = "RETURN_RECEIVED"
 KET_CUC_TIEN = frozenset({"HOAN", "DOI", "GIU_LAI"})
 
 
+#: Số lớn nhất một ô số lượng / giá nhận. Cột Postgres là numeric(12,3) / (12,0):
+#: gõ lố 1e12 thì trước đây rơi vào lỗi tràn số → 500 "chưa lường trước". Trần này
+#: nằm dưới giới hạn cột, và lớn hơn mọi lô / giá có thật của một phòng khám.
+SO_TOI_DA = Decimal(999_999_999)
+
+
 def _so(value: Any, *, ten: str, cho_0: bool = False) -> Decimal:
     """Ép về số dương (`cho_0`: được bằng 0 — giá tặng kèm). Câu từ chối nói rõ
     ô nào sai, không nói 'invalid input'."""
@@ -75,6 +81,11 @@ def _so(value: Any, *, ten: str, cho_0: bool = False) -> Decimal:
         raise ValidationError(f"{ten} phải là một con số.")
     if so < 0 or (so == 0 and not cho_0):
         raise ValidationError(f"{ten} phải lớn hơn 0.")
+    if so > SO_TOI_DA:
+        toi_da = f"{SO_TOI_DA:,}".replace(",", ".")
+        raise ValidationError(
+            f"{ten} quá lớn (tối đa {toi_da}) — kiểm tra lại có gõ thừa số 0 không."
+        )
     return so
 
 
@@ -980,6 +991,22 @@ class PharmacyService:
                         and (not dv or _don_vi(b["unit"]) == dv)
                         and Decimal(str(b["quantity_on_hand"]))
                         >= Decimal(str(r["so_luong"]))
+                    ],
+                    # Lô của thuốc ở QUẦY nhưng tính theo đơn vị KHÁC (lô "hộp",
+                    # giao "gói") — không gán được, nên nói ra thay vì chỉ "chưa có
+                    # lô gán được". Chỉ để giải thích, không đổi luật gán.
+                    "lo_khac_don_vi": [
+                        {
+                            "drug_batch_id": b["id"],
+                            "batch_code": b["batch_code"],
+                            "unit": b["unit"],
+                            "ton": Decimal(str(b["quantity_on_hand"])),
+                        }
+                        for b in lo
+                        if dv
+                        and b["drug_catalog_id"] == r["drug_catalog_id"]
+                        and b["co_so_id"] == co_so
+                        and _don_vi(b["unit"]) != dv
                     ],
                 }
             )

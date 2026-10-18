@@ -11,7 +11,7 @@ import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
-import { guiKho } from "./gui-kho";
+import { guiKho, soKho } from "./gui-kho";
 
 export interface DongChoGanLo {
   id: string;
@@ -28,6 +28,16 @@ export interface DongChoGanLo {
     expiry_date: string | null;
     ton: number;
   }[];
+  /** Lô của thuốc ở quầy nhưng tính theo đơn vị KHÁC dòng này — để giải thích vì
+   *  sao không có lô gán được (máy chủ trả, không đổi luật gán). */
+  lo_khac_don_vi?: { drug_batch_id: string; batch_code: string; unit: string | null; ton: number }[];
+}
+
+/** "6 hộp · 20 viên" — cộng theo từng đơn vị, không cộng lẫn. */
+function tonLoKhacDonVi(lo: NonNullable<DongChoGanLo["lo_khac_don_vi"]>): string {
+  const theo = new Map<string, number>();
+  for (const b of lo) theo.set(b.unit ?? "", (theo.get(b.unit ?? "") ?? 0) + Number(b.ton));
+  return [...theo.entries()].map(([dv, ton]) => `${soKho(ton)} ${dv}`.trim()).join(" · ");
 }
 
 const fmtNgay = (iso: string | null) =>
@@ -53,23 +63,37 @@ function Dong({ d }: { d: DongChoGanLo }) {
 
   return (
     <tr>
-      <td className="px-3 py-2 font-medium text-ink">{d.thuoc ?? "—"}</td>
-      <td className="px-3 py-2 text-ink-soft">
+      <td className="px-3 py-2 font-medium text-ink">
+        {d.thuoc ?? "—"}
+        {/* Điện thoại: tên khách nằm dưới tên thuốc (cột Khách và Giao lúc ẩn) để cột
+            Gán lô — nơi nói LÝ DO không gắn được — nằm trong màn hình. */}
+        <span className="block text-meta font-normal text-ink-muted sm:hidden">
+          {d.khach ?? "—"}
+        </span>
+      </td>
+      <td className="hidden px-3 py-2 text-ink-soft sm:table-cell">
         {d.khach ?? "—"}
         {d.ma_bn ? <span className="text-meta text-ink-muted"> · {d.ma_bn}</span> : null}
       </td>
       <td className="px-3 py-2 text-right">
         {d.so_luong} {d.unit ?? ""}
       </td>
-      <td className="px-3 py-2 text-meta text-ink-muted">
+      <td className="hidden px-3 py-2 text-meta text-ink-muted sm:table-cell">
         {fmtNgay(d.giao_luc)}
         {d.nguoi_giao ? ` · ${d.nguoi_giao}` : ""}
       </td>
       <td className="px-3 py-2">
         {d.lo_gan_duoc.length === 0 ? (
-          <span className="text-meta text-ink-muted">
-            Chưa có lô gán được — nhập lô ở tab Tồn theo lô.
-          </span>
+          d.lo_khac_don_vi && d.lo_khac_don_vi.length > 0 ? (
+            <span role="status" className="text-meta text-warning">
+              Quầy có {tonLoKhacDonVi(d.lo_khac_don_vi)} nhưng dòng này giao theo “{d.unit ?? "?"}”
+              — khác đơn vị nên không gắn được. Nhập lô theo “{d.unit ?? "?"}” hoặc báo quản lý.
+            </span>
+          ) : (
+            <span className="text-meta text-ink-muted">
+              Chưa có lô gán được — nhập lô ở tab Tồn theo lô.
+            </span>
+          )
         ) : (
           <div className="flex flex-wrap items-center gap-2">
             <select
@@ -103,13 +127,13 @@ export default function ChoGanLo({ dong }: { dong: DongChoGanLo[] }) {
         các dòng này — gán lô xong thì kho trừ.
       </p>
       <div className={`${TBL_WRAP} overflow-x-auto`}>
-        <table className="w-full min-w-2xl text-left text-body">
+        <table className="w-full text-left text-body sm:min-w-2xl">
           <thead className={TBL_HEAD}>
             <tr>
               <th className="px-3 py-2">Thuốc</th>
-              <th className="px-3 py-2">Khách</th>
+              <th className="hidden px-3 py-2 sm:table-cell">Khách</th>
               <th className="px-3 py-2 text-right">Số giao</th>
-              <th className="px-3 py-2">Giao lúc</th>
+              <th className="hidden px-3 py-2 sm:table-cell">Giao lúc</th>
               <th className="px-3 py-2">Gán lô</th>
             </tr>
           </thead>
