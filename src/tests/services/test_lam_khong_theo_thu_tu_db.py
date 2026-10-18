@@ -150,15 +150,22 @@ async def _phieu(kb: KB, order_id: str, *, revision: int) -> None:
         CLINIC,
     )
     assert form is not None
+    du_lieu = (
+        '{"ghi_chu": {"gia_tri": "nhập nhầm", "nguon": "USER"}}'
+        if revision > 0
+        else "{}"
+    )
     await kb.pool.execute(
         "INSERT INTO form_instance (clinic_id, service_order_id, form_id, version,"
-        " revision, nhap_boi) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::uuid)",
+        " revision, nhap_boi, du_lieu)"
+        " VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6::uuid, $7::jsonb)",
         CLINIC,
         order_id,
         form["form_id"],
         form["version"],
         revision,
         kb.bs.staff_id,
+        du_lieu,
     )
 
 
@@ -288,21 +295,92 @@ async def test_huy_bat_dau_nham_dua_khach_ve_hang_cho(kb: KB) -> None:
     assert (await _bat_dau(kb, kb.order_id))["attempt_no"] == 2
 
 
-async def test_da_dien_phieu_thi_khong_huy_bat_dau_duoc(kb: KB) -> None:
+async def test_nhap_phieu_nhap_thi_huy_bat_dau_va_don_nhap(kb: KB) -> None:
     mo = await _bat_dau(kb, kb.order_id)
     await _phieu(kb, kb.order_id, revision=1)
     th = await kb.svc.xem(order_id=kb.order_id, identity=kb.bs)
-    assert th["huy_bat_dau_duoc"] is False
-    with pytest.raises(LuotKhamConflictError) as e:
-        await kb.svc.huy_bat_dau(
-            order_id=kb.order_id,
-            attempt_id=mo["attempt_id"],
-            expected_execution_revision=mo["execution_revision"],
-            identity=kb.bs,
-            idempotency_key=str(uuid.uuid4()),
+    assert th["huy_bat_dau_duoc"] is True
+
+    kq = await kb.svc.huy_bat_dau(
+        order_id=kb.order_id,
+        attempt_id=mo["attempt_id"],
+        expected_execution_revision=mo["execution_revision"],
+        identity=kb.bs,
+        idempotency_key=str(uuid.uuid4()),
+    )
+    assert kq["execution_status"] == "PENDING"
+    assert await _trang_thai(kb, kb.order_id) == ("PENDING", "waiting")
+    nhap = await kb.pool.fetchrow(
+        "SELECT du_lieu, revision FROM form_instance"
+        " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid",
+        CLINIC,
+        kb.order_id,
+    )
+    assert nhap is not None
+    assert nhap["du_lieu"]["ghi_chu"]["gia_tri"] != "nhập nhầm"
+    assert nhap["revision"] == 2
+    lich_su = await kb.pool.fetchval(
+        "SELECT du_lieu->'ghi_chu'->>'gia_tri' FROM form_instance_lich_su"
+        " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+        " ORDER BY sua_luc DESC LIMIT 1",
+        CLINIC,
+        kb.order_id,
+    )
+    assert lich_su == "nhập nhầm"
+
+    lan = await _lan(kb, kb.order_id)
+    assert lan[-1]["status"] == "INTERRUPTED"
+    assert lan[-1]["interruption_reason_code"] == "STARTED_IN_ERROR"
+    assert await _trang_thai(kb, kb.order_id) == ("PENDING", "waiting")
+    assert len(await _su_kien(kb, kb.order_id, "service.start_cancelled")) == 1
+    # Chỗ chờ khác của lượt (đợi quay lại) mở ra — không còn ai 'serving'.
+    assert (
+        await kb.pool.fetchval(
+            "SELECT count(*) FROM queue_entry WHERE visit_id = $1::uuid"
+            "   AND status IN ('serving', 'blocked')",
+            kb.visit_id,
         )
-    assert e.value.error_code == "RESULT_FORM_STARTED"
-    assert await _trang_thai(kb, kb.order_id) == ("IN_PROGRESS", "serving")
+        == 0
+    )
+    th = await kb.svc.xem(order_id=kb.order_id, identity=kb.bs)
+    assert th["huy_bat_dau_duoc"] is False
+    # Bắt đầu lại được như thường.
+    assert (await _bat_dau(kb, kb.order_id))["attempt_no"] == 2
+
+
+async def test_phieu_hoan_tat_van_huy_bat_dau_va_giu_phieu(kb: KB) -> None:
+    mo = await _bat_dau(kb, kb.order_id)
+    await _phieu(kb, kb.order_id, revision=1)
+    await kb.pool.execute(
+        "UPDATE form_instance SET trang_thai = 'READY',"
+        " hoan_tat_boi = $3::uuid, hoan_tat_luc = now()"
+        " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid",
+        CLINIC,
+        kb.order_id,
+        kb.bs.staff_id,
+    )
+
+    th = await kb.svc.xem(order_id=kb.order_id, identity=kb.bs)
+    assert th["huy_bat_dau_duoc"] is True
+    kq = await kb.svc.huy_bat_dau(
+        order_id=kb.order_id,
+        attempt_id=mo["attempt_id"],
+        expected_execution_revision=mo["execution_revision"],
+        identity=kb.bs,
+        idempotency_key=str(uuid.uuid4()),
+    )
+    assert kq["execution_status"] == "PENDING"
+    assert await _trang_thai(kb, kb.order_id) == ("PENDING", "waiting")
+    phieu = await kb.pool.fetchrow(
+        "SELECT trang_thai, du_lieu, revision FROM form_instance"
+        " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid",
+        CLINIC,
+        kb.order_id,
+    )
+    assert phieu is not None
+    assert phieu["trang_thai"] == "READY"
+    assert phieu["du_lieu"]["ghi_chu"]["gia_tri"] == "nhập nhầm"
+    assert phieu["revision"] == 1
 
 
 async def test_huy_bat_dau_khi_chua_bat_dau_thi_bao_ro(kb: KB) -> None:

@@ -208,9 +208,9 @@ def phieu_da_dien(trang_thai: str | None, revision: int | None) -> bool:
 
     Mở khách ở phòng là màn tự MỞ phiếu (tạo nháp mang giá trị mặc định của
     mẫu, revision 0) — nháp ấy chưa ai gõ gì, không tính. Đã lưu ít nhất một
-    lần (revision > 0) hay đã Hoàn tất (READY) mới là "đã điền": không được
-    chuyển khách đi / huỷ bắt đầu, vì như thế là bỏ dở công người vừa gõ.
-    Cùng luật với `_PHIEU_DA_DIEN_SQL` bên dưới.
+    lần (revision > 0) hay đã Hoàn tất (READY) mới tính là có dữ liệu khi
+    chuyển khách đang làm sang phòng khác. Huỷ bắt đầu nhầm có luật riêng:
+    DRAFT được dọn cùng giao dịch, còn READY luôn được giữ nguyên.
     """
     return trang_thai == "READY" or int(revision or 0) > 0
 
@@ -225,16 +225,16 @@ _PHIEU_DA_DIEN_SQL = (
 def huy_bat_dau_duoc(
     execution_status: str | None,
     co_lan_dang_chay: bool,
-    phieu: list[tuple[str | None, int | None]],
 ) -> bool:
-    """Màn phòng hiện nút "Huỷ bắt đầu nhầm" khi nào — MÁY CHỦ quyết (V4).
+    """Màn phòng hiện nút huỷ khi còn lần làm đang chạy.
 
-    Đang làm (IN_PROGRESS, có lần làm chạy) và chưa phiếu nào được điền.
-    Lệnh `huy_bat_dau` tự kiểm lại đúng luật này khi bấm.
+    Huỷ bắt đầu chỉ lùi lần làm về PENDING; phiếu DRAFT được dọn, còn phiếu
+    READY được giữ nguyên làm hồ sơ. Trạng thái dịch vụ mới quyết định có thể
+    huỷ lần làm hay không.
     """
     if execution_status != "IN_PROGRESS" or not co_lan_dang_chay:
         return False
-    return not any(phieu_da_dien(t, r) for t, r in phieu)
+    return True
 
 
 def phieu_chua_hoan_tat(
@@ -955,7 +955,7 @@ class ServiceExecutionService:
     ) -> dict[str, Any]:
         """`CancelMistakenStart` — bấm Bắt đầu nhầm khách / nhầm dịch vụ (V4).
 
-        Chỉ khi lần làm đang chạy và CHƯA điền phiếu kết quả. Một giao dịch:
+        Chỉ khi lần làm đang chạy. Một giao dịch:
         lần làm → INTERRUPTED lý do STARTED_IN_ERROR (không xoá: vẫn đọc được là
         đã có lần bấm), chỉ định → PENDING, khách về lại hàng chờ của phòng,
         các chỗ "đợi quay lại" của lượt mở ra, con trỏ "khách đang ở đâu" dời.
@@ -989,12 +989,55 @@ class ServiceExecutionService:
                     "EXECUTION_STATE_INVALID", "Chỉ định không đang được làm."
                 )
             lan = await self._lan_dang_chay(conn, cid, order_id, attempt_id)
-            if await conn.fetchval(_PHIEU_DA_DIEN_SQL, cid, order_id):
-                raise LuotKhamConflictError(
-                    "RESULT_FORM_STARTED",
-                    "Đã điền phiếu kết quả — không huỷ bắt đầu được nữa."
-                    " Làm tiếp rồi Hoàn tất, hoặc nhờ trưởng ca chuyển phòng.",
-                )
+            await conn.fetch(
+                "SELECT id, trang_thai FROM form_instance"
+                " WHERE clinic_id = $1::uuid AND service_order_id = $2::uuid"
+                " FOR UPDATE",
+                cid,
+                order_id,
+            )
+            # Huỷ bắt đầu nhầm là quyết định bỏ lần làm dở: dọn nội dung
+            # phiếu DRAFT cùng giao dịch; phiếu READY và lịch sử append-only
+            # được giữ lại làm hồ sơ nếu kết quả đã được hoàn tất trước đó.
+            # Tăng revision để một lần tự lưu đang bay bị từ chối thay vì ghi
+            # nội dung trở lại sau khi lệnh huỷ đã hoàn tất.
+            await conn.execute(
+                """
+                UPDATE form_instance i
+                   SET du_lieu = COALESCE((
+                           SELECT jsonb_object_agg(
+                               field.value->>'ma',
+                               jsonb_build_object(
+                                   'gia_tri', field.value->'mac_dinh',
+                                   'nguon', 'TEMPLATE_DEFAULT'
+                               )
+                           )
+                             FROM form_definition d
+                             CROSS JOIN LATERAL jsonb_array_elements(d.khung)
+                                 AS section(value)
+                             CROSS JOIN LATERAL jsonb_array_elements(
+                                 COALESCE(section.value->'block', '[]'::jsonb)
+                             ) AS field(value)
+                            WHERE d.clinic_id = i.clinic_id
+                              AND d.form_id = i.form_id
+                              AND d.version = i.version
+                              AND COALESCE(field.value->>'mac_dinh', '') <> ''
+                       ), '{}'::jsonb),
+                       du_lieu_dang_sua = NULL,
+                       nhap_boi = $3::uuid,
+                       nhap_boi_dang_sua = NULL,
+                       thuc_hien_boi = NULL,
+                       thuc_hien_boi_dang_sua = NULL,
+                       revision = revision + 1,
+                       sua_luc = now()
+                 WHERE i.clinic_id = $1::uuid
+                   AND i.service_order_id = $2::uuid
+                   AND i.trang_thai = 'DRAFT'
+                """,
+                cid,
+                order_id,
+                identity.staff_id,
+            )
 
             await conn.execute(
                 "UPDATE service_execution_attempt"
@@ -1894,7 +1937,6 @@ class ServiceExecutionService:
             "huy_bat_dau_duoc": huy_bat_dau_duoc(
                 don["execution_status"],
                 dang_chay is not None,
-                [(d["trang_thai"], d["revision"]) for d in phieu],
             ),
             "ly_do_khong_lam": sorted(LY_DO_KHONG_LAM),
             "ly_do_gian_doan": sorted(LY_DO_GIAN_DOAN),

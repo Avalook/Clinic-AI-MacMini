@@ -773,7 +773,7 @@ function KhachTrongPhong({
 
       {hoiHuy && dangLam && th?.lan_dang_chay ? (
         <XacNhanTaiCho
-          cau="Huỷ lần bắt đầu này? Khách về lại hàng chờ của phòng."
+          cau="Huỷ lần bắt đầu này? Phiếu nháp sẽ bị xoá, phiếu đã hoàn tất được giữ lại. Dịch vụ quay về chờ; nếu không thu dịch vụ này, sau đó cần bỏ chỉ định tại Bàn khám để dịch vụ khỏi hoá đơn."
           nhanDongY="Huỷ bắt đầu"
           dangGui={dangGui}
           onDongY={() =>
