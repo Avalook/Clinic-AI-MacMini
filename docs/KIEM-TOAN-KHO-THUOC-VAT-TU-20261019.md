@@ -12,10 +12,10 @@ giao dịch được truy vấn. Chưa tái hiện lỗi trên staging.
 
 | Phát hiện | Căn cứ và tác động | Trạng thái |
 |---|---|---|
-| PostgREST cho phép nhân viên cùng cơ sở đọc trực tiếp sổ kho dù thiếu quyền kho | RLS của kho vật tư và thuốc lọc theo clinic membership nhưng không kiểm capability. Dữ liệu có tồn, giao dịch, giá nhập, phiếu chờ duyệt/lý do. Chưa thấy quyền ghi cho `authenticated` hay bằng chứng đọc chéo cơ sở. Dashboard hiện lấy dữ liệu qua FastAPI; SSE chỉ gửi tên bảng + clinic. | Đã được duyệt thu hồi SELECT trực tiếp; migration ACL và kiểm tra SQL đã thêm trong nhánh, chờ CI và staging. Hai script nạp bản sao staging cũng áp lại ACL sau GRANT rộng. |
-| Điều chỉnh kho thuốc nhận giá trị NaN/Infinity | `/pharmacy/adjust` nhận float; service chưa kiểm hữu hạn; CHECK hiện tại chưa chặn rõ mọi số không hữu hạn. Có thể làm sai phép cộng tồn. | Đã thêm chặn ở API/service/DB và test; chờ CI, staging. Migration `20261019110000_pharmacy_inventory_p1_guards.sql`. |
-| Retry điều chỉnh/huỷ lô/nhập lô nhanh có thể ghi lặp | Nếu server đã commit nhưng response mất, gửi lại thao tác không idempotent có thể thêm/xoá tồn lần hai. Luồng nhập cũ `/pharmacy/receive` vẫn được gọi bởi modal `NhapLo.tsx`, nên phải nằm trong xử lý retry. Guard chung lưu response tách khỏi giao dịch sổ không đủ để đóng khe crash. | Đã thêm biên nhận idempotency nguyên tử với ledger cho receive/adjust/discard; UI giữ key qua retry và fail-closed nếu không lưu được key. Unit, DB và UI boundary tests đã chạy; chờ CI, staging. |
-| Cùng mã lô nhưng khác đơn vị bị cộng vào cùng lô | `nhap_vao_lo()` tìm lại theo clinic/kho/mã lô, nhưng chưa so đơn vị đã chuẩn hoá; cùng mã theo “viên” rồi “hộp” có thể bị cộng chung mà không quy đổi. | Đã chặn khác đơn vị đã chuẩn hoá trên mọi hàng KHO/QUẦY cùng mã lô; có test hồi quy. Chờ CI, staging. |
+| PostgREST cho phép nhân viên cùng cơ sở đọc trực tiếp sổ kho dù thiếu quyền kho | RLS của kho vật tư và thuốc lọc theo clinic membership nhưng không kiểm capability. Dữ liệu có tồn, giao dịch, giá nhập, phiếu chờ duyệt/lý do. Chưa thấy quyền ghi cho `authenticated` hay bằng chứng đọc chéo cơ sở. Dashboard hiện lấy dữ liệu qua FastAPI; SSE chỉ gửi tên bảng + clinic. | Đã thu hồi SELECT trực tiếp trên 11 bảng; CI gồm SQL ACL test và RLS scope test xanh ở `62d11cab`. Staging chưa áp. Hai script nạp bản sao staging áp lại ACL sau GRANT rộng. |
+| Điều chỉnh kho thuốc nhận giá trị NaN/Infinity | `/pharmacy/adjust` nhận float; service chưa kiểm hữu hạn; CHECK hiện tại chưa chặn rõ mọi số không hữu hạn. Có thể làm sai phép cộng tồn. | Đã thêm chặn ở API/service/DB; test chặn ở unit/API/DB. CI xanh ở `62d11cab`; staging chưa áp. Migration `20261019110000_pharmacy_inventory_p1_guards.sql`. |
+| Retry điều chỉnh/huỷ lô/nhập lô nhanh có thể ghi lặp | Nếu server đã commit nhưng response mất, gửi lại thao tác không idempotent có thể thêm/xoá tồn lần hai. Luồng nhập cũ `/pharmacy/receive` vẫn được gọi bởi modal `NhapLo.tsx`, nên phải nằm trong xử lý retry. Guard chung lưu response tách khỏi giao dịch sổ không đủ để đóng khe crash. | Đã thêm biên nhận idempotency nguyên tử với ledger cho receive/adjust/discard; UI giữ key qua retry và fail-closed nếu không lưu được key. Unit, DB, UI boundary và full CI xanh ở `62d11cab`; staging chưa áp. |
+| Cùng mã lô nhưng khác đơn vị bị cộng vào cùng lô | `nhap_vao_lo()` tìm lại theo clinic/kho/mã lô, nhưng chưa so đơn vị đã chuẩn hoá; cùng mã theo “viên” rồi “hộp” có thể bị cộng chung mà không quy đổi. | Đã chặn khác đơn vị đã chuẩn hoá trên mọi hàng KHO/QUẦY cùng mã lô; regression test và full CI xanh ở `62d11cab`. Staging chưa áp. |
 
 ## P2 — đã ghi nhận, chưa sửa
 
@@ -58,13 +58,13 @@ giao dịch được truy vấn. Chưa tái hiện lỗi trên staging.
 
 - Tuyền đã duyệt 3 P1 kho thuốc: số không hữu hạn, retry điều chỉnh/huỷ (kèm
   luồng nhập nhanh đang hoạt động), và cùng mã lô khác đơn vị. Đã sửa API/service/
-  DB/UI và chạy test hồi quy phù hợp; còn CI đầy đủ và kiểm chứng staging trước
-  prod.
+  DB/UI, test hồi quy phù hợp và full CI đã xanh trên `62d11cab` với 8 DB workers;
+  còn kiểm chứng staging trước prod.
 - Tuyền đã duyệt thu hồi `SELECT` của `authenticated` trên bảng sổ kho thuốc/
   vật tư, giữ quyền `service_role`, và kiểm thử quyền trước khi áp staging.
-  Migration ACL cùng SQL regression test đã thêm cho 11 bảng; còn CI và kiểm
-  chứng staging. Hai script khôi phục staging áp lại ACL sau GRANT rộng để quyền
-  không bị mở lại khi nạp bản sao.
+  Migration ACL cùng SQL regression test đã thêm cho 11 bảng; CI đã xanh trên
+  `62d11cab`, còn kiểm chứng staging. Hai script khôi phục staging áp lại ACL
+  sau GRANT rộng để quyền không bị mở lại khi nạp bản sao.
 - Các mục P2 cần quyết định nghiệp vụ/ưu tiên riêng; không đổi hành vi giá trị,
   quy đổi đơn vị, cách xử lý thuốc trả, hay liên kết bán hàng khi chưa có quy
   tắc rõ.
