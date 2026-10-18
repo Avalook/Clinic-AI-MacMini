@@ -140,3 +140,178 @@ async def test_dong_da_ban_theo_lo_thi_phai_giao_dung_lo(
     assert (await _dong(q, rx))["thao_tac"]["giao_khong_lo"] is False
     with pytest.raises(ValidationError):
         await _giao_khong_lo(q, rx, 6)
+
+
+async def _kha_dung(q: Quay, lo: str) -> tuple[float, float]:
+    rows = await PharmacyService(q.pool).ton_kho(identity=q.duoc_si)
+    r = next(r for r in rows if r["id"] == lo)
+    return float(r["ton_kha_dung_thuoc"]), float(r["da_giao_chua_doi_chieu"])
+
+
+async def test_giao_tru_kha_dung_gan_lo_kho_sau_khong_tru_hai_lan(q: Quay) -> None:
+    rx, drug = await _dong_da_xac_dinh(q, 8)
+    lo = await _nhap_lo(q, drug, 30)
+    async with q.pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE drug_batch SET noi_chua = 'KHO' WHERE id = $1::uuid", lo
+        )
+    await _thu(q)
+    assert await _kha_dung(q, lo) == (30, 0)
+    await _giao_khong_lo(q, rx, 8)
+    assert await _ton(q, lo) == 30  # chưa bịa lô
+    assert await _kha_dung(q, lo) == (22, 8)
+    dong = next(d for d in await _cho(q) if d["prescription_id"] == rx)
+    assert (
+        next(b for b in dong["lo_gan_duoc"] if b["drug_batch_id"] == lo)["noi_chua"]
+        == "KHO"
+    )
+    svc = PharmacyService(q.pool)
+    await svc.gan_lo_da_giao(identity=q.duoc_si, dong_id=dong["id"], drug_batch_id=lo)
+    assert await _ton(q, lo) == 22
+    assert await _kha_dung(q, lo) == (22, 0)
+    with pytest.raises(ConflictError):
+        await svc.gan_lo_da_giao(
+            identity=q.duoc_si, dong_id=dong["id"], drug_batch_id=lo
+        )
+    assert await _kha_dung(q, lo) == (22, 0)
+
+
+async def test_gan_lo_dong_thoi_chi_ghi_mot_lan(q: Quay) -> None:
+    import asyncio
+
+    rx, drug = await _dong_da_xac_dinh(q, 8)
+    lo = await _nhap_lo(q, drug, 30)
+    await _thu(q)
+    await _giao_khong_lo(q, rx, 8)
+    dong = next(d for d in await _cho(q) if d["prescription_id"] == rx)
+    svc = PharmacyService(q.pool)
+    results = await asyncio.gather(
+        *(
+            svc.gan_lo_da_giao(identity=q.duoc_si, dong_id=dong["id"], drug_batch_id=lo)
+            for _ in range(2)
+        ),
+        return_exceptions=True,
+    )
+    assert sum(isinstance(r, ConflictError) for r in results) == 1
+    assert await _ton(q, lo) == 22
+    assert await _kha_dung(q, lo) == (22, 0)
+
+
+async def test_pending_thuoc_khac_khong_mo_gac_xuat_kho(q: Quay) -> None:
+    import asyncpg
+
+    rx, _drug = await _dong_da_xac_dinh(q, 8)
+    await _thu(q)
+    await _giao_khong_lo(q, rx, 8)
+    from tests.services.test_tien_thuoc_cp1_db import _thuoc
+
+    khac = await _thuoc(q, ten=f"Thuốc khác {q.duoi}")
+    lo = await _nhap_lo(q, khac, 30)
+    async with q.pool.acquire() as conn:
+        await conn.execute("UPDATE drug_batch SET noi_chua='KHO' WHERE id=$1::uuid", lo)
+        with pytest.raises(asyncpg.ExclusionViolationError):
+            await conn.execute(
+                "INSERT INTO inventory_txn"
+                " (clinic_id, drug_batch_id, txn_type, quantity, ref_type, ref_id)"
+                " VALUES ($1::uuid,$2::uuid,'DISPENSE',-8,'prescription',$3::uuid)",
+                q.duoc_si.clinic_id,
+                lo,
+                rx,
+            )
+    assert await _ton(q, lo) == 30
+
+
+async def test_kha_dung_khong_cong_lan_don_vi_va_cho_phep_lo_thieu_nhap(
+    q: Quay,
+) -> None:
+    rx, drug = await _dong_da_xac_dinh(q, 8)
+    vien = await _nhap_lo(q, drug, 3)
+    hop = await _nhap_lo(q, drug, 20, don_vi="hộp")
+    await _thu(q)
+    await _giao_khong_lo(q, rx, 8)
+    assert await _kha_dung(q, vien) == (-5, 8)
+    assert await _kha_dung(q, hop) == (20, 0)
+
+
+async def test_doi_chieu_khong_dung_hang_khach_tra_cho_kiem(q: Quay) -> None:
+    from tests.services.test_tien_thuoc_cp5_db import _tra, _xuat
+
+    rx, drug = await _dong_da_xac_dinh(q, 10)
+    lo = await _nhap_lo(q, drug, 8)
+    await _thu(q)
+    await _giao_khong_lo(q, rx, 8)
+    svc = PharmacyService(q.pool)
+    dong = next(d for d in await _cho(q) if d["prescription_id"] == rx)
+    await svc.gan_lo_da_giao(identity=q.duoc_si, dong_id=dong["id"], drug_batch_id=lo)
+    await _tra(q, await _xuat(q, rx), 8)
+    assert await _ton(q, lo) == 8
+    assert await _kha_dung(q, lo) == (0, 0)
+    await _giao_khong_lo(q, rx, 2)
+    dong = next(d for d in await _cho(q) if d["prescription_id"] == rx)
+    assert not dong["lo_gan_duoc"], "hàng trả chờ kiểm không được gợi ý"
+    with pytest.raises(ValidationError):
+        await svc.gan_lo_da_giao(
+            identity=q.duoc_si, dong_id=dong["id"], drug_batch_id=lo
+        )
+    assert await _ton(q, lo) == 8
+    assert await _kha_dung(q, lo) == (-2, 2)
+
+
+async def test_khach_tra_lo_kho_hoan_tien_va_cach_ly(q: Quay) -> None:
+    from tests.services.test_tien_thuoc_cp5_db import _xuat
+
+    rx, drug = await _dong_da_xac_dinh(q, 8)
+    lo = await _nhap_lo(q, drug, 30)
+    async with q.pool.acquire() as conn:
+        await conn.execute("UPDATE drug_batch SET noi_chua='KHO' WHERE id=$1::uuid", lo)
+    await _thu(q)
+    await _giao_khong_lo(q, rx, 8)
+    svc = PharmacyService(q.pool)
+    dong = next(d for d in await _cho(q) if d["prescription_id"] == rx)
+    await svc.gan_lo_da_giao(identity=q.duoc_si, dong_id=dong["id"], drug_batch_id=lo)
+    kq = await svc.khach_tra_thuoc(
+        identity=q.duoc_si,
+        dispense_txn_id=await _xuat(q, rx),
+        so_luong=3,
+        ly_do="Khách trả ba viên",
+        ket_cuc_tien="HOAN",
+        hinh_thuc="CASH",
+    )
+    assert kq["hoan"]["refund_id"]
+    assert await _ton(q, lo) == 25
+    assert await _kha_dung(q, lo) == (22, 0), "hàng trả chờ kiểm không bán lại"
+    async with q.pool.acquire() as conn:
+        r = await conn.fetchrow(
+            "SELECT disposition, returned_qty, refund_id::text FROM drug_return"
+            " WHERE id=$1::uuid",
+            kq["drug_return_id"],
+        )
+        assert r["disposition"] is None
+        assert float(r["returned_qty"]) == 3
+        assert r["refund_id"] == kq["hoan"]["refund_id"]
+        tien = await conn.fetchrow(
+            "SELECT amount, status FROM payment_refund WHERE refund_id=$1::uuid",
+            r["refund_id"],
+        )
+        assert float(tien["amount"]) == 15000
+        assert tien["status"] == "COMPLETED"
+
+
+async def test_nhan_tra_vao_kho_khong_co_ho_so_tra_bi_chan(q: Quay) -> None:
+    import asyncpg
+
+    rx, drug = await _dong_da_xac_dinh(q, 8)
+    lo = await _nhap_lo(q, drug, 30)
+    async with q.pool.acquire() as conn:
+        await conn.execute("UPDATE drug_batch SET noi_chua='KHO' WHERE id=$1::uuid", lo)
+        with pytest.raises(asyncpg.ExclusionViolationError):
+            await conn.execute(
+                "INSERT INTO inventory_txn"
+                " (clinic_id, drug_batch_id, txn_type, quantity, ref_type, ref_id)"
+                " VALUES ($1::uuid,$2::uuid,'RETURN_RECEIVED',3,"
+                " 'drug_return',$3::uuid)",
+                q.duoc_si.clinic_id,
+                lo,
+                rx,
+            )
+    assert await _ton(q, lo) == 30

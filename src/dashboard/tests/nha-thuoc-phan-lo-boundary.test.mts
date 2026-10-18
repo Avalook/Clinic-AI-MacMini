@@ -39,13 +39,13 @@ test("G3a-B: render thật với lối KhoThuoc hiện Sửa/huỷ/hoàn đúng 
     thuoc: [], onXemThe() {}, ghiDuoc: true,
   };
   const html = renderToStaticMarkup(React.createElement(exports.default, props));
-  assert.match(html, />Sửa lô<\/button>/);
+  assert.match(html, />Sửa số lô \/ hạn dùng<\/button>/);
   assert.match(html, />Huỷ lô hết hạn<\/button>/);
   assert.match(html, />Hoàn huỷ lô<\/button>/);
   const readOnly = renderToStaticMarkup(React.createElement(exports.default, {
     ...props, ghiDuoc: false,
   }));
-  assert.doesNotMatch(readOnly, /Sửa lô|Huỷ lô hết hạn|Hoàn huỷ lô/);
+  assert.doesNotMatch(readOnly, /Sửa số lô \/ hạn dùng|Huỷ lô hết hạn|Hoàn huỷ lô/);
 });
 
 test("G3a: formatter ngày không vẽ epoch hay Invalid Date cho NULL/rác", () => {
@@ -79,7 +79,7 @@ test("G3a: sửa, huỷ hết hạn và hoàn huỷ giữ nút Huỷ cũ và đ�
     assert.match(kho, new RegExp(action));
     assert.match(proxy, new RegExp(`"${action}":`));
   }
-  assert.match(kho, /Sửa lô/);
+  assert.match(kho, /Sửa số lô \/ hạn dùng/);
   assert.match(kho, /Huỷ lô hết hạn/);
   assert.match(kho, /loai: "discard"/);
   assert.doesNotMatch(kho, /window\.confirm/);

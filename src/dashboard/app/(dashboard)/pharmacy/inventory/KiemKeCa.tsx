@@ -42,9 +42,14 @@ interface Phieu {
   ca: Ca;
   loai: Loai;
   trang_thai: "NHAP" | "CHOT";
+  phien_ban: number;
+  phieu_truoc_id: string | null;
+  phieu_sau_id: string | null;
+  ly_do_sua: string | null;
   mot_phan: boolean;
   dung_so_ca_truoc: boolean;
   chot_luc: string | null;
+  moc_ton_luc: string | null;
   dieu_chinh_luc: string | null;
   dieu_chinh_ly_do: string | null;
   hoan_tac_luc: string | null;
@@ -58,6 +63,10 @@ interface TomTat {
   ca: Ca;
   loai: Loai;
   trang_thai: "NHAP" | "CHOT";
+  phien_ban: number;
+  phieu_truoc_id: string | null;
+  phieu_sau_id: string | null;
+  ly_do_sua: string | null;
   so_lech: number;
   dieu_chinh_luc: string | null;
   hoan_tac_luc: string | null;
@@ -125,6 +134,7 @@ export default function KiemKeCa({
   const [phieu, setPhieu] = useState<Phieu | null>(null);
   const [nhap, setNhap] = useState<Record<string, string>>({});
   const [lyDo, setLyDo] = useState("");
+  const [lyDoSua, setLyDoSua] = useState("");
   const [ketQuaDC, setKetQuaDC] = useState<string | null>(null);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
@@ -264,6 +274,8 @@ export default function KiemKeCa({
       if (p) {
         nap(p);
         void taiDs(ngay);
+        const nhacMoi = await goi<Nhac>("GET", `${URL_GOC}?nhac=1&ngay=${ngay}`);
+        if (nhacMoi.ok) setNhac(nhacMoi.data);
       }
     });
 
@@ -307,6 +319,16 @@ export default function KiemKeCa({
       void taiDs(ngay);
     });
 
+  const suaSoDem = () =>
+    chay(async () => {
+      const p = await buocPhieu("sua-so-dem", { ly_do: lyDoSua.trim() });
+      if (p) {
+        nap(p);
+        setLyDoSua("");
+        void taiDs(ngay);
+      }
+    });
+
   const daChot = phieu?.trang_thai === "CHOT";
   const coLech = (phieu?.dong ?? []).some((d) => d.lech !== null && d.lech !== 0);
   const hang = daChot
@@ -315,12 +337,14 @@ export default function KiemKeCa({
         ten: d.ten,
         dv: d.don_vi,
       }))
-    : dong;
+    : phieu?.phieu_truoc_id
+      ? phieu.dong.map((d) => ({ khoa: khoaDong(d.drug_catalog_id, d.don_vi), ten: d.ten, dv: d.don_vi }))
+      : dong;
 
   return (
     <div className="flex flex-col gap-4">
       <p className="text-meta text-ink-muted">
-        Đếm thuốc THẬT trên kệ quầy (kể cả thuốc đã thu tiền mà chưa giao). Chốt rồi mới thấy tồn máy
+        Đếm số thuốc thực tế trên kệ quầy (kể cả thuốc đã thu tiền mà chưa giao). Chốt rồi mới thấy tồn trên hệ thống
         và chênh lệch — chốt KHÔNG tự sửa tồn; điều chỉnh là bước riêng, có lý do, hoàn tác được.
       </p>
       {nhac && (nhac.thieu_dau_ca || nhac.thieu_cuoi_ca_truoc) ? (
@@ -345,13 +369,17 @@ export default function KiemKeCa({
             onChange={(e) => {
               giuCaDau.current = false;
               setNgay(e.target.value || homNayVn());
+              setPhieu(null);
+              setDs(null);
+              setLoi(null);
+              setKetQuaDC(null);
             }}
             className={INPUT}
           />
         </label>
         <label className="block">
           <span className="mb-1 block text-meta text-ink-soft">Ca</span>
-          <select value={ca} onChange={(e) => setCa(e.target.value as Ca)} className={INPUT}>
+          <select value={ca} onChange={(e) => { giuCaDau.current = true; setCa(e.target.value as Ca); setPhieu(null); setLoi(null); setKetQuaDC(null); }} className={INPUT}>
             {(Object.keys(NHAN_CA) as Ca[]).map((c) => (
               <option key={c} value={c}>
                 {NHAN_CA[c]}
@@ -373,13 +401,16 @@ export default function KiemKeCa({
         )}
         {ghiDuoc ? (
           <Button type="button" variant="primary" disabled={dang} onClick={() => void moPhieu()}>
-            Mở / tiếp tục phiếu
+            Bắt đầu kiểm kê
           </Button>
         ) : null}
       </section>
 
+      <p className="text-meta text-ink-muted">Chọn ngày và ca rồi bấm Bắt đầu kiểm kê. Nếu đã có phiếu, hệ thống mở lại phiếu đó, không tạo trùng.</p>
+
       <section aria-label="Phiếu đã có trong ngày" className="space-y-2">
-        <h3 className="text-title text-ink">Phiếu trong ngày</h3>
+        <h3 className="text-title text-ink">Các lần kiểm kê trong ngày</h3>
+        <p className="text-meta text-ink-muted">Bấm một lần kiểm kê để xem hoặc nhập tiếp. Chưa chốt nghĩa là số đếm chưa được xác nhận.</p>
         <ul className="flex flex-wrap gap-2">
           {ds === null ? (
             <li className="text-meta text-ink-muted">Đang đọc…</li>
@@ -395,7 +426,9 @@ export default function KiemKeCa({
                   onClick={() => void moCu(p.id)}
                 >
                   {NHAN_CA[p.ca]} · {NHAN_LOAI[p.loai]} ·{" "}
-                  {p.trang_thai === "CHOT" ? `đã chốt (${p.so_lech} lệch)` : "nháp"}
+                  {p.trang_thai === "CHOT" ? `đã chốt (${p.so_lech} lệch)` : "đang nhập — chưa chốt"}
+                  {p.phien_ban > 1 ? ` · bản sửa ${p.phien_ban}` : ""}
+                  {p.phieu_sau_id ? " · có bản sửa" : ""}
                   {p.dieu_chinh_luc && !p.hoan_tac_luc ? " · đã điều chỉnh" : ""}
                 </Button>
               </li>
@@ -425,7 +458,7 @@ export default function KiemKeCa({
 
           {!daChot && ghiDuoc ? (
             <div className="flex flex-wrap gap-2">
-              {phieu.loai === "DAU" ? (
+              {phieu.loai === "DAU" && !phieu.phieu_truoc_id ? (
                 <Button
                   type="button"
                   size="sm"
@@ -458,7 +491,7 @@ export default function KiemKeCa({
           ) : null}
           {!daChot && ghiDuoc && hoiChot === phieu.id ? (
             <XacNhanTaiCho
-              cau="Chốt kiểm kê? Sau khi chốt không sửa số đếm; lệch (nếu có) sẽ báo, bạn điều chỉnh hoặc hoàn tác sau."
+              cau="Chốt kiểm kê? Hệ thống lưu số đếm và chênh lệch. Nếu nhập nhầm, bạn có thể tạo bản sửa có lưu lịch sử; chốt không tự đổi tồn."
               nhanDongY="Chốt"
               dangGui={dang}
               onDongY={() => {
@@ -536,8 +569,8 @@ export default function KiemKeCa({
             <div className="space-y-2">
               <p className="text-meta text-ink-muted">
                 Tồn trên hệ thống là số ghi trong sổ kho tại giờ chốt (
-                {phieu.chot_luc
-                  ? new Date(phieu.chot_luc).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
+                {phieu.moc_ton_luc
+                  ? new Date(phieu.moc_ton_luc).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
                   : "—"}
                 {phieu.nguoi_chot ? `, ${phieu.nguoi_chot}` : ""}). Thuốc đã giao mà chưa gắn lô làm tồn
                 trên hệ thống cao hơn kệ thật — cột riêng bên cạnh, không phải lệch đếm.
@@ -553,7 +586,30 @@ export default function KiemKeCa({
                   {phieu.nguoi_dieu_chinh ? ` — ${phieu.nguoi_dieu_chinh}` : ""}.
                 </p>
               ) : null}
-              {ghiDuoc && coLech && !phieu.dieu_chinh_luc ? (
+              {phieu.ly_do_sua ? (
+                <p className="text-meta text-ink-muted">
+                  Bản sửa {phieu.phien_ban}: {phieu.ly_do_sua}. So với tồn tại lần chốt gốc; không đổi tồn khi lưu hoặc chốt lại.
+                </p>
+              ) : null}
+              {phieu.phieu_sau_id ? (
+                <Button type="button" variant="secondary" disabled={dang}
+                  onClick={() => void chay(() => docLai(phieu.phieu_sau_id!))}>
+                  Xem bản sửa tiếp theo
+                </Button>
+              ) : ghiDuoc && (!phieu.dieu_chinh_luc || phieu.hoan_tac_luc) ? (
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="block min-w-0 flex-1">
+                    <span className="mb-1 block text-meta text-ink-soft">Lý do sửa số đếm đã chốt</span>
+                    <input value={lyDoSua} maxLength={1000} onChange={(e) => setLyDoSua(e.target.value)}
+                      placeholder="Nhập nhầm số đếm…" className={INPUT} />
+                  </label>
+                  <Button type="button" variant="secondary" disabled={dang || !lyDoSua.trim()}
+                    onClick={() => void suaSoDem()}>Sửa số đếm</Button>
+                </div>
+              ) : ghiDuoc ? (
+                <p className="text-meta text-ink-muted">Muốn sửa số đếm, hoàn tác điều chỉnh tồn trước.</p>
+              ) : null}
+              {ghiDuoc && coLech && !phieu.dieu_chinh_luc && !phieu.phieu_sau_id ? (
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="block min-w-0 flex-1">
                     <span className="mb-1 block text-meta text-ink-soft">

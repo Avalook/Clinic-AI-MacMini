@@ -332,6 +332,8 @@ async def kiem_trong_khoang(
               FROM public.kiem_ke_ca k
              WHERE k.clinic_id = $1::uuid AND k.trang_thai = 'CHOT'
                AND k.loai IN ('DAU', 'CUOI')
+               AND NOT EXISTS (SELECT 1 FROM public.kiem_ke_ca n
+                   WHERE n.phieu_truoc_id = k.id AND n.trang_thai = 'CHOT')
                AND k.ngay BETWEEN $3 AND $4
                AND ($2::uuid IS NULL OR k.location_id = $2::uuid)
                AND ($5::text IS NULL OR k.ca = $5)
@@ -518,6 +520,10 @@ def _doc_uuid(v: Any, ten: str) -> str:
 _PHIEU_SQL = """
     SELECT k.id::text AS id, k.location_id::text AS location_id, k.ngay, k.ca,
            k.loai, k.trang_thai, k.mot_phan, k.dung_so_ca_truoc, k.ghi_chu,
+           k.phieu_truoc_id::text, k.phien_ban, k.ly_do_sua,
+           coalesce(k.moc_ton_luc, k.chot_luc) AS moc_ton_luc,
+           (SELECT n.id::text FROM public.kiem_ke_ca n
+             WHERE n.phieu_truoc_id = k.id) AS phieu_sau_id,
            k.tao_luc, k.chot_luc, k.dieu_chinh_luc, k.dieu_chinh_ly_do,
            k.hoan_tac_luc, s.full_name AS nguoi_tao, sc.full_name AS nguoi_chot,
            sd.full_name AS nguoi_dieu_chinh
@@ -569,6 +575,9 @@ async def danh_sach(
             """
             SELECT k.id::text AS id, k.ngay, k.ca, k.loai, k.trang_thai, k.mot_phan,
                    k.tao_luc, k.chot_luc, k.dieu_chinh_luc, k.hoan_tac_luc,
+                   k.phien_ban, k.phieu_truoc_id::text, k.ly_do_sua,
+                   (SELECT n.id::text FROM public.kiem_ke_ca n
+                     WHERE n.phieu_truoc_id = k.id) AS phieu_sau_id,
                    s.full_name AS nguoi_tao,
                    (SELECT count(*) FROM public.kiem_ke_ca_dong d
                      WHERE d.kiem_ke_ca_id = k.id) AS so_dong,
@@ -623,13 +632,13 @@ async def nhac_thieu_kiem(
             truoc_ngay,
             truoc_ca,
         )
-    chot = {(r["loai"]): r["trang_thai"] == "CHOT" for r in rows}
+    chot = {r["loai"] for r in rows if r["trang_thai"] == "CHOT"}
     return {
         "ngay": d.isoformat(),
         "ca": ma,
-        "thieu_dau_ca": not chot.get("DAU", False),
+        "thieu_dau_ca": "DAU" not in chot,
         "ca_truoc": {"ngay": truoc_ngay.isoformat(), "ca": truoc_ca},
-        "thieu_cuoi_ca_truoc": not chot.get("CUOI", False),
+        "thieu_cuoi_ca_truoc": "CUOI" not in chot,
     }
 
 
@@ -667,7 +676,8 @@ async def mo_phieu(
                 "INSERT INTO public.kiem_ke_ca (clinic_id, location_id, ngay, ca,"
                 " loai, ghi_chu, tao_boi) VALUES ($1::uuid, $2::uuid, $3, $4, $5,"
                 " $6, $7::uuid) ON CONFLICT (location_id, ngay, ca, loai)"
-                " WHERE loai IN ('DAU', 'CUOI') DO NOTHING RETURNING id::text",
+                " WHERE loai IN ('DAU', 'CUOI') AND phieu_truoc_id IS NULL"
+                " DO NOTHING RETURNING id::text",
                 identity.clinic_id,
                 co_so,
                 d,
@@ -680,7 +690,8 @@ async def mo_phieu(
             if pid is None:
                 pid = await conn.fetchval(
                     "SELECT id::text FROM public.kiem_ke_ca WHERE location_id ="
-                    " $1::uuid AND ngay = $2 AND ca = $3 AND loai = $4",
+                    " $1::uuid AND ngay = $2 AND ca = $3 AND loai = $4"
+                    " ORDER BY phien_ban DESC LIMIT 1",
                     co_so,
                     d,
                     c,
@@ -703,7 +714,8 @@ async def _khoa_phieu_nhap(
     conn: asyncpg.Connection, identity: StaffIdentity, pid: str
 ) -> asyncpg.Record:
     p = await conn.fetchrow(
-        "SELECT id::text, loai, ngay, ca, trang_thai FROM public.kiem_ke_ca"
+        "SELECT id::text, loai, ngay, ca, trang_thai, phieu_truoc_id::text"
+        " FROM public.kiem_ke_ca"
         " WHERE id = $1::uuid AND clinic_id = $2::uuid AND location_id = $3::uuid"
         " FOR UPDATE",
         pid,
@@ -777,8 +789,22 @@ async def luu_dem(
             raise ValidationError(f"Dòng {i}: số đếm phải là số không âm, hợp lý.")
         ghi.append((i, thuoc, dv, so))
     async with pool.acquire() as conn, conn.transaction():
-        await _khoa_phieu_nhap(conn, identity, pid)
+        p = await _khoa_phieu_nhap(conn, identity, pid)
         for i, thuoc, dv, so in ghi:
+            if p["phieu_truoc_id"] and not await conn.fetchval(
+                "SELECT 1 FROM public.kiem_ke_ca_dong WHERE kiem_ke_ca_id=$1::uuid"
+                " AND drug_catalog_id=$2::uuid AND don_vi=$3",
+                p["phieu_truoc_id"],
+                thuoc,
+                dv,
+            ):
+                raise ValidationError(
+                    "Phiếu sửa chỉ sửa thuốc đã đếm; kiểm thuốc khác bằng phiếu mới."
+                )
+            if p["phieu_truoc_id"] and so is None:
+                raise ValidationError(
+                    "Bản sửa phải giữ các dòng đã đếm; nhập lại số đúng."
+                )
             if so is not None:
                 await _kiem_don_vi_co_that(conn, identity, i, thuoc, dv)
         for _i, thuoc, dv, so in ghi:
@@ -816,6 +842,8 @@ async def dung_so_cuoi_ca_truoc(
     pid = _doc_uuid(phieu_id, "Mã phiếu")
     async with pool.acquire() as conn, conn.transaction():
         p = await _khoa_phieu_nhap(conn, identity, pid)
+        if p["phieu_truoc_id"]:
+            raise ConflictError("Bản sửa chỉ sửa số đếm gốc, không sao chép ca khác.")
         if p["loai"] != "DAU":
             raise ConflictError("Chỉ phiếu ĐẦU ca mới dùng số cuối ca trước.")
         truoc = await conn.fetchval(
@@ -826,7 +854,8 @@ async def dung_so_cuoi_ca_truoc(
                AND (ngay, CASE ca WHEN 'SANG' THEN 1 WHEN 'CHIEU' THEN 2 ELSE 3 END)
                    < ($3::date, $4::int)
              ORDER BY ngay DESC,
-                      CASE ca WHEN 'SANG' THEN 1 WHEN 'CHIEU' THEN 2 ELSE 3 END DESC
+                      CASE ca WHEN 'SANG' THEN 1 WHEN 'CHIEU' THEN 2 ELSE 3 END DESC,
+                      phien_ban DESC
              LIMIT 1
             """,
             identity.clinic_id,
@@ -862,7 +891,8 @@ async def chot(
     co_so = _co_so(identity)
     async with pool.acquire() as conn, conn.transaction():
         p = await conn.fetchrow(
-            "SELECT id::text, ngay, ca, loai, trang_thai FROM public.kiem_ke_ca"
+            "SELECT id::text, ngay, ca, loai, trang_thai, phieu_truoc_id::text"
+            " FROM public.kiem_ke_ca"
             " WHERE id = $1::uuid AND clinic_id = $2::uuid AND location_id ="
             " $3::uuid FOR UPDATE",
             pid,
@@ -896,6 +926,25 @@ async def chot(
         gan_lo = await giao_chua_gan_lo_theo_thuoc(
             conn, clinic_id=identity.clinic_id, location_id=co_so
         )
+        # Đính chính số đếm cũ: giữ mốc tồn của phiếu gốc, không lấy tồn sau
+        # những lần bán tiếp theo làm cơ sở điều chỉnh lại ca đã kiểm.
+        if p["phieu_truoc_id"]:
+            cu = await conn.fetch(
+                "SELECT drug_catalog_id::text AS thuoc, don_vi, ton_may,"
+                " giao_chua_gan_lo FROM public.kiem_ke_ca_dong"
+                " WHERE kiem_ke_ca_id=$1::uuid",
+                p["phieu_truoc_id"],
+            )
+            ton = {(r["thuoc"], r["don_vi"]): r["ton_may"] for r in cu}
+            gan_lo = {r["thuoc"]: r["giao_chua_gan_lo"] for r in cu}
+        mot_phan_goc = False
+        if p["phieu_truoc_id"]:
+            mot_phan_goc = bool(
+                await conn.fetchval(
+                    "SELECT mot_phan FROM public.kiem_ke_ca WHERE id=$1::uuid",
+                    p["phieu_truoc_id"],
+                )
+            )
         so_lech = 0
         da_dem = set()
         for r in dong:
@@ -917,13 +966,18 @@ async def chot(
                 gan_lo.get(r["thuoc"]),
             )
         # Kiểm một phần: còn (thuốc, đơn vị) có tồn ở quầy mà phiếu không đếm.
-        mot_phan = any(Decimal(str(v)) != 0 and k not in da_dem for k, v in ton.items())
+        mot_phan = mot_phan_goc or any(
+            Decimal(str(v)) != 0 and k not in da_dem for k, v in ton.items()
+        )
         await conn.execute(
             "UPDATE public.kiem_ke_ca SET trang_thai = 'CHOT', mot_phan = $2,"
-            " chot_boi = $3::uuid, chot_luc = now() WHERE id = $1::uuid",
+            " chot_boi = $3::uuid, chot_luc = now(), moc_ton_luc = coalesce("
+            " (SELECT coalesce(moc_ton_luc, chot_luc) FROM public.kiem_ke_ca"
+            " WHERE id=$4::uuid), now()) WHERE id = $1::uuid",
             pid,
             mot_phan,
             identity.staff_id,
+            p["phieu_truoc_id"],
         )
         await ghi_nhat_ky(
             conn,
@@ -990,17 +1044,35 @@ async def dieu_chinh_theo_kiem_ke(
             raise NotFoundError("Không tìm thấy phiếu kiểm kê này.")
         if p["trang_thai"] != "CHOT":
             raise ConflictError("Phải chốt phiếu trước khi điều chỉnh.")
+        if await conn.fetchval(
+            "SELECT 1 FROM public.kiem_ke_ca WHERE phieu_truoc_id=$1::uuid", pid
+        ):
+            raise ConflictError(
+                "Phiếu đã có bản sửa — điều chỉnh trên phiên bản mới nhất."
+            )
         if p["dieu_chinh_luc"] is not None:
             raise ConflictError(
-                "Phiếu này đã điều chỉnh rồi (hoàn tác trước nếu cần làm lại)."
+                "Phiếu này đã điều chỉnh rồi. Nếu cần kiểm lại, "
+                "lập phiếu kiểm đột xuất mới."
             )
         lech = await conn.fetch(
-            "SELECT drug_catalog_id::text AS thuoc, don_vi, lech FROM"
+            "SELECT drug_catalog_id::text AS thuoc, don_vi, lech, giao_chua_gan_lo FROM"
             " public.kiem_ke_ca_dong WHERE kiem_ke_ca_id = $1::uuid AND lech <> 0",
             pid,
         )
         if not lech:
             raise ConflictError("Phiếu không có lệch nào để điều chỉnh.")
+        # Snapshot có giao chưa gắn lô không còn là cơ sở điều chỉnh an toàn,
+        # kể cả khi đã gắn lô sau chốt: DISPENSE có thể đã trừ phần thiếu đó.
+        cho_gan = await giao_chua_gan_lo_theo_thuoc(
+            conn, clinic_id=identity.clinic_id, location_id=_co_so(identity)
+        )
+        if any(r["giao_chua_gan_lo"] or cho_gan.get(r["thuoc"], 0) for r in lech):
+            raise ConflictError(
+                "Có thuốc đã giao chưa gắn lô tại lúc chốt hoặc hiện tại. "
+                "Hoàn thiện gắn lô, rồi lập phiếu kiểm đột xuất mới trước khi "
+                "điều chỉnh để tránh trừ kho hai lần."
+            )
         await _khoa_lo_quay(conn, identity, sorted({r["thuoc"] for r in lech}))
         ap_dung: list[dict[str, Any]] = []
         bo_qua: list[dict[str, Any]] = []
@@ -1194,3 +1266,71 @@ async def hoan_tac_dieu_chinh(
             payload={"so_dong": len(txn)},
         )
         return {"ok": True, "phieu_id": pid, "so_dong": len(txn)}
+
+
+async def sua_so_dem(
+    pool: asyncpg.Pool, *, identity: StaffIdentity, phieu_id: Any, ly_do: Any
+) -> dict[str, Any]:
+    """Tạo bản đính chính có lý do; giữ nguyên số đếm và snapshot phiếu đã chốt.
+
+    Gọi lại trả bản sửa đã mở. Điều chỉnh tồn cũ phải hoàn tác trước, vì bản sửa
+    cần được đối chiếu với cùng nền tồn gốc và không được trừ tồn lần hai.
+    """
+    pid = _doc_uuid(phieu_id, "Mã phiếu")
+    ly = str(ly_do or "").strip()
+    if not ly or len(ly) > 1000:
+        raise ValidationError("Ghi lý do sửa số đếm (từ 1 đến 1000 ký tự).")
+    async with pool.acquire() as conn, conn.transaction():
+        p = await conn.fetchrow(
+            "SELECT * FROM public.kiem_ke_ca WHERE id=$1::uuid AND clinic_id=$2::uuid"
+            " AND location_id=$3::uuid FOR UPDATE",
+            pid,
+            identity.clinic_id,
+            _co_so(identity),
+        )
+        if p is None:
+            raise NotFoundError("Không tìm thấy phiếu kiểm kê này.")
+        if p["trang_thai"] != "CHOT":
+            raise ConflictError("Phiếu chưa chốt — sửa trực tiếp số đếm rồi lưu.")
+        if p["dieu_chinh_luc"] is not None and p["hoan_tac_luc"] is None:
+            raise ConflictError("Hoàn tác điều chỉnh tồn trước khi sửa số đếm.")
+        moi = await conn.fetchval(
+            "SELECT id::text FROM public.kiem_ke_ca WHERE phieu_truoc_id=$1::uuid", pid
+        )
+        if moi:
+            return await _doc_phieu(conn, identity, moi)
+        moi = await conn.fetchval(
+            "INSERT INTO public.kiem_ke_ca (clinic_id, location_id, ngay, ca, loai,"
+            " tao_boi, phieu_truoc_id, phien_ban, ly_do_sua) VALUES ($1::uuid,"
+            " $2::uuid, $3, $4, $5, $6::uuid, $7::uuid, $8, $9) RETURNING id::text",
+            identity.clinic_id,
+            _co_so(identity),
+            p["ngay"],
+            p["ca"],
+            p["loai"],
+            identity.staff_id,
+            pid,
+            p["phien_ban"] + 1,
+            ly,
+        )
+        await conn.execute(
+            "INSERT INTO public.kiem_ke_ca_dong (clinic_id, kiem_ke_ca_id,"
+            " drug_catalog_id, don_vi, dem) SELECT clinic_id, $2::uuid,"
+            " drug_catalog_id, don_vi, dem FROM public.kiem_ke_ca_dong"
+            " WHERE kiem_ke_ca_id=$1::uuid",
+            pid,
+            moi,
+        )
+        await ghi_nhat_ky(
+            conn,
+            identity=identity,
+            event_type="pharmacy.kiem_ke_ca_sua_so_dem",
+            aggregate_type="kiem_ke_ca",
+            aggregate_id=moi,
+            payload={
+                "phieu_truoc_id": pid,
+                "phien_ban": p["phien_ban"] + 1,
+                "ly_do": ly,
+            },
+        )
+        return await _doc_phieu(conn, identity, moi)

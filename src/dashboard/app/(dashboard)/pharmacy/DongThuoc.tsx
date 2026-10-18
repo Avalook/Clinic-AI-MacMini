@@ -345,7 +345,7 @@ export default function DongThuoc({ dong, danhMuc, chiXem = false, loQuet = null
         </div>
       ) : null}
 
-      {/* ── Tách kho / quầy (G7): quầy hết lô mà kho còn → chuyển ngay tại đây ── */}
+      {/* Kho còn hàng: thông tin tham khảo, giao trước và đối chiếu lô sau. */}
       {tt.chon_lo && (dong.kho_con?.length ?? 0) > 0 && dong.lo_goi_y.length === 0 ? (
         <KhoConChuyenQuay
           khoCon={dong.kho_con ?? []}

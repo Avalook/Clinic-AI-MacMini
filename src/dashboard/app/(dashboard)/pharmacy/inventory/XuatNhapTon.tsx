@@ -110,6 +110,13 @@ export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => vo
 
   return (
     <div className="flex flex-col gap-3">
+      <div>
+        <h2 className="text-title font-semibold text-ink">Báo cáo kho theo thời gian</h2>
+        <p className="text-meta text-ink-muted">
+          Chọn khoảng ngày để xem tồn đầu, nhập, xuất và tồn cuối; tải Excel theo đúng khoảng đang xem.
+          Bấm tên thuốc để xem lịch sử từng lần nhập / xuất. Mục Tất cả giới hạn trong một năm gần nhất.
+        </p>
+      </div>
       <ThanhNgay
         nhan="Khoảng ngày xuất – nhập – tồn"
         khoang={khoang}
@@ -141,7 +148,7 @@ export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => vo
           size="sm"
           variant="secondary"
           className="sm:ml-auto"
-          disabled={!kq || dangTai || dong.length === 0}
+          disabled={!kq || dangTai || !!loi || dong.length === 0}
           onClick={xuatExcel}
         >
           Xuất Excel

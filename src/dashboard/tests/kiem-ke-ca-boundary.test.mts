@@ -41,7 +41,7 @@ const MOCK = {
 
 test("proxy kiểm kê: danh sách trắng bước ghi, id phải là uuid, không có đường lạ", () => {
   const buoc = doc("app/api/pharmacy/kiem-ke-ca/[id]/[buoc]/route.ts");
-  for (const b of ["dem", "dung-so-cuoi-ca-truoc", "chot", "dieu-chinh", "hoan-tac-dieu-chinh"]) {
+  for (const b of ["dem", "dung-so-cuoi-ca-truoc", "chot", "dieu-chinh", "hoan-tac-dieu-chinh", "sua-so-dem"]) {
     assert.match(buoc, new RegExp(`"${b}"`));
   }
   assert.match(buoc, /UUID_RE\.test\(id\)/);
@@ -73,17 +73,17 @@ test("KiemKeCa: người không có quyền ghi chỉ xem — không nút mở p
     },
   ];
   const ghi = renderToStaticMarkup(React.createElement(Kiem, { batches, ghiDuoc: true }));
-  assert.match(ghi, /Mở \/ tiếp tục phiếu/);
+  assert.match(ghi, />Bắt đầu kiểm kê<\/button>/);
   assert.match(ghi, /KHÔNG tự sửa tồn/);
   const xem = renderToStaticMarkup(React.createElement(Kiem, { batches, ghiDuoc: false }));
-  assert.doesNotMatch(xem, /Mở \/ tiếp tục phiếu/);
+  assert.doesNotMatch(xem, />Bắt đầu kiểm kê<\/button>/);
   assert.doesNotMatch(doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx"), /window\.confirm/);
 });
 
 test("Chốt kiểm kê phải qua xác nhận TẠI CHỖ (XacNhanTaiCho), nút Chốt không gọi chốt ngay", () => {
   const nguon = doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx");
   assert.match(nguon, /import XacNhanTaiCho from "@\/components\/ui\/XacNhanTaiCho"/);
-  assert.match(nguon, /Chốt kiểm kê\? Sau khi chốt không sửa số đếm; lệch \(nếu có\) sẽ báo, bạn điều chỉnh hoặc hoàn tác sau\./);
+  assert.match(nguon, /Chốt kiểm kê\? Hệ thống lưu số đếm và chênh lệch\./);
   assert.match(nguon, /nhanDongY="Chốt"/);
   // Nút "Chốt kiểm kê" chỉ mở câu hỏi; chỉ [Chốt] trong dải mới gọi chot().
   assert.match(nguon, /onClick=\{\(\) => setHoiChot\(phieu\.id\)\}/);

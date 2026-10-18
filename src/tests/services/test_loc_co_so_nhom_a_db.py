@@ -324,8 +324,11 @@ async def test_trang_chu_dem_theo_co_so(
     pool: asyncpg.Pool,  # noqa: F811
     hai_co_so: tuple[CoSo, CoSo, date],
 ) -> None:
-    """Ô số trang chủ: tổng hai cơ sở ≤ không chọn cơ sở, và mỗi cơ sở ≥ 1 lịch
-    chưa xếp bác sĩ (của chính nó)."""
+    """Mỗi cơ sở có dữ liệu riêng; dòng chưa biết cơ sở hiện ở cả hai màn.
+
+    DB của worker còn dữ liệu từ bài trước. Phải trừ phần dùng chung trước
+    khi so tổng, vì màn không chọn cơ sở chỉ đếm các dòng NULL một lần.
+    """
     a, b, thu_hai = hai_co_so
     so: dict[str, dict[str, Any]] = {}
     for ten, ai in (
@@ -338,6 +341,23 @@ async def test_trang_chu_dem_theo_co_so(
         )
         so[ten] = {c["ma"]: c["so"] for c in tc["can_xu_ly"]}
         so[ten]["khach_moi"] = tc["so_lieu"]["khach_moi_hom_nay"]
-    for ma in ("chua_xep_bac_si", "khach_moi"):
-        assert so["a"][ma] >= 1 and so["b"][ma] >= 1, ma
-        assert so["a"][ma] + so["b"][ma] <= so["tat_ca"][ma], ma
+    hom_nay = datetime.now(CLINIC_TZ).date()
+    dau_ngay = datetime.combine(hom_nay, datetime.min.time(), tzinfo=CLINIC_TZ)
+    dung_chung = {
+        "chua_xep_bac_si": await pool.fetchval(
+            "SELECT count(*) FROM appointment WHERE clinic_id = $1::uuid"
+            " AND location_id IS NULL AND doctor_id IS NULL AND slot_start >= now()"
+            " AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')",
+            CLINIC,
+        ),
+        "khach_moi": await pool.fetchval(
+            "SELECT count(*) FROM patient WHERE clinic_id = $1::uuid"
+            " AND location_id IS NULL AND created_at >= $2 AND created_at < $3",
+            CLINIC,
+            dau_ngay,
+            dau_ngay + timedelta(days=1),
+        ),
+    }
+    for ma, chung in dung_chung.items():
+        assert so["a"][ma] - chung >= 1 and so["b"][ma] - chung >= 1, ma
+        assert so["a"][ma] + so["b"][ma] <= so["tat_ca"][ma] + chung, ma

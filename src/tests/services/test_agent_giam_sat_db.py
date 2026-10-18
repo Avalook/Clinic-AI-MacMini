@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from typing import Never
+from uuid import UUID
 
 import asyncpg
 import pytest
@@ -39,6 +40,19 @@ async def _luot(pool: asyncpg.Pool) -> tuple[str, str]:  # noqa: F811
 
 async def _don(pool: asyncpg.Pool, vid: str) -> None:  # noqa: F811
     await pool.execute("DELETE FROM agent_nhan_dinh WHERE khoa = $1", vid)
+
+
+def _chi_xet_luot(monkeypatch: pytest.MonkeyPatch, vid: str) -> None:
+    # DB của worker giữ các lượt do bài trước tạo. Không để 200 lượt cũ chiếm
+    # hết trần trước khi đến fixture; vẫn chạy nguyên các điều kiện SQL thật.
+    monkeypatch.setattr(
+        ag,
+        "_LANG_IM_SQL",
+        ag._LANG_IM_SQL.replace(
+            f"\n LIMIT {ag.TRAN}\n",
+            f"\n AND v.visit_id = '{UUID(vid)}'::uuid\n LIMIT {ag.TRAN}\n",
+        ),
+    )
 
 
 async def test_cho_lau_mo_cong_don_roi_tu_dong(pool: asyncpg.Pool) -> None:  # noqa: F811
@@ -83,6 +97,7 @@ async def test_lang_im_la_suy_ra_va_tat_thi_dong_tat(
     # Không đẩy giờ `luc` sang tương lai: chạy lúc gần nửa đêm thì "hôm nay" của
     # `luc` là ngày mai và lượt rơi khỏi điều kiện — bài sẽ chập chờn theo giờ.
     monkeypatch.setattr(ag, "LANG_IM_PHUT", 0)
+    _chi_xet_luot(monkeypatch, vid)
     try:
         # Khách rời mọi hàng chờ mà lượt vẫn mở = đúng tình huống "bị quên".
         await pool.execute(
@@ -127,6 +142,7 @@ async def test_bo_phat_hien_hong_khong_dong_nham(
 ) -> None:
     vid, _ = await _luot(pool)
     monkeypatch.setattr(ag, "LANG_IM_PHUT", 0)
+    _chi_xet_luot(monkeypatch, vid)
     try:
         await pool.execute(
             "UPDATE queue_entry SET status = 'left', done_at = now()"

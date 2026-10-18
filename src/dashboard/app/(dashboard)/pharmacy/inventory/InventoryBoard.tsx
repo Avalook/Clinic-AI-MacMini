@@ -16,7 +16,7 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import type { ThuocKho } from "./DanhMucKho";
-import { guiKho, tienVnd, tonTheoDonVi, tongTonTheoDonVi } from "./gui-kho";
+import { guiKho, soKho, tienVnd, tonTheoDonVi, tongTonTheoDonVi } from "./gui-kho";
 import NhapLo from "./NhapLo";
 
 interface InvDrug {
@@ -34,6 +34,9 @@ export interface InvBatch {
   unit: string;
   cost_price: number | null;
   received_at: string | null;
+  /** Tổng theo thuốc + đơn vị tại cơ sở; lặp lại trên các lô, không cộng theo lô. */
+  da_giao_chua_doi_chieu?: number;
+  ton_kha_dung_thuoc?: number;
   /** Máy chủ tính theo ngày VN (29/09/2026) — TSX không tự đếm ngày. */
   trang_thai_han: ExpiryState;
   /** Còn thuốc trên kệ VÀ sắp hết hạn / hết hạn (máy chủ tính). */
@@ -246,6 +249,13 @@ export default function InventoryBoard({
                           {b.drug?.variant ? ` (${b.drug.variant})` : ""}
                         </>
                       )}
+                      {Number(b.da_giao_chua_doi_chieu ?? 0) > 0 ? (
+                        <span className="block text-meta font-normal text-warning">
+                          Thuốc này: đã giao chờ đối chiếu {soKho(b.da_giao_chua_doi_chieu)} {b.unit};
+                          còn bán được tại cơ sở {soKho(b.ton_kha_dung_thuoc)} {b.unit}.
+                          Số tồn trong dòng là tồn sổ của lô, chưa trừ phần chờ.
+                        </span>
+                      ) : null}
                       <span className="block text-meta font-normal text-ink-muted sm:hidden">
                         {b.batch_code}
                       </span>
@@ -283,7 +293,7 @@ export default function InventoryBoard({
                       <Button type="button" size="sm" variant="ghost" onClick={() => {
                         setLoi(null);
                         setLo({ id: b.id, loai: "sua-lo", so_luong: "", ly_do: "", batch_code: b.batch_code, expiry_date: b.expiry_date ?? "" });
-                      }}>Sửa lô</Button>
+                      }}>Sửa số lô / hạn dùng</Button>
                       <Button
                         type="button"
                         size="sm"

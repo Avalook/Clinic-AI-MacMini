@@ -265,6 +265,28 @@ class PharmacyService:
                        b.noi_chua,
                        b.expiry_date,
                        b.quantity_on_hand,
+                       coalesce((SELECT sum(g.so_luong)
+                         FROM public.thuoc_giao_chua_gan_lo g
+                         JOIN public.prescription p ON p.id = g.prescription_id
+                          AND p.clinic_id = g.clinic_id
+                        WHERE g.clinic_id = b.clinic_id
+                          AND g.drug_catalog_id = b.drug_catalog_id
+                          AND g.drug_batch_id IS NULL
+                          AND lower(trim(coalesce(p.unit, ''))) =
+                              lower(trim(coalesce(b.unit, '')))
+                          AND coalesce(public.co_so_cua_luot(g.clinic_id, p.visit_id),
+                                       $4::uuid) = b.location_id), 0)
+                         AS da_giao_chua_doi_chieu,
+                       coalesce((SELECT sum(
+                           public.drug_batch_kha_dung(x.clinic_id, x.id))
+                         FROM public.drug_batch x
+                        WHERE x.clinic_id = b.clinic_id
+                          AND x.location_id = b.location_id
+                          AND x.drug_catalog_id = b.drug_catalog_id
+                          AND lower(trim(coalesce(x.unit, ''))) =
+                              lower(trim(coalesce(b.unit, '')))
+                          AND (x.expiry_date IS NULL OR x.expiry_date >= $2::date)), 0)
+                         AS kha_dung_truoc_doi_chieu,
                        b.unit,
                        b.cost_price,
                        b.received_at,
@@ -300,6 +322,12 @@ class PharmacyService:
         return [
             {
                 **d,
+                # Pending chưa thuộc lô nào: số tổng theo thuốc/đơn vị/cơ sở,
+                # không được cộng lặp theo từng lô ở giao diện.
+                "ton_kha_dung_thuoc": Decimal(
+                    str(d.get("kha_dung_truoc_doi_chieu") or 0)
+                )
+                - Decimal(str(d.get("da_giao_chua_doi_chieu") or 0)),
                 "canh_bao_han": d.get("trang_thai_han") in ("het_han", "sap_het_han")
                 and (d.get("quantity_on_hand") or 0) > 0,
             }
@@ -951,11 +979,12 @@ class PharmacyService:
                 """
                 SELECT b.id::text AS id, b.drug_catalog_id::text AS drug_catalog_id,
                        b.batch_code, b.expiry_date, b.unit, b.quantity_on_hand,
-                       b.location_id::text AS co_so_id
+                       b.location_id::text AS co_so_id, b.noi_chua,
+                       public.drug_batch_kha_dung(b.clinic_id, b.id) AS co_the_gan
                   FROM drug_batch b
                  WHERE b.clinic_id = $1::uuid
                    AND b.drug_catalog_id = ANY($2::uuid[])
-                   AND b.quantity_on_hand > 0 AND b.noi_chua = 'QUAY'
+                   AND b.quantity_on_hand > 0 AND b.noi_chua IN ('KHO', 'QUAY')
                    AND (b.expiry_date IS NULL OR b.expiry_date >=
                         (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
                  ORDER BY b.expiry_date NULLS LAST, b.batch_code
@@ -983,14 +1012,14 @@ class PharmacyService:
                             "drug_batch_id": b["id"],
                             "batch_code": b["batch_code"],
                             "expiry_date": b["expiry_date"],
-                            "ton": Decimal(str(b["quantity_on_hand"])),
+                            "noi_chua": b["noi_chua"],
+                            "ton": Decimal(str(b["co_the_gan"])),
                         }
                         for b in lo
                         if b["drug_catalog_id"] == r["drug_catalog_id"]
                         and b["co_so_id"] == co_so
                         and (not dv or _don_vi(b["unit"]) == dv)
-                        and Decimal(str(b["quantity_on_hand"]))
-                        >= Decimal(str(r["so_luong"]))
+                        and Decimal(str(b["co_the_gan"])) >= Decimal(str(r["so_luong"]))
                     ],
                     # Lô của thuốc ở QUẦY nhưng tính theo đơn vị KHÁC (lô "hộp",
                     # giao "gói") — không gán được, nên nói ra thay vì chỉ "chưa có
@@ -1000,7 +1029,7 @@ class PharmacyService:
                             "drug_batch_id": b["id"],
                             "batch_code": b["batch_code"],
                             "unit": b["unit"],
-                            "ton": Decimal(str(b["quantity_on_hand"])),
+                            "ton": Decimal(str(b["co_the_gan"])),
                         }
                         for b in lo
                         if dv
@@ -1044,6 +1073,7 @@ class PharmacyService:
                 """
                 SELECT id::text AS id, drug_catalog_id::text AS drug_catalog_id,
                        unit, expiry_date, quantity_on_hand, noi_chua,
+                       public.drug_batch_kha_dung(clinic_id, id) AS co_the_gan,
                        public.lo_dung_co_so_luot($1::uuid, $3::uuid, id) AS dung_co_so
                   FROM drug_batch
                  WHERE clinic_id = $1::uuid AND id = $2::uuid
@@ -1059,8 +1089,8 @@ class PharmacyService:
                 raise ValidationError("Lô này không phải của thuốc đã giao.")
             if not lo["dung_co_so"]:
                 raise ValidationError(LO_KHAC_CO_SO)
-            if lo["noi_chua"] != "QUAY":
-                raise ConflictError(NOI_KHO_DANG_O)
+            # Đã giao rồi: đối chiếu trực tiếp lô ở kho hoặc quầy, không buộc
+            # tạo một phiếu chuyển giả sau khi thuốc đã đến tay khách.
             dv = _don_vi(g["unit"])
             if dv and _don_vi(lo["unit"]) != dv:
                 raise ValidationError(
@@ -1072,9 +1102,9 @@ class PharmacyService:
                     "Lô này đã hết hạn — đổi lô hoặc hoàn phần chưa giao."
                 )
             luong = Decimal(str(g["so_luong"]))
-            if Decimal(str(lo["quantity_on_hand"] or 0)) < luong:
+            if Decimal(str(lo["co_the_gan"] or 0)) < luong:
                 raise ValidationError(
-                    f"Lô này chỉ còn {lo['quantity_on_hand']} — không đủ {luong}."
+                    f"Lô này chỉ còn {lo['co_the_gan']} được dùng — không đủ {luong}."
                 )
             # Cùng dòng sổ như `_ghi_so` (DISPENSE, dấu âm, trỏ về dòng đơn),
             # cần id để gắn vào sổ chờ gán lô.

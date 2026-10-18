@@ -887,6 +887,22 @@ async def chot_kiem_ke_ca(
     return kq
 
 
+@router.post("/pharmacy/kiem-ke-ca/{phieu_id}/sua-so-dem")
+async def sua_so_dem_kiem_ke_ca(
+    phieu_id: str,
+    body: DieuChinhKiemKeRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đính chính số đếm bằng phiên bản mới, không thay snapshot đã chốt."""
+    kq: dict[str, Any] = jsonable_encoder(
+        await kiem_ke_ca_service.sua_so_dem(
+            pool, identity=identity, phieu_id=phieu_id, ly_do=body.ly_do
+        )
+    )
+    return kq
+
+
 @router.post("/pharmacy/kiem-ke-ca/{phieu_id}/dieu-chinh")
 async def dieu_chinh_kiem_ke_ca(
     phieu_id: str,
