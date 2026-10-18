@@ -317,26 +317,40 @@ async def test_nhap_cung_so_lo_khac_don_vi_bi_tu_choi(q: Quay) -> None:
         )
     )
     service = PharmacyService(q.pool)
-    args = {
-        "identity": q.duoc_si,
-        "drug_catalog_id": drug,
-        "so_luong": 5,
-        "batch_code": f"P1-UNIT-{uuid.uuid4().hex[:8]}",
-        "expiry_date": "2099-12-31",
-        "unit": "hộp",
-    }
-    await service.nhap_lo(**args)
+    batch_code = f"P1-UNIT-{uuid.uuid4().hex[:8]}"
+    await service.nhap_lo(
+        identity=q.duoc_si,
+        drug_catalog_id=drug,
+        so_luong=5,
+        batch_code=batch_code,
+        expiry_date=None,
+        unit="hộp",
+    )
 
     with pytest.raises(ConflictError, match="đơn vị"):
-        await service.nhap_lo(**{**args, "so_luong": 3, "unit": "viên"})
+        await service.nhap_lo(
+            identity=q.duoc_si,
+            drug_catalog_id=drug,
+            so_luong=3,
+            batch_code=batch_code,
+            expiry_date=None,
+            unit="viên",
+        )
 
     # Cùng đơn vị sau chuẩn hoá (NFC + bỏ khoảng trắng + không phân biệt hoa)
     # vẫn là cùng lô, không bị chia thành hai đơn vị tồn.
-    await service.nhap_lo(**{**args, "so_luong": 2, "unit": " HỘP "})
+    await service.nhap_lo(
+        identity=q.duoc_si,
+        drug_catalog_id=drug,
+        so_luong=2,
+        batch_code=batch_code,
+        expiry_date=None,
+        unit=" HỘP ",
+    )
     assert (
         await q.pool.fetchval(
             "SELECT quantity_on_hand FROM drug_batch WHERE batch_code=$1",
-            args["batch_code"],
+            batch_code,
         )
         == 7
     )
