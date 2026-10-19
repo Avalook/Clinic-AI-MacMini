@@ -156,7 +156,7 @@ class TestGroupingIntoLocationsAndFloors:
 
 class TestSetRoomFloorIO:
     def test_blank_means_not_declared_not_an_empty_floor(self) -> None:
-        pool = FakePool("SA1")
+        pool = FakePool({"code": "SA1", "location_id": "loc-1"})
         out = _run(
             ClinicConfigService(pool).set_room_floor(
                 identity=_who(ClinicRole.MANAGEMENT), room_id="r-1", floor="  "

@@ -30,6 +30,7 @@ from clinicai.api.identity import (
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.clinic_config_service import ClinicConfigService
+from clinicai.services.clinic_floor_service import ClinicFloorService
 from clinicai.services.lich_phong_service import LichPhongService
 from clinicai.services.thu_ky_bac_si import dat_bac_si_cho_thu_ky
 
@@ -96,6 +97,8 @@ async def set_service_form(
 
 class RoomFloorRequest(BaseModel):
     room_id: UUID
+    #: Định danh chuẩn. `floor` giữ cho client cũ trong một chu kỳ chuyển đổi.
+    floor_id: UUID | None = None
     #: Nhãn tự do: "1", "Trệt", "B1", "Tòa A – T5". Rỗng = chưa khai.
     floor: str | None = Field(default=None, max_length=40)
 
@@ -108,7 +111,82 @@ async def set_room_floor(
 ) -> dict[str, Any]:
     """Đặt tầng cho một phòng."""
     return await ClinicConfigService(pool).set_room_floor(
-        identity=identity, room_id=str(body.room_id), floor=body.floor
+        identity=identity,
+        room_id=str(body.room_id),
+        floor_id=str(body.floor_id) if body.floor_id else None,
+        floor=body.floor,
+    )
+
+
+class FloorCreateRequest(BaseModel):
+    location_id: UUID
+    name: str = Field(min_length=1, max_length=40)
+
+
+@router.post("/clinic-config/floors")
+async def create_floor(
+    body: FloorCreateRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Thêm tầng ở cuối danh sách của một cơ sở."""
+    return await ClinicFloorService(pool).create(
+        identity=identity, location_id=str(body.location_id), name=body.name
+    )
+
+
+class FloorNameRequest(BaseModel):
+    floor_id: UUID
+    name: str = Field(min_length=1, max_length=40)
+
+
+@router.put("/clinic-config/floor-name")
+async def rename_floor(
+    body: FloorNameRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Đổi tên tầng và đồng bộ nhãn phòng đang thuộc tầng."""
+    return await ClinicFloorService(pool).rename(
+        identity=identity, floor_id=str(body.floor_id), name=body.name
+    )
+
+
+class FloorActiveRequest(BaseModel):
+    floor_id: UUID
+    is_active: bool
+
+
+@router.put("/clinic-config/floor-active")
+async def set_floor_active(
+    body: FloorActiveRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Bật hoặc ẩn mềm tầng; tầng còn phòng hoạt động không được ẩn."""
+    return await ClinicFloorService(pool).set_active(
+        identity=identity,
+        floor_id=str(body.floor_id),
+        is_active=body.is_active,
+    )
+
+
+class FloorOrderRequest(BaseModel):
+    location_id: UUID
+    floor_ids: list[UUID] = Field(min_length=1)
+
+
+@router.put("/clinic-config/floor-order")
+async def reorder_floors(
+    body: FloorOrderRequest,
+    identity: StaffIdentity = Depends(_WRITE_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Lưu thứ tự tầng ổn định trong một cơ sở."""
+    return await ClinicFloorService(pool).reorder(
+        identity=identity,
+        location_id=str(body.location_id),
+        floor_ids=[str(floor_id) for floor_id in body.floor_ids],
     )
 
 
@@ -118,6 +196,7 @@ class RoomCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=80)
     #: Bước chính — "phòng này làm việc gì". Thêm bước khác ở room-nodes.
     node_code: str = Field(min_length=1, max_length=64)
+    floor_id: UUID | None = None
     floor: str | None = Field(default=None, max_length=40)
 
 
@@ -133,6 +212,7 @@ async def create_room(
         location_id=str(body.location_id),
         name=body.name,
         node_code=body.node_code,
+        floor_id=str(body.floor_id) if body.floor_id else None,
         floor=body.floor,
     )
 

@@ -299,7 +299,7 @@ class DayNoiService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN)
             await self._kiem_phong(conn, identity.clinic_id, room_id)
-            vid = await conn.fetchval(
+            vi_tri = await conn.fetchrow(
                 """
                 INSERT INTO vi_tri_lam_viec
                     (clinic_id, code, ten, ten_ngan, tang, nhom_nghe, room_id, sort,
@@ -307,7 +307,7 @@ class DayNoiService:
                 VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::uuid,
                         coalesce((SELECT max(sort) + 1 FROM vi_tri_lam_viec
                                    WHERE clinic_id = $1::uuid), 1), true)
-                RETURNING id::text
+                RETURNING id::text, code
                 """,
                 identity.clinic_id,
                 # Mã nội bộ tự sinh, không hiện — người dùng chỉ thấy tên.
@@ -318,6 +318,28 @@ class DayNoiService:
                 nhom_nghe,
                 room_id,
             )
+            if vi_tri is None:
+                raise ValidationError("Không tạo được vị trí làm việc.")
+            await conn.execute(
+                """
+                INSERT INTO vai_duoc_vao_tram
+                    (clinic_id, tram_ma, vai, is_active, ghi_chu)
+                SELECT $1::uuid, $2, s.primary_department, true,
+                       'mặc định khi tạo vị trí — mọi vai đang hoạt động'
+                  FROM clinic_membership m
+                  JOIN staff s ON s.id = m.staff_id AND s.is_active
+                 WHERE m.clinic_id = $1::uuid AND m.is_active
+                   AND s.primary_department IS NOT NULL
+                   AND s.primary_department <> 'DISPLAY'
+                 GROUP BY s.primary_department
+                ON CONFLICT (clinic_id, tram_ma, vai)
+                DO UPDATE SET is_active = true,
+                              ghi_chu = EXCLUDED.ghi_chu
+                """,
+                identity.clinic_id,
+                vi_tri["code"],
+            )
+            vid = vi_tri["id"]
             await self._ghi_nhat_ky(conn, identity, {"vi_tri_moi": vid, "ten": ten})
         # Quyền theo lịch đọc vị trí → phòng — đổi thì quên quyền đang nhớ.
         cache.quen(identity.clinic_id)
@@ -348,6 +370,27 @@ class DayNoiService:
         async with self._pool.acquire() as conn, conn.transaction():
             await doi_quyen(conn, identity, QUYEN)
             await self._kiem_phong(conn, identity.clinic_id, room_id)
+            hien_tai = await conn.fetchrow(
+                "SELECT code, is_active FROM vi_tri_lam_viec"
+                " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE",
+                identity.clinic_id,
+                vi_tri_id,
+            )
+            if hien_tai is None:
+                raise NotFoundError("Không tìm thấy vị trí này.")
+            if is_active is False and hien_tai["is_active"]:
+                ca_chua_qua = await conn.fetchval(
+                    "SELECT count(*) FROM work_roster"
+                    " WHERE clinic_id = $1::uuid AND station = $2"
+                    "   AND work_date >= current_date AND status <> 'REJECTED'",
+                    identity.clinic_id,
+                    hien_tai["code"],
+                )
+                if ca_chua_qua:
+                    raise ValidationError(
+                        f"Vị trí còn {ca_chua_qua} ca hôm nay hoặc tương lai —"
+                        " gỡ/chuyển ca trước khi ngừng sử dụng."
+                    )
             row = await conn.fetchrow(
                 """
                 UPDATE vi_tri_lam_viec
@@ -374,7 +417,7 @@ class DayNoiService:
                 is_active,
                 phong,
             )
-            if row is None:
+            if row is None:  # phòng trường hợp dòng bị xoá giữa các lớp bảo vệ
                 raise NotFoundError("Không tìm thấy vị trí này.")
             await self._ghi_nhat_ky(
                 conn,

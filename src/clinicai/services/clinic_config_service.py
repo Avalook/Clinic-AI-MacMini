@@ -45,6 +45,7 @@ from clinicai.core.chon_co_so import doc_chon_co_so
 from clinicai.permissions import cache
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
+from clinicai.services.clinic_floor_service import resolve_floor
 from clinicai.services.danh_muc_dich_vu_service import dong_danh_muc
 
 logger = structlog.get_logger()
@@ -161,6 +162,7 @@ SELECT l.id                AS location_id,
        r.code              AS room_code,
        r.name              AS room_name,
        r.floor,
+       r.floor_id,
        r.capacity,
        r.is_active         AS room_active,
        r.node_code         AS primary_node,
@@ -184,6 +186,14 @@ SELECT l.id                AS location_id,
   LEFT JOIN public.clinic_room r ON r.location_id = l.id
  WHERE l.clinic_id = $1::uuid
  ORDER BY l.name, r.sort NULLS LAST, r.code
+"""
+
+_FLOORS_SQL = """
+SELECT f.id::text AS floor_id, f.location_id::text AS location_id,
+       f.name AS floor, f.sort_order, f.is_active
+  FROM public.clinic_floor f
+ WHERE f.clinic_id = $1::uuid
+ ORDER BY f.location_id, f.sort_order, f.id
 """
 
 _STAFF_SQL = """
@@ -318,9 +328,10 @@ class ClinicConfigService:
             "SELECT settings FROM public.clinic WHERE id = $1::uuid",
             identity.clinic_id,
         )
+        floors = await self._pool.fetch(_FLOORS_SQL, identity.clinic_id)
         hoi_chon, mac_dinh = doc_chon_co_so(cai_dat)
         return {
-            "locations": _group_locations(rows),
+            "locations": _group_locations(rows, floors),
             # Công tắc màn chọn cơ sở khi đăng nhập + cơ sở mặc định (08/10/2026).
             "chon_co_so": {"hoi_chon": hoi_chon, "mac_dinh": mac_dinh},
             "nodes": [{"code": n["code"], "name": n["name"]} for n in nodes],
@@ -446,28 +457,54 @@ class ClinicConfigService:
         }
 
     async def set_room_floor(
-        self, *, identity: StaffIdentity, room_id: str, floor: str | None
+        self,
+        *,
+        identity: StaffIdentity,
+        room_id: str,
+        floor: str | None = None,
+        floor_id: str | None = None,
     ) -> dict[str, Any]:
-        """Đặt tầng cho một phòng. Chuỗi trắng = chưa khai, không phải tầng ''."""
+        """Đặt tầng cho phòng bằng ID chuẩn hoặc nhãn legacy."""
         await self._duoc_cau_hinh(identity)
         clean = (floor or "").strip() or None
-        updated = await self._pool.fetchval(
-            """
-            UPDATE public.clinic_room SET floor = $3, updated_at = now()
-             WHERE id = $1::uuid AND clinic_id = $2::uuid
-            RETURNING code
-            """,
-            room_id,
-            identity.clinic_id,
-            clean,
-        )
-        if updated is None:
-            raise ValidationError("Không tìm thấy phòng này.")
-        logger.info("room_floor_set", room=updated, floor=clean)
+        async with self._pool.acquire() as conn, conn.transaction():
+            room = await conn.fetchrow(
+                "SELECT code, location_id::text FROM public.clinic_room"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                room_id,
+                identity.clinic_id,
+            )
+            if room is None:
+                raise ValidationError("Không tìm thấy phòng này.")
+            resolved_id, resolved_name = await resolve_floor(
+                conn,
+                clinic_id=identity.clinic_id,
+                location_id=room["location_id"],
+                floor_id=floor_id,
+                legacy_name=clean,
+            )
+            await conn.execute(
+                "UPDATE public.clinic_room"
+                " SET floor_id = $3::uuid, floor = $4, updated_at = now()"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+                room_id,
+                identity.clinic_id,
+                resolved_id,
+                resolved_name,
+            )
+        logger.info("room_floor_set", room=room["code"], floor=resolved_name)
         await self._ghi_nhat_ky(
-            identity, loai="room_floor", doi_tuong_id=room_id, payload={"floor": clean}
+            identity,
+            loai="room_floor",
+            doi_tuong_id=room_id,
+            payload={"floor_id": resolved_id, "floor": resolved_name},
         )
-        return {"ok": True, "room_code": updated, "floor": clean}
+        return {
+            "ok": True,
+            "room_code": room["code"],
+            "floor_id": resolved_id,
+            "floor": resolved_name,
+        }
 
     # ── Phòng là TÀI NGUYÊN (CORE-C, 23/09/2026) ─────────────────────────────
     # Định danh phòng là `room_id`. Tên chỉ để hiển thị — đổi "Siêu âm 1" thành
@@ -482,6 +519,7 @@ class ClinicConfigService:
         name: str,
         node_code: str,
         floor: str | None = None,
+        floor_id: str | None = None,
     ) -> dict[str, Any]:
         """Thêm phòng. Phải chọn luôn bước chính (bảng bắt buộc): "phòng này làm
         việc gì" — thêm bước khác sau ở danh sách bước phục vụ."""
@@ -505,13 +543,21 @@ class ClinicConfigService:
                 node_code,
             ):
                 raise ValidationError(f"Không có bước “{node_code}”.")
+            resolved_floor_id, tang = await resolve_floor(
+                conn,
+                clinic_id=identity.clinic_id,
+                location_id=location_id,
+                floor_id=floor_id,
+                legacy_name=tang,
+            )
             room_id = await conn.fetchval(
                 """
                 INSERT INTO public.clinic_room
-                    (clinic_id, location_id, code, name, node_code, floor, sort)
+                    (clinic_id, location_id, code, name, node_code, floor,
+                     floor_id, sort)
                 SELECT $1::uuid, $2::uuid,
                        'P-' || upper(substr(md5(gen_random_uuid()::text), 1, 8)),
-                       $3, $4, $5,
+                       $3, $4, $5, $6::uuid,
                        coalesce((SELECT max(sort) FROM public.clinic_room
                                   WHERE location_id = $2::uuid), 0) + 10
                 RETURNING id::text
@@ -521,6 +567,7 @@ class ClinicConfigService:
                 ten,
                 node_code,
                 tang,
+                resolved_floor_id,
             )
             await conn.execute(
                 "INSERT INTO public.clinic_room_node (clinic_id, room_id, node_code)"
@@ -575,14 +622,40 @@ class ClinicConfigService:
         vào nó. Không tắt được khi còn khách đang chờ/đang làm trong phòng."""
         await self._duoc_cau_hinh(identity)
         async with self._pool.acquire() as conn, conn.transaction():
-            room = await conn.fetchrow(
-                "SELECT id FROM public.clinic_room"
-                " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+            location_id = await conn.fetchval(
+                "SELECT location_id::text FROM public.clinic_room"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid",
                 room_id,
                 identity.clinic_id,
             )
+            if location_id is None:
+                raise ValidationError("Không tìm thấy phòng này.")
+            # Mọi thay đổi tầng/phòng trong một cơ sở đi qua cùng khóa này.
+            # Nhờ đó bật phòng không thể chạy lọt giữa lúc một người khác tắt tầng.
+            await conn.fetchval(
+                "SELECT true FROM public.clinic_location"
+                " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
+                location_id,
+                identity.clinic_id,
+            )
+            room = await conn.fetchrow(
+                "SELECT r.id, r.floor_id, f.is_active AS floor_active"
+                " FROM public.clinic_room r"
+                " LEFT JOIN public.clinic_floor f"
+                "   ON f.id = r.floor_id AND f.clinic_id = r.clinic_id"
+                " WHERE r.id = $1::uuid AND r.clinic_id = $2::uuid"
+                "   AND r.location_id = $3::uuid FOR UPDATE OF r",
+                room_id,
+                identity.clinic_id,
+                location_id,
+            )
             if room is None:
                 raise ValidationError("Không tìm thấy phòng này.")
+            if is_active and room["floor_id"] is not None and not room["floor_active"]:
+                raise ValidationError(
+                    "Tầng của phòng đang ngừng sử dụng —"
+                    " bật lại tầng trước khi bật phòng."
+                )
             if not is_active:
                 con_khach = await conn.fetchval(
                     "SELECT count(*) FROM public.queue_entry"
@@ -1242,7 +1315,9 @@ def _json_list(v: Any) -> list[dict[str, Any]]:
     return [dict(x) for x in v] if isinstance(v, list) else []
 
 
-def _group_locations(rows: list[asyncpg.Record]) -> list[dict[str, Any]]:
+def _group_locations(
+    rows: list[asyncpg.Record], floor_rows: list[asyncpg.Record] | None = None
+) -> list[dict[str, Any]]:
     """Gom phẳng thành cơ sở → tầng → phòng.
 
     Tầng gom ở đây chứ không ở SQL: thứ tự tầng suy từ `sort` của phòng đầu
@@ -1263,16 +1338,47 @@ def _group_locations(rows: list[asyncpg.Record]) -> list[dict[str, Any]]:
                 "floors": [],
             }
             out.append(by_loc[lid])
+    for source in floor_rows or []:
+        location = by_loc.get(str(source["location_id"]))
+        if location is None:
+            continue
+        location["floors"].append(
+            {
+                "floor_id": str(source["floor_id"]),
+                "floor": source["floor"],
+                "sort_order": source["sort_order"],
+                "is_active": source["is_active"],
+                "rooms": [],
+            }
+        )
+    for r in rows:
         if r["room_id"] is None:
             continue
+        lid = str(r["location_id"])
         # NULL = chưa khai tầng. Giữ nguyên NULL thay vì gộp vào một tầng giả:
         # "chưa khai" và "tầng 1" là hai chuyện khác nhau, và màn cấu hình cần
         # nhìn thấy cái chưa khai để đi khai.
         label = r["floor"]
         floors = by_loc[lid]["floors"]
-        floor = next((f for f in floors if f["floor"] == label), None)
+        room_floor_id = dict(r).get("floor_id")
+        floor = next(
+            (
+                f
+                for f in floors
+                if room_floor_id is not None and f["floor_id"] == str(room_floor_id)
+            ),
+            None,
+        )
         if floor is None:
-            floor = {"floor": label, "rooms": []}
+            floor = next((f for f in floors if f["floor"] == label), None)
+        if floor is None:
+            floor = {
+                "floor_id": None,
+                "floor": label,
+                "sort_order": None,
+                "is_active": True,
+                "rooms": [],
+            }
             floors.append(floor)
         floor["rooms"].append(
             {

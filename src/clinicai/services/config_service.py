@@ -185,41 +185,52 @@ class RosterService:
             raise ValidationError("Thiếu nhân viên")
 
         async with self._pool.acquire() as conn:
-            # TÊN VÀ CHỨC DANH LẤY TỪ DATABASE, KHÔNG TỪ TRÌNH DUYỆT.
-            #
-            # `staff_name` trước đây đi thẳng từ client vào bảng. Nghĩa là một
-            # lời gọi API tự chế ghi được "Giám đốc Sở Y tế" vào lịch trực, và
-            # nó sẽ hiện y như vậy trên màn của cả phòng khám. Cùng lúc, câu
-            # truy vấn này là chỗ duy nhất kiểm được người được xếp có THUỘC
-            # phòng khám này không — trước đây không kiểm.
-            nv = await conn.fetchrow(
-                """
-                SELECT s.full_name, s.primary_department
-                  FROM public.staff s
-                  JOIN public.clinic_membership m
-                    ON m.staff_id = s.id AND m.is_active
-                 WHERE s.id = $1::uuid AND m.clinic_id = $2::uuid AND s.is_active
-                """,
-                target_id,
-                identity.clinic_id,
-            )
-            if nv is None:
-                raise ValidationError(
-                    "Không tìm thấy nhân viên đang làm việc ở phòng khám này."
-                )
-            target_name = nv["full_name"]
-            await self._kiem_pham_vi_tram(
-                conn,
-                clinic_id=identity.clinic_id,
-                station=station,
-                vai=nv["primary_department"],
-                ten=target_name,
-            )
-
-            # Người bấm vào sổ lịch sử lịch trực (trigger, Khối 3 06/10/2026).
-            # Giao dịch chỉ bọc câu ghi: tin báo CSKH bên dưới là việc phụ, tự
-            # nuốt lỗi — lỗi SQL của nó trong cùng giao dịch sẽ kéo đổ cú xếp ca.
+            # Khóa vị trí và ghi ca trong CÙNG giao dịch. Nếu quản lý đồng thời
+            # ngừng vị trí, một trong hai lệnh sẽ chờ lệnh kia: không thể tạo ca
+            # mồ côi sau khi vị trí đã bị ẩn.
             async with giao_dich_lich_truc(conn, identity.staff_id):
+                # `LICH_KHAM` là cột ảo của lưới đặt lịch, không có dòng trong
+                # vi_tri_lam_viec. Mọi mã bác sĩ khác vẫn là vị trí thật và phải
+                # còn hoạt động như các vị trí còn lại.
+                if station != "LICH_KHAM":
+                    station_active = await conn.fetchval(
+                        "SELECT is_active FROM public.vi_tri_lam_viec"
+                        " WHERE clinic_id = $1::uuid AND code = $2"
+                        " FOR SHARE",
+                        identity.clinic_id,
+                        station,
+                    )
+                    if station_active is not True:
+                        raise ValidationError(
+                            "Vị trí không tồn tại hoặc đã ngừng sử dụng."
+                        )
+
+                # TÊN VÀ CHỨC DANH LẤY TỪ DATABASE, KHÔNG TỪ TRÌNH DUYỆT.
+                # Cũng là chỗ kiểm người được xếp thuộc đúng phòng khám.
+                nv = await conn.fetchrow(
+                    """
+                    SELECT s.full_name, s.primary_department
+                      FROM public.staff s
+                      JOIN public.clinic_membership m
+                        ON m.staff_id = s.id AND m.is_active
+                     WHERE s.id = $1::uuid AND m.clinic_id = $2::uuid
+                       AND s.is_active
+                    """,
+                    target_id,
+                    identity.clinic_id,
+                )
+                if nv is None:
+                    raise ValidationError(
+                        "Không tìm thấy nhân viên đang làm việc ở phòng khám này."
+                    )
+                target_name = nv["full_name"]
+                await self._kiem_pham_vi_tram(
+                    conn,
+                    clinic_id=identity.clinic_id,
+                    station=station,
+                    vai=nv["primary_department"],
+                    ten=target_name,
+                )
                 row_id = await conn.fetchval(
                     """
                     INSERT INTO work_roster (
@@ -1449,7 +1460,7 @@ class RosterService:
                            s.primary_department
                       FROM staff s
                       JOIN clinic_membership m ON m.staff_id = s.id
-                     WHERE m.clinic_id = $1::uuid AND s.is_active
+                     WHERE m.clinic_id = $1::uuid AND m.is_active AND s.is_active
                      ORDER BY s.full_name
                     """,
                     identity.clinic_id,

@@ -185,13 +185,21 @@ async def vi_tri_hom_nay(
           -- Cơ sở của vị trí = cơ sở phòng nó gắn (kể cả phòng đang tắt).
           LEFT JOIN public.clinic_room rr
             ON rr.id = v.room_id AND rr.clinic_id = v.clinic_id
+          LEFT JOIN public.clinic_floor f
+            ON f.id = rr.floor_id AND f.clinic_id = rr.clinic_id
          WHERE v.clinic_id = $1::uuid AND v.is_active
            -- CHỈ vị trí của cơ sở đang đứng (08/10/2026, mở Hào Nam): không lọc
            -- thì bảng lịch hiện gấp đôi hàng (Kim Ngưu + Hào Nam). Vị trí không
            -- gắn phòng (Trưởng ca DIEU_PHOI) dùng chung mọi cơ sở.
            AND (v.room_id IS NULL OR $2::uuid IS NULL
                 OR rr.location_id = $2::uuid)
-         ORDER BY v.sort, v.code
+         -- Tầng/phòng quyết định bố cục lịch. Vị trí không gắn phòng (như
+         -- Quản lý ca khám) nằm sau các tầng thật; trong mỗi phòng vẫn giữ thứ
+         -- tự vị trí đã khai từ trước.
+         ORDER BY f.sort_order NULLS LAST,
+                  rr.sort NULLS LAST,
+                  v.sort,
+                  v.code
         """,
         identity.clinic_id,
         identity.location_id or None,
