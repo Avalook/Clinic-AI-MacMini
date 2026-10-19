@@ -96,7 +96,7 @@ export default function DanhSachPhieu({
             <tr>
               <th className="px-3 py-2">Mã phiếu</th>
               <th className="px-3 py-2">Lúc</th>
-              {nhap ? <th className="px-3 py-2">Nhà cung cấp · số HĐ</th> : null}
+              {nhap ? <th className="px-3 py-2">Nhà cung cấp · số hoá đơn</th> : null}
               <th className="px-3 py-2 text-right">Số dòng</th>
               {nhap ? <th className="px-3 py-2 text-right">Tổng tiền</th> : null}
               <th className="px-3 py-2">Người lập</th>

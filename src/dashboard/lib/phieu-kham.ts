@@ -189,11 +189,13 @@ export function oPhieuDieuTri(c: ChiDinhVaKetQua): { ma: string; ten: string; gi
 
 export type TrangThaiDoiTac = "CHO_LAY_MAU" | "DA_LAY_MAU" | "DA_NHAN_MAU" | "DA_GUI_KET_QUA";
 
+/** 16/10/2026 (Tuyền): CHỈ hai chữ riêng của đối tác; trước khi nhận mẫu là chữ
+ *  chung "Chờ làm" — cùng bộ chữ máy chủ (`CHU_TRANG_THAI_DOI_TAC`). */
 export const NHAN_DOI_TAC: Record<TrangThaiDoiTac, string> = {
-  CHO_LAY_MAU: "Đối tác · chờ lấy mẫu",
-  DA_LAY_MAU: "Đối tác · đã lấy mẫu",
-  DA_NHAN_MAU: "Đối tác · đã nhận mẫu · xong",
-  DA_GUI_KET_QUA: "Đối tác · đã gửi kết quả",
+  CHO_LAY_MAU: "Chờ làm",
+  DA_LAY_MAU: "Chờ làm",
+  DA_NHAN_MAU: "Đã nhận mẫu · chờ kết quả",
+  DA_GUI_KET_QUA: "Có kết quả",
 };
 
 /** Một mẫu kết quả (18 mẫu KQ_*): `ma` không kèm tiền tố `KQ_`. */
@@ -802,12 +804,24 @@ export function gopSoLuongQuayDien(hienTai: DongThuoc[], may: DongThuoc[]): Dong
   return doi ? ra : null;
 }
 
+/** "2" + "gói" → "2 gói". Người dùng hay gõ luôn "2 gói" vào ô số lượng: ghép tiếp thì
+ *  thành "2 gói gói" và máy chủ đọc đơn vị là "gói gói" — không lô nào khớp, thuốc đã
+ *  giao mà kho không trừ được (17/10/2026, bấm thật Androgel). Chữ gõ đã kết thúc bằng
+ *  đúng đơn vị thì giữ nguyên, không ghép thêm. */
+export function ghepSoLuongDonVi(soLuong: string, donVi: string): string {
+  const so = soLuong.trim();
+  const dv = donVi.trim();
+  if (!dv) return so;
+  if (so.toLowerCase().endsWith(dv.toLowerCase()) && so.length > dv.length) return so;
+  return [so, dv].filter(Boolean).join(" ");
+}
+
 export function donTuDong(d: DongThuoc) {
   return {
     id: d.id ?? null,
     drug_catalog_id: d.drug_catalog_id,
     drug_name: d.ten_thuoc.trim(),
-    quantity: [d.so_luong.trim(), d.don_vi.trim()].filter(Boolean).join(" "),
+    quantity: ghepSoLuongDonVi(d.so_luong, d.don_vi),
     dosage: [d.duong_dung.trim(), d.cach_dung.trim()].filter(Boolean).join(NOI),
     caution: d.luu_y.trim(),
   };

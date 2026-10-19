@@ -110,7 +110,9 @@ test("nhãn thẻ dịch vụ", () => {
   });
   assert.equal(nhanThe(t({ xong: luc(65) }), bay(90)), "Xong 11:05");
   assert.equal(nhanThe(t({ trang_thai: "DANG_LAM", bat_dau: luc(58) }), bay(64)), "Đang làm 6′");
-  assert.equal(nhanThe(t({ trang_thai: "DOI_TAC" }), bay(64)), "Chờ kết quả đối tác");
+  assert.equal(nhanThe(t({ trang_thai: "DOI_TAC" }), bay(64)), "Đã nhận mẫu · chờ kết quả");
+  // Chữ máy chủ viết cho việc đối tác (16/10/2026) thắng chữ chung.
+  assert.equal(nhanThe(t({ trang_thai: "XONG", doi_tac_chu: "Có kết quả" }), bay(64)), "Có kết quả");
   assert.equal(nhanThe(t({ trang_thai: "CHO_LAM", stt: 3 }), bay(64)), "Chờ làm · STT 3");
 });
 

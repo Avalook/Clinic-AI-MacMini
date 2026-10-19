@@ -65,9 +65,9 @@ async def _vt(q: Quay, ten: str, gia: int | None, *, can_duyet: bool = False) ->
         await q.pool.fetchval(
             'INSERT INTO service_price (clinic_id, service_code, name, "group",'
             " unit_price, active, billing_owner, don_vi, can_ql_duyet, chon_nhanh,"
-            " category)"
+            " category, kinh_doanh_vat_tu)"
             " VALUES ($1::uuid, $2, $3, 'vat_tu', $4, true, 'CLINIC', 'cái', $5,"
-            " false, 'Nguyên liệu tiêu hao') RETURNING id::text",
+            " false, 'Nguyên liệu tiêu hao', true) RETURNING id::text",
             CLINIC,
             f"VT_TEST_{uuid.uuid4().hex[:10]}",
             f"{ten} {q.duoi}",

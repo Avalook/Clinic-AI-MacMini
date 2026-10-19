@@ -77,6 +77,8 @@ interface NotificationCtx {
   unread: number;
   transient: Notif[];
   markAllRead: () => void;
+  /** Ẩn riêng mọi thông báo đang hiện trên chuông của người dùng này. */
+  anTatCaThongBao: () => Promise<boolean>;
   /** ĐÓNG một việc: bỏ hẳn khỏi chuông, cho mọi người cùng vai. */
   danhDauDaXuLy: (thongBaoId: string) => Promise<void>;
   /** Đọc lại danh sách từ máy chủ (vd. sau khi bấm Hoàn tác trong chuông). */
@@ -89,6 +91,7 @@ const Ctx = createContext<NotificationCtx>({
   unread: 0,
   transient: [],
   markAllRead: () => {},
+  anTatCaThongBao: async () => false,
   danhDauDaXuLy: async () => {},
   docLai: () => {},
   dismissTransient: () => {},
@@ -424,6 +427,21 @@ export function NotificationProvider({
     }
   }
 
+  async function anTatCaThongBao(): Promise<boolean> {
+    try {
+      const res = await fetch("/api/thong-bao", { method: "DELETE" });
+      if (!res.ok) return false;
+      // Header, chuông Trang chủ và dấu ! sidebar cùng đọc context.
+      setThongBao([]);
+      setNotifs([]);
+      setUnread(0);
+      setTransient([]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   return (
     <Ctx.Provider
       value={{
@@ -434,6 +452,7 @@ export function NotificationProvider({
         unread: unread + thongBao.filter((t) => !t.daDoc).length,
         transient,
         markAllRead,
+        anTatCaThongBao,
         danhDauDaXuLy,
         docLai: () => void docThongBao(),
         dismissTransient: (key) =>

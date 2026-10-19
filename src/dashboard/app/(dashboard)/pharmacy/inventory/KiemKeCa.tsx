@@ -24,6 +24,8 @@ const NHAN_LOAI: Record<Loai, string> = {
   CUOI: "Cuối ca",
   DOT_XUAT: "Đột xuất",
 };
+const boDauThuoc = (s: string) =>
+  s.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/đ/gi, "d").toLowerCase();
 
 interface DongKiem {
   drug_catalog_id: string;
@@ -42,9 +44,14 @@ interface Phieu {
   ca: Ca;
   loai: Loai;
   trang_thai: "NHAP" | "CHOT";
+  phien_ban: number;
+  phieu_truoc_id: string | null;
+  phieu_sau_id: string | null;
+  ly_do_sua: string | null;
   mot_phan: boolean;
   dung_so_ca_truoc: boolean;
   chot_luc: string | null;
+  moc_ton_luc: string | null;
   dieu_chinh_luc: string | null;
   dieu_chinh_ly_do: string | null;
   hoan_tac_luc: string | null;
@@ -58,6 +65,10 @@ interface TomTat {
   ca: Ca;
   loai: Loai;
   trang_thai: "NHAP" | "CHOT";
+  phien_ban: number;
+  phieu_truoc_id: string | null;
+  phieu_sau_id: string | null;
+  ly_do_sua: string | null;
   so_lech: number;
   dieu_chinh_luc: string | null;
   hoan_tac_luc: string | null;
@@ -73,7 +84,7 @@ interface KetQuaDieuChinh {
   bo_qua: { ly_do: string }[];
 }
 
-type KetQua<T> = { ok: true; data: T } | { ok: false; loi: string };
+type KetQua<T> = { ok: true; data: T } | { ok: false; loi: string | null };
 
 async function goi<T>(method: "GET" | "POST", url: string, body?: unknown): Promise<KetQua<T>> {
   try {
@@ -88,7 +99,12 @@ async function goi<T>(method: "GET" | "POST", url: string, body?: unknown): Prom
       | null;
     if (r.ok && d) return { ok: true, data: d };
     const ct = typeof d?.detail === "string" ? d.detail : null;
-    return { ok: false, loi: d?.message ?? ct ?? d?.error ?? "Máy chủ từ chối." };
+    const thongDiep = d?.message ?? ct ?? d?.error ?? "Máy chủ từ chối.";
+    const loiKyThuat = /mã lỗi\s*[a-f\d-]+|lỗi chưa lường trước/i.test(thongDiep);
+    return {
+      ok: false,
+      loi: loiKyThuat ? null : thongDiep,
+    };
   } catch {
     return { ok: false, loi: "Mất kết nối — CHƯA lưu." };
   }
@@ -119,12 +135,14 @@ export default function KiemKeCa({
   // Ca mở từ link được giữ cho tới khi người dùng tự đổi ngày; không thì "ca hiện
   // tại" máy chủ nhắc sẽ đè lên ca của báo cáo đang xem.
   const giuCaDau = useRef(caDau !== undefined);
+  const daTuMoPhieu = useRef<string | null>(null);
   const [loai, setLoai] = useState<Loai>(loaiCoDinh ?? "CUOI");
-  const [nhac, setNhac] = useState<Nhac | null>(null);
   const [ds, setDs] = useState<TomTat[] | null>(null);
   const [phieu, setPhieu] = useState<Phieu | null>(null);
   const [nhap, setNhap] = useState<Record<string, string>>({});
+  const [timThuoc, setTimThuoc] = useState("");
   const [lyDo, setLyDo] = useState("");
+  const [lyDoSua, setLyDoSua] = useState("");
   const [ketQuaDC, setKetQuaDC] = useState<string | null>(null);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
@@ -146,7 +164,6 @@ export default function KiemKeCa({
       ]);
       if (bo) return;
       if (n.ok) {
-        setNhac(n.data);
         if (!giuCaDau.current) setCa(n.data.ca);
       }
       if (d.ok) setDs(d.data.items);
@@ -202,23 +219,39 @@ export default function KiemKeCa({
     setDang(false);
   };
 
-  const moPhieu = () =>
-    chay(async () => {
-      setKetQuaDC(null);
-      const r = await goi<Phieu>("POST", URL_GOC, { ngay, ca, loai });
-      if (!r.ok) {
-        setLoi(r.loi);
-        return;
-      }
-      nap(r.data);
-      void taiDs(ngay);
-    });
-
   const moCu = (id: string) =>
     chay(async () => {
       setKetQuaDC(null);
       await docLai(id);
     });
+
+  const loaiDangKiem = loaiCoDinh ?? loai;
+
+  useEffect(() => {
+    if (!ghiDuoc || ds === null) return;
+    const khoa = `${ngay}:${ca}:${loaiDangKiem}`;
+    if (daTuMoPhieu.current === khoa) return;
+    daTuMoPhieu.current = khoa;
+
+    void (async () => {
+      setDang(true);
+      setLoi(null);
+      const coSan = ds.find((p) => p.ca === ca && p.loai === loaiDangKiem);
+      const r = coSan
+        ? await goi<Phieu>("GET", `${URL_GOC}/${coSan.id}`)
+        : await goi<Phieu>("POST", URL_GOC, { ngay, ca, loai: loaiDangKiem });
+      // Strict Mode có thể chạy effect hai lượt khi mount. Giữ kết quả lượt đầu
+      // nếu vẫn đúng ca; bỏ kết quả cũ khi người dùng đã đổi ca / ngày.
+      if (daTuMoPhieu.current !== khoa) return;
+      setDang(false);
+      if (!r.ok) {
+        setLoi(r.loi);
+        return;
+      }
+      nap(r.data);
+      if (!coSan) void taiDs(ngay);
+    })();
+  }, [ca, ds, ghiDuoc, loaiDangKiem, ngay, taiDs]);
 
   /** Lưu nháp: gửi dòng có số + dòng đã có mà người dùng xoá trống (= bỏ dòng). */
   const luu = async (): Promise<boolean> => {
@@ -307,6 +340,16 @@ export default function KiemKeCa({
       void taiDs(ngay);
     });
 
+  const suaSoDem = () =>
+    chay(async () => {
+      const p = await buocPhieu("sua-so-dem", { ly_do: lyDoSua.trim() });
+      if (p) {
+        nap(p);
+        setLyDoSua("");
+        void taiDs(ngay);
+      }
+    });
+
   const daChot = phieu?.trang_thai === "CHOT";
   const coLech = (phieu?.dong ?? []).some((d) => d.lech !== null && d.lech !== 0);
   const hang = daChot
@@ -315,28 +358,23 @@ export default function KiemKeCa({
         ten: d.ten,
         dv: d.don_vi,
       }))
-    : dong;
+    : phieu?.phieu_truoc_id
+      ? phieu.dong.map((d) => ({ khoa: khoaDong(d.drug_catalog_id, d.don_vi), ten: d.ten, dv: d.don_vi }))
+      : dong;
+  const tuKhoa = boDauThuoc(timThuoc.trim());
+  // Chỉ lọc những gì đang nhìn thấy; `luu()` vẫn gửi mọi số đã nhập trong nháp.
+  const hangHien = hang.filter((d) => !tuKhoa || boDauThuoc(d.ten).includes(tuKhoa));
+  const soDaDem = hang.filter((d) => (nhap[d.khoa] ?? "").trim() !== "").length;
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-meta text-ink-muted">
-        Đếm thuốc THẬT trên kệ quầy (kể cả thuốc đã thu tiền mà chưa giao). Chốt rồi mới thấy tồn máy
-        và chênh lệch — chốt KHÔNG tự sửa tồn; điều chỉnh là bước riêng, có lý do, hoàn tác được.
-      </p>
-      {nhac && (nhac.thieu_dau_ca || nhac.thieu_cuoi_ca_truoc) ? (
-        <p role="status" className="rounded-control bg-warning-bg px-3 py-2 text-meta text-ink">
-          Nhắc (không chặn bán):{" "}
-          {nhac.thieu_dau_ca ? `${NHAN_CA[nhac.ca]} hôm nay chưa kiểm đầu ca. ` : ""}
-          {nhac.thieu_cuoi_ca_truoc ? "Ca trước chưa kiểm cuối ca." : ""}
-        </p>
-      ) : null}
       {loi ? (
         <p role="alert" className="text-meta text-danger">
           {loi}
         </p>
       ) : null}
 
-      <section aria-label="Mở phiếu kiểm kê" className="flex flex-wrap items-end gap-2">
+      <section aria-label="Ca kiểm kê" className="flex flex-wrap items-end gap-2">
         <label className="block">
           <span className="mb-1 block text-meta text-ink-soft">Ngày</span>
           <input
@@ -344,21 +382,68 @@ export default function KiemKeCa({
             value={ngay}
             onChange={(e) => {
               giuCaDau.current = false;
+              daTuMoPhieu.current = null;
               setNgay(e.target.value || homNayVn());
+              setPhieu(null);
+              setDs(null);
+              setLoi(null);
+              setKetQuaDC(null);
             }}
             className={INPUT}
           />
         </label>
-        <label className="block">
+        <div
+          role="group"
+          aria-label="Ca và phiếu kiểm kê"
+          className="w-fit min-w-[24rem] max-w-full flex-none"
+        >
           <span className="mb-1 block text-meta text-ink-soft">Ca</span>
-          <select value={ca} onChange={(e) => setCa(e.target.value as Ca)} className={INPUT}>
-            {(Object.keys(NHAN_CA) as Ca[]).map((c) => (
-              <option key={c} value={c}>
-                {NHAN_CA[c]}
-              </option>
-            ))}
-          </select>
-        </label>
+          <div className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-lg border border-line bg-surface px-1.5 py-1 shadow-card">
+            <select
+              aria-label="Ca"
+              value={ca}
+              onChange={(e) => {
+                giuCaDau.current = true;
+                daTuMoPhieu.current = null;
+                setCa(e.target.value as Ca);
+                setPhieu(null);
+                setLoi(null);
+                setKetQuaDC(null);
+              }}
+              className="min-h-9 w-40 shrink-0 rounded-md border-0 bg-transparent px-2 text-sm font-medium text-ink outline-none focus:ring-2 focus:ring-brand-600/15"
+            >
+              {(Object.keys(NHAN_CA) as Ca[]).map((c) => (
+                <option key={c} value={c}>
+                  {NHAN_CA[c]}
+                </option>
+              ))}
+            </select>
+            <ul aria-label="Phiếu kiểm trong ca này" className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+              {ds === null
+                ? null
+                : ds.filter((p) => !loaiCoDinh || p.loai === loaiCoDinh).map((p) => (
+                    <li key={p.id}>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={phieu?.id === p.id ? "primary" : "secondary"}
+                        onClick={() => {
+                          daTuMoPhieu.current = `${ngay}:${p.ca}:${p.loai}`;
+                          setCa(p.ca);
+                          void moCu(p.id);
+                        }}
+                      >
+                        {NHAN_CA[p.ca]} · {NHAN_LOAI[p.loai]} ·{" "}
+                        {p.trang_thai === "CHOT" ? `đã chốt (${p.so_lech} lệch)` : "đang nhập — chưa chốt"}
+                        {p.phien_ban > 1 ? ` · bản sửa ${p.phien_ban}` : ""}
+                        {p.phieu_sau_id ? " · có bản sửa" : ""}
+                        {p.dieu_chinh_luc && !p.hoan_tac_luc ? " · đã điều chỉnh" : ""}
+                      </Button>
+                    </li>
+                  ))}
+            </ul>
+          </div>
+        </div>
         {loaiCoDinh ? null : (
           <label className="block">
             <span className="mb-1 block text-meta text-ink-soft">Loại</span>
@@ -371,22 +456,15 @@ export default function KiemKeCa({
             </select>
           </label>
         )}
-        {ghiDuoc ? (
-          <Button type="button" variant="primary" disabled={dang} onClick={() => void moPhieu()}>
-            Mở / tiếp tục phiếu
-          </Button>
-        ) : null}
       </section>
 
-      <section aria-label="Phiếu đã có trong ngày" className="space-y-2">
-        <h3 className="text-title text-ink">Phiếu trong ngày</h3>
-        <ul className="flex flex-wrap gap-2">
-          {ds === null ? (
-            <li className="text-meta text-ink-muted">Đang đọc…</li>
-          ) : ds.length === 0 ? (
-            <li className="text-meta text-ink-muted">Chưa có phiếu nào.</li>
-          ) : (
-            ds.map((p) => (
+      {loaiCoDinh && ds?.some((p) => p.loai === "DOT_XUAT") ? (
+        <details className="rounded-control border border-line bg-surface p-3">
+          <summary className="cursor-pointer text-body font-medium text-ink">
+            Phiếu kiểm đột xuất trong ngày
+          </summary>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {ds.filter((p) => p.loai === "DOT_XUAT").map((p) => (
               <li key={p.id}>
                 <Button
                   type="button"
@@ -394,15 +472,16 @@ export default function KiemKeCa({
                   variant={phieu?.id === p.id ? "primary" : "secondary"}
                   onClick={() => void moCu(p.id)}
                 >
-                  {NHAN_CA[p.ca]} · {NHAN_LOAI[p.loai]} ·{" "}
-                  {p.trang_thai === "CHOT" ? `đã chốt (${p.so_lech} lệch)` : "nháp"}
-                  {p.dieu_chinh_luc && !p.hoan_tac_luc ? " · đã điều chỉnh" : ""}
+                  {NHAN_CA[p.ca]} · Kiểm đột xuất ·{" "}
+                  {p.trang_thai === "CHOT"
+                    ? `đã chốt (${p.so_lech} lệch)`
+                    : "đang nhập — chưa chốt"}
                 </Button>
               </li>
-            ))
-          )}
-        </ul>
-      </section>
+            ))}
+          </ul>
+        </details>
+      ) : null}
 
       {phieu ? (
         <section
@@ -425,7 +504,7 @@ export default function KiemKeCa({
 
           {!daChot && ghiDuoc ? (
             <div className="flex flex-wrap gap-2">
-              {phieu.loai === "DAU" ? (
+              {phieu.loai === "DAU" && !phieu.phieu_truoc_id ? (
                 <Button
                   type="button"
                   size="sm"
@@ -458,7 +537,7 @@ export default function KiemKeCa({
           ) : null}
           {!daChot && ghiDuoc && hoiChot === phieu.id ? (
             <XacNhanTaiCho
-              cau="Chốt kiểm kê? Sau khi chốt không sửa số đếm; lệch (nếu có) sẽ báo, bạn điều chỉnh hoặc hoàn tác sau."
+              cau="Chốt kiểm kê? Hệ thống lưu số đếm và chênh lệch. Nếu nhập nhầm, bạn có thể tạo bản sửa có lưu lịch sử; chốt không tự đổi tồn."
               nhanDongY="Chốt"
               dangGui={dang}
               onDongY={() => {
@@ -470,6 +549,20 @@ export default function KiemKeCa({
           ) : null}
 
           <div className={`${TBL_WRAP} overflow-x-auto`}>
+            <div className="flex flex-wrap items-center gap-2 border-b border-line p-3">
+              <label className="flex min-w-56 flex-1 items-center gap-2 text-meta text-ink-muted">
+                <span className="shrink-0">Tìm thuốc</span>
+                <input
+                  type="search"
+                  value={timThuoc}
+                  onChange={(e) => setTimThuoc(e.target.value)}
+                  placeholder="Gõ tên thuốc để lọc…"
+                  aria-label="Tìm thuốc cần kiểm kê"
+                  className={INPUT}
+                />
+              </label>
+              <span className="text-meta text-ink-muted">Đã đếm {soDaDem} / {hang.length} mặt hàng</span>
+            </div>
             <table className="w-full min-w-xl text-left text-body">
               <thead className={TBL_HEAD}>
                 <tr>
@@ -486,7 +579,13 @@ export default function KiemKeCa({
                 </tr>
               </thead>
               <tbody className={TBL_DIV}>
-                {hang.map((d) => {
+                {hangHien.length === 0 ? (
+                  <tr>
+                    <td colSpan={daChot ? 6 : 3} className="px-3 py-6 text-center text-ink-muted">
+                      Không tìm thấy thuốc phù hợp.
+                    </td>
+                  </tr>
+                ) : hangHien.map((d) => {
                   const k = phieu.dong.find(
                     (x) => khoaDong(x.drug_catalog_id, x.don_vi) === d.khoa,
                   );
@@ -536,8 +635,8 @@ export default function KiemKeCa({
             <div className="space-y-2">
               <p className="text-meta text-ink-muted">
                 Tồn trên hệ thống là số ghi trong sổ kho tại giờ chốt (
-                {phieu.chot_luc
-                  ? new Date(phieu.chot_luc).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
+                {phieu.moc_ton_luc
+                  ? new Date(phieu.moc_ton_luc).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })
                   : "—"}
                 {phieu.nguoi_chot ? `, ${phieu.nguoi_chot}` : ""}). Thuốc đã giao mà chưa gắn lô làm tồn
                 trên hệ thống cao hơn kệ thật — cột riêng bên cạnh, không phải lệch đếm.
@@ -553,7 +652,30 @@ export default function KiemKeCa({
                   {phieu.nguoi_dieu_chinh ? ` — ${phieu.nguoi_dieu_chinh}` : ""}.
                 </p>
               ) : null}
-              {ghiDuoc && coLech && !phieu.dieu_chinh_luc ? (
+              {phieu.ly_do_sua ? (
+                <p className="text-meta text-ink-muted">
+                  Bản sửa {phieu.phien_ban}: {phieu.ly_do_sua}. So với tồn tại lần chốt gốc; không đổi tồn khi lưu hoặc chốt lại.
+                </p>
+              ) : null}
+              {phieu.phieu_sau_id ? (
+                <Button type="button" variant="secondary" disabled={dang}
+                  onClick={() => void chay(() => docLai(phieu.phieu_sau_id!))}>
+                  Xem bản sửa tiếp theo
+                </Button>
+              ) : ghiDuoc && (!phieu.dieu_chinh_luc || phieu.hoan_tac_luc) ? (
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="block min-w-0 flex-1">
+                    <span className="mb-1 block text-meta text-ink-soft">Lý do sửa số đếm đã chốt</span>
+                    <input value={lyDoSua} maxLength={1000} onChange={(e) => setLyDoSua(e.target.value)}
+                      placeholder="Nhập nhầm số đếm…" className={INPUT} />
+                  </label>
+                  <Button type="button" variant="secondary" disabled={dang || !lyDoSua.trim()}
+                    onClick={() => void suaSoDem()}>Sửa số đếm</Button>
+                </div>
+              ) : ghiDuoc ? (
+                <p className="text-meta text-ink-muted">Muốn sửa số đếm, hoàn tác điều chỉnh tồn trước.</p>
+              ) : null}
+              {ghiDuoc && coLech && !phieu.dieu_chinh_luc && !phieu.phieu_sau_id ? (
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="block min-w-0 flex-1">
                     <span className="mb-1 block text-meta text-ink-soft">

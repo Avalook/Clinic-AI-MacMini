@@ -64,10 +64,6 @@ export default function FeatureModeCard({
         <h2 className="text-base font-semibold text-ink">
           Chế độ phòng khám
         </h2>
-        <p className="mt-0.5 text-sm text-ink-muted">
-          Chọn tính năng muốn bật. Khi phòng khám mới bắt đầu, hãy dùng
-          &ldquo;Chỉ CSKH&rdquo; trước, sau khi quen tay thì mở đầy đủ.
-        </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {MODES.map((m) => {

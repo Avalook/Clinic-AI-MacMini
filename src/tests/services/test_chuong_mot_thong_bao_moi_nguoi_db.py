@@ -14,6 +14,7 @@ from __future__ import annotations
 # ruff: noqa: F811 — fixture q / co được import từ CP1 / G7.
 import dataclasses
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
@@ -143,3 +144,25 @@ async def test_chuong_khong_co_ma_nguon_khong_bi_gop(co: Co) -> None:
         )
     kq = await ThongBaoService(co.q.pool).cua_toi(identity=co.ds)
     assert len([t for t in kq if t["tieu_de"] == "Chuông thử không mã"]) == 2
+
+
+async def test_xoa_tat_ca_chi_an_tren_chuong_cua_nguoi_dung(co: Co) -> None:
+    phieu = await _chot_lech(co, "SANG")
+    quan_ly = _co_vai(co.ds, ClinicRole.MANAGEMENT)
+    dong_nghiep = dataclasses.replace(quan_ly, staff_id=str(uuid4()))
+    service = ThongBaoService(co.q.pool)
+
+    assert len(await _cua_toi(co, quan_ly, phieu)) == 1
+    assert len(await _cua_toi(co, dong_nghiep, phieu)) == 1
+
+    ket_qua = await service.an_tat_ca_cua_toi(identity=quan_ly)
+
+    assert ket_qua["ok"] is True
+    assert len(await _cua_toi(co, quan_ly, phieu)) == 0
+    assert len(await _cua_toi(co, dong_nghiep, phieu)) == 1
+    dong_viec = await co.q.pool.fetchval(
+        "SELECT count(*) FROM thong_bao WHERE nguon='kiem_ke_ca'"
+        " AND nguon_id=$1 AND da_xu_ly_luc IS NULL",
+        phieu,
+    )
+    assert dong_viec >= 1, "ẩn khỏi chuông không được đóng việc dùng chung"

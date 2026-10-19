@@ -6,11 +6,12 @@
 
 import { fetchFromBackend } from "../../../../lib/backend-proxy";
 import { requireNavAccess } from "../../../../lib/clinic-session";
-import { QUYEN_BAN_LE, quyenCuaToi } from "../../../../lib/quyen-cua-toi";
+import { quyenCuaToi } from "../../../../lib/quyen-cua-toi";
 import type { DongChoGanLo } from "./ChoGanLo";
 import type { ThuocKho } from "./DanhMucKho";
 import type { CauHinhHan, ExpiryState } from "./InventoryBoard";
 import KhoThuoc from "./KhoThuoc";
+import type { DongTraChoKiem } from "./ThuocTraChoKiem";
 
 export const dynamic = "force-dynamic";
 
@@ -46,11 +47,13 @@ export default async function PharmacyInventoryPage({
 }) {
   await requireNavAccess("/pharmacy/inventory");
   const { tab, ngay, ca } = (await searchParams) ?? {};
-  const [data, dm, cho, quyen, cauHinhHan, tach] = await Promise.all([
+  const [data, dm, cho, traCho, quyen, cauHinhHan, tach] = await Promise.all([
     fetchFromBackend<{ items: LoTon[]; tach_kho_quay?: boolean }>("/api/v1/pharmacy/inventory"),
     fetchFromBackend<{ items: ThuocKho[] }>("/api/v1/pharmacy/danh-muc"),
     // 28/09: thuốc đã giao chưa gán lô — đọc hỏng thì tab rỗng, không chặn màn.
     fetchFromBackend<{ dong: DongChoGanLo[] }>("/api/v1/pharmacy/cho-gan-lo"),
+    // 17/10: thuốc khách trả chờ quyết (nhập lại bán được / huỷ) — đọc hỏng thì tab rỗng.
+    fetchFromBackend<{ dong: DongTraChoKiem[] }>("/api/v1/pharmacy/thuoc-tra-cho-kiem"),
     // Ghi kho (nhập, kiểm, điều chỉnh, sửa danh mục) = `pharmacy.dispense` —
     // chỉ để ẨN nút; máy chủ vẫn tự kiểm ở mọi lệnh.
     quyenCuaToi(),
@@ -85,13 +88,18 @@ export default async function PharmacyInventoryPage({
     so_luong: Number(d.so_luong),
     lo_gan_duoc: d.lo_gan_duoc.map((b) => ({ ...b, ton: Number(b.ton) })),
   }));
+  const thuocTraChoKiem = (traCho?.dong ?? []).map((d) => ({
+    ...d,
+    so_luong: Number(d.so_luong),
+    gia_von: d.gia_von == null ? null : Number(d.gia_von),
+  }));
   return (
     <KhoThuoc
       batches={batches}
       thuoc={thuoc}
       choGanLo={choGanLo}
+      thuocTraChoKiem={thuocTraChoKiem}
       ghiDuoc={quyen.has("pharmacy.dispense")}
-      moBanLe={QUYEN_BAN_LE.some((q) => quyen.has(q))}
       cauHinhHan={cauHinhHan ?? undefined}
       tachKhoQuay={data.tach_kho_quay === true}
       suaTachDuoc={tach?.sua_duoc === true}

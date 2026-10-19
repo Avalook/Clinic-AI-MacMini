@@ -22,6 +22,7 @@ import DanhSachPhieu from "./DanhSachPhieu";
 import type { ThuocKho } from "./DanhMucKho";
 import { guiKho, tienVnd } from "./gui-kho";
 import OQuetMa, { type KetQuaQuet } from "./OQuetMa";
+import QuyDoiNhap from "./QuyDoiNhap";
 
 interface Dong {
   k: number;
@@ -31,6 +32,9 @@ interface Dong {
   so_luong: string;
   don_vi: string;
   gia_nhap: string;
+  /** Nhập khác đơn vị bán: 1 <đơn vị> = he_so đơn vị bán (xem QuyDoiNhap). */
+  he_so: string;
+  xac_nhan_he_so: boolean;
 }
 
 let demDong = 0;
@@ -42,6 +46,8 @@ const dongMoi = (): Dong => ({
   so_luong: "",
   don_vi: "",
   gia_nhap: "",
+  he_so: "",
+  xac_nhan_he_so: false,
 });
 
 const khoaMoi = () =>
@@ -129,6 +135,19 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
       }),
     );
 
+  // Cảnh báo nhỏ, KHÔNG chặn: đơn vị gõ khác mọi đơn vị lô đang có của thuốc
+  // → tồn sẽ tách thành hai dòng đơn vị. Trả chuỗi đơn vị lô để hiện, hoặc null.
+  // Thuốc đã có đơn vị bán thì kho luôn ghi theo đơn vị bán (quy đổi lúc nhập,
+  // QuyDoiNhap) — không còn tồn riêng nên khỏi cảnh báo.
+  const khacDonViLo = (d: Dong): string | null => {
+    const t = dangDung.find((x) => x.ten === d.ten);
+    if (t?.don_vi_ban) return null;
+    const lo = t?.don_vi_lo ?? [];
+    const go = d.don_vi.trim().toLowerCase();
+    if (!go || lo.length === 0) return null;
+    return lo.some((x) => x.trim().toLowerCase() === go) ? null : lo.join(", ");
+  };
+
   const tong = calculatePurchaseTotal(
     dong.map((d) => ({ quantity: d.so_luong, price: d.gia_nhap })),
   );
@@ -161,6 +180,8 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
           so_luong: d.so_luong.trim(),
           unit: d.don_vi.trim() || null,
           gia_nhap: d.gia_nhap.trim() || null,
+          he_so: d.he_so.trim() || null,
+          xac_nhan_he_so: d.xac_nhan_he_so,
         })),
       },
       khoa,
@@ -228,9 +249,9 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
               <li
                 key={d.k}
                 aria-label={`Dòng ${i + 1}`}
-                className="grid grid-cols-2 gap-2 rounded-control border border-line bg-surface-muted p-3 lg:grid-cols-7"
+                className="grid grid-cols-1 gap-2 rounded-control border border-line bg-surface-muted p-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,.8fr)_minmax(0,1fr)_minmax(0,.7fr)_minmax(0,.7fr)_minmax(0,1fr)]"
               >
-                <label className="col-span-2 block">
+                <label className="block min-w-0">
                   <span className={LABEL}>
                     {i + 1}. Thuốc
                   </span>
@@ -251,7 +272,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                   />
                 </label>
                 <label className="block">
-                  <span className={LABEL}>Hạn dùng (có thể nhập sau)</span>
+                  <span className={LABEL}>Hạn dùng</span>
                   <input
                     type="date"
                     value={d.han}
@@ -282,10 +303,10 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                     onChange={(e) => suaDong(d.k, { don_vi: e.target.value })}
                     className={INPUT}
                   />
-                  {d.so_lo.trim() ? (
-                    <span role="status" className="mt-1 block text-meta text-ink-soft">
-                      Nếu mã lô này đã có trong kho, đơn vị phải trùng với đơn vị của lô. Nhập
-                      khác đơn vị sẽ bị từ chối.
+                  {d.so_lo.trim() && khacDonViLo(d) ? (
+                    <span role="status" className="mt-1 block text-meta text-warning">
+                      Đơn vị lô đang có: {khacDonViLo(d)}. Nếu nhập trùng mã lô, đơn vị khác sẽ bị
+                      từ chối.
                     </span>
                   ) : null}
                 </label>
@@ -317,6 +338,18 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                     </Button>
                   ) : null}
                 </div>
+                <div className="col-span-2 empty:hidden lg:col-span-7">
+                  <QuyDoiNhap
+                    ma={`pn-${d.k}`}
+                    idThuoc={dangDung.find((t) => t.ten === d.ten)?.id}
+                    donVi={d.don_vi}
+                    soLuong={d.so_luong}
+                    heSo={d.he_so}
+                    xacNhan={d.xac_nhan_he_so}
+                    onHeSo={(v) => suaDong(d.k, { he_so: v })}
+                    onXacNhan={(v) => suaDong(d.k, { xac_nhan_he_so: v })}
+                  />
+                </div>
               </li>
             ))}
           </ol>
@@ -328,7 +361,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
               variant="secondary"
               onClick={() => setDong((ds) => [...ds, dongMoi()])}
             >
-              + Thêm dòng
+              + Thêm thuốc vào phiếu nhập
             </Button>
             <p className="text-body text-ink sm:ml-auto">
               Tổng tiền: <span className="font-semibold tabular-nums">{tienVnd(tong)}</span>

@@ -425,6 +425,9 @@ MODULE: dict[str, Module] = {
                 "followup.scheduled",
                 "partner.sample_collected",
                 "partner.sample_received",
+                "partner.sample_receipt_undone",
+                "partner.result_returned",
+                "partner.result_return_undone",
                 "visit.defer_payment_set",
                 "visit.defer_payment_cleared",
                 # Bán thêm vật tư ở quầy thu dịch vụ (C13, 01/10/2026).
@@ -670,6 +673,7 @@ MODULE: dict[str, Module] = {
                 "result.corrected",
                 "lab_result.arrived",
                 "partner.order_received",
+                "partner.result_returned",
                 "pharmacy.expiry_checked",
                 "pharmacy.stocktake_mismatch",
             ],
@@ -723,10 +727,17 @@ MODULE: dict[str, Module] = {
                 # Đối tác tự thu (27/09/2026): ghi nhận / huỷ ghi nhận đã thu.
                 "RecordPartnerPayment",
                 "VoidPartnerPayment",
+                # Luồng chung với Phòng đối tác (16/10/2026).
+                "ReturnPartnerResult",
+                "UndoPartnerResult",
+                "UndoSampleReceipt",
             ],
             phat=[
                 "partner.sample_collected",
                 "partner.sample_received",
+                "partner.sample_receipt_undone",
+                "partner.result_returned",
+                "partner.result_return_undone",
                 "partner.order_received",
                 "partner.payment_recorded",
                 "partner.payment_voided",
@@ -739,6 +750,7 @@ MODULE: dict[str, Module] = {
                 "visit.defer_payment_set",
                 "payment.service_collected",
                 "service.completed",
+                "partner.sample_collected",
             ],
             ben_nhan=["doi_tac_nhan_viec"],
             bang=["doi_tac_nhan_viec", "doi_tac_thanh_toan"],

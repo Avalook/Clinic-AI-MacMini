@@ -107,21 +107,25 @@ export default function QueuesClient({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <StatRow>
-          <StatCard label="Khách đang trong phòng khám" value={tongKhach} tone="brand" />
-          <StatCard
-            label="Chờ quá ngưỡng"
-            value={soDo}
-            tone={soDo ? "danger" : "neutral"}
-            // Bấm = nhảy xuống bảng "Khách chờ quá lâu" dưới lưới phòng.
-            onSelect={() =>
-              document.getElementById("bang-qua-lau")?.scrollIntoView({ behavior: "smooth", block: "start" })
-            }
-          />
-          <StatCard label="Phòng quá tải" value={phongDay} tone={phongDay ? "warning" : "neutral"} />
-        </StatRow>
-        <LiveBadge seconds={live.staleSeconds} ok={live.ok} />
+      <div className="mx-auto w-full max-w-5xl">
+        <div className="flex justify-end">
+          <LiveBadge seconds={live.staleSeconds} ok={live.ok} showCurrent={false} />
+        </div>
+        <div className="dispatch-stats">
+          <StatRow>
+            <StatCard label="Khách đang trong phòng khám" value={tongKhach} tone="brand" />
+            <StatCard
+              label="Chờ quá ngưỡng"
+              value={soDo}
+              tone={soDo ? "danger" : "neutral"}
+              // Bấm = nhảy xuống bảng "Khách chờ quá lâu" dưới lưới phòng.
+              onSelect={() =>
+                document.getElementById("bang-qua-lau")?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
+            />
+            <StatCard label="Phòng quá tải" value={phongDay} tone={phongDay ? "warning" : "neutral"} />
+          </StatRow>
+        </div>
       </div>
       <ReadFailed ok={live.ok} />
       {bao ? (
@@ -132,10 +136,6 @@ export default function QueuesClient({
           {bao.text}
         </p>
       ) : null}
-      <p className="hidden text-meta text-ink-muted md:block">
-        Kéo một khách thả vào phòng sáng lên để chuyển — hoặc bấm khách để chọn phòng.
-      </p>
-
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {live.rooms.map((r) => (
             <ThePhong
@@ -308,7 +308,6 @@ function ThePhong({
                   onDragEnd={onHuyKeo}
                   onClick={() => onChon(p.visit_id)}
                   aria-current={dang ? "true" : undefined}
-                  title={do_ ? "Chờ quá ngưỡng — kéo sang phòng khác hoặc bấm để chuyển" : "Kéo sang phòng khác hoặc bấm để chuyển"}
                   className={`flex w-full cursor-grab items-center gap-2 border-l-3 px-3 py-2 text-left text-meta active:cursor-grabbing ${
                     dang
                       ? "border-l-brand-500 bg-surface-selected"

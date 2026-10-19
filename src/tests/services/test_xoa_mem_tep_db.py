@@ -212,8 +212,13 @@ async def test_xoa_khoi_phuc_cung_giao_dich(pool: asyncpg.Pool, kho: Any) -> Non
     ds = await dv.danh_sach(identity=d["doc"], clinic_patient_id=d["pid"])
     assert tep in {t["id"] for t in ds}
     async with pool.acquire() as conn:
-        assert await conn.fetchval(
-            "SELECT ket_qua_luc FROM service_order WHERE id = $1::uuid", d["oid"]
+        # Việc ĐỐI TÁC (16/10/2026): mốc "Có kết quả" chỉ do nút [Trả kết quả]
+        # đặt / gỡ — khôi phục tệp không tự đặt lại.
+        assert (
+            await conn.fetchval(
+                "SELECT ket_qua_luc FROM service_order WHERE id = $1::uuid", d["oid"]
+            )
+            is None
         )
         assert await conn.fetchval(
             "SELECT count(*) FROM domain_event"

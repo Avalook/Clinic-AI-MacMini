@@ -308,10 +308,12 @@ async def test_thao_tac_kho_thieu_khoa_gui_lai_bi_tu_choi(
 
 
 async def test_nhap_cung_so_lo_khac_don_vi_bi_tu_choi(q: Quay) -> None:
+    # Không khai đơn vị bán: cần giữ nguyên hai đơn vị nhập để bài này đi tới
+    # guard lô cùng mã ở mọi nơi chứa, thay vì bị quy đổi chặn từ lần nhận đầu.
     drug = str(
         await q.pool.fetchval(
-            "INSERT INTO drug_catalog (clinic_id, name_raw, name_base, don_vi_ban)"
-            " VALUES ($1::uuid, $2, $2, 'viên') RETURNING id::text",
+            "INSERT INTO drug_catalog (clinic_id, name_raw, name_base)"
+            " VALUES ($1::uuid, $2, $2) RETURNING id::text",
             q.duoc_si.clinic_id,
             f"Thuốc P1 {uuid.uuid4().hex[:8]}",
         )

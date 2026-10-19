@@ -1355,6 +1355,10 @@ async def test_doi_tac_tu_lay_mau_roi_bac_si_duyet(
         )
         # Có kết quả → sang mục "Đã gửi hôm nay" của đối tác (không còn là việc
         # cần làm), và sau khi xác nhận HOP_LE thì sang hàng chờ bác sĩ duyệt.
+        # 16/10/2026: "Có kết quả" = đối tác bấm [Trả kết quả].
+        from clinicai.services.doi_tac_service import DoiTacService
+
+        await DoiTacService(kb.pool).tra_ket_qua(order_id=mau_id, identity=doi_tac)
         viec = _viec(await kb.svc.viec_doi_tac(identity=doi_tac), mau_id)
         assert viec is not None and viec["trang_thai"] == "DA_GUI_KET_QUA"
 

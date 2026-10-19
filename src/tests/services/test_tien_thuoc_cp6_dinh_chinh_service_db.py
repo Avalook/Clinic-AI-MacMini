@@ -380,6 +380,8 @@ async def test_ham_db_doc_don_deu_da_duyet(q: Quay) -> None:
         "inventory_txn_ban_hop_le": "theo phân lô; chặn SALE/DISPENSE lịch sử",
         # chỉ tra lượt của dòng sổ để so cơ sở kho (20261008710000)
         "inventory_txn_dung_co_so": "theo id dòng đơn — lấy lượt so cơ sở",
+        # gác DISPENSE ở KHO theo đúng dòng giao chờ đối chiếu, gồm lịch sử.
+        "gac_ban_tu_quay": "đối chiếu dòng đã giao trước khi gắn lô kho",
         "prescription_allocation_guard": "theo dòng; chặn phân lô lịch sử",
         "prescription_dinh_chinh_guard": "guard của chính bảng",
         "prescription_muc_dau_vet": "mức dấu vết theo id",

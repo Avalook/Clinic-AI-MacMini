@@ -84,6 +84,22 @@ async def test_cot_vat_tu_khong_sua_dich_vu(pool: asyncpg.Pool) -> None:
         )
 
 
+async def test_khong_kinh_doanh_khong_duoc_ban(pool: asyncpg.Pool) -> None:
+    from clinicai.services.vat_tu_service import VatTuService
+    from tests.services.test_tien_thuoc_cp1_db import tao_quay
+    from tests.services.test_vat_tu_ban_them_db import _vt
+
+    q = await tao_quay(pool)
+    vt = await _vt(q, "Vật tư phân loại", 300000)
+    await PriceListService(pool).update(
+        price_id=vt, identity=q.thu_ngan, vat_tu={"kinh_doanh": False}
+    )
+    with pytest.raises(ValidationError):
+        await VatTuService(pool).them(
+            visit_id=q.visit_id, service_price_id=vt, identity=q.thu_ngan, so_luong=1
+        )
+
+
 async def test_khong_doi_don_vi_sau_khi_da_ghi_so(pool: asyncpg.Pool) -> None:
     identity, vt, rooms = await _bo(pool)
     await _ghi(pool, identity, vt, "NHAP", den=rooms[0], so=2)
@@ -96,7 +112,6 @@ async def test_khong_doi_don_vi_sau_khi_da_ghi_so(pool: asyncpg.Pool) -> None:
         await pool.fetchval("SELECT don_vi FROM service_price WHERE id=$1::uuid", vt)
         == "cái"
     )
-
     with pytest.raises(asyncpg.CheckViolationError):
         await pool.execute(
             "UPDATE service_price SET don_vi='hộp' WHERE id=$1::uuid", vt
@@ -171,21 +186,6 @@ async def test_doi_don_vi_dong_thoi_voi_lap_phieu_khong_dien_giai_sai(
             "SELECT count(*) FROM vat_tu_txn WHERE vat_tu_id=$1::uuid", vt
         )
         == 0
-    )
-
-
-async def test_phan_loai_khong_doi_luat_ban(pool: asyncpg.Pool) -> None:
-    from clinicai.services.vat_tu_service import VatTuService
-    from tests.services.test_tien_thuoc_cp1_db import tao_quay
-    from tests.services.test_vat_tu_ban_them_db import _vt
-
-    q = await tao_quay(pool)
-    vt = await _vt(q, "Vật tư phân loại", 300000)
-    await PriceListService(pool).update(
-        price_id=vt, identity=q.thu_ngan, vat_tu={"kinh_doanh": False}
-    )
-    await VatTuService(pool).them(
-        visit_id=q.visit_id, service_price_id=vt, identity=q.thu_ngan, so_luong=1
     )
 
 

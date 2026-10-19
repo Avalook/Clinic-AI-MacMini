@@ -137,9 +137,6 @@ export default function BangHanhTrinh() {
             {anDaVe ? "Hiện cả khách đã về" : "Ẩn khách đã về"}
           </Button>
         ) : null}
-        <Button size="lg" variant="ghost" onClick={() => void tai()}>
-          Tải lại
-        </Button>
       </div>
       {bang.bi_cat ? (
         <p className="text-meta text-warning">

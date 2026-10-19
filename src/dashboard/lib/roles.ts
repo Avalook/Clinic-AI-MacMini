@@ -530,6 +530,12 @@ export function hienTrenThanhBen(
    *  → xét vai như trước, không để thanh bên trống trơn vì một lần lỗi mạng. */
   quyen: readonly string[] | null = null,
 ): boolean {
+  // TÀI KHOẢN ĐỐI TÁC: thanh bên CHỈ một mục "Việc của đối tác" (Tuyền
+  // 16/10/2026). Danh sách CHO PHÉP, không phải danh sách cấm: tài khoản này bị
+  // `/phan-quyen/toi` từ chối nên `quyen` luôn null và rơi về luật vai gốc —
+  // mà màn KHÔNG có dòng ở NAV_ROLES (vd /ke-toan mới thêm 14/10) thì luật gốc
+  // mở cho MỌI vai, nên đối tác thấy cả "Kế toán" và "Trang chủ".
+  if (role === "PARTNER") return CHI_DOI_TAC.includes(href);
   if (TAT_KHOI_THANH_BEN.has(href)) return false;
   if (href.startsWith("/thu-ngan/")) return quyen !== null && quyenMoDuocMan(quyen, href);
   // THANH BÊN DỰNG THEO LEGO CỦA TÀI KHOẢN (Tuyền 25/09/2026): màn thuộc một
@@ -539,7 +545,6 @@ export function hienTrenThanhBen(
   if (
     quyen !== null &&
     role !== "DISPLAY" &&
-    role !== "PARTNER" &&
     quyenCuaMan(href).length > 0
   ) {
     return quyenMoDuocMan(quyen, href);
@@ -819,18 +824,24 @@ function luatNav(href: string): (typeof NAV_ROLES)[string] | undefined {
 
 /** Luật gốc của NAV_ROLES, bỏ qua công tắc mở quyền. Chỉ dùng cho MENU. */
 export function canSeeNavGoc(role: ClinicRole | null, href: string): boolean {
+  if (role === "PARTNER") return CHI_DOI_TAC.includes(href);
   const rule = luatNav(href);
   if (!rule || rule === "all") return true;
   return role !== null && rule.includes(role);
 }
 
+/** Màn DUY NHẤT của tài khoản đối tác (Tuyền 16/10/2026) — thanh bên, cửa trang. */
+export const CHI_DOI_TAC: readonly string[] = ["/doi-tac"];
+
 export function canSeeNav(role: ClinicRole | null, href: string): boolean {
+  // Đối tác: danh sách cho phép — màn không có dòng ở NAV_ROLES KHÔNG mở cho họ.
+  if (role === "PARTNER") return CHI_DOI_TAC.includes(href);
   const rule = luatNav(href);
   if (!rule || rule === "all") return true;
   if (role === null) return false;
   // Vai ngoài phòng khám KHÔNG bao giờ được nới: cái tivi và đối tác chỉ có
   // đúng màn của mình, và đó là chốt chặn chứ không phải cách sắp xếp menu.
-  if (role !== "DISPLAY" && role !== "PARTNER" && moTheoCongTac(href)) {
+  if (role !== "DISPLAY" && moTheoCongTac(href)) {
     return true;
   }
   return rule.includes(role);

@@ -158,6 +158,14 @@ class PriceCreateRequest(BaseModel):
     billing_owner: str | None = Field(default=None, max_length=32)
     #: Nhóm hàng (Siêu âm, Thủ thuật, XN thu hộ…) — gom danh mục chỉ định (01/10/2026).
     nhom: str | None = Field(default=None, max_length=120)
+    # Metadata của vật tư — được đặt ngay khi tạo, tránh dòng trống/không phân loại.
+    loai_vat_tu: str | None = Field(default=None, max_length=16)
+    gia_nhap: Any = None
+    don_vi: str | None = Field(default=None, max_length=40)
+    ma_vach: str | None = Field(default=None, max_length=120)
+    kinh_doanh: StrictBool | None = None
+    can_duyet_nhap: StrictBool = False
+    can_ql_duyet: StrictBool = False
 
 
 class PriceUpdateRequest(BaseModel):
@@ -511,6 +519,20 @@ async def add_price(
         node_code=body.node_code,
         billing_owner=body.billing_owner,
         nhom=body.nhom,
+        vat_tu=body.model_dump(
+            include={
+                "loai_vat_tu",
+                "gia_nhap",
+                "don_vi",
+                "ma_vach",
+                "kinh_doanh",
+                "can_duyet_nhap",
+                "can_ql_duyet",
+            },
+            exclude_unset=True,
+        )
+        if body.group == "vat_tu"
+        else None,
     )
     return {"ok": True, "id": price_id}
 

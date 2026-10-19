@@ -155,6 +155,30 @@ async def test_hang_khong_co_co_nhap_ghi_so_ngay_nhu_cu(
 # ── Chờ duyệt: không chạm sổ ─────────────────────────────────────────────────
 
 
+async def test_retry_sau_bo_co_duyet_khong_nhap_kho_hai_lan(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    b = await _bo(pool)
+    khoa = uuid.uuid4().hex
+    dau = await _nhap(pool, b.lap, [_dong(b.vt_can, 7)], khoa)
+    await pool.execute(
+        "UPDATE service_price SET can_duyet_nhap_vat_tu = false WHERE id=$1::uuid",
+        b.vt_can,
+    )
+
+    lai = await _nhap(pool, b.lap, [_dong(b.vt_can, 7)], khoa)
+    assert lai["yeu_cau_id"] == dau["yeu_cau_id"]
+    assert lai["cho_duyet"] is True and lai["gui_lai"] is True
+    assert await _ton(pool, b.vt_can) == 0
+
+    await duyet(pool, identity=b.ql, yeu_cau_id=dau["yeu_cau_id"])
+    assert await _ton(pool, b.vt_can) == 7
+    sau_duyet = await _nhap(pool, b.lap, [_dong(b.vt_can, 7)], khoa)
+    assert sau_duyet["yeu_cau_id"] == dau["yeu_cau_id"]
+    assert sau_duyet["trang_thai"] == "DA_DUYET"
+    assert await _ton(pool, b.vt_can) == 7
+
+
 async def test_phieu_nhap_hang_can_duyet_thanh_yeu_cau_cho_khong_doi_ton(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:

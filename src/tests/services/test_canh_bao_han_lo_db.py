@@ -50,7 +50,8 @@ async def test_han_lo_dem_va_chuong_mot_lan_trong_ngay(q: Quay) -> None:  # noqa
             await canh_gac.bao_han_hang_ngay(conn, so["han_lo"])
     await chay_ben_nhan(q.pool, CHUONG)
     chuong = await q.pool.fetch(
-        "SELECT * FROM thong_bao WHERE clinic_id=$1::uuid AND nguon='lo_thuoc_han'",
+        "SELECT * FROM thong_bao WHERE clinic_id=$1::uuid AND nguon='lo_thuoc_han' "
+        "AND vai_nhan='PHARMACIST'",
         q.duoc_si.clinic_id,
     )
     assert len(chuong) == 1

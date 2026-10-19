@@ -50,6 +50,8 @@ const ACTIONS: Record<string, string> = {
   "chuyen-kho": "/api/v1/pharmacy/chuyen-kho",
   "hoan-tac-chuyen-kho": "/api/v1/pharmacy/hoan-tac-chuyen-kho",
   "tach-kho-quay": "/api/v1/pharmacy/tach-kho-quay",
+  // 17/10 (việc B): quyết định thuốc khách trả chờ kiểm — nhập lại bán được / huỷ (một lần).
+  "xu-ly-thuoc-tra": "/api/v1/pharmacy/xu-ly-thuoc-tra",
   // 09/10: bán theo đơn khám cũ — nối / gỡ nối đơn gốc của lượt Bán lẻ.
   "ban-le-theo-don": "/api/v1/pharmacy/ban-le/theo-don",
   "ban-le-go-don": "/api/v1/pharmacy/ban-le/go-don",
@@ -83,6 +85,18 @@ const DOC: Record<string, (q: URLSearchParams) => string | null> = {
   },
   // 14/10 (G3b): quét mã → thuốc / lô · dữ liệu in tem lô.
   "tra-ma": (q) => `/api/v1/pharmacy/tra-ma?${new URLSearchParams({ ma: q.get("ma") ?? "" })}`,
+  // 17/10: nhập khác đơn vị bán → xem trước quy đổi (chỉ đọc, không nhớ hệ số).
+  "quy-doi": (q) => {
+    const id = q.get("drug_catalog_id") ?? "";
+    return UUID_RE.test(id)
+      ? `/api/v1/pharmacy/quy-doi?${new URLSearchParams({
+          drug_catalog_id: id,
+          unit: q.get("unit") ?? "",
+          he_so: q.get("he_so") ?? "",
+          so_luong: q.get("so_luong") ?? "",
+        })}`
+      : null;
+  },
   "tem-lo": (q) =>
     `/api/v1/pharmacy/tem-lo?${new URLSearchParams({
       ids: q.get("ids") ?? "",

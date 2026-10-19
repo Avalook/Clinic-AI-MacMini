@@ -1,8 +1,7 @@
 "use client";
 
-// Thuốc ĐÃ GIAO mà chưa gán lô (Tuyền 28/09/2026: "chưa cần quan tâm lô nào …
-// lô nhập và gán sau"). Nhà thuốc giao không lô ở /pharmacy; ở đây gán từng lần
-// giao vào một lô thật — lúc ấy kho mới trừ. Máy chủ quyết lô nào gán được
+// Thuốc đã giao: bổ sung lô thật từ kho hoặc quầy sau, không bắt chuyển trước.
+// Tồn khả dụng đã tính nghĩa vụ giao; ledger lô ghi khi xác nhận. Máy chủ quyết lô gán được
 // (`GET /api/v1/pharmacy/cho-gan-lo`: cùng thuốc, cùng đơn vị, còn hạn, đủ
 // tồn) và kiểm lại khi gán (`POST /api/v1/pharmacy/gan-lo`).
 
@@ -11,7 +10,7 @@ import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
-import { guiKho } from "./gui-kho";
+import { guiKho, soKho } from "./gui-kho";
 
 export interface DongChoGanLo {
   id: string;
@@ -26,12 +25,26 @@ export interface DongChoGanLo {
     drug_batch_id: string;
     batch_code: string;
     expiry_date: string | null;
+    noi_chua?: string;
     ton: number;
   }[];
+  /** Lô của thuốc ở kho/quầy nhưng tính theo đơn vị KHÁC dòng này — để giải thích vì
+   *  sao không có lô gán được (máy chủ trả, không đổi luật gán). */
+  lo_khac_don_vi?: { drug_batch_id: string; batch_code: string; unit: string | null; ton: number }[];
+}
+
+/** "6 hộp · 20 viên" — cộng theo từng đơn vị, không cộng lẫn. */
+function tonLoKhacDonVi(lo: NonNullable<DongChoGanLo["lo_khac_don_vi"]>): string {
+  const theo = new Map<string, number>();
+  for (const b of lo) theo.set(b.unit ?? "", (theo.get(b.unit ?? "") ?? 0) + Number(b.ton));
+  return [...theo.entries()].map(([dv, ton]) => `${soKho(ton)} ${dv}`.trim()).join(" · ");
 }
 
 const fmtNgay = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—";
+
+const fmtLuc = (iso: string) =>
+  new Date(iso).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" });
 
 function Dong({ d }: { d: DongChoGanLo }) {
   const router = useRouter();
@@ -53,23 +66,37 @@ function Dong({ d }: { d: DongChoGanLo }) {
 
   return (
     <tr>
-      <td className="px-3 py-2 font-medium text-ink">{d.thuoc ?? "—"}</td>
-      <td className="px-3 py-2 text-ink-soft">
+      <td className="px-3 py-2 font-medium text-ink">
+        {d.thuoc ?? "—"}
+        {/* Điện thoại: tên khách nằm dưới tên thuốc (cột Khách và Giao lúc ẩn) để cột
+            Gán lô — nơi nói LÝ DO không gắn được — nằm trong màn hình. */}
+        <span className="block text-meta font-normal text-ink-muted sm:hidden">
+          {d.khach ?? "—"}
+        </span>
+      </td>
+      <td className="hidden px-3 py-2 text-ink-soft sm:table-cell">
         {d.khach ?? "—"}
         {d.ma_bn ? <span className="text-meta text-ink-muted"> · {d.ma_bn}</span> : null}
       </td>
       <td className="px-3 py-2 text-right">
         {d.so_luong} {d.unit ?? ""}
       </td>
-      <td className="px-3 py-2 text-meta text-ink-muted">
-        {fmtNgay(d.giao_luc)}
+      <td className="hidden px-3 py-2 text-meta text-ink-muted sm:table-cell">
+        {fmtLuc(d.giao_luc)}
         {d.nguoi_giao ? ` · ${d.nguoi_giao}` : ""}
       </td>
       <td className="px-3 py-2">
         {d.lo_gan_duoc.length === 0 ? (
-          <span className="text-meta text-ink-muted">
-            Chưa có lô gán được — nhập lô ở tab Tồn theo lô.
-          </span>
+          d.lo_khac_don_vi && d.lo_khac_don_vi.length > 0 ? (
+            <span role="status" className="text-meta text-warning">
+              Kho/quầy có {tonLoKhacDonVi(d.lo_khac_don_vi)} nhưng dòng này giao theo “{d.unit ?? "?"}”
+              — khác đơn vị nên không gắn được. Nhập lô theo “{d.unit ?? "?"}” hoặc báo quản lý.
+            </span>
+          ) : (
+            <span className="text-meta text-ink-muted">
+              Chưa có lô gán được — nhập lô ở tab Tồn theo lô.
+            </span>
+          )
         ) : (
           <div className="flex flex-wrap items-center gap-2">
             <select
@@ -80,7 +107,7 @@ function Dong({ d }: { d: DongChoGanLo }) {
             >
               {d.lo_gan_duoc.map((b) => (
                 <option key={b.drug_batch_id} value={b.drug_batch_id}>
-                  {b.batch_code} · HSD {fmtNgay(b.expiry_date)} · còn {b.ton}
+                  {b.noi_chua === "KHO" ? "Kho" : "Quầy"} · {b.batch_code} · HSD {fmtNgay(b.expiry_date)} · còn {b.ton}
                 </option>
               ))}
             </select>
@@ -99,17 +126,17 @@ export default function ChoGanLo({ dong }: { dong: DongChoGanLo[] }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-meta text-ink-muted">
-        Thuốc đã giao khách mà chưa gán lô. Tồn kho đang báo cao hơn thực tế đúng bằng
-        các dòng này — gán lô xong thì kho trừ.
+        Thuốc đã giao khách, đang chờ xác nhận lô thực tế lấy từ kho hoặc quầy.
+        Tồn khả dụng đã trừ phần chờ này; xác nhận lô không trừ tồn khả dụng lần nữa.
       </p>
       <div className={`${TBL_WRAP} overflow-x-auto`}>
-        <table className="w-full min-w-2xl text-left text-body">
+        <table className="w-full text-left text-body sm:min-w-2xl">
           <thead className={TBL_HEAD}>
             <tr>
               <th className="px-3 py-2">Thuốc</th>
-              <th className="px-3 py-2">Khách</th>
-              <th className="px-3 py-2 text-right">Số giao</th>
-              <th className="px-3 py-2">Giao lúc</th>
+              <th className="hidden px-3 py-2 sm:table-cell">Khách</th>
+              <th className="px-3 py-2 text-right">SL đã giao cho khách</th>
+              <th className="hidden px-3 py-2 sm:table-cell">Giao lúc</th>
               <th className="px-3 py-2">Gán lô</th>
             </tr>
           </thead>

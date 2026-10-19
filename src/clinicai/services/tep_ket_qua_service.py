@@ -525,6 +525,19 @@ def chuan_ly_do_xoa(ly_do: Any) -> str:
     return chu
 
 
+#: VIỆC ĐỐI TÁC (alias ``o`` = service_order): bước làm bên ngoài hoặc chỉ định
+#: đã sang bàn đối tác — cùng nghĩa `doi_tac_service.LA_VIEC_DOI_TAC_SQL`, viết
+#: lại ở đây vì module ấy nhập module này (không nhập vòng). Mốc `ket_qua_luc`
+#: của việc ấy chỉ do nút [Trả kết quả] đặt / gỡ (16/10/2026).
+_VIEC_DOI_TAC_SQL = """(EXISTS (
+        SELECT 1 FROM public.node_definition nd_dt
+         WHERE nd_dt.clinic_id = o.clinic_id AND nd_dt.code = o.node_code
+           AND nd_dt.lam_ben_ngoai)
+     OR EXISTS (
+        SELECT 1 FROM public.doi_tac_nhan_viec dnv_dt
+         WHERE dnv_dt.clinic_id = o.clinic_id AND dnv_dt.service_order_id = o.id))"""
+
+
 async def _tinh_lai_ket_qua_luc(
     conn: asyncpg.Connection, clinic_id: str, service_order_id: str
 ) -> None:
@@ -535,7 +548,11 @@ async def _tinh_lai_ket_qua_luc(
         "UPDATE service_order o SET ket_qua_luc = NULL, updated_at = now()"
         " WHERE o.clinic_id = $1::uuid AND o.id = $2::uuid"
         "   AND o.ket_qua_luc IS NOT NULL"
-        "   AND nullif(btrim(coalesce(o.result_note, '')), '') IS NULL"
+        # Việc đối tác: "Có kết quả" là nút [Trả kết quả] — gỡ bằng hoàn tác
+        # của chính nút ấy, không tự gỡ khi xoá tệp (16/10/2026).
+        "   AND NOT "
+        + _VIEC_DOI_TAC_SQL
+        + "   AND nullif(btrim(coalesce(o.result_note, '')), '') IS NULL"
         "   AND NOT EXISTS (SELECT 1 FROM v_tep_ket_qua_hieu_luc t"
         "        WHERE t.clinic_id = $1::uuid AND t.service_order_id = $2::uuid"
         "          AND coalesce(t.xac_nhan_trang_thai, 'HOP_LE')"
@@ -710,6 +727,7 @@ class TepKetQuaService:
                 f"Tệp quá lớn. Tối đa {tran // 1024 // 1024}MB cho loại này."
             )
         is_external = False
+        viec_doi_tac = False
         async with self._pool.acquire() as conn:
             ok = await conn.fetchval(
                 "SELECT 1 FROM public.patient "
@@ -723,7 +741,11 @@ class TepKetQuaService:
                 cua_chi_dinh = await conn.fetchrow(
                     "SELECT v.clinic_patient_id::text AS clinic_patient_id,"
                     "       v.appointment_id::text AS appointment_id,"
-                    "       coalesce(nd.lam_ben_ngoai, false) AS lam_ben_ngoai"
+                    "       coalesce(nd.lam_ben_ngoai, false) AS lam_ben_ngoai,"
+                    "       (coalesce(nd.lam_ben_ngoai, false) OR EXISTS ("
+                    "          SELECT 1 FROM public.doi_tac_nhan_viec dnv"
+                    "           WHERE dnv.clinic_id = o.clinic_id"
+                    "             AND dnv.service_order_id = o.id)) AS viec_doi_tac"
                     "  FROM public.service_order o"
                     "  JOIN public.visit v"
                     "    ON v.visit_id = o.visit_id AND v.clinic_id = o.clinic_id"
@@ -751,6 +773,7 @@ class TepKetQuaService:
                     )
                 appointment_id = appointment_id or cua_chi_dinh["appointment_id"]
                 is_external = bool(cua_chi_dinh["lam_ben_ngoai"])
+                viec_doi_tac = bool(cua_chi_dinh["viec_doi_tac"])
             if appointment_id:
                 thuoc_ve = await conn.fetchval(
                     "SELECT 1 FROM public.appointment"
@@ -920,9 +943,12 @@ class TepKetQuaService:
                     LY_DO_TU_XAC_NHAN,
                     ben,
                 )
-                if service_order_id:
+                if service_order_id and not viec_doi_tac:
                     # Mốc "tài liệu đã tới" (để tương thích dữ liệu cũ/hiển thị).
                     # Không dùng để quyết định VALID_RESULT cho external order.
+                    # VIỆC ĐỐI TÁC (16/10/2026): mốc "Có kết quả" chỉ đặt khi đối
+                    # tác bấm [Trả kết quả] (`doi_tac_service.tra_ket_qua`) —
+                    # tải dở một tệp chưa phải đã trả kết quả.
                     await conn.execute(
                         "UPDATE public.service_order"
                         "   SET ket_qua_luc = coalesce(ket_qua_luc, now()),"
@@ -1453,10 +1479,10 @@ class TepKetQuaService:
             )
             if so_id and con_la_ket_qua:
                 await conn.execute(
-                    "UPDATE public.service_order"
+                    "UPDATE public.service_order o"
                     "   SET ket_qua_luc = now(), updated_at = now()"
-                    " WHERE id = $1::uuid AND clinic_id = $2::uuid"
-                    "   AND ket_qua_luc IS NULL",
+                    " WHERE o.id = $1::uuid AND o.clinic_id = $2::uuid"
+                    "   AND o.ket_qua_luc IS NULL AND NOT " + _VIEC_DOI_TAC_SQL,
                     so_id,
                     cid,
                 )

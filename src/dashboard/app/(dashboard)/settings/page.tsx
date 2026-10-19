@@ -1,4 +1,4 @@
-// Cài đặt phòng khám — chỉ CẤU HÌNH: chế độ tính năng và luật đặt lịch.
+// Cài đặt phòng khám — luật đặt lịch, phạm vi vị trí và báo cáo.
 //
 // Danh sách tài khoản đăng nhập của nhân viên đã tách sang mục riêng
 // `/settings/tai-khoan` ("Thiết lập tài khoản cho nhân viên"). Hai việc khác
@@ -15,10 +15,9 @@ import BookingPolicyCard from "./BookingPolicyCard";
 import FeatureModeCard from "./FeatureModeCard";
 import PhamViViTriCard, { type OViTri } from "./PhamViViTriCard";
 import { fetchFromBackend } from "../../../lib/backend-proxy";
+import ReportSettingsCard, { type ReportSettings } from "./ReportSettingsCard";
 
 export const dynamic = "force-dynamic";
-
-import ReportSettingsCard, { type ReportSettings } from "./ReportSettingsCard";
 
 export default async function SettingsPage() {
   // Lego 18 "Cài đặt phòng khám" (27/09/2026) — trước gác vai Quản lý.

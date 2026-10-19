@@ -64,8 +64,9 @@ test("lời báo nối đơn GIỮ trên khung lượt tới khi thao tác hoặ
   // Không phải toast tự tắt.
   assert.doesNotMatch(kho2, /setTimeout/);
   assert.doesNotMatch(banLe + lichSu, /setTimeout/);
-  // Lối từ Kho thuốc: cùng component, điều hướng giữ bộ nhớ trang nên lời báo đi theo.
-  assert.match(kho, /<KhachMuaThuoc sangNhaThuoc \/>/);
+  // Lối bán lẻ nằm ở màn Cấp thuốc; trang kho không lặp lại nút này.
+  assert.match(board, /<KhachMuaThuoc/);
+  assert.doesNotMatch(kho, /<KhachMuaThuoc/);
 });
 
 test("mở lượt xong: chọn đúng lượt, cuộn tới khung, viền + chip Vừa mở", () => {

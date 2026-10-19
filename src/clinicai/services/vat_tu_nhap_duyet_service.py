@@ -101,14 +101,9 @@ async def xu_ly_nhap_can_duyet(
 ) -> dict[str, Any] | None:
     """Gọi từ `tao_phieu` (đã giữ khoá cơ sở, đã kiểm gửi lại phiếu). Trả None nếu
     phiếu không có dòng cần duyệt → đi đường ghi sổ như cũ."""
-    can_duyet = await conn.fetchval(
-        "SELECT EXISTS (SELECT 1 FROM public.service_price WHERE clinic_id = $1::uuid"
-        " AND id = ANY($2::uuid[]) AND can_duyet_nhap_vat_tu)",
-        identity.clinic_id,
-        [d["vat_tu_id"] for d in ds],
-    )
-    if not can_duyet:
-        return None
+    # Khoá đã dùng phải tiếp tục trỏ vào yêu cầu cũ dù quản lý vừa bỏ cờ duyệt.
+    # Nếu kiểm cờ trước, retry có thể ghi NHAP trực tiếp rồi yêu cầu cũ lại được
+    # duyệt, làm tăng tồn hai lần cho cùng một lần gửi.
     cu = await conn.fetchrow(
         "SELECT * FROM public.vat_tu_nhap_cho_duyet WHERE clinic_id = $1::uuid"
         " AND location_id = $2::uuid AND khoa_gui = $3",
@@ -118,6 +113,15 @@ async def xu_ly_nhap_can_duyet(
     )
     if cu is not None:
         return _ra(cu, cho_duyet=cu["trang_thai"] == "CHO_DUYET", gui_lai=True)
+
+    can_duyet = await conn.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM public.service_price WHERE clinic_id = $1::uuid"
+        " AND id = ANY($2::uuid[]) AND can_duyet_nhap_vat_tu)",
+        identity.clinic_id,
+        [d["vat_tu_id"] for d in ds],
+    )
+    if not can_duyet:
+        return None
 
     dong: list[dict[str, Any]] = []
     for d in ds:

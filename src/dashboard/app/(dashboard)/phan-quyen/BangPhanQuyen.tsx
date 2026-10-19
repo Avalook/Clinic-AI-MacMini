@@ -193,9 +193,6 @@ export default function BangPhanQuyen({
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-sm font-semibold text-ink">{chon.ten}</h2>
-                <p className="text-label text-ink-muted">
-                  Tick kỹ năng người này làm — tick là mở đúng các màn, phòng ghi bên cạnh.
-                </p>
               </div>
             </div>
             <KyNangCuaNguoi

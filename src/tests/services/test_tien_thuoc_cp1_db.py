@@ -359,10 +359,12 @@ async def test_mua_4_tren_10_hoa_don_4(q: Quay) -> None:
     )
     hd = await _hd(q, "thuoc")
     assert hd.tong == 20_000
-    with pytest.raises(ValidationError, match="số kê"):
-        await PharmacyService(q.pool).khai_so_luong_mua(
-            identity=q.duoc_si, prescription_id=rx, so_luong=11
-        )
+    result = await PharmacyService(q.pool).khai_so_luong_mua(
+        identity=q.duoc_si, prescription_id=rx, so_luong=11
+    )
+    assert result["canh_bao"]
+    hd = await _hd(q, "thuoc")
+    assert hd.tong == 55_000
 
 
 async def test_tu_choi_toan_bo_khong_co_khoan_thuoc(q: Quay) -> None:

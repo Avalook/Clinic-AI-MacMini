@@ -95,7 +95,7 @@ export default function ChoDuyetVatTu({
   }
 
   const tenNoi = (roomId: string | null) =>
-    roomId ? (noiChua.find((n) => n.room_id === roomId)?.ten ?? "Phòng khác") : "Kho cơ sở";
+    roomId ? (noiChua.find((n) => n.room_id === roomId)?.ten ?? "Phòng khác") : "Kho";
   const cho = goi.items.filter((y) => y.trang_thai === "CHO_DUYET");
   const daQuyet = goi.items.filter((y) => y.trang_thai !== "CHO_DUYET");
 
@@ -244,11 +244,6 @@ export default function ChoDuyetVatTu({
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-body text-ink-muted">
-        Phiếu nhập có mặt hàng đặt “cần duyệt nhập” chưa vào kho cho tới khi người có quyền Duyệt vật tư
-        (Trưởng ca / Quản lý) duyệt.
-        {goi.duoc_duyet ? "" : " Bạn xem được tình trạng và rút lại yêu cầu của mình; duyệt do người có quyền làm."}
-      </p>
       {bao ? (
         <p role="status" className="text-body text-success">
           {bao}

@@ -78,9 +78,6 @@ export default async function LichDoVePage({
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-brand-800">Lịch đổ về</h1>
-          <p className="text-sm text-ink-muted">
-            Toàn bộ lịch hẹn của tuần, thống kê theo mốc khung giờ · chỉ đọc
-          </p>
         </div>
         <nav className="flex items-center gap-2 text-sm">
           <Link

@@ -134,3 +134,74 @@ async def test_equal_units_keep_stock_and_prescription_quantity_in_same_unit(
     assert update_args[2] == Decimal("2")
     assert "unit" in conn.fetchrow.await_args_list[0].args[0]
     assert "b.unit" in conn.fetchrow.await_args_list[2].args[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["_giao_khong_lo", "_cap_phat_cu"])
+async def test_giao_vuot_ke_trong_so_mua_duoc_phep(method: str) -> None:
+    conn = connection("hộp", "hộp")
+    conn.fetchrow = AsyncMock(
+        side_effect=[
+            {
+                "id": "b1",
+                "quantity_on_hand": Decimal(100),
+                "unit": "hộp",
+                "expiry_date": date(2099, 12, 31),
+                "noi_chua": "QUAY",
+                "name_base": "Thuốc",
+            },
+            {"dispensed_qty": Decimal(3), "dispense_status": "CAP_DU"},
+        ]
+        if method == "_cap_phat_cu"
+        else [{"dispensed_qty": Decimal(3), "dispense_status": "CAP_DU"}]
+    )
+    kwargs = {"drug_batch_id": "b1"} if method == "_cap_phat_cu" else {}
+    result = await getattr(service(conn), method)(
+        conn,
+        identity=identity(),
+        prescription_id="p1",
+        luong=Decimal(3),
+        don={
+            "quantity_num": Decimal(2),
+            "purchased_qty": Decimal(3),
+            "dispensed_qty": Decimal(0),
+            "unit": "hộp",
+            "visit_id": "v1",
+            "drug_name_raw": "Thuốc",
+            "drug_catalog_id": "d1",
+        },
+        **kwargs,
+    )
+    assert result["dispensed_qty"] == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["_giao_khong_lo", "_cap_phat_cu"])
+async def test_khong_giao_vuot_so_mua_du_ke_cao_hon(method: str) -> None:
+    conn = connection("hộp", "hộp")
+    kwargs = {"drug_batch_id": "b1"} if method == "_cap_phat_cu" else {}
+    with pytest.raises(ValidationError, match="số đã bán"):
+        await getattr(service(conn), method)(
+            conn,
+            identity=identity(),
+            prescription_id="p1",
+            luong=Decimal(3),
+            don={
+                "quantity_num": Decimal(10),
+                "purchased_qty": Decimal(2),
+                "dispensed_qty": Decimal(0),
+                "drug_name_raw": "Thuốc",
+            },
+            **kwargs,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity"])
+async def test_so_mua_phai_huu_han(value: str) -> None:
+    with pytest.raises(ValidationError):
+        await service(connection("hộp", "hộp")).khai_so_luong_mua(
+            identity=identity(),
+            prescription_id="p1",
+            so_luong=value,
+        )

@@ -13,7 +13,16 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.services.kho_thuoc_service import _khoa
 
 LOAI = frozenset(
-    {"NHAP", "XUAT_PHONG", "TRA_KHO", "CHUYEN_PHONG", "KIEM", "DIEU_CHINH", "HUY"}
+    {
+        "NHAP",
+        "XUAT_PHONG",
+        "TRA_KHO",
+        "CHUYEN_PHONG",
+        "KIEM",
+        "DIEU_CHINH",
+        "HUY",
+        "TRA_NCC",
+    }
 )
 
 
@@ -40,7 +49,20 @@ def _uuid(v: Any) -> str:
         raise ValidationError("Mã mặt hàng/phòng/phiếu không hợp lệ.") from exc
 
 
-def _so(v: Any, *, cho_0: bool = False, le: int = 3) -> Decimal:
+#: Trần hợp lý cho MỘT dòng phiếu — cột Postgres cho tới 10^15 nhưng một phòng
+#: khám không nhập / xuất / đếm cả triệu cái trong một dòng; số lớn hơn gần như
+#: chắc chắn là gõ thừa số 0 (trước đây 1 nghìn tỷ cái vẫn được ghi vào sổ).
+SO_LUONG_TOI_DA = Decimal(1_000_000)
+GIA_TOI_DA = Decimal(1_000_000_000)
+
+
+def _so(
+    v: Any,
+    *,
+    cho_0: bool = False,
+    le: int = 3,
+    toi_da: Decimal = SO_LUONG_TOI_DA,
+) -> Decimal:
     try:
         so = Decimal(str(v))
     except (ValueError, InvalidOperation) as exc:
@@ -49,6 +71,11 @@ def _so(v: Any, *, cho_0: bool = False, le: int = 3) -> Decimal:
         raise ValidationError("Số lượng/giá nhập không hợp lệ.")
     if so >= Decimal(10) ** (18 - le) or so != so.quantize(Decimal(10) ** -le):
         raise ValidationError(f"Số vượt độ chính xác lưu trữ ({le} chữ số thập phân).")
+    if so > toi_da:
+        gioi_han = f"{toi_da:,.0f}".replace(",", ".")
+        raise ValidationError(
+            f"Số quá lớn (tối đa {gioi_han}) — kiểm tra lại có gõ thừa số 0 không."
+        )
     return so
 
 
@@ -62,7 +89,9 @@ def _dong(loai: str, d: dict[str, Any]) -> dict[str, Any]:
         raise ValidationError("Xuất kho cần phòng nhận.")
     if loai == "TRA_KHO" and (not tu or den):
         raise ValidationError("Trả kho cần phòng trả.")
-    if (loai == "NHAP" and tu) or (loai in {"KIEM", "DIEU_CHINH", "HUY"} and den):
+    if (loai == "NHAP" and tu) or (
+        loai in {"KIEM", "DIEU_CHINH", "HUY", "TRA_NCC"} and den
+    ):
         raise ValidationError("Nơi chứa không đúng loại phiếu.")
     if loai != "NHAP" and d.get("gia_nhap") not in (None, ""):
         raise ValidationError("Giá nhập chỉ được khai báo khi nhập kho.")
@@ -76,7 +105,7 @@ def _dong(loai: str, d: dict[str, Any]) -> dict[str, Any]:
         # None = người lập không gõ giá → lấy giá danh mục tại LÚC lập (bản chụp).
         "gia": None
         if d.get("gia_nhap") in (None, "")
-        else _so(d["gia_nhap"], cho_0=True, le=0),
+        else _so(d["gia_nhap"], cho_0=True, le=0, toi_da=GIA_TOI_DA),
     }
 
 
@@ -117,7 +146,7 @@ async def _phieu_da_co(
     conn: asyncpg.Connection, identity: StaffIdentity, khoa: str
 ) -> dict[str, Any] | None:
     row = await conn.fetchrow(
-        "SELECT id::text, ma_phieu, loai FROM public.vat_tu_phieu"
+        "SELECT id::text, ma_phieu, loai, nha_cung_cap FROM public.vat_tu_phieu"
         " WHERE clinic_id=$1::uuid AND location_id=$2::uuid AND khoa_gui=$3",
         identity.clinic_id,
         identity.location_id,
@@ -133,6 +162,7 @@ async def _mo_phieu(
     khoa: str,
     ghi_chu: str | None,
     dao: str | None = None,
+    nha_cung_cap: str | None = None,
 ) -> dict[str, Any]:
     code = await conn.fetchval(
         "SELECT upper(btrim(code)) FROM clinic_location WHERE"
@@ -151,9 +181,9 @@ async def _mo_phieu(
     ma = f"VT-{code}-{int(so) + 1:04d}"
     row = await conn.fetchrow(
         "INSERT INTO vat_tu_phieu (clinic_id, location_id, ma_phieu, loai,"
-        " khoa_gui, tao_boi, ghi_chu, dao_phieu_id)"
-        " VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6::uuid,$7,$8::uuid)"
-        " RETURNING id::text, ma_phieu, loai",
+        " khoa_gui, tao_boi, ghi_chu, dao_phieu_id, nha_cung_cap)"
+        " VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6::uuid,$7,$8::uuid,$9)"
+        " RETURNING id::text, ma_phieu, loai, nha_cung_cap",
         identity.clinic_id,
         identity.location_id,
         ma,
@@ -162,6 +192,7 @@ async def _mo_phieu(
         identity.staff_id,
         ghi_chu,
         dao,
+        nha_cung_cap,
     )
     return {**dict(row), "ok": True, "gui_lai": False}
 
@@ -239,9 +270,10 @@ async def _ghi_phieu(
     loai: str,
     ds: list[dict[str, Any]],
     ghi_chu: str | None,
+    nha_cung_cap: str | None = None,
 ) -> dict[str, Any]:
     """Ghi nguyên phiếu trong giao dịch + khoá cơ sở của người gọi (đã mở)."""
-    p = await _mo_phieu(conn, identity, loai, khoa, ghi_chu)
+    p = await _mo_phieu(conn, identity, loai, khoa, ghi_chu, nha_cung_cap=nha_cung_cap)
     for d in ds:
         vt, so = d["vat_tu_id"], d["so"]
         gia = d["gia"]
@@ -266,7 +298,9 @@ async def _ghi_phieu(
             )
             dem = so if loai in {"KIEM", "DIEU_CHINH"} else None
             lech = so - ton["so_luong"] if loai == "DIEU_CHINH" else Decimal(0)
-            delta = lech if dem is not None else (-so if loai == "HUY" else so)
+            delta = (
+                lech if dem is not None else (-so if loai in {"HUY", "TRA_NCC"} else so)
+            )
             await _ghi(conn, identity, p["id"], vt, ton, delta, gia, dem)
     return p
 
@@ -279,6 +313,7 @@ async def tao_phieu(
     loai: str,
     dong: list[dict[str, Any]],
     ghi_chu: str | None = None,
+    nha_cung_cap: str | None = None,
 ) -> dict[str, Any]:
     """Ghi nguyên phiếu; KIEM chỉ chụp số đếm, DIEU_CHINH mới đổi tồn.
 
@@ -289,6 +324,15 @@ async def tao_phieu(
     khoa = _khoa(khoa_gui)
     if loai not in LOAI or not dong:
         raise ValidationError("Chọn loại phiếu và ít nhất một vật tư.")
+    nha_cung_cap = (nha_cung_cap or "").strip() or None
+    ghi_chu = (ghi_chu or "").strip() or None
+    if loai == "TRA_NCC":
+        if not nha_cung_cap or len(nha_cung_cap) < 2 or len(nha_cung_cap) > 200:
+            raise ValidationError("Nhập tên nhà sản xuất cần trả hàng (2–200 ký tự).")
+        if not ghi_chu or len(ghi_chu) < 5:
+            raise ValidationError("Ghi rõ lý do trả nhà sản xuất (ít nhất 5 ký tự).")
+    elif nha_cung_cap:
+        raise ValidationError("Chỉ phiếu trả nhà sản xuất mới ghi tên nhà sản xuất.")
     ds = [_dong(loai, d) for d in dong]
     keys = [(d["vat_tu_id"], d["tu"], d["den"]) for d in ds]
     if len(set(keys)) != len(keys):
@@ -307,7 +351,7 @@ async def tao_phieu(
             cho = await xu_ly_nhap_can_duyet(conn, identity, khoa, ds, ghi_chu)
             if cho is not None:
                 return cho
-        return await _ghi_phieu(conn, identity, khoa, loai, ds, ghi_chu)
+        return await _ghi_phieu(conn, identity, khoa, loai, ds, ghi_chu, nha_cung_cap)
 
 
 async def hoan_phieu(
@@ -371,10 +415,21 @@ async def doc_ton(
 ) -> list[dict[str, Any]]:
     """Hiện cả phòng đã tắt; tồn âm luôn có cảnh báo dù mức tối thiểu bằng 0."""
     rows = await pool.fetch(
-        "SELECT t.id::text,t.vat_tu_id::text,t.room_id::text,s.name AS ten,s.don_vi,"
+        "WITH gia AS (SELECT DISTINCT ON (x.vat_tu_id) x.vat_tu_id,"
+        " sum(x.so_luong*x.gia_nhap)/nullif(sum(x.so_luong),0) AS don_gia"
+        " FROM vat_tu_txn x JOIN vat_tu_phieu p ON p.id=x.phieu_id"
+        " AND p.clinic_id=x.clinic_id WHERE p.clinic_id=$1::uuid"
+        " AND p.location_id=$2::uuid AND p.loai='NHAP'"
+        " AND NOT EXISTS (SELECT 1 FROM vat_tu_phieu h WHERE"
+        " h.clinic_id=p.clinic_id AND h.dao_phieu_id=p.id)"
+        " GROUP BY x.vat_tu_id,p.giao_dich"
+        " ORDER BY x.vat_tu_id,p.giao_dich DESC)"
+        " SELECT t.id::text,t.vat_tu_id::text,t.room_id::text,s.name AS ten,s.don_vi,"
         " coalesce(r.name,'Kho cơ sở') AS noi_chua,r.is_active AS phong_dang_bat,"
-        " t.so_luong,t.ton_toi_thieu FROM vat_tu_ton t"
+        " t.so_luong,t.ton_toi_thieu,gia.don_gia AS gia_nhap_tham_chieu,"
+        " t.so_luong*gia.don_gia AS gia_tri_ton FROM vat_tu_ton t"
         " JOIN service_price s ON s.id=t.vat_tu_id AND s.clinic_id=t.clinic_id"
+        " LEFT JOIN gia ON gia.vat_tu_id=t.vat_tu_id"
         " LEFT JOIN clinic_room r ON r.id=t.room_id AND r.clinic_id=t.clinic_id"
         " WHERE t.clinic_id=$1::uuid AND t.location_id=$2::uuid ORDER BY"
         " s.name,t.room_id NULLS FIRST",

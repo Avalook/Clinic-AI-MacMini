@@ -143,6 +143,7 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.chuyen_kho": "Chuyển thuốc giữa kho và quầy",
     "pharmacy.chuyen_kho_hoan_tac": "Hoàn tác phiếu chuyển kho",
     "pharmacy.tach_kho_quay_doi": "Bật / tắt tách kho và quầy",
+    "pharmacy.kiem_ke_ca_sua_so_dem": "Sửa số đếm kiểm kê ca (giữ bản đã chốt)",
     "pharmacy.kiem_ke_ca_mo": "Mở phiếu kiểm kê ca ở quầy thuốc",
     "pharmacy.kiem_ke_ca_chot": "Chốt phiếu kiểm kê ca ở quầy thuốc",
     "pharmacy.kiem_ke_ca_dieu_chinh": "Điều chỉnh tồn quầy theo kiểm kê",
@@ -156,6 +157,7 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.allocation_moved": "Đổi lô đang giữ cho lần chờ xác minh",
     "pharmacy.undelivered_cancelled": "Huỷ phần thuốc đã bán chưa giao",
     "pharmacy.drug_returned": "Khách trả thuốc (chưa quyết xử lý)",
+    "pharmacy.drug_return_decided": "Quyết định thuốc khách trả (bán lại / huỷ)",
     # ── Hồ sơ bệnh nhân ─────────────────────────────────────────────────────
     "patient.created": "Tạo hồ sơ bệnh nhân",
     "patient.uu_tien_changed": "Đổi dấu khách ưu tiên",

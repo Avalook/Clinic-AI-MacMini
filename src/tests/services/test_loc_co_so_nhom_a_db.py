@@ -24,7 +24,7 @@ from clinicai.api.v1.routers.booking import cho_xep_bac_si
 from clinicai.api.v1.routers.queue import get_queue
 from clinicai.api.v1.routers.visit_progress import active_visits
 from clinicai.core.clock import CLINIC_TZ
-from clinicai.services import man_trang_chu_service
+from clinicai.services import dispatch_service, man_trang_chu_service
 from clinicai.services.bang_hanh_trinh_service import BangHanhTrinhService
 from clinicai.services.booking_service import BookingService
 from clinicai.services.dispatch_service import DispatchService
@@ -318,10 +318,18 @@ async def test_moi_man_chi_hien_cua_co_so_dang_dung(
 async def test_khong_chon_co_so_thay_ca_hai(
     pool: asyncpg.Pool,  # noqa: F811
     hai_co_so: tuple[CoSo, CoSo, date],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Danh tính không chọn cơ sở (`location_id = ""` → None) KHÔNG lọc — mẫu
     `coalesce(LOC, $n) IS NOT DISTINCT FROM coalesce($n, LOC)`; mẫu cũ
-    `coalesce(LOC, $n) = $n` gặp $n NULL thì loại sạch mọi dòng."""
+    `coalesce(LOC, $n) = $n` gặp $n NULL thì loại sạch mọi dòng.
+
+    Bảng điều phối giới hạn 400 dòng; test này kiểm phạm vi cơ sở, nên bỏ giới
+    hạn để fixture không bị dữ liệu từ test khác đẩy khỏi kết quả.
+    """
+    sql, marker, tail = dispatch_service._OVERVIEW_SQL.rpartition("LIMIT 400")
+    assert marker, "SQL điều phối đổi giới hạn; cần cập nhật test cô lập cơ sở"
+    monkeypatch.setattr(dispatch_service, "_OVERVIEW_SQL", f"{sql}LIMIT 100000{tail}")
     a, b, thu_hai = hai_co_so
     thay = await _thay(pool, dataclasses.replace(a.ai, location_id=""), thu_hai)
     for cs in (a, b):
@@ -347,8 +355,11 @@ async def test_trang_chu_dem_theo_co_so(
     pool: asyncpg.Pool,  # noqa: F811
     hai_co_so: tuple[CoSo, CoSo, date],
 ) -> None:
-    """Ô số trang chủ: tổng hai cơ sở ≤ không chọn cơ sở, và mỗi cơ sở ≥ 1 lịch
-    chưa xếp bác sĩ (của chính nó)."""
+    """Mỗi cơ sở có dữ liệu riêng; dòng chưa biết cơ sở hiện ở cả hai màn.
+
+    DB của worker còn dữ liệu từ bài trước. Phải trừ phần dùng chung trước
+    khi so tổng, vì màn không chọn cơ sở chỉ đếm các dòng NULL một lần.
+    """
     a, b, thu_hai = hai_co_so
     so: dict[str, dict[str, Any]] = {}
     for ten, ai in (
@@ -361,6 +372,23 @@ async def test_trang_chu_dem_theo_co_so(
         )
         so[ten] = {c["ma"]: c["so"] for c in tc["can_xu_ly"]}
         so[ten]["khach_moi"] = tc["so_lieu"]["khach_moi_hom_nay"]
-    for ma in ("chua_xep_bac_si", "khach_moi"):
-        assert so["a"][ma] >= 1 and so["b"][ma] >= 1, ma
-        assert so["a"][ma] + so["b"][ma] <= so["tat_ca"][ma], ma
+    hom_nay = datetime.now(CLINIC_TZ).date()
+    dau_ngay = datetime.combine(hom_nay, datetime.min.time(), tzinfo=CLINIC_TZ)
+    dung_chung = {
+        "chua_xep_bac_si": await pool.fetchval(
+            "SELECT count(*) FROM appointment WHERE clinic_id = $1::uuid"
+            " AND location_id IS NULL AND doctor_id IS NULL AND slot_start >= now()"
+            " AND status IN ('SCHEDULED', 'CSKH_CONFIRMED', 'CONFIRMED')",
+            CLINIC,
+        ),
+        "khach_moi": await pool.fetchval(
+            "SELECT count(*) FROM patient WHERE clinic_id = $1::uuid"
+            " AND location_id IS NULL AND created_at >= $2 AND created_at < $3",
+            CLINIC,
+            dau_ngay,
+            dau_ngay + timedelta(days=1),
+        ),
+    }
+    for ma, chung in dung_chung.items():
+        assert so["a"][ma] - chung >= 1 and so["b"][ma] - chung >= 1, ma
+        assert so["a"][ma] + so["b"][ma] <= so["tat_ca"][ma] + chung, ma

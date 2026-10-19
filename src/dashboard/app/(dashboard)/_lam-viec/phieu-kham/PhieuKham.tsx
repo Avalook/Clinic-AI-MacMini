@@ -121,6 +121,7 @@ export default function PhieuKham({
   oDieuTri,
   oKhoi1,
   khoi1 = null,
+  giaoDienBanKham = false,
 }: {
   /** Khung của ĐÚNG phiên bản phiếu đang ghim. */
   dinhNghia: DinhNghiaPhieu;
@@ -153,6 +154,8 @@ export default function PhieuKham({
   /** Loại khối 1 máy chủ trả (`khoi1`) — lượt Điều trị ẩn mục A/B (`mucAnKhoi1`,
    *  dữ liệu cũ giữ nguyên); chỉ định `ban_kham` không rơi vào khối 3. */
   khoi1?: Khoi1;
+  /** Giao diện riêng của phiếu trên màn Bàn khám. */
+  giaoDienBanKham?: boolean;
   /** Lỗi lưu đơn thuốc (kèm ô lý do) — vẽ NGAY trong mục E (góp ý B8). */
   baoLoiDon?: ReactNode;
   /** Mục E: đơn thuốc thật của lượt. */
@@ -357,7 +360,7 @@ export default function PhieuKham({
     <TrangThaiLuu
       tt={ttCuoi}
       onLuuNgay={() => void luuCaHai()}
-      chuaGo={ghi ? "Tự lưu khi gõ" : "Chỉ xem"}
+      chuaGo={ghi ? (giaoDienBanKham ? "" : "Tự lưu khi gõ") : "Chỉ xem"}
     />
   );
   // Tóm tắt NGẮN các ô máy chủ vừa để trống — mỗi tên là link tới đúng ô (câu
@@ -551,13 +554,17 @@ export default function PhieuKham({
         {/* Thẻ khách + thẻ sinh hiệu Y HỆT bản giao diện mẫu (27/09/2026). */}
         {dauPhieu ? (
           <>
-            <TheKhach dau={dauPhieu} />
-            <TheSinhHieu dau={dauPhieu} />
+            <TheKhach dau={dauPhieu} giaoDienBanKham={giaoDienBanKham} />
+            <TheSinhHieu dau={dauPhieu} giaoDienBanKham={giaoDienBanKham} />
           </>
         ) : null}
         {hanhChinh ? veO(hanhChinh) : null}
 
-        <TieuDeKhoi so={khoi} ten={KHOI[khoi - 1]?.ten ?? ""} phu={GOI_Y_KHOI[khoi] ?? undefined} />
+        <TieuDeKhoi
+          so={khoi}
+          ten={KHOI[khoi - 1]?.ten ?? ""}
+          phu={giaoDienBanKham && (khoi === 2 || khoi === 3) ? undefined : GOI_Y_KHOI[khoi] ?? undefined}
+        />
 
         {/* Khối 1 lượt Điều trị / Thủ thuật: phần riêng ĐẦU khối (09/10/2026). */}
         {khoi === 1 ? oKhoi1 : null}

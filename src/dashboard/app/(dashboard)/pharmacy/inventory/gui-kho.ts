@@ -129,7 +129,7 @@ function ketThucGuiLai(
 /** `khoa` = Idempotency-Key (phiếu nhập / kiểm kho bắt buộc): gửi lại cùng khoá
  *  = cùng phiếu, máy chủ không ghi sổ lần hai. */
 export async function guiKho(
-  thaoTac: "luu-thuoc" | "receive" | "adjust" | "discard" | "gan-lo" | "phieu-nhap" | "kiem-kho" | "sua-lo" | "huy-lo-het-han" | "hoan-huy-lo" | "so-ngay-canh-bao" | "gan-ma-vach" | "go-ma-vach" | "chuyen-kho" | "hoan-tac-chuyen-kho" | "tach-kho-quay",
+  thaoTac: "luu-thuoc" | "receive" | "adjust" | "discard" | "gan-lo" | "phieu-nhap" | "kiem-kho" | "sua-lo" | "huy-lo-het-han" | "hoan-huy-lo" | "so-ngay-canh-bao" | "gan-ma-vach" | "go-ma-vach" | "chuyen-kho" | "hoan-tac-chuyen-kho" | "tach-kho-quay" | "xu-ly-thuoc-tra",
   duLieu: Record<string, unknown>,
   khoa?: string,
 ): Promise<KetQuaKho> {
@@ -181,7 +181,7 @@ export async function guiKho(
 
 /** Đọc một đường GET của proxy `/api/pharmacy/[action]` (quét mã, dữ liệu tem). */
 export async function docKho<T>(
-  thaoTac: "tra-ma" | "tem-lo",
+  thaoTac: "tra-ma" | "tem-lo" | "quy-doi",
   thamSo: Record<string, string>,
 ): Promise<{ ok: true; data: T } | { ok: false; loi: string }> {
   try {
@@ -207,6 +207,25 @@ export const tonTheoDonVi = (
   ds && ds.length > 0
     ? ds.map((x) => `${soKho(x.ton)} ${x.don_vi ?? ""}`.trim()).join(" · ")
     : "0";
+
+/** Cộng tồn các lô THEO TỪNG ĐƠN VỊ — hộp, viên, gói không bao giờ cộng chung
+ *  (một ô "Tổng tồn" cộng cả ba ra con số không có nghĩa gì). Bỏ đơn vị tồn 0;
+ *  gộp cách viết hoa/khoảng trắng khác nhau của cùng một đơn vị. */
+export function tongTonTheoDonVi(
+  lo: { unit: string | null; quantity_on_hand: number | string }[],
+): { don_vi: string; ton: number }[] {
+  const theo = new Map<string, { don_vi: string; ton: number }>();
+  for (const b of lo) {
+    const ten = (b.unit ?? "").trim();
+    const khoa = ten.toLowerCase();
+    const dong = theo.get(khoa) ?? { don_vi: ten, ton: 0 };
+    dong.ton += Number(b.quantity_on_hand) || 0;
+    theo.set(khoa, dong);
+  }
+  return [...theo.values()]
+    .filter((d) => d.ton !== 0)
+    .sort((a, b) => a.don_vi.localeCompare(b.don_vi, "vi"));
+}
 
 /** Số lượng kho (tới 3 chữ số lẻ). Máy chủ trả numeric dạng chuỗi → ép số. */
 export const soKho = (n: number | string | null | undefined): string =>

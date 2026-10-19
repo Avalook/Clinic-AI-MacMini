@@ -70,9 +70,11 @@ async def _tra(q: Quay, xuat: str, so: Any, ket: Any, **kw: Any) -> dict[str, An
 
 async def _phai_tra_thuoc(q: Quay) -> int:
     async with q.pool.acquire() as conn:
-        # Checkout ghi `closed_at` bằng đồng hồ PostgreSQL. Dùng cùng nguồn giờ
-        # để phép so sánh ngay sau checkout không bị lệch nếu host và DB lệch ms.
-        luc = await conn.fetchval("SELECT now()")
+        # Use the database clock, which also writes `closed_at`; host/DB drift can
+        # put datetime.now(UTC) before checkout and incorrectly show zero due.
+        # clock_timestamp() also avoids transaction-start time if this runs in a
+        # transaction that began before checkout.
+        luc = await conn.fetchval("SELECT clock_timestamp()")
         sd, _ = await so_du_hien_tai(conn, CLINIC, q.visit_id, luc)
     return sum(
         int(d["so_tien"]) for d in sd.chi_tiet.get("PHAI_TRA", []) if d["loai"] == THUOC

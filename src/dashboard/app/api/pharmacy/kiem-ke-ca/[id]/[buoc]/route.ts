@@ -8,7 +8,7 @@ import { getSupabaseServer } from "../../../../../../lib/supabase-server";
 import { proxyJsonToBackend } from "../../../../../../lib/backend-proxy";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const BUOC = new Set(["dem", "dung-so-cuoi-ca-truoc", "chot", "dieu-chinh", "hoan-tac-dieu-chinh"]);
+const BUOC = new Set(["dem", "dung-so-cuoi-ca-truoc", "chot", "dieu-chinh", "hoan-tac-dieu-chinh", "sua-so-dem"]);
 
 export async function POST(
   request: Request,

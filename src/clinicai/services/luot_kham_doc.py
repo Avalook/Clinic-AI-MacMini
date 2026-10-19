@@ -31,7 +31,7 @@ from clinicai.services.bac_si_phu_trach import (
     VAI_BAC_SI,
     bac_si_trong_ca_hoac_ca_ngay,
 )
-from clinicai.services.doi_tac_service import trang_thai_doi_tac
+from clinicai.services.doi_tac_service import chu_trang_thai_doi_tac, trang_thai_doi_tac
 from clinicai.services.lan_bac_si import (
     can_chon_bac_si,
     la_khach_lan_toi,
@@ -183,8 +183,12 @@ class BangLuotKham:
                         cid,
                         ids,
                     )
+                from clinicai.services.service_routing_service import (
+                    PHONG_DOI_TAC_NHAN_SQL,
+                )
+
                 chi_dinh = await conn.fetch(
-                    """
+                    f"""
                     SELECT o.id::text AS id, o.visit_id::text AS visit_id,
                            o.consultation_id::text AS consultation_id,
                            o.service_code, o.service_name, o.node_code, o.exec_status,
@@ -195,6 +199,7 @@ class BangLuotKham:
                            au.full_name AS authorized_by_name,
                            pf.full_name AS performed_by_name,
                            coalesce(nd.lam_ben_ngoai, false) AS doi_tac,
+                           {PHONG_DOI_TAC_NHAN_SQL} AS vao_phong_doi_tac,
                            o.ket_qua_luc, o.doi_tac_cho_tai_lieu_luc,
                            o.selection_status, o.execution_status,
                            o.routing_revision,
@@ -484,7 +489,9 @@ class BangLuotKham:
                         selection_status=o.get("selection_status"),
                         execution_status=o.get("execution_status"),
                         exec_status=o["exec_status"],
-                        doi_tac=bool(o["doi_tac"]),
+                        # Phòng đối tác nhận việc này → đổi phòng như phòng
+                        # thường (16/10/2026).
+                        doi_tac=bool(o["doi_tac"]) and not o["vao_phong_doi_tac"],
                     ),
                     # Việc gửi đối tác: không phòng nào của phòng khám xếp được,
                     # màn hình nói trạng thái ĐỐI TÁC thay vì "chờ xếp phòng".
@@ -515,6 +522,15 @@ class BangLuotKham:
                         else None
                     ),
                 }
+            )
+            # Chữ máy chủ viết cho trạng thái đối tác (16/10/2026) — mọi màn
+            # cùng một bộ chữ ("Chờ làm" / "Đã nhận mẫu · chờ kết quả" / "Có
+            # kết quả").
+            o_ra = by_visit[o["visit_id"]]["chi_dinh"][-1]
+            o_ra["trang_thai_doi_tac_chu"] = (
+                chu_trang_thai_doi_tac(o_ra["trang_thai_doi_tac"])
+                if o_ra["trang_thai_doi_tac"]
+                else None
             )
         views = [
             rules.QueueView(q["id"], q["status"], q["eligible_at"], q["created_at"])
@@ -624,14 +640,14 @@ class BangLuotKham:
             )
             tat_ca = await conn.fetch(
                 """
-                SELECT r.id::text AS id, r.code, r.name, r.floor,
+                SELECT r.id::text AS id, r.code, r.name, r.floor, r.la_doi_tac,
                        array_agg(rn.node_code ORDER BY rn.node_code) AS nodes
                   FROM clinic_room r
                   JOIN clinic_room_node rn
                     ON rn.room_id = r.id AND rn.clinic_id = r.clinic_id
                  WHERE r.clinic_id = $1::uuid AND r.is_active
                    AND ($2::uuid IS NULL OR r.location_id = $2::uuid)
-                 GROUP BY r.id, r.code, r.name, r.floor, r.sort
+                 GROUP BY r.id, r.code, r.name, r.floor, r.la_doi_tac, r.sort
                  ORDER BY r.sort, r.code
                 """,
                 identity.clinic_id,
@@ -665,6 +681,9 @@ class BangLuotKham:
                     "tang": r["floor"],
                     "nodes": list(r["nodes"] or []),
                     "la_phong_dich_vu": la_phong_dich_vu(r["nodes"] or []),
+                    # PHÒNG ĐỐI TÁC (16/10/2026): cùng màn phòng, nút cuối là
+                    # "Đã nhận mẫu" + khối Trả kết quả / Thu hộ đối tác.
+                    "la_doi_tac": bool(r["la_doi_tac"]),
                     "dem": dem.get(r["id"], trong),
                 }
                 for r in tat_ca

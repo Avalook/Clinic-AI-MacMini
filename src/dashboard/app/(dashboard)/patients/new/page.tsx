@@ -84,12 +84,10 @@ export default async function NewPatientPage({
 
   return (
     <div className="mx-auto max-w-5xl space-y-4">
-      {/* Tiêu đề nằm ở THANH TRÊN CÙNG (GlobalHeader). Ở đây chỉ còn thứ BẤM
-          ĐƯỢC — hai nút chọn luồng của Trưởng ca — vì đó là việc, không phải
-          nhãn. */}
+      {/* Tiêu đề nằm ở THANH TRÊN CÙNG (GlobalHeader); ở đây giữ bộ chọn luồng. */}
       {canBothFlows && (
-        <header className="rounded-card border border-line bg-surface px-4 py-3 shadow-card sm:px-5">
-          <div className="mt-4 inline-flex rounded-control border border-line bg-surface-muted p-1 text-sm">
+        <nav aria-label="Chọn luồng tạo hồ sơ" className="flex justify-end">
+          <div className="inline-flex rounded-control border border-line bg-surface-muted p-1 text-sm">
             <Link
               href="/patients/new"
               className={
@@ -113,7 +111,7 @@ export default async function NewPatientPage({
               Tạo bệnh nhân mới
             </Link>
           </div>
-        </header>
+        </nav>
       )}
       <NewPatientForm
         staffId={(await getCurrentStaff())?.id ?? null}
