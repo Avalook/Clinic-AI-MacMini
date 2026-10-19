@@ -148,9 +148,8 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
     return lo.some((x) => x.trim().toLowerCase() === go) ? null : lo.join(", ");
   };
 
-  const tong = dong.reduce(
-    (s, d) => s + (Number(d.so_luong.replace(",", ".")) || 0) * (Number(d.gia_nhap) || 0),
-    0,
+  const tong = calculatePurchaseTotal(
+    dong.map((d) => ({ quantity: d.so_luong, price: d.gia_nhap })),
   );
 
   const luu = async () => {

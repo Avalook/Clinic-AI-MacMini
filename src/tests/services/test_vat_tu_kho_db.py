@@ -60,6 +60,7 @@ async def _ghi(
     den: str | None = None,
     so: Any = 3,
     gia_nhap: Any = None,
+    don_vi: str | None = None,
     khoa: str | None = None,
     nha_cung_cap: str | None = None,
     ghi_chu: str | None = "Bài mô phỏng",
@@ -77,7 +78,16 @@ async def _ghi(
         loai=loai,
         ghi_chu=ghi_chu,
         nha_cung_cap=nha_cung_cap,
-        dong=[{"vat_tu_id": vt, "tu_room_id": tu, "den_room_id": den, "so_luong": so}],
+        dong=[
+            {
+                "vat_tu_id": vt,
+                "tu_room_id": tu,
+                "den_room_id": den,
+                "so_luong": so,
+                "gia_nhap": gia_nhap,
+                "don_vi": don_vi,
+            }
+        ],
     )
 
 

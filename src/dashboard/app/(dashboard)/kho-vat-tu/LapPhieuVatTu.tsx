@@ -12,7 +12,14 @@ import { useState } from "react";
 import Button from "@/components/ui/Button";
 import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
-import { guiVatTu, khoaMoi, soVatTu } from "./gui-vat-tu";
+import {
+  giaNhapPhieuHopLe,
+  guiVatTu,
+  khoaChongGuiTrung,
+  soLuongPhieuHopLe,
+  soVatTu,
+  xoaKhoaChongGuiTrung,
+} from "./gui-vat-tu";
 import type { DongTon, NoiChua } from "./TonVatTu";
 
 type Cho = null | "noi" | "phong";
@@ -150,7 +157,6 @@ export default function LapPhieuVatTu({
     den: loaiBanDau === "NHAP" || loaiBanDau === "XUAT_PHONG" ? initialRoomId ?? "" : "",
   });
   const [dong, setDong] = useState<Dong[]>(() => [taoDongTrongPhamVi()]);
-  const [khoa, setKhoa] = useState(khoaMoi);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
@@ -194,7 +200,8 @@ export default function LapPhieuVatTu({
   const thieu = dong.some(
     (d) =>
       !d.ten.trim() ||
-      !d.so.trim() ||
+      !soLuongPhieuHopLe(loai, d.so) ||
+      (loai === "NHAP" && !giaNhapPhieuHopLe(d.gia)) ||
       (loai === "TRA_NCC" && (nhaCungCap.trim().length < 2 || ghiChu.trim().length < 5)) ||
       (kieu.tu === "phong" && !d.tu) ||
       (kieu.den === "phong" && !d.den),
@@ -206,32 +213,45 @@ export default function LapPhieuVatTu({
       setLoi(`Dòng ${sai + 1}: chọn vật tư duy nhất trong danh mục. Nếu trùng tên, cần phân biệt tên hoặc đơn vị trong danh mục trước khi ghi phiếu.`);
       return;
     }
+    const saiSoLuong = dong.findIndex((d) => !soLuongPhieuHopLe(loai, d.so));
+    if (saiSoLuong >= 0) {
+      setLoi(`Dòng ${saiSoLuong + 1}: số lượng không hợp lệ với loại phiếu này.`);
+      return;
+    }
+    const saiGia =
+      loai === "NHAP" ? dong.findIndex((d) => !giaNhapPhieuHopLe(d.gia)) : -1;
+    if (saiGia >= 0) {
+      setLoi(`Dòng ${saiGia + 1}: giá nhập phải là số hữu hạn không âm.`);
+      return;
+    }
+    const duLieu = {
+      loai,
+      ghi_chu: ghiChu.trim() || null,
+      ...(loai === "TRA_NCC" ? { nha_cung_cap: nhaCungCap.trim() } : {}),
+      dong: dong.map((d) => {
+        const vatTuDaChonDong = vatTuDaChon(d.ten)!;
+        return {
+          vat_tu_id: vatTuDaChonDong.id,
+          don_vi: vatTuDaChonDong.unit ?? null,
+          tu_room_id: kieu.tu ? d.tu || null : null,
+          den_room_id: kieu.den ? d.den || null : null,
+          so_luong: d.so.trim().replace(",", "."),
+          gia_nhap: loai === "NHAP" ? d.gia.trim() || null : null,
+        };
+      }),
+    };
+    const khoaGui = khoaChongGuiTrung(duLieu);
     setDang(true);
     setLoi(null);
     setBao(null);
     setDangCho(false);
-    const kq = await guiVatTu(
-      "phieu",
-      {
-        loai,
-        ghi_chu: ghiChu.trim() || null,
-        nha_cung_cap: loai === "TRA_NCC" ? nhaCungCap.trim() : null,
-        dong: dong.map((d) => ({
-          vat_tu_id: vatTuDaChon(d.ten)?.id,
-          tu_room_id: kieu.tu ? d.tu || null : null,
-          den_room_id: kieu.den ? d.den || null : null,
-          so_luong: d.so.trim().replace(",", "."),
-          gia_nhap: d.gia.trim() || null,
-        })),
-      },
-      khoa,
-    );
+    const kq = await guiVatTu("phieu", duLieu, khoaGui);
     setDang(false);
     if (!kq.ok) {
       setLoi(kq.loi);
       return;
     }
-    xoaKhoaChongGuiTrung(khoa);
+    xoaKhoaChongGuiTrung(khoaGui);
     const d = kq.data as Parameters<typeof baoYeuCau>[0] | null;
     const yeuCau = d ? baoYeuCau(d) : null;
     setDangCho(d?.cho_duyet === true);
@@ -241,7 +261,6 @@ export default function LapPhieuVatTu({
     setDong([taoDongTrongPhamVi()]);
     setGhiChu("");
     setNhaCungCap("");
-    setKhoa(khoaMoi());
     router.refresh();
   };
 
@@ -351,9 +370,15 @@ export default function LapPhieuVatTu({
                   inputMode="numeric"
                   value={d.gia}
                   placeholder="Lấy giá đã cài nếu để trống"
+                  aria-invalid={d.gia.trim() !== "" && !giaNhapPhieuHopLe(d.gia)}
                   onChange={(e) => suaDong(d.k, { gia: e.target.value })}
                   className="w-full text-right tabular-nums"
                 />
+                {d.gia.trim() !== "" && !giaNhapPhieuHopLe(d.gia) ? (
+                  <span role="alert" className="mt-1 block text-meta text-danger">
+                    Giá phải là số hữu hạn không âm.
+                  </span>
+                ) : null}
               </label>
             ) : null}
             {dong.length > 1 ? (

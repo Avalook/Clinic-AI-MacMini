@@ -108,6 +108,44 @@ async def test_tieu_hao_dau_nhan_tra_cuoi_huy_va_gia_chot(pool: asyncpg.Pool) ->
 
 @pytest.mark.db
 @pytest.mark.asyncio
+async def test_gia_tieu_hao_chi_lay_giao_dich_cung_noi_chua(
+    pool: asyncpg.Pool,
+) -> None:
+    identity, vt, rooms = await _bo(pool)
+    from clinicai.services.vat_tu_kho_service import tao_phieu
+
+    don_vi = await pool.fetchval(
+        "SELECT don_vi FROM service_price WHERE id=$1::uuid", vt
+    )
+
+    async def nhap(room: str, gia: int) -> None:
+        await tao_phieu(
+            pool,
+            identity=identity,
+            khoa_gui=uuid.uuid4().hex,
+            loai="NHAP",
+            dong=[
+                {
+                    "vat_tu_id": vt,
+                    "don_vi": don_vi,
+                    "den_room_id": room,
+                    "so_luong": 1,
+                    "gia_nhap": gia,
+                }
+            ],
+        )
+
+    await nhap(rooms[0], 100)
+    await nhap(rooms[1], 900)
+    ds = await tinh_theo_moc(
+        pool, identity=identity, tu_luc=await _moc(pool), den_luc=await _moc(pool)
+    )
+    assert _dong_cua(ds, vt, rooms[0])["gia_nhap"] == 100
+    assert _dong_cua(ds, vt, rooms[1])["gia_nhap"] == 900
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
 async def test_bao_cao_phong_co_luong_cap_trong_ky_va_so_dem_thuc_te_moi_nhat(
     pool: asyncpg.Pool,
 ) -> None:
