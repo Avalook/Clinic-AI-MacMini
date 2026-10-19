@@ -9,12 +9,12 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 import asyncpg
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
-from clinicai.core.clock import hom_nay_vn
+from clinicai.core.clock import CLINIC_TZ, hom_nay_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.events.emit import pham_vi_lam_thay
 from clinicai.services.day_noi import giai_gia_tri
@@ -32,6 +32,11 @@ class CaLam:
 def _trung_ca(a: str, b: str) -> bool:
     """FULL chạm mọi ca; ca có tên giống nhau chạm nhau."""
     return a == "FULL" or b == "FULL" or a == b
+
+
+def _ngay_cua_luot_cu(checked_in_at: datetime, hom_nay: date) -> bool:
+    """Xác định ngày lượt theo giờ phòng khám, không theo ngày UTC lưu trong DB."""
+    return checked_in_at.astimezone(CLINIC_TZ).date() < hom_nay
 
 
 def duoc_lam_thay(
@@ -135,7 +140,9 @@ async def _duoc_noi_tiep_luot_cu(
         return False
     # Lượt ngày cũ luôn mở; lượt đang dở trước mốc triển khai/bật lại không kẹt.
     checked = row["checked_in_at"]
-    if checked.date() < hom_nay_vn():
+    # `checked_in_at` là timestamptz nên asyncpg trả giờ UTC. Lấy `.date()`
+    # trực tiếp sẽ lùi một ngày trong 00:00–06:59 giờ VN và mở nhầm cửa bỏ ca.
+    if _ngay_cua_luot_cu(checked, hom_nay_vn()):
         return True
     return row["bat_luc"] is not None and checked < row["bat_luc"]
 

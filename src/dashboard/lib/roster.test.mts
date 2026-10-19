@@ -166,10 +166,13 @@ test("phanPhong: MỌI vị trí có hàng — kể cả Trưởng ca và VT-* k
   assert.deepEqual(phanPhong([]), []);
 });
 
-test("phanPhong: cùng tên phòng mà nằm cách nhau là HAI nhóm (không xáo thứ tự)", () => {
+test("phanPhong: cùng mã phòng nằm cách nhau vẫn thuộc cùng một nhóm", () => {
   const [a, , c] = DANH_MUC;
   const nhom = phanPhong([a, c, { ...a, key: "X" }]);
-  assert.deepEqual(nhom.map((n) => n.stations.length), [1, 1, 1]);
+  assert.deepEqual(
+    nhom.map((n) => n.stations.map((s) => s.key)),
+    [[a.key, "X"], [c.key]],
+  );
 });
 
 test("mauPhong: khoá theo MÃ phòng — đổi tên phòng không mất màu", () => {
@@ -190,21 +193,35 @@ test("viTriTuDb: tầng máy chủ trả vào `tang`; thiếu thì rỗng, khôn
   assert.equal(DANH_MUC[4].tang, "");
 });
 
-test("phanTang: Tầng → Phòng → Vị trí, gộp hàng liền nhau, KHÔNG lọc vị trí không tầng", () => {
+test("phanTang: gộp cùng tầng/phòng dù vị trí bị rải, KHÔNG lọc vị trí không tầng", () => {
   const ds = viTriTuDb([
     { code: "T1_LETAN", ten: "Lễ tân", ten_ngan: "", tang: "Tầng 1", phong: "Quầy tiếp đón", ma_phong: "KN-TIEPDON", nhom: "DIEU_DUONG" },
     { code: "T1_TT_BS", ten: "BS", ten_ngan: "BS", tang: "Tầng 1", phong: "Phòng thủ thuật", ma_phong: "KN-THUTHUAT", nhom: "BAC_SI" },
     { code: "T1_TT_DD", ten: "Điều dưỡng", ten_ngan: "", tang: "Tầng 1", phong: "Phòng thủ thuật", ma_phong: "KN-THUTHUAT", nhom: "DIEU_DUONG" },
     { code: "T2_XEPTHUOC", ten: "Xếp thuốc", ten_ngan: "", tang: "Tầng 2", phong: "Quầy thuốc", ma_phong: "KN-QUAYTHUOC", nhom: "DIEU_DUONG" },
     { code: "T4_SA_BS1", ten: "BS 2", ten_ngan: "", tang: "Tầng 4", phong: "Phòng siêu âm 2 máy", ma_phong: "KN-SA1", nhom: "BAC_SI" },
+    { code: "HN__T1_HOIBENH", ten: "Nhân viên hỏi bệnh", ten_ngan: "", tang: "Tầng 1", phong: "Hỏi bệnh", ma_phong: "HN-TUVAN-B", nhom: "DIEU_DUONG" },
+    { code: "HOIBENH_1", ten: "Hỏi bệnh 1", ten_ngan: "", tang: "Tầng 1", phong: "Hỏi bệnh", ma_phong: "HN-TUVAN-B", nhom: "DIEU_DUONG" },
+    { code: "HOIBENH_2", ten: "Hỏi bệnh 2", ten_ngan: "", tang: "Tầng 1", phong: "Hỏi bệnh", ma_phong: "HN-TUVAN-B", nhom: "DIEU_DUONG" },
+    { code: "HOIBENH_3", ten: "Hỏi bệnh 3", ten_ngan: "", tang: "Tầng 1", phong: "Hỏi bệnh", ma_phong: "HN-TUVAN-B", nhom: "DIEU_DUONG" },
+    { code: "BS_NOITRU", ten: "BS Nội trú", ten_ngan: "", tang: "Tầng 1", phong: "Hỏi bệnh", ma_phong: "HN-TUVAN-B", nhom: "BAC_SI" },
     { code: "DIEU_PHOI", ten: "Trưởng ca", ten_ngan: "", tang: "", phong: "", ma_phong: "", nhom: "DIEU_DUONG" },
   ]);
   const tang = phanTang(ds);
-  assert.deepEqual(tang.map((t) => [t.tang, t.soViTri]), [["Tầng 1", 3], ["Tầng 2", 1], ["Tầng 4", 1], ["", 1]]);
-  // Trong Tầng 1: hai phòng, phòng thủ thuật gộp hai hàng.
-  assert.deepEqual(tang[0].phongs.map((p) => [p.phong, p.stations.length]), [["Quầy tiếp đón", 1], ["Phòng thủ thuật", 2]]);
-  // Không mất vị trí nào, giữ đúng thứ tự.
-  assert.deepEqual(tang.flatMap((t) => t.phongs.flatMap((p) => p.stations.map((s) => s.key))), ds.map((s) => s.key));
+  assert.deepEqual(tang.map((t) => [t.tang, t.soViTri]), [["Tầng 1", 8], ["Tầng 2", 1], ["Tầng 4", 1], ["", 1]]);
+  // Các vị trí hỏi bệnh rải cuối danh mục được đưa vào đúng phòng trên tầng 1.
+  assert.deepEqual(tang[0].phongs.map((p) => [p.phong, p.stations.length]), [
+    ["Quầy tiếp đón", 1],
+    ["Phòng thủ thuật", 2],
+    ["Hỏi bệnh", 5],
+  ]);
+  assert.deepEqual(tang[0].phongs[2].stations.map((s) => s.key), [
+    "HN__T1_HOIBENH", "HOIBENH_1", "HOIBENH_2", "HOIBENH_3", "BS_NOITRU",
+  ]);
+  assert.deepEqual(
+    tang.flatMap((t) => t.phongs.flatMap((p) => p.stations.map((s) => s.key))).sort(),
+    ds.map((s) => s.key).sort(),
+  );
   assert.deepEqual(phanTang([]), []);
 });
 

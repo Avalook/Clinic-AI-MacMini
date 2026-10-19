@@ -762,7 +762,7 @@ function KhachTrongPhong({
             </Button>
           ) : null}
           {/* HUỶ BẮT ĐẦU NHẦM (V4, 30/09/2026): ngay cạnh chỗ vừa bấm Bắt đầu,
-              chỉ khi máy chủ nói được (đang làm, chưa điền phiếu). */}
+              chỉ khi máy chủ xác nhận còn lần làm đang chạy. */}
           {dangLam && th?.huy_bat_dau_duoc && !hoiHuy ? (
             <Button size="sm" variant="ghost" onClick={() => setHoiHuy(true)}>
               Huỷ bắt đầu nhầm
@@ -773,7 +773,7 @@ function KhachTrongPhong({
 
       {hoiHuy && dangLam && th?.lan_dang_chay ? (
         <XacNhanTaiCho
-          cau="Huỷ lần bắt đầu này? Khách về lại hàng chờ của phòng."
+          cau="Huỷ lần bắt đầu này? Toàn bộ nội dung phiếu nháp sẽ được xoá về mặc định. Dịch vụ quay về chờ. Nếu khách không làm dịch vụ này, hãy bỏ chọn dịch vụ trước khi thu tiền để tổng hoá đơn được cập nhật."
           nhanDongY="Huỷ bắt đầu"
           dangGui={dangGui}
           onDongY={() =>

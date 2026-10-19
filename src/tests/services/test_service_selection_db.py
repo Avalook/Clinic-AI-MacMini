@@ -24,6 +24,7 @@ import pytest_asyncio
 
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.bill_service import hoa_don_con_no
 from clinicai.services.luot_kham_service import (
     LuotKhamConflictError,
     LuotKhamService,
@@ -413,6 +414,22 @@ async def test_9_doi_y_truoc_khi_thu_tien(kb: KB) -> None:
     assert r["selection_revision"] == 2 and r["changed_order_ids"] == [a]
     st = await _trang_thai(kb, a, b)
     assert st[a] == ("NOT_SELECTED", 3) and st[b] == ("SELECTED", 2)
+
+
+async def test_bo_chon_chi_dinh_thi_khong_con_tinh_vao_hoa_don(kb: KB) -> None:
+    """Sau khi bỏ chọn trước lần thu, chỉ định sai phải rời hóa đơn còn nợ."""
+    order = await _chi_dinh(kb)
+    await _confirm(kb, [order], [order], 0)
+
+    async with kb.pool.acquire() as conn:
+        truoc = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=kb.visit_id)
+    assert order in [dong.source_id for dong in truoc.dong]
+
+    await _confirm(kb, [order], [], 1)
+
+    async with kb.pool.acquire() as conn:
+        sau = await hoa_don_con_no(conn, clinic_id=CLINIC, visit_id=kb.visit_id)
+    assert order not in [dong.source_id for dong in sau.dong]
 
 
 async def test_10_dang_cho_xac_minh_thi_khoa(kb: KB) -> None:

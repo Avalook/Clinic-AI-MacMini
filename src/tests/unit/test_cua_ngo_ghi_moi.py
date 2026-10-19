@@ -653,7 +653,7 @@ class TestDieuChinhVaHuyLo:
 
     @pytest.mark.asyncio
     async def test_dieu_chinh_hop_le_thi_tra_ton_moi(self) -> None:
-        conn = _Conn({"id": "b1", "quantity_on_hand": 20}, 18)
+        conn = _Conn({"id": "b1", "quantity_on_hand": 20}, "txn-1", 18)
         ra = await PharmacyService(_PoolCo(conn)).dieu_chinh(
             identity=_identity(),
             drug_batch_id="b1",

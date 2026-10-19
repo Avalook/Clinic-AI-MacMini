@@ -229,7 +229,6 @@ SELECT pg_catalog.set_config('search_path', 'public', false);
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
 CREATE SCHEMA IF NOT EXISTS supabase_migrations;
 CREATE TABLE IF NOT EXISTS supabase_migrations.schema_migrations (version text PRIMARY KEY, name text, statements text[]);
 TRUNCATE supabase_migrations.schema_migrations;
@@ -239,6 +238,10 @@ SQL
     echo "SET LOCAL clinicai.che_cho_phep = 'staging';"
     cat "$CHE_SQL"
 } | psql_stg --single-transaction >/dev/null
+# The dump omits ACLs and the migration ledger may already contain prior
+# GRANTs, so restore the explicit function and stock-read ACLs on every restore.
+psql_stg -f "$STAGING_DIR/supabase/migrations/20261019100000_harden_public_function_acl.sql"
+psql_stg -f "$STAGING_DIR/supabase/migrations/20261019120000_restrict_stock_postgrest_reads.sql"
 xong "đã nạp + che (giao dịch đã commit)"
 xong "giữ lại $(psql_stg -tAc 'SELECT count(*) FROM auth.sessions' | tr -d ' \r') phiên đăng nhập"
 

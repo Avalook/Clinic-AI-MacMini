@@ -1,3 +1,7 @@
+import { parsePositiveQuantity } from "./validation.ts";
+
+export { parsePositiveQuantity } from "./validation.ts";
+
 export type CashierTotalMode = "thuoc" | "dich_vu";
 
 export interface PricedServiceLine {
@@ -15,16 +19,6 @@ export interface CashierTotal {
 
 function validUnitPrice(price: number | null): price is number {
   return price !== null && Number.isFinite(price) && price > 0;
-}
-
-export function parsePositiveQuantity(raw: string | null): number | null {
-  if (raw === null) return null;
-
-  const normalized = raw.trim().replace(",", ".");
-  if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
-
-  const quantity = Number(normalized);
-  return Number.isFinite(quantity) && quantity > 0 ? quantity : null;
 }
 
 export function calculateCashierTotal(

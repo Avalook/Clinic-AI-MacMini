@@ -36,6 +36,53 @@ export function toTitleCaseVi(s: string): string {
     .replace(/(^|\s)(\p{L})/gu, (_m, sep: string, ch: string) => sep + ch.toUpperCase());
 }
 
+export function parsePositiveQuantity(raw: string | null): number | null {
+  if (raw === null) return null;
+
+  const normalized = raw.trim().replace(",", ".");
+  if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
+
+  const quantity = Number(normalized);
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : null;
+}
+
+export function parseNonNegativeAmount(raw: string | null): number | null {
+  if (raw === null) return null;
+
+  const normalized = raw.trim().replace(",", ".");
+  if (!/^\d+(?:\.\d+)?$/.test(normalized)) return null;
+
+  const amount = Number(normalized);
+  return Number.isFinite(amount) && amount >= 0 ? amount : null;
+}
+
+export function isPurchaseLineValid(line: { quantity: string; price: string }): boolean {
+  const quantity = parsePositiveQuantity(line.quantity);
+  const price = line.price.trim() === "" ? 0 : parseNonNegativeAmount(line.price);
+
+  return quantity !== null && price !== null && Number.isFinite(quantity * price);
+}
+
+export function calculatePurchaseTotal(
+  lines: readonly { quantity: string; price: string }[],
+): number | null {
+  let total = 0;
+
+  for (const line of lines) {
+    if (line.quantity.trim() === "" && line.price.trim() === "") continue;
+    if (!isPurchaseLineValid(line)) return null;
+
+    const quantity = parsePositiveQuantity(line.quantity);
+    const price = line.price.trim() === "" ? 0 : parseNonNegativeAmount(line.price);
+    if (quantity === null || price === null) return null;
+
+    total += quantity * price;
+    if (!Number.isFinite(total)) return null;
+  }
+
+  return total;
+}
+
 /**
  * Bỏ dấu tiếng Việt + viết thường — tìm kiếm KHÔNG phân biệt dấu
  * ("Hoà" = "Hoa" = "hoa"). Khớp đúng cột patient.full_name_unaccent (migration

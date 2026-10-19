@@ -517,7 +517,8 @@ async def test_du_lieu_nap_tu_excel_va_bang_gia(pool: asyncpg.Pool) -> None:
     rows = await pool.fetch(
         "SELECT name, unit_price, don_vi, can_ql_duyet, chon_nhanh, active"
         " FROM service_price WHERE clinic_id = $1::uuid AND \"group\" = 'vat_tu'"
-        " AND service_code NOT LIKE 'VT_TEST_%'",
+        " AND service_code NOT LIKE 'VT_TEST_%'"
+        " AND left(service_code, 6) <> 'VT_HL_'",
         CLINIC,
     )
     theo_ten = {r["name"]: r for r in rows}

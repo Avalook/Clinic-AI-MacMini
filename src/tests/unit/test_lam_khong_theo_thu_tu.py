@@ -22,12 +22,11 @@ def test_phieu_da_dien() -> None:
 
 
 def test_huy_bat_dau_duoc() -> None:
-    assert huy_bat_dau_duoc("IN_PROGRESS", True, []) is True
-    assert huy_bat_dau_duoc("IN_PROGRESS", True, [("DRAFT", 0)]) is True
-    assert huy_bat_dau_duoc("IN_PROGRESS", True, [("DRAFT", 3)]) is False
-    assert huy_bat_dau_duoc("IN_PROGRESS", False, []) is False
-    assert huy_bat_dau_duoc("PENDING", True, []) is False
-    assert huy_bat_dau_duoc(None, False, []) is False
+    assert huy_bat_dau_duoc("IN_PROGRESS", True, co_phieu_ready=False) is True
+    assert huy_bat_dau_duoc("IN_PROGRESS", True, co_phieu_ready=True) is False
+    assert huy_bat_dau_duoc("IN_PROGRESS", False, co_phieu_ready=False) is False
+    assert huy_bat_dau_duoc("PENDING", True, co_phieu_ready=False) is False
+    assert huy_bat_dau_duoc(None, False, co_phieu_ready=False) is False
 
 
 async def test_409_patient_busy_mang_chi_tiet_toi_than_tra_ve() -> None:

@@ -213,8 +213,10 @@ BEGIN
     -- 123 → 125 (14/10/2026, G5c): hoa_don_misa_xuat + hoa_don_misa_xuat_dong
     -- (20261014157000, đánh dấu đã xuất MISA — CHỈ SELECT).
     -- 125 → 126 (14/10/2026, G8b): vat_tu_nhap_cho_duyet (20261014200100).
-    IF scoped_count <> 126 THEN
-        RAISE EXCEPTION 'expected 126 tenant-scoped read policies, found %', scoped_count;
+    -- 126 → 115 (19/10/2026): thu hồi 11 policy đọc trực tiếp kho thuốc/vật tư
+    -- (20261019120000); các màn này đọc qua FastAPI có kiểm capability.
+    IF scoped_count <> 115 THEN
+        RAISE EXCEPTION 'expected 115 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;

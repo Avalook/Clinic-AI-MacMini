@@ -143,6 +143,15 @@ async def _mot_co_so(pool: asyncpg.Pool, ca: Ca, loc: str, ai: StaffIdentity) ->
             "SELECT visit_id::text FROM visit WHERE appointment_id = $1::uuid", appt
         )
     )
+    # Đặt thời điểm ở 00:15 giờ phòng khám để khóa lỗi ranh giới ngày: UTC
+    # vẫn là ngày trước, nhưng API phải nhận lượt thuộc ngày hiện tại ở Việt Nam.
+    await pool.execute(
+        "UPDATE visit SET checked_in_at = "
+        "((date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh') "
+        "+ interval '15 minutes') AT TIME ZONE 'Asia/Ho_Chi_Minh') "
+        "WHERE visit_id=$1::uuid",
+        visit,
+    )
     return CoSo(loc, ai, pid, appt, visit, chua_xep, vi_tri)
 
 
@@ -318,6 +327,20 @@ async def test_khong_chon_co_so_thay_ca_hai(
     for cs in (a, b):
         for man, can in _cua(cs).items():
             assert can <= thay[man], f"{man}: không chọn cơ sở mà thiếu {cs.loc}"
+
+
+async def test_active_visits_bo_qua_luot_da_checkout(
+    pool: asyncpg.Pool,  # noqa: F811
+    hai_co_so: tuple[CoSo, CoSo, date],
+) -> None:
+    a, _, _ = hai_co_so
+    await pool.execute(
+        "UPDATE visit SET closed_at=now(), current_node_code='LUOTKHAM-15' "
+        "WHERE visit_id=$1::uuid",
+        a.visit,
+    )
+    data = await active_visits(identity=a.ai, pool=pool)
+    assert a.visit not in {row["visit_id"] for row in data["visits"]}
 
 
 async def test_trang_chu_dem_theo_co_so(

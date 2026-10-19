@@ -10,13 +10,17 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import Any
+from contextlib import asynccontextmanager
+from typing import Any, AsyncIterator
 
 import asyncpg
 import pytest
 
+from clinicai.core.clock import hom_nay_vn
 from clinicai.core.exceptions import SafetyGateError
-from clinicai.permissions import cache
+from clinicai.permissions import ca_truc, cache
+from clinicai.permissions.ca_truc import kiem_dung_ca
+from clinicai.services.bac_si_phu_trach import bac_si_cua_phien
 from clinicai.services.phieu_kham_service import PhieuKhamService, kiem_quyen_core
 from tests.goi_mau_cu import ve_goi_mau_cu
 from tests.services.test_ca_truc_lam_sang_db import _noi_tai_khoan, _truc, _vi_tri
@@ -28,6 +32,38 @@ from tests.services.test_phieu_kham_db import (
 )
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
+
+
+@asynccontextmanager
+async def _ca_truc_lam_sang_bat(db_pool: asyncpg.Pool) -> AsyncIterator[None]:
+    """Các bài này kiểm luật khi công tắc ca trực đang bật; trả lại cấu hình cũ."""
+    cu = await db_pool.fetchval(
+        "SELECT gia_tri::text FROM day_nghiep_vu"
+        " WHERE clinic_id=$1::uuid AND ma='ca_truc_lam_sang'",
+        CLINIC,
+    )
+    await db_pool.execute(
+        "INSERT INTO day_nghiep_vu (clinic_id, ma, gia_tri)"
+        " VALUES ($1::uuid, 'ca_truc_lam_sang', 'true'::jsonb)"
+        " ON CONFLICT (clinic_id, ma) DO UPDATE SET gia_tri=EXCLUDED.gia_tri",
+        CLINIC,
+    )
+    try:
+        yield
+    finally:
+        if cu is None:
+            await db_pool.execute(
+                "DELETE FROM day_nghiep_vu"
+                " WHERE clinic_id=$1::uuid AND ma='ca_truc_lam_sang'",
+                CLINIC,
+            )
+        else:
+            await db_pool.execute(
+                "UPDATE day_nghiep_vu SET gia_tri=$2::jsonb"
+                " WHERE clinic_id=$1::uuid AND ma='ca_truc_lam_sang'",
+                CLINIC,
+                cu,
+            )
 
 
 def _dong(ten: str, id_: str | None = None, **them: str) -> dict[str, Any]:
@@ -127,35 +163,141 @@ async def test_bac_si_tu_van_dien_tiep_dung_don_cua_luot(
 async def test_su_kien_ke_tai_tu_van_khong_lam_thay_bac_si_chinh(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
-    c = await _canh(pool)
-    await c["svc"].luu_don_thuoc(
-        visit_id=c["luot"], dong=[_dong("Duphaston")], ly_do=None, identity=c["bs"]
-    )
-    don = await c["svc"].doc_don_thuoc(visit_id=c["luot"], identity=c["bs"])
-    await c["svc"].luu_don_thuoc(
-        visit_id=c["luot"],
-        dong=[_dong("Duphaston", don[0]["id"]), _dong("Vitamin D3")],
-        ly_do=None,
-        identity=c["tu_van"],
-    )
-    cu, moi = await _su_kien(pool, c["luot"])
-    assert not json.loads(cu["payload"]).get("ke_tai_tu_van")
-    assert json.loads(moi["payload"])["ke_tai_tu_van"] is True
-    # Người bấm tự đứng tên, không gắn "làm thay bác sĩ chính".
-    assert moi["ai"] == c["tu_van"].staff_id and moi["thay"] is None
+    async with _ca_truc_lam_sang_bat(pool):
+        c = await _canh(pool)
+        async with pool.acquire() as conn:
+            state = await conn.fetchrow(
+                "SELECT s.auth_user_id::text AS auth_user_id,"
+                "       (d.gia_tri)::boolean AS ca_bat,"
+                "       v.checked_in_at < d.sua_luc AS luot_cu"
+                "  FROM staff s CROSS JOIN day_nghiep_vu d"
+                "  JOIN visit v ON v.clinic_id=d.clinic_id"
+                " WHERE s.id=$1::uuid AND v.visit_id=$2::uuid"
+                "   AND d.clinic_id=$3::uuid AND d.ma='ca_truc_lam_sang'",
+                c["tu_van"].staff_id,
+                c["luot"],
+                CLINIC,
+            )
+            assert state is not None
+            assert state["auth_user_id"] is not None
+            assert state["ca_bat"] is True
+            assert state["luot_cu"] is False
+            assert c["khong_lego"].staff_id != c["bs"].staff_id
+            assert (
+                await conn.fetchval(
+                    "SELECT count(*) FROM work_roster WHERE clinic_id=$1::uuid"
+                    " AND staff_id=$2::uuid AND work_date="
+                    "(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date",
+                    CLINIC,
+                    c["khong_lego"].staff_id,
+                )
+                == 0
+            )
+            assert (
+                await conn.fetchval(
+                    "SELECT count(*) FROM ngoai_le_ca_truc WHERE clinic_id=$1::uuid"
+                    " AND staff_id=$2::uuid AND bac_si_id=$3::uuid"
+                    " AND ngay=(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"
+                    " AND huy_luc IS NULL",
+                    CLINIC,
+                    c["khong_lego"].staff_id,
+                    c["bs"].staff_id,
+                )
+                == 0
+            )
+            assert (
+                await conn.fetchval(
+                    "SELECT (checked_in_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"
+                    " >= (now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"
+                    " FROM visit WHERE visit_id=$1::uuid",
+                    c["luot"],
+                )
+                is True
+            )
+            bac_si_id = await bac_si_cua_phien(
+                conn,
+                clinic_id=CLINIC,
+                visit_id=c["luot"],
+                nguoi_bam=c["tu_van"].staff_id,
+            )
+            assert bac_si_id == c["bs"].staff_id
+            with pytest.raises(SafetyGateError, match="không được phân công đi kèm BS"):
+                await kiem_dung_ca(conn, c["tu_van"], bac_si_id, visit_id=c["luot"])
+        await c["svc"].luu_don_thuoc(
+            visit_id=c["luot"],
+            dong=[_dong("Duphaston")],
+            ly_do=None,
+            identity=c["bs"],
+        )
+        don = await c["svc"].doc_don_thuoc(visit_id=c["luot"], identity=c["bs"])
+        await c["svc"].luu_don_thuoc(
+            visit_id=c["luot"],
+            dong=[_dong("Duphaston", don[0]["id"]), _dong("Vitamin D3")],
+            ly_do=None,
+            identity=c["tu_van"],
+        )
+        cu, moi = await _su_kien(pool, c["luot"])
+        assert not json.loads(cu["payload"]).get("ke_tai_tu_van")
+        assert json.loads(moi["payload"])["ke_tai_tu_van"] is True
+        # Người bấm tự đứng tên, không gắn "làm thay bác sĩ chính".
+        assert moi["ai"] == c["tu_van"].staff_id and moi["thay"] is None
 
 
 async def test_khong_co_lego_tu_van_van_bi_cong_ca_truc_chan(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:
-    c = await _canh(pool)
-    with pytest.raises(SafetyGateError, match="không được phân công đi kèm BS"):
-        await c["svc"].luu_don_thuoc(
-            visit_id=c["luot"],
-            dong=[_dong("Duphaston")],
-            ly_do=None,
-            identity=c["khong_lego"],
-        )
+    async with _ca_truc_lam_sang_bat(pool):
+        c = await _canh(pool)
+        async with pool.acquire() as conn:
+            state = await conn.fetchrow(
+                "SELECT s.auth_user_id::text AS auth_user_id,"
+                "       (d.gia_tri)::boolean AS ca_bat,"
+                "       v.checked_in_at < d.sua_luc AS luot_cu"
+                "  FROM staff s CROSS JOIN day_nghiep_vu d"
+                "  JOIN visit v ON v.clinic_id=d.clinic_id"
+                " WHERE s.id=$1::uuid AND v.visit_id=$2::uuid"
+                "   AND d.clinic_id=$3::uuid AND d.ma='ca_truc_lam_sang'",
+                c["khong_lego"].staff_id,
+                c["luot"],
+                CLINIC,
+            )
+            assert state is not None
+            assert state["auth_user_id"] is not None
+            assert state["ca_bat"] is True
+            assert state["luot_cu"] is False
+            assert c["khong_lego"].vai_goc.value == "TKYK"
+            assert (
+                await ca_truc._duoc_noi_tiep_luot_cu(conn, CLINIC, c["luot"]) is False
+            )
+            assert (
+                await ca_truc._dang_co_ngoai_le(
+                    conn, c["khong_lego"], c["bs"].staff_id, hom_nay_vn()
+                )
+                is False
+            )
+            lich = await ca_truc._lich_hom_nay(conn, CLINIC, hom_nay_vn())
+            assert not ca_truc.duoc_lam_thay(
+                nguoi_bam=c["khong_lego"].staff_id,
+                bac_si_id=c["bs"].staff_id,
+                vai_goc=c["khong_lego"].vai_goc,
+                lich=lich,
+            )
+            bac_si_id = await bac_si_cua_phien(
+                conn,
+                clinic_id=CLINIC,
+                visit_id=c["luot"],
+                nguoi_bam=c["khong_lego"].staff_id,
+            )
+            assert bac_si_id == c["bs"].staff_id
+            with pytest.raises(SafetyGateError, match="không được phân công đi kèm BS"):
+                await kiem_dung_ca(conn, c["khong_lego"], bac_si_id, visit_id=c["luot"])
+        with pytest.raises(SafetyGateError, match="không được phân công đi kèm BS"):
+            await c["svc"].luu_don_thuoc(
+                visit_id=c["luot"],
+                dong=[_dong("Duphaston")],
+                ly_do=None,
+                identity=c["khong_lego"],
+            )
 
 
 async def test_xong_ke_don_la_moc_khong_khoa_don_va_bam_lai_khong_nhan_doi(

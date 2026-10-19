@@ -915,12 +915,12 @@ async def hoan_tac_dieu_chinh_kiem_ke_ca(
 
 class NhapLoRequest(BaseModel):
     drug_catalog_id: UUID
-    so_luong: float = Field(gt=0)
+    so_luong: float = Field(gt=0, allow_inf_nan=False)
     # Số lô và đơn vị bắt buộc; hạn có thể bổ sung sau.
     batch_code: str = Field(min_length=1, max_length=100)
     expiry_date: date | None = None
     unit: str = Field(min_length=1, max_length=50)
-    cost_price: float | None = Field(default=None, ge=0)
+    cost_price: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     ly_do: str | None = Field(default=None, max_length=500)
 
     @field_validator("expiry_date", mode="before")
@@ -934,6 +934,7 @@ async def nhap_lo(
     body: NhapLoRequest,
     identity: StaffIdentity = Depends(_GHI),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    khoa: UUID = Header(alias="Idempotency-Key"),
 ) -> dict[str, Any]:
     """Nhập hàng vào kho."""
     return await PharmacyService(pool).nhap_lo(
@@ -945,6 +946,7 @@ async def nhap_lo(
         unit=body.unit,
         cost_price=body.cost_price,
         ly_do=body.ly_do,
+        idempotency_key=str(khoa),
     )
 
 
@@ -1047,7 +1049,7 @@ async def chot(
 class DieuChinhRequest(BaseModel):
     drug_batch_id: UUID
     # Mang dấu: âm là bớt, dương là thêm. 0 bị từ chối ở service.
-    so_luong: float
+    so_luong: float = Field(allow_inf_nan=False)
     ly_do: str = Field(min_length=1, max_length=500)
 
 
@@ -1056,6 +1058,7 @@ async def dieu_chinh(
     body: DieuChinhRequest,
     identity: StaffIdentity = Depends(_GHI),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    khoa: UUID = Header(alias="Idempotency-Key"),
 ) -> dict[str, Any]:
     """Kiểm kê lệch."""
     return await PharmacyService(pool).dieu_chinh(
@@ -1063,12 +1066,13 @@ async def dieu_chinh(
         drug_batch_id=str(body.drug_batch_id),
         so_luong=body.so_luong,
         ly_do=body.ly_do,
+        idempotency_key=str(khoa),
     )
 
 
 class HuyRequest(BaseModel):
     drug_batch_id: UUID
-    so_luong: float = Field(gt=0)
+    so_luong: float = Field(gt=0, allow_inf_nan=False)
     ly_do: str = Field(min_length=1, max_length=500)
 
 
@@ -1077,6 +1081,7 @@ async def huy(
     body: HuyRequest,
     identity: StaffIdentity = Depends(_GHI),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    khoa: UUID = Header(alias="Idempotency-Key"),
 ) -> dict[str, Any]:
     """Huỷ thuốc hỏng hoặc hết hạn. Ra khỏi kho nhưng không ra khỏi sổ."""
     return await PharmacyService(pool).huy(
@@ -1084,6 +1089,7 @@ async def huy(
         drug_batch_id=str(body.drug_batch_id),
         so_luong=body.so_luong,
         ly_do=body.ly_do,
+        idempotency_key=str(khoa),
     )
 
 
