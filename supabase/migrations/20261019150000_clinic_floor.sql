@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.clinic_floor (
     updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT clinic_floor_location_tenant_fkey
         FOREIGN KEY (location_id, clinic_id)
-        REFERENCES public.clinic_location(id, clinic_id) ON DELETE RESTRICT,
+        REFERENCES public.clinic_location(id, clinic_id) ON DELETE CASCADE,
     CONSTRAINT clinic_floor_name_not_blank CHECK (btrim(name) <> ''),
     CONSTRAINT clinic_floor_sort_nonnegative CHECK (sort_order >= 0),
     CONSTRAINT clinic_floor_name_length CHECK (char_length(name) <= 40),
