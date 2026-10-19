@@ -436,12 +436,19 @@ async def test_tang_tren_lich_theo_phong_that_khi_chu_cu_lech(
     """Cột Tầng của bảng lịch đọc `clinic_room.floor` (qua room_id), không đọc
     chữ `vi_tri_lam_viec.tang` — quản lý đổi tầng ở Cấu trúc phòng khám là lịch
     đổi theo. Vị trí không gắn phòng rơi về chữ cũ."""
-    rid = await pool.fetchval(
-        "SELECT id::text FROM clinic_room"
+    room = await pool.fetchrow(
+        "SELECT id::text, location_id::text FROM clinic_room"
         " WHERE clinic_id = $1::uuid AND code = 'KN-THUTHUAT'",
         CLINIC,
     )
+    assert room is not None
+    rid = room["id"]
     cu = await pool.fetchval("SELECT floor FROM clinic_room WHERE id = $1::uuid", rid)
+    tang_5_cu = await pool.fetchval(
+        "SELECT id::text FROM clinic_floor"
+        " WHERE location_id = $1::uuid AND name = 'Tầng 5'",
+        room["location_id"],
+    )
     try:
         await pool.execute(
             "UPDATE clinic_room SET floor = 'Tầng 5' WHERE id = $1::uuid", rid
@@ -455,3 +462,11 @@ async def test_tang_tren_lich_theo_phong_that_khi_chu_cu_lech(
         await pool.execute(
             "UPDATE clinic_room SET floor = $2 WHERE id = $1::uuid", rid, cu
         )
+        if tang_5_cu is None:
+            await pool.execute(
+                "DELETE FROM clinic_floor f"
+                " WHERE f.location_id = $1::uuid AND f.name = 'Tầng 5'"
+                "   AND NOT EXISTS (SELECT 1 FROM clinic_room r"
+                "                    WHERE r.floor_id = f.id)",
+                room["location_id"],
+            )

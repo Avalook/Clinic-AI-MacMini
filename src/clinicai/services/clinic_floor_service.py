@@ -24,7 +24,7 @@ async def resolve_floor(
     if floor_id is None and legacy_name is None:
         return None, None
     location_exists = await conn.fetchval(
-        "SELECT true FROM public.clinic_location"
+        "SELECT id::text FROM public.clinic_location"
         " WHERE id = $1::uuid AND clinic_id = $2::uuid AND is_active FOR UPDATE",
         location_id,
         clinic_id,
@@ -124,7 +124,7 @@ class ClinicFloorService:
         try:
             async with self._pool.acquire() as conn, conn.transaction():
                 location_exists = await conn.fetchval(
-                    "SELECT true FROM public.clinic_location"
+                    "SELECT id::text FROM public.clinic_location"
                     " WHERE id = $1::uuid AND clinic_id = $2::uuid"
                     "   AND is_active FOR UPDATE",
                     location_id,
@@ -199,7 +199,7 @@ class ClinicFloorService:
             if location_id is None:
                 raise ValidationError("Không tìm thấy tầng này.")
             await conn.fetchval(
-                "SELECT true FROM public.clinic_location"
+                "SELECT id::text FROM public.clinic_location"
                 " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
                 location_id,
                 identity.clinic_id,
@@ -271,7 +271,7 @@ class ClinicFloorService:
             raise ValidationError("Danh sách tầng phải có và không được lặp.")
         async with self._pool.acquire() as conn, conn.transaction():
             location_exists = await conn.fetchval(
-                "SELECT true FROM public.clinic_location"
+                "SELECT id::text FROM public.clinic_location"
                 " WHERE id = $1::uuid AND clinic_id = $2::uuid"
                 "   AND is_active FOR UPDATE",
                 location_id,
