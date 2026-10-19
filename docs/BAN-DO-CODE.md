@@ -1946,7 +1946,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `hoa_don_cong_ty_lich_su` | `20261014156000_hoa_don_cong_ty.sql` | 0 |
 | `hoa_don_misa_xuat` | `20261014157000_hoa_don_misa_xuat.sql` | 0 |
 | `hoa_don_misa_xuat_dong` | `20261014157000_hoa_don_misa_xuat.sql` | 0 |
-| `idempotency_key` | `20260714000003_idempotency_key.sql` | 2 |
+| `idempotency_key` | `20260714000003_idempotency_key.sql` | 3 |
 | `inventory_txn` | `20260802000001_pharmacy_inventory.sql` | 5 |
 | `ket_qua_mau` | `20260923000004_mau_ket_qua.sql` | 0 |
 | `khach_cong_ty` | `20261014156000_hoa_don_cong_ty.sql` | 0 |

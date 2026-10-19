@@ -231,6 +231,7 @@ export default function LapPhieuVatTu({
       setLoi(kq.loi);
       return;
     }
+    xoaKhoaChongGuiTrung(khoa);
     const d = kq.data as Parameters<typeof baoYeuCau>[0] | null;
     const yeuCau = d ? baoYeuCau(d) : null;
     setDangCho(d?.cho_duyet === true);
@@ -315,9 +316,15 @@ export default function LapPhieuVatTu({
               <ONhap
                 inputMode="decimal"
                 value={d.so}
+                aria-invalid={d.so.trim() !== "" && !soLuongPhieuHopLe(loai, d.so)}
                 onChange={(e) => suaDong(d.k, { so: e.target.value })}
                 className="w-full text-right tabular-nums"
               />
+              {d.so.trim() !== "" && !soLuongPhieuHopLe(loai, d.so) ? (
+                <span role="alert" className="mt-1 block text-meta text-danger">
+                  Số lượng không hợp lệ với loại phiếu này.
+                </span>
+              ) : null}
             </label>
             {(loai === "DIEU_CHINH" || loai === "KIEM") && (() => {
               const vatTuId = vatTuDaChon(d.ten)?.id;

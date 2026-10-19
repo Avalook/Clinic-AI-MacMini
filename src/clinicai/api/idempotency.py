@@ -26,6 +26,7 @@ normally (no caching). Keys expire after 24 hours.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -58,6 +59,7 @@ class IdempotencyGuard:
 
     key: str | None = None
     endpoint: str = ""
+    request_hash: str | None = None
     actor_id: str = ""
     cached_response: JSONResponse | None = None
     _acquired: bool = field(default=False, repr=False)
@@ -88,15 +90,17 @@ class IdempotencyGuard:
         inserted = await pool.fetchrow(
             """
             INSERT INTO idempotency_key (
-                key, endpoint, actor_id, response, status_code, state
+                key, endpoint, actor_id, request_hash,
+                response, status_code, state
             )
-            VALUES ($1, $2, $3, NULL, 200, 'PROCESSING')
+            VALUES ($1, $2, $3, $4, NULL, 200, 'PROCESSING')
             ON CONFLICT (key, endpoint, actor_id) DO NOTHING
             RETURNING key
             """,
             self.key,
             self.endpoint,
             actor_scope,
+            self.request_hash,
         )
         if inserted is not None:
             return replace(self, actor_id=actor_scope, _acquired=True)
@@ -109,12 +113,14 @@ class IdempotencyGuard:
             SET response = NULL,
                 status_code = 200,
                 state = 'PROCESSING',
+                request_hash = $4,
                 created_at = now(),
                 updated_at = now()
             WHERE key = $1 AND endpoint = $2 AND actor_id = $3
               AND (
                 (state = 'PROCESSING'
-                 AND updated_at < now() - interval '{PROCESSING_TTL_MINUTES} minutes')
+                 AND updated_at < now() - interval '{PROCESSING_TTL_MINUTES} minutes'
+                 AND (request_hash IS NULL OR request_hash = $4))
                 OR
                 (state = 'COMPLETED'
                  AND created_at < now() - interval '{KEY_TTL_HOURS} hours')
@@ -124,13 +130,14 @@ class IdempotencyGuard:
             self.key,
             self.endpoint,
             actor_scope,
+            self.request_hash,
         )
         if reclaimed is not None:
             return replace(self, actor_id=actor_scope, _acquired=True)
 
         row = await pool.fetchrow(
             """
-            SELECT response, status_code, state
+            SELECT request_hash, response, status_code, state
             FROM idempotency_key
             WHERE key = $1 AND endpoint = $2 AND actor_id = $3
             """,
@@ -138,6 +145,14 @@ class IdempotencyGuard:
             self.endpoint,
             actor_scope,
         )
+        if (
+            row is not None
+            and row["request_hash"] is not None
+            and row["request_hash"] != self.request_hash
+        ):
+            raise ConflictError(
+                "Idempotency-Key này đã dùng cho nội dung khác; hãy tạo yêu cầu mới."
+            )
         if row is not None and row["state"] == "COMPLETED":
             raw_response = row["response"]
             content = (
@@ -265,10 +280,26 @@ async def idempotency_guard(
     key = request.headers.get(HEADER_NAME)
     endpoint = f"{request.method} {request.url.path}"
 
+    # Canonicalise JSON so harmless whitespace/key ordering does not make a
+    # retry look like a different operation. Include the query string because
+    # some POST routes use it to choose a mode.
+    body = await request.body()
+    try:
+        parsed = json.loads(body) if body else None
+        fingerprint = json.dumps(
+            {"body": parsed, "query": request.url.query},
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        fingerprint = request.url.query.encode("utf-8") + b"\0" + body
+    request_hash = hashlib.sha256(fingerprint).hexdigest()
+
     if not key:
-        return IdempotencyGuard(key=None, endpoint=endpoint)
+        return IdempotencyGuard(key=None, endpoint=endpoint, request_hash=request_hash)
     if len(key) > MAX_KEY_LENGTH:
         raise ConflictError(
             f"Idempotency-Key must be at most {MAX_KEY_LENGTH} characters"
         )
-    return IdempotencyGuard(key=key, endpoint=endpoint)
+    return IdempotencyGuard(key=key, endpoint=endpoint, request_hash=request_hash)

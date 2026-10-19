@@ -10,7 +10,7 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.api.v1.routers.config import PriceUpdateRequest
 from clinicai.services.config_service import PriceListService
 from clinicai.services.danh_muc_dich_vu_service import doc_vat_tu
-from tests.services.test_vat_tu_kho_db import _bo
+from tests.services.test_vat_tu_kho_db import _bo, _ghi
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]

@@ -1824,17 +1824,36 @@ class PriceListService:
             raise ValidationError("Không có gì để sửa")
 
         async with self._pool.acquire() as conn, conn.transaction():
-            if (
-                vt_patch
-                and await conn.fetchval(
-                    'SELECT "group" FROM service_price WHERE id=$1::uuid'
-                    " AND clinic_id=$2::uuid FOR UPDATE",
+            if vt_patch:
+                vat_tu = await conn.fetchrow(
+                    'SELECT "group", don_vi FROM service_price'
+                    " WHERE id=$1::uuid AND clinic_id=$2::uuid FOR UPDATE",
                     price_id,
                     identity.clinic_id,
                 )
-                != "vat_tu"
-            ):
-                raise ValidationError("Các cột vật tư chỉ sửa trên mặt hàng vật tư.")
+                if vat_tu is None or vat_tu["group"] != "vat_tu":
+                    raise ValidationError(
+                        "Các cột vật tư chỉ sửa trên mặt hàng vật tư."
+                    )
+                if (
+                    "don_vi" in vt_patch
+                    and vt_patch["don_vi"] != vat_tu["don_vi"]
+                    and await conn.fetchval(
+                        "SELECT EXISTS (SELECT 1 FROM public.vat_tu_txn"
+                        " WHERE clinic_id=$1::uuid AND vat_tu_id=$2::uuid)"
+                        " OR EXISTS (SELECT 1 FROM public.vat_tu_nhap_cho_duyet y"
+                        " CROSS JOIN LATERAL jsonb_array_elements(y.dong) AS item(elem)"
+                        " WHERE y.clinic_id=$1::uuid AND y.trang_thai='CHO_DUYET'"
+                        " AND item.elem->>'vat_tu_id'=$2::text)",
+                        identity.clinic_id,
+                        price_id,
+                    )
+                ):
+                    raise ValidationError(
+                        "Vật tư đã có giao dịch kho hoặc phiếu nhập chờ duyệt nên "
+                        "không thể đổi đơn vị; "
+                        "hãy tạo mặt hàng mới để tránh diễn giải sai lịch sử và tồn."
+                    )
             if node_code is not None:
                 patch["node_code"] = await self._phong_hop_le(
                     conn, identity.clinic_id, node_code

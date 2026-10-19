@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  calculatePurchaseTotal,
+  parseNonNegativeAmount,
+  parsePositiveQuantity as parseInventoryQuantity,
+} from "../lib/validation.ts";
+import {
   calculateCashierTotal,
   parsePositiveQuantity,
 } from "../lib/cashier-total.ts";
@@ -37,4 +42,18 @@ test("quantity parsing is finite, positive and locale-friendly", () => {
   for (const value of [null, "", "0", "-1", "2 viên", "Infinity", "NaN"]) {
     assert.equal(parsePositiveQuantity(value), null);
   }
+});
+
+test("purchase totals reject non-finite or negative inputs instead of producing NaN", () => {
+  assert.equal(parseInventoryQuantity("1"), 1);
+  assert.equal(parseInventoryQuantity("-1"), null);
+  assert.equal(parseInventoryQuantity("Infinity"), null);
+  assert.equal(parseNonNegativeAmount("12,5"), 12.5);
+  assert.equal(parseNonNegativeAmount("-1"), null);
+  assert.equal(parseNonNegativeAmount("Infinity"), null);
+  assert.equal(calculatePurchaseTotal([{ quantity: "", price: "" }]), 0);
+  assert.equal(calculatePurchaseTotal([{ quantity: "1,5", price: "2" }]), 3);
+  assert.equal(calculatePurchaseTotal([{ quantity: "Infinity", price: "" }]), null);
+  assert.equal(calculatePurchaseTotal([{ quantity: "1", price: "Infinity" }]), null);
+  assert.equal(calculatePurchaseTotal([{ quantity: "1e308", price: "1e308" }]), null);
 });

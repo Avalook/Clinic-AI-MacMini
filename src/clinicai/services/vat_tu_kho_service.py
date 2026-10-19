@@ -93,8 +93,12 @@ def _dong(loai: str, d: dict[str, Any]) -> dict[str, Any]:
         loai in {"KIEM", "DIEU_CHINH", "HUY", "TRA_NCC"} and den
     ):
         raise ValidationError("Nơi chứa không đúng loại phiếu.")
+    if loai != "NHAP" and d.get("gia_nhap") not in (None, ""):
+        raise ValidationError("Giá nhập chỉ được khai báo khi nhập kho.")
     return {
         "vat_tu_id": vt,
+        "don_vi": d.get("don_vi"),
+        "kiem_don_vi": "don_vi" in d,
         "tu": tu,
         "den": den,
         "so": _so(d.get("so_luong"), cho_0=loai in {"KIEM", "DIEU_CHINH"}),
@@ -103,6 +107,31 @@ def _dong(loai: str, d: dict[str, Any]) -> dict[str, Any]:
         if d.get("gia_nhap") in (None, "")
         else _so(d["gia_nhap"], cho_0=True, le=0, toi_da=GIA_TOI_DA),
     }
+
+
+async def _khoa_va_kiem_don_vi(
+    conn: asyncpg.Connection, identity: StaffIdentity, ds: list[dict[str, Any]]
+) -> None:
+    """Khóa đơn vị theo từng mặt hàng, phát hiện form cũ trước khi ghi tồn."""
+    don_vi_hien_tai: dict[str, str | None] = {}
+    for vt in sorted({d["vat_tu_id"] for d in ds}):
+        row = await conn.fetchrow(
+            'SELECT "group", don_vi FROM public.service_price'
+            " WHERE clinic_id=$1::uuid AND id=$2::uuid FOR SHARE",
+            identity.clinic_id,
+            vt,
+        )
+        if row is None or row["group"] != "vat_tu":
+            raise NotFoundError("Không tìm thấy vật tư của phòng khám.")
+        don_vi_hien_tai[vt] = row["don_vi"]
+    for d in ds:
+        hien_tai = don_vi_hien_tai[d["vat_tu_id"]]
+        if d["kiem_don_vi"] and d["don_vi"] != hien_tai:
+            raise ValidationError(
+                "Đơn vị vật tư đã thay đổi. Tải lại danh mục rồi lập phiếu."
+            )
+        if not d["kiem_don_vi"]:
+            d["don_vi"] = hien_tai
 
 
 async def _khoa_co_so(conn: asyncpg.Connection, identity: StaffIdentity) -> None:
@@ -310,6 +339,7 @@ async def tao_phieu(
         raise ValidationError("Một vật tư/nơi chứa chỉ có một dòng trên phiếu.")
     async with pool.acquire() as conn, conn.transaction():
         await _khoa_co_so(conn, identity)
+        await _khoa_va_kiem_don_vi(conn, identity, ds)
         cu = await _phieu_da_co(conn, identity, khoa)
         if cu:
             return cu

@@ -779,7 +779,11 @@ async def doi_lich_nhanh_post(
 ) -> Any:
     """Đổi lịch (+ check-in luôn nếu ``check_in``) trong MỘT giao dịch."""
     if idem.key is None and body.idempotency_key:
-        idem = IdempotencyGuard(key=body.idempotency_key, endpoint=idem.endpoint)
+        idem = IdempotencyGuard(
+            key=body.idempotency_key,
+            endpoint=idem.endpoint,
+            request_hash=idem.request_hash,
+        )
     idem = await idem.acquire(pool, actor_id=identity.auth_user_id)
     if idem.is_replay:
         return idem.cached_response

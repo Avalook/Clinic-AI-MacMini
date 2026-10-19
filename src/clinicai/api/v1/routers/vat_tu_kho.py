@@ -91,6 +91,8 @@ async def bao_cao_tieu_hao(
 
 class DongPhieu(BaseModel):
     vat_tu_id: UUID
+    # Bản chụp đơn vị lúc mở danh mục, để server từ chối phiếu từ màn đã cũ.
+    don_vi: str | None = Field(..., max_length=40)
     tu_room_id: UUID | None = None
     den_room_id: UUID | None = None
     # Any: số rác phải đi tới service để trả 422 có lời, không bị pydantic 422 trơn.
