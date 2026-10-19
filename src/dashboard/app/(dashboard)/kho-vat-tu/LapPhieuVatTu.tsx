@@ -14,6 +14,7 @@ import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
 import {
   guiVatTu,
+  giaNhapPhieuHopLe,
   khoaChongGuiTrung,
   soLuongPhieuHopLe,
   xoaKhoaChongGuiTrung,
@@ -163,11 +164,22 @@ export default function LapPhieuVatTu({
     (d) =>
       !d.ten.trim() ||
       !soLuongPhieuHopLe(loai, d.so) ||
+      (loai === "NHAP" && !giaNhapPhieuHopLe(d.gia)) ||
       (kieu.tu === "phong" && !d.tu) ||
       (kieu.den === "phong" && !d.den),
   );
 
   const luu = async () => {
+    if (
+      dong.some(
+        (d) =>
+          !soLuongPhieuHopLe(loai, d.so) ||
+          (loai === "NHAP" && !giaNhapPhieuHopLe(d.gia)),
+      )
+    ) {
+      setLoi("Kiểm tra lại số lượng và giá nhập; các giá trị phải là số hợp lệ, hữu hạn.");
+      return;
+    }
     const sai = dong.findIndex((d) => !vatTu.some((v) => v.name === d.ten));
     if (sai >= 0) {
       setLoi(`Dòng ${sai + 1}: chọn vật tư có trong danh mục (gõ rồi chọn trong danh sách).`);
@@ -261,9 +273,15 @@ export default function LapPhieuVatTu({
               <ONhap
                 inputMode="decimal"
                 value={d.so}
+                aria-invalid={d.so.trim() !== "" && !soLuongPhieuHopLe(loai, d.so)}
                 onChange={(e) => suaDong(d.k, { so: e.target.value })}
                 className="w-full text-right tabular-nums"
               />
+              {d.so.trim() !== "" && !soLuongPhieuHopLe(loai, d.so) ? (
+                <span role="alert" className="mt-1 block text-meta text-danger">
+                  Số lượng không hợp lệ với loại phiếu này.
+                </span>
+              ) : null}
             </label>
             <div className="flex items-end gap-2">
               {loai === "NHAP" ? (
@@ -273,9 +291,15 @@ export default function LapPhieuVatTu({
                     inputMode="numeric"
                     value={d.gia}
                     placeholder="theo danh mục"
+                    aria-invalid={d.gia.trim() !== "" && !giaNhapPhieuHopLe(d.gia)}
                     onChange={(e) => suaDong(d.k, { gia: e.target.value })}
                     className="w-full text-right tabular-nums"
                   />
+                  {d.gia.trim() !== "" && !giaNhapPhieuHopLe(d.gia) ? (
+                    <span role="alert" className="mt-1 block text-meta text-danger">
+                      Giá nhập phải là số không âm hữu hạn.
+                    </span>
+                  ) : null}
                 </label>
               ) : null}
               {dong.length > 1 ? (

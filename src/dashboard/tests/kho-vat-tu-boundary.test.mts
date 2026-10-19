@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
 import {
+  giaNhapPhieuHopLe,
   khoaChongGuiTrung,
   soLuongPhieuHopLe,
   xoaKhoaChongGuiTrung,
@@ -60,6 +61,7 @@ test("giao diện lập phiếu gửi qua proxy, không gọi thẳng FastAPI", 
   assert.doesNotMatch(gui, /\/api\/v1\//);
   assert.match(lap, /loai === "NHAP" \? \(/);
   assert.match(lap, /gia_nhap: loai === "NHAP" \?/);
+  assert.match(lap, /giaNhapPhieuHopLe/);
   assert.match(lap, /don_vi: vatTu\.find/);
 });
 
@@ -75,6 +77,16 @@ test("số lượng phiếu chặn số không hợp lệ ngay trên form theo l
   assert.equal(soLuongPhieuHopLe("KIEM", "0"), true);
   assert.equal(soLuongPhieuHopLe("DIEU_CHINH", "0"), true);
   assert.equal(soLuongPhieuHopLe("DIEU_CHINH", "-1"), false);
+});
+
+test("giá nhập vật tư chỉ nhận số hữu hạn không âm", () => {
+  assert.equal(giaNhapPhieuHopLe(""), true);
+  assert.equal(giaNhapPhieuHopLe("12000"), true);
+  assert.equal(giaNhapPhieuHopLe("12,5"), true);
+  assert.equal(giaNhapPhieuHopLe("0"), true);
+  for (const value of ["-1", "NaN", "Infinity", "1e3", "1000000000000000"]) {
+    assert.equal(giaNhapPhieuHopLe(value), false, value);
+  }
 });
 
 test("Idempotency-Key của phiếu được giữ qua tải lại và chỉ xoá sau khi thành công", () => {

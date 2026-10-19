@@ -16,6 +16,17 @@ export function soLuongPhieuHopLe(loai: string, giaTri: string): boolean {
   return n > 0 || (n === 0 && ["KIEM", "DIEU_CHINH"].includes(loai));
 }
 
+/** Giá nhập để trống nghĩa là dùng theo danh mục; nếu có thì phải hữu hạn, không âm. */
+export function giaNhapPhieuHopLe(giaTri: string): boolean {
+  const so = giaTri.trim().replace(",", ".");
+  if (!so) return true;
+  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(so)) return false;
+  const le = (so.split(".")[1] ?? "").replace(/0+$/, "");
+  if (le.length > 3) return false;
+  const n = Number(so);
+  return Number.isFinite(n) && n >= 0 && n < 1e15;
+}
+
 /** `khoa` = Idempotency-Key (bắt buộc cho `phieu` và `hoan`): gửi lại cùng khoá =
  *  cùng phiếu, máy chủ không ghi sổ lần hai. */
 export async function guiVatTu(
