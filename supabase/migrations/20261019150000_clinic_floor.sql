@@ -117,7 +117,53 @@ AS $$
 DECLARE
     selected_floor public.clinic_floor%ROWTYPE;
 BEGIN
-    IF NEW.floor_id IS NOT NULL THEN
+    -- Nhánh tương thích cho client/bài cũ ghi nhãn `floor` trực tiếp. Nếu
+    -- floor_id không đổi mà nhãn đổi, resolve (hoặc tạo) danh mục theo nhãn.
+    -- API mới gửi floor_id nên nhánh chuẩn bên dưới vẫn dùng định danh.
+    IF NEW.floor IS DISTINCT FROM OLD.floor
+       AND NEW.floor_id IS NOT DISTINCT FROM OLD.floor_id THEN
+        IF NEW.floor IS NULL OR btrim(NEW.floor) = '' THEN
+            NEW.floor := NULL;
+            NEW.floor_id := NULL;
+        ELSE
+            NEW.floor := btrim(NEW.floor);
+            SELECT * INTO selected_floor
+              FROM public.clinic_floor f
+             WHERE f.clinic_id = NEW.clinic_id
+               AND f.location_id = NEW.location_id
+               AND f.name = NEW.floor;
+            IF NOT FOUND THEN
+                INSERT INTO public.clinic_floor
+                    (clinic_id, location_id, name, sort_order)
+                VALUES (
+                    NEW.clinic_id,
+                    NEW.location_id,
+                    NEW.floor,
+                    coalesce((SELECT max(sort_order) + 10
+                                FROM public.clinic_floor
+                               WHERE location_id = NEW.location_id
+                                 AND is_active), 10)
+                )
+                ON CONFLICT (location_id, name) DO UPDATE
+                    SET is_active = true, updated_at = now()
+                RETURNING * INTO selected_floor;
+            ELSIF NOT selected_floor.is_active THEN
+                UPDATE public.clinic_floor f
+                   SET is_active = true,
+                       sort_order = coalesce((
+                           SELECT max(other.sort_order) + 10
+                             FROM public.clinic_floor other
+                            WHERE other.location_id = NEW.location_id
+                              AND other.is_active
+                       ), 10),
+                       updated_at = now()
+                 WHERE f.id = selected_floor.id
+                RETURNING * INTO selected_floor;
+            END IF;
+            NEW.floor_id := selected_floor.id;
+            NEW.floor := selected_floor.name;
+        END IF;
+    ELSIF NEW.floor_id IS NOT NULL THEN
         SELECT * INTO selected_floor
           FROM public.clinic_floor f
          WHERE f.id = NEW.floor_id

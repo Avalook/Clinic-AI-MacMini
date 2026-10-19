@@ -633,7 +633,7 @@ class ClinicConfigService:
             # Mọi thay đổi tầng/phòng trong một cơ sở đi qua cùng khóa này.
             # Nhờ đó bật phòng không thể chạy lọt giữa lúc một người khác tắt tầng.
             await conn.fetchval(
-                "SELECT true FROM public.clinic_location"
+                "SELECT id::text FROM public.clinic_location"
                 " WHERE id = $1::uuid AND clinic_id = $2::uuid FOR UPDATE",
                 location_id,
                 identity.clinic_id,
