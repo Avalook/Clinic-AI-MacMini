@@ -46,9 +46,8 @@ export default async function ClinicConfigPage() {
           Cấu trúc phòng khám
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
-          Cơ sở nào có mấy tầng, phòng nào nằm ở tầng nào, phòng nào làm việc
-          gì, ai đảm nhiệm được bước nào, và dịch vụ nào dùng phiếu khám nào.
-          Khai ở đây, không phải sửa code.
+          Cơ sở có những tầng nào, phòng nằm ở đâu và mỗi phòng có những vị trí
+          nào. Quản lý có thể tự thêm, sửa hoặc ngừng sử dụng ngay tại đây.
         </p>
       </header>
 

@@ -45,6 +45,9 @@ export async function GET(request: Request) {
 // Ba việc ghi đi chung một cửa, phân theo `what`. Backend vẫn là ba đường riêng
 // với ba hình dạng riêng — gộp ở đây chỉ để màn hình không phải nhớ ba URL.
 const WRITE_PATHS: Record<string, string> = {
+  "floor-name": "/api/v1/clinic-config/floor-name",
+  "floor-active": "/api/v1/clinic-config/floor-active",
+  "floor-order": "/api/v1/clinic-config/floor-order",
   "room-floor": "/api/v1/clinic-config/room-floor",
   // Phòng là tài nguyên (23/09/2026): đổi tên / bật-tắt theo room_id.
   "room-name": "/api/v1/clinic-config/room-name",
@@ -67,6 +70,12 @@ const WRITE_PATHS: Record<string, string> = {
   "chon-co-so": "/api/v1/clinic-config/chon-co-so",
 };
 
+const CREATE_PATHS: Record<string, string> = {
+  "floor-create": "/api/v1/clinic-config/floors",
+  "location-create": "/api/v1/clinic-config/locations",
+  "room-create": "/api/v1/clinic-config/rooms",
+};
+
 export async function PUT(request: Request) {
   if (!(await requireUser()))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
@@ -86,20 +95,18 @@ export async function PUT(request: Request) {
   return proxyJsonToBackend("PUT", path, payload);
 }
 
-// Thêm phòng (23/09/2026) — POST vì tạo mới; backend tự sinh mã nội bộ.
+// Tạo cơ sở / tầng / phòng. Mã nội bộ và thứ tự hợp lệ do backend quyết định.
 export async function POST(request: Request) {
   if (!(await requireUser()))
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const { what, ...payload } = body;
-  if (what === "location-create") {
-    return proxyJsonToBackend("POST", "/api/v1/clinic-config/locations", payload);
-  }
-  if (what !== "room-create") {
+  const path = CREATE_PATHS[String(what ?? "")];
+  if (!path) {
     return NextResponse.json(
       { ok: false, error: `Không rõ cần tạo gì: ${String(what)}` },
       { status: 400 },
     );
   }
-  return proxyJsonToBackend("POST", "/api/v1/clinic-config/rooms", payload);
+  return proxyJsonToBackend("POST", path, payload);
 }

@@ -116,6 +116,9 @@ const LIVE_TABLES = [
   "cskh_action",
   "staff_task",
   "work_roster",
+  // Danh mục tầng đổi tên/thứ tự ở một tab phải cập nhật các màn cấu hình và
+  // lịch đang mở ở tab khác. Trigger được tạo trong migration 20261019150000.
+  "clinic_floor",
   // BỐN BẢNG CỦA MÀN CHĂM SÓC (08/08/2026). Thiếu chúng ở đây thì hai CSKH
   // ngồi cạnh nhau không thấy việc của nhau: người này ghi xong cuộc gọi, màn
   // người kia vẫn sáng "Làm bước này" — và khách nghe máy hai lần trong một

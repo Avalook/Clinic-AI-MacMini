@@ -35,8 +35,6 @@ export default function ClinicConfigBoard({
   viecChonDuoc,
   forms,
   ok,
-  configMissing,
-  chuaChuyen,
 }: {
   initialLocations: ConfigLocation[];
   initialStaff: ConfigStaff[];
@@ -76,8 +74,6 @@ export default function ClinicConfigBoard({
   // ── Phòng là TÀI NGUYÊN (CORE-C, 23/09/2026) ──────────────────────────────
   // Định danh là room_id; tên đổi tự do. Sau mỗi lệnh thêm/đổi/bật-tắt thì đọc
   // lại sơ đồ từ máy chủ — không tự đoán trạng thái sau khi tạo phòng mới.
-  const [thieu, setThieu] = useState(configMissing);
-  const [chuaSao, setChuaSao] = useState(chuaChuyen);
   const [viec, setViec] = useState(viecChonDuoc);
 
   async function docLai() {
@@ -89,8 +85,6 @@ export default function ClinicConfigBoard({
       viec_chon_duoc?: ViecChonDuoc[];
     } | null;
     if (d?.locations) setLocations(d.locations);
-    if (d?.config_missing) setThieu(d.config_missing);
-    if (d?.chua_co_phong_chuyen) setChuaSao(d.chua_co_phong_chuyen);
     if (d?.viec_chon_duoc) setViec(d.viec_chon_duoc);
   }
 
@@ -225,32 +219,8 @@ export default function ClinicConfigBoard({
         </div>
       )}
 
-      {thieu.length > 0 && (
-        <div
-          role="status"
-          className="flex items-start gap-2 rounded-card border border-warning bg-warning-bg px-4 py-3 text-sm text-warning"
-        >
-          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-          <span>
-            <b>Chưa có phòng nào làm:</b> {thieu.map((t) => t.name).join(" · ")}. Chỉ
-            định các dịch vụ này sẽ không xếp được phòng — gắn dịch vụ (hoặc cả
-            nhóm) vào một phòng đang bật ở mục &quot;Phòng làm việc gì&quot;.
-          </span>
-        </div>
-      )}
-
       {/* ── Hỏi chọn cơ sở khi đăng nhập + cơ sở mặc định (08/10/2026). */}
       <ChonCoSoDangNhap locations={locations} onLoi={setErr} />
-
-      {/* PHÒNG CHUYÊN ★ (07/10/2026): chỉ nhắc, không chặn — thiếu ★ thì khi
-          nhận khách các chỉ định chưa hướng dẫn không được tick sẵn. */}
-      {chuaSao.length > 0 && (
-        <p role="status" className="rounded-card border border-line bg-surface-muted px-4 py-2 text-meta text-ink-muted">
-          <b className="text-ink">Chưa có phòng chuyên ★:</b> {chuaSao.map((t) => t.name).join(" · ")}. Không bắt
-          buộc — đánh ★ ở &quot;Phòng làm việc gì&quot; để phòng ấy được tick sẵn chỉ định chưa hướng dẫn khi nhận
-          khách, và quầy gợi ý hướng dẫn tới đó.
-        </p>
-      )}
 
       {/* ── Cơ sở → phòng: gọn, bấm mới mở (27/09/2026) — xem CoSoPhong.tsx. */}
       <CoSoPhong

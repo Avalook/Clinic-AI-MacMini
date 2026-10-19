@@ -20,8 +20,17 @@ import { useCallback, useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { todayVn } from "@/lib/roster";
-import type { ConfigLocation, ConfigRoom, ConfigStaff, NodeDef, ViecChonDuoc } from "./types";
-import ViecCuaPhong from "./ViecCuaPhong";
+import type {
+  ConfigFloor,
+  ConfigLocation,
+  ConfigRoom,
+  ConfigStaff,
+  NodeDef,
+  ViecChonDuoc,
+} from "./types";
+import { FormCoSo, FormThemPhong } from "./PhongForms";
+import { FormThemTang, TangEditor } from "./TangEditor";
+import { ViTriEditor } from "./ViTriEditor";
 
 interface CaLich {
   id: string;
@@ -36,14 +45,19 @@ interface ViTri {
   code: string;
   ten: string;
   nhom_nghe: string;
+  room_id: string | null;
+  is_active: boolean;
   ca: CaLich[];
+}
+type ViTriCauHinh = Omit<ViTri, "ca">;
+interface GoiDayNoi {
+  vi_tri: ViTriCauHinh[];
 }
 interface GoiLich {
   tuan: string;
   ngay: string[];
   phong: Record<string, ViTri[]>;
 }
-
 const TEN_CA: Record<string, string> = { SANG: "Sáng", CHIEU: "Chiều", TOI: "Tối", FULL: "Cả ngày" };
 const THU = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
@@ -74,7 +88,6 @@ async function goiUrl(url: string, method: "PUT" | "POST" | "DELETE", body: Reco
 export default function CoSoPhong({
   locations,
   nodes,
-  viec,
   staff,
   onDocLai,
   onLoi,
@@ -88,26 +101,44 @@ export default function CoSoPhong({
   onLoi: (cau: string | null) => void;
 }) {
   const [lich, setLich] = useState<GoiLich | null>(null);
+  const [viTriCauHinh, setViTriCauHinh] = useState<ViTriCauHinh[]>([]);
   const [tuan, setTuan] = useState<string | null>(null);
   const [dangLam, setDangLam] = useState(false);
   const [moCoSo, setMoCoSo] = useState<string | null>(null); // "moi" | location_id
   const [moPhong, setMoPhong] = useState<string | null>(null);
   const [themPhongO, setThemPhongO] = useState<string | null>(null);
+  const [themTangO, setThemTangO] = useState<string | null>(null);
 
   const [lanNap, setLanNap] = useState(0);
   const taiNhanSu = useCallback(async () => setLanNap((n) => n + 1), []);
   useEffect(() => {
     let huy = false;
-    void fetch(`/api/clinic-config?what=lich-phong${tuan ? `&tuan=${tuan}` : ""}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .catch(() => null)
-      .then((d: (GoiLich & { ok?: boolean }) | null) => {
-        if (!huy && d?.phong) setLich({ tuan: d.tuan, ngay: d.ngay, phong: d.phong });
-      });
+    const doc = async () => {
+      try {
+        const [phanHoiLich, phanHoiDay] = await Promise.all([
+          fetch(`/api/clinic-config?what=lich-phong${tuan ? `&tuan=${tuan}` : ""}`, {
+            cache: "no-store",
+          }),
+          fetch("/api/day-noi", { cache: "no-store" }),
+        ]);
+        const [goiLich, goiDay] = (await Promise.all([
+          phanHoiLich.json(),
+          phanHoiDay.json(),
+        ])) as [GoiLich & { ok?: boolean }, GoiDayNoi];
+        if (huy) return;
+        if (goiLich.phong) {
+          setLich({ tuan: goiLich.tuan, ngay: goiLich.ngay, phong: goiLich.phong });
+        }
+        if (Array.isArray(goiDay.vi_tri)) setViTriCauHinh(goiDay.vi_tri);
+      } catch {
+        if (!huy) onLoi("Không đọc được lịch và vị trí của phòng.");
+      }
+    };
+    void doc();
     return () => {
       huy = true;
     };
-  }, [lanNap, tuan]);
+  }, [lanNap, onLoi, tuan]);
 
   const lam = async (viec: () => Promise<void>, sau?: () => void) => {
     setDangLam(true);
@@ -125,6 +156,21 @@ export default function CoSoPhong({
   };
 
   const tenBuoc = (code: string) => nodes.find((n) => n.code === code)?.name ?? code;
+  const viTriCuaPhong = (roomId: string): ViTri[] => {
+    const viTriLich = lich?.phong[roomId] ?? [];
+    const maCauHinh = new Set(
+      viTriCauHinh.filter((v) => v.room_id === roomId).map((v) => v.code),
+    );
+    return [
+      ...viTriCauHinh
+        .filter((v) => v.room_id === roomId)
+        .map((v) => ({
+          ...v,
+          ca: viTriLich.find((trongLich) => trongLich.code === v.code)?.ca ?? [],
+        })),
+      ...viTriLich.filter((v) => !maCauHinh.has(v.code)),
+    ];
+  };
 
   return (
     <div className="space-y-3">
@@ -148,6 +194,9 @@ export default function CoSoPhong({
 
       {locations.map((loc) => {
         const soPhong = loc.floors.reduce((s, f) => s + f.rooms.length, 0);
+        const floorIds = loc.floors.flatMap((f) =>
+          f.floor_id && f.is_active ? [f.floor_id] : [],
+        );
         return (
           <section key={loc.location_id} className="rounded-card border border-line bg-surface shadow-card">
             <header className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
@@ -156,9 +205,18 @@ export default function CoSoPhong({
               <span className="text-label text-ink-muted">{loc.code}</span>
               {loc.address ? <span className="truncate text-label text-ink-muted">· {loc.address}</span> : null}
               {!loc.is_active ? <Chip tone="neutral">ngừng hoạt động</Chip> : null}
-              <span className="ml-auto text-label text-ink-muted">{soPhong} phòng</span>
+              <span className="ml-auto text-label text-ink-muted">
+                {floorIds.length} tầng · {soPhong} phòng
+              </span>
               <Button size="sm" variant="ghost" onClick={() => setMoCoSo(moCoSo === loc.location_id ? null : loc.location_id)}>
                 Sửa
+              </Button>
+              <Button
+                size="sm"
+                variant="soft"
+                onClick={() => setThemTangO(themTangO === loc.location_id ? null : loc.location_id)}
+              >
+                + Thêm tầng
               </Button>
               <Button
                 size="sm"
@@ -193,19 +251,37 @@ export default function CoSoPhong({
               </div>
             ) : null}
 
+            {themTangO === loc.location_id ? (
+              <FormThemTang
+                dangLam={dangLam}
+                onThoi={() => setThemTangO(null)}
+                onThem={(ten) =>
+                  void lam(
+                    () =>
+                      goi("POST", "floor-create", {
+                        location_id: loc.location_id,
+                        name: ten,
+                      }),
+                    () => setThemTangO(null),
+                  )
+                }
+              />
+            ) : null}
+
             {themPhongO === loc.location_id ? (
               <FormThemPhong
                 nodes={nodes}
+                floors={loc.floors}
                 dangLam={dangLam}
                 onThoi={() => setThemPhongO(null)}
-                onThem={(ten, buoc, tang) =>
+                onThem={(ten, buoc, floorId) =>
                   void lam(
                     () =>
                       goi("POST", "room-create", {
                         location_id: loc.location_id,
                         name: ten,
                         node_code: buoc,
-                        floor: tang || null,
+                        floor_id: floorId || null,
                       }),
                     () => setThemPhongO(null),
                   )
@@ -213,25 +289,68 @@ export default function CoSoPhong({
               />
             ) : null}
 
-            {soPhong === 0 ? (
-              <p className="px-4 py-3 text-meta text-ink-faint">Chưa có phòng nào.</p>
+            {loc.floors.length === 0 ? (
+              <p className="px-4 py-3 text-meta text-ink-faint">
+                Chưa có tầng nào. Thêm tầng trước rồi thêm phòng vào tầng đó.
+              </p>
             ) : (
               loc.floors.map((f) => (
-                <div key={f.floor ?? "_"}>
-                  <p className="bg-surface-muted px-4 py-1 text-label font-semibold uppercase text-ink-muted">
-                    {f.floor ? `Tầng ${f.floor.replace(/^Tầng\s*/i, "")}` : "Chưa khai tầng"}
-                  </p>
+                <div key={f.floor_id ?? "legacy-unassigned"}>
+                  <TangEditor
+                    floor={f}
+                    dangLam={dangLam}
+                    lenDuoc={
+                      f.floor_id ? floorIds.indexOf(f.floor_id) > 0 : false
+                    }
+                    xuongDuoc={
+                      f.floor_id
+                        ? floorIds.indexOf(f.floor_id) >= 0 &&
+                          floorIds.indexOf(f.floor_id) < floorIds.length - 1
+                        : false
+                    }
+                    onDoiTen={(name) =>
+                      f.floor_id
+                        ? void lam(() =>
+                            goi("PUT", "floor-name", { floor_id: f.floor_id, name }),
+                          )
+                        : undefined
+                    }
+                    onBatTat={() =>
+                      f.floor_id
+                        ? void lam(() =>
+                            goi("PUT", "floor-active", {
+                              floor_id: f.floor_id,
+                              is_active: !f.is_active,
+                            }),
+                          )
+                        : undefined
+                    }
+                    onDoiThuTu={(delta) => {
+                      if (!f.floor_id) return;
+                      const viTri = floorIds.indexOf(f.floor_id);
+                      const dich = viTri + delta;
+                      if (viTri < 0 || dich < 0 || dich >= floorIds.length) return;
+                      const moi = [...floorIds];
+                      [moi[viTri], moi[dich]] = [moi[dich], moi[viTri]];
+                      void lam(() =>
+                        goi("PUT", "floor-order", {
+                          location_id: loc.location_id,
+                          floor_ids: moi,
+                        }),
+                      );
+                    }}
+                  />
                   <ul>
                     {f.rooms.map((r) => (
                       <DongPhong
                         key={r.room_id}
                         phong={r}
-                        tang={f.floor}
+                        floor={f}
+                        floors={loc.floors}
                         mo={moPhong === r.room_id}
                         onMo={() => setMoPhong(moPhong === r.room_id ? null : r.room_id)}
-                        viec={viec}
                         tenBuoc={tenBuoc}
-                        viTri={lich?.phong[r.room_id] ?? []}
+                        viTri={viTriCuaPhong(r.room_id)}
                         lich={lich}
                         doiTuan={(n) => lich && setTuan(congNgay(lich.tuan, n * 7))}
                         staff={staff}
@@ -252,10 +371,10 @@ export default function CoSoPhong({
 
 function DongPhong({
   phong: r,
-  tang,
+  floor,
+  floors,
   mo,
   onMo,
-  viec,
   tenBuoc,
   viTri,
   lich,
@@ -265,10 +384,10 @@ function DongPhong({
   lam,
 }: {
   phong: ConfigRoom;
-  tang: string | null;
+  floor: ConfigFloor;
+  floors: ConfigFloor[];
   mo: boolean;
   onMo: () => void;
-  viec: ViecChonDuoc[];
   tenBuoc: (c: string) => string;
   viTri: ViTri[];
   lich: GoiLich | null;
@@ -278,12 +397,7 @@ function DongPhong({
   lam: (viec: () => Promise<void>, sau?: () => void) => Promise<void>;
 }) {
   const [ten, setTen] = useState(r.name ?? "");
-  const [tangMoi, setTangMoi] = useState(tang ?? "");
-  const doiViec = (next: string[]) => void lam(() => goi("PUT", "room-nodes", { room_id: r.room_id, node_codes: next }));
-  const doiDichVu = (next: string[]) =>
-    void lam(() => goi("PUT", "room-services", { room_id: r.room_id, service_codes: next }));
-  const doiChuyen = (node: string, chuyen: boolean) =>
-    void lam(() => goi("PUT", "room-node-chuyen", { room_id: r.room_id, node_code: node, chuyen }));
+  const [floorMoi, setFloorMoi] = useState(floor.floor_id ?? "");
   const homNay = todayVn();
   const nguoiHomNay = new Set(
     viTri.flatMap((v) => v.ca.filter((c) => c.ngay === homNay).map((c) => c.staff_id ?? c.ten)),
@@ -319,21 +433,36 @@ function DongPhong({
               Tên phòng
               <input value={ten} onChange={(e) => setTen(e.target.value)} className={O} />
             </label>
-            <label className="flex w-28 flex-col gap-0.5 text-label text-ink-muted">
+            <label className="flex min-w-36 flex-col gap-0.5 text-label text-ink-muted">
               Tầng
-              <input value={tangMoi} onChange={(e) => setTangMoi(e.target.value)} placeholder="1 · Trệt" className={O} />
+              <select value={floorMoi} onChange={(e) => setFloorMoi(e.target.value)} className={O}>
+                <option value="">— chưa xếp tầng —</option>
+                {floors
+                  .filter((item) => item.floor_id && item.is_active)
+                  .map((item) => (
+                    <option key={item.floor_id} value={item.floor_id ?? ""}>
+                      {item.floor}
+                    </option>
+                  ))}
+              </select>
             </label>
             <Button
               size="sm"
               variant="primary"
-              disabled={dangLam || (ten.trim() === (r.name ?? "") && tangMoi.trim() === (tang ?? ""))}
+              disabled={
+                dangLam ||
+                (ten.trim() === (r.name ?? "") && floorMoi === (floor.floor_id ?? ""))
+              }
               onClick={() =>
                 void lam(async () => {
                   if (ten.trim() && ten.trim() !== (r.name ?? "")) {
                     await goi("PUT", "room-name", { room_id: r.room_id, name: ten.trim() });
                   }
-                  if (tangMoi.trim() !== (tang ?? "")) {
-                    await goi("PUT", "room-floor", { room_id: r.room_id, floor: tangMoi.trim() });
+                  if (floorMoi !== (floor.floor_id ?? "")) {
+                    await goi("PUT", "room-floor", {
+                      room_id: r.room_id,
+                      floor_id: floorMoi || null,
+                    });
                   }
                 })
               }
@@ -346,19 +475,9 @@ function DongPhong({
               disabled={dangLam}
               onClick={() => void lam(() => goi("PUT", "room-active", { room_id: r.room_id, is_active: !r.is_active }))}
             >
-              {r.is_active ? "Tắt phòng" : "Bật lại phòng"}
+              {r.is_active ? "Ngừng sử dụng phòng" : "Dùng lại phòng"}
             </Button>
           </div>
-
-          <ViecCuaPhong
-            phong={r}
-            viec={viec}
-            tenBuoc={tenBuoc}
-            dangLam={dangLam}
-            doiViec={doiViec}
-            doiDichVu={doiDichVu}
-            doiChuyen={doiChuyen}
-          />
 
           <LichPhong
             phong={r}
@@ -372,96 +491,6 @@ function DongPhong({
         </div>
       ) : null}
     </li>
-  );
-}
-
-function FormCoSo({
-  ten = "",
-  diaChi = "",
-  dangHoatDong,
-  dangLam,
-  onLuu,
-  onThoi,
-}: {
-  ten?: string;
-  diaChi?: string;
-  /** undefined = đang thêm mới (không có công tắc). */
-  dangHoatDong?: boolean;
-  dangLam: boolean;
-  onLuu: (ten: string, diaChi: string, bat: boolean) => void;
-  onThoi: () => void;
-}) {
-  const [t, setT] = useState(ten);
-  const [d, setD] = useState(diaChi);
-  const [bat, setBat] = useState(dangHoatDong ?? true);
-  return (
-    <div className="flex flex-wrap items-end gap-2 rounded-card border border-line bg-surface p-3">
-      <label className="flex min-w-48 flex-1 flex-col gap-0.5 text-label text-ink-muted">
-        Tên cơ sở
-        <input value={t} onChange={(e) => setT(e.target.value)} placeholder="VD: Kim Ngưu" className={O} />
-      </label>
-      <label className="flex min-w-60 flex-[2] flex-col gap-0.5 text-label text-ink-muted">
-        Địa chỉ
-        <input value={d} onChange={(e) => setD(e.target.value)} className={O} />
-      </label>
-      {dangHoatDong !== undefined ? (
-        <label className="flex h-8 items-center gap-1.5 text-meta text-ink">
-          <input type="checkbox" checked={bat} onChange={(e) => setBat(e.target.checked)} className="size-4 accent-brand-600" />
-          Đang hoạt động
-        </label>
-      ) : null}
-      <Button size="sm" variant="primary" disabled={dangLam || !t.trim()} onClick={() => onLuu(t.trim(), d.trim(), bat)}>
-        {dangHoatDong === undefined ? "Thêm cơ sở" : "Lưu"}
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onThoi}>
-        Thôi
-      </Button>
-    </div>
-  );
-}
-
-function FormThemPhong({
-  nodes,
-  dangLam,
-  onThem,
-  onThoi,
-}: {
-  nodes: NodeDef[];
-  dangLam: boolean;
-  onThem: (ten: string, buoc: string, tang: string) => void;
-  onThoi: () => void;
-}) {
-  const [ten, setTen] = useState("");
-  const [buoc, setBuoc] = useState("");
-  const [tang, setTang] = useState("");
-  return (
-    <div className="flex flex-wrap items-end gap-2 border-b border-line bg-surface-muted/40 px-4 py-3">
-      <label className="flex min-w-48 flex-1 flex-col gap-0.5 text-label text-ink-muted">
-        Tên phòng mới
-        <input value={ten} onChange={(e) => setTen(e.target.value)} placeholder="VD: Siêu âm 4" className={O} />
-      </label>
-      <label className="flex min-w-48 flex-1 flex-col gap-0.5 text-label text-ink-muted">
-        Việc chính
-        <select value={buoc} onChange={(e) => setBuoc(e.target.value)} className={O}>
-          <option value="">— chọn —</option>
-          {nodes.map((n) => (
-            <option key={n.code} value={n.code}>
-              {n.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="flex w-28 flex-col gap-0.5 text-label text-ink-muted">
-        Tầng
-        <input value={tang} onChange={(e) => setTang(e.target.value)} placeholder="1 · Trệt" className={O} />
-      </label>
-      <Button size="sm" variant="primary" disabled={dangLam || !ten.trim() || !buoc} onClick={() => onThem(ten.trim(), buoc, tang.trim())}>
-        Thêm phòng
-      </Button>
-      <Button size="sm" variant="ghost" onClick={onThoi}>
-        Thôi
-      </Button>
-    </div>
   );
 }
 
@@ -494,7 +523,8 @@ function LichPhong({
   const [ngheVt, setNgheVt] = useState("DIEU_DUONG");
   if (!lich) return <p className="text-meta text-ink-muted">Đang tải lịch…</p>;
   const ngayChon = lich.ngay.includes(ngay) ? ngay : lich.ngay[0];
-  const vtChon = vt || viTri[0]?.code || "";
+  const viTriDangDung = viTri.filter((v) => v.is_active);
+  const vtChon = vt || viTriDangDung[0]?.code || "";
   const nv = staff.find((s) => s.staff_id === nguoi);
 
   return (
@@ -532,8 +562,27 @@ function LichPhong({
             </thead>
             <tbody>
               {viTri.map((v) => (
-                <tr key={v.id} className="border-t border-line align-top">
-                  <td className="px-2 py-1.5 font-medium text-ink">{v.ten}</td>
+                <tr
+                  key={v.id}
+                  className={`border-t border-line align-top ${
+                    v.is_active ? "" : "bg-surface-muted text-ink-faint"
+                  }`}
+                >
+                  <td className="min-w-64 px-2 py-1.5">
+                    <ViTriEditor
+                      viTri={v}
+                      dangLam={dangLam}
+                      onDoi={(duLieu) =>
+                        void lam(() =>
+                          goiUrl("/api/day-noi", "POST", {
+                            thao_tac: "vi-tri",
+                            id: v.id,
+                            du_lieu: duLieu,
+                          }),
+                        )
+                      }
+                    />
+                  </td>
                   {lich.ngay.map((d) => (
                     <td key={d} className={`px-1 py-1 ${d === homNay ? "bg-brand-50/60" : ""}`}>
                       <div className="flex flex-col gap-0.5">
@@ -570,10 +619,10 @@ function LichPhong({
         </div>
       )}
 
-      {viTri.length > 0 ? (
+      {viTriDangDung.length > 0 ? (
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <select aria-label="Vị trí" value={vtChon} onChange={(e) => setVt(e.target.value)} className={O}>
-            {viTri.map((v) => (
+            {viTriDangDung.map((v) => (
               <option key={v.code} value={v.code}>
                 {v.ten}
               </option>

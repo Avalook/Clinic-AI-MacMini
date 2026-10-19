@@ -43,8 +43,12 @@ export interface ViecChonDuoc {
 }
 
 export interface ConfigFloor {
-  /** `null` = CHƯA KHAI tầng, khác với tầng tên rỗng. */
+  /** Tầng đã chuẩn hoá có ID bền vững; `null` chỉ dành cho phòng dữ liệu cũ
+   *  chưa được gắn vào tầng nào. */
+  floor_id: string | null;
   floor: string | null;
+  sort_order: number | null;
+  is_active: boolean;
   rooms: ConfigRoom[];
 }
 
