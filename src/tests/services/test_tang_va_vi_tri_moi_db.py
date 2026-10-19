@@ -10,6 +10,7 @@ import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ValidationError
+from clinicai.api.identity import StaffIdentity
 from clinicai.api.v1.routers.identity import vi_tri_hom_nay
 from clinicai.services.clinic_config_service import ClinicConfigService
 from clinicai.services.clinic_floor_service import ClinicFloorService
@@ -26,7 +27,7 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 async def _quan_ly_va_co_so(
     pool: asyncpg.Pool,  # noqa: F811
-) -> tuple[object, str]:
+) -> tuple[StaffIdentity, str]:
     async with pool.acquire() as conn:
         location_id = await conn.fetchval(
             "SELECT id::text FROM clinic_location"
@@ -45,7 +46,7 @@ async def _node_code(pool: asyncpg.Pool) -> str:  # noqa: F811
         CLINIC,
     )
     assert code is not None
-    return code
+    return str(code)
 
 
 async def test_tang_co_thu_tu_doi_ten_va_an_mem_an_toan(
