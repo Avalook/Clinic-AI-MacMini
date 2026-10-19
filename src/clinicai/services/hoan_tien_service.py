@@ -4,8 +4,9 @@ HUỶ PHIẾU ≠ HOÀN TIỀN ≠ KHÁCH TRẢ THUỐC. Hoàn tiền:
   * tham chiếu ĐÚNG các dòng ảnh chụp hoá đơn (`payment_bill_line`) của lần
     thu gốc; số tiền do máy chủ tính = số lượng × đơn giá ảnh chụp — trình
     duyệt chỉ chọn dòng và số lượng;
-  * được làm trên lần thu ĐÃ TỪNG thu (`paid_at`), kể cả khi lần thu ấy sau đó
-    bị huỷ phiếu — tiền thật đã nhận thì vẫn có thể phải trả lại;
+  * được làm trên lần thu ĐÃ TỪNG thu (`paid_at`); riêng dịch vụ chỉ hoàn trên
+    phiếu còn hiệu lực (`PAID`) vì huỷ phiếu dịch vụ đã là thao tác trả lại tiền;
+    thuốc giữ luật CP5: có thể hoàn trên lần thu đã huỷ;
   * KHÔNG đụng kho. Nhả thuốc chưa giao là lệnh kho riêng (`huy_phan_chua_giao`)
     dùng khoản hoàn COMPLETED làm căn cứ;
   * không sửa `payment` / `payment_cycle` gốc; hoàn sau khi đóng lượt không mở
@@ -215,6 +216,10 @@ class HoanTienService:
                     raise ConflictError("Khoản hoàn này đã xác nhận với mã khác.")
                 if hoan["status"] != "PENDING":
                     raise ConflictError("Khoản hoàn này đã đóng — không xác nhận được.")
+                if hoan["kind"] == "dich_vu" and hoan["cycle_status"] != "PAID":
+                    raise ConflictError(
+                        "Phiếu dịch vụ đã hoàn tác — không xác nhận hoàn tiền được."
+                    )
                 await conn.execute(
                     """
                     UPDATE public.payment_refund
@@ -322,7 +327,7 @@ async def _tao_trong(
     await _khoa_luot(conn, identity, visit_id)
     lan = await conn.fetchrow(
         """
-        SELECT payment_cycle_id, paid_at FROM public.payment_cycle
+        SELECT payment_cycle_id, paid_at, status FROM public.payment_cycle
          WHERE payment_cycle_id = $1::uuid AND clinic_id = $2::uuid
            AND visit_id = $3::uuid AND kind = $4
          FOR UPDATE
@@ -336,6 +341,10 @@ async def _tao_trong(
         raise NotFoundError("Không tìm thấy lần thu này của lượt khám.")
     if lan["paid_at"] is None:
         raise ConflictError("Lần thu này chưa từng thu tiền — không có gì để hoàn.")
+    if kind == "dich_vu" and lan["status"] != "PAID":
+        raise ConflictError(
+            "Phiếu dịch vụ đã hoàn tác — không thể hoàn tiền thêm lần nữa."
+        )
     con = {r["id"]: r for r in await _con_hoan(conn, identity, payment_cycle_id)}
     tong = 0
     ghi: list[tuple[str, Decimal, int]] = []
@@ -499,11 +508,14 @@ async def _khoa_hoan(
     )
     hoan = await conn.fetchrow(
         """
-        SELECT refund_id, payment_cycle_id, visit_id, status, method, amount, reference,
-               kind
-          FROM public.payment_refund
-         WHERE refund_id = $1::uuid AND clinic_id = $2::uuid
-         FOR UPDATE
+        SELECT r.refund_id, r.payment_cycle_id, r.visit_id, r.status, r.method,
+               r.amount, r.reference, r.kind, pc.status AS cycle_status
+          FROM public.payment_refund r
+          JOIN public.payment_cycle pc
+            ON pc.payment_cycle_id = r.payment_cycle_id
+           AND pc.clinic_id = r.clinic_id
+         WHERE r.refund_id = $1::uuid AND r.clinic_id = $2::uuid
+         FOR UPDATE OF r
         """,
         refund_id,
         identity.clinic_id,

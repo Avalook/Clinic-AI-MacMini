@@ -696,6 +696,168 @@ async def _hoan(
     return str(kq["refund_id"])
 
 
+@pytest.mark.parametrize("refund_method", ["CASH", "TRANSFER"])
+@pytest.mark.parametrize("refund_status", ["PENDING", "COMPLETED"])
+async def test_hoan_tien_dich_vu_da_huy_bi_chan_o_service_va_database(
+    q: Quay, refund_method: str, refund_status: str
+) -> None:
+    ql = await _quan_ly(q)
+    sa = await _cd(q, "SA")
+    cycle = (await _thu(q))["payment_cycle_id"]
+    line = await _dong_sa(q, cycle, sa)
+
+    await PaymentService(q.pool).void_payment(
+        payment_cycle_id=cycle,
+        visit_id=q.visit_id,
+        kind="dich_vu",
+        reason="Huỷ lần thu dịch vụ",
+        identity=q.thu_ngan,
+    )
+
+    with pytest.raises(ConflictError, match="đã hoàn tác"):
+        await _hoan(q, ql, cycle, line, 1, refund_method)
+    assert (
+        await q.pool.fetchval(
+            "SELECT count(*) FROM payment_refund WHERE payment_cycle_id = $1::uuid",
+            cycle,
+        )
+        == 0
+    )
+
+    dong = await q.pool.fetchrow(
+        """
+        SELECT round(quantity * unit_price)::bigint AS amount
+          FROM payment_bill_line
+         WHERE id = $1::uuid
+        """,
+        line,
+    )
+    assert dong is not None
+    with pytest.raises(
+        asyncpg.CheckViolationError,
+        match="Không hoàn tiền dịch vụ trên phiếu đã hoàn tác",
+    ):
+        await q.pool.execute(
+            """
+            INSERT INTO public.payment_refund (
+                refund_id, clinic_id, visit_id, kind, payment_cycle_id,
+                amount, status, method, reason, created_by
+            )
+            VALUES (
+                $1::uuid, $2::uuid, $3::uuid, 'dich_vu', $4::uuid,
+                $5, $6, 'TRANSFER', $7, $8::uuid
+            )
+            """,
+            str(uuid.uuid4()),
+            CLINIC,
+            q.visit_id,
+            cycle,
+            dong["amount"],
+            refund_status,
+            "Khách không làm nữa",
+            q.thu_ngan.staff_id,
+        )
+
+    assert (
+        await q.pool.fetchval(
+            "SELECT count(*) FROM payment_refund WHERE payment_cycle_id = $1::uuid",
+            cycle,
+        )
+        == 0
+    )
+
+
+async def test_xac_nhan_khoan_hoan_dich_vu_cu_tren_phieu_da_huy_bi_chan(
+    q: Quay,
+) -> None:
+    ql = await _quan_ly(q)
+    sa = await _cd(q, "SA")
+    cycle = (await _thu(q))["payment_cycle_id"]
+    line = await _dong_sa(q, cycle, sa)
+    refund_id = await _hoan(q, ql, cycle, line, 1, "TRANSFER")
+
+    # Tái tạo dữ liệu cũ trước migration: đã có yêu cầu hoàn PENDING rồi phiếu
+    # bị huỷ. Bỏ riêng guard mới trong DB thử để kiểm lớp bảo vệ của service.
+    await q.pool.execute(
+        "ALTER TABLE public.payment_cycle "
+        "DISABLE TRIGGER trg_payment_cycle_service_refund_guard"
+    )
+    try:
+        await q.pool.execute(
+            """
+            UPDATE public.payment_cycle
+               SET status = 'VOIDED',
+                   closed_at = now(),
+                   closed_by = $2::uuid,
+                   close_reason = $3
+             WHERE payment_cycle_id = $1::uuid
+               AND clinic_id = $4::uuid
+               AND status = 'PAID'
+            """,
+            cycle,
+            ql.staff_id,
+            "Dữ liệu cũ trước migration",
+            CLINIC,
+        )
+    finally:
+        await q.pool.execute(
+            "ALTER TABLE public.payment_cycle "
+            "ENABLE TRIGGER trg_payment_cycle_service_refund_guard"
+        )
+
+    with pytest.raises(ConflictError, match="đã hoàn tác"):
+        await HoanTienService(q.pool).xac_nhan(
+            identity=ql, refund_id=refund_id, reference="FT-OLD-123"
+        )
+    assert (
+        await q.pool.fetchval(
+            "SELECT status FROM public.payment_refund WHERE refund_id = $1::uuid",
+            refund_id,
+        )
+        == "PENDING"
+    )
+
+
+async def test_db_chan_huy_lan_dich_vu_khi_con_khoan_hoan_cho(q: Quay) -> None:
+    ql = await _quan_ly(q)
+    sa = await _cd(q, "SA")
+    cycle = (await _thu(q))["payment_cycle_id"]
+    line = await _dong_sa(q, cycle, sa)
+    refund_id = await _hoan(q, ql, cycle, line, 1, "TRANSFER")
+
+    with pytest.raises(asyncpg.CheckViolationError):
+        await q.pool.execute(
+            """
+            UPDATE public.payment_cycle
+               SET status = 'VOIDED',
+                   closed_at = now(),
+                   closed_by = $2::uuid,
+                   close_reason = $3
+             WHERE payment_cycle_id = $1::uuid
+               AND clinic_id = $4::uuid
+               AND status = 'PAID'
+            """,
+            cycle,
+            ql.staff_id,
+            "Không huỷ khi còn khoản hoàn",
+            CLINIC,
+        )
+
+    state = await q.pool.fetchrow(
+        """
+        SELECT pc.status AS cycle_status, r.status AS refund_status
+          FROM payment_cycle pc
+          JOIN payment_refund r
+            ON r.payment_cycle_id = pc.payment_cycle_id
+         WHERE pc.payment_cycle_id = $1::uuid AND r.refund_id = $2::uuid
+        """,
+        cycle,
+        refund_id,
+    )
+    assert state is not None
+    assert (state["cycle_status"], state["refund_status"]) == ("PAID", "PENDING")
+
+
 async def test_hoan_tien_cho_du_mot_phan_va_that_bai(q: Quay) -> None:
     ql = await _quan_ly(q)
     sa = await _cd(q, "SA")
