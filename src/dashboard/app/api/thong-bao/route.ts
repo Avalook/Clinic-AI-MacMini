@@ -44,3 +44,14 @@ export async function POST() {
 
   return proxyJsonToBackend("POST", "/api/v1/thong-bao/da-doc", {});
 }
+
+/** Ẩn các thông báo hiện có khỏi chuông của người dùng này. */
+export async function DELETE() {
+  const caller = await getSupabaseServer();
+  const {
+    data: { user },
+  } = await caller.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+
+  return proxyJsonToBackend("DELETE", "/api/v1/thong-bao/cua-toi", {});
+}

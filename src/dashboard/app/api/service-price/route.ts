@@ -21,7 +21,7 @@ import { NextResponse } from "next/server";
 import { proxyJsonToBackend } from "../../../lib/backend-proxy";
 import { getSupabaseServer } from "../../../lib/supabase-server";
 
-type PriceGroup = "thuoc" | "dich_vu";
+type PriceGroup = "thuoc" | "dich_vu" | "vat_tu";
 
 const MA_KV_RE = /^[A-Za-z0-9_-]{1,32}$/;
 const NODE_RE = /^[A-Z0-9_-]{1,64}$/;
@@ -86,6 +86,13 @@ interface PostBody {
   node_code?: unknown;
   billing_owner?: unknown;
   nhom?: unknown;
+  loai_vat_tu?: unknown;
+  gia_nhap?: unknown;
+  don_vi?: unknown;
+  ma_vach?: unknown;
+  kinh_doanh?: unknown;
+  can_duyet_nhap?: unknown;
+  can_ql_duyet?: unknown;
 }
 
 /** Nhóm hàng: chuỗi ≤ 120 ký tự ("" = bỏ nhóm); sai kiểu → undefined. */
@@ -109,14 +116,14 @@ export async function POST(request: Request) {
 
   const service_code = (body.service_code ?? "").trim();
   const name = (body.name ?? "").trim();
-  const group = body.group === "thuoc" || body.group === "dich_vu" ? (body.group as PriceGroup) : null;
+  const group = body.group === "thuoc" || body.group === "dich_vu" || body.group === "vat_tu" ? (body.group as PriceGroup) : null;
   const unit_price = parsePrice(body.unit_price);
   const ma_kiotviet = parseMaKv(body.ma_kiotviet);
   const node_code = parseNode(body.node_code);
   const billing_owner = parseBenThu(body.billing_owner);
   const nhom = parseNhom(body.nhom);
 
-  if (!group) return sai("Nhóm phải là thuoc / dich_vu.");
+  if (!group) return sai("Nhóm phải là thuoc / dich_vu / vat_tu.");
   // Dịch vụ không mã: máy chủ tự sinh mã nội bộ từ tên (01/10/2026).
   if (!name || (group === "thuoc" && !service_code && !ma_kiotviet)) {
     return sai("Thiếu mã phòng khám (hoặc mã dịch vụ) hoặc tên.");
@@ -126,6 +133,19 @@ export async function POST(request: Request) {
   if (node_code === undefined) return sai("Phòng làm không hợp lệ.");
   if (billing_owner === undefined) return sai("Bên thu không hợp lệ.");
   if (nhom === undefined) return sai("Nhóm hàng không hợp lệ.");
+
+  if (group === "vat_tu") {
+    const loai = body.loai_vat_tu;
+    const donVi = body.don_vi;
+    const maVach = body.ma_vach;
+    if (loai !== null && loai !== undefined && loai !== "VPP" && loai !== "VTYT") return sai("Chọn Văn phòng phẩm hoặc Vật tư y tế.");
+    if (donVi !== null && donVi !== undefined && (typeof donVi !== "string" || donVi.trim().length > 40)) return sai("Đơn vị tính không hợp lệ.");
+    if (maVach !== null && maVach !== undefined && (typeof maVach !== "string" || maVach.trim().length > 120)) return sai("Mã vạch không hợp lệ.");
+    for (const key of ["kinh_doanh", "can_duyet_nhap", "can_ql_duyet"] as const) {
+      if (body[key] !== undefined && typeof body[key] !== "boolean") return sai("Chọn Có hoặc Không cho các điều kiện vật tư.");
+    }
+    if (parsePrice(body.gia_nhap) === undefined) return sai("Giá nhập không hợp lệ.");
+  }
 
   // Mã trùng là 409 từ FastAPI, không phải một dòng thứ hai không ai để ý.
   return proxyJsonToBackend("POST", "/api/v1/service-prices", {
@@ -137,6 +157,15 @@ export async function POST(request: Request) {
     node_code,
     ...(billing_owner ? { billing_owner } : {}),
     ...(nhom ? { nhom } : {}),
+    ...(group === "vat_tu" ? {
+      loai_vat_tu: body.loai_vat_tu ?? null,
+      gia_nhap: parsePrice(body.gia_nhap),
+      don_vi: typeof body.don_vi === "string" ? body.don_vi.trim() : null,
+      ma_vach: typeof body.ma_vach === "string" ? body.ma_vach.trim() : null,
+      kinh_doanh: body.kinh_doanh === true,
+      can_duyet_nhap: body.can_duyet_nhap === true,
+      can_ql_duyet: body.can_ql_duyet === true,
+    } : {}),
   });
 }
 

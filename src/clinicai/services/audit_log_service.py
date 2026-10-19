@@ -6,14 +6,13 @@ JavaScript. Ba hệ quả, và cái thứ ba là thứ người dùng nhìn th�
 
   1. Không JOIN được sang ``staff``/``patient`` — PostgREST không nối được qua
      một khoá nằm trong ``jsonb``. Nên màn hình không có cách nào biết tên.
-  2. TRỘN RỒI CẮT LÀM MẤT DÒNG. Mỗi nguồn lấy 200 dòng mới nhất, trộn lại rồi
-     cắt còn 200 — nên mốc thời gian cũ nhất là min của hai nguồn, và những
-     dòng nằm giữa hai mốc ấy biến mất khỏi màn hình mà không ai biết.
+  2. CẮT 200 LÀM MẤT LỊCH SỬ TRONG NGÀY. Màn vận hành cần đối chiếu từ sự kiện
+     đầu tiên trong ngày, nên truy vấn lấy toàn bộ ngày Việt Nam hiện tại.
   3. Bảng nhãn và cách dựng nhãn đối tượng nằm trong TSX — trái nguyên tắc dự
      án, và là lý do có hai bảng nhãn lệch nhau.
 
-Ở đây là một câu SQL: ``UNION ALL`` gộp hai nguồn TRƯỚC khi sắp xếp và cắt, nên
-ranh giới thời gian đúng.
+Ở đây là một câu SQL: ``UNION ALL`` gộp hai nguồn rồi sắp xếp; khoảng thời gian
+nửa mở theo ngày Việt Nam giữ đủ sự kiện và dùng được chỉ mục theo thời gian.
 
 MỘT ĐIỀU PHẢI NHỚ KHI ĐỌC FILE NÀY. Backend chạy bằng service role và BỎ QUA
 RLS. Hôm nay chính RLS (policy ``event_log_select_ops``) mới là thứ giới hạn
@@ -25,7 +24,9 @@ giờ từ tham số của người gọi.
 from __future__ import annotations
 
 import json
+from datetime import date, datetime, time, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import asyncpg
 import structlog
@@ -46,7 +47,23 @@ AUDIT_ROLES: frozenset[ClinicRole] = frozenset(
     {ClinicRole.MANAGEMENT, ClinicRole.TRUONG_CA, ClinicRole.CSKH}
 )
 
-MAX_ROWS = 200
+_VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
+
+
+def _day_bounds_vn(
+    day_or_now: date | datetime | None = None,
+) -> tuple[datetime, datetime]:
+    """Khoảng nửa mở của một ngày Việt Nam, đổi sang timestamp có múi giờ."""
+    if isinstance(day_or_now, datetime):
+        ngay = day_or_now.astimezone(_VN_TZ).date()
+    elif isinstance(day_or_now, date):
+        ngay = day_or_now
+    else:
+        ngay = datetime.now(_VN_TZ).date()
+
+    bat_dau = datetime.combine(ngay, time.min, tzinfo=_VN_TZ)
+    return bat_dau, bat_dau + timedelta(days=1)
+
 
 _SQL = """
 WITH nhat_ky AS (
@@ -66,8 +83,9 @@ WITH nhat_ky AS (
            a.subject_ref_name
       FROM public.v_audit_log a
      WHERE a.clinic_id = $1::uuid
+       AND a.occurred_at >= $2
+       AND a.occurred_at < $3
      ORDER BY a.occurred_at DESC
-     LIMIT $2
 ),
 -- Workflow kernel ghi vào bảng riêng. Gộp TRƯỚC khi sắp xếp, không phải sau —
 -- xem ghi chú đầu file về chuyện trộn-rồi-cắt làm mất dòng.
@@ -98,8 +116,9 @@ quy_trinh AS (
              ON p.clinic_patient_id = wi.clinic_patient_id
             AND p.clinic_id = $1::uuid
      WHERE w.clinic_id = $1::uuid
+       AND w.occurred_at >= $2
+       AND w.occurred_at < $3
      ORDER BY w.occurred_at DESC
-     LIMIT $2
 )
 SELECT * FROM (
     SELECT * FROM nhat_ky
@@ -107,7 +126,6 @@ SELECT * FROM (
     SELECT * FROM quy_trinh
 ) gop
 ORDER BY occurred_at DESC
-LIMIT $2
 """
 
 
@@ -188,11 +206,9 @@ class AuditLogService:
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    async def events(
-        self, *, identity: StaffIdentity, limit: int = MAX_ROWS
-    ) -> dict[str, Any]:
-        n = max(1, min(limit, MAX_ROWS))
-        rows = await self._pool.fetch(_SQL, identity.clinic_id, n)
+    async def events(self, *, identity: StaffIdentity) -> dict[str, Any]:
+        bat_dau, ket_thuc = _day_bounds_vn()
+        rows = await self._pool.fetch(_SQL, identity.clinic_id, bat_dau, ket_thuc)
 
         items = [
             {

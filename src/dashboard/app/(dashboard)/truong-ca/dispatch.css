@@ -129,6 +129,39 @@
 .dispatch-scope .scale-in { animation: scaleIn 0.2s ease-out; }
 .dispatch-scope .pulse-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
 
+.dispatch-stats > div {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dispatch-stats > div > * {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.dispatch-stats > div > * > span {
+  justify-content: center;
+}
+
+.dispatch-stats > div > * > span > span {
+  align-items: center;
+}
+
+.dispatch-stats > div > *:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 768px) {
+  .dispatch-stats > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .dispatch-stats > div > *:last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+}
+
 /* TV mode special */
 @keyframes tv-glow {
   0%, 100% { box-shadow: 0 0 20px rgba(15, 139, 141, 0.15); }

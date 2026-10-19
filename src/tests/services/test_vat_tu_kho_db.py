@@ -60,6 +60,8 @@ async def _ghi(
     den: str | None = None,
     so: Any = 3,
     khoa: str | None = None,
+    nha_cung_cap: str | None = None,
+    ghi_chu: str | None = "Bài mô phỏng",
 ) -> dict[str, Any]:
     from clinicai.services.vat_tu_kho_service import tao_phieu
 
@@ -68,7 +70,8 @@ async def _ghi(
         identity=identity,
         khoa_gui=khoa or uuid.uuid4().hex,
         loai=loai,
-        ghi_chu="Bài mô phỏng",
+        ghi_chu=ghi_chu,
+        nha_cung_cap=nha_cung_cap,
         dong=[{"vat_tu_id": vt, "tu_room_id": tu, "den_room_id": den, "so_luong": so}],
     )
 
@@ -231,6 +234,46 @@ async def test_phong_tat_con_ton_va_kiem_khong_doi_ton(pool: asyncpg.Pool) -> No
     )
     assert tuple(row.values()) == (Decimal(0), Decimal(5), Decimal(2))
     await _ghi(pool, identity, vt, "DIEU_CHINH", tu=rooms[0], so=2)
+    await _bat_bien(pool, identity, vt)
+
+
+async def test_tra_nha_san_xuat_giam_ton_va_hoan_tac_dung_so(
+    pool: asyncpg.Pool,
+) -> None:
+    from clinicai.services.vat_tu_kho_service import hoan_phieu
+
+    identity, vt, _ = await _bo(pool)
+    await _ghi(pool, identity, vt, "NHAP", so=5)
+    with pytest.raises(ValidationError):
+        await _ghi(pool, identity, vt, "TRA_NCC", so=2, ghi_chu="Thiếu NCC")
+    p = await _ghi(
+        pool,
+        identity,
+        vt,
+        "TRA_NCC",
+        so=2,
+        khoa=uuid.uuid4().hex,
+        nha_cung_cap="Nhà cung cấp thử",
+    )
+    phieu = await pool.fetchrow(
+        "SELECT loai, nha_cung_cap FROM vat_tu_phieu WHERE id=$1::uuid", p["id"]
+    )
+    assert tuple(phieu.values()) == ("TRA_NCC", "Nhà cung cấp thử")
+    assert (
+        await pool.fetchval(
+            "SELECT so_luong FROM vat_tu_ton WHERE vat_tu_id=$1::uuid", vt
+        )
+        == 3
+    )
+    await hoan_phieu(
+        pool, identity=identity, phieu_id=p["id"], khoa_gui=uuid.uuid4().hex
+    )
+    assert (
+        await pool.fetchval(
+            "SELECT so_luong FROM vat_tu_ton WHERE vat_tu_id=$1::uuid", vt
+        )
+        == 5
+    )
     await _bat_bien(pool, identity, vt)
 
 

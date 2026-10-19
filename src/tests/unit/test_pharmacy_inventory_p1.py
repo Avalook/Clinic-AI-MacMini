@@ -14,7 +14,11 @@ from clinicai.api.v1.routers.pharmacy import (
     HuyRequest,
     NhapLoRequest,
 )
-from clinicai.services.pharmacy_service import PharmacyService, _kiem_don_vi_cung_lo
+from clinicai.services.pharmacy_service import (
+    SO_TOI_DA,
+    PharmacyService,
+    _kiem_don_vi_cung_lo,
+)
 
 
 def _identity() -> StaffIdentity:
@@ -123,4 +127,18 @@ async def test_service_nhap_lo_tu_choi_gia_nhap_khong_huu_han(value: float) -> N
             expiry_date=None,
             unit="viên",
             cost_price=value,
+        )
+
+
+@pytest.mark.asyncio
+async def test_service_nhap_lo_tu_choi_gia_nhap_qua_tran_truoc_database() -> None:
+    with pytest.raises(ValidationError, match="Giá nhập quá lớn"):
+        await PharmacyService(_PoolKhongDuocMo()).nhap_lo(
+            identity=_identity(),
+            drug_catalog_id="c0000000-0000-4000-8000-000000000001",
+            so_luong=1,
+            batch_code="LO-1",
+            expiry_date=None,
+            unit="viên",
+            cost_price=SO_TOI_DA + 1,
         )

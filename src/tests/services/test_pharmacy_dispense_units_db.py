@@ -36,8 +36,9 @@ def _khong_so_su_kien(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest_asyncio.fixture
 async def stock_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
     target = urlsplit(test_db_url)
-    if target.hostname not in {"localhost", "127.0.0.1"} or target.port != 55433:
-        pytest.skip("Dispensing SQL tests only use disposable localhost:55433")
+    disposable = target.path.lstrip("/").startswith(("tam_", "ci_gw"))
+    if target.hostname not in {"localhost", "127.0.0.1"} or not disposable:
+        pytest.skip("Dispensing SQL tests require a disposable tam_/ci_gw database")
     conn = await asyncpg.connect(test_db_url)
     try:
         await conn.execute(
@@ -74,6 +75,7 @@ async def stock_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
                 id uuid PRIMARY KEY, clinic_id uuid NOT NULL,
                 drug_catalog_id uuid, quantity_on_hand numeric NOT NULL,
                 expiry_date date, unit text NOT NULL,
+                noi_chua text NOT NULL DEFAULT 'QUAY',
                 CHECK (quantity_on_hand >= 0)
             );
             CREATE TEMP TABLE inventory_txn (
@@ -124,7 +126,8 @@ async def stock_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
             "INSERT INTO drug_catalog VALUES ($1::uuid, 'Thuốc thử')", BATCH
         )
         await conn.execute(
-            "INSERT INTO drug_batch VALUES "
+            "INSERT INTO drug_batch (id,clinic_id,drug_catalog_id,"
+            "quantity_on_hand,expiry_date,unit) VALUES "
             "($1::uuid, $2::uuid, $1::uuid, 100, '2099-12-31', 'viên')",
             BATCH,
             CLINIC,

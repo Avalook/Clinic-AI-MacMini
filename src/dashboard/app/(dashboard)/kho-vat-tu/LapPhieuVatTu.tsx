@@ -12,8 +12,8 @@ import { useState } from "react";
 import Button from "@/components/ui/Button";
 import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
-import { guiVatTu, khoaMoi } from "./gui-vat-tu";
-import type { NoiChua } from "./TonVatTu";
+import { guiVatTu, khoaMoi, soVatTu } from "./gui-vat-tu";
+import type { DongTon, NoiChua } from "./TonVatTu";
 
 type Cho = null | "noi" | "phong";
 
@@ -25,57 +25,52 @@ interface Kieu {
   nhanTu: string;
   nhanDen: string;
   nhanSo: string;
-  /** Ghi chú ngầm khi kho cơ sở là đầu còn lại. */
-  goiY?: string;
 }
 
 export const KIEU_PHIEU: Record<string, Kieu> = {
-  NHAP: { nhan: "Nhập kho", tu: null, den: "noi", nhanTu: "", nhanDen: "Nhập vào", nhanSo: "Số lượng nhập" },
+  NHAP: { nhan: "Nhập hàng vào kho", tu: null, den: "noi", nhanTu: "", nhanDen: "Cất tại", nhanSo: "Số lượng nhận" },
   XUAT_PHONG: {
-    nhan: "Xuất kho → phòng",
+    nhan: "Cấp vật tư từ kho cho phòng",
     tu: null,
     den: "phong",
     nhanTu: "",
     nhanDen: "Phòng nhận",
-    nhanSo: "Số lượng xuất",
-    goiY: "Lấy từ Kho cơ sở. Kho hết trên sổ vẫn xuất được — tồn âm sẽ nhắc kiểm đếm.",
+    nhanSo: "Số lượng giao",
   },
   TRA_KHO: {
-    nhan: "Phòng trả kho",
+    nhan: "Phòng trả vật tư về kho",
     tu: "phong",
     den: null,
     nhanTu: "Phòng trả",
     nhanDen: "",
+    nhanSo: "Số lượng chưa dùng trả",
+  },
+  TRA_NCC: {
+    nhan: "Trả nhà sản xuất",
+    tu: "noi",
+    den: null,
+    nhanTu: "Nơi đang giữ hàng",
+    nhanDen: "",
     nhanSo: "Số lượng trả",
-    goiY: "Trả về Kho cơ sở.",
   },
   CHUYEN_PHONG: {
-    nhan: "Chuyển phòng → phòng",
+    nhan: "Chuyển vật tư giữa hai phòng",
     tu: "phong",
     den: "phong",
     nhanTu: "Từ phòng",
     nhanDen: "Sang phòng",
     nhanSo: "Số lượng chuyển",
   },
+  KIEM: { nhan: "Kiểm kê (chỉ lưu số đếm)", tu: "noi", den: null, nhanTu: "Nơi kiểm", nhanDen: "", nhanSo: "Số đếm thực tế" },
   DIEU_CHINH: {
-    nhan: "Kiểm đếm — chỉnh tồn theo số đếm",
+    nhan: "Kiểm kê",
     tu: "noi",
     den: null,
     nhanTu: "Nơi kiểm",
     nhanDen: "",
     nhanSo: "Số đếm thực tế",
-    goiY: "Tồn trên sổ được chỉnh đúng bằng số đếm; có thể hoàn tác bằng phiếu đảo.",
   },
-  KIEM: {
-    nhan: "Kiểm đếm — chỉ ghi số đếm",
-    tu: "noi",
-    den: null,
-    nhanTu: "Nơi kiểm",
-    nhanDen: "",
-    nhanSo: "Số đếm thực tế",
-    goiY: "Chỉ ghi lại số đếm, tồn trên sổ chưa đổi.",
-  },
-  HUY: { nhan: "Huỷ hỏng", tu: "noi", den: null, nhanTu: "Huỷ ở", nhanDen: "", nhanSo: "Số lượng huỷ" },
+  HUY: { nhan: "Ghi nhận vật tư hỏng hoặc huỷ", tu: "noi", den: null, nhanTu: "Nơi có hàng hỏng", nhanDen: "", nhanSo: "Số lượng huỷ" },
 };
 
 interface Dong {
@@ -113,17 +108,48 @@ function baoYeuCau(d: {
 export default function LapPhieuVatTu({
   noiChua,
   vatTu,
+  ton,
   xemChoDuyet,
+  loaiBanDau,
+  initialRoomId = null,
+  fixedMaterial,
+  fixedMaterialId,
+  onHuy,
 }: {
   noiChua: NoiChua[];
-  vatTu: { id: string; name: string }[];
+  vatTu: { id: string; name: string; unit?: string | null; service_code?: string | null }[];
+  ton: DongTon[];
   /** Chuyển sang tab Chờ duyệt khi phiếu vừa gửi đang chờ. */
   xemChoDuyet?: () => void;
+  loaiBanDau: "NHAP" | "XUAT_PHONG" | "TRA_KHO" | "TRA_NCC" | "CHUYEN_PHONG" | "DIEU_CHINH" | "HUY";
+  /** Điền sẵn nơi đang xem trong bảng tồn. */
+  initialRoomId?: string | null;
+  /** Hành động mở từ một dòng tồn thì khoá mặt hàng để tránh thao tác nhầm dòng. */
+  fixedMaterial?: string;
+  fixedMaterialId?: string;
+  onHuy?: () => void;
 }) {
   const router = useRouter();
-  const [loai, setLoai] = useState("XUAT_PHONG");
+  const [cachXuLy, setCachXuLy] = useState<"HUY" | "TRA_KHO" | "TRA_NCC">("HUY");
+  const [cheDoKiem, setCheDoKiem] = useState<"KIEM" | "DIEU_CHINH">("DIEU_CHINH");
+  const loai = loaiBanDau === "HUY" ? cachXuLy : loaiBanDau === "DIEU_CHINH" ? cheDoKiem : loaiBanDau;
   const [ghiChu, setGhiChu] = useState("");
-  const [dong, setDong] = useState<Dong[]>(() => [dongMoi()]);
+  const [nhaCungCap, setNhaCungCap] = useState("");
+  const nhanVatTu = (v: typeof vatTu[number]) => `${v.name} · ${v.service_code || v.id}${v.unit ? ` · ${v.unit}` : ""}`;
+  const vatTuDaChon = (ten: string) => {
+    if (fixedMaterialId) return vatTu.find((v) => v.id === fixedMaterialId);
+    const theoNhan = vatTu.find((v) => nhanVatTu(v) === ten);
+    if (theoNhan) return theoNhan;
+    const cungTen = vatTu.filter((v) => v.name === ten);
+    return cungTen.length === 1 ? cungTen[0] : undefined;
+  };
+  const taoDongTrongPhamVi = (): Dong => ({
+    ...dongMoi(),
+    ten: fixedMaterial ?? "",
+    tu: loaiBanDau === "NHAP" || loaiBanDau === "XUAT_PHONG" ? "" : initialRoomId ?? "",
+    den: loaiBanDau === "NHAP" || loaiBanDau === "XUAT_PHONG" ? initialRoomId ?? "" : "",
+  });
+  const [dong, setDong] = useState<Dong[]>(() => [taoDongTrongPhamVi()]);
   const [khoa, setKhoa] = useState(khoaMoi);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
@@ -139,16 +165,26 @@ export default function LapPhieuVatTu({
         <span className="mb-1 block text-meta text-ink-soft">{nhan}</span>
         <OChon value={gia} onChange={(e) => dat(e.target.value)} className="w-full">
           {cho === "noi" ? (
-            <option value="">Kho cơ sở</option>
+            <option value="">Kho</option>
           ) : (
             <option value="">Chọn phòng…</option>
           )}
+          {(den ? phongNhan : phong).length === 0 ? (
+            <option value="" disabled>
+              {den ? "Chưa có phòng đang hoạt động" : "Chưa có phòng đã cấu hình"}
+            </option>
+          ) : null}
           {(den ? phongNhan : phong).map((n) => (
             <option key={n.room_id} value={n.room_id ?? ""}>
               {n.dang_bat ? n.ten : `${n.ten} (đã tắt)`}
             </option>
           ))}
         </OChon>
+        {cho === "phong" && (den ? phongNhan : phong).length === 0 ? (
+          <span className="mt-1 block text-meta text-ink-muted">
+            Chưa có phòng dùng cho cơ sở này. Nhờ quản lý bật hoặc gán phòng trong Cấu trúc phòng khám.
+          </span>
+        ) : null}
       </label>
     ) : null;
 
@@ -159,14 +195,15 @@ export default function LapPhieuVatTu({
     (d) =>
       !d.ten.trim() ||
       !d.so.trim() ||
+      (loai === "TRA_NCC" && (nhaCungCap.trim().length < 2 || ghiChu.trim().length < 5)) ||
       (kieu.tu === "phong" && !d.tu) ||
       (kieu.den === "phong" && !d.den),
   );
 
   const luu = async () => {
-    const sai = dong.findIndex((d) => !vatTu.some((v) => v.name === d.ten));
+    const sai = dong.findIndex((d) => !vatTuDaChon(d.ten));
     if (sai >= 0) {
-      setLoi(`Dòng ${sai + 1}: chọn vật tư có trong danh mục (gõ rồi chọn trong danh sách).`);
+      setLoi(`Dòng ${sai + 1}: chọn vật tư duy nhất trong danh mục. Nếu trùng tên, cần phân biệt tên hoặc đơn vị trong danh mục trước khi ghi phiếu.`);
       return;
     }
     setDang(true);
@@ -178,8 +215,9 @@ export default function LapPhieuVatTu({
       {
         loai,
         ghi_chu: ghiChu.trim() || null,
+        nha_cung_cap: loai === "TRA_NCC" ? nhaCungCap.trim() : null,
         dong: dong.map((d) => ({
-          vat_tu_id: vatTu.find((v) => v.name === d.ten)?.id,
+          vat_tu_id: vatTuDaChon(d.ten)?.id,
           tu_room_id: kieu.tu ? d.tu || null : null,
           den_room_id: kieu.den ? d.den || null : null,
           so_luong: d.so.trim().replace(",", "."),
@@ -197,44 +235,54 @@ export default function LapPhieuVatTu({
     const yeuCau = d ? baoYeuCau(d) : null;
     setDangCho(d?.cho_duyet === true);
     setBao(
-      yeuCau ?? `Đã lập phiếu ${d?.ma_phieu ?? ""} — tồn đã cập nhật. Sai thì bấm Hoàn tác ở danh sách bên dưới.`,
+      yeuCau ?? `Đã ghi nhận “${kieu.nhan}”${d?.ma_phieu ? ` · mã ${d.ma_phieu}` : ""}. ${loai === "KIEM" ? "Số đếm đã lưu, tồn chưa thay đổi." : "Tồn đã cập nhật."} Nếu ghi nhầm, mở Lịch sử thao tác để hoàn tác.`,
     );
-    setDong([dongMoi()]);
+    setDong([taoDongTrongPhamVi()]);
     setGhiChu("");
+    setNhaCungCap("");
     setKhoa(khoaMoi());
     router.refresh();
   };
 
   return (
-    <section aria-label="Lập phiếu" className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
-      <div className="flex flex-wrap items-end gap-3">
-        <h3 className="text-title text-ink">Lập phiếu</h3>
-        <label className="block min-w-0 flex-1 basis-56">
-          <span className="mb-1 block text-meta text-ink-soft">Loại phiếu</span>
+    <section aria-label="Ghi nhận thao tác kho" className="space-y-3 rounded-card border border-line bg-surface p-4 shadow-card">
+      <datalist id="vat-tu-phieu">
+        {vatTu.map((v) => (
+          <option key={v.id} value={nhanVatTu(v)} />
+        ))}
+      </datalist>
+      {loaiBanDau === "HUY" ? (
+        <label className="block max-w-md">
+          <span className="mb-1 block text-meta text-ink-soft">Cách xử lý hàng</span>
           <OChon
-            value={loai}
+            value={cachXuLy}
             onChange={(e) => {
-              setLoai(e.target.value);
-              setDong([dongMoi()]);
-              setKhoa(khoaMoi());
+              setCachXuLy(e.target.value as "HUY" | "TRA_KHO" | "TRA_NCC");
+              setDong((ds) => ds.map((d) => ({ ...d, tu: initialRoomId ?? "", den: "" })));
             }}
             className="w-full"
           >
-            {Object.entries(KIEU_PHIEU).map(([ma, k]) => (
-              <option key={ma} value={ma}>
-                {k.nhan}
-              </option>
-            ))}
+            <option value="HUY">Huỷ bỏ hàng hỏng</option>
+            <option value="TRA_KHO">Nhập lại kho</option>
+            <option value="TRA_NCC">Trả nhà sản xuất</option>
           </OChon>
         </label>
-      </div>
-      {kieu.goiY ? <p className="text-meta text-ink-muted">{kieu.goiY}</p> : null}
-
-      <datalist id="vat-tu-phieu">
-        {vatTu.map((v) => (
-          <option key={v.id} value={v.name} />
-        ))}
-      </datalist>
+      ) : null}
+      {loaiBanDau === "DIEU_CHINH" ? (
+        <label className="block max-w-md">
+          <span className="mb-1 block text-meta text-ink-soft">Sau khi đếm</span>
+          <OChon value={cheDoKiem} onChange={(e) => setCheDoKiem(e.target.value as "KIEM" | "DIEU_CHINH")} className="w-full">
+            <option value="KIEM">Chỉ lưu số đếm</option>
+            <option value="DIEU_CHINH">Cập nhật tồn theo số đếm</option>
+          </OChon>
+        </label>
+      ) : null}
+      {loai === "TRA_NCC" ? (
+        <label className="block max-w-md">
+          <span className="mb-1 block text-meta text-ink-soft">Nhà sản xuất</span>
+          <ONhap value={nhaCungCap} maxLength={200} onChange={(e) => setNhaCungCap(e.target.value)} className="w-full" />
+        </label>
+      ) : null}
       <ol className="space-y-3">
         {dong.map((d, i) => (
           <li
@@ -244,18 +292,26 @@ export default function LapPhieuVatTu({
           >
             <label className="col-span-2 block">
               <span className="mb-1 block text-meta text-ink-soft">{i + 1}. Vật tư</span>
-              <ONhap
-                list="vat-tu-phieu"
-                value={d.ten}
-                placeholder="Gõ tên vật tư…"
-                onChange={(e) => suaDong(d.k, { ten: e.target.value })}
-                className="w-full"
-              />
+              {fixedMaterial ? (
+                <div className="flex min-h-10 items-center rounded-control border border-line bg-surface px-3 text-body font-medium text-ink">
+                  {fixedMaterial}
+                </div>
+              ) : (
+                <ONhap
+                  list="vat-tu-phieu"
+                  value={d.ten}
+                  placeholder="Gõ tên vật tư…"
+                  onChange={(e) => suaDong(d.k, { ten: e.target.value })}
+                  className="w-full"
+                />
+              )}
             </label>
             {chon(kieu.tu, kieu.nhanTu, d.tu, (v) => suaDong(d.k, { tu: v }), false)}
             {chon(kieu.den, kieu.nhanDen, d.den, (v) => suaDong(d.k, { den: v }), true)}
             <label className="block">
-              <span className="mb-1 block text-meta text-ink-soft">{kieu.nhanSo}</span>
+              <span className="mb-1 block text-meta text-ink-soft">
+                {loai === "DIEU_CHINH" || loai === "KIEM" ? "Số đếm thực tế" : kieu.nhanSo}
+              </span>
               <ONhap
                 inputMode="decimal"
                 value={d.so}
@@ -263,50 +319,75 @@ export default function LapPhieuVatTu({
                 className="w-full text-right tabular-nums"
               />
             </label>
-            <div className="flex items-end gap-2">
+            {(loai === "DIEU_CHINH" || loai === "KIEM") && (() => {
+              const vatTuId = vatTuDaChon(d.ten)?.id;
+              const roomId = d.tu || null;
+              const soTrenSo = ton.find((t) => t.vat_tu_id === vatTuId && t.room_id === roomId)?.so_luong ?? 0;
+              const soDem = Number(d.so.trim().replace(",", "."));
+              const chenhLech = d.so.trim() && Number.isFinite(soDem) ? soDem - soTrenSo : null;
+              const dau = chenhLech !== null && chenhLech > 0 ? "+" : "";
+              return (
+                <p className="col-span-2 text-meta text-ink-muted">
+                  Tồn sổ: {soVatTu(soTrenSo)}. {chenhLech === null
+                    ? "Nhập số đếm thực tế để xem chênh lệch."
+                    : `Chênh lệch dự kiến: ${dau}${soVatTu(chenhLech)}.`}
+                  {loai === "DIEU_CHINH"
+                    ? " Khi lưu, tồn sẽ cập nhật bằng số đếm thực tế. Nếu ghi nhầm, có thể hoàn tác trong lịch sử."
+                    : " Chế độ này chỉ lưu số đếm, không thay đổi tồn kho."}
+                </p>
+              );
+            })()}
+            {loai === "NHAP" ? (
               <label className="block min-w-0 flex-1">
-                <span className="mb-1 block text-meta text-ink-soft">Giá nhập (đ)</span>
+                <span className="mb-1 block text-meta text-ink-soft">Giá mua một đơn vị (đ)</span>
                 <ONhap
                   inputMode="numeric"
                   value={d.gia}
-                  placeholder="theo danh mục"
+                  placeholder="Lấy giá đã cài nếu để trống"
                   onChange={(e) => suaDong(d.k, { gia: e.target.value })}
                   className="w-full text-right tabular-nums"
                 />
               </label>
-              {dong.length > 1 ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  aria-label={`Bỏ dòng ${i + 1}`}
-                  onClick={() => setDong((ds) => ds.filter((x) => x.k !== d.k))}
-                >
-                  Bỏ
-                </Button>
-              ) : null}
-            </div>
+            ) : null}
+            {dong.length > 1 ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                aria-label={`Bỏ dòng ${i + 1}`}
+                onClick={() => setDong((ds) => ds.filter((x) => x.k !== d.k))}
+              >
+                Bỏ dòng này
+              </Button>
+            ) : null}
           </li>
         ))}
       </ol>
 
       <label className="block">
-        <span className="mb-1 block text-meta text-ink-soft">Lý do / ghi chú</span>
+        <span className="mb-1 block text-meta text-ink-soft">{loai === "TRA_NCC" ? "Lý do trả nhà sản xuất" : "Ghi chú / lý do"}</span>
         <ONhap
           value={ghiChu}
           maxLength={1000}
-          placeholder={loai === "HUY" ? "Vì sao huỷ — vỡ, hết hạn…" : "Ghi chú cho phiếu (tuỳ chọn)"}
+          placeholder={loai === "TRA_NCC" ? "Ví dụ: hàng lỗi, thu hồi theo yêu cầu…" : loai === "HUY" ? "Vì sao huỷ — vỡ, hỏng…" : "Ghi chú thao tác (tuỳ chọn)"}
           onChange={(e) => setGhiChu(e.target.value)}
           className="w-full"
         />
       </label>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" variant="secondary" onClick={() => setDong((ds) => [...ds, dongMoi()])}>
-          + Thêm dòng
-        </Button>
+        {!fixedMaterial ? (
+          <Button type="button" size="sm" variant="secondary" onClick={() => setDong((ds) => [...ds, taoDongTrongPhamVi()])}>
+            + Thêm dòng
+          </Button>
+        ) : null}
+        {onHuy ? (
+          <Button type="button" size="sm" variant="ghost" onClick={onHuy}>
+            Đóng
+          </Button>
+        ) : null}
         <Button type="button" variant="primary" disabled={dang || thieu} onClick={() => void luu()} className="sm:ml-auto">
-          {dang ? "Đang lưu…" : "Lưu phiếu"}
+          {dang ? "Đang lưu…" : loai === "KIEM" ? "Lưu số đếm" : loai === "DIEU_CHINH" ? "Cập nhật tồn kho" : loai === "HUY" || loai === "TRA_NCC" ? kieu.nhan : `Ghi nhận ${kieu.nhan.toLocaleLowerCase("vi")}`}
         </Button>
       </div>
       {loi ? (

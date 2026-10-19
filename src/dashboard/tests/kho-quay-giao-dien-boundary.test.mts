@@ -41,7 +41,13 @@ const MOCK = {
   "@/components/ui/Button": Nut,
   "@/components/ui/Chip": Chip,
   "../../form-ui": { INPUT: "i", TBL_DIV: "d", TBL_HEAD: "h", TBL_WRAP: "w" },
-  "./gui-kho": { guiKho: async () => ({ ok: true, data: null }), soKho: (n: unknown) => String(n), tienVnd: String },
+  "./gui-kho": {
+    guiKho: async () => ({ ok: true, data: null }),
+    soKho: (n: unknown) => String(n),
+    tienVnd: String,
+    tongTonTheoDonVi: () => [],
+    tonTheoDonVi: () => "0",
+  },
   "./NhapLo": () => null,
 };
 
@@ -68,10 +74,8 @@ test("proxy cho đi ba đường G7 và gui-kho khai đủ", () => {
   }
 });
 
-test("tab Chuyển kho có trong Kho thuốc; chip KHO/QUẦY chỉ hiện khi bật tách", () => {
-  assert.match(khoThuoc, /ma: "chuyen_kho" as const, nhan: "Chuyển ra quầy \(tuỳ chọn\)"/);
-  // 16/10: không bắt buộc — chỉ hiện khi cơ sở ĐANG bật tách (tắt tách thì tab biến mất).
-  assert.match(khoThuoc, /const hienChuyen = tachKhoQuay;/);
+test("không cần tab chuyển kho; chip KHO/QUẦY chỉ hiện khi bật tách", () => {
+  assert.doesNotMatch(khoThuoc, /ma: "chuyen_kho"/);
   assert.match(khoThuoc, /tachKhoQuay=\{tachKhoQuay\}/);
   const Board = nap("app/(dashboard)/pharmacy/inventory/InventoryBoard.tsx", MOCK);
   const batches = [lo("a", "KHO", 10), lo("b", "QUAY", 5)];
@@ -108,7 +112,7 @@ test("ChuyenKho: tắt = nút Bật (chỉ người sửa được), bật = for
   assert.doesNotMatch(chiXem, /Tạo phiếu chuyển/);
 });
 
-test("quầy hết lô mà kho còn → nút chuyển ngay ở dòng đơn, không thêm window.confirm", () => {
+test("quầy hết lô mà kho còn chỉ thông tin, giao trước đối chiếu sau", () => {
   assert.match(dongThuoc, /<KhoConChuyenQuay/);
   assert.match(dongThuoc, /dong\.lo_goi_y\.length === 0/);
   const KhoCon = nap("app/(dashboard)/pharmacy/KhoConChuyenQuay.tsx", {
@@ -119,8 +123,9 @@ test("quầy hết lô mà kho còn → nút chuyển ngay ở dòng đơn, khô
   });
   const khoCon = [{ drug_batch_id: "k1", batch_code: "LK1", expiry_date: "2027-01-01", unit: "viên", ton: 7 }];
   const html = renderToStaticMarkup(React.createElement(KhoCon, { khoCon, can: 3, tenThuoc: "Para" }));
-  assert.match(html, /kho còn 7 viên/);
-  assert.match(html, /Chuyển sang quầy/);
+  assert.match(html, /Kho có 7 viên/);
+  assert.doesNotMatch(html, /<button/);
+  assert.match(html, /xác nhận lô đã lấy/);
   const xem = renderToStaticMarkup(React.createElement(KhoCon, { khoCon, can: 3, tenThuoc: "Para", chiXem: true }));
   assert.doesNotMatch(xem, /<button/);
   for (const f of [
@@ -129,4 +134,11 @@ test("quầy hết lô mà kho còn → nút chuyển ngay ở dòng đơn, khô
   ]) {
     assert.doesNotMatch(doc(f), /window\.confirm/);
   }
+});
+
+test("OQuetMa không kiểm tra camera trực tiếp trong lúc render", () => {
+  const quetMa = doc("app/(dashboard)/pharmacy/inventory/OQuetMa.tsx");
+  assert.match(quetMa, /const coCamera = useSyncExternalStore\(/);
+  assert.match(quetMa, /const cameraUnavailableOnServer = \(\) => false/);
+  assert.doesNotMatch(quetMa, /const coCamera =\s*typeof window/);
 });

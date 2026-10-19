@@ -19,6 +19,9 @@ psql "$DB" -f supabase/fixtures/staff_logins.sql   # 6 staff, one login each
 psql "$DB" -f supabase/fixtures/local_data.sql     # a patient, a session, an episode
 psql "$DB" -f supabase/fixtures/demo_clinic_day.sql # 40 patients, one busy day
 psql "$DB" -f supabase/fixtures/clinic_roster.sql  # 35 nhân sự thật của Dr4Women
+# Chạy thêm bằng tay (dev-up không tự nạp): tài khoản CHỈ XEM kho thuốc —
+# kt.chixem@dr4women.local / clinic-test-pw-123, đúng khối xem_nha_thuoc.
+psql "$DB" -f supabase/fixtures/tai_khoan_chi_xem_kho.sql
 ```
 
 `staff_logins.sql`, `local_data.sql` and `demo_clinic_day.sql` are LOCAL /

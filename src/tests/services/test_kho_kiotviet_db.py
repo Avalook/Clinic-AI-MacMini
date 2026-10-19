@@ -180,6 +180,7 @@ async def test_kiem_kho_khop_thi_khong_ghi_so(q: Quay) -> None:
 
 async def test_xuat_nhap_ton_khoang_ngay(q: Quay) -> None:
     a = await _thuoc_moi(q)
+    chi_danh_muc = await _thuoc_moi(q)
     await _phieu_nhap(q, [_dong_nhap(a, 50, gia=2000)])
     lo = str(
         await q.pool.fetchval(
@@ -191,6 +192,7 @@ async def test_xuat_nhap_ton_khoang_ngay(q: Quay) -> None:
     )
     hom_nay = hom_nay_vn().isoformat()
     kq = await kho.xuat_nhap_ton(q.pool, identity=q.duoc_si, tu=hom_nay, den=hom_nay)
+    assert chi_danh_muc not in {x["drug_catalog_id"] for x in kq["dong"]}
     d = next(x for x in kq["dong"] if x["drug_catalog_id"] == a)
     assert float(d["ton_dau"]) == 0 and float(d["nhap"]) == 50
     assert float(d["huy"]) == 5 and float(d["ton_cuoi"]) == 45
@@ -199,8 +201,7 @@ async def test_xuat_nhap_ton_khoang_ngay(q: Quay) -> None:
     cu = await kho.xuat_nhap_ton(
         q.pool, identity=q.duoc_si, tu="2021-01-01", den="2021-01-31"
     )
-    d = next(x for x in cu["dong"] if x["drug_catalog_id"] == a)
-    assert float(d["ton_dau"]) == 0 and float(d["ton_cuoi"]) == 0
+    assert a not in {x["drug_catalog_id"] for x in cu["dong"]}
     # Ngày rác → hôm nay, không ném.
     rac = await kho.xuat_nhap_ton(q.pool, identity=q.duoc_si, tu="abc", den=None)
     assert rac["tu"] == rac["den"] == hom_nay
@@ -242,7 +243,12 @@ async def test_ton_khac_don_vi_khong_cong_chung(q: Quay) -> None:
     """Tuyền bấm thử 29/09: lô cũ 20 hộp + phiếu nhập 50 viên → thẻ kho báo
     "70 viên". Hộp và viên không cộng được — tồn tách theo đơn vị lô."""
     a = await _thuoc_moi(q)
-    await _phieu_nhap(q, [{**_dong_nhap(a, 20), "unit": "hộp"}])
+    # Lô CŨ tính "hộp": từ 17/10 nhập mới khác đơn vị bán được đổi ngay ở cửa nhập
+    # (test_quy_doi_don_vi_db), nên lô kiểu này chỉ còn là dữ liệu cũ — dựng bằng SQL.
+    await _phieu_nhap(q, [{**_dong_nhap(a, 20), "unit": "viên"}])
+    await q.pool.execute(
+        "UPDATE drug_batch SET unit = 'hộp' WHERE drug_catalog_id = $1::uuid", a
+    )
     await _phieu_nhap(q, [{**_dong_nhap(a, 50), "unit": "viên"}])
     the = await kho.the_kho(q.pool, identity=q.duoc_si, drug_catalog_id=a)
     assert the["thuoc"]["ton_hien_tai"] is None
@@ -313,3 +319,23 @@ async def test_sap_het_hang_so_tung_don_vi_va_an_don_vi_het(q: Quay) -> None:
         (x["don_vi"], float(x["ton"])) for x in the["thuoc"]["ton_theo_don_vi"]
     ] == [("hộp", 20)]
     assert float(the["thuoc"]["ton_hien_tai"]) == 20
+
+
+async def test_khong_am_tham_bo_gia_nhap_moi_cung_lo(q: Quay) -> None:
+    drug = await _thuoc_moi(q)
+    dong = _dong_nhap(drug, 10, gia=1000)
+    await _phieu_nhap(q, [dong])
+    with pytest.raises(ValidationError, match="giá nhập"):
+        await _phieu_nhap(q, [{**dong, "gia_nhap": 2000}])
+    assert await _ton_thuoc(q, drug) == 10
+
+
+async def test_gia_tri_ton_chua_day_du_gia_von_la_null(q: Quay) -> None:
+    drug = await _thuoc_moi(q)
+    await _phieu_nhap(q, [_dong_nhap(drug, 10, gia=1000)])
+    await _phieu_nhap(q, [_dong_nhap(drug, 5, gia=None)])
+    ngay = hom_nay_vn().isoformat()
+    bao_cao = await kho.xuat_nhap_ton(q.pool, identity=q.duoc_si, tu=ngay, den=ngay)
+    dong = next(d for d in bao_cao["dong"] if d["drug_catalog_id"] == drug)
+    assert dong["ton_cuoi"] == 15
+    assert dong["gia_tri_ton"] is None

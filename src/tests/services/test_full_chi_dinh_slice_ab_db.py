@@ -859,6 +859,10 @@ async def test_late_result_follow_up_scenario(
         service_order_id=id_c,
     )
     assert tep_muon["ok"] is True
+    # 16/10/2026: đối tác bấm [Trả kết quả] — mốc "Có kết quả" của việc đối tác.
+    from clinicai.services.doi_tac_service import DoiTacService
+
+    await DoiTacService(kban.pool).tra_ket_qua(order_id=id_c, identity=kban.doi_tac)
 
     # 1. service_order được ghi nhận ket_qua_luc
     async with kban.pool.acquire() as conn:

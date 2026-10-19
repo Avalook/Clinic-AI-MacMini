@@ -13,6 +13,7 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf
 
 const SAP_DEN = read("../app/(dashboard)/phong/[ma]/SapDenPhong.tsx");
 const HANG = read("../app/(dashboard)/phong/[ma]/HangChoKhachPhong.tsx");
+const THE_KHACH = read("../app/(dashboard)/_lam-viec/TheKhachHangCho.tsx");
 const KHUNG = read("../app/(dashboard)/phong/[ma]/KhungChiDinhKhach.tsx");
 const NHAN = read("../app/(dashboard)/phong/[ma]/NhanChiDinh.tsx");
 const PHONG = read("../app/(dashboard)/phong/[ma]/PhongDichVu.tsx");
@@ -21,7 +22,8 @@ const API = read("../app/(dashboard)/_lam-viec/api.ts");
 test("danh sách bên trái: mỗi khách một dòng gọn, không liệt kê chỉ định", () => {
   for (const [ten, nd] of [
     ["SapDenPhong", SAP_DEN],
-    ["HangChoKhachPhong", HANG],
+    // Thẻ khách vẽ ở thành phần chung `TheKhachHangCho` (16/10/2026).
+    ["HangChoKhachPhong", HANG + THE_KHACH],
   ] as const) {
     assert.doesNotMatch(nd, /chi_dinh\.map\(|cd\.map\(/, `${ten} không vẽ từng chỉ định thành dòng`);
     assert.doesNotMatch(nd, /<NhanChiDinh/, `${ten} không có nút Nhận trong danh sách`);

@@ -22,9 +22,6 @@ export default async function TrangThuNgan() {
     <main className="page-in flex flex-col gap-4 p-4 lg:p-5">
       <header>
         <h1 className="text-2xl font-semibold text-ink">Thu ngân thuốc</h1>
-        <p className="text-sm text-ink-muted">
-          Khách có đơn thuốc, chờ trả tiền thuốc. Bấm “Tạo bill” để ghi nhận tiền mặt; chuyển khoản chờ xác minh khi tiền về.
-        </p>
       </header>
       <TabThuNgan quay="thuoc" />
     </main>

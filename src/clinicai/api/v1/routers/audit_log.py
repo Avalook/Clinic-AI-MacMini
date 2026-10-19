@@ -10,12 +10,12 @@ from __future__ import annotations
 from typing import Any
 
 import asyncpg
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services.audit_log_service import MAX_ROWS, AuditLogService
+from clinicai.services.audit_log_service import AuditLogService
 
 router = APIRouter()
 
@@ -28,12 +28,11 @@ _GUARD = cua_quyen("audit.view")
 
 @router.get("/audit/events")
 async def events(
-    limit: int = Query(MAX_ROWS, ge=1, le=MAX_ROWS),
     identity: StaffIdentity = Depends(_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Nhật ký gần nhất, đã giải tên người và tên bệnh nhân.
+    """Toàn bộ nhật ký trong ngày Việt Nam hiện tại, đã giải nghĩa.
 
     KHÔNG nhận ``clinic_id`` từ người gọi — nó lấy từ danh tính đã xác thực.
     """
-    return await AuditLogService(pool).events(identity=identity, limit=limit)
+    return await AuditLogService(pool).events(identity=identity)

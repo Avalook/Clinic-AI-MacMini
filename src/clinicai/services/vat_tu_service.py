@@ -70,7 +70,7 @@ _DA_THU = _DA_PHU.format(loai="'vat_tu'", nguon="v.id::text")
 
 _DANH_MUC_SQL = """
 SELECT sp.id::text AS id, sp.name, sp.don_vi, sp.unit_price, sp.active,
-       sp.can_ql_duyet, sp.chon_nhanh,
+       sp.can_ql_duyet, sp.chon_nhanh, sp.kinh_doanh_vat_tu,
        EXISTS (
            SELECT 1
              FROM public.vat_tu_goi_y g
@@ -86,6 +86,7 @@ SELECT sp.id::text AS id, sp.name, sp.don_vi, sp.unit_price, sp.active,
        ) AS goi_y
   FROM public.service_price sp
  WHERE sp.clinic_id = $1::uuid AND sp."group" = 'vat_tu'
+   AND sp.kinh_doanh_vat_tu IS TRUE
  ORDER BY sp.chon_nhanh DESC, (sp.unit_price IS NULL), sp.name
 """
 
@@ -129,11 +130,16 @@ SELECT DISTINCT s.id::text AS id, s.full_name AS ten
 """
 
 
-def ly_do_khong_ban(*, active: bool, don_gia: Decimal | int | None) -> str | None:
+def ly_do_khong_ban(
+    *, active: bool, don_gia: Decimal | int | None, kinh_doanh: bool | None
+) -> str | None:
     """Vì sao một vật tư KHÔNG bán được — None = bán được. Hàm thuần.
 
-    Luật file KiotViet 01/10: "giá 0 = không được phép bán" (nạp NULL).
+    Chỉ vật tư được quản lý cho phép kinh doanh mới bán được.
+    Giá 0 / chưa có giá hoặc ngừng dùng đều không được chọn mới.
     """
+    if kinh_doanh is not True:
+        return "không được phép kinh doanh"
     if not active:
         return KHONG_BAN_NGUNG
     if don_gia is None or Decimal(str(don_gia)) <= 0:
@@ -206,7 +212,11 @@ async def _doc(
 ) -> dict[str, Any]:
     danh_muc = []
     for r in await conn.fetch(_DANH_MUC_SQL, clinic_id, visit_id):
-        khong_ban = ly_do_khong_ban(active=r["active"], don_gia=r["unit_price"])
+        khong_ban = ly_do_khong_ban(
+            active=r["active"],
+            don_gia=r["unit_price"],
+            kinh_doanh=r["kinh_doanh_vat_tu"],
+        )
         danh_muc.append(
             {
                 "id": r["id"],
@@ -357,7 +367,8 @@ class VatTuService:
             await self._cong(conn, identity)
             await khoa_luot(conn, cid, vid, cho_phep_da_ky=True)
             sp = await conn.fetchrow(
-                "SELECT name, don_vi, unit_price, active, can_ql_duyet"
+                "SELECT name, don_vi, unit_price, active, can_ql_duyet,"
+                " kinh_doanh_vat_tu"
                 " FROM public.service_price WHERE clinic_id = $1::uuid"
                 " AND id = $2::uuid AND \"group\" = 'vat_tu'",
                 cid,
@@ -365,7 +376,11 @@ class VatTuService:
             )
             if sp is None:
                 raise NotFoundError("Không tìm thấy vật tư này.")
-            khong_ban = ly_do_khong_ban(active=sp["active"], don_gia=sp["unit_price"])
+            khong_ban = ly_do_khong_ban(
+                active=sp["active"],
+                don_gia=sp["unit_price"],
+                kinh_doanh=sp["kinh_doanh_vat_tu"],
+            )
             if khong_ban:
                 raise ValidationError(f"“{sp['name']}” {khong_ban}.")
             duyet: tuple[str, str] | None = None
@@ -486,6 +501,15 @@ class VatTuService:
                 raise ConflictError(
                     f"“{r['ten']}” đã thu tiền — hoàn tác lần thu trước khi đổi."
                 )
+            if sl > int(r["so_luong"]):
+                duoc_ban = await conn.fetchval(
+                    "SELECT kinh_doanh_vat_tu IS TRUE FROM public.service_price"
+                    " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+                    identity.clinic_id,
+                    r["spid"],
+                )
+                if not duoc_ban:
+                    raise ValidationError(f"“{r['ten']}” không được phép kinh doanh.")
             if int(r["so_luong"]) != sl:
                 await conn.execute(
                     "UPDATE public.luot_vat_tu SET so_luong = $2 WHERE id = $1::uuid",

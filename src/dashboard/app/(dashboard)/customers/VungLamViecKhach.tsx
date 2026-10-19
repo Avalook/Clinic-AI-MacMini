@@ -443,11 +443,12 @@ export interface MocLich {
 }
 
 /** Câu CSKH đọc cho từng trạng thái đối tác. */
+// 16/10/2026 (Tuyền): CHỈ hai chữ riêng của đối tác — cùng bộ chữ mọi màn.
 const NHAN_DOI_TAC: Record<ViecDoiTac["trang_thai"], string> = {
-  CHO_LAY_MAU: "chờ lấy mẫu",
-  DA_LAY_MAU: "đã lấy mẫu, chờ đối tác nhận",
-  DA_NHAN_MAU: "đối tác đã nhận mẫu — xong (kết quả về sẽ báo)",
-  DA_GUI_KET_QUA: "đối tác đã gửi tài liệu",
+  CHO_LAY_MAU: "Chờ làm",
+  DA_LAY_MAU: "Chờ làm",
+  DA_NHAN_MAU: "Đã nhận mẫu · chờ kết quả",
+  DA_GUI_KET_QUA: "Có kết quả",
 };
 
 export default function VungLamViecKhach({

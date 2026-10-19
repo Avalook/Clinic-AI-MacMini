@@ -9,10 +9,13 @@ from uuid import UUID
 import asyncpg.exceptions
 import structlog
 from fastapi import Depends, FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from clinicai.api.auth import api_key_middleware
 from clinicai.api.identity import mo_quyen_tam_thoi
+from clinicai.api.loi_dau_vao import cau_loi_dau_vao
 from clinicai.api.middleware import (
     REQUEST_ID_HEADER,
     CskhUploadSizeLimitMiddleware,
@@ -561,6 +564,24 @@ async def foreign_key_violation_handler(
         content={
             "error": "VALIDATION_ERROR",
             "message": "Mã tham chiếu không tồn tại (hoặc không thuộc phòng khám này).",
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """422 của pydantic: giữ nguyên `detail` (máy đọc) và thêm `message` tiếng Việt
+    nói ô nào sai — giao diện đọc `message` trước, không có thì chỉ hiện "Máy chủ
+    từ chối." cho cả số lượng âm lẫn ô trống."""
+    loi = exc.errors()
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "VALIDATION_ERROR",
+            "message": cau_loi_dau_vao(loi),
+            "detail": jsonable_encoder(loi),
         },
     )
 

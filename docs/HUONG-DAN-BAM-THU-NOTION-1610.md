@@ -99,7 +99,10 @@ khách/phòng/ngày → hiện dải "Còn N mục đã chọn chưa gửi chỉ
 **Đã bấm thật** (khách xét nghiệm máu): bác sĩ chỉ định → cả 6 phòng thường hiện "1 sắp đến"; sau khi bác sĩ **Hoàn tất**, phòng "Bàn xét nghiệm máu"
 có nút **Nhận** → Đang chờ → Bắt đầu → Xong ("Đã xong Xét nghiệm máu").
 **Lưu ý:** nút **Nhận** chỉ hiện SAU khi bác sĩ bấm Hoàn tất (khi khách còn "đang khám ở bàn khám" chỉ thấy tên). **★ phòng chuyên** chỉ là nhãn + thứ tự,
-không bắt buộc. **Phòng đối tác không có nút Nhận** — việc đối tác đi theo `/doi-tac`.
+không bắt buộc. **Phòng đối tác (16/10) chạy cùng luồng:** việc đối tác làm trọn hiện ở "Sắp đến" → **Nhận** → **Bắt đầu** →
+**Đã nhận mẫu** (không có nút "Lấy mẫu"; khách đi thanh toán và về) → vài ngày sau mở lại ngày ấy, tải tệp / điền phiếu theo
+mẫu → **Trả kết quả** ("Có kết quả" ở mọi màn). Mẫu lấy máu điều dưỡng lấy KHÔNG vào phòng đối tác. Bàn `/doi-tac` cùng trạng
+thái, cùng lệnh (tài khoản đối tác chỉ thấy mục "Việc của đối tác").
 **Khi khách đang ở bước/phòng khác:** dòng vẫn có nút **Bắt đầu** (nhận chéo, hệ thống ghi giờ + người bấm).
 
 ### Việc của đối tác — `/doi-tac` (HOÃN, chỉ ghi lại)

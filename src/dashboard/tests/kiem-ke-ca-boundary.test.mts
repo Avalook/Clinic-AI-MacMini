@@ -41,7 +41,7 @@ const MOCK = {
 
 test("proxy kiểm kê: danh sách trắng bước ghi, id phải là uuid, không có đường lạ", () => {
   const buoc = doc("app/api/pharmacy/kiem-ke-ca/[id]/[buoc]/route.ts");
-  for (const b of ["dem", "dung-so-cuoi-ca-truoc", "chot", "dieu-chinh", "hoan-tac-dieu-chinh"]) {
+  for (const b of ["dem", "dung-so-cuoi-ca-truoc", "chot", "dieu-chinh", "hoan-tac-dieu-chinh", "sua-so-dem"]) {
     assert.match(buoc, new RegExp(`"${b}"`));
   }
   assert.match(buoc, /UUID_RE\.test\(id\)/);
@@ -59,7 +59,7 @@ test("Quầy có hai tab Kiểm đầu ca / Kiểm cuối ca; bảng realtime ng
   assert.match(doc("app/(dashboard)/RealtimeRefresher.tsx"), /"kiem_ke_ca",/);
 });
 
-test("KiemKeCa: người không có quyền ghi chỉ xem — không nút mở phiếu", () => {
+test("KiemKeCa: tự mở phiếu ca hiện tại; người không có quyền chỉ xem", () => {
   const Kiem = nap("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx", MOCK);
   const batches = [
     {
@@ -73,17 +73,16 @@ test("KiemKeCa: người không có quyền ghi chỉ xem — không nút mở p
     },
   ];
   const ghi = renderToStaticMarkup(React.createElement(Kiem, { batches, ghiDuoc: true }));
-  assert.match(ghi, /Mở \/ tiếp tục phiếu/);
-  assert.match(ghi, /KHÔNG tự sửa tồn/);
+  assert.doesNotMatch(ghi, />Bắt đầu kiểm kê<\/button>/);
   const xem = renderToStaticMarkup(React.createElement(Kiem, { batches, ghiDuoc: false }));
-  assert.doesNotMatch(xem, /Mở \/ tiếp tục phiếu/);
+  assert.doesNotMatch(xem, />Bắt đầu kiểm kê<\/button>/);
   assert.doesNotMatch(doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx"), /window\.confirm/);
 });
 
 test("Chốt kiểm kê phải qua xác nhận TẠI CHỖ (XacNhanTaiCho), nút Chốt không gọi chốt ngay", () => {
   const nguon = doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx");
   assert.match(nguon, /import XacNhanTaiCho from "@\/components\/ui\/XacNhanTaiCho"/);
-  assert.match(nguon, /Chốt kiểm kê\? Sau khi chốt không sửa số đếm; lệch \(nếu có\) sẽ báo, bạn điều chỉnh hoặc hoàn tác sau\./);
+  assert.match(nguon, /Chốt kiểm kê\? Hệ thống lưu số đếm và chênh lệch\./);
   assert.match(nguon, /nhanDongY="Chốt"/);
   // Nút "Chốt kiểm kê" chỉ mở câu hỏi; chỉ [Chốt] trong dải mới gọi chot().
   assert.match(nguon, /onClick=\{\(\) => setHoiChot\(phieu\.id\)\}/);
@@ -91,6 +90,43 @@ test("Chốt kiểm kê phải qua xác nhận TẠI CHỖ (XacNhanTaiCho), nút
   assert.match(nguon, /onDongY=\{\(\) => \{\s*setHoiChot\(null\);\s*void chot\(\);\s*\}\}/);
   assert.match(nguon, /onThoi=\{\(\) => setHoiChot\(null\)\}/);
   assert.doesNotMatch(nguon, /window\.confirm/);
+});
+
+test("Kiểm đầu/cuối ca: tìm từng thuốc, giữ số đã nhập khi lọc, bỏ hướng dẫn thừa", () => {
+  const kiem = doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx");
+  assert.match(kiem, /aria-label="Tìm thuốc cần kiểm kê"/);
+  assert.match(kiem, /const hangHien = hang\.filter/);
+  assert.match(kiem, /normalize\("NFD"\)/);
+  assert.match(kiem, /const gui = dong\s*\.filter/);
+  assert.match(kiem, /Đã đếm/);
+  assert.match(kiem, /hangHien\.map/);
+  assert.doesNotMatch(kiem, /Đếm số thuốc thực tế trên kệ quầy/);
+  assert.doesNotMatch(kiem, /Nhắc \(không chặn bán\)/);
+  assert.doesNotMatch(kiem, /Bấm một lần kiểm kê để xem hoặc nhập tiếp/);
+  assert.doesNotMatch(kiem, /Chưa có phiếu nào/);
+  assert.match(kiem, /aria-label="Phiếu kiểm trong ca này"/);
+  assert.match(kiem, /aria-label="Ca và phiếu kiểm kê"/);
+  assert.match(kiem, /w-fit min-w-\[24rem\] max-w-full/);
+  assert.doesNotMatch(kiem, /min-w-\[24rem\] flex-1/);
+  assert.match(kiem, /loi: loiKyThuat \? null : thongDiep/);
+  assert.match(kiem, /loiKyThuat = \/mã lỗi/);
+  assert.match(kiem, /lỗi chưa lường trước\/i/);
+  assert.match(kiem, /await goi<Phieu>\("POST", URL_GOC, \{ ngay, ca, loai: loaiDangKiem \}\)/);
+  assert.doesNotMatch(kiem, /Phiếu đầu ca trong ngày|Phiếu cuối ca trong ngày/);
+});
+
+test("Kho thuốc: lọc mã lô và các nhãn nói rõ nghĩa", () => {
+  const ton = doc("app/(dashboard)/pharmacy/inventory/InventoryBoard.tsx");
+  const nhap = doc("app/(dashboard)/pharmacy/inventory/PhieuNhap.tsx");
+  const dm = doc("app/(dashboard)/pharmacy/inventory/DanhMucKho.tsx");
+  const gan = doc("app/(dashboard)/pharmacy/inventory/ChoGanLo.tsx");
+  const baoCao = doc("app/(dashboard)/pharmacy/inventory/XuatNhapTon.tsx");
+  assert.match(ton, /aria-label="Lọc tồn kho theo tên thuốc hoặc mã lô"/);
+  assert.match(ton, /placeholder="Nhập tên thuốc hoặc mã lô/);
+  assert.match(nhap, /Thêm thuốc vào phiếu nhập/);
+  assert.match(dm, /Thông tin thuốc cần kiểm tra/);
+  assert.match(gan, /SL đã giao cho khách/);
+  assert.doesNotMatch(baoCao, /Các cột nghĩa là gì/);
 });
 
 const dong = (kho: unknown) => ({

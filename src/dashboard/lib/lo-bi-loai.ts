@@ -12,6 +12,37 @@ export interface LoBiLoai {
   don_vi_ke: string | null;
 }
 
+const chuan = (s: string | null | undefined): string => (s ?? "").normalize("NFC").trim().toLowerCase();
+
+/** Dòng đơn KHÔNG có lô gợi ý, nhưng kho có lô của thuốc ấy tính theo đơn vị khác
+ *  đơn kê (vd lô "hộp", đơn "gói"): nói thẳng hệ quả — giao được, kho KHÔNG tự
+ *  trừ. Không có lô nào như vậy → null (giữ câu "kho chưa có lô"). Hàm thuần. */
+export function cauKhoCoLoKhacDonVi(
+  loBiLoai: readonly LoBiLoai[] | undefined,
+  tenThuoc: string,
+): string | null {
+  const khac = (loBiLoai ?? []).filter((b) => b.ly_do === "KHAC_DON_VI");
+  if (khac.length === 0) return null;
+  const theoLo =
+    [...new Set(khac.map((b) => b.don_vi_lo?.trim()).filter((x): x is string => !!x))].join(", ") ||
+    "đơn vị khác";
+  const theoKe = khac[0]?.don_vi_ke?.trim() || "đơn vị khác";
+  return `Kho có ${tenThuoc} nhưng tính theo ${theoLo}, còn đơn này theo ${theoKe} — thu tiền và giao vẫn được, nhưng kho KHÔNG tự trừ (khác đơn vị). Nhập lô theo ${theoKe} hoặc báo quản lý.`;
+}
+
+/** Lúc NHẬP: đơn vị nhập khác đơn vị BÁN của thuốc → cảnh báo (không chặn). Lô
+ *  nhập theo "hộp" mà thuốc bán theo "gói" thì mỗi lần bán kho không trừ được.
+ *  Thiếu một trong hai đơn vị → null. Hàm thuần. */
+export function canhBaoNhapKhacDonViBan(
+  donViNhap: string | null | undefined,
+  donViBan: string | null | undefined,
+): string | null {
+  const nhap = chuan(donViNhap);
+  const ban = chuan(donViBan);
+  if (!nhap || !ban || nhap === ban) return null;
+  return `Thuốc này bán theo “${donViBan?.trim()}”, nhập theo “${donViNhap?.trim()}”: khi bán, kho KHÔNG tự trừ (khác đơn vị). Nhập theo “${donViBan?.trim()}” hoặc báo quản lý trước.`;
+}
+
 /** Câu nói ĐÚNG lý do lô vừa quét không dùng được cho dòng đơn này. Không có
  *  lý do nào từ máy chủ thì rơi về câu chung. Hàm thuần — chỉ chọn chữ. */
 export function cauLoKhongDungDuoc(

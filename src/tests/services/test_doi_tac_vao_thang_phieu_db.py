@@ -75,7 +75,22 @@ async def test_doi_tac_tai_len_la_co_ket_qua_ngay_va_bao_bac_si(
     assert [d["ket_qua_trang_thai"] for d in ds if d["service_order_id"] == oid] == [
         "CO_KET_QUA"
     ]
-    # Chuông: bác sĩ chính được báo "đã vào hồ sơ", không phải "cần xác nhận".
+    # 16/10/2026: tải tệp chưa phải TRẢ KẾT QUẢ — chưa réo chuông, mốc "Có kết
+    # quả" chưa đặt; đối tác bấm [Trả kết quả] mới réo.
+    await chay_ben_nhan(pool, "chuong_thong_bao")
+    assert not await pool.fetchval(
+        "SELECT count(*) FROM thong_bao WHERE nguon_id = $1", f"ket_qua_doi_tac:{oid}"
+    )
+    assert (
+        await pool.fetchval(
+            "SELECT ket_qua_luc FROM service_order WHERE id = $1::uuid", oid
+        )
+        is None
+    )
+    from clinicai.services.doi_tac_service import DoiTacService
+
+    tra = await DoiTacService(pool).tra_ket_qua(order_id=oid, identity=partner)
+    assert tra["ok"] and not tra["already"]
     await chay_ben_nhan(pool, "chuong_thong_bao")
     # Kết quả ĐỐI TÁC (29/09/2026): một chuông / việc, "Có kết quả đối tác: …".
     chuong = await pool.fetchrow(

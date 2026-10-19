@@ -125,12 +125,14 @@ def dong_vat_tu(r: Mapping[str, Any]) -> dict[str, Any]:
     """Một vật tư (`service_price` nhóm vat_tu) → dạng màn vẽ — hàm thuần.
 
     Vật tư KHÔNG có phòng, nhóm việc, bên thu: chỉ tên, đơn vị, giá, bật / tắt.
-    "Bán được" theo luật file KiotViet (giá 0 / chưa có giá = không bán) — cùng
+    "Bán được" cần được phép kinh doanh, đang dùng và có giá dương — cùng
     hàm với quầy thu (`vat_tu_service.ly_do_khong_ban`)."""
     from clinicai.services.vat_tu_service import ly_do_khong_ban
 
     khong_ban = ly_do_khong_ban(
-        active=bool(r.get("active")), don_gia=r.get("unit_price")
+        active=bool(r.get("active")),
+        don_gia=r.get("unit_price"),
+        kinh_doanh=r.get("kinh_doanh_vat_tu"),
     )
     return {
         "id": str(r["id"]),

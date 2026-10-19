@@ -12,12 +12,11 @@
 // có chỉ định chờ → Đang chờ… (chỉ chia nhóm để đọc, thứ tự do MÁY CHỦ xếp — như
 // `HangChoCot`).
 
-import { Star } from "lucide-react";
-
-import SoLuot from "@/components/ui/SoLuot";
 import { nhanBuoiCuaLuot, type ChipLieuTrinh } from "@/lib/lieu-trinh-cskh";
 
 import { cauDangOPhong, gioVn, soPhutTu, type ChiDinhPhong, type DongHangCho } from "../../_lam-viec/api";
+// Thẻ khách + đầu nhóm DÙNG CHUNG với bàn đối tác `/doi-tac` (16/10/2026).
+import TheKhachHangCho, { NhomHangCho } from "../../_lam-viec/TheKhachHangCho";
 
 type Nhom = "lam" | "cho" | "khac" | "xong" | "ve";
 
@@ -91,11 +90,7 @@ export default function HangChoKhachPhong({
         const ds = oKhach.filter((k) => k.nhom === n.ma);
         if (ds.length === 0) return null;
         return (
-          <section key={n.ma}>
-            <h3 className="mb-1 px-1 text-label font-semibold uppercase tracking-wide text-ink-muted">
-              {n.ten} ({ds.length})
-            </h3>
-            <ul className="space-y-1">
+          <NhomHangCho key={n.ma} ten={n.ten} so={ds.length}>
               {ds.map((k) => {
                 const dau = k.dong[0];
                 const chinh = dongChinh(k.dong) ?? dau;
@@ -118,44 +113,24 @@ export default function HangChoKhachPhong({
                       ? gioVn(chinh.xong_luc)
                       : soPhutTu(chinh.vao_hang_luc);
                 return (
-                  <li key={k.visitId}>
-                    <button
-                      type="button"
-                      onClick={() => onChon(k.visitId)}
-                      aria-pressed={dangChon}
-                      className={`flex w-full items-center gap-2 rounded-control border px-2 py-1.5 text-left ${
-                        dangChon ? "border-brand-500 bg-brand-50" : "border-line bg-surface"
-                      } ${k.nhom === "xong" ? "opacity-70" : ""}`}
-                    >
-                      <span
-                        title="Số check-in"
-                        className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-sunken text-meta font-bold text-ink"
-                      >
-                        {dau.so_tiep_don ?? dau.so_thu_tu}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1">
-                          {dau.uu_tien ? (
-                            <Star className="size-3.5 shrink-0 fill-warning text-warning" aria-label="Ưu tiên" />
-                          ) : null}
-                          <span className={`truncate text-sm font-semibold ${dau.uu_tien ? "text-danger" : "text-ink"}`}>
-                            {dau.ten}
-                          </span>
-                          <SoLuot booking={dau.so_booking} className="shrink-0" />
-                        </span>
-                        <span className={`block truncate text-label ${sang ? "text-danger" : "text-ink-muted"}`}>
-                          {[`${soChiDinh} chỉ định`, nhanBuoiCuaLuot(lieuTrinh, k.visitId, k.dong), nhan]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-right text-label text-ink-muted">{phut}</span>
-                    </button>
-                  </li>
+                  <TheKhachHangCho
+                    key={k.visitId}
+                    so={dau.so_tiep_don ?? dau.so_thu_tu}
+                    ten={dau.ten}
+                    uuTien={Boolean(dau.uu_tien)}
+                    soBooking={dau.so_booking}
+                    phu={[`${soChiDinh} chỉ định`, nhanBuoiCuaLuot(lieuTrinh, k.visitId, k.dong), nhan]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    phuDo={sang !== null}
+                    gio={phut}
+                    dangChon={dangChon}
+                    mo={k.nhom === "xong"}
+                    onChon={() => onChon(k.visitId)}
+                  />
                 );
               })}
-            </ul>
-          </section>
+          </NhomHangCho>
         );
       })}
     </div>

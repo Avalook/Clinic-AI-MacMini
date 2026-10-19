@@ -91,3 +91,40 @@ test("menu dự phòng theo LUẬT GỐC, không theo công tắc mở quyền",
   // (25/09: hàm dài thêm phần lego — nới cửa sổ tìm.)
   assert.match(roles.slice(i, i + 3000), /canSeeNavGoc\(role, href\)/);
 });
+
+test("chỉnh giao diện chỉ áp dụng ở hồ sơ bàn khám", () => {
+  const ban = doc("../app/(dashboard)/ban-kham/BanKham.tsx");
+  const luot = doc("../app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx");
+
+  assert.match(ban, /giaoDienBanKham=\{!tuVan\}/);
+  assert.match(ban, /visitId=\{dong\.visit_id\}[\s\S]{0,700}giaoDienBanKham=\{giaoDienBanKham\}/);
+  assert.match(luot, /giaoDienBanKham = false/);
+});
+
+test("lịch sử nằm trong khối dịch vụ và nút đổi dịch vụ nổi bật", () => {
+  const luot = doc("../app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx");
+  const dichVu = doc("../app/(dashboard)/_lam-viec/phieu-kham/KhoiDichVuHoSo.tsx");
+
+  assert.match(luot, /congCu=\{giaoDienBanKham \? <LichSuKham/);
+  assert.match(dichVu, /congCu\?: ReactNode/);
+  assert.match(dichVu, /variant=\{giaoDienBanKham \? "primary" : "ghost"\}/);
+});
+
+test("điện thoại được nhấn và dòng sinh hiệu không gọi chỉ xem ở bàn khám", () => {
+  const phieu = doc("../app/(dashboard)/_lam-viec/phieu-kham/PhieuKham.tsx");
+  const khach = doc("../app/(dashboard)/_lam-viec/phieu-kham/TheKhach.tsx");
+
+  assert.match(phieu, /<TheKhach dau=\{dauPhieu\} giaoDienBanKham=\{giaoDienBanKham\} \/>/);
+  assert.match(phieu, /<TheSinhHieu dau=\{dauPhieu\} giaoDienBanKham=\{giaoDienBanKham\} \/>/);
+  assert.match(khach, /noiBat=\{giaoDienBanKham\}/);
+  assert.match(khach, /giaoDienBanKham \? "" : " · chỉ xem \(sửa ở Đo sinh hiệu\)"/);
+});
+
+test("bàn khám ẩn hướng dẫn ngắn và nhãn tự lưu khi gõ", () => {
+  const luot = doc("../app/(dashboard)/_lam-viec/phieu-kham/PhieuKhamLuot.tsx");
+  const phieu = doc("../app/(dashboard)/_lam-viec/phieu-kham/PhieuKham.tsx");
+
+  assert.match(luot, /goiYTrong=\{giaoDienBanKham \? null : undefined\}/);
+  assert.match(phieu, /giaoDienBanKham && \(khoi === 2 \|\| khoi === 3\)/);
+  assert.match(phieu, /chuaGo=\{ghi \? \(giaoDienBanKham \? "" : "Tự lưu khi gõ"\) : "Chỉ xem"\}/);
+});

@@ -1,53 +1,13 @@
 "use client";
 
-// Tab TIÊU HAO của Kho vật tư (G8a, 14/10/2026): phòng × kỳ (tuần / tháng / tự chọn)
-// + giá trị theo giá nhập đã chốt trên sổ. Máy chủ tính hết (`GET /api/v1/vat-tu-kho/
-// tieu-hao`): đầu / cuối = SỐ ĐẾM THẬT, nhận / trả giữa hai lần đếm, thiếu đếm thì
-// nói "chưa đủ dữ liệu" chứ không suy từ tồn sổ. Màn chỉ chọn kỳ và vẽ — không công
-// thức nào trong TSX. Dòng dưới mức / cần kiểm đếm chỉ là chip trung tính.
-
-import { useCallback, useEffect, useState } from "react";
+// Báo cáo mức dùng theo phòng: kỳ và dữ liệu được chia sẻ với bảng tồn; máy chủ
+// tính mức dùng từ số đếm thật, thiếu mốc thì nói "chưa đủ dữ liệu".
 
 import Chip from "@/components/ui/Chip";
 import ChipLoc from "@/components/ui/ChipLoc";
-import ONhap from "@/components/ui/ONhap";
-import { useNgheBang } from "../dung-nghe-bang";
+import type { GoiTieuHao } from "./bao-cao-vat-tu";
 import { soVatTu, tienVatTu } from "./gui-vat-tu";
 
-interface DongTieuHao {
-  vat_tu_id: string;
-  room_id: string;
-  ten: string;
-  don_vi: string | null;
-  phong: string;
-  du_du_lieu: boolean;
-  ly_do_thieu: string;
-  dau: number | null;
-  nhan: number | null;
-  tra: number | null;
-  cuoi: number | null;
-  tieu_hao: number | null;
-  trong_do_huy: number | null;
-  gia_nhap: number;
-  gia_tri: number | null;
-  dem_dau_luc: string | null;
-  /** Chưa có lần đếm trước kỳ: đầu kỳ = lần đếm đầu tiên trong kỳ. */
-  dau_trong_ky: boolean;
-  dem_cuoi_luc: string | null;
-  canh_bao: string;
-}
-
-interface GoiTieuHao {
-  tu: string;
-  den: string;
-  items: DongTieuHao[];
-  theo_phong: { room_id: string; phong: string; gia_tri: number; so_dong: number; chua_du: number }[];
-  tong_gia_tri: number;
-}
-
-type Ky = "tuan" | "thang" | "tuy";
-
-const ngay = (iso: string) => iso.split("-").reverse().join("/");
 const gio = (iso: string | null) =>
   iso
     ? new Date(iso).toLocaleString("vi-VN", {
@@ -59,72 +19,22 @@ const gio = (iso: string | null) =>
       })
     : "—";
 
-async function docBaoCao(
-  ky: Ky,
-  tu: string,
-  den: string,
-): Promise<{ goi: GoiTieuHao } | { loi: string }> {
-  const q = new URLSearchParams({ ky });
-  if (ky === "tuy") {
-    q.set("tu", tu);
-    q.set("den", den);
-  }
-  try {
-    const r = await fetch(`/api/vat-tu-kho/tieu-hao?${q}`, { cache: "no-store" });
-    const d = (await r.json().catch(() => null)) as (GoiTieuHao & { error?: string }) | null;
-    if (!r.ok || !d?.items) return { loi: d?.error ?? "Không đọc được báo cáo tiêu hao." };
-    return { goi: d };
-  } catch {
-    return { loi: "Mất kết nối — chưa đọc được báo cáo tiêu hao." };
-  }
-}
-
-export default function TieuHaoVatTu() {
-  const [ky, setKy] = useState<Ky>("tuan");
-  const [tu, setTu] = useState("");
-  const [den, setDen] = useState("");
-  const [chiDu, setChiDu] = useState(false);
-  const [goi, setGoi] = useState<GoiTieuHao | null>(null);
-  const [loi, setLoi] = useState<string | null>(null);
-
-  const ap = useCallback((kq: { goi: GoiTieuHao } | { loi: string }) => {
-    if ("goi" in kq) {
-      setLoi(null);
-      setGoi(kq.goi);
-    } else setLoi(kq.loi);
-  }, []);
-
-  useEffect(() => {
-    let huy = false;
-    void docBaoCao(ky, tu, den).then((kq) => {
-      if (!huy) ap(kq);
-    });
-    return () => {
-      huy = true;
-    };
-  }, [ky, tu, den, ap]);
-  // Phiếu mới / hoàn tác ở tab khác → báo cáo cập nhật ngay.
-  useNgheBang(["vat_tu_txn"], () => void docBaoCao(ky, tu, den).then(ap));
-
+export default function TieuHaoVatTu({
+  baoCao: goi,
+  loi,
+  dang,
+  chiDu,
+  setChiDu,
+}: {
+  baoCao: GoiTieuHao | null;
+  loi: string | null;
+  dang: boolean;
+  chiDu: boolean;
+  setChiDu: (chiDu: boolean) => void;
+}) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <ChipLoc
-          nhan="Kỳ báo cáo"
-          chon={ky}
-          onChon={setKy}
-          muc={[
-            { ma: "tuan", nhan: "Tuần này" },
-            { ma: "thang", nhan: "Tháng này" },
-            { ma: "tuy", nhan: "Tự chọn" },
-          ]}
-        />
-        {ky === "tuy" ? (
-          <>
-            <ONhap type="date" aria-label="Từ ngày" value={tu} onChange={(e) => setTu(e.target.value)} />
-            <ONhap type="date" aria-label="Đến ngày" value={den} onChange={(e) => setDen(e.target.value)} />
-          </>
-        ) : null}
         <ChipLoc
           nhan="Lọc dòng"
           chon={chiDu ? "du" : "tat_ca"}
@@ -135,21 +45,19 @@ export default function TieuHaoVatTu() {
           ]}
         />
       </div>
-      {goi ? (
-        <p className="text-body text-ink-muted">
-          Kỳ {ngay(goi.tu)} – {ngay(goi.den)} · Giá trị tiêu hao{" "}
-          <span className="font-semibold tabular-nums text-ink">{tienVatTu(goi.tong_gia_tri)}</span>. Số liệu
-          tính từ hai lần kiểm đếm gần nhất của từng phòng; phòng chưa đếm đủ hai lần thì chưa có số.
-        </p>
-      ) : null}
       {loi ? (
         <p role="alert" className="text-body text-danger">
           {loi}
         </p>
       ) : null}
+      {dang && !goi ? (
+        <p role="status" className="text-body text-ink-muted">
+          Đang cập nhật số liệu…
+        </p>
+      ) : null}
       {goi && goi.theo_phong.length === 0 ? (
         <p className="rounded-card border border-line bg-surface px-4 py-6 text-center text-body text-ink-muted">
-          Chưa có sổ vật tư ở phòng nào. Xuất kho cho phòng và kiểm đếm ở tab Phiếu để có báo cáo.
+          Chưa có số liệu phòng. Ghi thao tác “Cấp cho phòng”, sau đó kiểm kê đầu và cuối kỳ để xem mức dùng.
         </p>
       ) : null}
       {goi?.theo_phong.map((p) => {
@@ -160,7 +68,7 @@ export default function TieuHaoVatTu() {
             <h3 className="flex flex-wrap items-baseline gap-x-3 text-title text-ink">
               {p.phong}
               <span className="text-body font-normal tabular-nums text-ink-muted">
-                {tienVatTu(p.gia_tri)}
+                {tienVatTu(p.gia_tri_da_dung)}
                 {p.chua_du > 0 ? ` · ${p.chua_du} dòng chưa đủ dữ liệu` : ""}
               </span>
             </h3>
@@ -181,17 +89,17 @@ export default function TieuHaoVatTu() {
                     </p>
                     <p className="text-meta text-ink-muted">
                       {d.du_du_lieu
-                        ? `Đầu ${soVatTu(d.dau)} · Nhận ${soVatTu(d.nhan)} · Trả ${soVatTu(d.tra)} · Cuối ${soVatTu(d.cuoi)} (đếm ${gio(d.dem_dau_luc)} → ${gio(d.dem_cuoi_luc)}${d.dau_trong_ky ? "; chưa có lần đếm trước kỳ nên lấy lần đếm đầu tiên trong kỳ" : ""})`
+                        ? `Đầu ${soVatTu(d.dau)} · Nhận ${soVatTu(d.nhan)} · Trả ${soVatTu(d.tra)}${d.tra_nha_san_xuat ? ` (trả nhà sản xuất ${soVatTu(d.tra_nha_san_xuat)})` : ""} · Cuối ${soVatTu(d.cuoi)} (đếm ${gio(d.dem_dau_luc)} → ${gio(d.dem_cuoi_luc)}${d.dau_trong_ky ? "; chưa có lần đếm trước kỳ nên lấy lần đếm đầu tiên trong kỳ" : ""})`
                         : d.ly_do_thieu}
                     </p>
                   </div>
                   {d.du_du_lieu ? (
                     <div className="text-right">
                       <p className="text-emph font-semibold tabular-nums text-ink">
-                        {soVatTu(d.tieu_hao)} {d.don_vi ?? ""}
+                        Đã dùng {soVatTu(d.da_dung)} {d.don_vi ?? ""}
                       </p>
                       <p className="text-meta tabular-nums text-ink-muted">
-                        {tienVatTu(d.gia_tri)}
+                        {tienVatTu(d.gia_tri_da_dung)}
                         {d.trong_do_huy ? ` · trong đó huỷ ${soVatTu(d.trong_do_huy)}` : ""}
                       </p>
                     </div>

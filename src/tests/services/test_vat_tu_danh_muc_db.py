@@ -84,7 +84,7 @@ async def test_cot_vat_tu_khong_sua_dich_vu(pool: asyncpg.Pool) -> None:
         )
 
 
-async def test_phan_loai_khong_doi_luat_ban(pool: asyncpg.Pool) -> None:
+async def test_khong_kinh_doanh_khong_duoc_ban(pool: asyncpg.Pool) -> None:
     from clinicai.services.vat_tu_service import VatTuService
     from tests.services.test_tien_thuoc_cp1_db import tao_quay
     from tests.services.test_vat_tu_ban_them_db import _vt
@@ -94,9 +94,10 @@ async def test_phan_loai_khong_doi_luat_ban(pool: asyncpg.Pool) -> None:
     await PriceListService(pool).update(
         price_id=vt, identity=q.thu_ngan, vat_tu={"kinh_doanh": False}
     )
-    await VatTuService(pool).them(
-        visit_id=q.visit_id, service_price_id=vt, identity=q.thu_ngan, so_luong=1
-    )
+    with pytest.raises(ValidationError):
+        await VatTuService(pool).them(
+            visit_id=q.visit_id, service_price_id=vt, identity=q.thu_ngan, so_luong=1
+        )
 
 
 @pytest.mark.parametrize(

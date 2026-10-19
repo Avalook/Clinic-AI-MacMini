@@ -47,6 +47,8 @@ MAC_DINH: dict[str, DayNhan] = {
     "lab_result.arrived": DayNhan(["CSKH"], True),
     # Việc mới sang bàn đối tác (24/09/2026).
     "partner.order_received": DayNhan(["PARTNER"], False),
+    # Đối tác bấm "Trả kết quả" (16/10/2026): bác sĩ chính + CSKH.
+    "partner.result_returned": DayNhan(["CSKH"], True),
 }
 
 #: Màn mở ra khi bấm chuông, theo vai nhận.
@@ -191,10 +193,17 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     vai_nhan = list(day.vai)
     bac_si_chinh = day.bac_si_chinh
     nguon_id = f"{su_kien.event_type}:{su_kien.aggregate_id}"
+    # KẾT QUẢ ĐỐI TÁC réo lúc ĐỐI TÁC BẤM "Trả kết quả" (16/10/2026), không
+    # lúc tải từng tệp — tải dở hai tệp chưa phải đã trả kết quả.
+    if (
+        su_kien.event_type == "result_file.uploaded"
+        and not su_kien.payload.get("cho_xac_nhan")
+        and await _dich_vu_doi_tac(conn, su_kien.clinic_id, su_kien.payload) is not None
+    ):
+        return
     dv_doi_tac = (
         await _dich_vu_doi_tac(conn, su_kien.clinic_id, su_kien.payload)
-        if su_kien.event_type == "result_file.uploaded"
-        and not su_kien.payload.get("cho_xac_nhan")
+        if su_kien.event_type == "partner.result_returned"
         else None
     )
     if dv_doi_tac is not None:
@@ -204,8 +213,8 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
         # Một chuông / một việc (nhiều tệp gửi liền không réo nhiều lần).
         tieu_de = f"Có kết quả đối tác: {dv_doi_tac} của {ten}"
         noi_dung = (
-            "Kết quả đã vào hồ sơ khách — ai cũng xem được; CSKH gửi khách khi"
-            " tiện. Việc đối tác đã xong từ lúc nhận mẫu."
+            "Đối tác đã trả kết quả — kết quả đã vào hồ sơ khách, ai cũng xem"
+            " được; CSKH gửi khách khi tiện."
         )
         if "CSKH" not in vai_nhan:
             vai_nhan.append("CSKH")

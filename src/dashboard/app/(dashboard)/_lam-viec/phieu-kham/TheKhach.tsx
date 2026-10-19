@@ -57,10 +57,10 @@ function gioDo(iso: string): string {
       });
 }
 
-function Vien({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+function Vien({ icon, children, noiBat = false }: { icon: ReactNode; children: ReactNode; noiBat?: boolean }) {
   return (
-    <span className="inline-flex h-7 items-center gap-1.5 rounded-control bg-surface-muted px-2.5 text-meta text-ink">
-      <span aria-hidden className="shrink-0 text-ink-faint">
+    <span className={`inline-flex h-7 items-center gap-1.5 rounded-control px-2.5 text-meta ${noiBat ? "bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-100" : "bg-surface-muted text-ink"}`}>
+      <span aria-hidden className={`shrink-0 ${noiBat ? "text-brand-700" : "text-ink-faint"}`}>
         {icon}
       </span>
       {children}
@@ -87,7 +87,11 @@ function OThongTin({ icon, nhan, gia_tri }: { icon: ReactNode; nhan: string; gia
   );
 }
 
-export function TheKhach({ dau, loaiKham }: { dau: DauPhieu; loaiKham?: string | null }) {
+export function TheKhach({ dau, loaiKham, giaoDienBanKham = false }: {
+  dau: DauPhieu;
+  loaiKham?: string | null;
+  giaoDienBanKham?: boolean;
+}) {
   const hc = dau.hanh_chinh;
   const ten = String(hc["patient.name"] ?? "");
   const gioi = (hc["patient.gender"] as string | null) ?? null;
@@ -96,6 +100,7 @@ export function TheKhach({ dau, loaiKham }: { dau: DauPhieu; loaiKham?: string |
   const namKham = ngayKham ? Number(ngayKham.slice(0, 4)) : new Date().getFullYear();
   const tuoi = namSinh ? namKham - namSinh : null;
   const tk = dau.the_khach;
+  const sdt = sdtDoc(hc["patient.phone"]);
   const loai = tk?.loai_kham || loaiKham || null;
   const nam = gioi === "Nam";
   const icon = "size-4";
@@ -138,9 +143,10 @@ export function TheKhach({ dau, loaiKham }: { dau: DauPhieu; loaiKham?: string |
               <span className="text-ink-muted">Mã khách</span>
               <b className="font-semibold">{hc["patient.code"] ?? "—"}</b>
             </Vien>
-            {sdtDoc(hc["patient.phone"]) ? (
-              <Vien icon={<Phone className={icon} />}>
-                <b className="font-semibold tabular-nums">{sdtDoc(hc["patient.phone"])}</b>
+            {sdt ? (
+              <Vien icon={<Phone className={icon} />} noiBat={giaoDienBanKham}>
+                {giaoDienBanKham ? <span className="font-semibold">SĐT</span> : null}
+                <b className={giaoDienBanKham ? "text-emph font-bold tabular-nums" : "font-semibold tabular-nums"}>{sdt}</b>
               </Vien>
             ) : null}
             {ngayVn(ngayKham) ? (
@@ -171,10 +177,10 @@ export function TheKhach({ dau, loaiKham }: { dau: DauPhieu; loaiKham?: string |
   );
 }
 
-export function TheSinhHieu({ dau }: { dau: DauPhieu }) {
+export function TheSinhHieu({ dau, giaoDienBanKham = false }: { dau: DauPhieu; giaoDienBanKham?: boolean }) {
   const o = dau.the_sinh_hieu ?? [];
   const meta = dau.sinh_hieu_luc
-    ? `Đo lúc ${gioDo(dau.sinh_hieu_luc)}${dau.sinh_hieu_nguon ? ` (${dau.sinh_hieu_nguon})` : ""}${dau.sinh_hieu_nguoi ? ` · ${dau.sinh_hieu_nguoi}` : ""} · chỉ xem (sửa ở Đo sinh hiệu)`
+    ? `Đo lúc ${gioDo(dau.sinh_hieu_luc)}${dau.sinh_hieu_nguon ? ` (${dau.sinh_hieu_nguon})` : ""}${dau.sinh_hieu_nguoi ? ` · ${dau.sinh_hieu_nguoi}` : ""}${giaoDienBanKham ? "" : " · chỉ xem (sửa ở Đo sinh hiệu)"}`
     : "Chưa đo sinh hiệu · sửa ở Đo sinh hiệu";
   return (
     <section aria-label="Sinh hiệu" className="rounded-card border border-hairline bg-surface px-4 py-3">

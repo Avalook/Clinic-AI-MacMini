@@ -8,7 +8,8 @@ Bất biến (bấm ngẫu nhiên 40 hạt × 10 bước, lệnh thật):
   (1) tồn MỖI HÀNG (lô × nơi chứa) = cộng dồn sổ vật lý của hàng ấy, ≥ 0;
   (2) chỉ CHUYỂN thì tổng KHO + QUẦY của thuốc không đổi;
   (3) tổng mọi hàng của thuốc = tồn "cơ sở cũ" = cộng dồn sổ KHÔNG tính chuyển;
-  (4) giao / nhận trả chỉ trên hàng QUẦY — không dòng DISPENSE nào ở KHO;
+  (4) giao mới không có lô giữ guard QUẦY; chỉ đối chiếu giao thật mới cho
+      ghi DISPENSE ở KHO và phải khớp đúng dòng chờ gán lô;
   (5) hai hàng cùng số lô là CÙNG lô: cùng thuốc, hạn, đơn vị, mã tem.
 """
 
@@ -390,7 +391,7 @@ async def test_khach_tra_thuoc_ve_quay_khong_ve_kho(co: Co) -> None:
     assert await _ton_noi(co, drug) == {"KHO": Decimal(5), "QUAY": Decimal(4)}
 
 
-async def test_giao_khong_lo_van_chay_va_gan_lo_chi_ve_quay(co: Co) -> None:
+async def test_giao_khong_lo_duoc_doi_chieu_vao_lo_kho_hay_quay(co: Co) -> None:
     rx, drug = await _don(co, 2)
     await _bat(co)
     kho_lo = await _nhap_kho(co, drug, 10)
@@ -404,13 +405,11 @@ async def test_giao_khong_lo_van_chay_va_gan_lo_chi_ve_quay(co: Co) -> None:
         "SELECT id::text FROM thuoc_giao_chua_gan_lo WHERE prescription_id=$1::uuid",
         rx,
     )
-    with pytest.raises(ConflictError, match="KHO"):
-        await svc.gan_lo_da_giao(identity=co.ds, dong_id=dong, drug_batch_id=kho_lo)
     cho = await svc.cho_gan_lo(identity=co.ds)
     goi_y = next(d for d in cho["dong"] if d["id"] == dong)["lo_gan_duoc"]
-    assert [x["drug_batch_id"] for x in goi_y] == [quay]  # chỉ hàng quầy
-    await svc.gan_lo_da_giao(identity=co.ds, dong_id=dong, drug_batch_id=quay)
-    assert await _ton_noi(co, drug) == {"KHO": Decimal(5), "QUAY": Decimal(3)}
+    assert {x["drug_batch_id"] for x in goi_y} == {kho_lo, quay}
+    await svc.gan_lo_da_giao(identity=co.ds, dong_id=dong, drug_batch_id=kho_lo)
+    assert await _ton_noi(co, drug) == {"KHO": Decimal(3), "QUAY": Decimal(5)}
 
 
 # ── Một lô, hai hàng ─────────────────────────────────────────────────────

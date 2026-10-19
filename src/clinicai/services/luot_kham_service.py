@@ -865,7 +865,6 @@ class LuotKhamService:
           - Đối với chỉ định làm bên ngoài (node_definition.lam_ben_ngoai = true):
             BẮT BUỘC phải có ít nhất một tệp kết quả ở trạng thái HOP_LE
             (xác nhận đúng người, đúng chỉ định bởi nhân sự có capability).
-            Mốc ket_qua_luc chỉ là mốc tài liệu tới, không làm co_ket_qua = true.
           - Đối với chỉ định nội bộ: giữ nguyên quy tắc ket_qua_luc IS NOT NULL.
           - VIỆC ĐỐI TÁC ĐÃ NHẬN MẪU (Tuyền 29/09/2026): đạt luôn — kết quả về
             sau không giữ vòng. Điều kiện chung: `CO_KET_QUA_VONG_SQL`.

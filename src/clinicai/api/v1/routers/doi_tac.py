@@ -104,6 +104,183 @@ async def cho_tai_lieu(
     )
 
 
+@router.get("/doi-tac/viec/{chi_dinh_id}")
+async def mot_viec(
+    chi_dinh_id: UUID,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """MỘT việc đối tác — khối trạng thái / thu hộ / phiếu ở Phòng đối tác."""
+    from clinicai.services.doi_tac_service import DoiTacService
+
+    return await DoiTacService(pool).mot_viec(
+        order_id=str(chi_dinh_id), identity=identity
+    )
+
+
+class HoanTacDoiTac(BaseModel):
+    #: Thân chung của nút Hoàn tác (`NutHoanTac`): lý do tuỳ chọn + xác nhận.
+    ly_do: str | None = Field(default=None, max_length=2000)
+    xac_nhan: bool = False
+    #: Phòng đối tác: mở lại lần làm đã đóng bằng "Đã nhận mẫu" (16/10/2026).
+    mo_lai_phong: bool = False
+
+
+@router.post("/doi-tac/viec/{chi_dinh_id}/huy-nhan-mau")
+async def huy_nhan_mau(
+    chi_dinh_id: UUID,
+    body: HoanTacDoiTac | None = None,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tác "Nhận mẫu" — việc về "Chờ làm"."""
+    from clinicai.services.doi_tac_service import DoiTacService
+
+    b = body or HoanTacDoiTac()
+    return await DoiTacService(pool).huy_nhan_mau(
+        order_id=str(chi_dinh_id),
+        identity=identity,
+        ly_do=b.ly_do,
+        xac_nhan=b.xac_nhan,
+        mo_lai_phong=b.mo_lai_phong,
+    )
+
+
+@router.post("/doi-tac/viec/{chi_dinh_id}/tra-ket-qua")
+async def tra_ket_qua(
+    chi_dinh_id: UUID,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """[Trả kết quả] — tệp / phiếu đã đủ, việc "Có kết quả" ở mọi màn."""
+    from clinicai.services.doi_tac_service import DoiTacService
+
+    return await DoiTacService(pool).tra_ket_qua(
+        order_id=str(chi_dinh_id), identity=identity
+    )
+
+
+@router.post("/doi-tac/viec/{chi_dinh_id}/huy-tra-ket-qua")
+async def huy_tra_ket_qua(
+    chi_dinh_id: UUID,
+    body: HoanTacDoiTac | None = None,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tác [Trả kết quả] — tệp và phiếu giữ nguyên."""
+    from clinicai.services.doi_tac_service import DoiTacService
+
+    return await DoiTacService(pool).huy_tra_ket_qua(
+        order_id=str(chi_dinh_id),
+        identity=identity,
+        ly_do=body.ly_do if body else None,
+    )
+
+
+# ── PHIẾU KẾT QUẢ của việc đối tác (16/10/2026) ──────────────────────────────
+# Cùng lệnh `FormEngineService` với `/phieu/*`, nhưng qua cửa ĐỐI TÁC: tài khoản
+# đối tác (bị `get_current_identity` từ chối) điền được phiếu theo mẫu của ĐÚNG
+# việc đối tác — hàm dịch vụ `doi_quyen_dien` tự kiểm chỉ định ấy là việc của
+# bàn đối tác. Không có "người thực hiện" (đối tác không chọn bác sĩ).
+
+
+class MoPhieuDoiTac(BaseModel):
+    service_order_id: UUID
+    form_id: str = Field(min_length=1, max_length=64)
+
+
+class LuuPhieuDoiTac(BaseModel):
+    du_lieu: dict[str, Any] = Field(default_factory=dict)
+    expected_revision: int = Field(ge=0)
+
+
+class HoanTatPhieuDoiTac(BaseModel):
+    expected_revision: int = Field(ge=0)
+    ly_do_sua: str | None = Field(default=None, max_length=1000)
+
+
+class HuySuaPhieuDoiTac(BaseModel):
+    expected_revision: int = Field(ge=0)
+
+
+@router.post("/doi-tac/phieu/mo")
+async def mo_phieu_doi_tac(
+    body: MoPhieuDoiTac,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    from clinicai.services.form_engine_service import FormEngineService
+
+    return await FormEngineService(pool).mo_phieu(
+        service_order_id=str(body.service_order_id),
+        form_id=body.form_id,
+        identity=identity,
+    )
+
+
+@router.post("/doi-tac/phieu/{phieu_id}/luu")
+async def luu_phieu_doi_tac(
+    phieu_id: UUID,
+    body: LuuPhieuDoiTac,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    from clinicai.services.form_engine_service import FormEngineService
+
+    return await FormEngineService(pool).luu_nhap(
+        phieu_id=str(phieu_id),
+        du_lieu=body.du_lieu,
+        expected_revision=body.expected_revision,
+        identity=identity,
+    )
+
+
+@router.post("/doi-tac/phieu/{phieu_id}/hoan-tat")
+async def hoan_tat_phieu_doi_tac(
+    phieu_id: UUID,
+    body: HoanTatPhieuDoiTac,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    from clinicai.services.form_engine_service import FormEngineService
+
+    return await FormEngineService(pool).hoan_tat(
+        phieu_id=str(phieu_id),
+        expected_revision=body.expected_revision,
+        identity=identity,
+        ly_do_sua=body.ly_do_sua,
+    )
+
+
+@router.post("/doi-tac/phieu/{phieu_id}/mo-sua")
+async def mo_sua_phieu_doi_tac(
+    phieu_id: UUID,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    from clinicai.services.form_engine_service import FormEngineService
+
+    return await FormEngineService(pool).mo_sua(
+        phieu_id=str(phieu_id), identity=identity
+    )
+
+
+@router.post("/doi-tac/phieu/{phieu_id}/huy-sua")
+async def huy_sua_phieu_doi_tac(
+    phieu_id: UUID,
+    body: HuySuaPhieuDoiTac,
+    identity: StaffIdentity = Depends(get_partner_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    from clinicai.services.form_engine_service import FormEngineService
+
+    return await FormEngineService(pool).huy_sua(
+        phieu_id=str(phieu_id),
+        identity=identity,
+        expected_revision=body.expected_revision,
+    )
+
+
 class DaThuTienKhach(BaseModel):
     #: Đối tác tự thu (27/09/2026). Kiểu thô — máy chủ tự đọc (rác → 422 có câu).
     so_tien: int | str | None = None

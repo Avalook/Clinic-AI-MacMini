@@ -60,11 +60,16 @@ async def canh_bao(
 @router.get("/vat-tu-kho/phieu")
 async def danh_sach_phieu(
     gioi_han: str | None = None,
+    bo_qua: str | None = None,
     identity: StaffIdentity = Depends(_QL),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     kq: dict[str, Any] = jsonable_encoder(
-        {"items": await man.doc_phieu(pool, identity=identity, gioi_han=gioi_han)}
+        {
+            "items": await man.doc_phieu(
+                pool, identity=identity, gioi_han=gioi_han, bo_qua=bo_qua
+            )
+        }
     )
     return kq
 
@@ -96,6 +101,7 @@ class DongPhieu(BaseModel):
 class PhieuRequest(BaseModel):
     loai: str = Field(max_length=20)
     ghi_chu: str | None = Field(default=None, max_length=1000)
+    nha_cung_cap: str | None = Field(default=None, max_length=200)
     dong: list[DongPhieu] = Field(min_length=1, max_length=200)
 
 
@@ -119,6 +125,7 @@ async def lap_phieu(
                 khoa_gui=khoa,
                 loai=body.loai,
                 ghi_chu=body.ghi_chu,
+                nha_cung_cap=body.nha_cung_cap,
                 dong=[d.model_dump(mode="json") for d in body.dong],
             )
         )

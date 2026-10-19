@@ -515,9 +515,10 @@ async def test_t3_db_chan_tra_sai_nguon_va_thieu_dong_kho(q: Quay) -> None:
             q.visit_id,
             q.duoc_si.staff_id,
         )
-    # Không có lệnh xử lý thuốc trả (HOLD J1/J2): dòng trả không sửa được.
+    # Quyết định xử lý thuốc trả chỉ có BAN_LAI | HUY (17/10, test_xu_ly_thuoc_tra_db);
+    # giá trị khác vẫn bị chặn.
     await _tra(q, await _xuat(q, rx), 1)
-    with pytest.raises(asyncpg.PostgresError, match="HOLD J1/J2"):
+    with pytest.raises(asyncpg.CheckViolationError, match="BAN_LAI hoặc HUY"):
         await q.pool.execute(
             "UPDATE drug_return SET disposition = 'RESTOCK',"
             " disposition_by = returned_by, disposition_at = now()"

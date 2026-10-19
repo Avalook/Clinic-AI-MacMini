@@ -14,7 +14,13 @@ test("hai quầy cùng tạo bill, vẫn giữ xác minh tiền chuyển khoản
   // Xác minh gửi kèm số ngân hàng thật nhận (G4d, R1) — bắt xác nhận, điền sẵn phần CK.
   assert.match(quay, /onXacMinh\(ma\.trim\(\), Number\(soNhanHien\)\)/);
   assert.match(quay, /disabled=\{dangThu \|\| soNhanHien === ""\}/);
-  for (const p of ["dich-vu", "thuoc"]) assert.match(read(`../app/(dashboard)/thu-ngan/${p}/page.tsx`), /Tạo bill/);
+  const tab = read("../app/(dashboard)/thu-ngan/TabThuNgan.tsx");
+  assert.match(tab, /<QuayThuNgan[\s\S]*quay=\{quay\}/);
+  for (const [page, quayType] of [["dich-vu", "dich_vu"], ["thuoc", "thuoc"]]) {
+    const helper = read(`../app/(dashboard)/thu-ngan/${page}/page.tsx`);
+    assert.match(helper, new RegExp(`<TabThuNgan quay="${quayType}"`));
+    assert.doesNotMatch(helper, /Tạo bill/);
+  }
   // Quầy dịch vụ (hoá đơn từng lượt) cùng chữ với quầy thuốc — không còn nút "Thu" (13/10/2026).
   const hoaDon = read("../app/(dashboard)/thu-ngan/HoaDonMot.tsx");
   assert.match(hoaDon, /"Tạo bill"/);

@@ -171,6 +171,9 @@ export interface Phong {
   vi_tri?: string[];
   /** Máy chủ quyết: phòng có làm dịch vụ (hiện ở danh sách Phòng dịch vụ). */
   la_phong_dich_vu?: boolean;
+  /** PHÒNG ĐỐI TÁC (16/10/2026): nút cuối là "Đã nhận mẫu", có khối Trả kết
+   *  quả + Thu hộ đối tác — máy chủ quyết (`clinic_room.la_doi_tac`). */
+  la_doi_tac?: boolean;
   dem?: DemPhong;
 }
 

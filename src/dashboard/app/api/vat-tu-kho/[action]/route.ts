@@ -23,7 +23,7 @@ const DOC: Record<string, (q: URLSearchParams) => string> = {
     })}`,
   // G8b: yêu cầu nhập chờ duyệt (+ đã quyết gần đây, `duoc_duyet`, `cua_toi`).
   "cho-duyet": () => "/api/v1/vat-tu-kho/cho-duyet",
-  phieu: (q) => `/api/v1/vat-tu-kho/phieu?${new URLSearchParams({ gioi_han: q.get("gioi_han") ?? "" })}`,
+  phieu: (q) => `/api/v1/vat-tu-kho/phieu?${new URLSearchParams({ gioi_han: q.get("gioi_han") ?? "", bo_qua: q.get("bo_qua") ?? "" })}`,
 };
 
 async function daDangNhap(): Promise<NextResponse | null> {

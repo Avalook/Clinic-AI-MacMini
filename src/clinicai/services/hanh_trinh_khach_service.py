@@ -317,11 +317,14 @@ def _the_dich_vu(
     tt = tung["trang_thai"]
     lay_mau = None
     if (
-        goc.get("ngoai")
-        and tt == DANG_LAM
-        and goc.get("execution_status") == "COMPLETED"
+        goc.get("viec_doi_tac")
+        and tt == DA_XONG
+        and goc.get("nhan_mau_luc") is not None
+        and goc.get("ket_qua_luc") is None
     ):
-        # Đối tác: phòng khám lấy mẫu xong → mẫu ở đối tác, chờ kết quả.
+        # Đối tác đã nhận mẫu, chờ kết quả (16/10/2026) — thẻ tím, KHÔNG giữ
+        # khách. Phòng khám làm xong mà đối tác chưa nhận mẫu là "Xong" (chữ
+        # chung): khách không còn gì phải chờ.
         tt = DV_DOI_TAC
         lay_mau = _gio(goc.get("lam_xong_luc"))
     cac = cac_hang or ([hang] if hang else [])
@@ -360,11 +363,16 @@ def _the_dich_vu(
     return {
         "id": tung.get("id"),
         "ten": tung.get("ten") or "",
-        # Việc đối tác lấy mẫu ở phòng khám: "Lấy mẫu → Đối tác".
+        # Việc đối tác lấy mẫu ở phòng khám: "Lấy mẫu → Đối tác". Phòng làm
+        # CHÍNH LÀ phòng đối tác thì chỉ tên phòng (16/10/2026 — bản cũ in
+        # "Phòng đối tác → Đối tác").
         "noi": f"{goc['phong']} → Đối tác"
-        if goc.get("ngoai") and goc.get("phong")
+        if goc.get("ngoai") and goc.get("phong") and not goc.get("phong_doi_tac")
         else tung["noi"],
-        "doi_tac": bool(goc.get("ngoai")),
+        "doi_tac": bool(goc.get("ngoai") or goc.get("viec_doi_tac")),
+        # Chữ riêng của việc đối tác ("Đã nhận mẫu · chờ kết quả" / "Có kết
+        # quả") — None = chữ chung theo trạng thái thẻ.
+        "doi_tac_chu": tung.get("doi_tac_chu"),
         # Làm thêm tại quầy (01/10/2026): "Làm thêm tại quầy tiếp đón"; None =
         # bác sĩ chỉ định.
         "lam_them": tung.get("lam_them"),
@@ -919,8 +927,8 @@ def dung_hanh_trinh_khach(
             ten_cho = t["noi"] if t["trang_thai"] == CHO_LAM else "Thu tiền"
             if ten_cho not in con_cho:
                 con_cho.append(ten_cho)
-    if any(t["trang_thai"] == DV_DOI_TAC for t in the):
-        con_cho.append("KQ đối tác")
+    # Việc đối tác đã nhận mẫu chờ kết quả KHÔNG phải việc khách còn chờ
+    # (16/10/2026) — thanh đoạn màu tím đã nói nó; không thêm chữ thứ ba.
 
     sh_buoc = next((b for b in buoc if b["ma"] == "SINH_HIEU"), None)
     gon = {

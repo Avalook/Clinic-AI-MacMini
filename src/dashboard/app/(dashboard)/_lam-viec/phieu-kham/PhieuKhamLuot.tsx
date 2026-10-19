@@ -130,6 +130,7 @@ export default function PhieuKhamLuot({
   xemLai = false,
   onDaBoChiDinh,
   formIdDau,
+  giaoDienBanKham = false,
 }: {
   visitId: string;
   clinicPatientId: string;
@@ -155,6 +156,8 @@ export default function PhieuKhamLuot({
   xemLai?: boolean;
   /** Mở đúng phiếu này thay vì phiếu theo dịch vụ hiện tại (xem "Phiếu cũ"). */
   formIdDau?: string;
+  /** Chỉ bật tuỳ chỉnh giao diện cho lượt đang làm tại bàn khám. */
+  giaoDienBanKham?: boolean;
 }) {
   const choGhi = choGhiVao && !xemLai;
   const [chonPhieu, setChonPhieu] = useState<string | null>(null);
@@ -495,7 +498,7 @@ export default function PhieuKhamLuot({
       onDaDat();
     },
   };
-  const theDieuTri = <KhoiDieuTri visitId={visitId} choGhi={choGhi} chiDinh={dsDieuTri} ketQua={propsKetQua} />;
+  const theDieuTri = <KhoiDieuTri visitId={visitId} choGhi={choGhi} chiDinh={dsDieuTri} ketQua={propsKetQua} goiYTrong={giaoDienBanKham ? null : undefined} />;
   // Phần riêng khối 1: lượt Điều trị = thẻ điều trị (phiếu cảm nhận, liệu trình,
   // làm tại bàn khám); lượt Thủ thuật = "＋ Thủ thuật đã làm" + thẻ đã chọn. Ô
   // "Làm trước – thu sau" ở đầu thẻ, chỉ khi máy chủ mời (`oTick`).
@@ -520,7 +523,7 @@ export default function PhieuKhamLuot({
           chiDinh={dsBanKham}
           ketQua={propsKetQua}
           oTick
-          goiYTrong={khoi1 === "THU_THUAT" ? null : undefined}
+          goiYTrong={giaoDienBanKham || khoi1 === "THU_THUAT" ? null : undefined}
         />
       </div>
     ) : null;
@@ -528,12 +531,16 @@ export default function PhieuKhamLuot({
     xemLai || chiMuc ? null : (
       <div className="space-y-2">
       {/* LỊCH SỬ KHÁM (T7): mọi lượt của khách, cả lượt không phiếu / Notion. */}
-      <div className="flex justify-end">
-        <LichSuKham clinicPatientId={clinicPatientId} visitIdHienTai={visitId} />
-      </div>
+      {!giaoDienBanKham ? (
+        <div className="flex justify-end">
+          <LichSuKham clinicPatientId={clinicPatientId} visitIdHienTai={visitId} />
+        </div>
+      ) : null}
       <KhoiDichVuHoSo
         visitId={visitId}
         choGhi={choGhi}
+        giaoDienBanKham={giaoDienBanKham}
+        congCu={giaoDienBanKham ? <LichSuKham clinicPatientId={clinicPatientId} visitIdHienTai={visitId} /> : undefined}
         onDaDoi={() => {
           void napPhieu(null);
           void napKetQua();
@@ -652,6 +659,7 @@ export default function PhieuKhamLuot({
         cheDo={choGhi ? "editable" : "finalized_locked"}
         chiMuc={chiMuc}
         dauPhieu={dau}
+        giaoDienBanKham={giaoDienBanKham}
         // Bàn tư vấn chỉ vẽ mục B — dải hành trình là của phiếu bác sĩ chính.
         dauTrang={
           chiMuc ? undefined : (

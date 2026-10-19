@@ -77,8 +77,18 @@ async def test_tieu_hao_dau_nhan_tra_cuoi_huy_va_gia_chot(pool: asyncpg.Pool) ->
     tu = await _moc(pool)
     await _ghi(pool, identity, vt, "XUAT_PHONG", den=p, so=5)
     await _ghi(pool, identity, vt, "TRA_KHO", tu=p, so=2)
+    await _ghi(
+        pool,
+        identity,
+        vt,
+        "TRA_NCC",
+        tu=p,
+        so=1,
+        nha_cung_cap="Nhà cung cấp thử",
+        ghi_chu="Hàng lỗi",
+    )
     await _ghi(pool, identity, vt, "HUY", tu=p, so=1)
-    await _ghi(pool, identity, vt, "KIEM", tu=p, so=9)  # đếm cuối
+    await _ghi(pool, identity, vt, "KIEM", tu=p, so=8)  # đếm cuối
     den = await _moc(pool)
     # Đổi giá danh mục SAU khi đã ghi sổ: lịch sử không đổi theo.
     await pool.execute(
@@ -87,11 +97,72 @@ async def test_tieu_hao_dau_nhan_tra_cuoi_huy_va_gia_chot(pool: asyncpg.Pool) ->
     ds = await tinh_theo_moc(pool, identity=identity, tu_luc=tu, den_luc=den)
     d = _dong_cua(ds, vt, p)
     assert d["du_du_lieu"] is True
-    assert (d["dau"], d["nhan"], d["tra"], d["cuoi"]) == (10, 5, 2, 9)
+    assert (d["dau"], d["nhan"], d["tra"], d["cuoi"]) == (10, 5, 3, 8)
     assert d["tieu_hao"] == 4 and d["trong_do_huy"] == 1
+    assert d["da_dung"] == 3 and d["gia_tri_da_dung"] == 300
+    assert d["tra_nha_san_xuat"] == 1
     assert d["gia_nhap"] == 100 and d["gia_tri"] == 400
     # Phòng còn lại chưa có sổ thì không có dòng; số đếm KHÁC tồn sổ vẫn dùng số đếm.
     assert not [x for x in ds if x["vat_tu_id"] == vt and x["room_id"] == rooms[1]]
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_bao_cao_phong_co_luong_cap_trong_ky_va_so_dem_thuc_te_moi_nhat(
+    pool: asyncpg.Pool,
+) -> None:
+    """Bảng tồn phòng cần tách số đã cấp, dùng theo kiểm kê, tồn sổ và số đếm thật."""
+    identity, vt, rooms = await _bo(pool)
+    phong, phong_nguon = rooms
+    await _ghi(pool, identity, vt, "NHAP", den=phong_nguon, so=4)
+    await _ghi(pool, identity, vt, "DIEU_CHINH", tu=phong, so=10)
+    await _ghi(pool, identity, vt, "DIEU_CHINH", tu=phong_nguon, so=4)
+    tu = await _moc(pool)
+
+    cap_tu_kho = await _ghi(pool, identity, vt, "XUAT_PHONG", den=phong, so=5)
+    chuyen = await _ghi(
+        pool, identity, vt, "CHUYEN_PHONG", tu=phong_nguon, den=phong, so=3
+    )
+    await hoan_phieu(
+        pool, identity=identity, phieu_id=chuyen["id"], khoa_gui=uuid.uuid4().hex
+    )
+    await _ghi(pool, identity, vt, "KIEM", tu=phong, so=12)
+    den = await _moc(pool)
+    await _ghi(pool, identity, vt, "KIEM", tu=phong, so=13)
+
+    ds = await tinh_theo_moc(pool, identity=identity, tu_luc=tu, den_luc=den)
+    d = _dong_cua(ds, vt, phong)
+
+    assert d["du_du_lieu"] is True
+    assert d["cap_trong_ky"] == 5  # Chuyển phòng đã hoàn tác nên không cộng.
+    assert d["tieu_hao"] == 3 and d["trong_do_huy"] == 0
+    assert d["da_dung"] == 3  # Hỏng/huỷ tách riêng khỏi lượng dùng.
+    assert d["cuoi"] == 12
+    assert d["thuc_te_gan_nhat"] == 13  # Số đếm mới nhất, kể cả sau kỳ báo cáo.
+    assert d["thuc_te_gan_nhat_luc"] is not None
+    assert cap_tu_kho["id"]
+
+
+@pytest.mark.db
+@pytest.mark.asyncio
+async def test_bao_cao_phong_cap_trong_ky_khong_giam_khi_chuyen_vat_tu_ra_phong(
+    pool: asyncpg.Pool,
+) -> None:
+    """Số được cấp là lượng nhận vào phòng, không phải lượng ròng sau điều chuyển."""
+    identity, vt, rooms = await _bo(pool)
+    phong, phong_nguon = rooms
+    await _ghi(pool, identity, vt, "DIEU_CHINH", tu=phong, so=10)
+    await _ghi(pool, identity, vt, "DIEU_CHINH", tu=phong_nguon, so=10)
+    tu = await _moc(pool)
+
+    await _ghi(pool, identity, vt, "XUAT_PHONG", den=phong, so=4)
+    await _ghi(pool, identity, vt, "CHUYEN_PHONG", tu=phong, den=phong_nguon, so=6)
+    den = await _moc(pool)
+
+    d = _dong_cua(
+        await tinh_theo_moc(pool, identity=identity, tu_luc=tu, den_luc=den), vt, phong
+    )
+    assert d["cap_trong_ky"] == 4
 
 
 @pytest.mark.db
