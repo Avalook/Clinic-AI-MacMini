@@ -82,6 +82,7 @@ SELECT t.vat_tu_id::text, t.room_id::text, s.name AS ten, s.don_vi,
        coalesce(f.huy, 0) AS huy,
        coalesce((SELECT g.gia_nhap FROM dong g
                   WHERE g.vat_tu_id = t.vat_tu_id
+                    AND g.ton_id = t.id
                     AND (c.giao_dich IS NULL OR g.giao_dich <= c.giao_dich)
                   ORDER BY g.giao_dich DESC, g.tao_luc DESC
                   FETCH FIRST 1 ROW ONLY), 0) AS gia_nhap

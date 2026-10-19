@@ -172,7 +172,14 @@ async def test_http_phieu_gui_lai_cung_khoa_khong_nhan_doi(pool: asyncpg.Pool) -
     app.dependency_overrides[rt._QL] = lambda: identity
     app.dependency_overrides[get_current_identity] = lambda: identity
     khoa = {"Idempotency-Key": uuid.uuid4().hex}
-    dong: dict[str, Any] = {"vat_tu_id": vt, "den_room_id": rooms[0]}
+    don_vi = await pool.fetchval(
+        "SELECT don_vi FROM service_price WHERE id=$1::uuid", vt
+    )
+    dong: dict[str, Any] = {
+        "vat_tu_id": vt,
+        "don_vi": don_vi,
+        "den_room_id": rooms[0],
+    }
     body = {"loai": "NHAP", "dong": [dong]}
     try:
         async with AsyncClient(
@@ -182,6 +189,13 @@ async def test_http_phieu_gui_lai_cung_khoa_khong_nhan_doi(pool: asyncpg.Pool) -
             r = await c.post("/api/v1/vat-tu-kho/phieu", json=body, headers=khoa)
             assert r.status_code == 422
             dong["so_luong"] = "7"
+            dong.pop("don_vi")
+            khoa = {"Idempotency-Key": uuid.uuid4().hex}
+            thieu_don_vi = await c.post(
+                "/api/v1/vat-tu-kho/phieu", json=body, headers=khoa
+            )
+            assert thieu_don_vi.status_code == 422
+            dong["don_vi"] = don_vi
             khoa = {"Idempotency-Key": uuid.uuid4().hex}
             a = await c.post("/api/v1/vat-tu-kho/phieu", json=body, headers=khoa)
             b = await c.post("/api/v1/vat-tu-kho/phieu", json=body, headers=khoa)

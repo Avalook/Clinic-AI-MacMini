@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import test from "node:test";
+import {
+  khoaChongGuiTrung,
+  soLuongPhieuHopLe,
+  xoaKhoaChongGuiTrung,
+} from "../app/(dashboard)/kho-vat-tu/gui-vat-tu.ts";
 
 // KHO VẬT TƯ (G8a, 14/10/2026) — ranh giới giao diện:
 //   · proxy chỉ chuyển tiếp qua DANH SÁCH TRẮNG, lệnh ghi lập phiếu / đảo phiếu mang Idempotency-Key;
@@ -50,8 +55,43 @@ test("proxy danh sách trắng + chuyển Idempotency-Key cho lập phiếu / đ
 
 test("giao diện lập phiếu gửi qua proxy, không gọi thẳng FastAPI", () => {
   const gui = doc(new URL("gui-vat-tu.ts", thuMuc));
+  const lap = doc(new URL("LapPhieuVatTu.tsx", thuMuc));
   assert.match(gui, /\/api\/vat-tu-kho\//);
   assert.doesNotMatch(gui, /\/api\/v1\//);
+  assert.match(lap, /loai === "NHAP" \? \(/);
+  assert.match(lap, /gia_nhap: loai === "NHAP" \?/);
+  assert.match(lap, /don_vi: vatTu\.find/);
+});
+
+test("số lượng phiếu chặn số không hợp lệ ngay trên form theo loại phiếu", () => {
+  assert.equal(soLuongPhieuHopLe("NHAP", "2"), true);
+  assert.equal(soLuongPhieuHopLe("NHAP", "1,25"), true);
+  assert.equal(soLuongPhieuHopLe("NHAP", "0"), false);
+  assert.equal(soLuongPhieuHopLe("XUAT_PHONG", "-1"), false);
+  assert.equal(soLuongPhieuHopLe("NHAP", "NaN"), false);
+  assert.equal(soLuongPhieuHopLe("NHAP", "Infinity"), false);
+  assert.equal(soLuongPhieuHopLe("NHAP", "1.0001"), false);
+  assert.equal(soLuongPhieuHopLe("NHAP", "1000000000000000"), false);
+  assert.equal(soLuongPhieuHopLe("KIEM", "0"), true);
+  assert.equal(soLuongPhieuHopLe("DIEU_CHINH", "0"), true);
+  assert.equal(soLuongPhieuHopLe("DIEU_CHINH", "-1"), false);
+});
+
+test("Idempotency-Key của phiếu được giữ qua tải lại và chỉ xoá sau khi thành công", () => {
+  let raw: string | null = null;
+  const storage = {
+    getItem: () => raw,
+    setItem: (_key: string, value: string) => { raw = value; },
+    removeItem: () => { raw = null; },
+  };
+  const body = { loai: "NHAP", dong: [{ vat_tu_id: "vt-1", so_luong: "2" }] };
+  const khoa1 = khoaChongGuiTrung(body, storage, 1000);
+  assert.equal(khoaChongGuiTrung(body, storage, 2000), khoa1);
+  const khoa2 = khoaChongGuiTrung({ ...body, ghi_chu: "khác" }, storage, 3000);
+  assert.notEqual(khoa2, khoa1);
+
+  xoaKhoaChongGuiTrung(khoa1, storage);
+  assert.notEqual(khoaChongGuiTrung(body, storage, 4000), khoa1);
 });
 
 // ── G8b (15/10/2026): tab "Chờ duyệt" — phiếu NHẬP có dòng cần duyệt ────────────────────────

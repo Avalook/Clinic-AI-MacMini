@@ -44,9 +44,12 @@ def _dat_nguoi(pool: asyncpg.Pool, ai: StaffIdentity) -> None:
 
 async def test_http_lap_xem_duyet_tu_choi_rut_lai(pool: asyncpg.Pool) -> None:
     b = await _bo(pool)
+    don_vi = await pool.fetchval(
+        "SELECT don_vi FROM service_price WHERE id=$1::uuid", b.vt_can
+    )
 
     def dong(so: str) -> dict[str, Any]:
-        return {"vat_tu_id": b.vt_can, "so_luong": so}
+        return {"vat_tu_id": b.vt_can, "don_vi": don_vi, "so_luong": so}
 
     try:
         async with AsyncClient(

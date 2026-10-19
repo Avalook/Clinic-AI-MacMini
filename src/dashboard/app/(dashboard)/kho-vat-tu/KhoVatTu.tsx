@@ -38,7 +38,7 @@ export default function KhoVatTu({
   const [tab, setTab] = useState<Tab>("ton");
   const canChuY = ton.filter((t) => t.canh_bao).length;
   const dangCho = choDuyet?.items.filter((y) => y.trang_thai === "CHO_DUYET").length ?? 0;
-  const chon = vatTu.map((v) => ({ id: v.id, name: v.name }));
+  const chon = vatTu.map((v) => ({ id: v.id, name: v.name, don_vi: v.don_vi }));
   return (
     <main className="page-in flex flex-col gap-4 p-4 lg:p-5">
       <header>

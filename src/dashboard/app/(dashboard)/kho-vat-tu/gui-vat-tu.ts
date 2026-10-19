@@ -4,6 +4,18 @@
 
 export type KetQuaVatTu = { ok: true; data: unknown } | { ok: false; loi: string };
 
+/** Trạng thái nút lưu theo cùng biên số lượng mà API chấp nhận. Máy chủ vẫn là
+ *  nơi quyết định cuối cùng; helper này tránh cho người dùng gửi chắc chắn lỗi. */
+export function soLuongPhieuHopLe(loai: string, giaTri: string): boolean {
+  const so = giaTri.trim().replace(",", ".");
+  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(so)) return false;
+  const le = (so.split(".")[1] ?? "").replace(/0+$/, "");
+  if (le.length > 3) return false;
+  const n = Number(so);
+  if (!Number.isFinite(n) || n >= 1e15) return false;
+  return n > 0 || (n === 0 && ["KIEM", "DIEU_CHINH"].includes(loai));
+}
+
 /** `khoa` = Idempotency-Key (bắt buộc cho `phieu` và `hoan`): gửi lại cùng khoá =
  *  cùng phiếu, máy chủ không ghi sổ lần hai. */
 export async function guiVatTu(
@@ -44,3 +56,76 @@ export const khoaMoi = (): string =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `vt-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+type KhoLuuKhoa = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+interface KhoaDangCho {
+  duLieu: string;
+  khoa: string;
+  taoLuc: number;
+}
+
+const KHOA_PHIEN_PHIEU = "clinicai:kho-vat-tu:phieu-idempotency:v1";
+const TTL_KHOA_PHIEN_MS = 24 * 60 * 60 * 1000;
+
+function khoLuuKhoaMacDinh(): KhoLuuKhoa | null {
+  try {
+    return typeof window === "undefined" ? null : window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Giữ cùng key cho cùng body qua reload để retry sau mất phản hồi không ghi phiếu hai lần. */
+export function khoaChongGuiTrung(
+  duLieu: Record<string, unknown>,
+  kho: KhoLuuKhoa | null = khoLuuKhoaMacDinh(),
+  bayGio = Date.now(),
+): string {
+  const duLieuJson = JSON.stringify(duLieu);
+  if (!kho) return khoaMoi();
+  let ds: KhoaDangCho[] = [];
+  try {
+    const daLuu = kho.getItem(KHOA_PHIEN_PHIEU);
+    const parsed: unknown = daLuu ? JSON.parse(daLuu) : [];
+    if (Array.isArray(parsed)) ds = parsed as KhoaDangCho[];
+  } catch {
+    ds = [];
+  }
+  const conHan = ds.filter(
+    (x) =>
+      typeof x?.duLieu === "string" &&
+      typeof x?.khoa === "string" &&
+      Number.isFinite(x?.taoLuc) &&
+      bayGio - x.taoLuc < TTL_KHOA_PHIEN_MS,
+  );
+  const trung = conHan.find((x) => x.duLieu === duLieuJson);
+  if (trung) return trung.khoa;
+
+  const khoa = khoaMoi();
+  try {
+    kho.setItem(
+      KHOA_PHIEN_PHIEU,
+      JSON.stringify([...conHan, { duLieu: duLieuJson, khoa, taoLuc: bayGio }].slice(-20)),
+    );
+  } catch {
+    // Cùng phiên vẫn gửi được; API và DB là lớp chống ghi trùng cuối.
+  }
+  return khoa;
+}
+
+export function xoaKhoaChongGuiTrung(
+  khoa: string,
+  kho: KhoLuuKhoa | null = khoLuuKhoaMacDinh(),
+): void {
+  if (!kho) return;
+  try {
+    const daLuu = kho.getItem(KHOA_PHIEN_PHIEU);
+    const ds: unknown = daLuu ? JSON.parse(daLuu) : [];
+    if (!Array.isArray(ds)) return;
+    const conLai = (ds as KhoaDangCho[]).filter((x) => x?.khoa !== khoa);
+    if (conLai.length) kho.setItem(KHOA_PHIEN_PHIEU, JSON.stringify(conLai));
+    else kho.removeItem(KHOA_PHIEN_PHIEU);
+  } catch {
+    // Không làm hỏng giao dịch đã được máy chủ xác nhận.
+  }
+}

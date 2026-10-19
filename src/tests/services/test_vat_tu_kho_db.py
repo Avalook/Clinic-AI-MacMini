@@ -59,17 +59,32 @@ async def _ghi(
     tu: str | None = None,
     den: str | None = None,
     so: Any = 3,
+    gia_nhap: Any = None,
     khoa: str | None = None,
+    don_vi: str | None = None,
 ) -> dict[str, Any]:
     from clinicai.services.vat_tu_kho_service import tao_phieu
 
+    if don_vi is None:
+        don_vi = await pool.fetchval(
+            "SELECT don_vi FROM service_price WHERE id=$1::uuid", vt
+        )
     return await tao_phieu(
         pool,
         identity=identity,
         khoa_gui=khoa or uuid.uuid4().hex,
         loai=loai,
         ghi_chu="Bài mô phỏng",
-        dong=[{"vat_tu_id": vt, "tu_room_id": tu, "den_room_id": den, "so_luong": so}],
+        dong=[
+            {
+                "vat_tu_id": vt,
+                "tu_room_id": tu,
+                "den_room_id": den,
+                "so_luong": so,
+                "gia_nhap": gia_nhap,
+                "don_vi": don_vi,
+            }
+        ],
     )
 
 
@@ -193,6 +208,27 @@ async def test_so_rac_khong_ghi(pool: asyncpg.Pool, so: Any) -> None:
     identity, vt, _ = await _bo(pool)
     with pytest.raises(ValidationError):
         await _ghi(pool, identity, vt, "NHAP", so=so)
+    assert (
+        await pool.fetchval(
+            "SELECT count(*) FROM vat_tu_txn WHERE vat_tu_id=$1::uuid", vt
+        )
+        == 0
+    )
+
+
+async def test_gia_nhap_chi_duoc_nhap_khi_nhap_kho(pool: asyncpg.Pool) -> None:
+    identity, vt, rooms = await _bo(pool)
+    with pytest.raises(
+        ValidationError, match="Giá nhập chỉ được khai báo khi nhập kho"
+    ):
+        await _ghi(
+            pool,
+            identity,
+            vt,
+            "XUAT_PHONG",
+            den=rooms[0],
+            gia_nhap=5000,
+        )
     assert (
         await pool.fetchval(
             "SELECT count(*) FROM vat_tu_txn WHERE vat_tu_id=$1::uuid", vt

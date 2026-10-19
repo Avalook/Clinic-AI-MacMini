@@ -12,7 +12,12 @@ import { useState } from "react";
 import Button from "@/components/ui/Button";
 import OChon from "@/components/ui/OChon";
 import ONhap from "@/components/ui/ONhap";
-import { guiVatTu, khoaMoi } from "./gui-vat-tu";
+import {
+  guiVatTu,
+  khoaChongGuiTrung,
+  soLuongPhieuHopLe,
+  xoaKhoaChongGuiTrung,
+} from "./gui-vat-tu";
 import type { NoiChua } from "./TonVatTu";
 
 type Cho = null | "noi" | "phong";
@@ -116,7 +121,7 @@ export default function LapPhieuVatTu({
   xemChoDuyet,
 }: {
   noiChua: NoiChua[];
-  vatTu: { id: string; name: string }[];
+  vatTu: { id: string; name: string; don_vi: string | null }[];
   /** Chuyển sang tab Chờ duyệt khi phiếu vừa gửi đang chờ. */
   xemChoDuyet?: () => void;
 }) {
@@ -124,7 +129,6 @@ export default function LapPhieuVatTu({
   const [loai, setLoai] = useState("XUAT_PHONG");
   const [ghiChu, setGhiChu] = useState("");
   const [dong, setDong] = useState<Dong[]>(() => [dongMoi()]);
-  const [khoa, setKhoa] = useState(khoaMoi);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
@@ -158,7 +162,7 @@ export default function LapPhieuVatTu({
   const thieu = dong.some(
     (d) =>
       !d.ten.trim() ||
-      !d.so.trim() ||
+      !soLuongPhieuHopLe(loai, d.so) ||
       (kieu.tu === "phong" && !d.tu) ||
       (kieu.den === "phong" && !d.den),
   );
@@ -173,26 +177,26 @@ export default function LapPhieuVatTu({
     setLoi(null);
     setBao(null);
     setDangCho(false);
-    const kq = await guiVatTu(
-      "phieu",
-      {
-        loai,
-        ghi_chu: ghiChu.trim() || null,
-        dong: dong.map((d) => ({
-          vat_tu_id: vatTu.find((v) => v.name === d.ten)?.id,
-          tu_room_id: kieu.tu ? d.tu || null : null,
-          den_room_id: kieu.den ? d.den || null : null,
-          so_luong: d.so.trim().replace(",", "."),
-          gia_nhap: d.gia.trim() || null,
-        })),
-      },
-      khoa,
-    );
+    const duLieu = {
+      loai,
+      ghi_chu: ghiChu.trim() || null,
+      dong: dong.map((d) => ({
+        vat_tu_id: vatTu.find((v) => v.name === d.ten)?.id,
+        don_vi: vatTu.find((v) => v.name === d.ten)?.don_vi ?? null,
+        tu_room_id: kieu.tu ? d.tu || null : null,
+        den_room_id: kieu.den ? d.den || null : null,
+        so_luong: d.so.trim().replace(",", "."),
+        gia_nhap: loai === "NHAP" ? d.gia.trim() || null : null,
+      })),
+    };
+    const khoa = khoaChongGuiTrung(duLieu);
+    const kq = await guiVatTu("phieu", duLieu, khoa);
     setDang(false);
     if (!kq.ok) {
       setLoi(kq.loi);
       return;
     }
+    xoaKhoaChongGuiTrung(khoa);
     const d = kq.data as Parameters<typeof baoYeuCau>[0] | null;
     const yeuCau = d ? baoYeuCau(d) : null;
     setDangCho(d?.cho_duyet === true);
@@ -201,7 +205,6 @@ export default function LapPhieuVatTu({
     );
     setDong([dongMoi()]);
     setGhiChu("");
-    setKhoa(khoaMoi());
     router.refresh();
   };
 
@@ -216,7 +219,6 @@ export default function LapPhieuVatTu({
             onChange={(e) => {
               setLoai(e.target.value);
               setDong([dongMoi()]);
-              setKhoa(khoaMoi());
             }}
             className="w-full"
           >
@@ -264,16 +266,18 @@ export default function LapPhieuVatTu({
               />
             </label>
             <div className="flex items-end gap-2">
-              <label className="block min-w-0 flex-1">
-                <span className="mb-1 block text-meta text-ink-soft">Giá nhập (đ)</span>
-                <ONhap
-                  inputMode="numeric"
-                  value={d.gia}
-                  placeholder="theo danh mục"
-                  onChange={(e) => suaDong(d.k, { gia: e.target.value })}
-                  className="w-full text-right tabular-nums"
-                />
-              </label>
+              {loai === "NHAP" ? (
+                <label className="block min-w-0 flex-1">
+                  <span className="mb-1 block text-meta text-ink-soft">Giá nhập (đ)</span>
+                  <ONhap
+                    inputMode="numeric"
+                    value={d.gia}
+                    placeholder="theo danh mục"
+                    onChange={(e) => suaDong(d.k, { gia: e.target.value })}
+                    className="w-full text-right tabular-nums"
+                  />
+                </label>
+              ) : null}
               {dong.length > 1 ? (
                 <Button
                   type="button"

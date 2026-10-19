@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from clinicai.api.exceptions import ConflictError, ValidationError
-from clinicai.api.idempotency import IdempotencyGuard, tra_khoa_neu_bi_tu_choi
+from clinicai.api.idempotency import (
+    IdempotencyGuard,
+    idempotency_guard,
+    tra_khoa_neu_bi_tu_choi,
+)
 from clinicai.core.exceptions import ClinicAIBaseException
 
 
@@ -27,13 +32,14 @@ async def test_acquire_reserves_key_atomically_for_endpoint_and_actor() -> None:
 
     guard = await guard.acquire(pool, actor_id="staff-a")
 
-    sql, key, endpoint, actor_id = pool.fetchrow.await_args.args
+    sql, key, endpoint, actor_id, request_hash = pool.fetchrow.await_args.args
     assert "INSERT INTO idempotency_key" in sql
     assert "ON CONFLICT (key, endpoint, actor_id) DO NOTHING" in sql
-    assert (key, endpoint, actor_id) == (
+    assert (key, endpoint, actor_id, request_hash) == (
         "request-1",
         "POST /api/v1/payments",
         "staff-a",
+        None,
     )
     assert not guard.is_replay
 
@@ -45,6 +51,7 @@ async def test_acquire_replays_only_matching_endpoint_and_actor() -> None:
         None,  # INSERT lost to the existing composite key
         None,  # stale reservation was not reclaimable
         {
+            "request_hash": None,
             "response": json.dumps({"ok": True}),
             "status_code": 201,
             "state": "COMPLETED",
@@ -68,12 +75,72 @@ async def test_concurrent_in_progress_request_returns_conflict() -> None:
     pool.fetchrow.side_effect = [
         None,
         None,
-        {"response": None, "status_code": 200, "state": "PROCESSING"},
+        {
+            "request_hash": None,
+            "response": None,
+            "status_code": 200,
+            "state": "PROCESSING",
+        },
     ]
     guard = IdempotencyGuard(key="request-2", endpoint="POST /appointments")
 
     with pytest.raises(ConflictError, match="đang được xử lý"):
         await guard.acquire(pool)
+
+
+@pytest.mark.asyncio
+async def test_same_key_with_different_request_body_is_rejected() -> None:
+    pool = _pool()
+    pool.fetchrow.side_effect = [
+        None,
+        None,
+        {
+            "request_hash": "a" * 64,
+            "response": {"id": "existing"},
+            "status_code": 201,
+            "state": "COMPLETED",
+        },
+    ]
+    guard = IdempotencyGuard(
+        key="same-key",
+        endpoint="POST /api/v1/vat-tu-kho/phieu",
+        request_hash="b" * 64,
+    )
+
+    with pytest.raises(ConflictError, match="nội dung khác"):
+        await guard.acquire(pool, actor_id="staff-a")
+
+
+@pytest.mark.asyncio
+async def test_dependency_fingerprints_canonical_json_and_query() -> None:
+    from starlette.requests import Request
+
+    body = b'{"b": 2, "a": 1}'
+
+    async def receive() -> dict[str, object]:
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "path": "/api/v1/vat-tu-kho/phieu",
+            "raw_path": b"/api/v1/vat-tu-kho/phieu",
+            "query_string": b"dry_run=0",
+            "headers": [(b"host", b"test"), (b"idempotency-key", b"same-key")],
+            "scheme": "http",
+            "server": ("test", 80),
+            "client": ("test", 1),
+        },
+        receive,
+    )
+
+    guard = await idempotency_guard(request)
+
+    assert (
+        guard.request_hash
+        == hashlib.sha256(b'{"body":{"a":1,"b":2},"query":"dry_run=0"}').hexdigest()
+    )
 
 
 @pytest.mark.asyncio

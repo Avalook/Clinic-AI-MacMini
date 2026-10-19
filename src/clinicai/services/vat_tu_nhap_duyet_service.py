@@ -31,6 +31,7 @@ from clinicai.services.vat_tu_kho_service import (
     _dong,
     _ghi_phieu,
     _khoa_co_so,
+    _khoa_va_kiem_don_vi,
     _uuid,
 )
 
@@ -134,6 +135,7 @@ async def xu_ly_nhap_can_duyet(
         dong.append(
             {
                 "vat_tu_id": d["vat_tu_id"],
+                "don_vi": d["don_vi"],
                 "den_room_id": d["den"],
                 "so_luong": str(d["so"]),
                 "gia_nhap": str(gia),
@@ -205,6 +207,9 @@ async def _duyet_tren_conn(
     tu_dong: bool,
 ) -> dict[str, Any]:
     ds = [_dong("NHAP", d) for d in _dong_cua(yc)]
+    # Phiếu chờ duyệt phải dùng đúng đơn vị đã chụp khi gửi. Các yêu cầu cũ
+    # không có đơn vị sẽ được gắn đơn vị hiện tại sau khi đã khóa mặt hàng.
+    await _khoa_va_kiem_don_vi(conn, identity, ds)
     nguoi_lap = await conn.fetchval(
         "SELECT full_name FROM public.staff WHERE id = $1::uuid", yc["tao_boi"]
     )
