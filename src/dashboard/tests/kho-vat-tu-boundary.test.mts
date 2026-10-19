@@ -67,7 +67,7 @@ test("giao diện lập phiếu gửi qua proxy, không gọi thẳng FastAPI", 
   assert.match(lap, /loai === "NHAP" \? \(/);
   assert.match(lap, /gia_nhap: loai === "NHAP" \?/);
   assert.match(lap, /giaNhapPhieuHopLe/);
-  assert.match(lap, /don_vi: vatTu\.find/);
+  assert.match(lap, /don_vi: vatTuDaChonDong\.unit \?\? null/);
 });
 
 test("số lượng phiếu chặn số không hợp lệ ngay trên form theo loại phiếu", () => {
