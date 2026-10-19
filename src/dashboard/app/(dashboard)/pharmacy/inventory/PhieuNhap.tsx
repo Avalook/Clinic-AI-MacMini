@@ -10,7 +10,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
-import { homNayVn } from "@/lib/validation";
+import {
+  calculatePurchaseTotal,
+  homNayVn,
+  isPurchaseLineValid,
+  parseNonNegativeAmount,
+  parsePositiveQuantity,
+} from "@/lib/validation";
 import { INPUT, LABEL } from "../../form-ui";
 import DanhSachPhieu from "./DanhSachPhieu";
 import type { ThuocKho } from "./DanhMucKho";
@@ -123,12 +129,15 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
       }),
     );
 
-  const tong = dong.reduce(
-    (s, d) => s + (Number(d.so_luong.replace(",", ".")) || 0) * (Number(d.gia_nhap) || 0),
-    0,
+  const tong = calculatePurchaseTotal(
+    dong.map((d) => ({ quantity: d.so_luong, price: d.gia_nhap })),
   );
 
   const luu = async () => {
+    if (dong.some((d) => !isPurchaseLineValid({ quantity: d.so_luong, price: d.gia_nhap }))) {
+      setLoi("Số lượng phải lớn hơn 0; giá nhập phải là số không âm hữu hạn.");
+      return;
+    }
     const thieu = dong.findIndex((d) => !dangDung.some((t) => t.ten === d.ten));
     if (thieu >= 0) {
       setLoi(`Dòng ${thieu + 1}: chọn thuốc có trong danh mục (gõ rồi chọn trong danh sách).`);
@@ -256,9 +265,15 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                     id={`pn-so-luong-${d.k}`}
                     value={d.so_luong}
                     inputMode="decimal"
+                    aria-invalid={d.so_luong.trim() !== "" && parsePositiveQuantity(d.so_luong) === null}
                     onChange={(e) => suaDong(d.k, { so_luong: e.target.value })}
                     className={INPUT}
                   />
+                  {d.so_luong.trim() !== "" && parsePositiveQuantity(d.so_luong) === null ? (
+                    <span role="alert" className="mt-1 block text-meta text-danger">
+                      Số lượng phải lớn hơn 0 và là số hữu hạn.
+                    </span>
+                  ) : null}
                 </label>
                 <label className="block">
                   <span className={LABEL}>Đơn vị</span>
@@ -280,9 +295,15 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                     <input
                       value={d.gia_nhap}
                       inputMode="numeric"
+                      aria-invalid={d.gia_nhap.trim() !== "" && parseNonNegativeAmount(d.gia_nhap) === null}
                       onChange={(e) => suaDong(d.k, { gia_nhap: e.target.value })}
                       className={INPUT}
                     />
+                    {d.gia_nhap.trim() !== "" && parseNonNegativeAmount(d.gia_nhap) === null ? (
+                      <span role="alert" className="mt-1 block text-meta text-danger">
+                        Giá nhập phải là số không âm hữu hạn.
+                      </span>
+                    ) : null}
                   </label>
                   {dong.length > 1 ? (
                     <Button
@@ -315,7 +336,17 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
             <Button
               type="button"
               variant="primary"
-              disabled={dang || dong.some((d) => !d.ten || !d.so_lo.trim() || !d.so_luong.trim())}
+              disabled={
+                dang ||
+                tong === null ||
+                dong.some(
+                  (d) =>
+                    !d.ten ||
+                    !d.so_lo.trim() ||
+                    !d.so_luong.trim() ||
+                    !isPurchaseLineValid({ quantity: d.so_luong, price: d.gia_nhap }),
+                )
+              }
               onClick={() => void luu()}
             >
               {dang ? "Đang lưu…" : "Lưu phiếu nhập"}
