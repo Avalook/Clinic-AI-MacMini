@@ -13,10 +13,13 @@ bằng Python, không dùng hàm nào của ba nơi cần kiểm:
       "tiền phiếu − hoàn xong" đúng bằng hoàn KHÔNG THEO DÒNG (không trừ được, chỉ
       ghi chú) — đây là "lỗ hoàn không theo dòng" đã biết, đo cho thấy mức.
 
-Tổng toàn phòng khám đọc trên DB DÙNG CHUNG: test khác ghi tiền cùng lúc thì ba lần
-đọc không cùng một thời điểm. Nên đọc sổ gốc TRƯỚC và SAU hai lần đọc kia, chỉ so khi
-hai bản sổ giống hệt nhau (không ai ghi trong lúc đó); không đạt sau vài lần thì bỏ
-qua (skip), không so bậy.
+Tổng toàn phòng khám gồm cả tiền các tệp test chạy TRƯỚC trong cùng worker để lại
+(chung clinic seed). Dữ liệu khác ngày thì hai màn cố ý tính khác nhau — phiếu thu
+hôm qua, huỷ hôm nay khi ca hôm qua chưa chốt (``test_chot_so_ca_db`` dựng đúng thế):
+Danh sách hoá đơn tính huỷ vào ngày huỷ, Báo cáo cuối ngày tính vào ngày thu. Nên T1
+so phần THAY ĐỔI do chính bài này gây ra (đọc trước và sau khi bấm), không so tổng
+tuyệt đối. Mỗi lần đọc kẹp giữa hai lần đọc sổ gốc, chỉ nhận khi hai bản sổ giống
+hệt nhau; không đạt sau vài lần thì bỏ qua (skip), không so bậy.
 """
 
 from __future__ import annotations
@@ -181,7 +184,6 @@ async def doc_on_dinh(pool: asyncpg.Pool, ca: Ca, doc: Any) -> tuple[So, Any] | 
 async def test_t1_tong_bang_bao_cao_va_so_goc_khop_nhau(pool: asyncpg.Pool) -> None:
     ca = await _dung(pool)
     quan_ly = replace(ca.thu_ngan, role=ClinicRole.MANAGEMENT)
-    chay = await chay_ngau_nhien(pool, ca, 25)
     _, _, ngay = _khung()
 
     async def doc() -> tuple[dict[str, Any], dict[str, Any]]:
@@ -191,22 +193,28 @@ async def test_t1_tong_bang_bao_cao_va_so_goc_khop_nhau(pool: asyncpg.Pool) -> N
         )
         return ds, bc
 
-    got = await doc_on_dinh(pool, ca, doc)
-    if got is None:
+    def ba_noi(got: tuple[So, Any]) -> dict[str, tuple[int, ...]]:
+        so, (ds, bc) = got
+        t = ds["tong"]
+        return {
+            "sổ gốc": (so.thu, so.huy, so.hoan, so.thuc_thu),
+            "danh sách hoá đơn": (
+                t["da_thu"],
+                t["gia_tri_huy"],
+                t["da_hoan"],
+                t["thu_rong"],
+            ),
+            "báo cáo cuối ngày": tuple(bc["tong"][k] for k in TEN_TIEN),
+        }
+
+    truoc = await doc_on_dinh(pool, ca, doc)
+    chay = await chay_ngau_nhien(pool, ca, 25)
+    sau = await doc_on_dinh(pool, ca, doc)
+    if truoc is None or sau is None:
         pytest.skip("DB đang có test khác ghi tiền liên tục — không đọc ổn định được")
-    so, (ds, bc) = got
-    t = ds["tong"]
-    bang = {
-        "sổ gốc": (so.thu, so.huy, so.hoan, so.thuc_thu),
-        "danh sách hoá đơn": (
-            t["da_thu"],
-            t["gia_tri_huy"],
-            t["da_hoan"],
-            t["thu_rong"],
-        ),
-        "báo cáo cuối ngày": tuple(bc["tong"][k] for k in TEN_TIEN),
-    }
-    print(f"\nBƯỚC CHẠY ĐƯỢC: {dict(chay)}")
+    a, b = ba_noi(truoc), ba_noi(sau)
+    bang = {k: tuple(y - x for x, y in zip(a[k], b[k], strict=True)) for k in b}
+    print(f"\nBƯỚC CHẠY ĐƯỢC: {dict(chay)} — phần thay đổi do bài này:")
     for nguon, v in bang.items():
         print(
             f"  {nguon:<20} thu={v[0]:>10} huỷ={v[1]:>9} hoàn={v[2]:>9}"
@@ -214,7 +222,8 @@ async def test_t1_tong_bang_bao_cao_va_so_goc_khop_nhau(pool: asyncpg.Pool) -> N
         )
     assert bang["danh sách hoá đơn"] == bang["sổ gốc"], bang
     assert bang["báo cáo cuối ngày"] == bang["sổ gốc"], bang
-    assert so.thuc_thu == so.thu - so.huy - so.hoan
+    for v in bang.values():
+        assert v[3] == v[0] - v[1] - v[2], bang
 
 
 # ── T2 + T3: từng phiếu, từng dòng ──────────────────────────────────────
